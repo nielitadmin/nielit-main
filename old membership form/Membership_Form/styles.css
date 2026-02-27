@@ -1,0 +1,214 @@
+/* General Page Layout */
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f8f9fa;
+    font-family: Arial, sans-serif;
+}
+
+.a4-page {
+    width: 210mm;
+    height: 297mm;
+    background: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 8mm;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* Header Section */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Style for logos on the left side (Logos 2 and 3) */
+.logo-left img {
+    max-width: 80px; /* Size for Logos 2 and 3 */
+    height: auto;
+}
+
+/* Style for the logo on the right side (Logo 1) */
+.logo-right img {
+    max-width: 120px; /* Adjust size specifically for Logo 1 */
+    height: auto;
+}
+
+
+.header-text {
+    text-align: center;
+    flex: 1;
+    margin: 0 15px;
+}
+
+.main-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    font-size: 12px;
+    font-weight: bold;
+    color: #000;
+    margin-bottom: 5px;
+}
+
+.subtext {
+    font-size: 12px;
+    font-style: italic;
+    color: #555;
+    margin-bottom: 5px;
+}
+
+.address {
+    font-size: 12px;
+    color: orange;
+}
+
+/* Form Layout */
+.form-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 9px;
+    margin-bottom: 10px;
+}
+
+.form-column {
+    flex: 1;
+}
+
+.photo-column {
+    flex: 0.4;
+    text-align: center;
+}
+
+.form-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+label {
+    display: inline-block;
+    width: 40%;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+}
+
+input[type="text"],
+input[type="date"],
+textarea,
+select {
+    width: 60%;
+    padding: 4px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Modern Toggle Style for Gender and Physical Handicap */
+.modern-toggle {
+    display: flex;
+    gap: 10px;
+}
+
+input[type="radio"] {
+    display: none;
+}
+
+label[for="male"],
+label[for="female"],
+label[for="other"],
+label[for="handicapYes"],
+label[for="handicapNo"] {
+    display: inline-block;
+    padding: 8px 15px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #333;
+    border: 1px solid #ccc;
+    border-radius: 25px;
+    text-align: center;
+    cursor: pointer;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+input[type="radio"]:checked + label {
+    background-color: #007bff;
+    color: #fff;
+    border-color: #0056b3;
+}
+
+label:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+/* Webcam Section */
+#webcam {
+    width: 100%;
+    max-width: 150px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+#preview-container img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+/* Signature Section */
+#signature-box {
+    border: 1px solid #ccc;
+    width: 150px;
+    height: 40px;
+    margin-top: 5px;
+}
+
+/* Buttons */
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+button {
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: bold;
+    background-color: #007bff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+}
+/* Style for the H1 Section */
+h1 {
+    text-align: center;
+    font-size: 12px; /* Reduced font size */
+    font-weight: bold; /* Ensure it still stands out */
+    margin-bottom: 15px; /* Adjust spacing */
+    color: #333;
+}
+
+p {
+    text-align: center;
+    font-size: 10px; /* Reduced font size */
+    font-weight: bold; /* Ensure it still stands out */
+    margin-bottom: 15px; /* Adjust spacing */
+    color: #333;
+}

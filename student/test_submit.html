@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head><title>Registration Debug Test</title></head>
+<body>
+<h2>Direct Submit Test</h2>
+<p>This form posts directly to submit_registration.php and shows ALL errors on screen.</p>
+
+<!-- Simple test form that mirrors your real form -->
+<form method="POST" action="submit_registration.php" enctype="multipart/form-data">
+    <input type="hidden" name="course_id" value="1">
+    <input type="hidden" name="training_center" value="NIELIT BHUBANESWAR">
+    <input type="text" name="name" value="Test Student" required><br>
+    <input type="text" name="father_name" value="Test Father" required><br>
+    <input type="text" name="mother_name" value="Test Mother" required><br>
+    <input type="date" name="dob" value="2000-01-01" required><br>
+    <input type="text" name="mobile" value="9876543210" required><br>
+    <input type="email" name="email" value="test@test.com" required><br>
+    <input type="text" name="aadhar" value="123456789012" required><br>
+    <select name="gender"><option value="Male">Male</option></select><br>
+    <select name="religion"><option value="Hindu">Hindu</option></select><br>
+    <select name="marital_status"><option value="Single">Single</option></select><br>
+    <select name="category"><option value="General">General</option></select><br>
+    <select name="pwd_status"><option value="No">No</option></select><br>
+    <select name="position"><option value="Student">Student</option></select><br>
+    <input type="text" name="nationality" value="Indian"><br>
+    <input type="text" name="state" value="OD"><br>
+    <input type="text" name="city" value="Bhubaneswar"><br>
+    <input type="text" name="pincode" value="751001"><br>
+    <textarea name="address">Test Address</textarea><br>
+    
+    <!-- Education -->
+    <input type="text" name="exam_passed[]" value="10th"><br>
+    <input type="text" name="exam_name[]" value="CBSE"><br>
+    <input type="text" name="year_of_passing[]" value="2018"><br>
+    <input type="text" name="institute_name[]" value="Test School"><br>
+    <input type="text" name="stream[]" value="Science"><br>
+    <input type="text" name="percentage[]" value="85%"><br>
+    
+    <!-- Files -->
+    Passport Photo: <input type="file" name="passport_photo" required><br>
+    Signature: <input type="file" name="signature" required><br>
+    Aadhar Card: <input type="file" name="aadhar_card" required><br>
+    10th Marksheet: <input type="file" name="tenth_marksheet" required><br>
+    
+    <button type="submit">TEST SUBMIT</button>
+</form>
+</body>
+</html>

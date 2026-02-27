@@ -1,0 +1,114 @@
+# PHP
+*.log
+*.cache
+*.tmp
+*.temp
+
+# Composer
+/vendor/
+composer.lock
+
+# Environment & Config
+.env
+.env.local
+.env.*.local
+/config/
+
+# Uploads & User Generated Content
+/uploads/*
+!/uploads/.gitkeep
+/course_pdf/*
+!/course_pdf/.gitkeep
+/course_flyers/*
+!/course_flyers/.gitkeep
+/assets/qr_codes/*
+!/assets/qr_codes/.gitkeep
+
+# External/Legacy Projects (not part of main codebase)
+/hrms/
+/startup/
+/nielit_jobfair/
+/__test/
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# Logs
+*.log
+/logs/
+error_log
+php_error_log
+
+# Temporary files
+*.tmp
+*.bak
+*.backup
+*~
+
+# Database
+*.sql
+*.sqlite
+*.db
+
+# Session files
+/sessions/
+/tmp/
+
+# Cache
+/cache/
+*.cache
+
+# Build files
+/build/
+/dist/
+
+# Node modules (if using any frontend build tools)
+/node_modules/
+package-lock.json
+yarn.lock
+
+# Testing
+/tests/coverage/
+phpunit.xml
+.phpunit.result.cache
+
+# Documentation (optional - uncomment if you don't want to track docs)
+# /docs/
+
+# Kiro specs (optional - uncomment if you don't want to track specs)
+# /.kiro/specs/
+
+# Backup files
+*.backup
+*.old
+*_backup.*
+*_old.*
+
+# Sensitive data
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Migration tracking (optional)
+# /migrations/*.sql
+
+# Specific project files to ignore
+test_*.php
+debug_*.php

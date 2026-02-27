@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client-Side Document Validation Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding: 40px;
+            background-color: #f8f9fa;
+        }
+        .test-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: monospace;
+        }
+        .test-result.success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-result.error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .file-error-message {
+            color: #ef4444;
+            font-size: 13px;
+            margin-top: 6px;
+            display: block;
+        }
+        .is-invalid {
+            border-color: #ef4444 !important;
+        }
+        .is-valid {
+            border-color: #10b981 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Client-Side Document Validation Test</h1>
+        <p class="lead">Test the validateDocumentUpload() function with different file types and sizes</p>
+
+        <!-- Test Section 1: Valid Files -->
+        <div class="test-section">
+            <h3><i class="fas fa-check-circle text-success"></i> Test 1: Valid Files</h3>
+            <p>Upload valid JPG, JPEG, or PDF files under size limits</p>
+            
+            <div class="mb-3">
+                <label class="form-label">Aadhar Card (Required)</label>
+                <input type="file" class="form-control" id="test1_aadhar" data-category="aadhar" accept=".jpg,.jpeg,.pdf" required>
+                <small class="text-muted">Max 5MB for images, 10MB for PDF</small>
+            </div>
+            
+            <div id="test1_result" class="test-result" style="display:none;"></div>
+        </div>
+
+        <!-- Test Section 2: Invalid File Type -->
+        <div class="test-section">
+            <h3><i class="fas fa-times-circle text-danger"></i> Test 2: Invalid File Type</h3>
+            <p>Try uploading a file with invalid extension (e.g., .txt, .doc, .exe)</p>
+            
+            <div class="mb-3">
+                <label class="form-label">Test Invalid Type</label>
+                <input type="file" class="form-control" id="test2_invalid" data-category="test">
+                <small class="text-muted">Try uploading a non-JPG/JPEG/PDF file</small>
+            </div>
+            
+            <div id="test2_result" class="test-result" style="display:none;"></div>
+        </div>
+
+        <!-- Test Section 3: File Size Validation -->
+        <div class="test-section">
+            <h3><i class="fas fa-weight-hanging text-warning"></i> Test 3: File Size Validation</h3>
+            <p>The validation should check file sizes (5MB for images, 10MB for PDFs)</p>
+            
+            <div class="mb-3">
+                <label class="form-label">Test Large File</label>
+                <input type="file" class="form-control" id="test3_size" data-category="test" accept=".jpg,.jpeg,.pdf">
+                <small class="text-muted">Try uploading a file larger than 5MB (images) or 10MB (PDF)</small>
+            </div>
+            
+            <div id="test3_result" class="test-result" style="display:none;"></div>
+        </div>
+
+        <!-- Test Section 4: Optional Fields -->
+        <div class="test-section">
+            <h3><i class="fas fa-question-circle text-info"></i> Test 4: Optional Fields</h3>
+            <p>Optional fields should pass validation even when empty</p>
+            
+            <div class="mb-3">
+                <label class="form-label">Caste Certificate (Optional)</label>
+                <input type="file" class="form-control" id="test4_optional" data-category="caste" accept=".jpg,.jpeg,.pdf">
+                <small class="text-muted">Leave empty to test optional field validation</small>
+            </div>
+            
+            <button class="btn btn-primary" onclick="testOptionalField()">Test Empty Optional Field</button>
+            <div id="test4_result" class="test-result" style="display:none;"></div>
+        </div>
+
+        <!-- Test Section 5: Form Submission Prevention -->
+        <div class="test-section">
+            <h3><i class="fas fa-ban text-danger"></i> Test 5: Form Submission Prevention</h3>
+            <p>Form should not submit if mandatory documents are missing or invalid</p>
+            
+            <form id="testForm">
+                <div class="mb-3">
+                    <label class="form-label">Aadhar Card <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" name="aadhar_card" id="test5_aadhar" data-category="aadhar" accept=".jpg,.jpeg,.pdf" required>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">10th Marksheet <span class="text-danger">*</span></label>
+                    <input type="file" class="form-control" name="tenth_marksheet" id="test5_tenth" data-category="tenth" accept=".jpg,.jpeg,.pdf" required>
+                </div>
+                
+                <button type="submit" class="btn btn-success">Submit Test Form</button>
+            </form>
+            
+            <div id="test5_result" class="test-result" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // ===== VALIDATION FUNCTIONS (Copied from register.php) =====
+        
+        /**
+         * Validates document upload files for type and size
+         * @param {HTMLInputElement} inputElement - The file input element
+         * @returns {Object} - Validation result with valid flag and message
+         */
+        function validateDocumentUpload(inputElement) {
+            const file = inputElement.files[0];
+            
+            // If no file selected and field is not required, it's valid
+            if (!file) {
+                if (!inputElement.hasAttribute('required')) {
+                    return { valid: true };
+                }
+                return { 
+                    valid: false, 
+                    message: 'Please select a file to upload' 
+                };
+            }
+            
+            // Get file extension
+            const fileName = file.name.toLowerCase();
+            const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+            const allowedExtensions = ['.jpg', '.jpeg', '.pdf'];
+            
+            // Validate file extension
+            if (!allowedExtensions.includes(fileExtension)) {
+                return {
+                    valid: false,
+                    message: 'Invalid file type. Only JPG, JPEG, and PDF files are allowed.'
+                };
+            }
+            
+            // Validate file size based on type
+            const maxSize = fileExtension === '.pdf' ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for PDF, 5MB for images
+            const maxSizeMB = fileExtension === '.pdf' ? 10 : 5;
+            
+            if (file.size > maxSize) {
+                return {
+                    valid: false,
+                    message: `File size exceeds maximum limit of ${maxSizeMB}MB. Current size: ${(file.size / (1024 * 1024)).toFixed(2)}MB`
+                };
+            }
+            
+            // All validations passed
+            return { valid: true };
+        }
+
+        /**
+         * Displays inline error message for invalid file upload
+         * @param {HTMLInputElement} inputElement - The file input element
+         * @param {string} message - The error message to display
+         */
+        function displayFileError(inputElement, message) {
+            // Remove any existing error message
+            const existingError = inputElement.parentElement.querySelector('.file-error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+            
+            // Create and display error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'file-error-message';
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-circle me-1"></i>${message}`;
+            
+            inputElement.parentElement.appendChild(errorDiv);
+            inputElement.classList.add('is-invalid');
+            inputElement.classList.remove('is-valid');
+        }
+
+        /**
+         * Clears error message for file input
+         * @param {HTMLInputElement} inputElement - The file input element
+         */
+        function clearFileError(inputElement) {
+            const existingError = inputElement.parentElement.querySelector('.file-error-message');
+            if (existingError) {
+                existingError.remove();
+            }
+            inputElement.classList.remove('is-invalid');
+        }
+
+        // ===== TEST IMPLEMENTATIONS =====
+        
+        // Test 1: Valid Files
+        document.getElementById('test1_aadhar').addEventListener('change', function() {
+            clearFileError(this);
+            const validation = validateDocumentUpload(this);
+            const resultDiv = document.getElementById('test1_result');
+            resultDiv.style.display = 'block';
+            
+            if (validation.valid) {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> File is valid! ' + 
+                    'File: ' + this.files[0].name + ' (' + (this.files[0].size / 1024).toFixed(2) + ' KB)';
+                this.classList.add('is-valid');
+            } else {
+                resultDiv.className = 'test-result error';
+                resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> <strong>FAIL:</strong> ' + validation.message;
+                displayFileError(this, validation.message);
+            }
+        });
+
+        // Test 2: Invalid File Type
+        document.getElementById('test2_invalid').addEventListener('change', function() {
+            clearFileError(this);
+            const validation = validateDocumentUpload(this);
+            const resultDiv = document.getElementById('test2_result');
+            resultDiv.style.display = 'block';
+            
+            if (!validation.valid) {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> Invalid file type correctly detected! ' + 
+                    'Message: "' + validation.message + '"';
+                displayFileError(this, validation.message);
+            } else {
+                resultDiv.className = 'test-result error';
+                resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> <strong>FAIL:</strong> Invalid file type was not detected!';
+            }
+        });
+
+        // Test 3: File Size Validation
+        document.getElementById('test3_size').addEventListener('change', function() {
+            clearFileError(this);
+            const validation = validateDocumentUpload(this);
+            const resultDiv = document.getElementById('test3_result');
+            resultDiv.style.display = 'block';
+            
+            const file = this.files[0];
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            const fileExt = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+            const maxSize = fileExt === '.pdf' ? 10 : 5;
+            
+            if (file.size > maxSize * 1024 * 1024) {
+                if (!validation.valid) {
+                    resultDiv.className = 'test-result success';
+                    resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> Large file correctly rejected! ' + 
+                        'File size: ' + fileSizeMB + 'MB (Max: ' + maxSize + 'MB)';
+                    displayFileError(this, validation.message);
+                } else {
+                    resultDiv.className = 'test-result error';
+                    resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> <strong>FAIL:</strong> Large file was not rejected!';
+                }
+            } else {
+                if (validation.valid) {
+                    resultDiv.className = 'test-result success';
+                    resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> File size is within limits! ' + 
+                        'File size: ' + fileSizeMB + 'MB (Max: ' + maxSize + 'MB)';
+                    this.classList.add('is-valid');
+                } else {
+                    resultDiv.className = 'test-result error';
+                    resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> <strong>FAIL:</strong> Valid file was rejected! ' + validation.message;
+                }
+            }
+        });
+
+        // Test 4: Optional Fields
+        function testOptionalField() {
+            const input = document.getElementById('test4_optional');
+            clearFileError(input);
+            const validation = validateDocumentUpload(input);
+            const resultDiv = document.getElementById('test4_result');
+            resultDiv.style.display = 'block';
+            
+            if (validation.valid && !input.files[0]) {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> Empty optional field is valid!';
+            } else if (!validation.valid) {
+                resultDiv.className = 'test-result error';
+                resultDiv.innerHTML = '<i class="fas fa-times-circle"></i> <strong>FAIL:</strong> Empty optional field was rejected! ' + validation.message;
+            } else {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> Optional field with file is valid!';
+            }
+        }
+
+        // Test 5: Form Submission Prevention
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const aadharInput = document.getElementById('test5_aadhar');
+            const tenthInput = document.getElementById('test5_tenth');
+            const resultDiv = document.getElementById('test5_result');
+            
+            let errors = [];
+            
+            // Validate aadhar
+            const aadharValidation = validateDocumentUpload(aadharInput);
+            if (!aadharValidation.valid) {
+                errors.push('Aadhar Card: ' + aadharValidation.message);
+                displayFileError(aadharInput, aadharValidation.message);
+            } else {
+                clearFileError(aadharInput);
+            }
+            
+            // Validate tenth
+            const tenthValidation = validateDocumentUpload(tenthInput);
+            if (!tenthValidation.valid) {
+                errors.push('10th Marksheet: ' + tenthValidation.message);
+                displayFileError(tenthInput, tenthValidation.message);
+            } else {
+                clearFileError(tenthInput);
+            }
+            
+            resultDiv.style.display = 'block';
+            
+            if (errors.length > 0) {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> Form submission prevented! ' + 
+                    'Errors detected: ' + errors.length + '<br><small>' + errors.join('<br>') + '</small>';
+            } else {
+                resultDiv.className = 'test-result success';
+                resultDiv.innerHTML = '<i class="fas fa-check-circle"></i> <strong>PASS:</strong> All validations passed! Form would submit successfully.';
+            }
+        });
+    </script>
+</body>
+</html>

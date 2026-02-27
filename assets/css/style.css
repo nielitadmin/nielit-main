@@ -1,0 +1,356 @@
+/* Header background */
+.header {
+    background-color: white;
+    border-bottom: 1px solid #ccc;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+/* Logo Styling */
+.logo {
+    height: 80px; /* Adjust logo size */
+}
+
+/* Hindi and English Text */
+.hindi-text {
+    font-size: 18px;
+    font-weight: bold;
+    color: #000b16; /* Deep blue for the Hindi text */
+}
+
+h6 {
+    font-size: 16px;
+    color: #333;
+}
+
+/* Ministry Text Styling */
+.ministry-text {
+    font-weight: bold;
+    color: #00274D; /* Deep blue for Ministry text */
+}
+
+/* Government Emblem Styling */
+.gov-logo {
+    height: 50px;
+    margin-left: 15px; /* Space between text and emblem */
+    margin-top: 5px;
+}
+
+/* Banner Carousel Section */
+.carousel-inner img {
+    width: 100%;
+    height: 400px; /* Adjust the height of the banners */
+    object-fit: cover; /* Ensures banners are properly cropped */
+}
+
+/* Optional: Customize carousel control buttons */
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    background-color: #000; /* Change the color of the carousel control icons */
+}
+
+/* Sliding Information Section */
+.sliding-info {
+    background-color: #4193d6;
+    color: #ffffff;
+    padding: 7px 0; /* Adjust padding if needed */
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    margin: 0; /* Ensure there is no extra margin */
+}
+
+.sliding-info .container {
+    white-space: nowrap; /* Prevent text wrapping */
+    display: inline-block;
+    animation: slide-left 20s linear infinite;
+    width: auto; /* Adjust container width to fit the content */
+    margin: 0; /* Remove any margin */
+    padding: 0; /* Remove padding if not needed */
+}
+
+.sliding-info p {
+    font-size: 16px; /* Adjust font size to fit the container */
+    margin: 0; /* Remove margin around the text */
+    padding: 0; /* Remove padding around the text */
+}
+
+@keyframes slide-left {
+    0% {
+        transform: translateX(100%); /* Start from right (off-screen) */
+    }
+    100% {
+        transform: translateX(-100%); /* End at left (off-screen) */
+    }
+}
+
+/* Navbar Styling */
+.navbar {
+    background-color: #356c9f; /* Light Blue */
+}
+
+/* Change navbar brand (NIELIT Bhubaneswar) to white */
+.navbar .navbar-brand {
+    color: white !important; /* Ensures NIELIT Bhubaneswar is white */
+}
+
+/* Change text color for all nav links to white */
+.navbar .nav-link {
+    color: white !important; /* Text color white */
+    text-transform: uppercase;
+    transition: color 0.3s ease; /* Smooth color transition */
+}
+
+/* Change color when hovering over the links to white */
+.navbar .nav-link:hover {
+    color: white !important; /* Ensures text stays white on hover */
+}
+
+/* Active link color (Home, About Us, etc.) */
+.navbar .nav-item.active .nav-link {
+    color: white !important; /* White active link */
+}
+
+/* Dropdown Styling */
+.navbar-nav .nav-item.dropdown:hover .dropdown-menu {
+    display: block; /* Show dropdown on hover */
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .header .container-fluid {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+
+    .logo {
+        height: 60px; /* Slightly smaller logo on small screens */
+    }
+
+    .ministry-text {
+        font-size: 14px;
+    }
+
+    .gov-logo {
+        height: 40px; /* Smaller emblem on small screens */
+    }
+
+    /* Footer - Stacking columns for small screens */
+    .footer .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .footer .col-md-4 {
+        margin-bottom: 20px;
+        width: 100%; /* Full width for each section on small screens */
+    }
+}
+
+/* Footer Styles */
+.footer {
+    background-color: #356c9f; /* Light Blue footer background */
+    color: white;
+}
+
+.footer h5 {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.footer p {
+    font-size: 14px;
+}
+
+.footer a {
+    color: white;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    color: #FDB913; /* Highlight color on hover */
+}
+
+/* Responsive Footer */
+@media (max-width: 768px) {
+    .footer .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .footer .col-md-4 {
+        margin-bottom: 20px;
+    }
+}
+
+/* Modern Button Style */
+.modern-btn {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    font-size: 14px;
+    padding: 10px 20px;
+    border-radius: 30px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    width: auto; /* Adjusts width to content */
+    display: inline-block; /* Keeps it aligned to the left */
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.modern-btn:hover {
+    background-color: #0056b3;
+    box-shadow: 0 8px 16px rgba(0, 123, 255, 0.3);
+    transform: translateY(-3px);
+}
+
+.modern-btn:active {
+    background-color: #004085;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.4);
+    transform: translateY(1px);
+}
+
+/* Styling for the Preview Page */
+.preview-section {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-top: 30px;
+}
+
+.table {
+    border: none;
+    margin-top: 30px;
+    background-color: #fff;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.table th {
+    background-color: #f6fafe;
+    color: rgb(0, 0, 0);
+    padding: 12px;
+    text-align: left;
+}
+
+.table td {
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+.table img {
+    max-width: 150px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+/* Button Styling for the Preview Page */
+.btn-custom {
+    border-radius: 30px;
+    padding: 12px 30px;
+    font-size: 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.btn-custom:hover {
+    background-color: #0056b3;
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2);
+}
+
+.btn-custom:active {
+    background-color: #004085;
+    transform: translateY(2px);
+}
+
+.btn-custom-secondary {
+    background-color: #f8f9fa;
+    color: #007bff;
+    border: 1px solid #007bff;
+}
+
+.btn-custom-secondary:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+/* Footer Styling for the Preview Page */
+.footer {
+    background-color: #356c9f;
+    color: white;
+    padding: 30px 0;
+}
+
+.footer .list-unstyled li {
+    margin-bottom: 10px;
+}
+
+.footer a {
+    color: white;
+    text-decoration: none;
+}
+
+.footer a:hover {
+    color: #FDB913;
+}
+
+/* Responsive Footer */
+@media (max-width: 768px) {
+    .footer .container {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .footer .col-md-4 {
+        margin-bottom: 20px;
+    }
+}
+
+
+/* Add this CSS for more control over the spacing */
+.table td, .table th {
+    vertical-align: middle;
+    text-align: left;
+    padding: 10px; /* Adjust padding */
+}
+
+input.form-control {
+    width: 100%; /* Ensure the inputs fill the cell */
+    margin: 0; /* Remove any margin */
+}
+
+.stat-card {
+    border-radius: 15px;
+    background: #fff;
+    overflow: hidden;
+    transition: all 0.3s ease-in-out;
+}
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+.stat-header {
+    padding: 12px 15px;
+    font-weight: 600;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #007bff, #00c6ff);
+}
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8, #6dd5ed);
+}
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745, #a8e063);
+}

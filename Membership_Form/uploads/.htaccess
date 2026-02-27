@@ -1,0 +1,11 @@
+
+# Block access to xmlrpc.php to prevent abuse
+<Files xmlrpc.php>
+Order deny,allow
+Deny from all
+</Files>
+
+# 🔒 Block wp-cron.php
+<Files wp-cron.php>
+Require all denied
+</Files>

@@ -1,0 +1,20 @@
+site key - 6LcgeCorAAAAAPy_agR4cZf0u6CK5DgVetuCyPyC
+server site key-6LcgeCorAAAAAJXuGUxEiNHumKgrKjA5_DJWutIG
+
+
+
+
+v2-
+
+
+reCAPTCHA icon
+Success - you're all set up!
+checkmark
+Manage settings in the Google Cloud Project
+checkmark
+Up to 10,000 assessments/month at no cost
+Visit the Google Cloud Platform project hosting your reCAPTCHA keys to enable advanced features.
+Use this site key in the HTML code your site serves to users.
+6LezeiorAAAAAOrBQrO4Trc8m804Emef_9QgiVb-
+Use this secret key for communication between your site and reCAPTCHA.
+6LezeiorAAAAAJH5uMRMtlb6zAGRl-cpaxRlDfee
