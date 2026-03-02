@@ -635,6 +635,7 @@ $selected_course = $course_details['course_name'];
             align-items: center;
             justify-content: center;
             color: white;
+            flex-shrink: 0;
         }
         
         .file-preview-info {
@@ -645,6 +646,7 @@ $selected_course = $course_details['course_name'];
             font-weight: 600;
             color: #1e293b;
             font-size: 13px;
+            word-break: break-word;
         }
         
         .file-preview-size {
@@ -661,11 +663,31 @@ $selected_course = $course_details['course_name'];
             cursor: pointer;
             font-size: 12px;
             transition: all 0.3s ease;
+            flex-shrink: 0;
         }
         
         .file-preview-remove:hover {
             background: #dc2626;
             transform: scale(1.05);
+        }
+        
+        /* Image preview specific styles */
+        .file-preview-image-container {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .file-preview-image-container img {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 8px;
+            border: 2px solid #0d47a1;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            object-fit: contain;
         }
         
         /* ===== DOCUMENT CATEGORY STYLING ===== */
@@ -1870,7 +1892,14 @@ if (isset($_SESSION['info'])) {
                             <div class="form-group">
                                 <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
                                 <input type="file" class="form-control" name="passport_photo" accept="image/*" required>
-                                <small class="text-muted">Recent passport size photo</small>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Recent passport size photo (JPG/PNG, max 5MB)
+                                </small>
+                                <small class="text-muted d-block mt-1" style="color: #10b981;">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Preview will appear after selecting file
+                                </small>
                             </div>
                         </div>
                         
@@ -1878,7 +1907,14 @@ if (isset($_SESSION['info'])) {
                             <div class="form-group">
                                 <label class="form-label">Signature <span class="required-mark">*</span></label>
                                 <input type="file" class="form-control" name="signature" accept="image/*" required>
-                                <small class="text-muted">Clear signature image</small>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Clear signature image (JPG/PNG, max 2MB)
+                                </small>
+                                <small class="text-muted d-block mt-1" style="color: #10b981;">
+                                    <i class="fas fa-check-circle"></i> 
+                                    Preview will appear after selecting file
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -2333,6 +2369,7 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
             // Show file name and size
             const fileName = file.name;
             const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+            const fieldName = this.getAttribute('name');
             
             // Create or update preview
             let preview = this.parentElement.querySelector('.file-preview');
@@ -2344,19 +2381,52 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
             
             const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
             
-            preview.innerHTML = `
-                <div class="file-preview-icon">
-                    <i class="fas ${fileIcon}"></i>
-                </div>
-                <div class="file-preview-info">
-                    <div class="file-preview-name">${fileName}</div>
-                    <div class="file-preview-size">${fileSize}</div>
-                </div>
-                <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
-                    <i class="fas fa-times"></i>
-                </button>
-            `;
-            preview.classList.add('show');
+            // Check if this is passport photo or signature for image preview
+            const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature');
+            const isImageFile = file.type.startsWith('image/');
+            
+            if (isImageField && isImageFile) {
+                // Show actual image preview for passport photo and signature
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    preview.innerHTML = `
+                        <div class="file-preview-image-container" style="width: 100%; text-align: center; margin-bottom: 10px;">
+                            <img src="${e.target.result}" alt="${fieldName === 'passport_photo' ? 'Passport Photo' : 'Signature'}" 
+                                 style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0d47a1; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        </div>
+                        <div class="file-preview-icon">
+                            <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                        </div>
+                        <div class="file-preview-info">
+                            <div class="file-preview-name">${fileName}</div>
+                            <div class="file-preview-size">${fileSize}</div>
+                        </div>
+                        <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
+                            <i class="fas fa-times"></i> Remove
+                        </button>
+                    `;
+                    preview.classList.add('show');
+                    preview.style.flexDirection = 'column';
+                    preview.style.alignItems = 'center';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Standard file preview for other documents
+                preview.innerHTML = `
+                    <div class="file-preview-icon">
+                        <i class="fas ${fileIcon}"></i>
+                    </div>
+                    <div class="file-preview-info">
+                        <div class="file-preview-name">${fileName}</div>
+                        <div class="file-preview-size">${fileSize}</div>
+                    </div>
+                    <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                preview.classList.add('show');
+                preview.style.flexDirection = 'row';
+            }
             
             // Validate field
             validateField(this);

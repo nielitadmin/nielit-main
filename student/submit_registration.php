@@ -207,7 +207,7 @@ if (!move_uploaded_file($_FILES['passport_photo']['tmp_name'], $uploadDir . $fn)
     header("Location: " . $redirectBack);
     exit();
 }
-$passport_photo_path = 'uploads/students/' . $fn;
+$passport_photo_path = 'student/uploads/students/' . $fn;
 
 // ----------------------------------------------------------
 // 8. Upload signature (mandatory)
@@ -230,7 +230,7 @@ if (!move_uploaded_file($_FILES['signature']['tmp_name'], $uploadDir . $fn)) {
     header("Location: " . $redirectBack);
     exit();
 }
-$signature_path = 'uploads/students/' . $fn;
+$signature_path = 'student/uploads/students/' . $fn;
 
 // ----------------------------------------------------------
 // 9. Upload payment receipt (optional)
@@ -239,7 +239,7 @@ if (isset($_FILES['payment_receipt']) && $_FILES['payment_receipt']['error'] ===
     $ext = strtolower(pathinfo($_FILES['payment_receipt']['name'], PATHINFO_EXTENSION));
     $fn  = $safe_student_id . '_' . (time()+2) . '_receipt.' . $ext;
     if (move_uploaded_file($_FILES['payment_receipt']['tmp_name'], $uploadDir . $fn))
-        $payment_receipt_path = 'uploads/students/' . $fn;
+        $payment_receipt_path = 'student/uploads/students/' . $fn;
 }
 
 // ----------------------------------------------------------
