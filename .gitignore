@@ -24,6 +24,22 @@ composer.lock
 /assets/qr_codes/*
 !/assets/qr_codes/.gitkeep
 
+# Student uploaded documents (registration & profile)
+/student/uploads/students/*
+!/student/uploads/students/.gitkeep
+/student/uploads/aadhar/*
+!/student/uploads/aadhar/.gitkeep
+/student/uploads/caste/*
+!/student/uploads/caste/.gitkeep
+/student/uploads/marksheets/10th/*
+!/student/uploads/marksheets/10th/.gitkeep
+/student/uploads/marksheets/12th/*
+!/student/uploads/marksheets/12th/.gitkeep
+/student/uploads/marksheets/graduation/*
+!/student/uploads/marksheets/graduation/.gitkeep
+/student/uploads/other/*
+!/student/uploads/other/.gitkeep
+
 # External/Legacy Projects (not part of main codebase)
 /hrms/
 /startup/
