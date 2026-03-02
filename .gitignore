@@ -112,3 +112,8 @@ phpunit.xml
 # Specific project files to ignore
 test_*.php
 debug_*.php
+
+# Large archive files
+*.zip
+*.tar.gz
+*.rar

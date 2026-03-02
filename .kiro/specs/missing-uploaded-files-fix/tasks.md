@@ -1,0 +1,122 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Fault Condition** - Document Upload Path Storage Bug
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists
+  - **Scoped PBT Approach**: Scope the property to concrete failing cases: document uploads via admin edit and student registration
+  - Test that when documents are uploaded via admin edit, the database stores the correct file path (not the field name) AND the physical file exists
+  - Test that when documents are uploaded via student registration, the stored path matches the physical file location
+  - Test implementation details from Fault Condition in design:
+    - Admin edit: Upload Aadhar card, verify `aadhar_card_doc` column contains path (not "aadhar_card_doc" string)
+    - Student registration: Upload 10th marksheet, verify file_exists() check succeeds with stored path
+    - Multiple documents: Upload 3 documents simultaneously, verify all database fields contain correct paths
+  - The test assertions should match the Expected Behavior Properties from design:
+    - Physical file exists at the saved location
+    - Database path is correct and matches physical file location
+    - file_exists() check succeeds using the stored path
+  - Run test on UNFIXED code
+  - **EXPECTED OUTCOME**: Test FAILS (this is correct - it proves the bug exists)
+  - Document counterexamples found:
+    - Database columns may contain field names instead of paths
+    - file_exists() checks may fail despite physical files existing
+    - Path mismatch between save location and stored path
+  - Mark task complete when test is written, run, and failure is documented
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.2, 2.3_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Non-Upload Operations Unchanged
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for non-buggy inputs (form submissions without document uploads)
+  - Write property-based tests capturing observed behavior patterns from Preservation Requirements:
+    - Text field updates (name, email, mobile) work correctly without documents
+    - Education details updates work correctly without documents
+    - Status changes work correctly without documents
+    - Empty file inputs don't cause errors
+    - Path format convention remains unchanged: `uploads/{category}/{student_id}_{timestamp}_{filename}`
+    - file_exists() checks continue to use the same logic
+    - All document categories (aadhar, caste, tenth, twelfth, graduation, other) continue to be supported
+  - Property-based testing generates many test cases for stronger guarantees
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS (this confirms baseline behavior to preserve)
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [ ] 3. Fix for missing uploaded files bug
+
+  - [x] 3.1 Fix variable variable assignment bug in admin/edit_student.php
+    - Change `$field = $r['path']` to `$$field = $r['path']` (around line 300)
+    - This ensures the document path variable (e.g., `$aadhar_card_doc`) is updated, not the field name variable
+    - Add path validation after successful upload: verify the variable variable assignment worked
+    - Add assertion: `if (empty($$field)) { /* rollback and log error */ }`
+    - _Bug_Condition: isBugCondition(input) where input.source == 'admin_edit_student' AND input.file.error == UPLOAD_ERR_OK_
+    - _Expected_Behavior: Physical file exists AND database stores correct path (not field name)_
+    - _Preservation: File validation logic, path format convention, directory creation must remain unchanged_
+    - _Requirements: 1.1, 1.2, 2.1, 2.2, 3.1, 3.3_
+
+  - [x] 3.2 Fix path prefix mismatch in student/submit_registration.php
+    - In `handleCategorizedUpload` function (line 39-58), change return statement
+    - Change from `'uploads/'.$subdir.'/'.$filename` to `'student/uploads/'.$subdir.'/'.$filename`
+    - This matches the actual save location with the stored path
+    - Add path verification before returning: `if (!file_exists(__DIR__ . '/../' . $path)) { /* error */ }`
+    - _Bug_Condition: isBugCondition(input) where input.source == 'student_registration' AND input.file.error == UPLOAD_ERR_OK_
+    - _Expected_Behavior: Stored path matches physical file location, file_exists() checks succeed_
+    - _Preservation: Path format convention, file validation, directory creation must remain unchanged_
+    - _Requirements: 1.1, 1.3, 2.1, 2.3, 3.1, 3.2_
+
+  - [x] 3.3 Fix path prefix in admin/edit_student.php handleCategorizedUpload function
+    - Verify the `handleCategorizedUpload` function returns paths that work with file_exists(__DIR__ . '/../' . $path)
+    - Ensure consistency between save location and returned path
+    - Currently returns `'student/uploads/'` but saves to `__DIR__ . '/../student/uploads/'`
+    - Add logging: error_log() statements for successful uploads and failures
+    - _Bug_Condition: isBugCondition(input) where input.source == 'admin_edit_student'_
+    - _Expected_Behavior: Returned path works with file_exists() checks from viewing page_
+    - _Preservation: Directory structure, path format must remain unchanged_
+    - _Requirements: 1.2, 1.4, 2.2, 2.4, 3.2_
+
+  - [x] 3.4 Add error handling and rollback mechanism
+    - When upload succeeds but database update fails, delete orphaned physical files
+    - Add error messages for upload failures (requirement 2.5)
+    - Add logging for debugging: log successful uploads with paths and failures with details
+    - _Bug_Condition: Upload succeeds but database operation fails_
+    - _Expected_Behavior: No orphaned files, clear error messages, detailed logs_
+    - _Preservation: Existing error handling for validation failures must remain unchanged_
+    - _Requirements: 1.5, 2.5_
+
+  - [x] 3.5 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Document Upload Saves Both File and Correct Path
+    - **IMPORTANT**: Re-run the SAME test from task 1 - do NOT write a new test
+    - The test from task 1 encodes the expected behavior
+    - When this test passes, it confirms the expected behavior is satisfied:
+      - Physical files exist at saved locations
+      - Database paths are correct (not field names)
+      - file_exists() checks succeed with stored paths
+      - Multiple document uploads all work correctly
+    - Run bug condition exploration test from step 1
+    - **EXPECTED OUTCOME**: Test PASSES (confirms bug is fixed)
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+
+  - [x] 3.6 Verify preservation tests still pass
+    - **Property 2: Preservation** - Non-Upload Operations Unchanged
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation property tests from step 2
+    - **EXPECTED OUTCOME**: Tests PASS (confirms no regressions)
+    - Confirm all tests still pass after fix:
+      - Text field updates work without documents
+      - Education details updates work without documents
+      - Status changes work without documents
+      - Path format convention unchanged
+      - file_exists() logic unchanged
+      - All document categories still supported
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Run all exploration tests - verify they now pass (bug is fixed)
+  - Run all preservation tests - verify they still pass (no regressions)
+  - Test full admin edit flow with document uploads in each category
+  - Test full student registration flow with all required documents
+  - Test document viewing page displays all uploaded documents correctly
+  - Test debug script accurately reports file status after uploads
+  - Ensure all tests pass, ask the user if questions arise

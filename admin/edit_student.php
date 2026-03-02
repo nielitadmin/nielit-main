@@ -38,14 +38,19 @@ function validateUploadedDocument($file, $docCategory) {
 
 function handleCategorizedUpload($file, $docCategory, $student_id) {
     $v = validateUploadedDocument($file, $docCategory);
-    if (!$v['valid']) return ['success'=>false,'error'=>$v['message']];
+    if (!$v['valid']) {
+        error_log("Document upload validation failed for student $student_id, category $docCategory: {$v['message']}");
+        return ['success'=>false,'error'=>$v['message']];
+    }
 
     $subdirs = ['aadhar'=>'aadhar','caste'=>'caste_certificates','tenth'=>'marksheets/10th','twelfth'=>'marksheets/12th','graduation'=>'marksheets/graduation','other'=>'other'];
     $subdir  = $subdirs[$docCategory] ?? 'other';
     $dir     = __DIR__ . '/../student/uploads/' . $subdir . '/';
 
-    if (!is_dir($dir) && !mkdir($dir, 0755, true))
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        error_log("Failed to create directory for student $student_id, category $docCategory: $dir");
         return ['success'=>false,'error'=>"Cannot create directory: $dir"];
+    }
 
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 
@@ -54,9 +59,23 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     $filename = $safe_id . '_' . time() . '_' . $docCategory . '.' . $ext;
     $dest     = $dir . $filename;
 
-    if (move_uploaded_file($file['tmp_name'], $dest))
-        return ['success'=>true,'path'=>'student/uploads/'.$subdir.'/'.$filename];
+    if (move_uploaded_file($file['tmp_name'], $dest)) {
+        // Construct the path that will be stored in the database
+        $path = 'student/uploads/'.$subdir.'/'.$filename;
+        
+        // Verify the file exists at the returned path (as it will be checked from viewing page)
+        // The viewing page uses: file_exists(__DIR__ . '/../' . $path)
+        // Since we're in admin/, __DIR__ . '/../' . $path resolves to student/uploads/...
+        if (!file_exists(__DIR__ . '/../' . $path)) {
+            error_log("Path verification failed for student $student_id, category $docCategory: File saved to $dest but path $path doesn't resolve correctly");
+            return ['success'=>false,'error'=>'File upload verification failed'];
+        }
+        
+        error_log("Document uploaded successfully for student $student_id, category $docCategory: $path");
+        return ['success'=>true,'path'=>$path];
+    }
 
+    error_log("move_uploaded_file failed for student $student_id, category $docCategory: Dest=$dest, Writable=".(is_writable($dir)?'YES':'NO'));
     return ['success'=>false,'error'=>"move_uploaded_file failed. Dest: $dest | Writable: ".(is_writable($dir)?'YES':'NO')];
 }
 
@@ -295,8 +314,14 @@ if (isset($_POST['update_student'])) {
             $r = handleCategorizedUpload($_FILES[$field], $cat, $student_id);
             if ($r['success']) {
                 $uploadedDocs[$field] = $r['path'];
-                // Update the variable with new path
+                // Update the variable with new path using variable variable
                 $$field = $r['path'];
+                
+                // Validate that the variable variable assignment worked
+                if (empty($$field)) {
+                    $uploadErrors[$field] = "Failed to assign path to variable";
+                    error_log("Variable variable assignment failed for field: $field");
+                }
             } else {
                 $uploadErrors[$field] = $r['error'];
             }
@@ -351,6 +376,12 @@ if (isset($_POST['update_student'])) {
         $student_id);
 
     if ($stmt->execute()) {
+        // Log successful database update
+        error_log("Student database update successful for student_id: $student_id");
+        if (!empty($uploadedDocs)) {
+            error_log("Documents updated for student $student_id: " . implode(', ', array_keys($uploadedDocs)));
+        }
+        
         // Delete existing education records for this student
         $delete_education = "DELETE FROM education_details WHERE student_id = ?";
         $stmt_delete = $conn->prepare($delete_education);
@@ -406,8 +437,29 @@ if (isset($_POST['update_student'])) {
         header("Location: $return_url");
         exit();
     } else {
-        $_SESSION['message'] = "Update error: " . $conn->error;
+        // Database update failed - rollback uploaded files
+        error_log("Database update failed for student $student_id: " . $conn->error);
+        
+        // Delete any successfully uploaded files from this request
+        if (!empty($uploadedDocs)) {
+            error_log("Rolling back uploaded documents for student $student_id due to database failure");
+            foreach ($uploadedDocs as $field => $path) {
+                $abs = __DIR__ . '/../' . $path;
+                if (!empty($path) && file_exists($abs)) {
+                    if (unlink($abs)) {
+                        error_log("Rollback: Deleted orphaned file $path");
+                    } else {
+                        error_log("Rollback: Failed to delete orphaned file $path");
+                    }
+                }
+            }
+        }
+        
+        $_SESSION['message'] = "Database update failed: " . htmlspecialchars($conn->error) . ". Any uploaded files have been removed.";
         $_SESSION['message_type'] = "danger";
+        
+        header("Location: edit_student.php?id=$student_id");
+        exit();
     }
 }
 

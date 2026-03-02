@@ -54,8 +54,17 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     $filename = $safe_id . '_' . time() . '_' . $docCategory . '.' . $ext;
     $dest     = $dir . $filename;
 
-    if (move_uploaded_file($file['tmp_name'], $dest))
-        return ['success'=>true,'path'=>'uploads/'.$subdir.'/'.$filename];
+    if (move_uploaded_file($file['tmp_name'], $dest)) {
+        $path = 'student/uploads/'.$subdir.'/'.$filename;
+        
+        // Verify the file exists at the returned path
+        if (!file_exists(__DIR__ . '/../' . $path)) {
+            error_log("Path verification failed: File saved to $dest but path $path doesn't resolve correctly");
+            return ['success'=>false,'error'=>'File upload verification failed'];
+        }
+        
+        return ['success'=>true,'path'=>$path];
+    }
 
     return ['success'=>false,'error'=>"move_uploaded_file failed. Dest: $dest | Writable: ".(is_writable($dir)?'YES':'NO')];
 }
@@ -349,13 +358,34 @@ $stmt->bind_param(
 );
 
 if (!$stmt->execute()) {
-    error_log("INSERT FAILED: " . $stmt->error . " (errno=" . $stmt->errno . ")");
-    $_SESSION['error'] = "Registration failed (DB error " . $stmt->errno . "): " . $stmt->error;
+    error_log("INSERT FAILED for student $student_id: " . $stmt->error . " (errno=" . $stmt->errno . ")");
+    
+    // Rollback: Delete all uploaded files
+    error_log("Rolling back all uploaded files for student $student_id due to database failure");
+    
+    $allUploadedFiles = array_merge(
+        array_filter([$passport_photo_path, $signature_path, $payment_receipt_path]),
+        array_values($uploadedDocs)
+    );
+    
+    foreach ($allUploadedFiles as $path) {
+        $abs = __DIR__ . '/' . $path;
+        if (!empty($path) && file_exists($abs)) {
+            if (unlink($abs)) {
+                error_log("Rollback: Deleted orphaned file $path");
+            } else {
+                error_log("Rollback: Failed to delete orphaned file $path");
+            }
+        }
+    }
+    
+    $_SESSION['error'] = "Registration failed due to database error. Please try again. If the problem persists, contact support.";
     header("Location: " . $redirectBack);
     exit();
 }
 
-error_log("INSERT SUCCESS: $student_id");
+error_log("INSERT SUCCESS: $student_id with documents: passport=$passport_photo_path, signature=$signature_path" . 
+    (!empty($uploadedDocs) ? ", categorized_docs=" . implode(',', array_keys($uploadedDocs)) : ""));
 
 // ----------------------------------------------------------
 // 13. Set session and redirect to success page
