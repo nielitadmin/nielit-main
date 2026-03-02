@@ -24,6 +24,12 @@ composer.lock
 /assets/qr_codes/*
 !/assets/qr_codes/.gitkeep
 
+# Membership Form folders (legacy/test data)
+/Membership_Form/*
+!/Membership_Form/.gitkeep
+/old membership form/*
+!/old membership form/.gitkeep
+
 # Student uploaded documents (registration & profile)
 /student/uploads/students/*
 !/student/uploads/students/.gitkeep
