@@ -24,6 +24,20 @@ $batch_query = "SELECT b.*, c.course_name, c.course_code, s.scheme_name, s.schem
                 LEFT JOIN schemes s ON b.scheme_id = s.id
                 WHERE b.id = ?";
 $stmt = $conn->prepare($batch_query);
+
+// If schemes table doesn't exist, try without it
+if (!$stmt) {
+    $batch_query = "SELECT b.*, c.course_name, c.course_code, NULL as scheme_name, NULL as scheme_code 
+                    FROM batches b 
+                    LEFT JOIN courses c ON b.course_id = c.id 
+                    WHERE b.id = ?";
+    $stmt = $conn->prepare($batch_query);
+}
+
+if (!$stmt) {
+    die("Database error: " . $conn->error);
+}
+
 $stmt->bind_param("i", $batch_id);
 $stmt->execute();
 $batch = $stmt->get_result()->fetch_assoc();
