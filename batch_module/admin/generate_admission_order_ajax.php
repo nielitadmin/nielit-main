@@ -10,6 +10,7 @@ $batch_id = $_GET['batch_id'];
 $scheme_id = $_GET['scheme_id'];
 
 // Fetch batch details with course coordinator
+// Try with schemes table first
 $batch_query = "SELECT b.*, c.course_name, c.course_code, c.duration, c.training_fees, c.course_coordinator,
                 s.scheme_name, s.scheme_code
                 FROM batches b
@@ -17,9 +18,21 @@ $batch_query = "SELECT b.*, c.course_name, c.course_code, c.duration, c.training
                 LEFT JOIN schemes s ON b.scheme_id = s.id
                 WHERE b.id = ?";
 $stmt = $conn->prepare($batch_query);
+
+// If schemes table doesn't exist, try without it
 if (!$stmt) {
-    die("Error preparing batch query: " . $conn->error);
+    $batch_query = "SELECT b.*, c.course_name, c.course_code, c.duration, c.training_fees, c.course_coordinator,
+                    NULL as scheme_name, NULL as scheme_code
+                    FROM batches b
+                    LEFT JOIN courses c ON b.course_id = c.id
+                    WHERE b.id = ?";
+    $stmt = $conn->prepare($batch_query);
+    
+    if (!$stmt) {
+        die("Error preparing batch query: " . $conn->error);
+    }
 }
+
 $stmt->bind_param("i", $batch_id);
 $stmt->execute();
 $batch = $stmt->get_result()->fetch_assoc();
