@@ -53,6 +53,20 @@ $batch_sql = "SELECT b.*, c.course_name, c.course_code, s.scheme_name, s.scheme_
               LEFT JOIN schemes s ON b.scheme_id = s.id
               WHERE b.id = ?";
 $stmt = $conn->prepare($batch_sql);
+
+if (!$stmt) {
+    // If schemes table doesn't exist, try without it
+    $batch_sql = "SELECT b.*, c.course_name, c.course_code, NULL as scheme_name, NULL as scheme_code
+                  FROM batches b 
+                  LEFT JOIN courses c ON b.course_id = c.id 
+                  WHERE b.id = ?";
+    $stmt = $conn->prepare($batch_sql);
+    
+    if (!$stmt) {
+        die("Database error: " . $conn->error);
+    }
+}
+
 $stmt->bind_param("i", $batch_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -72,12 +86,17 @@ while ($row = $courses_result->fetch_assoc()) {
     $courses[] = $row;
 }
 
-// Get all schemes for dropdown
-$schemes_sql = "SELECT id, scheme_name, scheme_code FROM schemes WHERE status = 'Active' ORDER BY scheme_name";
-$schemes_result = $conn->query($schemes_sql);
+// Get all schemes for dropdown (check if table exists first)
 $schemes = [];
-while ($row = $schemes_result->fetch_assoc()) {
-    $schemes[] = $row;
+$table_check = $conn->query("SHOW TABLES LIKE 'schemes'");
+if ($table_check && $table_check->num_rows > 0) {
+    $schemes_sql = "SELECT id, scheme_name, scheme_code FROM schemes WHERE status = 'Active' ORDER BY scheme_name";
+    $schemes_result = $conn->query($schemes_sql);
+    if ($schemes_result) {
+        while ($row = $schemes_result->fetch_assoc()) {
+            $schemes[] = $row;
+        }
+    }
 }
 ?>
 
