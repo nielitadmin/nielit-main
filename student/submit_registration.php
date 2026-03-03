@@ -388,7 +388,38 @@ error_log("INSERT SUCCESS: $student_id with documents: passport=$passport_photo_
     (!empty($uploadedDocs) ? ", categorized_docs=" . implode(',', array_keys($uploadedDocs)) : ""));
 
 // ----------------------------------------------------------
-// 13. Set session and redirect to success page
+// 13. Insert education details into separate table
+// ----------------------------------------------------------
+if (!empty($exam_passed) && is_array($exam_passed)) {
+    $edu_stmt = $conn->prepare("INSERT INTO education_details (student_id, exam_passed, exam_name, year_of_passing, institute_name, stream, percentage) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    
+    if ($edu_stmt) {
+        for ($i = 0; $i < count($exam_passed); $i++) {
+            $ep = $exam_passed[$i] ?? '';
+            $en = $exam_name_arr[$i] ?? '';
+            $yp = $year_of_passing[$i] ?? '';
+            $in = $institute_name[$i] ?? '';
+            $st = $stream[$i] ?? '';
+            $pc = $percentage[$i] ?? '';
+            
+            // Only insert if at least exam_passed is provided
+            if (!empty($ep)) {
+                $edu_stmt->bind_param("sssssss", $student_id, $ep, $en, $yp, $in, $st, $pc);
+                if (!$edu_stmt->execute()) {
+                    error_log("Failed to insert education detail for $student_id: " . $edu_stmt->error);
+                } else {
+                    error_log("Inserted education record for $student_id: $ep");
+                }
+            }
+        }
+        $edu_stmt->close();
+    } else {
+        error_log("Failed to prepare education_details statement: " . $conn->error);
+    }
+}
+
+// ----------------------------------------------------------
+// 14. Set session and redirect to success page
 // ----------------------------------------------------------
 $email_sent = sendRegistrationEmail($email, $name, $student_id, $password, $course_name, $training_center);
 
