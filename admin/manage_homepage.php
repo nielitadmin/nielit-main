@@ -511,6 +511,7 @@ $content_sections = getAllContentSections($conn);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none';">
     <title>Manage Homepage Content - NIELIT Bhubaneswar</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -739,7 +740,7 @@ $content_sections = getAllContentSections($conn);
         <nav class="sidebar-nav">
             <div class="nav-item">
                 <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                    <i class="fas fa-home"></i> Dashboard
                 </a>
             </div>
             <div class="nav-item">
@@ -748,7 +749,7 @@ $content_sections = getAllContentSections($conn);
                 </a>
             </div>
             <div class="nav-item">
-                <a href="manage_courses.php" class="nav-link">
+                <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
@@ -846,9 +847,14 @@ $content_sections = getAllContentSections($conn);
                     <h5 class="card-title">
                         <i class="fas fa-list"></i> Homepage Content Sections
                     </h5>
-                    <button class="btn btn-primary" onclick="openAddModal()">
-                        <i class="fas fa-plus"></i> Add Content Section
-                    </button>
+                    <div style="display: flex; gap: 12px;">
+                        <a href="manage_announcements.php" class="btn btn-secondary">
+                            <i class="fas fa-bullhorn"></i> Manage Announcements
+                        </a>
+                        <button class="btn btn-primary" onclick="openAddModal()">
+                            <i class="fas fa-plus"></i> Add Content Section
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="card-body">
@@ -966,12 +972,11 @@ $content_sections = getAllContentSections($conn);
                             <select class="form-select" id="section_type" name="section_type" required>
                                 <option value="">Select type...</option>
                                 <option value="banner">Banner</option>
-                                <option value="announcement">Announcement</option>
                                 <option value="featured_course">Featured Course</option>
                                 <option value="text_block">Text Block</option>
                                 <option value="image_block">Image Block</option>
                             </select>
-                            <small class="form-text text-muted">Type of content section</small>
+                            <small class="form-text text-muted">Type of content section (Use "Manage Announcements" button for announcements)</small>
                         </div>
                         
                         <div class="mb-3">

@@ -232,6 +232,7 @@ $result = getAllCentres($conn);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none';">
     <title>Manage Centres - NIELIT Bhubaneswar</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -250,7 +251,7 @@ $result = getAllCentres($conn);
         <nav class="sidebar-nav">
             <div class="nav-item">
                 <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                    <i class="fas fa-home"></i> Dashboard
                 </a>
             </div>
             <div class="nav-item">
@@ -259,7 +260,7 @@ $result = getAllCentres($conn);
                 </a>
             </div>
             <div class="nav-item">
-                <a href="manage_courses.php" class="nav-link">
+                <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

@@ -188,22 +188,32 @@ if (isset($_POST['update_course'])) {
     );
 
     if ($stmt->execute()) {
-        // Handle scheme associations
+        // Handle scheme associations (only if table exists)
         // First, delete existing associations
         $delete_schemes_sql = "DELETE FROM course_schemes WHERE course_id = ?";
         $stmt_delete = $conn->prepare($delete_schemes_sql);
-        $stmt_delete->bind_param("i", $course_id);
-        $stmt_delete->execute();
         
-        // Then, insert new associations if any schemes are selected
-        if (isset($_POST['schemes']) && !empty($_POST['schemes'])) {
-            $insert_scheme_sql = "INSERT INTO course_schemes (course_id, scheme_id) VALUES (?, ?)";
-            $stmt_insert = $conn->prepare($insert_scheme_sql);
+        if ($stmt_delete) {
+            $stmt_delete->bind_param("i", $course_id);
+            $stmt_delete->execute();
+            $stmt_delete->close();
             
-            foreach ($_POST['schemes'] as $scheme_id) {
-                $stmt_insert->bind_param("ii", $course_id, $scheme_id);
-                $stmt_insert->execute();
+            // Then, insert new associations if any schemes are selected
+            if (isset($_POST['schemes']) && !empty($_POST['schemes'])) {
+                $insert_scheme_sql = "INSERT INTO course_schemes (course_id, scheme_id) VALUES (?, ?)";
+                $stmt_insert = $conn->prepare($insert_scheme_sql);
+                
+                if ($stmt_insert) {
+                    foreach ($_POST['schemes'] as $scheme_id) {
+                        $stmt_insert->bind_param("ii", $course_id, $scheme_id);
+                        $stmt_insert->execute();
+                    }
+                    $stmt_insert->close();
+                }
             }
+        } else {
+            // course_schemes table doesn't exist - schemes module not installed
+            error_log("course_schemes table not found during update: " . $conn->error);
         }
         
         // Auto-generate QR code ONLY if it doesn't exist yet
@@ -428,12 +438,19 @@ if (isset($_POST['update_course'])) {
                         // Get currently selected schemes for this course
                         $selected_schemes_query = "SELECT scheme_id FROM course_schemes WHERE course_id = ?";
                         $stmt_schemes = $conn->prepare($selected_schemes_query);
-                        $stmt_schemes->bind_param("i", $course_id);
-                        $stmt_schemes->execute();
-                        $selected_result = $stmt_schemes->get_result();
+                        
                         $selected_schemes = [];
-                        while ($row = $selected_result->fetch_assoc()) {
-                            $selected_schemes[] = $row['scheme_id'];
+                        if ($stmt_schemes) {
+                            $stmt_schemes->bind_param("i", $course_id);
+                            $stmt_schemes->execute();
+                            $selected_result = $stmt_schemes->get_result();
+                            while ($row = $selected_result->fetch_assoc()) {
+                                $selected_schemes[] = $row['scheme_id'];
+                            }
+                            $stmt_schemes->close();
+                        } else {
+                            // Table doesn't exist yet - schemes module not installed
+                            error_log("course_schemes table not found: " . $conn->error);
                         }
                         ?>
                         

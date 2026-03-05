@@ -384,12 +384,18 @@ $result = getAllThemes($conn);
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
     <style>
+        /* Override card-body padding for this page */
+        .card-body {
+            padding: 24px !important;
+        }
+        
         /* Theme Preview Cards Styles */
         .themes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 24px;
             padding: 20px 0;
+            width: 100%;
         }
         
         .theme-preview-card {

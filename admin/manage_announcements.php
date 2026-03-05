@@ -556,8 +556,13 @@ $courses_result = $conn->query($sql_courses);
         <!-- Top Bar -->
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-bullhorn"></i> Manage Announcements</h4>
-                <small>Create and manage announcements for students</small>
+                <a href="manage_homepage.php" class="btn btn-secondary" style="margin-right: 16px;">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+                <div style="display: inline-block;">
+                    <h4><i class="fas fa-bullhorn"></i> Manage Announcements</h4>
+                    <small>Create and manage announcements for students</small>
+                </div>
             </div>
             <div class="topbar-right">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAnnouncementModal">

@@ -163,6 +163,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none';">
     <title>Admin Dashboard - NIELIT Bhubaneswar</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -175,10 +176,9 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
 <div class="admin-wrapper">
     <!-- Sidebar -->
     <aside class="admin-sidebar">
-        <div class="sidebar-logo">
-            <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo">
-            <h5>NIELIT Admin</h5>
-            <small>Bhubaneswar</small>
+        <div class="sidebar-header">
+            <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="sidebar-logo">
+            <h3>NIELIT Admin</h3>
         </div>
         
         <nav class="sidebar-nav">
@@ -232,11 +232,6 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             <div class="nav-item">
                 <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
                     <i class="fas fa-user-check"></i> Approve Students
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_announcements.php" class="nav-link">
-                    <i class="fas fa-bullhorn"></i> Announcements
                 </a>
             </div>
             <div class="nav-item">

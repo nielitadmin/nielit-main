@@ -139,7 +139,9 @@ body::before {
 /* Sidebar */
 .admin-sidebar {
     width: 260px;
-    background: var(--bg-sidebar);
+    background: linear-gradient(180deg, #0d47a1 0%, #1565c0 50%, #0d47a1 100%);
+    background-size: 100% 200%;
+    animation: sidebarGradient 10s ease infinite;
     position: fixed;
     top: 0;
     left: 0;
@@ -148,6 +150,11 @@ body::before {
     z-index: 1000;
     box-shadow: var(--shadow-lg);
     transition: var(--transition);
+}
+
+@keyframes sidebarGradient {
+    0%, 100% { background-position: 0% 0%; }
+    50% { background-position: 0% 100%; }
 }
 
 .admin-sidebar::-webkit-scrollbar {
@@ -189,6 +196,31 @@ body::before {
 .sidebar-logo small {
     color: rgba(255, 255, 255, 0.7);
     font-size: 12px;
+}
+
+/* Sidebar Header (alternative structure) */
+.sidebar-header {
+    padding: var(--spacing-xl) var(--spacing-lg);
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-header .sidebar-logo {
+    width: 70px;
+    height: 70px;
+    border-radius: var(--radius-full);
+    background: var(--white);
+    padding: 8px;
+    margin: 0 auto var(--spacing-md);
+    box-shadow: var(--shadow-md);
+    display: block;
+}
+
+.sidebar-header h3 {
+    color: var(--white);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
 }
 
 .sidebar-nav {
@@ -253,8 +285,11 @@ body::before {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    color: rgba(255, 255, 255, 0.5);
-    margin-top: var(--spacing-xs);
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-xs);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: var(--spacing-sm);
 }
 
 /* Main Content */
@@ -773,12 +808,14 @@ body::before {
     height: 100%;
     background: rgba(0, 0, 0, 0.5);
     z-index: 2000;
-    align-items: center;
-    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
 }
 
 .modal.show {
-    display: flex;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
 }
 
 .modal-dialog {
@@ -789,6 +826,8 @@ body::before {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: var(--shadow-xl);
+    margin: auto;
+    position: relative;
 }
 
 .modal-content {
@@ -799,6 +838,8 @@ body::before {
     max-height: 90vh;
     overflow-y: auto;
     box-shadow: var(--shadow-xl);
+    margin: auto;
+    position: relative;
 }
 
 .modal-header {
