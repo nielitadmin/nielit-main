@@ -170,6 +170,7 @@ body::before {
     border-radius: var(--radius-full);
 }
 
+/* Sidebar Logo - Universal styles for both structures */
 .sidebar-logo {
     padding: var(--spacing-xl) var(--spacing-lg);
     text-align: center;
@@ -207,7 +208,8 @@ body::before {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.sidebar-header .sidebar-logo {
+.sidebar-header .sidebar-logo,
+.sidebar-header img.sidebar-logo {
     width: 80px;
     height: 80px;
     border-radius: var(--radius-full);
