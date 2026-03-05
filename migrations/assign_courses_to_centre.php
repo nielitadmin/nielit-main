@@ -54,18 +54,21 @@ if ($result_unassigned && $result_unassigned->num_rows > 0) {
     exit;
 }
 
-// Step 2: Get NIELIT Bhubaneswar centre ID
-echo "<h2>Step 2: Getting Default Centre</h2>";
+// Step 2: Get training centres
+echo "<h2>Step 2: Getting Training Centres</h2>";
 
-$sql_centre = "SELECT id, name FROM centres WHERE name LIKE '%NIELIT%Bhubaneswar%' OR code = 'BBSR' LIMIT 1";
-$result_centre = $conn->query($sql_centre);
+$sql_bbsr = "SELECT id, name FROM centres WHERE name LIKE '%NIELIT%Bhubaneswar%' OR code = 'BBSR' LIMIT 1";
+$result_bbsr = $conn->query($sql_bbsr);
 
-if ($result_centre && $result_centre->num_rows > 0) {
-    $centre = $result_centre->fetch_assoc();
-    $centre_id = $centre['id'];
-    $centre_name = $centre['name'];
+$sql_balasore = "SELECT id, name FROM centres WHERE name LIKE '%Balasore%' OR code = 'BALA' LIMIT 1";
+$result_balasore = $conn->query($sql_balasore);
+
+if ($result_bbsr && $result_bbsr->num_rows > 0) {
+    $centre_bbsr = $result_bbsr->fetch_assoc();
+    $centre_id_bbsr = $centre_bbsr['id'];
+    $centre_name_bbsr = $centre_bbsr['name'];
     
-    echo "<div class='success'>✓ Found default centre: <strong>" . htmlspecialchars($centre_name) . "</strong> (ID: $centre_id)</div>";
+    echo "<div class='success'>✓ Found NIELIT Bhubaneswar: <strong>" . htmlspecialchars($centre_name_bbsr) . "</strong> (ID: $centre_id_bbsr)</div>";
 } else {
     echo "<div class='error'>✗ Could not find NIELIT Bhubaneswar centre!</div>";
     echo "<p>Please run the centres installation script first.</p>";
@@ -73,19 +76,56 @@ if ($result_centre && $result_centre->num_rows > 0) {
     exit;
 }
 
-// Step 3: Assign all unassigned courses to NIELIT Bhubaneswar
-echo "<h2>Step 3: Assigning Courses to Centre</h2>";
-
-$sql_update = "UPDATE courses SET centre_id = ? WHERE centre_id IS NULL";
-$stmt = $conn->prepare($sql_update);
-$stmt->bind_param("i", $centre_id);
-
-if ($stmt->execute()) {
-    $affected = $stmt->affected_rows;
-    echo "<div class='success'>✓ Successfully assigned <strong>$affected</strong> courses to " . htmlspecialchars($centre_name) . "!</div>";
+if ($result_balasore && $result_balasore->num_rows > 0) {
+    $centre_balasore = $result_balasore->fetch_assoc();
+    $centre_id_balasore = $centre_balasore['id'];
+    $centre_name_balasore = $centre_balasore['name'];
+    
+    echo "<div class='success'>✓ Found NIELIT Balasore: <strong>" . htmlspecialchars($centre_name_balasore) . "</strong> (ID: $centre_id_balasore)</div>";
 } else {
-    echo "<div class='error'>✗ Failed to assign courses: " . $conn->error . "</div>";
+    echo "<div class='error'>✗ Could not find NIELIT Balasore Extension centre!</div>";
+    echo "<p>Please run the centres installation script first.</p>";
+    echo "</body></html>";
+    exit;
 }
+
+// Step 3: Assign courses to appropriate centres
+echo "<h2>Step 3: Assigning Courses to Centres</h2>";
+
+// First, assign Balasore courses
+$sql_update_balasore = "UPDATE courses SET centre_id = ? WHERE centre_id IS NULL AND (course_name LIKE '%Balasore%' OR course_name LIKE '%balasore%')";
+$stmt_balasore = $conn->prepare($sql_update_balasore);
+$stmt_balasore->bind_param("i", $centre_id_balasore);
+
+if ($stmt_balasore->execute()) {
+    $affected_balasore = $stmt_balasore->affected_rows;
+    if ($affected_balasore > 0) {
+        echo "<div class='success'>✓ Assigned <strong>$affected_balasore</strong> Balasore course(s) to " . htmlspecialchars($centre_name_balasore) . "!</div>";
+    } else {
+        echo "<div class='info'>ℹ️ No Balasore courses found to assign.</div>";
+    }
+} else {
+    echo "<div class='error'>✗ Failed to assign Balasore courses: " . $conn->error . "</div>";
+}
+
+// Then, assign all remaining unassigned courses to Bhubaneswar
+$sql_update_bbsr = "UPDATE courses SET centre_id = ? WHERE centre_id IS NULL";
+$stmt_bbsr = $conn->prepare($sql_update_bbsr);
+$stmt_bbsr->bind_param("i", $centre_id_bbsr);
+
+if ($stmt_bbsr->execute()) {
+    $affected_bbsr = $stmt_bbsr->affected_rows;
+    if ($affected_bbsr > 0) {
+        echo "<div class='success'>✓ Assigned <strong>$affected_bbsr</strong> course(s) to " . htmlspecialchars($centre_name_bbsr) . "!</div>";
+    } else {
+        echo "<div class='info'>ℹ️ No additional courses to assign to Bhubaneswar.</div>";
+    }
+} else {
+    echo "<div class='error'>✗ Failed to assign courses to Bhubaneswar: " . $conn->error . "</div>";
+}
+
+$total_assigned = $affected_balasore + $affected_bbsr;
+echo "<div class='success'><strong>Total courses assigned: $total_assigned</strong></div>";
 
 // Step 4: Verify the assignment
 echo "<h2>Step 4: Verification</h2>";
@@ -141,11 +181,16 @@ if ($row_check['count'] > 0) {
 
 echo "<hr>";
 echo "<h2>✅ Assignment Complete!</h2>";
-echo "<p>All unassigned courses have been assigned to " . htmlspecialchars($centre_name) . ".</p>";
+echo "<p>Courses have been assigned to their respective training centres:</p>";
+echo "<ul>";
+echo "<li>Balasore courses → " . htmlspecialchars($centre_name_balasore) . "</li>";
+echo "<li>All other courses → " . htmlspecialchars($centre_name_bbsr) . "</li>";
+echo "</ul>";
 
 echo "<h3>Next Steps:</h3>";
 echo "<p><a href='../public/courses.php' class='btn'>View Courses Page</a></p>";
 echo "<p><a href='../admin/manage_centres.php' class='btn'>Manage Centres</a></p>";
+echo "<p><a href='../admin/manage_courses.php' class='btn'>Manage Courses</a></p>";
 
 echo "<hr>";
 echo "<p style='text-align: center; color: #666;'>NIELIT Bhubaneswar - Course Assignment Script</p>";

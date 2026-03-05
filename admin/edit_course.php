@@ -82,6 +82,7 @@ if (isset($_POST['update_course'])) {
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'];
+    $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
     $link_published = isset($_POST['link_published']) ? 1 : 0;
     $description_pdf = $course['description_pdf'];
     $course_flyer = $course['course_flyer'] ?? '';
@@ -163,11 +164,12 @@ if (isset($_POST['update_course'])) {
         apply_link = ?,
         course_coordinator = ?,
         training_center = ?,
+        centre_id = ?,
         link_published = ?
         WHERE id = ?";
 
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("sssssssssssssssii",
+    $stmt->bind_param("sssssssssssssssiiii",
         $course_name,
         $course_code,
         $course_abbreviation,
@@ -183,6 +185,10 @@ if (isset($_POST['update_course'])) {
         $apply_link,
         $course_coordinator,
         $training_center,
+        $centre_id,
+        $link_published,
+        $course_id
+    );
         $link_published,
         $course_id
     );
@@ -405,10 +411,22 @@ if (isset($_POST['update_course'])) {
                         </div>
                         <div class="form-group">
                             <label class="form-label">Training Centre *</label>
-                            <select class="form-select" name="training_center" required>
-                                <option value="NIELIT BHUBANESWAR" <?php if ($course['training_center'] == 'NIELIT BHUBANESWAR' || $course['training_center'] == 'NIELIT BHUBANESWAR CENTER') echo 'selected'; ?>>NIELIT BHUBANESWAR</option>
-                                <option value="NIELIT EXTENDED CENTER BALASORE" <?php if ($course['training_center'] == 'NIELIT EXTENDED CENTER BALASORE') echo 'selected'; ?>>NIELIT BALASORE EXTENSION CENTRE</option>
+                            <select class="form-select" name="centre_id" required>
+                                <option value="">--Select Training Centre--</option>
+                                <?php
+                                // Fetch all active centres
+                                $centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name";
+                                $centres_result = $conn->query($centres_query);
+                                
+                                if ($centres_result && $centres_result->num_rows > 0) {
+                                    while ($centre = $centres_result->fetch_assoc()) {
+                                        $selected = ($course['centre_id'] == $centre['id']) ? 'selected' : '';
+                                        echo '<option value="' . $centre['id'] . '" ' . $selected . '>' . htmlspecialchars($centre['name']) . '</option>';
+                                    }
+                                }
+                                ?>
                             </select>
+                            <input type="hidden" name="training_center" value="<?php echo htmlspecialchars($course['training_center'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Start Date *</label>
