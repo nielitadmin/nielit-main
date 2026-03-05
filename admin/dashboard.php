@@ -21,7 +21,7 @@ $filter_category = $_GET['category'] ?? 'all';
 
 // Build query with filter and student count
 $sql = "SELECT courses.*, 
-        (SELECT COUNT(*) FROM students WHERE students.course_name = courses.course_name) as student_count 
+        (SELECT COUNT(*) FROM students WHERE students.course = courses.course_name) as student_count 
         FROM courses";
 if ($filter_category !== 'all') {
     $sql .= " WHERE category = ?";
@@ -446,7 +446,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                         $student_count = $row['student_count'] ?? 0;
                                         $badge_class = $student_count > 0 ? 'badge-success' : 'badge-secondary';
                                         ?>
-                                        <a href="students.php?course=<?php echo urlencode($row['course_name']); ?>" 
+                                        <a href="students.php?filter_course=<?php echo urlencode($row['course_name']); ?>" 
                                            class="badge <?php echo $badge_class; ?>" 
                                            style="text-decoration: none; font-size: 14px; padding: 6px 12px;">
                                             <i class="fas fa-users"></i> <?php echo $student_count; ?>
