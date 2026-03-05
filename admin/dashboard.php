@@ -19,8 +19,10 @@ $theme_logo = getThemeLogo($active_theme);
 // Get filter parameter
 $filter_category = $_GET['category'] ?? 'all';
 
-// Build query with filter
-$sql = "SELECT * FROM courses";
+// Build query with filter and student count
+$sql = "SELECT courses.*, 
+        (SELECT COUNT(*) FROM students WHERE students.course_name = courses.course_name) as student_count 
+        FROM courses";
 if ($filter_category !== 'all') {
     $sql .= " WHERE category = ?";
 }
@@ -404,6 +406,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                 <th>Duration</th>
                                 <th>Fees</th>
                                 <th>Start Date</th>
+                                <th>Students</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -439,6 +442,17 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                     <td>₹<?php echo is_numeric($row['training_fees']) ? number_format($row['training_fees']) : htmlspecialchars($row['training_fees']); ?></td>
                                     <td><?php echo date('d M Y', strtotime($row['start_date'])); ?></td>
                                     <td>
+                                        <?php 
+                                        $student_count = $row['student_count'] ?? 0;
+                                        $badge_class = $student_count > 0 ? 'badge-success' : 'badge-secondary';
+                                        ?>
+                                        <a href="students.php?course=<?php echo urlencode($row['course_name']); ?>" 
+                                           class="badge <?php echo $badge_class; ?>" 
+                                           style="text-decoration: none; font-size: 14px; padding: 6px 12px;">
+                                            <i class="fas fa-users"></i> <?php echo $student_count; ?>
+                                        </a>
+                                    </td>
+                                    <td>
                                         <a href="edit_course.php?id=<?php echo $row['id']; ?>" class="btn btn-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -452,7 +466,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                 <?php endwhile; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="6" style="text-align: center; padding: 40px; color: #64748b;">
+                                    <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
                                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
                                         <p style="margin: 0; font-size: 16px;">No courses found. Click "Add New Course" to get started.</p>
                                     </td>
