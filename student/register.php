@@ -55,6 +55,14 @@ if ($result->num_rows === 0) {
 }
 
 $course_details = $result->fetch_assoc();
+
+// Check if the registration link is active
+if (!isset($course_details['link_published']) || $course_details['link_published'] != 1) {
+    $_SESSION['error'] = 'Registration for this course is currently closed. Please contact the administration for more information.';
+    header('Location: ' . APP_URL . '/public/courses.php');
+    exit();
+}
+
 $selected_course = $course_details['course_name'];
 ?>
 <!DOCTYPE html>

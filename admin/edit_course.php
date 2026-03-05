@@ -499,29 +499,52 @@ if (isset($_POST['update_course'])) {
                         <div class="form-group">
                             <label class="form-label">Apply Link</label>
                             <div style="display: flex; gap: 8px;">
-                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo htmlspecialchars($course['apply_link'] ?? ''); ?>" placeholder="https://...">
+                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo htmlspecialchars($course['apply_link'] ?? ''); ?>" placeholder="https://..." readonly>
+                                <?php if (empty($course['apply_link'])): ?>
                                 <button type="button" class="btn btn-success" onclick="generateApplyLinkEdit()" style="white-space: nowrap;">
                                     <i class="fas fa-magic"></i> Generate Link
                                 </button>
+                                <?php else: ?>
+                                <button type="button" class="btn btn-warning" onclick="regenerateApplyLink()" style="white-space: nowrap;">
+                                    <i class="fas fa-sync-alt"></i> Regenerate
+                                </button>
+                                <?php endif; ?>
                             </div>
                             <small class="text-muted">Registration link for students</small>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Publish Status</label>
+                            <label class="form-label">Link Status</label>
                             <div style="padding-top: 8px;">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="link_published" id="edit_link_published" value="1" <?php echo ($course['link_published'] ?? 0) ? 'checked' : ''; ?> style="width: 20px; height: 20px;">
-                                    <span id="edit_publish_status"><?php echo ($course['link_published'] ?? 0) ? 'Published' : 'Unpublished'; ?></span>
+                                    <span id="edit_publish_status" style="<?php echo ($course['link_published'] ?? 0) ? 'color: #28a745; font-weight: bold;' : 'color: #dc3545; font-weight: bold;'; ?>">
+                                        <?php echo ($course['link_published'] ?? 0) ? '✓ Active' : '✗ Inactive'; ?>
+                                    </span>
                                 </label>
                             </div>
-                            <small class="text-muted">Show/hide on website</small>
+                            <small class="text-muted"><?php echo ($course['link_published'] ?? 0) ? 'Students can register' : 'Registration disabled'; ?></small>
                         </div>
                     </div>
                     
                     <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-top: 12px;">
-                        <strong><i class="fas fa-info-circle"></i> Preview:</strong> 
-                        <span id="link_preview_edit"><?php echo !empty($course['apply_link']) ? htmlspecialchars($course['apply_link']) : 'Click "Generate Link" to create registration URL'; ?></span>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong><i class="fas fa-info-circle"></i> Link Preview:</strong> 
+                                <span id="link_preview_edit"><?php echo !empty($course['apply_link']) ? htmlspecialchars($course['apply_link']) : 'Click "Generate Link" to create registration URL'; ?></span>
+                            </div>
+                            <?php if (!empty($course['apply_link'])): ?>
+                            <span style="padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; <?php echo ($course['link_published'] ?? 0) ? 'background: #d4edda; color: #155724;' : 'background: #f8d7da; color: #721c24;'; ?>">
+                                <?php echo ($course['link_published'] ?? 0) ? '✓ ACTIVE' : '✗ INACTIVE'; ?>
+                            </span>
+                            <?php endif; ?>
+                        </div>
                     </div>
+                    
+                    <?php if (!empty($course['apply_link']) && !($course['link_published'] ?? 0)): ?>
+                    <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 12px; border-left: 4px solid #ffc107;">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Warning:</strong> This registration link is currently INACTIVE. Students cannot register until you activate it by checking the "Link Status" checkbox above and saving the course.
+                    </div>
+                    <?php endif; ?>
                     
                     <?php if (!empty($course['qr_code_path'])): ?>
                     <div style="background: #e3f2fd; padding: 16px; border-radius: 6px; margin-top: 12px;">
@@ -973,18 +996,45 @@ function generateApplyLinkEdit() {
     });
 }
 
-// Toggle publish status label
+// Toggle link status label
 document.addEventListener('DOMContentLoaded', function() {
     const publishCheckbox = document.getElementById('edit_link_published');
     if (publishCheckbox) {
         publishCheckbox.addEventListener('change', function() {
             const statusSpan = document.getElementById('edit_publish_status');
-            statusSpan.textContent = this.checked ? 'Published' : 'Unpublished';
-            statusSpan.style.color = this.checked ? '#28a745' : '';
-            statusSpan.style.fontWeight = this.checked ? 'bold' : '';
+            const smallText = statusSpan.parentElement.parentElement.nextElementSibling;
+            
+            if (this.checked) {
+                statusSpan.textContent = '✓ Active';
+                statusSpan.style.color = '#28a745';
+                statusSpan.style.fontWeight = 'bold';
+                smallText.textContent = 'Students can register';
+                toast.success('Registration link activated!');
+            } else {
+                statusSpan.textContent = '✗ Inactive';
+                statusSpan.style.color = '#dc3545';
+                statusSpan.style.fontWeight = 'bold';
+                smallText.textContent = 'Registration disabled';
+                toast.warning('Registration link deactivated!');
+            }
         });
     }
 });
+
+// Regenerate Apply Link (with confirmation)
+async function regenerateApplyLink() {
+    const confirmed = await showModernConfirm({
+        title: 'Regenerate Registration Link?',
+        message: 'This will create a new registration link and QR code. The old link will stop working. Are you sure?',
+        confirmText: 'Yes, Regenerate',
+        cancelText: 'Cancel',
+        type: 'warning'
+    });
+    
+    if (confirmed) {
+        generateApplyLinkEdit();
+    }
+}
 
 // Confirm Remove PDF
 async function confirmRemovePDF(courseId) {
