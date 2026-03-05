@@ -177,12 +177,14 @@ body::before {
 }
 
 .sidebar-logo img {
-    width: 70px;
-    height: 70px;
+    width: 80px;
+    height: 80px;
     border-radius: var(--radius-full);
     background: var(--white);
-    padding: 8px;
-    margin-bottom: var(--spacing-md);
+    padding: 10px;
+    margin: 0 auto var(--spacing-md);
+    display: block;
+    object-fit: contain;
     box-shadow: var(--shadow-md);
 }
 
@@ -206,14 +208,15 @@ body::before {
 }
 
 .sidebar-header .sidebar-logo {
-    width: 70px;
-    height: 70px;
+    width: 80px;
+    height: 80px;
     border-radius: var(--radius-full);
     background: var(--white);
-    padding: 8px;
+    padding: 10px;
     margin: 0 auto var(--spacing-md);
     box-shadow: var(--shadow-md);
     display: block;
+    object-fit: contain;
 }
 
 .sidebar-header h3 {
