@@ -169,7 +169,7 @@ if (isset($_POST['update_course'])) {
         WHERE id = ?";
 
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("sssssssssssssssiiii",
+    $stmt->bind_param("sssssssssssssssiii",
         $course_name,
         $course_code,
         $course_abbreviation,
