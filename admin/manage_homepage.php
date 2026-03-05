@@ -851,6 +851,9 @@ $content_sections = getAllContentSections($conn);
                         <a href="manage_announcements.php" class="btn btn-secondary">
                             <i class="fas fa-bullhorn"></i> Manage Announcements
                         </a>
+                        <a href="manage_navigation.php" class="btn btn-secondary">
+                            <i class="fas fa-bars"></i> Edit Navigation Menu
+                        </a>
                         <button class="btn btn-primary" onclick="openAddModal()">
                             <i class="fas fa-plus"></i> Add Content Section
                         </button>

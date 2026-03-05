@@ -14,10 +14,24 @@
     <?php 
     require_once __DIR__ . '/config/config.php';
     require_once __DIR__ . '/includes/theme_loader.php';
+    require_once __DIR__ . '/includes/navigation_helper.php';
     
     // Load active theme
     $active_theme = loadActiveTheme($conn);
     $theme_logo = getThemeLogo($active_theme);
+    
+    // Load navigation menu from database (with fallback to hardcoded menu)
+    $navigation_menu_html = '';
+    if (navigationMenuTableExists($conn)) {
+        $menu_items = getNavigationMenu($conn);
+        $current_page = basename($_SERVER['PHP_SELF']);
+        $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
+    }
+    
+    // Use fallback if no menu items found
+    if (empty($navigation_menu_html)) {
+        $navigation_menu_html = getFallbackNavigationMenu();
+    }
     
     // Inject theme CSS
     injectThemeCSS($active_theme);
@@ -505,33 +519,7 @@
 
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link active" href="index.php">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="DGR/index.php">Job Fair</a></li>
-                    
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="Membership_Form/index.php">Membership Form</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="public/courses.php">Courses Offered</a></li>
-                            <li><a class="dropdown-item" href="student/login.php">Student Portal</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="admin/login.php">Admin Login</a></li>
-                            <li><a class="dropdown-item" href="/Salary_Slip/login.php">Finance Login</a></li>
-                            <li><a class="dropdown-item" href="/Nielit_Project/index.php">Certificate</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="public/contact.php">Contact</a></li>
+                    <?php echo $navigation_menu_html; ?>
                 </ul>
             </div>
         </div>

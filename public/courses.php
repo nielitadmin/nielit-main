@@ -17,7 +17,7 @@ $result_centres = $conn->query($sql_centres);
 // Build WHERE clause for centre filter
 $centre_condition = "";
 if ($centre_filter > 0) {
-    $centre_condition = " AND centre_id = " . $centre_filter;
+    $centre_condition = " AND courses.centre_id = " . $centre_filter;
 }
 
 // Fetch courses for each category - ONLY SHOW PUBLISHED COURSES
