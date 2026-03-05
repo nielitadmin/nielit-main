@@ -189,9 +189,6 @@ if (isset($_POST['update_course'])) {
         $link_published,
         $course_id
     );
-        $link_published,
-        $course_id
-    );
 
     if ($stmt->execute()) {
         // Handle scheme associations (only if table exists)
