@@ -457,12 +457,16 @@ $batches_result = $conn->query($batches_query);
                     <i class="fas fa-layer-group"></i> Batches
                 </a>
             </div>
+            
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
             <div class="nav-item">
                 <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link">
                     <i class="fas fa-project-diagram"></i> Schemes/Projects
                 </a>
             </div>
+            <?php endif; ?>
             
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
             <div class="nav-divider"></div>
             <div class="nav-section-title">System Settings</div>
             
@@ -483,17 +487,27 @@ $batches_result = $conn->query($batches_query);
             </div>
             
             <div class="nav-divider"></div>
+            <?php endif; ?>
             
             <div class="nav-item">
                 <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
                     <i class="fas fa-user-check"></i> Approve Students
                 </a>
             </div>
+            
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
             <div class="nav-item">
                 <a href="add_admin.php" class="nav-link">
-                    <i class="fas fa-user-shield"></i> Add Admin
+                    <i class="fas fa-user-plus"></i> Add Admin
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="manage_admins.php" class="nav-link">
+                    <i class="fas fa-users-cog"></i> Manage Admins
+                </a>
+            </div>
+            <?php endif; ?>
+            
             <div class="nav-item">
                 <a href="reset_password.php" class="nav-link">
                     <i class="fas fa-key"></i> Reset Password
@@ -527,7 +541,13 @@ $batches_result = $conn->query($batches_query);
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
-                        <span class="user-role">Administrator</span>
+                        <span class="user-role">
+                            <?php 
+                            echo isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin' 
+                                ? 'Master Administrator' 
+                                : 'Course Coordinator'; 
+                            ?>
+                        </span>
                     </div>
                     <div class="user-avatar">
                         <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>

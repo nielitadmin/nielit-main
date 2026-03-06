@@ -2,50 +2,83 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
-if (!isset($_SESSION['admin'])) {
-    die("Access denied. Please log in as admin.");
+if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_role'])) {
+    header("Location: login.php");
+    exit();
 }
 
 $message = "";
 $new_password = "";
+$reset_type = $_POST['reset_type'] ?? 'student'; // 'student' or 'admin'
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
 
-function generateRandomPassword($length = 8) {
-    $chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()';
-    $password = '';
-    for ($i = 0; $i < $length; $i++) {
-        $password .= $chars[random_int(0, strlen($chars) - 1)];
-    }
-    return $password;
+function generateRandomPassword($length = 16) {
+    return bin2hex(random_bytes($length / 2));
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $student_id = trim($_POST['student_id']);
+    if ($reset_type === 'student') {
+        // Reset Student Password
+        $student_id = trim($_POST['student_id'] ?? '');
 
-    if (empty($student_id)) {
-        $message = "Please enter a Student ID.";
-    } else {
-        // Generate random password like bin2hex(random_bytes(8))
-        $new_password = bin2hex(random_bytes(8)); // 16 hex chars
-
-        // Hash the password
-        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-
-        // Update in database
-        $stmt = $conn->prepare("UPDATE students SET password = ? WHERE student_id = ?");
-        $stmt->bind_param("ss", $hashed_password, $student_id);
-        $stmt->execute();
-
-        if ($stmt->affected_rows > 0) {
-            $message = "Password reset successfully for Student ID: $student_id";
+        if (empty($student_id)) {
+            $message = "Please enter a Student ID.";
         } else {
-            $message = "Student ID not found.";
-            $new_password = "";  // Clear password if update failed
-        }
+            $new_password = generateRandomPassword(16);
+            $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
 
-        $stmt->close();
+            $stmt = $conn->prepare("UPDATE students SET password = ? WHERE student_id = ?");
+            $stmt->bind_param("ss", $hashed_password, $student_id);
+            $stmt->execute();
+
+            if ($stmt->affected_rows > 0) {
+                $message = "Password reset successfully for Student ID: $student_id";
+            } else {
+                $message = "Student ID not found.";
+                $new_password = "";
+            }
+
+            $stmt->close();
+        }
+    } elseif ($reset_type === 'admin' && $is_master_admin) {
+        // Reset Admin Password (Master Admin only)
+        $admin_username = trim($_POST['admin_username'] ?? '');
+
+        if (empty($admin_username)) {
+            $message = "Please enter an Admin Username.";
+        } elseif (strtolower($admin_username) === strtolower($_SESSION['admin'])) {
+            $message = "You cannot reset your own password. Use 'Change Password' instead.";
+        } else {
+            // Check if admin exists
+            $check_stmt = $conn->prepare("SELECT id FROM admin WHERE LOWER(username) = LOWER(?)");
+            $check_stmt->bind_param("s", $admin_username);
+            $check_stmt->execute();
+            $result = $check_stmt->get_result();
+
+            if ($result->num_rows > 0) {
+                $new_password = generateRandomPassword(16);
+                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+
+                $stmt = $conn->prepare("UPDATE admin SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(username) = LOWER(?)");
+                $stmt->bind_param("ss", $hashed_password, $admin_username);
+                $stmt->execute();
+
+                if ($stmt->affected_rows > 0) {
+                    $message = "Password reset successfully for Admin: $admin_username";
+                } else {
+                    $message = "Failed to reset admin password.";
+                    $new_password = "";
+                }
+
+                $stmt->close();
+            } else {
+                $message = "Admin username not found.";
+            }
+
+            $check_stmt->close();
+        }
     }
 }
-
     
 ?>
 
@@ -54,10 +87,69 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Student Password - NIELIT Bhubaneswar</title>
+    <title>Reset Password - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <style>
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            color: #64748b;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 15px;
+        }
+        
+        .tab:hover {
+            color: #0d47a1;
+            background: rgba(13, 71, 161, 0.05);
+        }
+        
+        .tab.active {
+            color: #0d47a1;
+            border-bottom-color: #0d47a1;
+            background: rgba(13, 71, 161, 0.05);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .reset-type-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .badge-student {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .badge-admin {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+    </style>
 </head>
 <body>
 
@@ -91,12 +183,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fas fa-layer-group"></i> Batches
                 </a>
             </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link">
-                    <i class="fas fa-project-diagram"></i> Schemes/Projects
-                </a>
-            </div>
             
+            <?php if ($is_master_admin): ?>
             <div class="nav-divider"></div>
             <div class="nav-section-title">System Settings</div>
             
@@ -115,6 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fas fa-home"></i> Homepage Content
                 </a>
             </div>
+            <?php endif; ?>
             
             <div class="nav-divider"></div>
             
@@ -123,11 +212,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fas fa-user-check"></i> Approve Students
                 </a>
             </div>
+            
+            <?php if ($is_master_admin): ?>
             <div class="nav-item">
                 <a href="add_admin.php" class="nav-link">
-                    <i class="fas fa-user-shield"></i> Add Admin
+                    <i class="fas fa-user-plus"></i> Add Admin
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="manage_admins.php" class="nav-link">
+                    <i class="fas fa-users-cog"></i> Manage Admins
+                </a>
+            </div>
+            <?php endif; ?>
+            
             <div class="nav-item">
                 <a href="reset_password.php" class="nav-link active">
                     <i class="fas fa-key"></i> Reset Password

@@ -4,8 +4,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Check if admin is logged in
-if (!isset($_SESSION['admin'])) {
-    header("Location: login_new.php");
+if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_role'])) {
+    header("Location: login.php");
+    exit();
+}
+
+// Only master_admin can access this page
+if ($_SESSION['admin_role'] !== 'master_admin') {
+    $_SESSION['message'] = "Access denied. Only Master Admins can add new admin accounts.";
+    $_SESSION['message_type'] = "danger";
+    header("Location: dashboard.php");
     exit();
 }
 
@@ -92,6 +100,7 @@ if (isset($_POST['send_otp'])) {
     $new_password = $_POST['password'] ?? '';
     $new_email = trim($_POST['email'] ?? '');
     $new_phone = trim($_POST['phone'] ?? '');
+    $new_role = $_POST['role'] ?? 'course_coordinator';
 
     if ($new_username && $new_password && $new_email && $new_phone) {
         // Check if username already exists
@@ -121,6 +130,7 @@ if (isset($_POST['send_otp'])) {
                     'password' => $new_password,
                     'email' => $new_email,
                     'phone' => $new_phone,
+                    'role' => $new_role,
                     'otp' => $otp,
                     'otp_time' => time()
                 ];
@@ -152,12 +162,14 @@ if (isset($_POST['verify_otp'])) {
         // OTP verified, create admin account
         $admin_data = $_SESSION['temp_admin_data'];
         $hashed_password = password_hash($admin_data['password'], PASSWORD_DEFAULT);
+        $role = $admin_data['role'] ?? 'course_coordinator'; // Default to course_coordinator
 
-        $stmt = $conn->prepare("INSERT INTO admin (username, password, phone, email) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $admin_data['username'], $hashed_password, $admin_data['phone'], $admin_data['email']);
+        $stmt = $conn->prepare("INSERT INTO admin (username, password, phone, email, role) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $admin_data['username'], $hashed_password, $admin_data['phone'], $admin_data['email'], $role);
 
         if ($stmt->execute()) {
-            $success_message = "New admin '" . htmlspecialchars($admin_data['username']) . "' added successfully! Email verified.";
+            $role_display = $role === 'master_admin' ? 'Master Admin' : 'Course Coordinator';
+            $success_message = "New admin '" . htmlspecialchars($admin_data['username']) . "' added successfully as " . $role_display . "! Email verified.";
             unset($_SESSION['temp_admin_data']);
             $show_otp_form = false;
         } else {
@@ -405,7 +417,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
-                        <span class="user-role">Administrator</span>
+                        <span class="user-role"><?php echo $_SESSION['admin_role'] === 'master_admin' ? 'Master Administrator' : 'Course Coordinator'; ?></span>
                     </div>
                     <div class="user-avatar">
                         <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>
@@ -502,6 +514,20 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                                    title="Phone must be 10 digits">
                             <small class="text-muted">10-digit phone number</small>
                         </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-user-shield"></i> Admin Role *
+                        </label>
+                        <select name="role" class="form-select" required style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px;">
+                            <option value="course_coordinator">Course Coordinator</option>
+                            <option value="master_admin">Master Admin</option>
+                        </select>
+                        <small class="text-muted">
+                            <strong>Course Coordinator:</strong> Access to Dashboard, Students, Courses, Batches, Approve Students, Reset Password<br>
+                            <strong>Master Admin:</strong> Full access including admin management
+                        </small>
                     </div>
                     
                     <div style="display: flex; gap: 12px; margin-top: 16px;">
