@@ -646,12 +646,9 @@ $admins_result = $conn->query($admins_query);
                                         </button>
                                     </form>
                                     
-                                    <form method="POST" style="display: inline-block; margin: 0;" onsubmit="return confirm('Are you sure you want to delete this admin account? This action cannot be undone.');">
-                                        <input type="hidden" name="admin_id" value="<?php echo $admin['id']; ?>">
-                                        <button type="submit" name="delete_admin" class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash"></i> Delete
-                                        </button>
-                                    </form>
+                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete(<?php echo $admin['id']; ?>, '<?php echo htmlspecialchars($admin['username'], ENT_QUOTES); ?>')">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
                                 </div>
                                 <?php else: ?>
                                 <div class="admin-actions">
@@ -848,6 +845,67 @@ toast.success('<?php echo addslashes(strip_tags($success_message)); ?>');
 <?php if (!empty($error_message)): ?>
 toast.error('<?php echo addslashes($error_message); ?>');
 <?php endif; ?>
+</script>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal" id="deleteConfirmModal" style="display: none;">
+    <div class="modal-dialog" style="max-width: 500px;">
+        <div class="modal-header" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+            <h5 class="modal-title" style="color: white;"><i class="fas fa-exclamation-triangle"></i> Confirm Delete</h5>
+            <button type="button" class="close-modal" onclick="closeDeleteModal()" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer; padding: 0; width: 30px; height: 30px;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 30px; text-align: center;">
+            <div style="font-size: 64px; color: #ef4444; margin-bottom: 20px;">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <h5 style="color: #1e293b; margin-bottom: 16px; font-size: 20px;">Are you sure?</h5>
+            <p style="color: #64748b; margin-bottom: 24px; font-size: 15px;">
+                You are about to delete the admin account: <strong id="deleteAdminName" style="color: #1e293b;"></strong>
+            </p>
+            <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: left;">
+                <p style="margin: 0; color: #991b1b; font-size: 14px;">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Warning:</strong> This action cannot be undone. All data associated with this admin account will be permanently deleted.
+                </p>
+            </div>
+            <form method="POST" id="deleteAdminForm">
+                <input type="hidden" name="admin_id" id="deleteAdminId">
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" name="delete_admin" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Yes, Delete Admin
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(adminId, adminName) {
+    document.getElementById('deleteAdminId').value = adminId;
+    document.getElementById('deleteAdminName').textContent = adminName;
+    document.getElementById('deleteConfirmModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteConfirmModal').style.display = 'none';
+}
+
+// Close modal when clicking outside
+document.getElementById('deleteConfirmModal')?.addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+
+// Close modal with Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeDeleteModal();
+    }
+});
 </script>
 
 </body>
