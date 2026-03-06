@@ -102,7 +102,10 @@ if (isset($_POST['send_otp'])) {
     $new_phone = trim($_POST['phone'] ?? '');
     $new_role = $_POST['role'] ?? 'course_coordinator';
 
-    if ($new_username && $new_password && $new_email && $new_phone) {
+    if (empty($new_username) || empty($new_password) || empty($new_email) || empty($new_phone)) {
+        $error_message = "All fields are required. Please fill in all fields.";
+        error_log("Validation failed: Missing fields");
+    } else {
         // Check if username already exists
         $check_stmt = $conn->prepare("SELECT id FROM admin WHERE LOWER(username) = LOWER(?)");
         $check_stmt->bind_param("s", $new_username);
@@ -144,8 +147,6 @@ if (isset($_POST['send_otp'])) {
                 }
             }
         }
-    } else {
-        $error_message = "All fields are required.";
     }
 }
 
@@ -381,7 +382,12 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
             </div>
             <div class="nav-item">
                 <a href="add_admin.php" class="nav-link active">
-                    <i class="fas fa-user-shield"></i> Add Admin
+                    <i class="fas fa-user-plus"></i> Add Admin
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="manage_admins.php" class="nav-link">
+                    <i class="fas fa-users-cog"></i> Manage Admins
                 </a>
             </div>
             <div class="nav-item">
@@ -478,6 +484,9 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                 </div>
                 
                 <form method="POST" action="add_admin.php" id="adminForm">
+                    <!-- Hidden input to ensure send_otp is always sent when form submits -->
+                    <input type="hidden" name="send_otp" value="1" id="sendOtpHidden">
+                    
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label class="form-label">
@@ -499,10 +508,18 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                             <label class="form-label">
                                 <i class="fas fa-lock"></i> Password *
                             </label>
-                            <input type="password" class="form-control" name="password" id="password" required 
-                                   minlength="8"
-                                   pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-                                   title="Password must be at least 8 characters with uppercase, lowercase, and number">
+                            <div style="position: relative;">
+                                <input type="password" class="form-control" name="password" id="password" required 
+                                       minlength="8"
+                                       pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
+                                       title="Password must be at least 8 characters with uppercase, lowercase, and number"
+                                       style="padding-right: 45px;">
+                                <button type="button" id="togglePassword" 
+                                        style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; padding: 8px; font-size: 16px;"
+                                        title="Show/Hide Password">
+                                    <i class="fas fa-eye" id="togglePasswordIcon"></i>
+                                </button>
+                            </div>
                             <small class="text-muted">Min 8 characters with uppercase, lowercase, and number</small>
                         </div>
                         <div class="form-group">
@@ -531,7 +548,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                     </div>
                     
                     <div style="display: flex; gap: 12px; margin-top: 16px;">
-                        <button type="submit" name="send_otp" class="btn btn-primary" id="sendOtpBtn">
+                        <button type="submit" class="btn btn-primary" id="sendOtpBtn">
                             <i class="fas fa-paper-plane"></i> Send OTP
                         </button>
                         <a href="dashboard.php" class="btn btn-secondary">
@@ -619,10 +636,10 @@ const sendOtpBtn = document.getElementById('sendOtpBtn');
 
 if (adminForm && sendOtpBtn) {
     adminForm.addEventListener('submit', function(e) {
-        if (sendOtpBtn.name === 'send_otp') {
-            sendOtpBtn.disabled = true;
-            sendOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending OTP...';
-            showToast('Sending OTP email, please wait...', 'info');
+        sendOtpBtn.disabled = true;
+        sendOtpBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending OTP...';
+        if (typeof toast !== 'undefined') {
+            toast.info('Sending OTP email, please wait...');
         }
     });
 }
@@ -666,8 +683,31 @@ if (otpInput) {
     });
 }
 
-// Password strength indicator
+// Password visibility toggle
+const togglePassword = document.getElementById('togglePassword');
 const passwordInput = document.getElementById('password');
+const togglePasswordIcon = document.getElementById('togglePasswordIcon');
+
+if (togglePassword && passwordInput && togglePasswordIcon) {
+    togglePassword.addEventListener('click', function() {
+        // Toggle password visibility
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        
+        // Toggle icon
+        if (type === 'text') {
+            togglePasswordIcon.classList.remove('fa-eye');
+            togglePasswordIcon.classList.add('fa-eye-slash');
+            togglePassword.title = 'Hide Password';
+        } else {
+            togglePasswordIcon.classList.remove('fa-eye-slash');
+            togglePasswordIcon.classList.add('fa-eye');
+            togglePassword.title = 'Show Password';
+        }
+    });
+}
+
+// Password strength indicator
 if (passwordInput) {
     passwordInput.addEventListener('input', function() {
         const password = this.value;
@@ -686,11 +726,15 @@ if (passwordInput) {
 
 // Show toast notifications
 <?php if (!empty($success_message) && !$show_otp_form): ?>
-toast.success('<?php echo addslashes($success_message); ?>');
+if (typeof toast !== 'undefined') {
+    toast.success('<?php echo addslashes($success_message); ?>');
+}
 <?php endif; ?>
 
 <?php if (!empty($error_message)): ?>
-toast.error('<?php echo addslashes($error_message); ?>');
+if (typeof toast !== 'undefined') {
+    toast.error('<?php echo addslashes($error_message); ?>');
+}
 <?php endif; ?>
 </script>
 
