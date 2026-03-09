@@ -675,7 +675,7 @@
         <div class="container">
             <div class="row justify-content-center text-center mb-5">
                 <div class="col-lg-10">
-                    <h2 class="fw-bold mb-3" style="font-size: 2.5rem; background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                    <h2 class="fw-bold mb-4" style="font-size: 2.5rem; background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
                         Welcome to NIELIT Bhubaneswar
                     </h2>
                     <p class="text-muted lead mb-4" style="font-size: 1.15rem; line-height: 1.8;">
@@ -686,9 +686,10 @@
             </div>
 
             <!-- KEY FEATURES -->
-            <div class="mb-5">
-                <div class="text-center mb-4">
-                    <h3 class="fw-bold" style="color: var(--primary-blue);">Key Features</h3>
+            <div class="mb-5 pb-4">
+                <div class="text-center mb-5">
+                    <h3 class="fw-bold mb-2" style="color: var(--primary-blue); font-size: 2rem;">Key Features</h3>
+                    <div style="height: 3px; width: 60px; background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); margin: 0 auto; border-radius: 2px;"></div>
                 </div>
                 <div class="row g-4">
                     <div class="col-md-6 col-lg-3">
@@ -723,9 +724,10 @@
             </div>
 
             <!-- DETAILED INFORMATION -->
-            <div class="mt-5">
-                <div class="text-center mb-4">
-                    <h3 class="fw-bold" style="color: var(--primary-blue);">Detailed Information</h3>
+            <div class="mt-5 pt-5" style="border-top: 2px solid #e3f2fd;">
+                <div class="text-center mb-5">
+                    <h3 class="fw-bold mb-2" style="color: var(--primary-blue); font-size: 2rem;">Detailed Information</h3>
+                    <div style="height: 3px; width: 60px; background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); margin: 0 auto; border-radius: 2px;"></div>
                 </div>
                 <div class="row g-4">
                     <!-- About Us Card -->
