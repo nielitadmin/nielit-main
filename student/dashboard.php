@@ -304,7 +304,7 @@ include 'includes/header.php';
                         <span class="info-value"><?php echo htmlspecialchars($duration); ?></span>
                     </div>
                     <div class="info-row">
-                        <span class="info-label">Training Center:</span>
+                        <span class="info-label">Training Centre:</span>
                         <span class="info-value"><?php echo htmlspecialchars($student['training_center']); ?></span>
                     </div>
                     <div class="info-row">

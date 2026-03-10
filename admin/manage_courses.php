@@ -42,6 +42,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
             
+            // Auto-assign course to course coordinator who created it
+            if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator' && isset($_SESSION['admin_id'])) {
+                $admin_id = $_SESSION['admin_id'];
+                $assigned_by = $_SESSION['admin_id']; // Self-assigned
+                
+                $assign_stmt = $conn->prepare("INSERT INTO admin_course_assignments (admin_id, course_id, is_active, assigned_by, assignment_type) VALUES (?, ?, 1, ?, 'Auto-Assigned')");
+                $assign_stmt->bind_param("iii", $admin_id, $course_id, $assigned_by);
+                $assign_stmt->execute();
+                $assign_stmt->close();
+            }
+            
             // Auto-generate QR code if registration link exists
             if (!empty($registration_link)) {
                 require_once '../includes/qr_helper.php';
@@ -53,12 +64,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt_update->bind_param("si", $qr_result['path'], $course_id);
                     $stmt_update->execute();
                     
-                    $success = "Course added successfully! Registration link and QR code generated.";
+                    $success = "Course added successfully! Registration link and QR code generated. Course automatically assigned to you.";
                 } else {
-                    $success = "Course added successfully! But QR code generation failed.";
+                    $success = "Course added successfully! But QR code generation failed. Course automatically assigned to you.";
                 }
             } else {
-                $success = "Course added successfully! Generate registration link to create QR code.";
+                $success = "Course added successfully! Generate registration link to create QR code. Course automatically assigned to you.";
             }
         } else {
             $error = "Error: " . $conn->error;
@@ -287,7 +298,7 @@ if (!empty($params)) {
                                         <th>Student ID Code</th>
                                         <th>Type</th>
                                         <th>Centre</th>
-                                        <th>Training Center</th>
+                                        <th>Training Centre</th>
                                         <th>Duration</th>
                                         <th>Fees</th>
                                         <th>Registration Link</th>
@@ -431,12 +442,13 @@ if (!empty($params)) {
 
                         <div class="row">
                             <div class="col-md-12 mb-3">
-                                <label class="form-label">Training Center (Legacy) *</label>
+                                <label class="form-label">Training Centre *</label>
                                 <select name="training_center" class="form-control" required>
-                                    <option value="NIELIT BHUBANESWAR">NIELIT BHUBANESWAR</option>
-                                    <option value="NIELIT EXTENDED CENTER BALASORE">NIELIT BALASORE EXTENSION CENTRE</option>
+                                    <option value="">-- Select Training Centre --</option>
+                                    <?php foreach ($centres as $centre): ?>
+                                        <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                    <?php endforeach; ?>
                                 </select>
-                                <small class="text-muted">Legacy field - will be replaced by Training Centre dropdown above</small>
                             </div>
                         </div>
 
@@ -553,12 +565,13 @@ if (!empty($params)) {
 
                         <div class="row">
                             <div class="col-md-12 mb-3">
-                                <label class="form-label">Training Center (Legacy) *</label>
+                                <label class="form-label">Training Centre *</label>
                                 <select name="training_center" id="edit_training_center" class="form-control" required>
-                                    <option value="NIELIT BHUBANESWAR">NIELIT BHUBANESWAR</option>
-                                    <option value="NIELIT EXTENDED CENTER BALASORE">NIELIT BALASORE EXTENSION CENTRE</option>
+                                    <option value="">-- Select Training Centre --</option>
+                                    <?php foreach ($centres as $centre): ?>
+                                        <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                    <?php endforeach; ?>
                                 </select>
-                                <small class="text-muted">Legacy field - will be replaced by Training Centre dropdown above</small>
                             </div>
                         </div>
 

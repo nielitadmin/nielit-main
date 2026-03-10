@@ -101,21 +101,88 @@ if (isset($_POST['update_student'])) {
 }
 
 
-// Query to get total number of students
-$total_students_query = "SELECT COUNT(*) AS total_students FROM students";
-$total_students_result = $conn->query($total_students_query);
+// Get admin's assigned courses for filtering (used throughout the page)
+$admin_courses = [];
+$admin_course_ids = [];
+$is_course_coordinator = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator';
+
+if ($is_course_coordinator) {
+    // Get admin_id from session or fetch from database
+    $admin_id = $_SESSION['admin_id'] ?? null;
+    
+    // If admin_id not in session, fetch it from database using username
+    if (!$admin_id && isset($_SESSION['admin'])) {
+        $admin_username = $_SESSION['admin'];
+        $admin_query = "SELECT id FROM admin WHERE username = ?";
+        $admin_stmt = $conn->prepare($admin_query);
+        $admin_stmt->bind_param("s", $admin_username);
+        $admin_stmt->execute();
+        $admin_result = $admin_stmt->get_result();
+        if ($admin_row = $admin_result->fetch_assoc()) {
+            $admin_id = $admin_row['id'];
+            $_SESSION['admin_id'] = $admin_id; // Store for future use
+        }
+    }
+    
+    // Get assigned courses for this coordinator
+    if ($admin_id) {
+        $course_query = "SELECT c.id, c.course_name 
+                        FROM admin_course_assignments aca
+                        JOIN courses c ON aca.course_id = c.id
+                        WHERE aca.admin_id = ? AND aca.is_active = 1";
+        $course_stmt = $conn->prepare($course_query);
+        $course_stmt->bind_param("i", $admin_id);
+        $course_stmt->execute();
+        $course_result = $course_stmt->get_result();
+        while ($course_row = $course_result->fetch_assoc()) {
+            $admin_courses[] = $course_row['course_name'];
+            $admin_course_ids[] = $course_row['id'];
+        }
+    }
+}
+
+// Query to get total number of students (filtered for coordinators)
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders)";
+    $stmt_total = $conn->prepare($total_students_query);
+    $stmt_total->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+    $stmt_total->execute();
+    $total_students_result = $stmt_total->get_result();
+} else {
+    $total_students_query = "SELECT COUNT(*) AS total_students FROM students";
+    $total_students_result = $conn->query($total_students_query);
+}
 $total_students_row = $total_students_result->fetch_assoc();
 $total_students_count = $total_students_row['total_students'];
 
-// Query to get pending students count
-$pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending'";
-$pending_students_result = $conn->query($pending_students_query);
+// Query to get pending students count (filtered for coordinators)
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course IN ($placeholders)";
+    $stmt_pending = $conn->prepare($pending_students_query);
+    $stmt_pending->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+    $stmt_pending->execute();
+    $pending_students_result = $stmt_pending->get_result();
+} else {
+    $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending'";
+    $pending_students_result = $conn->query($pending_students_query);
+}
 $pending_students_row = $pending_students_result->fetch_assoc();
 $pending_students_count = $pending_students_row['pending_students'];
 
-// Query to get active students count
-$active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active'";
-$active_students_result = $conn->query($active_students_query);
+// Query to get active students count (filtered for coordinators)
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND course IN ($placeholders)";
+    $stmt_active = $conn->prepare($active_students_query);
+    $stmt_active->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+    $stmt_active->execute();
+    $active_students_result = $stmt_active->get_result();
+} else {
+    $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active'";
+    $active_students_result = $conn->query($active_students_query);
+}
 $active_students_row = $active_students_result->fetch_assoc();
 $active_students_count = $active_students_row['active_students'];
 
@@ -169,8 +236,15 @@ while ($row = $category_result->fetch_assoc()) {
     $category_data[$row['category']] = $row['category_count'];
 }
 
-// Fetch all courses for dropdown list
-$sql_courses = "SELECT course_name FROM courses";
+// Fetch courses for dropdown list (filtered for course coordinators)
+if ($is_course_coordinator && !empty($admin_course_ids)) {
+    // Course coordinators only see their assigned courses
+    $course_ids = implode(',', array_map('intval', $admin_course_ids));
+    $sql_courses = "SELECT course_name FROM courses WHERE id IN ($course_ids) ORDER BY course_name";
+} else {
+    // Master admins see all courses
+    $sql_courses = "SELECT course_name FROM courses ORDER BY course_name";
+}
 $courses_result = $conn->query($sql_courses);
 
 // Handle batch assignment
@@ -311,11 +385,17 @@ $selected_course = isset($_GET['filter_course']) ? $_GET['filter_course'] : 'All
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
-// Modified query to include batch information
+// Modified query to include batch information and course filtering for coordinators
 $query = "SELECT s.*, b.batch_name, b.batch_code 
           FROM students s 
           LEFT JOIN batches b ON s.batch_id = b.id 
           WHERE 1=1";
+
+// If course coordinator, only show students from their assigned courses
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $query .= " AND s.course IN ($placeholders)";
+}
 
 if ($selected_course != 'All') {
     $query .= " AND s.course = ?";
@@ -330,12 +410,32 @@ $query .= " ORDER BY s.created_at DESC";
 // Preparing the final query based on the conditions
 $stmt = $conn->prepare($query);
 
-if ($selected_course != 'All' && !empty($start_date) && !empty($end_date)) {
-    $stmt->bind_param("sss", $selected_course, $start_date, $end_date);
-} elseif ($selected_course != 'All') {
-    $stmt->bind_param("s", $selected_course);
-} elseif (!empty($start_date) && !empty($end_date)) {
-    $stmt->bind_param("ss", $start_date, $end_date);
+// Bind parameters dynamically
+$bind_types = '';
+$bind_values = [];
+
+// Add admin courses if coordinator
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $bind_types .= str_repeat('s', count($admin_courses));
+    $bind_values = array_merge($bind_values, $admin_courses);
+}
+
+// Add selected course filter
+if ($selected_course != 'All') {
+    $bind_types .= 's';
+    $bind_values[] = $selected_course;
+}
+
+// Add date range filter
+if (!empty($start_date) && !empty($end_date)) {
+    $bind_types .= 'ss';
+    $bind_values[] = $start_date;
+    $bind_values[] = $end_date;
+}
+
+// Bind parameters if any
+if (!empty($bind_values)) {
+    $stmt->bind_param($bind_types, ...$bind_values);
 }
 
 
@@ -600,14 +700,22 @@ $batches_result = $conn->query($batches_query);
                         <div class="form-group" style="margin-bottom: 0;">
                             <label class="form-label">Filter by Course</label>
                             <select name="filter_course" class="form-select">
-                                <option value="All" <?php if ($selected_course == 'All') echo 'selected'; ?>>All Courses</option>
-                                <?php
-                                $courses_result->data_seek(0);
-                                while ($course = $courses_result->fetch_assoc()) {
-                                    $course_name = $course['course_name'];
-                                    echo "<option value=\"$course_name\" " . ($selected_course == $course_name ? 'selected' : '') . ">{$course_name}</option>";
-                                }
-                                ?>
+                                <?php if ($is_course_coordinator && empty($admin_course_ids)): ?>
+                                    <option value="All">No courses assigned</option>
+                                <?php else: ?>
+                                    <option value="All" <?php if ($selected_course == 'All') echo 'selected'; ?>>
+                                        <?php echo $is_course_coordinator ? 'All My Courses' : 'All Courses'; ?>
+                                    </option>
+                                    <?php
+                                    if ($courses_result && $courses_result->num_rows > 0) {
+                                        $courses_result->data_seek(0);
+                                        while ($course = $courses_result->fetch_assoc()) {
+                                            $course_name = $course['course_name'];
+                                            echo "<option value=\"$course_name\" " . ($selected_course == $course_name ? 'selected' : '') . ">{$course_name}</option>";
+                                        }
+                                    }
+                                    ?>
+                                <?php endif; ?>
                             </select>
                         </div>
                         

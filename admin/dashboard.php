@@ -6,15 +6,65 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/session_manager.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");
     exit();
 }
 
+// Initialize session if role is missing (for backward compatibility)
+if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
+    if (!init_admin_session($_SESSION['admin'])) {
+        // Session initialization failed, redirect to login
+        session_unset();
+        session_destroy();
+        header("Location: login_new.php");
+        exit();
+    }
+}
+
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
+
+// Get admin's assigned courses for filtering (used throughout the page)
+$admin_courses = [];
+$is_course_coordinator = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator';
+
+if ($is_course_coordinator) {
+    // Get admin_id from session or fetch from database
+    $admin_id = $_SESSION['admin_id'] ?? null;
+    
+    // If admin_id not in session, fetch it from database using username
+    if (!$admin_id && isset($_SESSION['admin'])) {
+        $admin_username = $_SESSION['admin'];
+        $admin_query = "SELECT id FROM admin WHERE username = ?";
+        $admin_stmt = $conn->prepare($admin_query);
+        $admin_stmt->bind_param("s", $admin_username);
+        $admin_stmt->execute();
+        $admin_result = $admin_stmt->get_result();
+        if ($admin_row = $admin_result->fetch_assoc()) {
+            $admin_id = $admin_row['id'];
+            $_SESSION['admin_id'] = $admin_id; // Store for future use
+        }
+    }
+    
+    // Get assigned courses for this coordinator
+    if ($admin_id) {
+        $course_query = "SELECT c.id, c.course_name 
+                        FROM admin_course_assignments aca
+                        JOIN courses c ON aca.course_id = c.id
+                        WHERE aca.admin_id = ? AND aca.is_active = 1";
+        $course_stmt = $conn->prepare($course_query);
+        $course_stmt->bind_param("i", $admin_id);
+        $course_stmt->execute();
+        $course_result = $course_stmt->get_result();
+        while ($course_row = $course_result->fetch_assoc()) {
+            $admin_courses[] = $course_row['course_name'];
+        }
+    }
+}
 
 // Get filter parameter
 $filter_category = $_GET['category'] ?? 'all';
@@ -22,16 +72,41 @@ $filter_category = $_GET['category'] ?? 'all';
 // Build query with filter and student count
 $sql = "SELECT courses.*, 
         (SELECT COUNT(*) FROM students WHERE students.course = courses.course_name) as student_count 
-        FROM courses";
-if ($filter_category !== 'all') {
-    $sql .= " WHERE category = ?";
+        FROM courses WHERE 1=1";
+
+// Add course coordinator filtering
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $sql .= " AND courses.course_name IN ($placeholders)";
 }
+
+// Add category filter
+if ($filter_category !== 'all') {
+    $sql .= " AND category = ?";
+}
+
 $sql .= " ORDER BY id DESC";
 
-// Execute query with filter
+// Execute query with filters
+$bind_types = '';
+$bind_values = [];
+
+// Add admin courses if coordinator
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $bind_types .= str_repeat('s', count($admin_courses));
+    $bind_values = array_merge($bind_values, $admin_courses);
+}
+
+// Add category filter
 if ($filter_category !== 'all') {
+    $bind_types .= 's';
+    $bind_values[] = $filter_category;
+}
+
+// Bind parameters if any
+if (!empty($bind_values)) {
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $filter_category);
+    $stmt->bind_param($bind_types, ...$bind_values);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
@@ -74,7 +149,7 @@ if (isset($_POST['add_course'])) {
     $description_url = $_POST['description_url'];
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
-    $training_center = $_POST['training_center'] ?? 'NIELIT BHUBANESWAR CENTER';
+    $training_center = $_POST['training_center'] ?? (!empty($centres) ? $centres[0]['name'] : 'NIELIT BHUBANESWAR');
     $link_published = isset($_POST['link_published']) ? 1 : 0;
     $description_pdf = '';
 
@@ -104,6 +179,17 @@ if (isset($_POST['add_course'])) {
     if ($stmt->execute()) {
         $course_id = $conn->insert_id;
         
+        // Auto-assign course to course coordinator who created it
+        if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator' && isset($_SESSION['admin_id'])) {
+            $admin_id = $_SESSION['admin_id'];
+            $assigned_by = $_SESSION['admin_id']; // Self-assigned
+            
+            $assign_stmt = $conn->prepare("INSERT INTO admin_course_assignments (admin_id, course_id, is_active, assigned_by, assignment_type) VALUES (?, ?, 1, ?, 'Auto-Assigned')");
+            $assign_stmt->bind_param("iii", $admin_id, $course_id, $assigned_by);
+            $assign_stmt->execute();
+            $assign_stmt->close();
+        }
+        
         // Handle scheme associations for new course
         if (isset($_POST['schemes']) && !empty($_POST['schemes'])) {
             $insert_scheme_sql = "INSERT INTO course_schemes (course_id, scheme_id) VALUES (?, ?)";
@@ -126,12 +212,12 @@ if (isset($_POST['add_course'])) {
                 $stmt_update->bind_param("si", $qr_result['path'], $course_id);
                 $stmt_update->execute();
                 
-                $_SESSION['message'] = "Course added successfully! Registration link and QR code generated.";
+                $_SESSION['message'] = "Course added successfully! Registration link and QR code generated. Course automatically assigned to you.";
             } else {
-                $_SESSION['message'] = "Course added successfully! But QR code generation failed.";
+                $_SESSION['message'] = "Course added successfully! But QR code generation failed. Course automatically assigned to you.";
             }
         } else {
-            $_SESSION['message'] = "Course added successfully! Generate registration link to create QR code.";
+            $_SESSION['message'] = "Course added successfully! Generate registration link to create QR code. Course automatically assigned to you.";
         }
         $_SESSION['message_type'] = "success";
     } else {
@@ -144,15 +230,47 @@ if (isset($_POST['add_course'])) {
 }
 
 // Get statistics
-$stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
-$total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+// Total courses (filtered for coordinators)
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $stats_sql = "SELECT COUNT(*) as count FROM courses WHERE course_name IN ($placeholders)";
+    $stats_stmt = $conn->prepare($stats_sql);
+    $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+    $stats_stmt->execute();
+    $stats_result = $stats_stmt->get_result();
+    $total_courses = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+} else {
+    $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
+    $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+}
 
-$stats_query = $conn->query("SELECT COUNT(*) as count FROM students");
-$total_students = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+// Total students (filtered for coordinators)
+if ($is_course_coordinator && !empty($admin_courses)) {
+    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    $stats_sql = "SELECT COUNT(*) as count FROM students WHERE course IN ($placeholders)";
+    $stats_stmt = $conn->prepare($stats_sql);
+    $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+    $stats_stmt->execute();
+    $stats_result = $stats_stmt->get_result();
+    $total_students = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+} else {
+    $stats_query = $conn->query("SELECT COUNT(*) as count FROM students");
+    $total_students = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+}
 
 // System Enhancement Module statistics
 $stats_query = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
 $total_centres = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+
+// Fetch active centres for dropdown
+$centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC";
+$centres_result = $conn->query($centres_query);
+$centres = [];
+if ($centres_result) {
+    while ($centre = $centres_result->fetch_assoc()) {
+        $centres[] = $centre;
+    }
+}
 
 $stats_query = $conn->query("SELECT theme_name FROM themes WHERE is_active = 1 LIMIT 1");
 $active_theme_name = $stats_query && $stats_query->num_rows > 0 ? $stats_query->fetch_assoc()['theme_name'] : 'Default Theme';
@@ -252,6 +370,11 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             <div class="nav-item">
                 <a href="manage_admins.php" class="nav-link">
                     <i class="fas fa-users-cog"></i> Manage Admins
+                </a>
+            </div>
+            <div class="nav-item">
+                <a href="manage_course_assignments.php" class="nav-link">
+                    <i class="fas fa-user-tie"></i> Course Assignments
                 </a>
             </div>
             <?php endif; ?>
@@ -555,10 +678,12 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                         <input type="text" class="form-control" name="course_coordinator" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Training Center *</label>
+                        <label class="form-label">Training Centre *</label>
                         <select class="form-select" name="training_center" required>
-                            <option value="NIELIT BHUBANESWAR CENTER">NIELIT Bhubaneswar Center</option>
-                            <option value="NIELIT EXTENDED CENTER BALASORE">NIELIT Balasore Extension Centre</option>
+                            <option value="">-- Select Training Centre --</option>
+                            <?php foreach ($centres as $centre): ?>
+                                <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div class="form-group">

@@ -340,7 +340,7 @@ getBatchStats($batch_id, $conn)
 - Monitor fees collection
 - Record attendance
 
-### Training Centers
+### Training Centres
 - Organize training batches
 - Approve trainee applications
 - Track batch progress

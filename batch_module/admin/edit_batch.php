@@ -317,7 +317,7 @@ if ($table_check && $table_check->num_rows > 0) {
                                     <option value="NIELIT Bhubaneswar" <?php echo (($batch['location'] ?? 'NIELIT Bhubaneswar') == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
                                     <option value="NIELIT Balasore" <?php echo (($batch['location'] ?? '') == 'NIELIT Balasore') ? 'selected' : ''; ?>>NIELIT Balasore</option>
                                 </select>
-                                <small class="text-muted">Training center location</small>
+                                <small class="text-muted">Training centre location</small>
                             </div>
                             
                             <div class="form-group">

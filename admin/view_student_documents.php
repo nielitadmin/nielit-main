@@ -946,7 +946,7 @@ if ($stmt_education) {
                             <tr>
                                 <td style="background: #f8fafc; font-weight: 600;">College Name</td>
                                 <td><?php echo !empty($student['college_name']) ? htmlspecialchars($student['college_name']) : '-'; ?></td>
-                                <td style="background: #f8fafc; font-weight: 600;">Training Center</td>
+                                <td style="background: #f8fafc; font-weight: 600;">Training Centre</td>
                                 <td><?php echo !empty($student['training_center']) ? htmlspecialchars($student['training_center']) : '-'; ?></td>
                             </tr>
                             <tr>

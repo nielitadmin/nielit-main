@@ -195,7 +195,7 @@ include 'includes/header.php';
                                     <td><?php echo htmlspecialchars($course_name); ?></td>
                                 </tr>
                                 <tr>
-                                    <th>Training Center</th>
+                                    <th>Training Centre</th>
                                     <td><?php echo htmlspecialchars($student['training_center']); ?></td>
                                 </tr>
                                 <tr>

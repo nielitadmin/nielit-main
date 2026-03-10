@@ -204,7 +204,7 @@ $receipt_ext = strtolower(pathinfo($receipt_path, PATHINFO_EXTENSION));
                     <tr><th>District/City</th><td><?php echo $student['city']; ?></td></tr>
                     <tr><th>Pincode</th><td><?php echo $student['pincode']; ?></td></tr>
                     <tr><th>Address for Communication</th><td><?php echo $student['address']; ?></td></tr>
-                    <tr><th>Training Center</th><td><?php echo $student['training_center']; ?></td></tr>
+                    <tr><th>Training Centre</th><td><?php echo $student['training_center']; ?></td></tr>
                     <tr><th>College Name</th><td><?php echo $student['college_name']; ?></td></tr>
                     <tr><th>UTR Number</th><td><?php echo $student['utr_number']; ?></td></tr>
 

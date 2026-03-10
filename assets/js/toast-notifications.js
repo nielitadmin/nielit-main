@@ -17,17 +17,22 @@ class ToastNotification {
         }
     }
 
-    show(message, type = 'info', duration = 4000) {
+    show(message, type = 'info', duration = 4000, options = {}) {
         const toast = document.createElement('div');
-        toast.className = `toast toast-${type} toast-enter`;
+        const animationType = options.animation || type;
+        toast.className = `toast toast-${type} toast-${animationType} toast-enter`;
         
         const icons = {
             success: '<i class="fas fa-check-circle"></i>',
             error: '<i class="fas fa-exclamation-circle"></i>',
             warning: '<i class="fas fa-exclamation-triangle"></i>',
             info: '<i class="fas fa-info-circle"></i>',
-            loading: '<i class="fas fa-spinner fa-spin"></i>'
+            loading: '<i class="fas fa-spinner fa-spin"></i>',
+            delete: '<i class="fas fa-trash-alt"></i>',
+            assignment: '<i class="fas fa-user-plus"></i>'
         };
+
+        const progressBar = duration > 0 ? `<div class="toast-progress" style="width: 100%;"></div>` : '';
 
         toast.innerHTML = `
             <div class="toast-icon">${icons[type] || icons.info}</div>
@@ -37,6 +42,7 @@ class ToastNotification {
             <button class="toast-close" onclick="this.parentElement.remove()">
                 <i class="fas fa-times"></i>
             </button>
+            ${progressBar}
         `;
 
         this.container.appendChild(toast);
@@ -46,6 +52,17 @@ class ToastNotification {
             toast.classList.remove('toast-enter');
             toast.classList.add('toast-show');
         }, 10);
+
+        // Animate progress bar
+        if (duration > 0) {
+            const progressElement = toast.querySelector('.toast-progress');
+            if (progressElement) {
+                setTimeout(() => {
+                    progressElement.style.transition = `width ${duration}ms linear`;
+                    progressElement.style.width = '0%';
+                }, 100);
+            }
+        }
 
         // Auto remove after duration (unless it's a loading toast)
         if (type !== 'loading' && duration > 0) {
@@ -64,14 +81,14 @@ class ToastNotification {
             if (toast.parentElement) {
                 toast.parentElement.removeChild(toast);
             }
-        }, 300);
+        }, 400);
     }
 
     success(message, duration = 4000) {
-        return this.show(message, 'success', duration);
+        return this.show(message, 'success', duration, { animation: 'success' });
     }
 
-    error(message, duration = 5000) {
+    error(message, duration = 4000) {
         return this.show(message, 'error', duration);
     }
 
@@ -85,6 +102,15 @@ class ToastNotification {
 
     loading(message) {
         return this.show(message, 'loading', 0);
+    }
+
+    // Special methods for specific actions
+    deleted(message, duration = 4000) {
+        return this.show(message, 'delete', duration, { animation: 'delete' });
+    }
+
+    assigned(message, duration = 4000) {
+        return this.show(message, 'assignment', duration, { animation: 'assignment' });
     }
 }
 

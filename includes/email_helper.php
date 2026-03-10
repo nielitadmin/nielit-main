@@ -25,7 +25,7 @@ require_once __DIR__ . '/../config/email.php';
  * @param string $student_id Generated student ID
  * @param string $password Generated password
  * @param string $course_name Course name
- * @param string $training_center Training center name
+ * @param string $training_center Training centre name
  * @return bool True on success, false on failure
  */
 function sendRegistrationEmail($to_email, $student_name, $student_id, $password, $course_name, $training_center) {
@@ -133,7 +133,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                             </tr>
                                             <tr>
                                                 <td style="color: #0d47a1; font-weight: 700; font-size: 14px;">
-                                                    Training Center:
+                                                    Training Centre:
                                                 </td>
                                                 <td style="color: #333; font-size: 14px;">
                                                     {$training_center}
@@ -210,7 +210,7 @@ YOUR LOGIN CREDENTIALS:
 Student ID: {$student_id}
 Password: {$password}
 Course: {$course_name}
-Training Center: {$training_center}
+Training Centre: {$training_center}
 
 IMPORTANT: Please save these credentials securely. You will need them to access your student portal.
 

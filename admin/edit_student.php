@@ -829,7 +829,7 @@ $courses_result = $conn->query($sql_courses);
                             <input type="text" name="college_name" class="form-control" value="<?php echo htmlspecialchars($student['college_name'] ?? ''); ?>">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Training Center</label>
+                            <label class="form-label">Training Centre</label>
                             <input type="text" name="training_center" class="form-control" value="<?php echo htmlspecialchars($student['training_center'] ?? ''); ?>">
                         </div>
                     </div>

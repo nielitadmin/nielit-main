@@ -1347,7 +1347,7 @@ if (isset($_SESSION['info'])) {
         </div>
         <div class="alert alert-info mt-3 mb-0" style="font-size: 0.9rem;">
             <i class="fas fa-info-circle me-2"></i>
-            <strong>Note:</strong> Course and training center are locked as you accessed this page via a registration link. You cannot change the course selection.
+            <strong>Note:</strong> Course and training centre are locked as you accessed this page via a registration link. You cannot change the course selection.
         </div>
     </div>
 
@@ -1420,7 +1420,7 @@ if (isset($_SESSION['info'])) {
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label class="form-label">Training Centre <span class="required-mark">*</span></label>
-                        <!-- Locked Training Center -->
+                        <!-- Locked Training Centre -->
                         <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_details['training_center'] ?? 'NIELIT BHUBANESWAR'); ?>" readonly style="background-color: #f0f9ff; cursor: not-allowed;">
                         <input type="hidden" name="training_center" value="<?php echo htmlspecialchars($course_details['training_center'] ?? 'NIELIT BHUBANESWAR'); ?>">
                         <small class="text-muted"><i class="fas fa-lock"></i> Locked by registration link</small>
@@ -2547,7 +2547,7 @@ document.getElementById('state').addEventListener('change', function() {
     updateProgress();
 });
 
-// Filter courses by training center (only if not locked)
+// Filter courses by training centre (only if not locked)
 <?php if (empty($course_details)): ?>
 document.getElementById('training_center').addEventListener('change', function() {
     const selectedCenter = this.value;

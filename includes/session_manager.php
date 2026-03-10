@@ -60,6 +60,7 @@ function init_admin_session($username) {
             
             // Set basic session variables
             $_SESSION['admin'] = $admin['username'];
+            $_SESSION['admin_logged_in'] = true;
             $_SESSION['admin_id'] = $admin['id'];
             $_SESSION['admin_role'] = $admin['role'];
             $_SESSION['admin_email'] = $admin['email'];

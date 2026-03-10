@@ -412,7 +412,7 @@ unset(
 
                         <?php if ($training_center): ?>
                         <div class="credential-item">
-                            <span class="credential-label">Training Center</span>
+                            <span class="credential-label">Training Centre</span>
                             <span class="credential-value" style="font-size:14px;font-family:Arial,sans-serif;">
                                 <?php echo htmlspecialchars($training_center); ?>
                             </span>

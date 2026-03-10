@@ -412,7 +412,7 @@ $pdf->Ln(2);
 
 $pdf->SetFont('helvetica', 'B', 8);
 $pdf->SetFillColor(227, 242, 253);
-$pdf->Cell(55, 7, 'TRAINING CENTER', 1, 0, 'L', true);
+$pdf->Cell(55, 7, 'TRAINING CENTRE', 1, 0, 'L', true);
 $pdf->SetFont('helvetica', '', 9);
 $pdf->Cell(0, 7, $student['training_center'] ?? 'NIELIT BHUBANESWAR CENTER', 1, 1, 'L');
 

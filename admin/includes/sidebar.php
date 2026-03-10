@@ -2,6 +2,9 @@
 // Sidebar navigation with role-based access control
 // This file should be included in all admin pages
 
+// Include config for APP_URL and other constants
+require_once __DIR__ . '/../../config/config.php';
+
 // Ensure session is started and role is set
 if (!isset($_SESSION['admin_role'])) {
     $_SESSION['admin_role'] = 'course_coordinator'; // Default fallback
@@ -82,6 +85,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="nav-item">
             <a href="manage_admins.php" class="nav-link <?php echo ($current_page === 'manage_admins.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users-cog"></i> Manage Admins
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="manage_course_assignments.php" class="nav-link <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-tie"></i> Course Assignments
             </a>
         </div>
         <?php endif; ?>

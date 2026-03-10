@@ -550,7 +550,7 @@ function formatStudentDetails(student) {
                         <div style="font-size: 14px; color: #1e293b;">${student.college_name || 'N/A'}</div>
                     </div>
                     <div>
-                        <label style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Training Center</label>
+                        <label style="font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 600;">Training Centre</label>
                         <div style="font-size: 14px; color: #1e293b;">${student.training_center || 'N/A'}</div>
                     </div>
                     <div>
