@@ -295,17 +295,35 @@ function rejectStudent($student_id, $admin_name, $conn) {
 /**
  * Get pending students
  */
-function getPendingStudents($conn) {
+function getPendingStudents($conn, $admin_courses = []) {
     $sql = "SELECT s.*, c.course_name 
             FROM students s 
             LEFT JOIN courses c ON s.course = c.course_name 
-            WHERE s.status = 'Pending' 
-            ORDER BY s.created_at DESC";
-    $result = $conn->query($sql);
+            WHERE s.status = 'Pending'";
+    
+    // Add course filtering for coordinators
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $sql .= " AND s.course IN ($placeholders)";
+    }
+    
+    $sql .= " ORDER BY s.created_at DESC";
+    
+    // Prepare and execute query
+    if (!empty($admin_courses)) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $result = $conn->query($sql);
+    }
     
     $students = [];
-    while ($row = $result->fetch_assoc()) {
-        $students[] = $row;
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $students[] = $row;
+        }
     }
     
     return $students;

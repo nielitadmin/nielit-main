@@ -2,10 +2,22 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
+require_once __DIR__ . '/../../includes/session_manager.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login_new.php");
     exit();
+}
+
+// Initialize session if role is missing (for backward compatibility)
+if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
+    if (!init_admin_session($_SESSION['admin'])) {
+        // Session initialization failed, redirect to login
+        session_unset();
+        session_destroy();
+        header("Location: ../../admin/login_new.php");
+        exit();
+    }
 }
 
 $message = '';
@@ -51,8 +63,46 @@ if (!$test_query || $test_query->num_rows === 0) {
     </div>');
 }
 
-// Get pending students
-$pending_students = getPendingStudents($conn);
+// Get admin's assigned courses for filtering (used throughout the page)
+$admin_courses = [];
+$is_course_coordinator = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator';
+
+if ($is_course_coordinator) {
+    // Get admin_id from session or fetch from database
+    $admin_id = $_SESSION['admin_id'] ?? null;
+    
+    // If admin_id not in session, fetch it from database using username
+    if (!$admin_id && isset($_SESSION['admin'])) {
+        $admin_username = $_SESSION['admin'];
+        $admin_query = "SELECT id FROM admin WHERE username = ?";
+        $admin_stmt = $conn->prepare($admin_query);
+        $admin_stmt->bind_param("s", $admin_username);
+        $admin_stmt->execute();
+        $admin_result = $admin_stmt->get_result();
+        if ($admin_row = $admin_result->fetch_assoc()) {
+            $admin_id = $admin_row['id'];
+            $_SESSION['admin_id'] = $admin_id; // Store for future use
+        }
+    }
+    
+    // Get assigned courses for this coordinator
+    if ($admin_id) {
+        $course_query = "SELECT c.id, c.course_name 
+                        FROM admin_course_assignments aca
+                        JOIN courses c ON aca.course_id = c.id
+                        WHERE aca.admin_id = ? AND aca.is_active = 1";
+        $course_stmt = $conn->prepare($course_query);
+        $course_stmt->bind_param("i", $admin_id);
+        $course_stmt->execute();
+        $course_result = $course_stmt->get_result();
+        while ($course_row = $course_result->fetch_assoc()) {
+            $admin_courses[] = $course_row['course_name'];
+        }
+    }
+}
+
+// Get pending students (filtered for coordinators)
+$pending_students = getPendingStudents($conn, $admin_courses);
 
 // Get active batches for dropdown
 $active_batches = getActiveBatches($conn);
@@ -192,6 +242,11 @@ $active_batches = getActiveBatches($conn);
                     <i class="fas fa-users-cog"></i> Manage Admins
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="../../admin/manage_course_assignments.php" class="nav-link">
+                    <i class="fas fa-user-tie"></i> Course Assignments
+                </a>
+            </div>
             <?php endif; ?>
             
             <div class="nav-item">
@@ -257,11 +312,36 @@ $active_batches = getActiveBatches($conn);
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-clock"></i> Pending Approvals
+                        <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
+                            <small style="color: #64748b; font-weight: normal;">
+                                (Showing students from your assigned courses: <?php echo implode(', ', $admin_courses); ?>)
+                            </small>
+                        <?php endif; ?>
                         <span class="badge badge-warning" style="margin-left: 8px;"><?php echo count($pending_students); ?></span>
                     </h5>
                 </div>
                 
-                <?php if (!empty($pending_students)): ?>
+                <?php if ($is_course_coordinator && empty($admin_courses)): ?>
+                    <!-- No Course Assignments Message for Coordinators -->
+                    <div class="card-body text-center" style="padding: 3rem;">
+                        <div style="color: #64748b; margin-bottom: 1.5rem;">
+                            <i class="fas fa-user-check" style="font-size: 4rem; opacity: 0.3;"></i>
+                        </div>
+                        <h4 style="color: #374151; margin-bottom: 1rem;">No Course Assignments</h4>
+                        <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                            You haven't been assigned to any courses yet. Please contact the Master Admin to assign courses to your coordinator account.
+                        </p>
+                        <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <small style="color: #6b7280;">
+                                <i class="fas fa-info-circle"></i> 
+                                Course coordinators can only approve students from their assigned courses.
+                            </small>
+                        </div>
+                        <a href="../../admin/dashboard.php" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                <?php elseif (!empty($pending_students)): ?>
                     <?php foreach ($pending_students as $student): ?>
                         <div class="student-card">
                             <div class="student-info">
@@ -320,7 +400,14 @@ $active_batches = getActiveBatches($conn);
                 <?php else: ?>
                     <div style="text-align: center; padding: 40px; color: #64748b;">
                         <i class="fas fa-check-circle" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3; color: #10b981;"></i>
-                        <p style="margin: 0; font-size: 16px;">No pending approvals. All students have been processed!</p>
+                        <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
+                            <p style="margin: 0; font-size: 16px;">No pending approvals for your assigned courses!</p>
+                            <small style="color: #6b7280; margin-top: 8px; display: block;">
+                                All students from your courses (<?php echo implode(', ', $admin_courses); ?>) have been processed.
+                            </small>
+                        <?php else: ?>
+                            <p style="margin: 0; font-size: 16px;">No pending approvals. All students have been processed!</p>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
