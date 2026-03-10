@@ -142,49 +142,82 @@ if ($is_course_coordinator) {
 }
 
 // Query to get total number of students (filtered for coordinators)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders)";
-    $stmt_total = $conn->prepare($total_students_query);
-    $stmt_total->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
-    $stmt_total->execute();
-    $total_students_result = $stmt_total->get_result();
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders)";
+        $stmt_total = $conn->prepare($total_students_query);
+        $stmt_total->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_total->execute();
+        $total_students_result = $stmt_total->get_result();
+    } else {
+        // Coordinator has no assigned courses - return 0
+        $total_students_result = null;
+        $total_students_count = 0;
+    }
 } else {
     $total_students_query = "SELECT COUNT(*) AS total_students FROM students";
     $total_students_result = $conn->query($total_students_query);
 }
-$total_students_row = $total_students_result->fetch_assoc();
-$total_students_count = $total_students_row['total_students'];
+
+if ($total_students_result) {
+    $total_students_row = $total_students_result->fetch_assoc();
+    $total_students_count = $total_students_row['total_students'];
+} else if (!isset($total_students_count)) {
+    $total_students_count = 0;
+}
 
 // Query to get pending students count (filtered for coordinators)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course IN ($placeholders)";
-    $stmt_pending = $conn->prepare($pending_students_query);
-    $stmt_pending->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
-    $stmt_pending->execute();
-    $pending_students_result = $stmt_pending->get_result();
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course IN ($placeholders)";
+        $stmt_pending = $conn->prepare($pending_students_query);
+        $stmt_pending->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_pending->execute();
+        $pending_students_result = $stmt_pending->get_result();
+    } else {
+        // Coordinator has no assigned courses - return 0
+        $pending_students_result = null;
+        $pending_students_count = 0;
+    }
 } else {
     $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending'";
     $pending_students_result = $conn->query($pending_students_query);
 }
-$pending_students_row = $pending_students_result->fetch_assoc();
-$pending_students_count = $pending_students_row['pending_students'];
+
+if ($pending_students_result) {
+    $pending_students_row = $pending_students_result->fetch_assoc();
+    $pending_students_count = $pending_students_row['pending_students'];
+} else if (!isset($pending_students_count)) {
+    $pending_students_count = 0;
+}
 
 // Query to get active students count (filtered for coordinators)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND course IN ($placeholders)";
-    $stmt_active = $conn->prepare($active_students_query);
-    $stmt_active->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
-    $stmt_active->execute();
-    $active_students_result = $stmt_active->get_result();
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND course IN ($placeholders)";
+        $stmt_active = $conn->prepare($active_students_query);
+        $stmt_active->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_active->execute();
+        $active_students_result = $stmt_active->get_result();
+    } else {
+        // Coordinator has no assigned courses - return 0
+        $active_students_result = null;
+        $active_students_count = 0;
+    }
 } else {
     $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active'";
     $active_students_result = $conn->query($active_students_query);
 }
-$active_students_row = $active_students_result->fetch_assoc();
-$active_students_count = $active_students_row['active_students'];
+
+if ($active_students_result) {
+    $active_students_row = $active_students_result->fetch_assoc();
+    $active_students_count = $active_students_row['active_students'];
+} else if (!isset($active_students_count)) {
+    $active_students_count = 0;
+}
 
 
 // Query for the last 12 months' Total Students Count
@@ -392,9 +425,15 @@ $query = "SELECT s.*, b.batch_name, b.batch_code
           WHERE 1=1";
 
 // If course coordinator, only show students from their assigned courses
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $query .= " AND s.course IN ($placeholders)";
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        // Coordinator has assigned courses - show only those students
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $query .= " AND s.course IN ($placeholders)";
+    } else {
+        // Coordinator has no assigned courses - show no students
+        $query .= " AND 1=0"; // This makes the query return no results
+    }
 }
 
 if ($selected_course != 'All') {
@@ -414,7 +453,7 @@ $stmt = $conn->prepare($query);
 $bind_types = '';
 $bind_values = [];
 
-// Add admin courses if coordinator
+// Add admin courses if coordinator (only if they have assigned courses)
 if ($is_course_coordinator && !empty($admin_courses)) {
     $bind_types .= str_repeat('s', count($admin_courses));
     $bind_values = array_merge($bind_values, $admin_courses);
@@ -737,10 +776,38 @@ $batches_result = $conn->query($batches_query);
             </div>
 
             <!-- Students Table -->
+            <?php if ($is_course_coordinator && empty($admin_courses)): ?>
+                <!-- No Course Assignments Message for Coordinators -->
+                <div class="content-card">
+                    <div class="card-body text-center" style="padding: 3rem;">
+                        <div style="color: #64748b; margin-bottom: 1.5rem;">
+                            <i class="fas fa-user-tie" style="font-size: 4rem; opacity: 0.3;"></i>
+                        </div>
+                        <h4 style="color: #374151; margin-bottom: 1rem;">No Course Assignments</h4>
+                        <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                            You haven't been assigned to any courses yet. Please contact the Master Admin to assign courses to your coordinator account.
+                        </p>
+                        <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <small style="color: #6b7280;">
+                                <i class="fas fa-info-circle"></i> 
+                                Course coordinators can only view and manage students from their assigned courses.
+                            </small>
+                        </div>
+                        <a href="dashboard.php" class="btn btn-primary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            <?php else: ?>
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-users"></i> All Students
+                        <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
+                            <small style="color: #64748b; font-weight: normal;">
+                                (Showing students from your assigned courses: <?php echo implode(', ', $admin_courses); ?>)
+                            </small>
+                        <?php endif; ?>
                     </h5>
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <span id="selected-count" style="color: #64748b; font-size: 14px; display: none;">
@@ -918,6 +985,7 @@ $batches_result = $conn->query($batches_query);
                     </table>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
     </main>
 </div>
