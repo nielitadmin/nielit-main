@@ -270,7 +270,6 @@ if ($is_course_coordinator) {
         $total_students = 0;
     }
 } else {
-} else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM students");
     $total_students = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
 }
