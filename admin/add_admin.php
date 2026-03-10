@@ -19,6 +19,7 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 
 // Database connection
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/otp_logger.php';
 
 // PHPMailer for sending OTP
 use PHPMailer\PHPMailer\PHPMailer;
@@ -87,8 +88,15 @@ function sendOTPEmail($toEmail, $otp, $username) {
         </div>';
 
         $mail->send();
+        
+        // Log successful OTP sending
+        logOTP($toEmail, $otp, 'Admin Creation', $username, 'sent');
+        
         return true;
     } catch (Exception $e) {
+        // Log failed OTP sending
+        logOTP($toEmail, $otp, 'Admin Creation', $username, 'failed');
+        
         error_log("Email sending failed: " . $mail->ErrorInfo);
         return false;
     }

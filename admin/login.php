@@ -10,12 +10,13 @@ require __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/otp_logger.php';
 
 $error_message = "";
 $success_message = "";
 $show_otp_form = false;
 
-function sendOTP($toEmail, $otp) {
+function sendOTP($toEmail, $otp, $username = null) {
     $mail = new PHPMailer(true);
     try {
         $mail->isSMTP();
@@ -54,8 +55,15 @@ function sendOTP($toEmail, $otp) {
         </div>';
 
         $mail->send();
+        
+        // Log successful OTP sending
+        logOTP($toEmail, $otp, 'Admin Login', $username, 'sent');
+        
         return true;
     } catch (Exception $e) {
+        // Log failed OTP sending
+        logOTP($toEmail, $otp, 'Admin Login', $username, 'failed');
+        
         return false;
     }
 }
@@ -79,7 +87,7 @@ if (isset($_POST['login'])) {
             $_SESSION['login_otp'] = $otp;
             $_SESSION['otp_generated_time'] = time();
 
-            $sent = sendOTP($_SESSION['temp_admin_email'], $otp);
+            $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $admin['username']);
 
             if ($sent) {
                 $success_message = "OTP sent successfully to your registered email.";
@@ -136,7 +144,7 @@ if (isset($_POST['resend_otp'])) {
         $_SESSION['login_otp'] = $otp;
         $_SESSION['otp_generated_time'] = time();
 
-        $sent = sendOTP($_SESSION['temp_admin_email'], $otp);
+        $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $_SESSION['temp_admin_username']);
         if ($sent) {
             $success_message = "OTP resent successfully.";
             $show_otp_form = true;

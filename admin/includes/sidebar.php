@@ -92,6 +92,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-user-tie"></i> Course Assignments
             </a>
         </div>
+        <div class="nav-item">
+            <a href="view_otp_logs.php" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
+                <i class="fas fa-key"></i> OTP Logs
+            </a>
+        </div>
         <?php endif; ?>
         
         <!-- Reset Password (All Roles) -->
