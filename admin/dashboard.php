@@ -75,9 +75,15 @@ $sql = "SELECT courses.*,
         FROM courses WHERE 1=1";
 
 // Add course coordinator filtering
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $sql .= " AND courses.course_name IN ($placeholders)";
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        // Coordinator has assigned courses - show only those courses
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $sql .= " AND courses.course_name IN ($placeholders)";
+    } else {
+        // Coordinator has no assigned courses - show no courses
+        $sql .= " AND 1=0"; // This makes the query return no results
+    }
 }
 
 // Add category filter
@@ -91,7 +97,7 @@ $sql .= " ORDER BY id DESC";
 $bind_types = '';
 $bind_values = [];
 
-// Add admin courses if coordinator
+// Add admin courses if coordinator (only if they have assigned courses)
 if ($is_course_coordinator && !empty($admin_courses)) {
     $bind_types .= str_repeat('s', count($admin_courses));
     $bind_values = array_merge($bind_values, $admin_courses);
@@ -231,28 +237,39 @@ if (isset($_POST['add_course'])) {
 
 // Get statistics
 // Total courses (filtered for coordinators)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $stats_sql = "SELECT COUNT(*) as count FROM courses WHERE course_name IN ($placeholders)";
-    $stats_stmt = $conn->prepare($stats_sql);
-    $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
-    $stats_stmt->execute();
-    $stats_result = $stats_stmt->get_result();
-    $total_courses = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $stats_sql = "SELECT COUNT(*) as count FROM courses WHERE course_name IN ($placeholders)";
+        $stats_stmt = $conn->prepare($stats_sql);
+        $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stats_stmt->execute();
+        $stats_result = $stats_stmt->get_result();
+        $total_courses = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+    } else {
+        // Coordinator has no assigned courses - return 0
+        $total_courses = 0;
+    }
 } else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
     $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
 }
 
 // Total students (filtered for coordinators)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-    $stats_sql = "SELECT COUNT(*) as count FROM students WHERE course IN ($placeholders)";
-    $stats_stmt = $conn->prepare($stats_sql);
-    $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
-    $stats_stmt->execute();
-    $stats_result = $stats_stmt->get_result();
-    $total_students = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+if ($is_course_coordinator) {
+    if (!empty($admin_courses)) {
+        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        $stats_sql = "SELECT COUNT(*) as count FROM students WHERE course IN ($placeholders)";
+        $stats_stmt = $conn->prepare($stats_sql);
+        $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stats_stmt->execute();
+        $stats_result = $stats_stmt->get_result();
+        $total_students = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
+    } else {
+        // Coordinator has no assigned courses - return 0
+        $total_students = 0;
+    }
+} else {
 } else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM students");
     $total_students = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
@@ -529,14 +546,47 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                 </div>
             </div>
 
+            <?php if ($is_course_coordinator && empty($admin_courses)): ?>
+                <!-- No Course Assignments Message for Coordinators -->
+                <div class="content-card">
+                    <div class="card-body text-center" style="padding: 3rem;">
+                        <div style="color: #64748b; margin-bottom: 1.5rem;">
+                            <i class="fas fa-book" style="font-size: 4rem; opacity: 0.3;"></i>
+                        </div>
+                        <h4 style="color: #374151; margin-bottom: 1rem;">No Course Assignments</h4>
+                        <p style="color: #6b7280; margin-bottom: 1.5rem;">
+                            You haven't been assigned to any courses yet. Please contact the Master Admin to assign courses to your coordinator account.
+                        </p>
+                        <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                            <small style="color: #6b7280;">
+                                <i class="fas fa-info-circle"></i> 
+                                Course coordinators can only view and manage courses they are assigned to.
+                            </small>
+                        </div>
+                        <a href="students.php" class="btn btn-secondary me-2">
+                            <i class="fas fa-users"></i> View Students
+                        </a>
+                        <a href="dashboard.php" class="btn btn-primary">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </a>
+                    </div>
+                </div>
+            <?php else: ?>
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-book"></i> All Courses
+                        <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
+                            <small style="color: #64748b; font-weight: normal;">
+                                (Showing your assigned courses: <?php echo implode(', ', $admin_courses); ?>)
+                            </small>
+                        <?php endif; ?>
                     </h5>
+                    <?php if (!$is_course_coordinator): ?>
                     <button class="btn btn-primary" onclick="openModal('addCourseModal')">
                         <i class="fas fa-plus"></i> Add New Course
                     </button>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="table-responsive">
@@ -620,6 +670,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     </table>
                 </div>
             </div>
+            <?php endif; ?>
         </div>
     </main>
 </div>
