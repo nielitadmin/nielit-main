@@ -68,7 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_courses'])) {
                         : "INSERT INTO admin_course_assignments (admin_id,course_id,is_active,assigned_by,assigned_at) VALUES (?,?,1,?,NOW())";
                 }
                 $st = $conn->prepare($sql);
-                $st->bind_param("iii", $assigned_by, $admin_id, $cid);
+                if ($existing) {
+                    $st->bind_param("iii", $assigned_by, $admin_id, $cid);
+                } else {
+                    $st->bind_param("iii", $admin_id, $cid, $assigned_by);
+                }
                 $st->execute() ? $success_count++ : $error_count++;
             } catch (Exception $e) { $error_count++; }
         }
@@ -126,15 +130,20 @@ $active_theme = loadActiveTheme($conn);
 
 $coordinators_result = $conn->query("SELECT id, username, email FROM admin WHERE role = 'course_coordinator' AND is_active = 1 ORDER BY username");
 $courses_result      = $conn->query("SELECT id, course_name, course_code FROM courses ORDER BY course_name");
-$assignments_result  = $conn->query("SELECT aca.*, a.username AS admin_name, a.email AS admin_email,
-                                     c.course_name, c.course_code, ma.username AS assigned_by_name,
-                                     COALESCE(aca.assignment_type, 'Manual') AS assignment_type
+$assignments_result  = $conn->query("SELECT aca.*, 
+                                     a.username AS admin_name, 
+                                     a.email AS admin_email,
+                                     c.course_name, 
+                                     c.course_code, 
+                                     COALESCE(ma.username, 'System') AS assigned_by_name,
+                                     COALESCE(aca.assignment_type, 'Manual') AS assignment_type,
+                                     aca.assigned_at
                                      FROM admin_course_assignments aca
                                      JOIN admin a ON aca.admin_id = a.id
                                      JOIN courses c ON aca.course_id = c.id
                                      LEFT JOIN admin ma ON aca.assigned_by = ma.id
                                      WHERE aca.is_active = 1
-                                     ORDER BY a.username, c.course_name");
+                                     ORDER BY aca.assigned_at DESC, a.username, c.course_name");
 $stats_result = $conn->query("SELECT
     COUNT(DISTINCT aca.admin_id) AS total_coordinators_with_assignments,
     COUNT(aca.id) AS total_assignments,
@@ -173,6 +182,10 @@ $stats = $stats_result->fetch_assoc();
         .modern-table .table thead th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 1.2rem 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
         .modern-table .table tbody td { padding: 1rem; border-color: #f8f9fa; vertical-align: middle; }
         .modern-table .table tbody tr:hover { background-color: #f8f9fa; }
+        .text-break { word-break: break-word; }
+        .table td { max-width: 200px; }
+        .table td:nth-child(2) { max-width: 180px; } /* Email column */
+        .table td:nth-child(3) { max-width: 220px; } /* Course name column */
         .modern-btn { border-radius: 10px; padding: 0.6rem 1.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; transition: all 0.3s ease; border: none; cursor: pointer; }
         .modern-btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .modern-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102,126,234,0.3); color: white; }
@@ -279,23 +292,57 @@ $stats = $stats_result->fetch_assoc();
                                                 <div class="stats-icon icon-primary me-2" style="width:35px;height:35px;font-size:0.9rem;">
                                                     <i class="fas fa-user-tie"></i>
                                                 </div>
-                                                <strong><?php echo htmlspecialchars($assignment['admin_name']); ?></strong>
+                                                <div>
+                                                    <strong><?php echo htmlspecialchars($assignment['admin_name']); ?></strong>
+                                                    <br><small class="text-muted">ID: <?php echo $assignment['admin_id']; ?></small>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td class="text-muted"><?php echo htmlspecialchars($assignment['admin_email']); ?></td>
-                                        <td><?php echo htmlspecialchars($assignment['course_name']); ?></td>
-                                        <td><span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($assignment['course_code']); ?></span></td>
                                         <td>
-                                            <?php $badge_class = ($assignment['assignment_type'] === 'Auto-Assigned') ? 'badge-auto' : 'badge-manual'; ?>
-                                            <span class="badge-modern <?php echo $badge_class; ?>"><?php echo htmlspecialchars($assignment['assignment_type']); ?></span>
+                                            <div class="text-break">
+                                                <i class="fas fa-envelope text-muted me-1"></i>
+                                                <span><?php echo htmlspecialchars($assignment['admin_email']); ?></span>
+                                            </div>
                                         </td>
-                                        <td class="text-muted"><?php echo htmlspecialchars($assignment['assigned_by_name']); ?></td>
-                                        <td class="text-muted"><?php echo date('M d, Y', strtotime($assignment['assigned_at'])); ?></td>
+                                        <td>
+                                            <div>
+                                                <strong><?php echo htmlspecialchars($assignment['course_name']); ?></strong>
+                                                <br><small class="text-muted">Course ID: <?php echo $assignment['course_id']; ?></small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($assignment['course_code']); ?></span>
+                                        </td>
+                                        <td>
+                                            <?php 
+                                            $type = $assignment['assignment_type'];
+                                            $badge_class = ($type === 'Auto-Assigned') ? 'badge-auto' : 'badge-manual';
+                                            ?>
+                                            <span class="badge-modern <?php echo $badge_class; ?>"><?php echo htmlspecialchars($type); ?></span>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <i class="fas fa-user-cog text-muted me-1"></i>
+                                                <strong><?php echo htmlspecialchars($assignment['assigned_by_name'] ?: 'System'); ?></strong>
+                                                <?php if ($assignment['assigned_by']): ?>
+                                                    <br><small class="text-muted">Admin ID: <?php echo $assignment['assigned_by']; ?></small>
+                                                <?php endif; ?>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div>
+                                                <i class="fas fa-calendar text-muted me-1"></i>
+                                                <strong><?php echo date('M d, Y', strtotime($assignment['assigned_at'])); ?></strong>
+                                                <br><small class="text-muted">
+                                                    <i class="fas fa-clock me-1"></i><?php echo date('g:i A', strtotime($assignment['assigned_at'])); ?>
+                                                </small>
+                                            </div>
+                                        </td>
                                         <td>
                                             <button type="button" class="modern-btn modern-btn-danger btn-sm"
                                                 onclick="removeAssignment(<?php echo $assignment['id']; ?>, '<?php echo addslashes(htmlspecialchars($assignment['admin_name'])); ?>', '<?php echo addslashes(htmlspecialchars($assignment['course_name'])); ?>')"
                                                 title="Remove Assignment">
-                                                <i class="fas fa-trash"></i>
+                                                <i class="fas fa-trash"></i> Remove
                                             </button>
                                         </td>
                                     </tr>
