@@ -442,6 +442,17 @@ function loadCoursesForCoordinator(adminId) {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded, initializing...');
+    
+    // Test toast notifications on page load
+    setTimeout(function() {
+        console.log('Testing toast notifications...');
+        if (typeof ToastNotification !== 'undefined') {
+            console.log('ToastNotification class is available');
+        } else {
+            console.log('ToastNotification class is NOT available, using fallback');
+        }
+    }, 1000);
 
     // Load assignments table via AJAX on page load
     refreshAssignments();
@@ -479,7 +490,6 @@ document.addEventListener('DOMContentLoaded', function() {
         var coordinatorSelect = this.querySelector('select[name="admin_id"]');
         var coordinator = coordinatorSelect ? coordinatorSelect.value : 'NOT_FOUND';
         var courses = this.querySelectorAll('input[name="course_ids[]"]:checked');
-        var t = new ToastNotification();
         
         console.log('Coordinator select element:', coordinatorSelect); // Debug log
         console.log('Coordinator selected:', coordinator); // Debug log
@@ -492,12 +502,30 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!coordinator || coordinator === '') {
             console.log('No coordinator selected'); // Debug log
-            t.warning('Please select a coordinator');
+            
+            // Show warning notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.warning('Please select a coordinator');
+            } else if (typeof toast !== 'undefined') {
+                toast.warning('Please select a coordinator');
+            } else {
+                showToast('warning', 'Please select a coordinator');
+            }
             return false;
         }
         if (courses.length === 0) {
             console.log('No courses selected'); // Debug log
-            t.warning('Please select at least one course');
+            
+            // Show warning notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.warning('Please select at least one course');
+            } else if (typeof toast !== 'undefined') {
+                toast.warning('Please select at least one course');
+            } else {
+                showToast('warning', 'Please select at least one course');
+            }
             return false;
         }
         
@@ -509,6 +537,67 @@ document.addEventListener('DOMContentLoaded', function() {
 }); // end DOMContentLoaded
 
 // ── AJAX Functions ────────────────────────────────────────────────────────────
+
+// Fallback toast function if ToastNotification class is not available
+function showToast(type, message) {
+    // Create toast container if it doesn't exist
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+        document.body.appendChild(container);
+    }
+    
+    // Create toast element
+    var toast = document.createElement('div');
+    var bgColor = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#ef4444');
+    var icon = type === 'success' ? 'check-circle' : (type === 'warning' ? 'exclamation-triangle' : 'times-circle');
+    
+    toast.style.cssText = `
+        background: ${bgColor};
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 300px;
+        animation: slideIn 0.3s ease;
+    `;
+    
+    toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+    container.appendChild(toast);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        toast.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, 4000);
+}
+
+// Add CSS animations for toast
+if (!document.getElementById('toast-animations')) {
+    var style = document.createElement('style');
+    style.id = 'toast-animations';
+    style.textContent = `
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // Submit assignment form via AJAX
 function submitAssignmentForm(form) {
@@ -556,32 +645,50 @@ function submitAssignmentForm(form) {
         
         if (data.success) {
             // Show success message
-            console.log('Assignment successful, showing notification'); // Debug log
-            var t = new ToastNotification();
-            if (data.type === 'warning') {
-                t.warning(data.message);
-            } else {
-                t.assigned(data.message);
-            }
+            console.log('Assignment successful, showing notification');
             
-            // Also show alert for debugging
-            alert('SUCCESS: ' + data.message);
+            // Initialize toast notification properly
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                if (data.type === 'warning') {
+                    t.warning(data.message);
+                } else {
+                    t.success(data.message);
+                }
+            } else if (typeof toast !== 'undefined') {
+                // Fallback to global toast function
+                if (data.type === 'warning') {
+                    toast.warning(data.message);
+                } else {
+                    toast.success(data.message);
+                }
+            } else {
+                // Final fallback - create toast manually
+                showToast('success', data.message);
+            }
             
             // Close modal
             var modal = bootstrap.Modal.getInstance(document.getElementById('assignCoursesModal'));
-            modal.hide();
+            if (modal) {
+                modal.hide();
+            }
             
             // Refresh assignments table and stats
             refreshAssignments();
             refreshStats();
             
         } else {
-            console.log('Assignment failed:', data.message); // Debug log
-            var t = new ToastNotification();
-            t.error(data.message || 'Failed to assign courses');
+            console.log('Assignment failed:', data.message);
             
-            // Also show alert for debugging
-            alert('ERROR: ' + (data.message || 'Failed to assign courses'));
+            // Show error notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.error(data.message || 'Failed to assign courses');
+            } else if (typeof toast !== 'undefined') {
+                toast.error(data.message || 'Failed to assign courses');
+            } else {
+                showToast('error', data.message || 'Failed to assign courses');
+            }
         }
     })
     .catch(error => {
@@ -609,36 +716,56 @@ async function removeAssignmentAjax(assignmentId) {
         });
         
         const data = await response.json();
-        var t = new ToastNotification();
         
         if (data.success) {
-            t.deleted(data.message);
-            // Remove the row from table
-            var row = document.querySelector(`button[onclick*="${assignmentId}"]`).closest('tr');
-            if (row) {
-                row.style.transition = 'opacity 0.3s ease';
-                row.style.opacity = '0';
-                setTimeout(() => row.remove(), 300);
+            // Show success notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.success(data.message);
+            } else if (typeof toast !== 'undefined') {
+                toast.success(data.message);
+            } else {
+                showToast('success', data.message);
             }
-            // Refresh stats
+            
+            // Refresh the entire assignments table
+            refreshAssignments();
             refreshStats();
         } else {
-            t.error(data.message || 'Failed to remove assignment');
+            // Show error notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.error(data.message || 'Failed to remove assignment');
+            } else if (typeof toast !== 'undefined') {
+                toast.error(data.message || 'Failed to remove assignment');
+            } else {
+                showToast('error', data.message || 'Failed to remove assignment');
+            }
         }
     } catch (error) {
         console.error('Error:', error);
-        var t = new ToastNotification();
-        t.error('Network error occurred. Please try again.');
+        
+        // Show error notification
+        if (typeof ToastNotification !== 'undefined') {
+            var t = new ToastNotification();
+            t.error('Network error occurred. Please try again.');
+        } else if (typeof toast !== 'undefined') {
+            toast.error('Network error occurred. Please try again.');
+        } else {
+            showToast('error', 'Network error occurred. Please try again.');
+        }
     }
 }
 
 // Refresh assignments table
 function refreshAssignments() {
+    console.log('Refreshing assignments table...');
+    
     var container = document.getElementById('assignments-table-container');
     var loading = document.getElementById('assignments-loading');
     
-    loading.style.display = 'block';
-    container.style.opacity = '0.5';
+    if (loading) loading.style.display = 'block';
+    if (container) container.style.opacity = '0.5';
     
     fetch('ajax_course_assignments.php', {
         method: 'POST',
@@ -647,20 +774,40 @@ function refreshAssignments() {
         },
         body: 'action=get_assignments'
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Assignments response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Assignments data received:', data);
         if (data.success) {
             updateAssignmentsTable(data.assignments);
+            console.log('Assignments table updated successfully');
         } else {
             console.error('Failed to refresh assignments:', data.message);
+            // Show error notification
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.error('Failed to refresh assignments: ' + (data.message || 'Unknown error'));
+            } else {
+                showToast('error', 'Failed to refresh assignments');
+            }
         }
     })
     .catch(error => {
         console.error('Error refreshing assignments:', error);
+        // Show error notification
+        if (typeof ToastNotification !== 'undefined') {
+            var t = new ToastNotification();
+            t.error('Network error while refreshing assignments');
+        } else {
+            showToast('error', 'Network error while refreshing assignments');
+        }
     })
     .finally(() => {
-        loading.style.display = 'none';
-        container.style.opacity = '1';
+        if (loading) loading.style.display = 'none';
+        if (container) container.style.opacity = '1';
+        console.log('Assignments refresh completed');
     });
 }
 
@@ -773,6 +920,8 @@ function updateAssignmentsTable(assignments) {
 
 // Refresh statistics
 function refreshStats() {
+    console.log('Refreshing statistics...');
+    
     fetch('ajax_course_assignments.php', {
         method: 'POST',
         headers: {
@@ -780,10 +929,17 @@ function refreshStats() {
         },
         body: 'action=get_stats'
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Stats response status:', response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log('Stats data received:', data);
         if (data.success) {
             updateStats(data.stats);
+            console.log('Statistics updated successfully');
+        } else {
+            console.error('Failed to refresh stats:', data.message);
         }
     })
     .catch(error => {
