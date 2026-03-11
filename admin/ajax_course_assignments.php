@@ -2,16 +2,21 @@
 session_start();
 header('Content-Type: application/json');
 
+// Debug logging
+error_log("AJAX Course Assignments called with action: " . ($_POST['action'] ?? 'none'));
+
 // Check if admin is logged in (compatible with both old and new login systems)
 $is_logged_in = isset($_SESSION['admin_logged_in']) || isset($_SESSION['admin']);
 
 if (!$is_logged_in) {
+    error_log("AJAX: User not logged in");
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();
 }
 
 if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin') {
+    error_log("AJAX: User not master admin, role: " . ($_SESSION['admin_role'] ?? 'none'));
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Access denied']);
     exit();
@@ -20,6 +25,7 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
 require_once '../config/database.php';
 
 $action = $_POST['action'] ?? '';
+error_log("AJAX: Processing action: " . $action);
 
 switch ($action) {
     case 'assign_courses':
@@ -41,21 +47,28 @@ switch ($action) {
 function assignCourses() {
     global $conn;
     
+    error_log("assignCourses function called");
+    
     $admin_id = intval($_POST['admin_id'] ?? 0);
     $course_ids = $_POST['course_ids'] ?? [];
     $assigned_by = $_SESSION['admin_id'] ?? null;
 
+    error_log("assignCourses: admin_id=$admin_id, course_ids=" . json_encode($course_ids) . ", assigned_by=$assigned_by");
+
     if ($admin_id <= 0) {
+        error_log("assignCourses: Invalid admin_id");
         echo json_encode(['success' => false, 'message' => 'Please select a valid course coordinator.']);
         return;
     }
     
     if (empty($course_ids)) {
+        error_log("assignCourses: No course_ids provided");
         echo json_encode(['success' => false, 'message' => 'Please select at least one course to assign.']);
         return;
     }
     
     if (!$assigned_by) {
+        error_log("assignCourses: No assigned_by in session");
         echo json_encode(['success' => false, 'message' => 'Session error: Please log out and log back in.']);
         return;
     }

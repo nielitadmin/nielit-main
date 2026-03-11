@@ -473,19 +473,27 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('assignCoursesForm').addEventListener('submit', function(e) {
         e.preventDefault(); // Prevent default form submission
         
+        console.log('Form submission intercepted'); // Debug log
+        
         var coordinator = this.querySelector('select[name="admin_id"]').value;
         var courses = this.querySelectorAll('input[name="course_ids[]"]:checked');
         var t = new ToastNotification();
         
+        console.log('Coordinator selected:', coordinator); // Debug log
+        console.log('Courses selected:', courses.length); // Debug log
+        
         if (!coordinator) {
+            console.log('No coordinator selected'); // Debug log
             t.warning('Please select a coordinator');
             return false;
         }
         if (courses.length === 0) {
+            console.log('No courses selected'); // Debug log
             t.warning('Please select at least one course');
             return false;
         }
         
+        console.log('Submitting form via AJAX'); // Debug log
         // Submit via AJAX
         submitAssignmentForm(this);
     });
@@ -496,29 +504,45 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Submit assignment form via AJAX
 function submitAssignmentForm(form) {
+    console.log('submitAssignmentForm called'); // Debug log
+    
     var formData = new FormData(form);
     formData.append('action', 'assign_courses');
+    
+    console.log('FormData created, action added'); // Debug log
     
     var submitBtn = form.querySelector('button[type="submit"]');
     var originalText = submitBtn.innerHTML;
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
     submitBtn.disabled = true;
     
+    console.log('Button state changed, making fetch request'); // Debug log
+    
     fetch('ajax_course_assignments.php', {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Fetch response received:', response.status); // Debug log
+        return response.json();
+    })
     .then(data => {
+        console.log('JSON data received:', data); // Debug log
+        
         var t = new ToastNotification();
         
         if (data.success) {
             // Show success message
+            console.log('Assignment successful, showing notification'); // Debug log
+            var t = new ToastNotification();
             if (data.type === 'warning') {
                 t.warning(data.message);
             } else {
                 t.assigned(data.message);
             }
+            
+            // Also show alert for debugging
+            alert('SUCCESS: ' + data.message);
             
             // Close modal
             var modal = bootstrap.Modal.getInstance(document.getElementById('assignCoursesModal'));
@@ -529,15 +553,21 @@ function submitAssignmentForm(form) {
             refreshStats();
             
         } else {
+            console.log('Assignment failed:', data.message); // Debug log
+            var t = new ToastNotification();
             t.error(data.message || 'Failed to assign courses');
+            
+            // Also show alert for debugging
+            alert('ERROR: ' + (data.message || 'Failed to assign courses'));
         }
     })
     .catch(error => {
-        console.error('Error:', error);
+        console.error('Fetch error:', error); // Debug log
         var t = new ToastNotification();
         t.error('Network error occurred. Please try again.');
     })
     .finally(() => {
+        console.log('Restoring button state'); // Debug log
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     });
