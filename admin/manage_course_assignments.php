@@ -474,15 +474,23 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault(); // Prevent default form submission
         
         console.log('Form submission intercepted'); // Debug log
+        console.log('Form element:', this); // Debug log
         
-        var coordinator = this.querySelector('select[name="admin_id"]').value;
+        var coordinatorSelect = this.querySelector('select[name="admin_id"]');
+        var coordinator = coordinatorSelect ? coordinatorSelect.value : 'NOT_FOUND';
         var courses = this.querySelectorAll('input[name="course_ids[]"]:checked');
         var t = new ToastNotification();
         
+        console.log('Coordinator select element:', coordinatorSelect); // Debug log
         console.log('Coordinator selected:', coordinator); // Debug log
         console.log('Courses selected:', courses.length); // Debug log
         
-        if (!coordinator) {
+        // Also try alternative selector
+        var altCoordinator = document.getElementById('coordinatorSelect');
+        console.log('Alternative coordinator element:', altCoordinator); // Debug log
+        console.log('Alternative coordinator value:', altCoordinator ? altCoordinator.value : 'NOT_FOUND'); // Debug log
+        
+        if (!coordinator || coordinator === '') {
             console.log('No coordinator selected'); // Debug log
             t.warning('Please select a coordinator');
             return false;

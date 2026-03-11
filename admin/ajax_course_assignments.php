@@ -48,6 +48,7 @@ function assignCourses() {
     global $conn;
     
     error_log("assignCourses function called");
+    error_log("POST data: " . json_encode($_POST));
     
     $admin_id = intval($_POST['admin_id'] ?? 0);
     $course_ids = $_POST['course_ids'] ?? [];
@@ -56,8 +57,8 @@ function assignCourses() {
     error_log("assignCourses: admin_id=$admin_id, course_ids=" . json_encode($course_ids) . ", assigned_by=$assigned_by");
 
     if ($admin_id <= 0) {
-        error_log("assignCourses: Invalid admin_id");
-        echo json_encode(['success' => false, 'message' => 'Please select a valid course coordinator.']);
+        error_log("assignCourses: Invalid admin_id - received: " . ($_POST['admin_id'] ?? 'NULL'));
+        echo json_encode(['success' => false, 'message' => 'Please select a valid course coordinator.', 'debug' => ['admin_id_received' => $_POST['admin_id'] ?? 'NULL', 'admin_id_parsed' => $admin_id]]);
         return;
     }
     
