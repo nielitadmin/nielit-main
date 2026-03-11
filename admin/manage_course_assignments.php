@@ -514,7 +514,22 @@ document.addEventListener('DOMContentLoaded', function() {
 function submitAssignmentForm(form) {
     console.log('submitAssignmentForm called'); // Debug log
     
+    // Try multiple ways to get the coordinator value
+    var coordinatorSelect1 = form.querySelector('select[name="admin_id"]');
+    var coordinatorSelect2 = document.getElementById('coordinatorSelect');
+    var coordinatorValue = coordinatorSelect1 ? coordinatorSelect1.value : (coordinatorSelect2 ? coordinatorSelect2.value : '');
+    
+    console.log('Coordinator method 1:', coordinatorSelect1 ? coordinatorSelect1.value : 'NULL');
+    console.log('Coordinator method 2:', coordinatorSelect2 ? coordinatorSelect2.value : 'NULL');
+    console.log('Final coordinator value:', coordinatorValue);
+    
     var formData = new FormData(form);
+    
+    // Override the admin_id in FormData to ensure it's set correctly
+    if (coordinatorValue) {
+        formData.set('admin_id', coordinatorValue);
+    }
+    
     formData.append('action', 'assign_courses');
     
     console.log('FormData created, action added'); // Debug log
