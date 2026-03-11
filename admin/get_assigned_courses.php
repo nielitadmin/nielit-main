@@ -3,7 +3,10 @@ session_start();
 
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['admin_logged_in'])) {
+// Check if admin is logged in (compatible with both old and new login systems)
+$is_logged_in = isset($_SESSION['admin_logged_in']) || isset($_SESSION['admin']);
+
+if (!$is_logged_in) {
     http_response_code(401);
     echo json_encode(['error' => 'Unauthorized']);
     exit();

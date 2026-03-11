@@ -306,6 +306,140 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <style>
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 9999; /* Increased z-index */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8); /* Darker backdrop for testing */
+            backdrop-filter: blur(2px);
+        }
+        
+        .modal.show {
+            display: flex !important; /* Added !important for testing */
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal-dialog {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px) scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+        
+        .modal-title {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .modal-body {
+            padding: 2rem;
+        }
+        
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .form-group {
+            flex: 1;
+            margin-bottom: 1rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+    </style>
 </head>
 <body>
 
@@ -498,6 +632,33 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                 </div>
             </div>
 
+            <!-- Quick Actions for Course Coordinators -->
+            <?php if ($is_course_coordinator): ?>
+            <div class="content-card" style="margin-bottom: 2rem;">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-bolt"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <button class="btn btn-primary" onclick="openModal('addCourseModal')">
+                            <i class="fas fa-plus"></i> Add New Course
+                        </button>
+                        <a href="manage_courses.php" class="btn btn-outline-primary">
+                            <i class="fas fa-book"></i> Manage Courses
+                        </a>
+                        <a href="students.php" class="btn btn-outline-secondary">
+                            <i class="fas fa-users"></i> View Students
+                        </a>
+                        <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="btn btn-outline-success">
+                            <i class="fas fa-user-check"></i> Approve Students
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Courses Table -->
             <div class="content-card" style="margin-bottom: 20px;">
                 <div class="card-header" style="border-bottom: 1px solid #e2e8f0;">
@@ -554,7 +715,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                         </div>
                         <h4 style="color: #374151; margin-bottom: 1rem;">No Course Assignments</h4>
                         <p style="color: #6b7280; margin-bottom: 1.5rem;">
-                            You haven't been assigned to any courses yet. Please contact the Master Admin to assign courses to your coordinator account.
+                            You haven't been assigned to any courses yet. You can create a new course or contact the Master Admin to assign existing courses to your coordinator account.
                         </p>
                         <div style="background: #f3f4f6; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
                             <small style="color: #6b7280;">
@@ -562,12 +723,20 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                 Course coordinators can only view and manage courses they are assigned to.
                             </small>
                         </div>
-                        <a href="students.php" class="btn btn-secondary me-2">
-                            <i class="fas fa-users"></i> View Students
-                        </a>
-                        <a href="dashboard.php" class="btn btn-primary">
-                            <i class="fas fa-sync-alt"></i> Refresh
-                        </a>
+                        <div class="d-flex justify-content-center gap-2 flex-wrap">
+                            <button class="btn btn-primary" onclick="openModal('addCourseModal')">
+                                <i class="fas fa-plus"></i> Add New Course
+                            </button>
+                            <a href="manage_courses.php" class="btn btn-outline-primary">
+                                <i class="fas fa-book"></i> Manage Courses
+                            </a>
+                            <a href="students.php" class="btn btn-secondary">
+                                <i class="fas fa-users"></i> View Students
+                            </a>
+                            <a href="dashboard.php" class="btn btn-outline-secondary">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </a>
+                        </div>
                     </div>
                 </div>
             <?php else: ?>
@@ -581,11 +750,9 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                             </small>
                         <?php endif; ?>
                     </h5>
-                    <?php if (!$is_course_coordinator): ?>
                     <button class="btn btn-primary" onclick="openModal('addCourseModal')">
                         <i class="fas fa-plus"></i> Add New Course
                     </button>
-                    <?php endif; ?>
                 </div>
                 
                 <div class="table-responsive">
@@ -677,11 +844,12 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
 <!-- Add Course Modal -->
 <div class="modal" id="addCourseModal">
     <div class="modal-dialog" style="max-width: 900px;">
-        <div class="modal-header">
-            <h5 class="modal-title"><i class="fas fa-plus"></i> Add New Course</h5>
-            <button type="button" onclick="closeModal('addCourseModal')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-        </div>
-        <form action="dashboard.php" method="POST" enctype="multipart/form-data">
+        <div class="modal-content" style="background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus"></i> Add New Course</h5>
+                <button type="button" onclick="closeModal('addCourseModal')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
+            </div>
+            <form action="dashboard.php" method="POST" enctype="multipart/form-data">
             <div class="modal-body">
                 <!-- Course Name and Codes Row -->
                 <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">

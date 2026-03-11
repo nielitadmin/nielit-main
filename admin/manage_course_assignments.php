@@ -1,9 +1,15 @@
 <?php
 session_start();
-if (!isset($_SESSION['admin_logged_in'])) {
+
+// Check if admin is logged in (compatible with both old and new login systems)
+$is_logged_in = isset($_SESSION['admin_logged_in']) || isset($_SESSION['admin']);
+
+if (!$is_logged_in) {
     header('Location: login_new.php');
     exit();
 }
+
+// Check if admin has master admin role
 if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin') {
     header('Location: dashboard.php');
     exit();

@@ -4,7 +4,11 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 session_start();
-if (!isset($_SESSION['admin_logged_in'])) {
+
+// Check if admin is logged in (compatible with both old and new login systems)
+$is_logged_in = isset($_SESSION['admin_logged_in']) || isset($_SESSION['admin']);
+
+if (!$is_logged_in) {
     header('Location: login_new.php');
     exit();
 }

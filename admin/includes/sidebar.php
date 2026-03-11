@@ -34,7 +34,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
-            <a href="dashboard.php" class="nav-link">
+            <a href="manage_courses.php" class="nav-link <?php echo ($current_page === 'manage_courses.php') ? 'active' : ''; ?>">
                 <i class="fas fa-book"></i> Courses
             </a>
         </div>

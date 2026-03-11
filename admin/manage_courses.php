@@ -1,7 +1,7 @@
 <?php
 session_start();
-if (!isset($_SESSION['admin_logged_in'])) {
-    header('Location: login_new.php');
+if (!isset($_SESSION['admin'])) {
+    header('Location: login.php');
     exit();
 }
 
@@ -78,6 +78,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'edit') {
         $id = $_POST['course_id'];
+        
+        // Check if course coordinator has permission to edit this course
+        if ($_SESSION['admin_role'] === 'course_coordinator') {
+            $check_stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_course_assignments WHERE admin_id = ? AND course_id = ? AND is_active = 1");
+            $check_stmt->bind_param("ii", $_SESSION['admin_id'], $id);
+            $check_stmt->execute();
+            $check_result = $check_stmt->get_result();
+            $check_data = $check_result->fetch_assoc();
+            
+            if ($check_data['count'] == 0) {
+                $error = "You don't have permission to edit this course.";
+                goto skip_edit;
+            }
+        }
+        
         $course_name = $_POST['course_name'];
         $course_code = strtoupper($_POST['course_code']);
         $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
@@ -131,10 +146,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Error: " . $conn->error;
         }
+        
+        skip_edit:
     }
     
     if ($action === 'delete') {
         $id = $_POST['course_id'];
+        
+        // Check if course coordinator has permission to delete this course
+        if ($_SESSION['admin_role'] === 'course_coordinator') {
+            $check_stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_course_assignments WHERE admin_id = ? AND course_id = ? AND is_active = 1");
+            $check_stmt->bind_param("ii", $_SESSION['admin_id'], $id);
+            $check_stmt->execute();
+            $check_result = $check_stmt->get_result();
+            $check_data = $check_result->fetch_assoc();
+            
+            if ($check_data['count'] == 0) {
+                $error = "You don't have permission to delete this course.";
+                goto skip_delete;
+            }
+        }
+        
         $stmt = $conn->prepare("UPDATE courses SET status='inactive' WHERE id=?");
         $stmt->bind_param("i", $id);
         
@@ -143,6 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Error: " . $conn->error;
         }
+        
+        skip_delete:
     }
 }
 
@@ -150,13 +184,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $filter_type = $_GET['type'] ?? 'all';
 $filter_status = $_GET['status'] ?? 'all';
 
+// Check user role for filtering
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$current_admin_id = $_SESSION['admin_id'] ?? 0;
+
 // Build query with filters - JOIN with centres table to get centre name
-$query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
-          FROM courses 
-          LEFT JOIN centres ON courses.centre_id = centres.id 
-          WHERE 1=1";
+if ($is_master_admin) {
+    // Master admin sees all courses
+    $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+              FROM courses 
+              LEFT JOIN centres ON courses.centre_id = centres.id 
+              WHERE 1=1";
+} else {
+    // Course coordinators see only their assigned courses
+    $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+              FROM courses 
+              LEFT JOIN centres ON courses.centre_id = centres.id 
+              INNER JOIN admin_course_assignments aca ON courses.id = aca.course_id 
+              WHERE aca.admin_id = ? AND aca.is_active = 1";
+}
+
 $params = [];
 $types = "";
+
+// Add admin_id parameter for course coordinators
+if (!$is_master_admin) {
+    $params[] = $current_admin_id;
+    $types .= "i";
+}
 
 if ($filter_type !== 'all') {
     $query .= " AND courses.course_type = ?";
@@ -216,7 +271,18 @@ if (!empty($params)) {
             
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2"><i class="fas fa-graduation-cap"></i> Manage Courses</h1>
+                    <div>
+                        <h1 class="h2"><i class="fas fa-graduation-cap"></i> 
+                            <?php if ($is_master_admin): ?>
+                                Manage Courses
+                            <?php else: ?>
+                                My Assigned Courses
+                            <?php endif; ?>
+                        </h1>
+                        <?php if (!$is_master_admin): ?>
+                            <small class="text-muted">You can view and manage courses assigned to you</small>
+                        <?php endif; ?>
+                    </div>
                     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
                         <i class="fas fa-plus"></i> Add New Course
                     </button>
@@ -368,19 +434,46 @@ if (!empty($params)) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <button class="btn btn-sm btn-info" onclick="editCourse(<?= htmlspecialchars(json_encode($course)) ?>)">
+                                            <!-- Course coordinators only see courses they're assigned to, so they can edit all visible courses -->
+                                            <button class="btn btn-sm btn-info" onclick="editCourse(<?= htmlspecialchars(json_encode($course)) ?>)" title="Edit Course">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure?')">
+                                            <?php if ($is_master_admin): ?>
+                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to deactivate this course?')">
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="course_id" value="<?= $course['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-danger">
+                                                <button type="submit" class="btn btn-sm btn-danger" title="Deactivate Course">
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                     <?php endwhile; ?>
+                                    
+                                    <?php if ($courses->num_rows == 0): ?>
+                                    <tr>
+                                        <td colspan="13" class="text-center py-5">
+                                            <div class="text-muted">
+                                                <i class="fas fa-graduation-cap fa-3x mb-3"></i>
+                                                <h5>
+                                                    <?php if ($is_master_admin): ?>
+                                                        No courses found
+                                                    <?php else: ?>
+                                                        No courses assigned to you yet
+                                                    <?php endif; ?>
+                                                </h5>
+                                                <p>
+                                                    <?php if ($is_master_admin): ?>
+                                                        Click "Add New Course" to create your first course.
+                                                    <?php else: ?>
+                                                        Contact your administrator to get courses assigned to you, or create a new course using the "Add New Course" button.
+                                                    <?php endif; ?>
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
