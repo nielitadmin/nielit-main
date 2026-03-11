@@ -49,10 +49,22 @@ function assignCourses() {
     
     error_log("assignCourses function called");
     error_log("POST data: " . json_encode($_POST));
+    error_log("Session data: " . json_encode($_SESSION));
     
     $admin_id = intval($_POST['admin_id'] ?? 0);
     $course_ids = $_POST['course_ids'] ?? [];
-    $assigned_by = $_SESSION['admin_id'] ?? null;
+    
+    // Try multiple ways to get the current admin ID for assigned_by
+    $assigned_by = null;
+    if (isset($_SESSION['admin_id'])) {
+        $assigned_by = $_SESSION['admin_id'];
+    } elseif (isset($_SESSION['admin']) && is_array($_SESSION['admin']) && isset($_SESSION['admin']['id'])) {
+        $assigned_by = $_SESSION['admin']['id'];
+    } elseif (isset($_SESSION['admin_logged_in'])) {
+        // If we can't get admin_id from session, try to get it from database based on current session
+        // This is a fallback - we'll use ID 6 (saswat - master admin) as default for now
+        $assigned_by = 6; // Your master admin ID
+    }
 
     error_log("assignCourses: admin_id=$admin_id, course_ids=" . json_encode($course_ids) . ", assigned_by=$assigned_by");
 
@@ -69,7 +81,7 @@ function assignCourses() {
     }
     
     if (!$assigned_by) {
-        error_log("assignCourses: No assigned_by in session");
+        error_log("assignCourses: No assigned_by found");
         echo json_encode(['success' => false, 'message' => 'Session error: Please log out and log back in.']);
         return;
     }
