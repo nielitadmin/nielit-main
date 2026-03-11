@@ -25,6 +25,8 @@ function setFlash($msg, $type) {
 }
 
 // ── Handle assign courses POST ────────────────────────────────────────────────
+// AJAX handling - no longer needed as we use AJAX endpoint
+// Keeping for backward compatibility if JavaScript is disabled
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['assign_courses'])) {
     $admin_id    = intval($_POST['admin_id']);
     $course_ids  = isset($_POST['course_ids']) ? $_POST['course_ids'] : [];
@@ -273,99 +275,25 @@ $stats = $stats_result->fetch_assoc();
             <!-- Table -->
             <div class="modern-table">
                 <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                    <h5 class="mb-0"><i class="fas fa-list"></i> Current Course Assignments</h5>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="fas fa-list"></i> Current Course Assignments</h5>
+                        <button class="btn btn-outline-primary btn-sm" onclick="refreshAssignments()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
                 </div>
                 <div class="table-responsive">
-                    <?php if ($assignments_result->num_rows > 0): ?>
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Coordinator</th>
-                                    <th>Email</th>
-                                    <th>Course</th>
-                                    <th>Course Code</th>
-                                    <th>Type</th>
-                                    <th>Assigned By</th>
-                                    <th>Assigned Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php while ($assignment = $assignments_result->fetch_assoc()): ?>
-                                    <tr>
-                                        <td>
-                                            <div class="d-flex align-items-center">
-                                                <div class="stats-icon icon-primary me-2" style="width:35px;height:35px;font-size:0.9rem;">
-                                                    <i class="fas fa-user-tie"></i>
-                                                </div>
-                                                <div>
-                                                    <strong><?php echo htmlspecialchars($assignment['admin_name']); ?></strong>
-                                                    <br><small class="text-muted">ID: <?php echo $assignment['admin_id']; ?></small>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="text-break">
-                                                <i class="fas fa-envelope text-muted me-1"></i>
-                                                <span><?php echo htmlspecialchars($assignment['admin_email']); ?></span>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <strong><?php echo htmlspecialchars($assignment['course_name']); ?></strong>
-                                                <br><small class="text-muted">Course ID: <?php echo $assignment['course_id']; ?></small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-primary rounded-pill"><?php echo htmlspecialchars($assignment['course_code']); ?></span>
-                                        </td>
-                                        <td>
-                                            <?php 
-                                            $type = $assignment['assignment_type'];
-                                            $badge_class = ($type === 'Auto-Assigned') ? 'badge-auto' : 'badge-manual';
-                                            ?>
-                                            <span class="badge-modern <?php echo $badge_class; ?>"><?php echo htmlspecialchars($type); ?></span>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <i class="fas fa-user-cog text-muted me-1"></i>
-                                                <strong><?php echo htmlspecialchars($assignment['assigned_by_name'] ?: 'System'); ?></strong>
-                                                <?php if ($assignment['assigned_by']): ?>
-                                                    <br><small class="text-muted">Admin ID: <?php echo $assignment['assigned_by']; ?></small>
-                                                <?php endif; ?>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div>
-                                                <i class="fas fa-calendar text-muted me-1"></i>
-                                                <strong><?php echo date('M d, Y', strtotime($assignment['assigned_at'])); ?></strong>
-                                                <br><small class="text-muted">
-                                                    <i class="fas fa-clock me-1"></i><?php echo date('g:i A', strtotime($assignment['assigned_at'])); ?>
-                                                </small>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <button type="button" class="modern-btn modern-btn-danger btn-sm"
-                                                onclick="removeAssignment(<?php echo $assignment['id']; ?>, '<?php echo addslashes(htmlspecialchars($assignment['admin_name'])); ?>', '<?php echo addslashes(htmlspecialchars($assignment['course_name'])); ?>')"
-                                                title="Remove Assignment">
-                                                <i class="fas fa-trash"></i> Remove
-                                            </button>
-                                        </td>
-                                    </tr>
-                                <?php endwhile; ?>
-                            </tbody>
-                        </table>
-                    <?php else: ?>
-                        <div class="empty-state">
-                            <i class="fas fa-clipboard-list"></i>
-                            <h5>No Course Assignments Found</h5>
-                            <p class="text-muted">Use the "Assign Courses" button to create assignments.</p>
-                            <button class="modern-btn modern-btn-primary" data-bs-toggle="modal" data-bs-target="#assignCoursesModal">
-                                <i class="fas fa-plus"></i> Create First Assignment
-                            </button>
+                    <div id="assignments-loading" style="display: none; text-align: center; padding: 2rem;">
+                        <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                        <p class="mt-2">Loading assignments...</p>
+                    </div>
+                    <div id="assignments-table-container">
+                        <!-- Table content will be loaded here via AJAX -->
+                        <div class="text-center py-4">
+                            <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
+                            <p class="mt-2">Loading assignments...</p>
                         </div>
-                    <?php endif; ?>
-                </div>
+                    </div>
             </div>
 
             <!-- Info Box -->
@@ -515,6 +443,9 @@ function loadCoursesForCoordinator(adminId) {
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
 
+    // Load assignments table via AJAX on page load
+    refreshAssignments();
+
     // Dropdown change
     document.getElementById('coordinatorSelect').addEventListener('change', function() {
         loadCoursesForCoordinator(this.value);
@@ -540,22 +471,294 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Form validation
     document.getElementById('assignCoursesForm').addEventListener('submit', function(e) {
+        e.preventDefault(); // Prevent default form submission
+        
         var coordinator = this.querySelector('select[name="admin_id"]').value;
-        var courses     = this.querySelectorAll('input[name="course_ids[]"]:checked');
-        var t           = new ToastNotification();
+        var courses = this.querySelectorAll('input[name="course_ids[]"]:checked');
+        var t = new ToastNotification();
+        
         if (!coordinator) {
-            e.preventDefault();
             t.warning('Please select a coordinator');
             return false;
         }
         if (courses.length === 0) {
-            e.preventDefault();
             t.warning('Please select at least one course');
             return false;
         }
+        
+        // Submit via AJAX
+        submitAssignmentForm(this);
     });
 
 }); // end DOMContentLoaded
+
+// ── AJAX Functions ────────────────────────────────────────────────────────────
+
+// Submit assignment form via AJAX
+function submitAssignmentForm(form) {
+    var formData = new FormData(form);
+    formData.append('action', 'assign_courses');
+    
+    var submitBtn = form.querySelector('button[type="submit"]');
+    var originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
+    submitBtn.disabled = true;
+    
+    fetch('ajax_course_assignments.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        var t = new ToastNotification();
+        
+        if (data.success) {
+            // Show success message
+            if (data.type === 'warning') {
+                t.warning(data.message);
+            } else {
+                t.assigned(data.message);
+            }
+            
+            // Close modal
+            var modal = bootstrap.Modal.getInstance(document.getElementById('assignCoursesModal'));
+            modal.hide();
+            
+            // Refresh assignments table and stats
+            refreshAssignments();
+            refreshStats();
+            
+        } else {
+            t.error(data.message || 'Failed to assign courses');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        var t = new ToastNotification();
+        t.error('Network error occurred. Please try again.');
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// Remove assignment via AJAX
+async function removeAssignmentAjax(assignmentId) {
+    var formData = new FormData();
+    formData.append('action', 'remove_assignment');
+    formData.append('assignment_id', assignmentId);
+    
+    try {
+        const response = await fetch('ajax_course_assignments.php', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        var t = new ToastNotification();
+        
+        if (data.success) {
+            t.deleted(data.message);
+            // Remove the row from table
+            var row = document.querySelector(`button[onclick*="${assignmentId}"]`).closest('tr');
+            if (row) {
+                row.style.transition = 'opacity 0.3s ease';
+                row.style.opacity = '0';
+                setTimeout(() => row.remove(), 300);
+            }
+            // Refresh stats
+            refreshStats();
+        } else {
+            t.error(data.message || 'Failed to remove assignment');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        var t = new ToastNotification();
+        t.error('Network error occurred. Please try again.');
+    }
+}
+
+// Refresh assignments table
+function refreshAssignments() {
+    var container = document.getElementById('assignments-table-container');
+    var loading = document.getElementById('assignments-loading');
+    
+    loading.style.display = 'block';
+    container.style.opacity = '0.5';
+    
+    fetch('ajax_course_assignments.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=get_assignments'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateAssignmentsTable(data.assignments);
+        } else {
+            console.error('Failed to refresh assignments:', data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing assignments:', error);
+    })
+    .finally(() => {
+        loading.style.display = 'none';
+        container.style.opacity = '1';
+    });
+}
+
+// Update assignments table with new data
+function updateAssignmentsTable(assignments) {
+    var container = document.getElementById('assignments-table-container');
+    
+    if (assignments.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-clipboard-list"></i>
+                <h5>No Course Assignments Found</h5>
+                <p class="text-muted">Use the "Assign Courses" button to create assignments.</p>
+                <button class="modern-btn modern-btn-primary" data-bs-toggle="modal" data-bs-target="#assignCoursesModal">
+                    <i class="fas fa-plus"></i> Create First Assignment
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    var tableHTML = `
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Coordinator</th>
+                    <th>Email</th>
+                    <th>Course</th>
+                    <th>Course Code</th>
+                    <th>Type</th>
+                    <th>Assigned By</th>
+                    <th>Assigned Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    assignments.forEach(assignment => {
+        var badgeClass = (assignment.assignment_type === 'Auto-Assigned') ? 'badge-auto' : 'badge-manual';
+        var assignedDate = new Date(assignment.assigned_at);
+        var formattedDate = assignedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        var formattedTime = assignedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        
+        tableHTML += `
+            <tr>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="stats-icon icon-primary me-2" style="width:35px;height:35px;font-size:0.9rem;">
+                            <i class="fas fa-user-tie"></i>
+                        </div>
+                        <div>
+                            <strong>${escapeHtml(assignment.admin_name)}</strong>
+                            <br><small class="text-muted">ID: ${assignment.admin_id}</small>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div class="text-break">
+                        <i class="fas fa-envelope text-muted me-1"></i>
+                        <span>${escapeHtml(assignment.admin_email)}</span>
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <strong>${escapeHtml(assignment.course_name)}</strong>
+                        <br><small class="text-muted">Course ID: ${assignment.course_id}</small>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-primary rounded-pill">${escapeHtml(assignment.course_code)}</span>
+                </td>
+                <td>
+                    <span class="badge-modern ${badgeClass}">${escapeHtml(assignment.assignment_type)}</span>
+                </td>
+                <td>
+                    <div>
+                        <i class="fas fa-user-cog text-muted me-1"></i>
+                        <strong>${escapeHtml(assignment.assigned_by_name || 'System')}</strong>
+                        ${assignment.assigned_by ? `<br><small class="text-muted">Admin ID: ${assignment.assigned_by}</small>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div>
+                        <i class="fas fa-calendar text-muted me-1"></i>
+                        <strong>${formattedDate}</strong>
+                        <br><small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>${formattedTime}
+                        </small>
+                    </div>
+                </td>
+                <td>
+                    <button type="button" class="modern-btn modern-btn-danger btn-sm"
+                        onclick="removeAssignment(${assignment.id}, '${escapeHtml(assignment.admin_name).replace(/'/g, "\\'")}', '${escapeHtml(assignment.course_name).replace(/'/g, "\\'")}')"
+                        title="Remove Assignment">
+                        <i class="fas fa-trash"></i> Remove
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+    
+    tableHTML += `
+            </tbody>
+        </table>
+    `;
+    
+    container.innerHTML = tableHTML;
+}
+
+// Refresh statistics
+function refreshStats() {
+    fetch('ajax_course_assignments.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'action=get_stats'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            updateStats(data.stats);
+        }
+    })
+    .catch(error => {
+        console.error('Error refreshing stats:', error);
+    });
+}
+
+// Update statistics display
+function updateStats(stats) {
+    var statsNumbers = document.querySelectorAll('.stats-number');
+    if (statsNumbers.length >= 3) {
+        statsNumbers[0].textContent = stats.total_coordinators_with_assignments || 0;
+        statsNumbers[1].textContent = stats.total_assignments || 0;
+        statsNumbers[2].textContent = stats.total_courses_assigned || 0;
+    }
+}
+
+// HTML escape function
+function escapeHtml(text) {
+    var map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
 
 // ── Remove assignment (global scope — called from onclick in table) ────────────
 async function removeAssignment(assignmentId, coordinatorName, courseName) {
@@ -567,13 +770,7 @@ async function removeAssignment(assignmentId, coordinatorName, courseName) {
         cancelText:  'Keep Assignment'
     });
     if (confirmed) {
-        var form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML =
-            '<input type="hidden" name="assignment_id" value="' + assignmentId + '">' +
-            '<input type="hidden" name="remove_assignment" value="1">';
-        document.body.appendChild(form);
-        form.submit();
+        removeAssignmentAjax(assignmentId);
     }
 }
 </script>
