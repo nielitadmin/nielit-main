@@ -251,7 +251,7 @@ $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 7. FOR OFFICE USE ONLY', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
 $pdf->Cell(60, 13, ' Document Verification:', 1, 0); $pdf->Cell(120, 13, ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found', 1, 1);
-$pdf->Cell(60, 15, ' Signature of Official/Project Incharge:', 1, 0); $pdf->Cell(120, 15, ' __________________________________________', 1, 1);
+$pdf->Cell(60, 15, ' Signature of Official/Nodal Officer/Project Incharge:', 1, 0); $pdf->Cell(80, 15, ' __________________________________________', 1, 0); $pdf->Cell(40, 15, ' Date: ___________', 1, 1);
 
 $pdf->Ln(15);
 $pdf->SetFont('helvetica', 'B', 11);
