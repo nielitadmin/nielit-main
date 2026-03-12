@@ -143,63 +143,45 @@ $result_internship = $conn->query($sql_internship);
     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.1; background-image: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.3"><circle cx="30" cy="30" r="2"/></g></svg>'); background-size: 60px 60px;"></div>
     
     <div class="container position-relative">
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-xl-6">
-                <!-- Filter Card -->
-                <div class="filter-card" style="background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 20px; padding: 2.5rem; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
+        <!-- Section Header -->
+        <div class="text-center mb-5">
+            <div class="filter-icon" style="width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(20px); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; border: 2px solid rgba(255, 255, 255, 0.3);">
+                <i class="fas fa-map-marker-alt" style="font-size: 2rem; color: white;"></i>
+            </div>
+            <h2 style="color: white; font-weight: 700; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif;">Choose Your Training Centre</h2>
+            <p style="color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 1.2rem;">Select a NIELIT centre to view available courses</p>
+        </div>
+
+        <!-- Training Centre Cards -->
+        <div class="row g-4">
+            <!-- All Centres Card -->
+            <div class="col-lg-4 col-md-6">
+                <div class="centre-card <?php echo $centre_filter == 0 ? 'active' : ''; ?>" onclick="selectCentre(0)" style="
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    padding: 2rem;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                    border: 2px solid rgba(255, 255, 255, 0.2);
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                    position: relative;
+                    overflow: hidden;
+                ">
+                    <!-- Card Background Pattern -->
+                    <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
                     
-                    <!-- Filter Header -->
-                    <div class="text-center mb-4">
-                        <div class="filter-icon" style="width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);">
-                            <i class="fas fa-map-marker-alt" style="font-size: 2rem; color: white;"></i>
+                    <div class="text-center position-relative">
+                        <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);">
+                            <i class="fas fa-globe" style="font-size: 1.5rem; color: white;"></i>
                         </div>
-                        <h3 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif;">Find Your Training Centre</h3>
-                        <p style="color: #718096; margin: 0; font-size: 1.1rem;">Discover courses available at different NIELIT centres across India</p>
-                    </div>
-
-                    <!-- Filter Form -->
-                    <div class="filter-form">
-                        <label for="centreFilter" class="form-label" style="font-weight: 600; color: #4a5568; margin-bottom: 1rem; display: flex; align-items: center; font-size: 1.1rem;">
-                            <i class="fas fa-filter me-2" style="color: #667eea;"></i>
-                            Select Training Centre
-                        </label>
+                        <h4 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem;">All Training Centres</h4>
+                        <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">View courses from all NIELIT centres across India</p>
                         
-                        <div class="select-wrapper" style="position: relative;">
-                            <select id="centreFilter" class="form-select modern-select" onchange="filterByCentre(this.value)" style="
-                                padding: 1rem 1.5rem;
-                                font-size: 1.1rem;
-                                border: 2px solid #e2e8f0;
-                                border-radius: 15px;
-                                background: white;
-                                color: #2d3748;
-                                font-weight: 500;
-                                transition: all 0.3s ease;
-                                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
-                                appearance: none;
-                                background-image: url('data:image/svg+xml,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;%23667eea&quot;><path d=&quot;M7 10l5 5 5-5z&quot;/></svg>');
-                                background-repeat: no-repeat;
-                                background-position: right 1rem center;
-                                background-size: 1.5rem;
-                                padding-right: 3.5rem;
-                            ">
-                                <option value="0" <?php echo $centre_filter == 0 ? 'selected' : ''; ?>>🌟 All Training Centres</option>
-                                <?php 
-                                if ($result_centres && $result_centres->num_rows > 0) {
-                                    // Reset the result pointer
-                                    $result_centres->data_seek(0);
-                                    while ($centre = $result_centres->fetch_assoc()) {
-                                        $selected = ($centre_filter == $centre['id']) ? 'selected' : '';
-                                        echo '<option value="' . $centre['id'] . '" ' . $selected . '>📍 ' . htmlspecialchars($centre['name']) . '</option>';
-                                    }
-                                }
-                                ?>
-                            </select>
-                        </div>
-
-                        <!-- Filter Stats -->
-                        <div class="filter-stats mt-4" style="display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border-radius: 15px; border: 1px solid #e2e8f0;">
+                        <!-- Stats -->
+                        <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.5rem; font-weight: 700; color: #667eea; margin-bottom: 0.25rem;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #667eea;">
                                     <?php 
                                     $total_courses = 0;
                                     if ($result_long_term) $total_courses += $result_long_term->num_rows;
@@ -209,90 +191,153 @@ $result_internship = $conn->query($sql_internship);
                                     echo $total_courses;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.9rem; color: #718096; font-weight: 500;">Available Courses</div>
+                                <div style="font-size: 0.75rem; color: #718096;">Courses</div>
                             </div>
-                            <div class="stat-divider" style="width: 1px; height: 40px; background: linear-gradient(to bottom, transparent, #cbd5e0, transparent);"></div>
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.5rem; font-weight: 700; color: #48bb78; margin-bottom: 0.25rem;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">
                                     <?php 
                                     $centres_result = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
                                     $centres_count = $centres_result ? $centres_result->fetch_assoc()['count'] : 0;
                                     echo $centres_count;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.9rem; color: #718096; font-weight: 500;">Training Centres</div>
-                            </div>
-                            <div class="stat-divider" style="width: 1px; height: 40px; background: linear-gradient(to bottom, transparent, #cbd5e0, transparent);"></div>
-                            <div class="stat-item text-center">
-                                <div style="font-size: 1.5rem; font-weight: 700; color: #ed8936; margin-bottom: 0.25rem;">
-                                    <i class="fas fa-star"></i>
-                                </div>
-                                <div style="font-size: 0.9rem; color: #718096; font-weight: 500;">Quality Training</div>
-                            </div>
-                        </div>
-
-                        <!-- Quick Filter Buttons -->
-                        <div class="quick-filters mt-4">
-                            <div style="font-size: 0.9rem; color: #718096; margin-bottom: 1rem; font-weight: 500;">
-                                <i class="fas fa-bolt me-1" style="color: #f6ad55;"></i>
-                                Quick Filters:
-                            </div>
-                            <div class="d-flex flex-wrap gap-2">
-                                <button class="quick-filter-btn" onclick="scrollToSection('long-term')" style="
-                                    padding: 0.5rem 1rem;
-                                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                                    color: white;
-                                    border: none;
-                                    border-radius: 25px;
-                                    font-size: 0.85rem;
-                                    font-weight: 500;
-                                    transition: all 0.3s ease;
-                                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
-                                ">
-                                    <i class="fas fa-certificate me-1"></i> Long Term NSQF
-                                </button>
-                                <button class="quick-filter-btn" onclick="scrollToSection('short-term')" style="
-                                    padding: 0.5rem 1rem;
-                                    background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
-                                    color: white;
-                                    border: none;
-                                    border-radius: 25px;
-                                    font-size: 0.85rem;
-                                    font-weight: 500;
-                                    transition: all 0.3s ease;
-                                    box-shadow: 0 4px 15px rgba(72, 187, 120, 0.2);
-                                ">
-                                    <i class="fas fa-award me-1"></i> Short Term NSQF
-                                </button>
-                                <button class="quick-filter-btn" onclick="scrollToSection('non-nsqf')" style="
-                                    padding: 0.5rem 1rem;
-                                    background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
-                                    color: white;
-                                    border: none;
-                                    border-radius: 25px;
-                                    font-size: 0.85rem;
-                                    font-weight: 500;
-                                    transition: all 0.3s ease;
-                                    box-shadow: 0 4px 15px rgba(237, 137, 54, 0.2);
-                                ">
-                                    <i class="fas fa-laptop-code me-1"></i> Non-NSQF
-                                </button>
-                                <button class="quick-filter-btn" onclick="scrollToSection('internship')" style="
-                                    padding: 0.5rem 1rem;
-                                    background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%);
-                                    color: white;
-                                    border: none;
-                                    border-radius: 25px;
-                                    font-size: 0.85rem;
-                                    font-weight: 500;
-                                    transition: all 0.3s ease;
-                                    box-shadow: 0 4px 15px rgba(159, 122, 234, 0.2);
-                                ">
-                                    <i class="fas fa-rocket me-1"></i> Internships
-                                </button>
+                                <div style="font-size: 0.75rem; color: #718096;">Centres</div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Individual Centre Cards -->
+            <?php 
+            // Reset the result pointer for centres
+            if ($result_centres && $result_centres->num_rows > 0) {
+                $result_centres->data_seek(0);
+                while ($centre = $result_centres->fetch_assoc()) {
+                    $is_active = ($centre_filter == $centre['id']) ? 'active' : '';
+                    
+                    // Get course count for this centre
+                    $course_count_query = "SELECT COUNT(*) as count FROM courses WHERE centre_id = " . $centre['id'] . " AND (link_published = 1 OR link_published IS NULL)";
+                    $course_count_result = $conn->query($course_count_query);
+                    $course_count = $course_count_result ? $course_count_result->fetch_assoc()['count'] : 0;
+                    
+                    // Get centre details
+                    $centre_name = htmlspecialchars($centre['name']);
+                    $centre_location = '';
+                    if (!empty($centre['city']) && !empty($centre['state'])) {
+                        $centre_location = htmlspecialchars($centre['city']) . ', ' . htmlspecialchars($centre['state']);
+                    } elseif (!empty($centre['city'])) {
+                        $centre_location = htmlspecialchars($centre['city']);
+                    } elseif (!empty($centre['state'])) {
+                        $centre_location = htmlspecialchars($centre['state']);
+                    }
+                    
+                    echo '<div class="col-lg-4 col-md-6">
+                        <div class="centre-card ' . $is_active . '" onclick="selectCentre(' . $centre['id'] . ')" style="
+                            background: rgba(255, 255, 255, 0.95);
+                            backdrop-filter: blur(20px);
+                            border-radius: 20px;
+                            padding: 2rem;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            border: 2px solid rgba(255, 255, 255, 0.2);
+                            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                            position: relative;
+                            overflow: hidden;
+                            height: 100%;
+                        ">
+                            <!-- Card Background Pattern -->
+                            <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(72, 187, 120, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
+                            
+                            <div class="text-center position-relative">
+                                <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(72, 187, 120, 0.3);">
+                                    <i class="fas fa-building" style="font-size: 1.5rem; color: white;"></i>
+                                </div>
+                                <h4 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem; font-size: 1.1rem; line-height: 1.3;">' . $centre_name . '</h4>';
+                    
+                    if ($centre_location) {
+                        echo '<p style="color: #718096; margin-bottom: 1rem; font-size: 0.85rem;">
+                                <i class="fas fa-map-pin me-1" style="color: #ed8936;"></i>' . $centre_location . '
+                              </p>';
+                    }
+                    
+                    echo '<div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                            <div class="stat-item text-center">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">' . $course_count . '</div>
+                                <div style="font-size: 0.75rem; color: #718096;">Courses</div>
+                            </div>
+                            <div class="stat-item text-center">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <div style="font-size: 0.75rem; color: #718096;">Quality</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>';
+                }
+            }
+            ?>
+        </div>
+
+        <!-- Quick Action Buttons -->
+        <div class="text-center mt-5">
+            <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 15px; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.2);">
+                <h5 style="color: white; margin-bottom: 1rem; font-weight: 600;">Quick Navigation</h5>
+                <div class="d-flex flex-wrap justify-content-center gap-3">
+                    <button class="quick-nav-btn" onclick="scrollToSection('long-term')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-certificate me-2"></i> Long Term NSQF
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('short-term')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-award me-2"></i> Short Term NSQF
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('non-nsqf')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-laptop-code me-2"></i> Non-NSQF
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('internship')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-rocket me-2"></i> Internships
+                    </button>
                 </div>
             </div>
         </div>
@@ -300,32 +345,62 @@ $result_internship = $conn->query($sql_internship);
 </section>
 
 <style>
-/* Modern Select Hover Effects */
-.modern-select:hover {
+/* Centre Card Hover Effects */
+.centre-card {
+    transform: translateY(0);
+}
+
+.centre-card:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+    border-color: rgba(102, 126, 234, 0.3) !important;
+}
+
+.centre-card.active {
     border-color: #667eea !important;
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15) !important;
+    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2) !important;
+    transform: translateY(-5px) !important;
+}
+
+.centre-card.active::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.centre-card.active::after {
+    content: '✓';
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    z-index: 11;
+}
+
+/* Quick Navigation Button Hover */
+.quick-nav-btn:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
     transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(255, 255, 255, 0.1);
 }
 
-.modern-select:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1), 0 8px 25px rgba(102, 126, 234, 0.15) !important;
-    outline: none !important;
-    transform: translateY(-2px);
+/* Card Animation */
+.centre-card {
+    animation: cardSlideIn 0.6s ease-out;
 }
 
-/* Quick Filter Button Hover Effects */
-.quick-filter-btn:hover {
-    transform: translateY(-2px) scale(1.05);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
-}
-
-/* Filter Card Animation */
-.filter-card {
-    animation: filterCardSlideIn 0.8s ease-out;
-}
-
-@keyframes filterCardSlideIn {
+@keyframes cardSlideIn {
     from {
         opacity: 0;
         transform: translateY(30px);
@@ -338,35 +413,48 @@ $result_internship = $conn->query($sql_internship);
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .filter-card {
-        padding: 2rem 1.5rem !important;
-        margin: 0 1rem;
+    .centre-card {
+        margin-bottom: 1rem;
     }
     
-    .filter-stats {
-        flex-direction: column !important;
-        gap: 1rem;
-    }
-    
-    .stat-divider {
-        display: none !important;
-    }
-    
-    .quick-filters .d-flex {
-        justify-content: center;
+    .quick-nav-btn {
+        font-size: 0.8rem !important;
+        padding: 0.6rem 1.2rem !important;
     }
 }
+
+/* Stagger animation for cards */
+.centre-card:nth-child(1) { animation-delay: 0.1s; }
+.centre-card:nth-child(2) { animation-delay: 0.2s; }
+.centre-card:nth-child(3) { animation-delay: 0.3s; }
+.centre-card:nth-child(4) { animation-delay: 0.4s; }
+.centre-card:nth-child(5) { animation-delay: 0.5s; }
+.centre-card:nth-child(6) { animation-delay: 0.6s; }
 </style>
 
 <script>
-function filterByCentre(centreId) {
+// Centre selection function for card-based interface
+function selectCentre(centreId) {
     const url = new URL(window.location.href);
     if (centreId == 0) {
         url.searchParams.delete('centre');
     } else {
         url.searchParams.set('centre', centreId);
     }
-    window.location.href = url.toString();
+    
+    // Add loading animation
+    const clickedCard = event.currentTarget;
+    clickedCard.style.transform = 'scale(0.95)';
+    clickedCard.style.opacity = '0.7';
+    
+    setTimeout(() => {
+        window.location.href = url.toString();
+    }, 200);
+}
+
+// Legacy function for backward compatibility
+function filterByCentre(centreId) {
+    selectCentre(centreId);
 }
 
 // Quick filter scroll functions
@@ -419,6 +507,23 @@ document.addEventListener('DOMContentLoaded', function() {
         card.style.transform = 'translateY(30px)';
         card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
         observer.observe(card);
+    });
+
+    // Add hover effects to centre cards
+    document.querySelectorAll('.centre-card').forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            if (!this.classList.contains('active')) {
+                this.style.transform = 'translateY(-8px)';
+                this.style.boxShadow = '0 20px 40px rgba(0, 0, 0, 0.15)';
+            }
+        });
+
+        card.addEventListener('mouseleave', function() {
+            if (!this.classList.contains('active')) {
+                this.style.transform = 'translateY(0)';
+                this.style.boxShadow = '0 10px 30px rgba(0, 0, 0, 0.1)';
+            }
+        });
     });
 });
 </script>
