@@ -153,9 +153,9 @@ $result_internship = $conn->query($sql_internship);
         </div>
 
         <!-- Training Centre Cards -->
-        <div class="row g-4">
-            <!-- All Centres Card -->
-            <div class="col-lg-4 col-md-6">
+        <div class="row g-4 justify-content-center">
+            <!-- All Centres Card - Left -->
+            <div class="col-lg-4 col-md-6 order-lg-1 order-2">
                 <div class="centre-card <?php echo $centre_filter == 0 ? 'active' : ''; ?>" onclick="selectCentre(0)" style="
                     background: rgba(255, 255, 255, 0.95);
                     backdrop-filter: blur(20px);
@@ -208,12 +208,168 @@ $result_internship = $conn->query($sql_internship);
                 </div>
             </div>
 
-            <!-- Individual Centre Cards -->
             <?php 
-            // Reset the result pointer for centres
+            // Find NIELIT Bhubaneswar centre and display it in the center
+            $bhubaneswar_centre = null;
+            $other_centres = [];
+            
             if ($result_centres && $result_centres->num_rows > 0) {
                 $result_centres->data_seek(0);
                 while ($centre = $result_centres->fetch_assoc()) {
+                    if (stripos($centre['name'], 'bhubaneswar') !== false || stripos($centre['name'], 'bbsr') !== false) {
+                        $bhubaneswar_centre = $centre;
+                    } else {
+                        $other_centres[] = $centre;
+                    }
+                }
+            }
+            
+            // Display NIELIT Bhubaneswar in center with special styling
+            if ($bhubaneswar_centre) {
+                $is_active = ($centre_filter == $bhubaneswar_centre['id']) ? 'active' : '';
+                
+                // Get course count for Bhubaneswar centre
+                $course_count_query = "SELECT COUNT(*) as count FROM courses WHERE centre_id = " . $bhubaneswar_centre['id'] . " AND (link_published = 1 OR link_published IS NULL)";
+                $course_count_result = $conn->query($course_count_query);
+                $course_count = $course_count_result ? $course_count_result->fetch_assoc()['count'] : 0;
+                
+                $centre_name = htmlspecialchars($bhubaneswar_centre['name']);
+                $centre_location = '';
+                if (!empty($bhubaneswar_centre['city']) && !empty($bhubaneswar_centre['state'])) {
+                    $centre_location = htmlspecialchars($bhubaneswar_centre['city']) . ', ' . htmlspecialchars($bhubaneswar_centre['state']);
+                }
+                
+                echo '<div class="col-lg-4 col-md-6 order-lg-2 order-1">
+                    <div class="centre-card featured-centre ' . $is_active . '" onclick="selectCentre(' . $bhubaneswar_centre['id'] . ')" style="
+                        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+                        backdrop-filter: blur(20px);
+                        border-radius: 25px;
+                        padding: 2.5rem;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        border: 3px solid rgba(72, 187, 120, 0.3);
+                        box-shadow: 0 15px 40px rgba(72, 187, 120, 0.15);
+                        position: relative;
+                        overflow: hidden;
+                        transform: scale(1.05);
+                    ">
+                        <!-- Featured Badge -->
+                        <div style="position: absolute; top: 15px; right: 15px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 0.4rem 0.8rem; border-radius: 15px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <i class="fas fa-star me-1"></i>Featured
+                        </div>
+                        
+                        <!-- Card Background Pattern -->
+                        <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(72, 187, 120, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
+                        
+                        <div class="text-center position-relative">
+                            <div class="centre-icon" style="width: 80px; height: 80px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; box-shadow: 0 12px 30px rgba(72, 187, 120, 0.4);">
+                                <i class="fas fa-university" style="font-size: 2rem; color: white;"></i>
+                            </div>
+                            <h3 style="color: #2d3748; font-weight: 800; margin-bottom: 0.5rem; font-size: 1.3rem; line-height: 1.3;">' . $centre_name . '</h3>';
+                
+                if ($centre_location) {
+                    echo '<p style="color: #48bb78; margin-bottom: 1.5rem; font-size: 0.95rem; font-weight: 600;">
+                            <i class="fas fa-map-pin me-2" style="color: #ed8936;"></i>' . $centre_location . '
+                          </p>';
+                }
+                
+                echo '<div style="background: linear-gradient(135deg, #f0fff4 0%, #e6fffa 100%); padding: 1rem; border-radius: 15px; margin-bottom: 1rem; border: 1px solid rgba(72, 187, 120, 0.2);">
+                        <p style="color: #2d5016; margin: 0; font-size: 0.85rem; font-weight: 500;">
+                            <i class="fas fa-info-circle me-2" style="color: #48bb78;"></i>
+                            Your local NIELIT training centre with comprehensive courses and expert faculty.
+                        </p>
+                    </div>
+                    
+                    <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(72, 187, 120, 0.1);">
+                        <div class="stat-item text-center">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #48bb78;">' . $course_count . '</div>
+                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Available Courses</div>
+                        </div>
+                        <div class="stat-item text-center">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #ed8936;">
+                                <i class="fas fa-award"></i>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Premium Quality</div>
+                        </div>
+                        <div class="stat-item text-center">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #667eea;">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Expert Faculty</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>';
+            }
+            
+            // Display other centres on the right
+            if (!empty($other_centres)) {
+                $first_other_centre = $other_centres[0];
+                $is_active = ($centre_filter == $first_other_centre['id']) ? 'active' : '';
+                
+                // Get course count for this centre
+                $course_count_query = "SELECT COUNT(*) as count FROM courses WHERE centre_id = " . $first_other_centre['id'] . " AND (link_published = 1 OR link_published IS NULL)";
+                $course_count_result = $conn->query($course_count_query);
+                $course_count = $course_count_result ? $course_count_result->fetch_assoc()['count'] : 0;
+                
+                $centre_name = htmlspecialchars($first_other_centre['name']);
+                $centre_location = '';
+                if (!empty($first_other_centre['city']) && !empty($first_other_centre['state'])) {
+                    $centre_location = htmlspecialchars($first_other_centre['city']) . ', ' . htmlspecialchars($first_other_centre['state']);
+                }
+                
+                echo '<div class="col-lg-4 col-md-6 order-lg-3 order-3">
+                    <div class="centre-card ' . $is_active . '" onclick="selectCentre(' . $first_other_centre['id'] . ')" style="
+                        background: rgba(255, 255, 255, 0.95);
+                        backdrop-filter: blur(20px);
+                        border-radius: 20px;
+                        padding: 2rem;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        border: 2px solid rgba(255, 255, 255, 0.2);
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+                        position: relative;
+                        overflow: hidden;
+                        height: 100%;
+                    ">
+                        <!-- Card Background Pattern -->
+                        <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(159, 122, 234, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
+                        
+                        <div class="text-center position-relative">
+                            <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #9f7aea 0%, #805ad5 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(159, 122, 234, 0.3);">
+                                <i class="fas fa-building" style="font-size: 1.5rem; color: white;"></i>
+                            </div>
+                            <h4 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem; font-size: 1.1rem; line-height: 1.3;">' . $centre_name . '</h4>';
+                
+                if ($centre_location) {
+                    echo '<p style="color: #718096; margin-bottom: 1rem; font-size: 0.85rem;">
+                            <i class="fas fa-map-pin me-1" style="color: #ed8936;"></i>' . $centre_location . '
+                          </p>';
+                }
+                
+                echo '<div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
+                        <div class="stat-item text-center">
+                            <div style="font-size: 1.2rem; font-weight: 700; color: #9f7aea;">' . $course_count . '</div>
+                            <div style="font-size: 0.75rem; color: #718096;">Courses</div>
+                        </div>
+                        <div class="stat-item text-center">
+                            <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div style="font-size: 0.75rem; color: #718096;">Quality</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>';
+            }
+            
+            // Display remaining centres in a second row if there are more
+            if (count($other_centres) > 1) {
+                echo '<div class="row g-4 mt-2 justify-content-center">';
+                for ($i = 1; $i < count($other_centres); $i++) {
+                    $centre = $other_centres[$i];
                     $is_active = ($centre_filter == $centre['id']) ? 'active' : '';
                     
                     // Get course count for this centre
@@ -221,15 +377,10 @@ $result_internship = $conn->query($sql_internship);
                     $course_count_result = $conn->query($course_count_query);
                     $course_count = $course_count_result ? $course_count_result->fetch_assoc()['count'] : 0;
                     
-                    // Get centre details
                     $centre_name = htmlspecialchars($centre['name']);
                     $centre_location = '';
                     if (!empty($centre['city']) && !empty($centre['state'])) {
                         $centre_location = htmlspecialchars($centre['city']) . ', ' . htmlspecialchars($centre['state']);
-                    } elseif (!empty($centre['city'])) {
-                        $centre_location = htmlspecialchars($centre['city']);
-                    } elseif (!empty($centre['state'])) {
-                        $centre_location = htmlspecialchars($centre['state']);
                     }
                     
                     echo '<div class="col-lg-4 col-md-6">
@@ -247,10 +398,10 @@ $result_internship = $conn->query($sql_internship);
                             height: 100%;
                         ">
                             <!-- Card Background Pattern -->
-                            <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(72, 187, 120, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
+                            <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(237, 137, 54, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
                             
                             <div class="text-center position-relative">
-                                <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(72, 187, 120, 0.3);">
+                                <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(237, 137, 54, 0.3);">
                                     <i class="fas fa-building" style="font-size: 1.5rem; color: white;"></i>
                                 </div>
                                 <h4 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem; font-size: 1.1rem; line-height: 1.3;">' . $centre_name . '</h4>';
@@ -263,11 +414,11 @@ $result_internship = $conn->query($sql_internship);
                     
                     echo '<div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">' . $course_count . '</div>
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">' . $course_count . '</div>
                                 <div style="font-size: 0.75rem; color: #718096;">Courses</div>
                             </div>
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">
                                     <i class="fas fa-star"></i>
                                 </div>
                                 <div style="font-size: 0.75rem; color: #718096;">Quality</div>
@@ -277,9 +428,9 @@ $result_internship = $conn->query($sql_internship);
                 </div>
             </div>';
                 }
+                echo '</div>';
             }
             ?>
-        </div>
 
         <!-- Quick Action Buttons -->
         <div class="text-center mt-5">

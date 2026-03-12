@@ -449,8 +449,13 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Testing toast notifications...');
         if (typeof ToastNotification !== 'undefined') {
             console.log('ToastNotification class is available');
+            // Test with a subtle info message
+            var t = new ToastNotification();
+            t.info('Course Assignment system loaded successfully');
         } else {
             console.log('ToastNotification class is NOT available, using fallback');
+            // Test fallback system
+            showToast('success', 'Course Assignment system loaded successfully');
         }
     }, 1000);
 
@@ -540,46 +545,77 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Fallback toast function if ToastNotification class is not available
 function showToast(type, message) {
+    console.log('showToast called with type:', type, 'message:', message);
+    
     // Create toast container if it doesn't exist
     var container = document.getElementById('toast-container');
     if (!container) {
         container = document.createElement('div');
         container.id = 'toast-container';
-        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+        container.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;';
         document.body.appendChild(container);
     }
     
     // Create toast element
     var toast = document.createElement('div');
-    var bgColor = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#ef4444');
-    var icon = type === 'success' ? 'check-circle' : (type === 'warning' ? 'exclamation-triangle' : 'times-circle');
+    var bgColor, icon;
+    
+    switch(type) {
+        case 'success':
+        case 'assigned':
+            bgColor = '#10b981';
+            icon = 'check-circle';
+            break;
+        case 'warning':
+            bgColor = '#f59e0b';
+            icon = 'exclamation-triangle';
+            break;
+        case 'error':
+            bgColor = '#ef4444';
+            icon = 'times-circle';
+            break;
+        case 'delete':
+            bgColor = '#dc2626';
+            icon = 'trash';
+            break;
+        default:
+            bgColor = '#3b82f6';
+            icon = 'info-circle';
+    }
     
     toast.style.cssText = `
         background: ${bgColor};
         color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 16px 20px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
         display: flex;
         align-items: center;
-        gap: 8px;
-        min-width: 300px;
-        animation: slideIn 0.3s ease;
+        gap: 12px;
+        min-width: 320px;
+        max-width: 400px;
+        animation: slideInRight 0.4s ease;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.4;
+        word-wrap: break-word;
     `;
     
-    toast.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
+    toast.innerHTML = `<i class="fas fa-${icon}" style="font-size: 16px; flex-shrink: 0;"></i> <span>${message}</span>`;
     container.appendChild(toast);
     
-    // Auto remove after 4 seconds
+    console.log('Toast created and added to container');
+    
+    // Auto remove after 5 seconds
     setTimeout(() => {
-        toast.style.animation = 'slideOut 0.3s ease';
+        toast.style.animation = 'slideOutRight 0.4s ease';
         setTimeout(() => {
             if (toast.parentNode) {
                 toast.parentNode.removeChild(toast);
             }
-        }, 300);
-    }, 4000);
+        }, 400);
+    }, 5000);
 }
 
 // Add CSS animations for toast
@@ -592,6 +628,14 @@ if (!document.getElementById('toast-animations')) {
             to { transform: translateX(0); opacity: 1; }
         }
         @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
             from { transform: translateX(0); opacity: 1; }
             to { transform: translateX(100%); opacity: 0; }
         }
@@ -647,24 +691,23 @@ function submitAssignmentForm(form) {
             // Show success message
             console.log('Assignment successful, showing notification');
             
-            // Initialize toast notification properly
-            if (typeof ToastNotification !== 'undefined') {
-                var t = new ToastNotification();
-                if (data.type === 'warning') {
-                    t.warning(data.message);
+            // Initialize toast notification properly - try multiple approaches
+            try {
+                if (typeof ToastNotification !== 'undefined') {
+                    var t = new ToastNotification();
+                    if (data.type === 'warning') {
+                        t.warning(data.message);
+                    } else {
+                        t.assigned(data.message); // Use assigned method for course assignments
+                    }
                 } else {
-                    t.success(data.message);
+                    // Fallback - create toast manually
+                    showToast(data.type === 'warning' ? 'warning' : 'success', data.message);
                 }
-            } else if (typeof toast !== 'undefined') {
-                // Fallback to global toast function
-                if (data.type === 'warning') {
-                    toast.warning(data.message);
-                } else {
-                    toast.success(data.message);
-                }
-            } else {
-                // Final fallback - create toast manually
-                showToast('success', data.message);
+            } catch (error) {
+                console.error('Toast notification error:', error);
+                // Final fallback - browser alert
+                alert('Success: ' + data.message);
             }
             
             // Close modal
@@ -680,21 +723,35 @@ function submitAssignmentForm(form) {
         } else {
             console.log('Assignment failed:', data.message);
             
-            // Show error notification
-            if (typeof ToastNotification !== 'undefined') {
-                var t = new ToastNotification();
-                t.error(data.message || 'Failed to assign courses');
-            } else if (typeof toast !== 'undefined') {
-                toast.error(data.message || 'Failed to assign courses');
-            } else {
-                showToast('error', data.message || 'Failed to assign courses');
+            // Show error notification with better error handling
+            try {
+                if (typeof ToastNotification !== 'undefined') {
+                    var t = new ToastNotification();
+                    t.error(data.message || 'Failed to assign courses');
+                } else {
+                    showToast('error', data.message || 'Failed to assign courses');
+                }
+            } catch (error) {
+                console.error('Toast notification error:', error);
+                alert('Error: ' + (data.message || 'Failed to assign courses'));
             }
         }
     })
     .catch(error => {
         console.error('Fetch error:', error); // Debug log
-        var t = new ToastNotification();
-        t.error('Network error occurred. Please try again.');
+        
+        // Show error notification with better error handling
+        try {
+            if (typeof ToastNotification !== 'undefined') {
+                var t = new ToastNotification();
+                t.error('Network error occurred. Please try again.');
+            } else {
+                showToast('error', 'Network error occurred. Please try again.');
+            }
+        } catch (toastError) {
+            console.error('Toast notification error:', toastError);
+            alert('Network error occurred. Please try again.');
+        }
     })
     .finally(() => {
         console.log('Restoring button state'); // Debug log
