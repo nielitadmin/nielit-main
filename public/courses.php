@@ -581,6 +581,64 @@ $result_internship = $conn->query($sql_internship);
 .centre-card:nth-child(4) { animation-delay: 0.4s; }
 .centre-card:nth-child(5) { animation-delay: 0.5s; }
 .centre-card:nth-child(6) { animation-delay: 0.6s; }
+
+/* Enrollment Status Styles */
+.enrollment-status-badge {
+    display: flex;
+    justify-content: flex-start;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid;
+}
+
+.status-ongoing {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    color: #155724;
+    border-color: #c3e6cb;
+    box-shadow: 0 2px 4px rgba(21, 87, 36, 0.1);
+}
+
+.status-closed {
+    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+    color: #721c24;
+    border-color: #f5c6cb;
+    box-shadow: 0 2px 4px rgba(114, 28, 36, 0.1);
+}
+
+/* Course Card Disabled State */
+.course-disabled {
+    opacity: 0.7;
+    filter: grayscale(20%);
+}
+
+.course-disabled .info-value {
+    color: #6c757d !important;
+}
+
+/* Disabled Button Styles */
+.btn-disabled {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    color: white;
+    border: 1px solid #6c757d;
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.btn-disabled:hover {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%);
+    transform: none;
+    box-shadow: none;
+}
 </style>
 
 <script>
@@ -699,8 +757,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="course-card">
                             <div class="course-card-header">
                                 <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                <!-- Enrollment Status Badge -->
+                                <div class="enrollment-status-badge" style="margin-top: 8px;">
+                                    <?php 
+                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
+                                    if ($enrollment_status == 'closed'): 
+                                    ?>
+                                        <span class="status-badge status-closed">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-ongoing">
+                                            <i class="fas fa-check-circle"></i> Enrollment Open
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                            <div class="course-card-body">
+                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
@@ -780,9 +853,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                        <i class="fas fa-paper-plane"></i> Apply Now
-                                    </a>
+                                    <?php if ($enrollment_status == 'closed'): ?>
+                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
+                                            <i class="fas fa-paper-plane"></i> Apply Now
+                                        </a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -814,8 +893,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="course-card">
                             <div class="course-card-header">
                                 <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                <!-- Enrollment Status Badge -->
+                                <div class="enrollment-status-badge" style="margin-top: 8px;">
+                                    <?php 
+                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
+                                    if ($enrollment_status == 'closed'): 
+                                    ?>
+                                        <span class="status-badge status-closed">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-ongoing">
+                                            <i class="fas fa-check-circle"></i> Enrollment Open
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                            <div class="course-card-body">
+                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
@@ -895,9 +989,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                        <i class="fas fa-paper-plane"></i> Apply Now
-                                    </a>
+                                    <?php if ($enrollment_status == 'closed'): ?>
+                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
+                                            <i class="fas fa-paper-plane"></i> Apply Now
+                                        </a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -929,8 +1029,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="course-card">
                             <div class="course-card-header">
                                 <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                <!-- Enrollment Status Badge -->
+                                <div class="enrollment-status-badge" style="margin-top: 8px;">
+                                    <?php 
+                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
+                                    if ($enrollment_status == 'closed'): 
+                                    ?>
+                                        <span class="status-badge status-closed">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-ongoing">
+                                            <i class="fas fa-check-circle"></i> Enrollment Open
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                            <div class="course-card-body">
+                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
@@ -1010,9 +1125,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                        <i class="fas fa-paper-plane"></i> Apply Now
-                                    </a>
+                                    <?php if ($enrollment_status == 'closed'): ?>
+                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
+                                            <i class="fas fa-paper-plane"></i> Apply Now
+                                        </a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1044,8 +1165,23 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="course-card">
                             <div class="course-card-header">
                                 <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                <!-- Enrollment Status Badge -->
+                                <div class="enrollment-status-badge" style="margin-top: 8px;">
+                                    <?php 
+                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
+                                    if ($enrollment_status == 'closed'): 
+                                    ?>
+                                        <span class="status-badge status-closed">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="status-badge status-ongoing">
+                                            <i class="fas fa-check-circle"></i> Enrollment Open
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
                             </div>
-                            <div class="course-card-body">
+                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
@@ -1125,9 +1261,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <?php endif; ?>
                                 
                                 <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern">
-                                        <i class="fas fa-paper-plane"></i> Apply Now
-                                    </a>
+                                    <?php if ($enrollment_status == 'closed'): ?>
+                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern">
+                                            <i class="fas fa-paper-plane"></i> Apply Now
+                                        </a>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>

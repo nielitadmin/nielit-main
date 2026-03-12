@@ -84,6 +84,7 @@ if (isset($_POST['update_course'])) {
     $training_center = $_POST['training_center'];
     $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
     $link_published = isset($_POST['link_published']) ? 1 : 0;
+    $enrollment_status = $_POST['enrollment_status'] ?? 'ongoing';
     $description_pdf = $course['description_pdf'];
     $course_flyer = $course['course_flyer'] ?? '';
 
@@ -165,11 +166,12 @@ if (isset($_POST['update_course'])) {
         course_coordinator = ?,
         training_center = ?,
         centre_id = ?,
-        link_published = ?
+        link_published = ?,
+        enrollment_status = ?
         WHERE id = ?";
 
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("sssssssssssssssiii",
+    $stmt->bind_param("sssssssssssssssiisi",
         $course_name,
         $course_code,
         $course_abbreviation,
@@ -187,6 +189,7 @@ if (isset($_POST['update_course'])) {
         $training_center,
         $centre_id,
         $link_published,
+        $enrollment_status,
         $course_id
     );
 
@@ -523,6 +526,59 @@ if (isset($_POST['update_course'])) {
                                 </label>
                             </div>
                             <small class="text-muted"><?php echo ($course['link_published'] ?? 0) ? 'Students can register' : 'Registration disabled'; ?></small>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-users"></i> Enrollment Status *
+                            </label>
+                            <select class="form-select" name="enrollment_status" id="enrollment_status" required>
+                                <option value="ongoing" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'ongoing' ? 'selected' : ''; ?>>
+                                    <i class="fas fa-check-circle"></i> Enrollment Ongoing
+                                </option>
+                                <option value="closed" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'closed' ? 'selected' : ''; ?>>
+                                    <i class="fas fa-times-circle"></i> Enrollment Closed
+                                </option>
+                            </select>
+                            <small class="text-muted">
+                                <span id="enrollment_help_text">
+                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
+                                        Course is accepting new enrollments
+                                    <?php else: ?>
+                                        Course is not accepting new enrollments
+                                    <?php endif; ?>
+                                </span>
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Status Preview</label>
+                            <div style="padding-top: 8px;">
+                                <span id="enrollment_preview" style="
+                                    padding: 8px 16px; 
+                                    border-radius: 20px; 
+                                    font-size: 14px; 
+                                    font-weight: 600;
+                                    display: inline-block;
+                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
+                                        background: #d4edda; 
+                                        color: #155724; 
+                                        border: 1px solid #c3e6cb;
+                                    <?php else: ?>
+                                        background: #f8d7da; 
+                                        color: #721c24; 
+                                        border: 1px solid #f5c6cb;
+                                    <?php endif; ?>
+                                ">
+                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
+                                        <i class="fas fa-check-circle"></i> Enrollment Open
+                                    <?php else: ?>
+                                        <i class="fas fa-times-circle"></i> Enrollment Closed
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                            <small class="text-muted">How it appears to students</small>
                         </div>
                     </div>
                     
@@ -1016,6 +1072,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusSpan.style.fontWeight = 'bold';
                 smallText.textContent = 'Registration disabled';
                 toast.warning('Registration link deactivated!');
+            }
+        });
+    }
+    
+    // Handle enrollment status changes
+    const enrollmentSelect = document.getElementById('enrollment_status');
+    if (enrollmentSelect) {
+        enrollmentSelect.addEventListener('change', function() {
+            const preview = document.getElementById('enrollment_preview');
+            const helpText = document.getElementById('enrollment_help_text');
+            
+            if (this.value === 'ongoing') {
+                preview.innerHTML = '<i class="fas fa-check-circle"></i> Enrollment Open';
+                preview.style.background = '#d4edda';
+                preview.style.color = '#155724';
+                preview.style.border = '1px solid #c3e6cb';
+                helpText.textContent = 'Course is accepting new enrollments';
+                toast.success('Enrollment status set to ONGOING');
+            } else {
+                preview.innerHTML = '<i class="fas fa-times-circle"></i> Enrollment Closed';
+                preview.style.background = '#f8d7da';
+                preview.style.color = '#721c24';
+                preview.style.border = '1px solid #f5c6cb';
+                helpText.textContent = 'Course is not accepting new enrollments';
+                toast.warning('Enrollment status set to CLOSED');
             }
         });
     }
