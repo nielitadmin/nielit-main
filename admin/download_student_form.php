@@ -102,9 +102,10 @@ $pdf->SetY(15);
 $pdf->SetFont('freesans', 'B', 12); 
 $pdf->Cell(0, 7, 'राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान ,भुवनेश्वर', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar/Balasore', 0, 1, 'C');
+$pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar', 0, 1, 'C');
+$pdf->Cell(0, 5, 'Balasore Extension Center', 0, 1, 'C');
 
-$pdf->SetY(30);
+$pdf->SetY(35);
 $pdf->SetFont('helvetica', 'B', 16); 
 $pdf->SetTextColor(33, 150, 243);
 $pdf->Cell(0, 12, 'ADMISSION APPLICATION FORM', 0, 1, 'C');
