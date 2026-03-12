@@ -251,16 +251,16 @@ $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 7. FOR OFFICE USE ONLY', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
 $pdf->Cell(60, 13, ' Document Verification:', 1, 0); $pdf->Cell(120, 13, ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found', 1, 1);
-$pdf->Cell(60, 13, ' Signature of Official:', 1, 0); $pdf->Cell(120, 13, ' __________________________________________', 1, 1);
+$pdf->Cell(60, 15, ' Signature of Official/Nodal officer/Project incharge:', 1, 0); $pdf->Cell(120, 15, ' __________________________________________', 1, 1);
 
-$pdf->Ln(12);
+$pdf->Ln(15);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell(0, 7, ' DECLARATION BY CANDIDATE', 0, 1, 'L');
 $pdf->SetFont('freesans', '', 10);
 $dec_text = "I hereby declare that the information provided above is true and correct to the best of my knowledge. I understand that any false information may result in the cancellation of my admission/registration.\n\nमैं एतद्द्वारा घोषणा करता/करती हूं कि ऊपर दी गई जानकारी मेरी जानकारी के अनुसार सत्य और सही है। मैं समझता/समझती हूं कि कोई भी गलत जानकारी मेरे प्रवेश/प्रंजीकरण को रद्द कर सकती है।";
 $pdf->MultiCell($full_w, 8, $dec_text, 0, 'L');
 
-$pdf->Ln(20);
+$pdf->Ln(25);
 $pdf->SetFont('freesans', 'B', 11);
 $pdf->Cell(90, 5, 'Date: ________________', 0, 0);
 $pdf->Cell(90, 5, 'Signature of Candidate', 0, 1, 'R');
