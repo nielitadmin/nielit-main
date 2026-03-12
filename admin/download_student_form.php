@@ -102,7 +102,7 @@ $pdf->SetY(15);
 $pdf->SetFont('freesans', 'B', 12); 
 $pdf->Cell(0, 7, 'राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान ,भुवनेश्वर', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar', 0, 1, 'C');
+$pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar/Balasore', 0, 1, 'C');
 
 $pdf->SetY(30);
 $pdf->SetFont('helvetica', 'B', 16); 
