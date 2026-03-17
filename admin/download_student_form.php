@@ -121,7 +121,7 @@ $pdf->SetFont('freesans', 'B', 12);
 $pdf->Cell(0, 7, 'राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान ,भुवनेश्वर', 0, 1, 'C');
 $pdf->SetFont('helvetica', 'B', 10);
 $pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar', 0, 1, 'C');
-$pdf->Cell(0, 5, 'Balasore Extension Center', 0, 1, 'C');
+$pdf->Cell(0, 5, 'Bhubaneswar|Balasore|Raipur', 0, 1, 'C');
 
 $pdf->SetY(35);
 $pdf->SetFont('helvetica', 'B', 16); 
@@ -168,7 +168,12 @@ $pdf->Cell(45, 10, ' Student Full Name', 1, 0);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell(95, 10, ' ' . strtoupper($student['name']), 1, 1);
 $pdf->SetFont('helvetica', '', 11);
-$pdf->Cell(45, 10, ' Course Chosen', 1, 0); $pdf->Cell(95, 10, ' ' . $student['course'], 1, 1);
+
+// Course Chosen with proper text wrapping
+$course_text = ' ' . $student['course'];
+$course_height = max(10, $pdf->getStringHeight(95, $course_text));
+$pdf->Cell(45, $course_height, ' Course Chosen', 1, 0, 'L'); 
+$pdf->MultiCell(95, $course_height, $course_text, 1, 'L', false, 1);
 $pdf->Cell(45, 10, ' Unique Student ID', 1, 0); $pdf->Cell(95, 10, ' ' . $student['student_id'], 1, 1);
 $pdf->Cell(45, 10, ' Registration No.', 1, 0); $pdf->Cell(95, 10, ' ' . ($student['nielit_registration_no'] ?: 'N/A'), 1, 1);
 $pdf->Cell(45, 10, ' APAAR ID', 1, 0); $pdf->Cell(95, 10, ' ' . ($student['apaar_id'] ?: 'N/A'), 1, 1);
@@ -216,8 +221,18 @@ $pdf->Ln(6);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 4. INSTITUTIONAL & ACADEMIC INFO', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
-$pdf->Cell(50, 11, ' Training Centre', 1, 0); $pdf->Cell(130, 11, ' '.($student['training_center'] ?: 'NIELIT BHUBANESWAR'), 1, 1);
-$pdf->Cell(50, 11, ' Last College Name', 1, 0); $pdf->Cell(130, 11, ' '.$student['college_name'], 1, 1);
+
+// Training Centre with text wrapping
+$training_center_text = ' '.($student['training_center'] ?: 'NIELIT BHUBANESWAR');
+$training_center_height = max(11, $pdf->getStringHeight(130, $training_center_text));
+$pdf->Cell(50, $training_center_height, ' Training Centre', 1, 0); 
+$pdf->MultiCell(130, $training_center_height, $training_center_text, 1, 'L', false, 1);
+
+// Last College Name with text wrapping
+$college_name_text = ' '.$student['college_name'];
+$college_name_height = max(11, $pdf->getStringHeight(130, $college_name_text));
+$pdf->Cell(50, $college_name_height, ' Last College Name', 1, 0); 
+$pdf->MultiCell(130, $college_name_height, $college_name_text, 1, 'L', false, 1);
 $pdf->Cell(50, 11, ' Fee Payment UTR', 1, 0); $pdf->Cell(130, 11, ' '.($student['utr_number'] ?: 'N/A'), 1, 1);
 
 // --- 7. PAGE 2: EDUCATION & OFFICE VERIFICATION ---

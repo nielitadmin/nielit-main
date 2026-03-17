@@ -880,6 +880,15 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                         <button type="button" id="bulk-assign-btn" class="btn btn-primary" style="display: none;">
                             <i class="fas fa-layer-group"></i> Bulk Assign to Batch
                         </button>
+                        <a href="export_students_excel.php<?php 
+                            $export_params = [];
+                            if ($selected_course != 'All') $export_params[] = 'filter_course=' . urlencode($selected_course);
+                            if (!empty($start_date)) $export_params[] = 'start_date=' . urlencode($start_date);
+                            if (!empty($end_date)) $export_params[] = 'end_date=' . urlencode($end_date);
+                            echo !empty($export_params) ? '?' . implode('&', $export_params) : '';
+                        ?>" class="btn btn-success" title="Export to Excel">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </a>
                     </div>
                 </div>
                 
