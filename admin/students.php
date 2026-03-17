@@ -145,7 +145,8 @@ if ($is_course_coordinator) {
 if ($is_course_coordinator) {
     if (!empty($admin_courses)) {
         $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders)";
+        // For coordinators: count students not assigned to batches and not rejected
+        $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders) AND batch_id IS NULL AND status != 'rejected'";
         $stmt_total = $conn->prepare($total_students_query);
         $stmt_total->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
         $stmt_total->execute();
@@ -156,6 +157,7 @@ if ($is_course_coordinator) {
         $total_students_count = 0;
     }
 } else {
+    // Master Admin sees all students
     $total_students_query = "SELECT COUNT(*) AS total_students FROM students";
     $total_students_result = $conn->query($total_students_query);
 }
@@ -171,6 +173,7 @@ if ($total_students_result) {
 if ($is_course_coordinator) {
     if (!empty($admin_courses)) {
         $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+        // For coordinators: count students pending approval (not yet active)
         $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course IN ($placeholders)";
         $stmt_pending = $conn->prepare($pending_students_query);
         $stmt_pending->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
@@ -182,6 +185,7 @@ if ($is_course_coordinator) {
         $pending_students_count = 0;
     }
 } else {
+    // Master Admin sees all pending students
     $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending'";
     $pending_students_result = $conn->query($pending_students_query);
 }
@@ -197,7 +201,8 @@ if ($pending_students_result) {
 if ($is_course_coordinator) {
     if (!empty($admin_courses)) {
         $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND course IN ($placeholders)";
+        // For coordinators: count active students not assigned to batches (available for batch assignment)
+        $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND batch_id IS NULL AND course IN ($placeholders)";
         $stmt_active = $conn->prepare($active_students_query);
         $stmt_active->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
         $stmt_active->execute();
@@ -208,6 +213,7 @@ if ($is_course_coordinator) {
         $active_students_count = 0;
     }
 } else {
+    // Master Admin sees all active students
     $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active'";
     $active_students_result = $conn->query($active_students_query);
 }
@@ -430,10 +436,19 @@ if ($is_course_coordinator) {
         // Coordinator has assigned courses - show only those students
         $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
         $query .= " AND s.course IN ($placeholders)";
+        
+        // IMPORTANT: For course coordinators, hide students who are:
+        // 1. Already assigned to a batch (batch_id IS NOT NULL)
+        // 2. Rejected (status = 'rejected')
+        // Show only pending and active students who are not assigned to batches
+        $query .= " AND s.batch_id IS NULL AND s.status != 'rejected'";
     } else {
         // Coordinator has no assigned courses - show no students
         $query .= " AND 1=0"; // This makes the query return no results
     }
+} else {
+    // Master Admin sees ALL students regardless of batch assignment or approval status
+    // No additional filtering needed
 }
 
 if ($selected_course != 'All') {
@@ -481,13 +496,31 @@ if (!empty($bind_values)) {
 $stmt->execute();
 $result = $stmt->get_result();
 
-// Get all active batches for assignment dropdown
-$batches_query = "SELECT b.*, c.course_name 
-                  FROM batches b 
-                  LEFT JOIN courses c ON b.course_id = c.id 
-                  WHERE b.status = 'Active' 
-                  ORDER BY b.batch_name";
-$batches_result = $conn->query($batches_query);
+// Check if created_by column exists in batches table
+$column_check = $conn->query("SHOW COLUMNS FROM batches LIKE 'created_by'");
+$has_created_by_column = $column_check && $column_check->num_rows > 0;
+
+// Get all active batches for assignment dropdown (filtered by creator for coordinators if column exists)
+if ($is_course_coordinator && $admin_id && $has_created_by_column) {
+    // Course coordinators only see batches they created (if migration has been run)
+    $batches_query = "SELECT b.*, c.course_name 
+                      FROM batches b 
+                      LEFT JOIN courses c ON b.course_id = c.id 
+                      WHERE b.status = 'Active' AND b.created_by = ?
+                      ORDER BY b.batch_name";
+    $batches_stmt = $conn->prepare($batches_query);
+    $batches_stmt->bind_param("i", $admin_id);
+    $batches_stmt->execute();
+    $batches_result = $batches_stmt->get_result();
+} else {
+    // Master admins see all active batches OR coordinators see all batches if migration not run
+    $batches_query = "SELECT b.*, c.course_name 
+                      FROM batches b 
+                      LEFT JOIN courses c ON b.course_id = c.id 
+                      WHERE b.status = 'Active' 
+                      ORDER BY b.batch_name";
+    $batches_result = $conn->query($batches_query);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -706,7 +739,9 @@ $batches_result = $conn->query($batches_query);
                         <i class="fas fa-users"></i>
                     </div>
                     <h3 class="stat-value"><?php echo $total_students_count; ?></h3>
-                    <p class="stat-label">Total Students</p>
+                    <p class="stat-label">
+                        <?php echo $is_course_coordinator ? 'Students Available' : 'Total Students'; ?>
+                    </p>
                 </div>
                 
                 <div class="stat-card warning">
@@ -722,7 +757,9 @@ $batches_result = $conn->query($batches_query);
                         <i class="fas fa-check-circle"></i>
                     </div>
                     <h3 class="stat-value"><?php echo $active_students_count; ?></h3>
-                    <p class="stat-label">Active Students</p>
+                    <p class="stat-label">
+                        <?php echo $is_course_coordinator ? 'Ready for Assignment' : 'Active Students'; ?>
+                    </p>
                 </div>
             </div>
 
@@ -799,6 +836,33 @@ $batches_result = $conn->query($batches_query);
                     </div>
                 </div>
             <?php else: ?>
+            
+            <!-- Information Message for Course Coordinators -->
+            <?php if ($is_course_coordinator): ?>
+            <div class="content-card" style="margin-bottom: 1.5rem;">
+                <div class="card-body" style="background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%); border-left: 4px solid #2196f3;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="color: #1976d2; font-size: 1.5rem;">
+                            <i class="fas fa-info-circle"></i>
+                        </div>
+                        <div>
+                            <h6 style="margin: 0; color: #1565c0; font-weight: 600;">Course Coordinator View</h6>
+                            <p style="margin: 4px 0 0 0; color: #424242; font-size: 14px;">
+                                You are viewing students from your assigned courses who are <strong>not yet assigned to batches</strong> and <strong>not rejected</strong>. 
+                                This includes both <strong>pending students</strong> (for approval) and <strong>approved students</strong> (for batch assignment).
+                                Students already assigned to batches or rejected are hidden from your view.
+                                <?php if ($has_created_by_column): ?>
+                                    You can only assign students to <strong>batches you created</strong>.
+                                <?php else: ?>
+                                    <br><strong>Note:</strong> Run the batch ownership migration to enable batch filtering by creator.
+                                <?php endif; ?>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+            
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
@@ -1066,13 +1130,27 @@ $batches_result = $conn->query($batches_query);
                 <select name="batch_id" id="bulk-modal-batch-select" class="form-control" required>
                     <option value="">-- Select a Batch --</option>
                     <?php 
-                    // Reset the result pointer
-                    $batches_query = "SELECT b.*, c.course_name 
-                                      FROM batches b 
-                                      LEFT JOIN courses c ON b.course_id = c.id 
-                                      WHERE b.status = 'Active' 
-                                      ORDER BY b.batch_name";
-                    $batches_result2 = $conn->query($batches_query);
+                    // Reset the result pointer for bulk modal
+                    if ($is_course_coordinator && $admin_id && $has_created_by_column) {
+                        // Course coordinators only see batches they created (if migration has been run)
+                        $batches_query2 = "SELECT b.*, c.course_name 
+                                          FROM batches b 
+                                          LEFT JOIN courses c ON b.course_id = c.id 
+                                          WHERE b.status = 'Active' AND b.created_by = ?
+                                          ORDER BY b.batch_name";
+                        $batches_stmt2 = $conn->prepare($batches_query2);
+                        $batches_stmt2->bind_param("i", $admin_id);
+                        $batches_stmt2->execute();
+                        $batches_result2 = $batches_stmt2->get_result();
+                    } else {
+                        // Master admins see all active batches OR coordinators see all batches if migration not run
+                        $batches_query2 = "SELECT b.*, c.course_name 
+                                          FROM batches b 
+                                          LEFT JOIN courses c ON b.course_id = c.id 
+                                          WHERE b.status = 'Active' 
+                                          ORDER BY b.batch_name";
+                        $batches_result2 = $conn->query($batches_query2);
+                    }
                     
                     if ($batches_result2 && $batches_result2->num_rows > 0):
                         while ($batch = $batches_result2->fetch_assoc()): 

@@ -5,8 +5,8 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
-require_once '../config/database.php';
-require_once '../includes/theme_loader.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
 
 // Load active theme
 $active_theme = loadActiveTheme($conn);
@@ -188,29 +188,67 @@ $filter_status = $_GET['status'] ?? 'all';
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
 $current_admin_id = $_SESSION['admin_id'] ?? 0;
 
-// Build query with filters - JOIN with centres table to get centre name
-if ($is_master_admin) {
-    // Master admin sees all courses
-    $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
-              FROM courses 
-              LEFT JOIN centres ON courses.centre_id = centres.id 
-              WHERE 1=1";
-} else {
-    // Course coordinators see only their assigned courses
-    $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
-              FROM courses 
-              LEFT JOIN centres ON courses.centre_id = centres.id 
-              INNER JOIN admin_course_assignments aca ON courses.id = aca.course_id 
-              WHERE aca.admin_id = ? AND aca.is_active = 1";
-}
-
+// Build query with filters - with error handling for missing tables
+$query = "";
 $params = [];
 $types = "";
 
-// Add admin_id parameter for course coordinators
-if (!$is_master_admin) {
-    $params[] = $current_admin_id;
-    $types .= "i";
+// Check if centres table exists
+$centres_exists = false;
+$check_centres = $conn->query("SHOW TABLES LIKE 'centres'");
+if ($check_centres && $check_centres->num_rows > 0) {
+    $centres_exists = true;
+}
+
+// Check if admin_course_assignments table exists
+$assignments_exists = false;
+$check_assignments = $conn->query("SHOW TABLES LIKE 'admin_course_assignments'");
+if ($check_assignments && $check_assignments->num_rows > 0) {
+    $assignments_exists = true;
+}
+
+if ($is_master_admin) {
+    // Master admin sees all courses
+    if ($centres_exists) {
+        $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+                  FROM courses 
+                  LEFT JOIN centres ON courses.centre_id = centres.id 
+                  WHERE 1=1";
+    } else {
+        $query = "SELECT courses.*, NULL AS centre_name, NULL AS centre_code 
+                  FROM courses 
+                  WHERE 1=1";
+    }
+} else {
+    // Course coordinators see only their assigned courses (if table exists)
+    if ($assignments_exists && $centres_exists) {
+        $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+                  FROM courses 
+                  LEFT JOIN centres ON courses.centre_id = centres.id 
+                  INNER JOIN admin_course_assignments aca ON courses.id = aca.course_id 
+                  WHERE aca.admin_id = ? AND aca.is_active = 1";
+        $params[] = $current_admin_id;
+        $types .= "i";
+    } elseif ($assignments_exists) {
+        $query = "SELECT courses.*, NULL AS centre_name, NULL AS centre_code 
+                  FROM courses 
+                  INNER JOIN admin_course_assignments aca ON courses.id = aca.course_id 
+                  WHERE aca.admin_id = ? AND aca.is_active = 1";
+        $params[] = $current_admin_id;
+        $types .= "i";
+    } else {
+        // Fallback: show all courses if assignment table doesn't exist
+        if ($centres_exists) {
+            $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+                      FROM courses 
+                      LEFT JOIN centres ON courses.centre_id = centres.id 
+                      WHERE 1=1";
+        } else {
+            $query = "SELECT courses.*, NULL AS centre_name, NULL AS centre_code 
+                      FROM courses 
+                      WHERE 1=1";
+        }
+    }
 }
 
 if ($filter_type !== 'all') {
@@ -230,24 +268,32 @@ $query .= " ORDER BY courses.created_at DESC";
 // Include QR helper for checking QR code existence
 require_once '../includes/qr_helper.php';
 
-// Fetch active centres for dropdown
-$centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC";
-$centres_result = $conn->query($centres_query);
+// Fetch active centres for dropdown (if table exists)
 $centres = [];
-if ($centres_result) {
-    while ($centre = $centres_result->fetch_assoc()) {
-        $centres[] = $centre;
+if ($centres_exists) {
+    $centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC";
+    $centres_result = $conn->query($centres_query);
+    if ($centres_result) {
+        while ($centre = $centres_result->fetch_assoc()) {
+            $centres[] = $centre;
+        }
     }
 }
 
-// Execute query with filters
+// Execute query with filters and error handling
 if (!empty($params)) {
     $stmt = $conn->prepare($query);
+    if (!$stmt) {
+        die("Query preparation failed: " . $conn->error . "<br>Query: " . $query);
+    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     $courses = $stmt->get_result();
 } else {
     $courses = $conn->query($query);
+    if (!$courses) {
+        die("Query execution failed: " . $conn->error . "<br>Query: " . $query);
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -263,14 +309,12 @@ if (!empty($params)) {
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
 </head>
 <body>
-    <?php include 'includes/navbar.php'; ?>
-    
-    <div class="container-fluid">
-        <div class="row">
-            <?php include 'includes/sidebar.php'; ?>
-            
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+<div class="admin-wrapper">
+    <?php include 'includes/sidebar.php'; ?>
+
+    <main class="admin-content">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <div>
                         <h1 class="h2"><i class="fas fa-graduation-cap"></i> 
                             <?php if ($is_master_admin): ?>
@@ -479,9 +523,10 @@ if (!empty($params)) {
                         </div>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
-    </div>
+    </main>
+</div>
 
     <!-- Add Course Modal -->
     <div class="modal fade" id="addCourseModal" tabindex="-1">

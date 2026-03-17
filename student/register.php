@@ -842,6 +842,57 @@ $selected_course = $course_details['course_name'];
             outline: none;
         }
         
+        .education-table select {
+            font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        .education-table select:focus {
+            border-color: #0d47a1;
+            box-shadow: 0 0 0 2px rgba(13, 71, 161, 0.1);
+            outline: none;
+        }
+        
+        .education-table select:hover {
+            border-color: #1976d2;
+        }
+        
+        /* Enhanced dropdown styling */
+        .form-select-sm {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 12px 12px;
+            padding-right: 32px;
+        }
+        
+        .form-select-sm:focus {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%230d47a1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+        }
+        
+        /* Custom input styling for "Other" selections */
+        .education-table input.custom-other-input {
+            background: linear-gradient(135deg, #fff7ed 0%, #fef3c7 100%);
+            border: 2px solid #f59e0b;
+            font-style: italic;
+        }
+        
+        .education-table input.custom-other-input:focus {
+            border-color: #d97706;
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+            background: #ffffff;
+            font-style: normal;
+        }
+        
+        .education-table input.custom-other-input::placeholder {
+            color: #92400e;
+            font-style: italic;
+        }
+        
         /* Buttons */
         .btn-add-row {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -1700,11 +1751,122 @@ if (isset($_SESSION['info'])) {
                         <tbody>
                             <tr>
                                 <td>1</td>
-                                <td><input type="text" class="form-control form-control-sm" name="exam_passed[]" placeholder="10th/12th" required></td>
-                                <td><input type="text" class="form-control form-control-sm" name="exam_name[]" placeholder="High School" required></td>
-                                <td><input type="text" class="form-control form-control-sm" name="year_of_passing[]" placeholder="2020" required></td>
+                                <td>
+                                    <select class="form-select form-select-sm" name="exam_passed[]" required onchange="updateExamName(this)">
+                                        <option value="">Select Level</option>
+                                        <option value="Primary">Primary (5th/8th)</option>
+                                        <option value="Matriculation">Matriculation (10th)</option>
+                                        <option value="Intermediate">Intermediate (+2/12th)</option>
+                                        <option value="ITI">ITI</option>
+                                        <option value="Diploma">Diploma</option>
+                                        <option value="Graduation">Graduation</option>
+                                        <option value="Post Graduation">Post Graduation</option>
+                                        <option value="PhD">PhD/Doctorate</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" name="exam_name[]" required>
+                                        <option value="">Select Exam</option>
+                                        <!-- Options will be populated based on Exam Passed selection -->
+                                    </select>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm" name="year_of_passing[]" required>
+                                        <option value="">Year</option>
+                                        <!-- Years will be populated by JavaScript -->
+                                    </select>
+                                </td>
                                 <td><input type="text" class="form-control form-control-sm" name="institute_name[]" placeholder="Board/University" required></td>
-                                <td><input type="text" class="form-control form-control-sm" name="stream[]" placeholder="Science/Arts" required></td>
+                                <td>
+                                    <select class="form-select form-select-sm" name="stream[]" required onchange="handleStreamOther(this)">
+                                        <option value="">Select Stream</option>
+                                        <!-- General Streams -->
+                                        <option value="Science">Science</option>
+                                        <option value="Commerce">Commerce</option>
+                                        <option value="Arts">Arts/Humanities</option>
+                                        <option value="General">General</option>
+                                        <option value="Vocational">Vocational</option>
+                                        
+                                        <!-- Engineering & Technology Streams -->
+                                        <optgroup label="Engineering & Technology">
+                                            <option value="Computer Science Engineering">Computer Science Engineering</option>
+                                            <option value="Information Technology">Information Technology</option>
+                                            <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                                            <option value="Electrical Engineering">Electrical Engineering</option>
+                                            <option value="Mechanical Engineering">Mechanical Engineering</option>
+                                            <option value="Civil Engineering">Civil Engineering</option>
+                                            <option value="Chemical Engineering">Chemical Engineering</option>
+                                            <option value="Aerospace Engineering">Aerospace Engineering</option>
+                                            <option value="Automobile Engineering">Automobile Engineering</option>
+                                            <option value="Biomedical Engineering">Biomedical Engineering</option>
+                                            <option value="Biotechnology Engineering">Biotechnology Engineering</option>
+                                            <option value="Environmental Engineering">Environmental Engineering</option>
+                                            <option value="Industrial Engineering">Industrial Engineering</option>
+                                            <option value="Instrumentation Engineering">Instrumentation Engineering</option>
+                                            <option value="Marine Engineering">Marine Engineering</option>
+                                            <option value="Mining Engineering">Mining Engineering</option>
+                                            <option value="Petroleum Engineering">Petroleum Engineering</option>
+                                            <option value="Production Engineering">Production Engineering</option>
+                                            <option value="Textile Engineering">Textile Engineering</option>
+                                            <option value="Agricultural Engineering">Agricultural Engineering</option>
+                                            <option value="Food Technology">Food Technology</option>
+                                            <option value="Metallurgical Engineering">Metallurgical Engineering</option>
+                                            <option value="Materials Science Engineering">Materials Science Engineering</option>
+                                            <option value="Robotics Engineering">Robotics Engineering</option>
+                                            <option value="Artificial Intelligence & Machine Learning">Artificial Intelligence & Machine Learning</option>
+                                            <option value="Data Science Engineering">Data Science Engineering</option>
+                                            <option value="Cyber Security Engineering">Cyber Security Engineering</option>
+                                            <option value="Software Engineering">Software Engineering</option>
+                                            <option value="Network Engineering">Network Engineering</option>
+                                            <option value="Embedded Systems">Embedded Systems</option>
+                                            <option value="VLSI Design">VLSI Design</option>
+                                            <option value="Nanotechnology">Nanotechnology</option>
+                                            <option value="Renewable Energy Engineering">Renewable Energy Engineering</option>
+                                        </optgroup>
+                                        
+                                        <!-- Computer Applications -->
+                                        <optgroup label="Computer Applications">
+                                            <option value="Computer Applications">Computer Applications</option>
+                                            <option value="Information Systems">Information Systems</option>
+                                            <option value="Computer Science">Computer Science</option>
+                                            <option value="Software Development">Software Development</option>
+                                            <option value="Web Development">Web Development</option>
+                                            <option value="Mobile App Development">Mobile App Development</option>
+                                            <option value="Database Management">Database Management</option>
+                                            <option value="System Administration">System Administration</option>
+                                        </optgroup>
+                                        
+                                        <!-- Management & Business -->
+                                        <optgroup label="Management & Business">
+                                            <option value="Management">Management</option>
+                                            <option value="Business Administration">Business Administration</option>
+                                            <option value="Marketing">Marketing</option>
+                                            <option value="Finance">Finance</option>
+                                            <option value="Human Resources">Human Resources</option>
+                                            <option value="Operations Management">Operations Management</option>
+                                            <option value="International Business">International Business</option>
+                                            <option value="Entrepreneurship">Entrepreneurship</option>
+                                        </optgroup>
+                                        
+                                        <!-- Pure Sciences -->
+                                        <optgroup label="Pure Sciences">
+                                            <option value="Physics">Physics</option>
+                                            <option value="Chemistry">Chemistry</option>
+                                            <option value="Mathematics">Mathematics</option>
+                                            <option value="Biology">Biology</option>
+                                            <option value="Biotechnology">Biotechnology</option>
+                                            <option value="Microbiology">Microbiology</option>
+                                            <option value="Biochemistry">Biochemistry</option>
+                                            <option value="Environmental Science">Environmental Science</option>
+                                            <option value="Statistics">Statistics</option>
+                                            <option value="Applied Mathematics">Applied Mathematics</option>
+                                        </optgroup>
+                                        
+                                        <!-- Other Specializations -->
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </td>
                                 <td><input type="text" class="form-control form-control-sm" name="percentage[]" placeholder="85%" required></td>
                                 <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
                             </tr>
@@ -2191,6 +2353,48 @@ document.querySelectorAll('input, select, textarea').forEach(element => {
     element.addEventListener('change', updateProgress);
 });
 
+// Initialize year dropdowns and exam name functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Populate year dropdowns
+    const currentYear = new Date().getFullYear();
+    const yearSelects = document.querySelectorAll('select[name="year_of_passing[]"]');
+    yearSelects.forEach(select => {
+        // Skip if already populated
+        if (select.children.length > 1) return;
+        
+        for (let year = currentYear + 1; year >= 1990; year--) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            select.appendChild(option);
+        }
+    });
+    
+    // Add change listeners to existing exam passed selects
+    const examPassedSelects = document.querySelectorAll('select[name="exam_passed[]"]');
+    examPassedSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            updateExamName(this);
+        });
+    });
+    
+    // Add change listeners to existing exam name selects
+    const examNameSelects = document.querySelectorAll('select[name="exam_name[]"]');
+    examNameSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            handleExamNameOther(this);
+        });
+    });
+    
+    // Add change listeners to existing stream selects
+    const streamSelects = document.querySelectorAll('select[name="stream[]"]');
+    streamSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            handleStreamOther(this);
+        });
+    });
+});
+
 // Initial progress check
 setTimeout(updateProgress, 500);
 
@@ -2473,24 +2677,326 @@ function addEducationRow() {
     const table = document.getElementById('educationTable').getElementsByTagName('tbody')[0];
     const rowCount = table.rows.length + 1;
     const newRow = table.insertRow();
+    
+    // Generate year options
+    const currentYear = new Date().getFullYear();
+    let yearOptions = '<option value="">Year</option>';
+    for (let year = currentYear + 1; year >= 1990; year--) {
+        yearOptions += `<option value="${year}">${year}</option>`;
+    }
+    
     newRow.innerHTML = `
         <td>${rowCount}</td>
-        <td><input type="text" class="form-control form-control-sm" name="exam_passed[]" required></td>
-        <td><input type="text" class="form-control form-control-sm" name="exam_name[]" required></td>
-        <td><input type="text" class="form-control form-control-sm" name="year_of_passing[]" required></td>
-        <td><input type="text" class="form-control form-control-sm" name="institute_name[]" required></td>
-        <td><input type="text" class="form-control form-control-sm" name="stream[]" required></td>
-        <td><input type="text" class="form-control form-control-sm" name="percentage[]" required></td>
+        <td>
+            <select class="form-select form-select-sm" name="exam_passed[]" required onchange="updateExamName(this)">
+                <option value="">Select Level</option>
+                <option value="Primary">Primary (5th/8th)</option>
+                <option value="Matriculation">Matriculation (10th)</option>
+                <option value="Intermediate">Intermediate (+2/12th)</option>
+                <option value="ITI">ITI</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Graduation">Graduation</option>
+                <option value="Post Graduation">Post Graduation</option>
+                <option value="PhD">PhD/Doctorate</option>
+                <option value="Other">Other</option>
+            </select>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="exam_name[]" required>
+                <option value="">Select Exam</option>
+            </select>
+        </td>
+        <td>
+            <select class="form-select form-select-sm" name="year_of_passing[]" required>
+                ${yearOptions}
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm" name="institute_name[]" placeholder="Board/University" required></td>
+        <td>
+            <select class="form-select form-select-sm" name="stream[]" required onchange="handleStreamOther(this)">
+                <option value="">Select Stream</option>
+                <!-- General Streams -->
+                <option value="Science">Science</option>
+                <option value="Commerce">Commerce</option>
+                <option value="Arts">Arts/Humanities</option>
+                <option value="General">General</option>
+                <option value="Vocational">Vocational</option>
+                
+                <!-- Engineering & Technology Streams -->
+                <optgroup label="Engineering & Technology">
+                    <option value="Computer Science Engineering">Computer Science Engineering</option>
+                    <option value="Information Technology">Information Technology</option>
+                    <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                    <option value="Electrical Engineering">Electrical Engineering</option>
+                    <option value="Mechanical Engineering">Mechanical Engineering</option>
+                    <option value="Civil Engineering">Civil Engineering</option>
+                    <option value="Chemical Engineering">Chemical Engineering</option>
+                    <option value="Aerospace Engineering">Aerospace Engineering</option>
+                    <option value="Automobile Engineering">Automobile Engineering</option>
+                    <option value="Biomedical Engineering">Biomedical Engineering</option>
+                    <option value="Biotechnology Engineering">Biotechnology Engineering</option>
+                    <option value="Environmental Engineering">Environmental Engineering</option>
+                    <option value="Industrial Engineering">Industrial Engineering</option>
+                    <option value="Instrumentation Engineering">Instrumentation Engineering</option>
+                    <option value="Marine Engineering">Marine Engineering</option>
+                    <option value="Mining Engineering">Mining Engineering</option>
+                    <option value="Petroleum Engineering">Petroleum Engineering</option>
+                    <option value="Production Engineering">Production Engineering</option>
+                    <option value="Textile Engineering">Textile Engineering</option>
+                    <option value="Agricultural Engineering">Agricultural Engineering</option>
+                    <option value="Food Technology">Food Technology</option>
+                    <option value="Metallurgical Engineering">Metallurgical Engineering</option>
+                    <option value="Materials Science Engineering">Materials Science Engineering</option>
+                    <option value="Robotics Engineering">Robotics Engineering</option>
+                    <option value="Artificial Intelligence & Machine Learning">Artificial Intelligence & Machine Learning</option>
+                    <option value="Data Science Engineering">Data Science Engineering</option>
+                    <option value="Cyber Security Engineering">Cyber Security Engineering</option>
+                    <option value="Software Engineering">Software Engineering</option>
+                    <option value="Network Engineering">Network Engineering</option>
+                    <option value="Embedded Systems">Embedded Systems</option>
+                    <option value="VLSI Design">VLSI Design</option>
+                    <option value="Nanotechnology">Nanotechnology</option>
+                    <option value="Renewable Energy Engineering">Renewable Energy Engineering</option>
+                </optgroup>
+                
+                <!-- Computer Applications -->
+                <optgroup label="Computer Applications">
+                    <option value="Computer Applications">Computer Applications</option>
+                    <option value="Information Systems">Information Systems</option>
+                    <option value="Computer Science">Computer Science</option>
+                    <option value="Software Development">Software Development</option>
+                    <option value="Web Development">Web Development</option>
+                    <option value="Mobile App Development">Mobile App Development</option>
+                    <option value="Database Management">Database Management</option>
+                    <option value="System Administration">System Administration</option>
+                </optgroup>
+                
+                <!-- Management & Business -->
+                <optgroup label="Management & Business">
+                    <option value="Management">Management</option>
+                    <option value="Business Administration">Business Administration</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Finance">Finance</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="Operations Management">Operations Management</option>
+                    <option value="International Business">International Business</option>
+                    <option value="Entrepreneurship">Entrepreneurship</option>
+                </optgroup>
+                
+                <!-- Pure Sciences -->
+                <optgroup label="Pure Sciences">
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Mathematics">Mathematics</option>
+                    <option value="Biology">Biology</option>
+                    <option value="Biotechnology">Biotechnology</option>
+                    <option value="Microbiology">Microbiology</option>
+                    <option value="Biochemistry">Biochemistry</option>
+                    <option value="Environmental Science">Environmental Science</option>
+                    <option value="Statistics">Statistics</option>
+                    <option value="Applied Mathematics">Applied Mathematics</option>
+                </optgroup>
+                
+                <!-- Other Specializations -->
+                <option value="Other">Other</option>
+            </select>
+        </td>
+        <td><input type="text" class="form-control form-control-sm" name="percentage[]" placeholder="85%" required></td>
         <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-trash"></i></button></td>
     `;
     
-    // Add event listeners to new inputs
-    newRow.querySelectorAll('input').forEach(input => {
-        input.addEventListener('input', updateProgress);
-        input.addEventListener('blur', function() {
-            validateField(this);
-        });
+    // Add event listeners to new inputs and selects
+    newRow.querySelectorAll('input, select').forEach(element => {
+        element.addEventListener('input', updateProgress);
+        element.addEventListener('change', updateProgress);
+        if (element.tagName === 'INPUT') {
+            element.addEventListener('blur', function() {
+                validateField(this);
+            });
+        }
     });
+}
+
+// Update exam name options based on exam passed selection
+function updateExamName(examPassedSelect) {
+    const row = examPassedSelect.closest('tr');
+    const examNameSelect = row.querySelector('select[name="exam_name[]"]');
+    const selectedLevel = examPassedSelect.value;
+    
+    // Clear existing options
+    examNameSelect.innerHTML = '<option value="">Select Exam</option>';
+    
+    // Handle "Other" selection for Exam Passed
+    if (selectedLevel === 'Other') {
+        // Replace dropdown with text input for custom entry
+        const customInput = document.createElement('input');
+        customInput.type = 'text';
+        customInput.className = 'form-control form-control-sm custom-other-input';
+        customInput.name = 'exam_passed[]';
+        customInput.placeholder = 'Enter custom qualification level';
+        customInput.required = true;
+        customInput.value = '';
+        
+        // Replace the select with input
+        examPassedSelect.parentNode.replaceChild(customInput, examPassedSelect);
+        
+        // Also replace exam name dropdown with text input
+        const examNameInput = document.createElement('input');
+        examNameInput.type = 'text';
+        examNameInput.className = 'form-control form-control-sm custom-other-input';
+        examNameInput.name = 'exam_name[]';
+        examNameInput.placeholder = 'Enter exam/qualification name';
+        examNameInput.required = true;
+        
+        examNameSelect.parentNode.replaceChild(examNameInput, examNameSelect);
+        
+        // Add event listeners
+        customInput.addEventListener('input', updateProgress);
+        customInput.addEventListener('blur', function() { validateField(this); });
+        examNameInput.addEventListener('input', updateProgress);
+        examNameInput.addEventListener('blur', function() { validateField(this); });
+        
+        return;
+    }
+    
+    // Define exam name options for each level
+    const examOptions = {
+        'Primary': [
+            'Primary School Certificate',
+            '5th Standard',
+            '8th Standard',
+            'Elementary Education'
+        ],
+        'Matriculation': [
+            'Secondary School Certificate (SSC)',
+            'High School Certificate (HSC)',
+            'Board of Secondary Education',
+            'CBSE Class 10',
+            'ICSE Class 10',
+            'State Board 10th'
+        ],
+        'Intermediate': [
+            'Higher Secondary Certificate',
+            'Intermediate Certificate',
+            'CBSE Class 12',
+            'ICSE Class 12',
+            'State Board 12th',
+            'Pre-University Course (PUC)',
+            'Higher Secondary Education'
+        ],
+        'ITI': [
+            'Industrial Training Institute',
+            'National Council for Vocational Training (NCVT)',
+            'State Council for Vocational Training (SCVT)',
+            'Craftsman Training Scheme (CTS)',
+            'Apprenticeship Training Scheme (ATS)'
+        ],
+        'Diploma': [
+            'Diploma in Engineering',
+            'Polytechnic Diploma',
+            'Technical Diploma',
+            'Professional Diploma',
+            'Vocational Diploma'
+        ],
+        'Graduation': [
+            'Bachelor of Technology (B.Tech)',
+            'Bachelor of Engineering (B.E.)',
+            'Bachelor of Science (B.Sc)',
+            'Bachelor of Arts (B.A.)',
+            'Bachelor of Commerce (B.Com)',
+            'Bachelor of Computer Applications (BCA)',
+            'Bachelor of Business Administration (BBA)',
+            'Bachelor of Fine Arts (BFA)',
+            'Other Bachelor Degree'
+        ],
+        'Post Graduation': [
+            'Master of Technology (M.Tech)',
+            'Master of Engineering (M.E.)',
+            'Master of Science (M.Sc)',
+            'Master of Arts (M.A.)',
+            'Master of Commerce (M.Com)',
+            'Master of Computer Applications (MCA)',
+            'Master of Business Administration (MBA)',
+            'Master of Fine Arts (MFA)',
+            'Other Master Degree'
+        ],
+        'PhD': [
+            'Doctor of Philosophy (Ph.D)',
+            'Doctor of Science (D.Sc)',
+            'Doctor of Literature (D.Litt)',
+            'Doctor of Engineering (D.Eng)',
+            'Other Doctorate Degree'
+        ],
+        'Other': [
+            'Certificate Course',
+            'Professional Certification',
+            'Skill Development Course',
+            'Other Qualification'
+        ]
+    };
+    
+    // Populate exam name options
+    if (examOptions[selectedLevel]) {
+        examOptions[selectedLevel].forEach(examName => {
+            const option = document.createElement('option');
+            option.value = examName;
+            option.textContent = examName;
+            examNameSelect.appendChild(option);
+        });
+    }
+    
+    // Add "Other" option at the end for exam name
+    const otherOption = document.createElement('option');
+    otherOption.value = 'Other';
+    otherOption.textContent = 'Other (Specify custom)';
+    examNameSelect.appendChild(otherOption);
+    
+    // Add event listener for exam name "Other" selection
+    examNameSelect.addEventListener('change', function() {
+        handleExamNameOther(this);
+    });
+}
+
+// Handle "Other" selection in exam name dropdown
+function handleExamNameOther(examNameSelect) {
+    if (examNameSelect.value === 'Other') {
+        // Replace dropdown with text input for custom entry
+        const customInput = document.createElement('input');
+        customInput.type = 'text';
+        customInput.className = 'form-control form-control-sm custom-other-input';
+        customInput.name = 'exam_name[]';
+        customInput.placeholder = 'Enter custom exam/qualification name';
+        customInput.required = true;
+        customInput.value = '';
+        
+        // Replace the select with input
+        examNameSelect.parentNode.replaceChild(customInput, examNameSelect);
+        
+        // Add event listeners
+        customInput.addEventListener('input', updateProgress);
+        customInput.addEventListener('blur', function() { validateField(this); });
+    }
+}
+
+// Handle "Other" selection in stream dropdown
+function handleStreamOther(streamSelect) {
+    if (streamSelect.value === 'Other') {
+        // Replace dropdown with text input for custom entry
+        const customInput = document.createElement('input');
+        customInput.type = 'text';
+        customInput.className = 'form-control form-control-sm custom-other-input';
+        customInput.name = 'stream[]';
+        customInput.placeholder = 'Enter custom stream/specialization';
+        customInput.required = true;
+        customInput.value = '';
+        
+        // Replace the select with input
+        streamSelect.parentNode.replaceChild(customInput, streamSelect);
+        
+        // Add event listeners
+        customInput.addEventListener('input', updateProgress);
+        customInput.addEventListener('blur', function() { validateField(this); });
+    }
 }
 
 // Remove education row

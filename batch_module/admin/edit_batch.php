@@ -17,8 +17,43 @@ if ($batch_id === 0) {
     exit();
 }
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Get current admin info
+$admin_id = $_SESSION['admin_id'] ?? null;
+$is_master_admin = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin';
+
+// Get admin ID if not in session
+if (!$admin_id && isset($_SESSION['admin'])) {
+    $admin_username = $_SESSION['admin'];
+    $admin_query = "SELECT id FROM admin WHERE username = ?";
+    $admin_stmt = $conn->prepare($admin_query);
+    $admin_stmt->bind_param("s", $admin_username);
+    $admin_stmt->execute();
+    $admin_result = $admin_stmt->get_result();
+    if ($admin_row = $admin_result->fetch_assoc()) {
+        $admin_id = $admin_row['id'];
+        $_SESSION['admin_id'] = $admin_id;
+    }
+}
+
+// Handle lock/unlock actions
+if (isset($_GET['action'])) {
+    if ($_GET['action'] === 'lock') {
+        $result = lockBatch($batch_id, $admin_id, $conn);
+        $message = $result['message'];
+        $message_type = $result['success'] ? 'success' : 'danger';
+    } elseif ($_GET['action'] === 'unlock' && $is_master_admin) {
+        $result = unlockBatch($batch_id, $admin_id, $conn);
+        $message = $result['message'];
+        $message_type = $result['success'] ? 'success' : 'danger';
+    }
+}
+
+// Check if batch is locked
+$is_locked = isBatchLocked($batch_id, $conn);
+$lock_info = getBatchLockInfo($batch_id, $conn);
+
+// Handle form submission (only if batch is not locked)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked) {
     $data = [
         'batch_name' => $_POST['batch_name'],
         'start_date' => $_POST['start_date'],
@@ -108,6 +143,7 @@ if ($table_check && $table_check->num_rows > 0) {
     <title>Edit Batch - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
 </head>
 <body>
@@ -213,8 +249,74 @@ if ($table_check && $table_check->num_rows > 0) {
                         ?>">
                             <?php echo $batch['status']; ?>
                         </span>
+                        <?php if ($is_locked): ?>
+                            <span class="badge badge-danger">
+                                <i class="fas fa-lock"></i> LOCKED
+                            </span>
+                        <?php else: ?>
+                            <span class="badge badge-success">
+                                <i class="fas fa-unlock"></i> UNLOCKED
+                            </span>
+                        <?php endif; ?>
                     </div>
                 </div>
+                
+                <?php if ($is_locked): ?>
+                <!-- Lock Warning -->
+                <div style="background: linear-gradient(135deg, #fee2e2 0%, #fef3c7 100%); border: 1px solid #f87171; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                        <div style="color: #dc2626; font-size: 1.5rem;">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div>
+                            <h6 style="margin: 0; color: #dc2626; font-weight: 600;">Batch is Locked</h6>
+                            <p style="margin: 4px 0 0 0; color: #7c2d12; font-size: 14px;">
+                                This batch has been locked and cannot be modified. All editing features are disabled.
+                            </p>
+                        </div>
+                    </div>
+                    <?php if ($lock_info && $lock_info['locked_at']): ?>
+                    <div style="background: rgba(255,255,255,0.7); padding: 10px; border-radius: 4px; font-size: 12px; color: #7c2d12;">
+                        <strong>Locked:</strong> <?php echo date('M d, Y \a\t g:i A', strtotime($lock_info['locked_at'])); ?>
+                        <?php if ($lock_info['locked_by_username']): ?>
+                            by <strong><?php echo htmlspecialchars($lock_info['locked_by_username']); ?></strong>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($is_master_admin): ?>
+                    <div style="margin-top: 15px;">
+                        <a href="?id=<?php echo $batch_id; ?>&action=unlock" 
+                           class="btn btn-warning btn-sm unlock-batch-btn"
+                           data-batch-name="<?php echo htmlspecialchars($batch['batch_name']); ?>">
+                            <i class="fas fa-unlock"></i> Unlock Batch (Master Admin)
+                        </a>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php else: ?>
+                <!-- Lock Action -->
+                <div style="background: linear-gradient(135deg, #e0f2fe 0%, #f3e5f5 100%); border: 1px solid #29b6f6; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="color: #0277bd; font-size: 1.2rem;">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div>
+                                <h6 style="margin: 0; color: #0277bd; font-weight: 600;">Batch Security</h6>
+                                <p style="margin: 2px 0 0 0; color: #01579b; font-size: 13px;">
+                                    Lock this batch to prevent any further modifications
+                                </p>
+                            </div>
+                        </div>
+                        <a href="?id=<?php echo $batch_id; ?>&action=lock" 
+                           class="btn btn-danger btn-sm lock-batch-btn"
+                           data-batch-name="<?php echo htmlspecialchars($batch['batch_name']); ?>">
+                            <i class="fas fa-lock"></i> Lock Batch
+                        </a>
+                    </div>
+                </div>
+                <?php endif; ?>
                 
                 <div style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
@@ -227,7 +329,7 @@ if ($table_check && $table_check->num_rows > 0) {
                     </div>
                 </div>
 
-                <form method="POST" action="">
+                <form method="POST" action="" <?php echo $is_locked ? 'style="pointer-events: none; opacity: 0.6;"' : ''; ?>>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label class="form-label">Batch Name *</label>
@@ -346,9 +448,15 @@ if ($table_check && $table_check->num_rows > 0) {
                     </div>
                     
                     <div style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #e9ecef; display: flex; gap: 12px;">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Update Batch
-                        </button>
+                        <?php if ($is_locked): ?>
+                            <button type="button" class="btn btn-secondary" disabled>
+                                <i class="fas fa-lock"></i> Batch is Locked
+                            </button>
+                        <?php else: ?>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-save"></i> Update Batch
+                            </button>
+                        <?php endif; ?>
                         <a href="manage_batches.php" class="btn btn-secondary">
                             <i class="fas fa-times"></i> Cancel
                         </a>
@@ -361,6 +469,85 @@ if ($table_check && $table_check->num_rows > 0) {
         </div>
     </main>
 </div>
+
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script>
+// Show toast notification if there's a session message
+<?php if (!empty($message)): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messageType = '<?php echo $message_type; ?>';
+        const message = '<?php echo addslashes($message); ?>';
+        
+        // Map message types to toast types
+        const toastType = messageType === 'danger' ? 'error' : messageType;
+        
+        toast[toastType](message);
+    });
+<?php endif; ?>
+
+// Handle lock batch confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    const lockButton = document.querySelector('.lock-batch-btn');
+    if (lockButton) {
+        lockButton.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const batchName = this.getAttribute('data-batch-name');
+            const url = this.href;
+            
+            const confirmed = await showConfirm({
+                title: 'Lock Batch',
+                message: `Are you sure you want to lock batch <strong>${batchName}</strong>?<br><br>
+                         <strong>Warning:</strong> Once locked, this batch cannot be edited by anyone. 
+                         Only Master Admins can unlock it. This will prevent:
+                         <ul style="text-align: left; margin: 10px 0;">
+                            <li>Editing batch information</li>
+                            <li>Modifying student assignments</li>
+                            <li>Updating admission orders</li>
+                            <li>Any other batch modifications</li>
+                         </ul>`,
+                confirmText: 'Lock Batch',
+                cancelText: 'Cancel',
+                type: 'danger'
+            });
+            
+            if (confirmed) {
+                // Show loading toast
+                const loadingToast = toast.loading('Locking batch...');
+                
+                // Redirect to lock URL
+                window.location.href = url;
+            }
+        });
+    }
+    
+    // Handle unlock batch confirmation
+    const unlockButton = document.querySelector('.unlock-batch-btn');
+    if (unlockButton) {
+        unlockButton.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const batchName = this.getAttribute('data-batch-name');
+            const url = this.href;
+            
+            const confirmed = await showConfirm({
+                title: 'Unlock Batch',
+                message: `Are you sure you want to unlock batch <strong>${batchName}</strong>?<br><br>
+                         This will allow the batch to be edited again. All modification restrictions will be removed.`,
+                confirmText: 'Unlock Batch',
+                cancelText: 'Cancel',
+                type: 'warning'
+            });
+            
+            if (confirmed) {
+                // Show loading toast
+                const loadingToast = toast.loading('Unlocking batch...');
+                
+                // Redirect to unlock URL
+                window.location.href = url;
+            }
+        });
+    }
+});
+</script>
 
 </body>
 </html>

@@ -38,11 +38,11 @@ function generateBatchCode($course_code, $conn) {
  */
 function createBatch($data, $conn) {
     $sql = "INSERT INTO batches (course_id, batch_name, batch_code, start_date, end_date, 
-            training_fees, seats_total, batch_coordinator, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            training_fees, seats_total, batch_coordinator, status, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssdiis", 
+    $stmt->bind_param("issssdiisi", 
         $data['course_id'],
         $data['batch_name'],
         $data['batch_code'],
@@ -51,7 +51,8 @@ function createBatch($data, $conn) {
         $data['training_fees'],
         $data['seats_total'],
         $data['batch_coordinator'],
-        $data['status']
+        $data['status'],
+        $data['created_by']
     );
     
     $result = $stmt->execute();
@@ -440,4 +441,106 @@ function getBatchStats($batch_id, $conn) {
     
     return $stats;
 }
-?>
+
+/**
+ * Check if batch is locked
+ */
+function isBatchLocked($batch_id, $conn) {
+    $sql = "SELECT is_locked FROM batches WHERE id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $batch_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $batch = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $batch ? (bool)$batch['is_locked'] : false;
+}
+
+/**
+ * Lock batch
+ */
+function lockBatch($batch_id, $admin_id, $conn) {
+    // Check if batch exists and is not already locked
+    $check_sql = "SELECT id, batch_name, is_locked FROM batches WHERE id = ?";
+    $check_stmt = $conn->prepare($check_sql);
+    $check_stmt->bind_param("i", $batch_id);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    $batch = $check_result->fetch_assoc();
+    $check_stmt->close();
+    
+    if (!$batch) {
+        return ['success' => false, 'message' => 'Batch not found'];
+    }
+    
+    if ($batch['is_locked']) {
+        return ['success' => false, 'message' => 'Batch is already locked'];
+    }
+    
+    // Lock the batch
+    $lock_sql = "UPDATE batches SET is_locked = 1, locked_at = NOW(), locked_by = ? WHERE id = ?";
+    $lock_stmt = $conn->prepare($lock_sql);
+    $lock_stmt->bind_param("ii", $admin_id, $batch_id);
+    $success = $lock_stmt->execute();
+    $lock_stmt->close();
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Batch "' . $batch['batch_name'] . '" has been locked successfully. No further modifications are allowed.'];
+    } else {
+        return ['success' => false, 'message' => 'Failed to lock batch'];
+    }
+}
+
+/**
+ * Unlock batch (Master Admin only)
+ */
+function unlockBatch($batch_id, $admin_id, $conn) {
+    // Check if batch exists and is locked
+    $check_sql = "SELECT id, batch_name, is_locked FROM batches WHERE id = ?";
+    $check_stmt = $conn->prepare($check_sql);
+    $check_stmt->bind_param("i", $batch_id);
+    $check_stmt->execute();
+    $check_result = $check_stmt->get_result();
+    $batch = $check_result->fetch_assoc();
+    $check_stmt->close();
+    
+    if (!$batch) {
+        return ['success' => false, 'message' => 'Batch not found'];
+    }
+    
+    if (!$batch['is_locked']) {
+        return ['success' => false, 'message' => 'Batch is not locked'];
+    }
+    
+    // Unlock the batch
+    $unlock_sql = "UPDATE batches SET is_locked = 0, locked_at = NULL, locked_by = NULL WHERE id = ?";
+    $unlock_stmt = $conn->prepare($unlock_sql);
+    $unlock_stmt->bind_param("i", $batch_id);
+    $success = $unlock_stmt->execute();
+    $unlock_stmt->close();
+    
+    if ($success) {
+        return ['success' => true, 'message' => 'Batch "' . $batch['batch_name'] . '" has been unlocked successfully. Modifications are now allowed.'];
+    } else {
+        return ['success' => false, 'message' => 'Failed to unlock batch'];
+    }
+}
+
+/**
+ * Get batch lock information
+ */
+function getBatchLockInfo($batch_id, $conn) {
+    $sql = "SELECT b.is_locked, b.locked_at, b.locked_by, a.username as locked_by_username 
+            FROM batches b 
+            LEFT JOIN admin a ON b.locked_by = a.id 
+            WHERE b.id = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $batch_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $lock_info = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $lock_info;
+}

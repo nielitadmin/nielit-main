@@ -2,12 +2,17 @@
 // Start session and include the database connection
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../includes/batch_functions.php';
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login_new.php");
     exit();
 }
+
+// Check user role for lock bypass
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$current_admin_id = $_SESSION['admin_id'] ?? null;
 
 // Get batch ID
 $batch_id = isset($_GET['batch_id']) ? $_GET['batch_id'] : null;
@@ -16,6 +21,11 @@ if (!$batch_id) {
     header("Location: manage_batches.php");
     exit();
 }
+
+// Check if batch is locked (Master Admins can bypass)
+$is_locked = isBatchLocked($batch_id, $conn);
+$lock_restricted = $is_locked && !$is_master_admin; // Only restrict if locked AND not master admin
+$lock_info = getBatchLockInfo($batch_id, $conn);
 
 // Fetch batch details
 $batch_query = "SELECT b.*, c.course_name, c.course_code, s.scheme_name, s.scheme_code 
@@ -117,7 +127,13 @@ if (!$batch) {
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-file-alt"></i> Generate Admission Order</h4>
-                <small><?php echo htmlspecialchars($batch['batch_name']) . ' - ' . htmlspecialchars($batch['course_name']); ?></small>
+                <small><?php echo htmlspecialchars($batch['batch_name']) . ' - ' . htmlspecialchars($batch['course_name']); ?>
+                <?php if ($is_locked): ?>
+                    <span class="badge badge-danger" style="margin-left: 8px;">
+                        <i class="fas fa-lock"></i> LOCKED
+                    </span>
+                <?php endif; ?>
+                </small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -134,16 +150,73 @@ if (!$batch) {
 
         <!-- Main Content Area -->
         <div class="admin-main">
+            <?php if ($lock_restricted): ?>
+                <!-- Lock Warning for Course Coordinators -->
+                <div class="alert alert-danger">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="color: #dc2626; font-size: 1.5rem;">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div>
+                            <h6 style="margin: 0; color: #dc2626; font-weight: 600;">Batch is Locked</h6>
+                            <p style="margin: 4px 0 0 0; color: #7c2d12; font-size: 14px;">
+                                This batch has been locked and admission order generation is disabled. All modifications are prevented.
+                            </p>
+                            <?php if ($lock_info && $lock_info['locked_at']): ?>
+                                <small style="color: #7c2d12;">
+                                    Locked on <?php echo date('M d, Y \a\t g:i A', strtotime($lock_info['locked_at'])); ?>
+                                    <?php if ($lock_info['locked_by_username']): ?>
+                                        by <?php echo htmlspecialchars($lock_info['locked_by_username']); ?>
+                                    <?php endif; ?>
+                                </small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            <?php elseif ($is_locked && $is_master_admin): ?>
+                <!-- Lock Override Notice for Master Admins -->
+                <div class="alert alert-warning">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="color: #d97706; font-size: 1.5rem;">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div>
+                            <h6 style="margin: 0; color: #d97706; font-weight: 600;">Master Admin Override</h6>
+                            <p style="margin: 4px 0 0 0; color: #92400e; font-size: 14px;">
+                                This batch is locked, but you can generate admission orders as a Master Admin.
+                            </p>
+                            <?php if ($lock_info && $lock_info['locked_at']): ?>
+                                <small style="color: #92400e;">
+                                    Locked on <?php echo date('M d, Y \a\t g:i A', strtotime($lock_info['locked_at'])); ?>
+                                    <?php if ($lock_info['locked_by_username']): ?>
+                                        by <?php echo htmlspecialchars($lock_info['locked_by_username']); ?>
+                                    <?php endif; ?>
+                                </small>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
             <div style="margin-bottom: 20px;">
                 <a href="batch_details.php?id=<?php echo $batch_id; ?>" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Batch Details
                 </a>
-                <button class="btn btn-success" onclick="saveAndRegenerate(event)" style="margin-left: 10px;">
-                    <i class="fas fa-save"></i> Save Changes & Regenerate
-                </button>
-                <button class="btn btn-primary" onclick="generateAdmissionOrder()" style="margin-left: 10px;">
-                    <i class="fas fa-sync"></i> Refresh Preview
-                </button>
+                <?php if ($lock_restricted): ?>
+                    <button class="btn btn-secondary" disabled style="margin-left: 10px;">
+                        <i class="fas fa-lock"></i> Save Changes (Locked)
+                    </button>
+                    <button class="btn btn-secondary" disabled style="margin-left: 10px;">
+                        <i class="fas fa-lock"></i> Refresh Preview (Locked)
+                    </button>
+                <?php else: ?>
+                    <button class="btn btn-success" onclick="saveAndRegenerate(event)" style="margin-left: 10px;">
+                        <i class="fas fa-save"></i> Save Changes & Regenerate
+                    </button>
+                    <button class="btn btn-primary" onclick="generateAdmissionOrder()" style="margin-left: 10px;">
+                        <i class="fas fa-sync"></i> Refresh Preview
+                    </button>
+                <?php endif; ?>
             </div>
 
             <!-- Preview Area -->
@@ -154,16 +227,31 @@ if (!$batch) {
                             <i class="fas fa-eye"></i> Admission Order Preview
                         </h5>
                         <div>
-                            <button class="btn btn-success" onclick="downloadPDF()">
-                                <i class="fas fa-download"></i> Download PDF
-                            </button>
-                            <button class="btn btn-primary" onclick="printOrder()">
-                                <i class="fas fa-print"></i> Print
-                            </button>
+                            <?php if ($lock_restricted): ?>
+                                <button class="btn btn-secondary" disabled>
+                                    <i class="fas fa-lock"></i> Download PDF (Locked)
+                                </button>
+                                <button class="btn btn-secondary" disabled>
+                                    <i class="fas fa-lock"></i> Print (Locked)
+                                </button>
+                            <?php else: ?>
+                                <button class="btn btn-success" onclick="downloadPDF()">
+                                    <i class="fas fa-download"></i> Download PDF
+                                </button>
+                                <button class="btn btn-primary" onclick="printOrder()">
+                                    <i class="fas fa-print"></i> Print
+                                </button>
+                            <?php endif; ?>
                         </div>
                     </div>
                     
-                    <div id="admission-order-content" style="padding: 20px; background: white;">
+                    <div id="admission-order-content" style="padding: 20px; background: white; <?php echo $lock_restricted ? 'opacity: 0.7; pointer-events: none;' : ''; ?>">
+                        <?php if ($lock_restricted): ?>
+                            <div style="text-align: center; padding: 40px; color: #64748b; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+                                <i class="fas fa-lock" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
+                                <p style="margin: 0; font-size: 16px;">Admission order generation is disabled for locked batches.</p>
+                            </div>
+                        <?php endif; ?>
                         <!-- Content will be loaded here -->
                     </div>
                 </div>
@@ -185,10 +273,17 @@ if (typeof showToast === 'undefined') {
 <script>
 // Auto-load admission order on page load
 document.addEventListener('DOMContentLoaded', function() {
-    generateAdmissionOrder();
+    <?php if (!$lock_restricted): ?>
+        generateAdmissionOrder();
+    <?php endif; ?>
 });
 
 function generateAdmissionOrder() {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot generate admission order: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+    
     const batchId = <?php echo $batch_id; ?>;
     const schemeId = <?php echo $batch['scheme_id'] ?? 'null'; ?>;
     
@@ -205,6 +300,11 @@ function generateAdmissionOrder() {
 }
 
 function downloadPDF() {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot download PDF: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+    
     // Get only the printable content (excludes editable section)
     const element = document.getElementById('printable-content');
     
@@ -242,6 +342,11 @@ function downloadPDF() {
 }
 
 function printOrder() {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot print: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+    
     // Get only the printable content (excludes editable section)
     const printContent = document.getElementById('printable-content');
     
@@ -392,6 +497,11 @@ function printOrder() {
 }
 
 function saveAndRegenerate(event) {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot save changes: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+    
     const batchId = <?php echo $batch_id; ?>;
     
     console.log('Save button clicked, batch ID:', batchId);

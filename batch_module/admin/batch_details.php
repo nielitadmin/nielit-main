@@ -8,6 +8,10 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+// Check user role for lock bypass
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$current_admin_id = $_SESSION['admin_id'] ?? null;
+
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     header("Location: manage_batches.php");
     exit();
@@ -21,14 +25,18 @@ if (!$batch) {
     exit();
 }
 
+// Check if batch is locked
+$is_locked = isBatchLocked($batch_id, $conn);
+$lock_info = getBatchLockInfo($batch_id, $conn);
+
 $students = getBatchStudents($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
 
 $message = '';
 $message_type = 'success';
 
-// Handle remove student
-if (isset($_GET['remove_student'])) {
+// Handle remove student (only if batch is not locked)
+if (isset($_GET['remove_student']) && !$is_locked) {
     $result = removeStudentFromBatch($_GET['remove_student'], $batch_id, $conn);
     $message = $result['message'];
     $message_type = $result['success'] ? 'success' : 'danger';
@@ -36,6 +44,205 @@ if (isset($_GET['remove_student'])) {
     // Refresh data
     $students = getBatchStudents($batch_id, $conn);
     $stats = getBatchStats($batch_id, $conn);
+} elseif (isset($_GET['remove_student']) && $is_locked) {
+    $message = 'Cannot remove student: Batch is locked and cannot be modified.';
+    $message_type = 'danger';
+}
+
+// Handle Excel export
+if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    // Function to determine qualification level priority (defined once outside the loop)
+    function getQualificationLevel($exam_passed) {
+        $exam_passed = strtolower(trim($exam_passed));
+        
+        // Define qualification hierarchy (higher number = higher qualification)
+        $levels = [
+            'phd' => 8, 'ph.d' => 8, 'doctorate' => 8,
+            'post graduation' => 7, 'pg' => 7, 'master' => 7, 'm.tech' => 7, 'mtech' => 7, 'm.sc' => 7, 'msc' => 7, 'ma' => 7, 'mba' => 7,
+            'graduation' => 6, 'graduate' => 6, 'degree' => 6, 'b.tech' => 6, 'btech' => 6, 'b.sc' => 6, 'bsc' => 6, 'ba' => 6, 'bcom' => 6, 'b.com' => 6,
+            'diploma' => 5, 'polytechnic' => 5,
+            'iti' => 4, 'industrial training' => 4,
+            '+2' => 3, '12th' => 3, '12' => 3, 'higher secondary' => 3, 'intermediate' => 3, 'hse' => 3,
+            '10th' => 2, '10' => 2, 'secondary' => 2, 'matriculation' => 2, 'ssc' => 2,
+            '8th' => 1, '5th' => 1, 'primary' => 1
+        ];
+        
+        // Check for exact matches first
+        if (isset($levels[$exam_passed])) {
+            return $levels[$exam_passed];
+        }
+        
+        // Check for partial matches
+        foreach ($levels as $key => $level) {
+            if (strpos($exam_passed, $key) !== false) {
+                return $level;
+            }
+        }
+        
+        return 0; // Unknown qualification
+    }
+    
+    // Set headers for Excel download
+    $filename = 'batch_' . $batch['batch_code'] . '_students_' . date('Y-m-d') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    
+    // Create file pointer connected to the output stream
+    $output = fopen('php://output', 'w');
+    
+    // Add BOM for proper UTF-8 encoding in Excel
+    fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+    
+    // Add CSV headers - Essential student data with education details and highest qualification
+    $headers = [
+        'ID',
+        'Course',
+        'Batch ID',
+        'Batch Name',
+        'Name',
+        'Father Name',
+        'Mother Name',
+        'Date of Birth',
+        'Age',
+        'Mobile',
+        'Aadhar Number',
+        'APAAR ID',
+        'Gender',
+        'Religion',
+        'Marital Status',
+        'Category',
+        'PWD Status',
+        'Distinguishing Marks',
+        'Position',
+        'Nationality',
+        'Email',
+        'State',
+        'City',
+        'Pincode',
+        'Address',
+        'Created At',
+        'Course ID',
+        'Student ID',
+        'NIELIT Registration No.',
+        'Registration Date',
+        'Status',
+        'Approved By',
+        'Approved At',
+        'College Name',
+        'UTR Number',
+        'Payment Receipt',
+        'Training Center',
+        'Enrollment Date',
+        'Fees Status',
+        'Fees Paid',
+        'Attendance Percentage',
+        // Education Details from education_details table
+        'Highest Qualification',
+        'Exam Passed',
+        'Exam Name',
+        'Year of Passing',
+        'Institute Name',
+        'Stream',
+        'Percentage'
+    ];
+    
+    fputcsv($output, $headers);
+    
+    // Add student data - Essential fields with batch name, education details and highest qualification
+    foreach ($students as $student) {
+        // Get education details for this student
+        $education_details = [];
+        $ed_sql = "SELECT exam_passed, exam_name, year_of_passing, institute_name, stream, percentage 
+                   FROM education_details 
+                   WHERE student_id = ? 
+                   ORDER BY id ASC";
+        $ed_stmt = $conn->prepare($ed_sql);
+        if ($ed_stmt) {
+            $ed_stmt->bind_param("s", $student['student_id']);
+            $ed_stmt->execute();
+            $ed_result = $ed_stmt->get_result();
+            while ($ed_row = $ed_result->fetch_assoc()) {
+                $education_details[] = $ed_row;
+            }
+            $ed_stmt->close();
+        }
+        
+        // Determine highest qualification
+        $highest_qualification = '';
+        $highest_level = 0;
+        $highest_qualification_details = null;
+        
+        foreach ($education_details as $ed) {
+            $level = getQualificationLevel($ed['exam_passed'] ?? '');
+            if ($level > $highest_level) {
+                $highest_level = $level;
+                $highest_qualification = $ed['exam_passed'] ?? '';
+                $highest_qualification_details = $ed;
+            }
+        }
+        
+        // Use first education record for detailed fields, or highest qualification if available
+        $display_education = $highest_qualification_details ?? (!empty($education_details) ? $education_details[0] : []);
+        
+        $row = [
+            $student['id'] ?? '',
+            $student['course'] ?? '',
+            $student['batch_id'] ?? '',
+            $batch['batch_name'] ?? '', // Batch name from the batch data
+            $student['name'] ?? '',
+            $student['father_name'] ?? '',
+            $student['mother_name'] ?? '',
+            $student['dob'] ?? '',
+            $student['age'] ?? '',
+            $student['mobile'] ?? '',
+            $student['aadhar'] ?? '',
+            $student['apaar_id'] ?? '',
+            $student['gender'] ?? '',
+            $student['religion'] ?? '',
+            $student['marital_status'] ?? '',
+            $student['category'] ?? '',
+            $student['pwd_status'] ?? '',
+            $student['distinguishing_marks'] ?? '',
+            $student['position'] ?? '',
+            $student['nationality'] ?? '',
+            $student['email'] ?? '',
+            $student['state'] ?? '',
+            $student['city'] ?? '',
+            $student['pincode'] ?? '',
+            $student['address'] ?? '',
+            isset($student['created_at']) ? date('d-m-Y H:i:s', strtotime($student['created_at'])) : '',
+            $student['course_id'] ?? '',
+            $student['student_id'] ?? '',
+            $student['nielit_registration_no'] ?? '',
+            isset($student['registration_date']) ? date('d-m-Y', strtotime($student['registration_date'])) : '',
+            $student['status'] ?? '',
+            $student['approved_by'] ?? '',
+            isset($student['approved_at']) ? date('d-m-Y H:i:s', strtotime($student['approved_at'])) : '',
+            $student['college_name'] ?? '',
+            $student['utr_number'] ?? '',
+            $student['payment_receipt'] ?? '',
+            $student['training_center'] ?? '',
+            isset($student['enrollment_date']) ? date('d-m-Y', strtotime($student['enrollment_date'])) : '',
+            $student['fees_status'] ?? '',
+            $student['fees_paid'] ?? '0',
+            $student['attendance_percentage'] ?? '0',
+            // Education details from education_details table
+            $highest_qualification, // Highest qualification determined from all records
+            $display_education['exam_passed'] ?? '',
+            $display_education['exam_name'] ?? '',
+            $display_education['year_of_passing'] ?? '',
+            $display_education['institute_name'] ?? '',
+            $display_education['stream'] ?? '',
+            $display_education['percentage'] ?? ''
+        ];
+        
+        fputcsv($output, $row);
+    }
+    
+    fclose($output);
+    exit();
 }
 ?>
 
@@ -351,7 +558,13 @@ function updateNielitRegNo(studentId, batchId) {
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($batch['batch_name']); ?></h4>
-                <small><?php echo htmlspecialchars($batch['course_name']); ?> - <?php echo htmlspecialchars($batch['batch_code']); ?></small>
+                <small><?php echo htmlspecialchars($batch['course_name']); ?> - <?php echo htmlspecialchars($batch['batch_code']); ?>
+                <?php if ($is_locked): ?>
+                    <span class="badge badge-danger" style="margin-left: 8px;">
+                        <i class="fas fa-lock"></i> LOCKED
+                    </span>
+                <?php endif; ?>
+                </small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -404,9 +617,43 @@ function updateNielitRegNo(studentId, batchId) {
                         <i class="fas fa-info-circle"></i> Batch Information
                     </h5>
                     <div>
-                        <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-success">
-                            <i class="fas fa-file-alt"></i> Generate Admission Order
-                        </a>
+                        <?php 
+                        $lock_restricted = $is_locked && !$is_master_admin; // Only restrict if locked AND not master admin
+                        if ($lock_restricted): ?>
+                            <!-- Lock Warning for Course Coordinators -->
+                            <div class="alert alert-warning" style="margin-bottom: 16px;">
+                                <i class="fas fa-lock"></i> <strong>Batch is Locked:</strong> Admission order generation is disabled for locked batches.
+                                <?php if ($lock_info && $lock_info['locked_at']): ?>
+                                    <br><small>Locked on <?php echo date('M d, Y \a\t g:i A', strtotime($lock_info['locked_at'])); ?>
+                                    <?php if ($lock_info['locked_by_username']): ?>
+                                        by <?php echo htmlspecialchars($lock_info['locked_by_username']); ?>
+                                    <?php endif; ?>
+                                    </small>
+                                <?php endif; ?>
+                            </div>
+                            <button class="btn btn-secondary" disabled>
+                                <i class="fas fa-lock"></i> Generate Admission Order (Locked)
+                            </button>
+                        <?php elseif ($is_locked && $is_master_admin): ?>
+                            <!-- Lock Override Notice for Master Admins -->
+                            <div class="alert alert-info" style="margin-bottom: 16px;">
+                                <i class="fas fa-shield-alt"></i> <strong>Master Admin Override:</strong> This batch is locked, but you can generate admission orders.
+                                <?php if ($lock_info && $lock_info['locked_at']): ?>
+                                    <br><small>Locked on <?php echo date('M d, Y \a\t g:i A', strtotime($lock_info['locked_at'])); ?>
+                                    <?php if ($lock_info['locked_by_username']): ?>
+                                        by <?php echo htmlspecialchars($lock_info['locked_by_username']); ?>
+                                    <?php endif; ?>
+                                    </small>
+                                <?php endif; ?>
+                            </div>
+                            <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-warning">
+                                <i class="fas fa-shield-alt"></i> Generate Admission Order (Override)
+                            </a>
+                        <?php else: ?>
+                            <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-success">
+                                <i class="fas fa-file-alt"></i> Generate Admission Order
+                            </a>
+                        <?php endif; ?>
                         <a href="manage_batches.php" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Batches
                         </a>
@@ -458,6 +705,13 @@ function updateNielitRegNo(studentId, batchId) {
                     <h5 class="card-title">
                         <i class="fas fa-users"></i> Enrolled Students
                     </h5>
+                    <div>
+                        <?php if (!empty($students)): ?>
+                            <a href="?id=<?php echo $batch_id; ?>&export=excel" class="btn btn-success">
+                                <i class="fas fa-file-excel"></i> Export to Excel
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 
                 <?php if (!empty($students)): ?>
@@ -487,13 +741,20 @@ function updateNielitRegNo(studentId, batchId) {
                                                        class="form-control form-control-sm" 
                                                        value="<?php echo htmlspecialchars($student['nielit_registration_no'] ?? ''); ?>" 
                                                        placeholder="Enter Reg. No."
-                                                       style="min-width: 150px;">
-                                                <button type="button" 
-                                                        class="btn btn-success btn-sm" 
-                                                        onclick="updateNielitRegNo(<?php echo $student['id']; ?>, <?php echo $batch_id; ?>)"
-                                                        title="Save Registration Number">
-                                                    <i class="fas fa-save"></i>
-                                                </button>
+                                                       style="min-width: 150px;"
+                                                       <?php echo $is_locked ? 'disabled' : ''; ?>>
+                                                <?php if ($is_locked): ?>
+                                                    <button type="button" class="btn btn-secondary btn-sm" disabled title="Batch is locked">
+                                                        <i class="fas fa-lock"></i>
+                                                    </button>
+                                                <?php else: ?>
+                                                    <button type="button" 
+                                                            class="btn btn-success btn-sm" 
+                                                            onclick="updateNielitRegNo(<?php echo $student['id']; ?>, <?php echo $batch_id; ?>)"
+                                                            title="Save Registration Number">
+                                                        <i class="fas fa-save"></i>
+                                                    </button>
+                                                <?php endif; ?>
                                             </div>
                                         </td>
                                         <td><?php echo htmlspecialchars($student['name']); ?></td>
@@ -513,12 +774,18 @@ function updateNielitRegNo(studentId, batchId) {
                                             <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>" class="btn btn-primary btn-sm" title="View Student Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="javascript:void(0);" 
-                                               class="btn btn-danger btn-sm" 
-                                               onclick="confirmRemoveStudent(<?php echo $student['id']; ?>, '<?php echo htmlspecialchars(addslashes($student['name'])); ?>', <?php echo $batch_id; ?>);" 
-                                               title="Remove from Batch">
-                                                <i class="fas fa-user-times"></i>
-                                            </a>
+                                            <?php if ($is_locked): ?>
+                                                <button class="btn btn-secondary btn-sm" disabled title="Batch is locked">
+                                                    <i class="fas fa-lock"></i>
+                                                </button>
+                                            <?php else: ?>
+                                                <a href="javascript:void(0);" 
+                                                   class="btn btn-danger btn-sm" 
+                                                   onclick="confirmRemoveStudent(<?php echo $student['id']; ?>, '<?php echo htmlspecialchars(addslashes($student['name'])); ?>', <?php echo $batch_id; ?>);" 
+                                                   title="Remove from Batch">
+                                                    <i class="fas fa-user-times"></i>
+                                                </a>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

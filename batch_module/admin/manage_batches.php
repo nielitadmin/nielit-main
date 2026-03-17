@@ -27,6 +27,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $batch_code = generateBatchCode($course['course_code'], $conn);
                 
+                // Get current admin ID for created_by field
+                $admin_id = $_SESSION['admin_id'] ?? null;
+                if (!$admin_id && isset($_SESSION['admin'])) {
+                    $admin_username = $_SESSION['admin'];
+                    $admin_query = "SELECT id FROM admin WHERE username = ?";
+                    $admin_stmt = $conn->prepare($admin_query);
+                    $admin_stmt->bind_param("s", $admin_username);
+                    $admin_stmt->execute();
+                    $admin_result = $admin_stmt->get_result();
+                    if ($admin_row = $admin_result->fetch_assoc()) {
+                        $admin_id = $admin_row['id'];
+                        $_SESSION['admin_id'] = $admin_id;
+                    }
+                }
+                
                 $data = [
                     'course_id' => $_POST['course_id'],
                     'batch_name' => $_POST['batch_name'],
@@ -36,7 +51,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'training_fees' => $_POST['training_fees'],
                     'seats_total' => $_POST['seats_total'],
                     'batch_coordinator' => $_POST['batch_coordinator'],
-                    'status' => $_POST['status']
+                    'status' => $_POST['status'],
+                    'created_by' => $admin_id
                 ];
                 
                 $result = createBatch($data, $conn);
@@ -75,6 +91,44 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     $message_type = $result['success'] ? 'success' : 'danger';
 }
 
+// Handle lock/unlock actions (Master Admin only)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lock_action'])) {
+    $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+    $current_admin_id = $_SESSION['admin_id'] ?? null;
+    
+    if (!$current_admin_id && isset($_SESSION['admin'])) {
+        $admin_username = $_SESSION['admin'];
+        $admin_query = "SELECT id FROM admin WHERE username = ?";
+        $admin_stmt = $conn->prepare($admin_query);
+        $admin_stmt->bind_param("s", $admin_username);
+        $admin_stmt->execute();
+        $admin_result = $admin_stmt->get_result();
+        if ($admin_row = $admin_result->fetch_assoc()) {
+            $current_admin_id = $admin_row['id'];
+            $_SESSION['admin_id'] = $current_admin_id;
+        }
+    }
+    
+    if ($is_master_admin && $current_admin_id) {
+        $batch_id = $_POST['batch_id'];
+        $action = $_POST['lock_action'];
+        
+        if ($action === 'lock') {
+            $result = lockBatch($batch_id, $current_admin_id, $conn);
+        } elseif ($action === 'unlock') {
+            $result = unlockBatch($batch_id, $current_admin_id, $conn);
+        }
+        
+        if (isset($result)) {
+            $message = $result['message'];
+            $message_type = $result['success'] ? 'success' : 'danger';
+        }
+    } else {
+        $message = "Access denied. Only Master Admins can lock/unlock batches.";
+        $message_type = 'danger';
+    }
+}
+
 // Get all courses for dropdown
 $courses_sql = "SELECT id, course_name, course_code FROM courses ORDER BY course_name";
 $courses_result = $conn->query($courses_sql);
@@ -83,13 +137,73 @@ while ($row = $courses_result->fetch_assoc()) {
     $courses[] = $row;
 }
 
-// Get all batches
-$batches_sql = "SELECT b.*, c.course_name, c.course_code,
-                (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count
-                FROM batches b 
-                LEFT JOIN courses c ON b.course_id = c.id 
-                ORDER BY b.created_at DESC";
-$batches_result = $conn->query($batches_sql);
+// Check user role for batch filtering
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$current_admin_id = $_SESSION['admin_id'] ?? null;
+
+// Get current admin ID if not set
+if (!$current_admin_id && isset($_SESSION['admin'])) {
+    $admin_username = $_SESSION['admin'];
+    $admin_query = "SELECT id FROM admin WHERE username = ?";
+    $admin_stmt = $conn->prepare($admin_query);
+    $admin_stmt->bind_param("s", $admin_username);
+    $admin_stmt->execute();
+    $admin_result = $admin_stmt->get_result();
+    if ($admin_row = $admin_result->fetch_assoc()) {
+        $current_admin_id = $admin_row['id'];
+        $_SESSION['admin_id'] = $current_admin_id;
+    }
+}
+
+// Build batch query with role-based filtering
+if ($is_master_admin) {
+    // Master admin sees all batches
+    $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+                    (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
+                    CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
+                    FROM batches b 
+                    LEFT JOIN courses c ON b.course_id = c.id 
+                    ORDER BY b.created_at DESC";
+    $batches_result = $conn->query($batches_sql);
+} else {
+    // Course coordinators see only batches they created
+    $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+                    (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
+                    CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
+                    FROM batches b 
+                    LEFT JOIN courses c ON b.course_id = c.id 
+                    WHERE b.created_by = ?
+                    ORDER BY b.created_at DESC";
+    $stmt = $conn->prepare($batches_sql);
+    $stmt->bind_param("i", $current_admin_id);
+    $stmt->execute();
+    $batches_result = $stmt->get_result();
+}
+
+// If the query fails (is_locked column doesn't exist), try without it
+if (!$batches_result) {
+    if ($is_master_admin) {
+        $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+                        (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
+                        0 as is_locked
+                        FROM batches b 
+                        LEFT JOIN courses c ON b.course_id = c.id 
+                        ORDER BY b.created_at DESC";
+        $batches_result = $conn->query($batches_sql);
+    } else {
+        $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+                        (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
+                        0 as is_locked
+                        FROM batches b 
+                        LEFT JOIN courses c ON b.course_id = c.id 
+                        WHERE b.created_by = ?
+                        ORDER BY b.created_at DESC";
+        $stmt = $conn->prepare($batches_sql);
+        $stmt->bind_param("i", $current_admin_id);
+        $stmt->execute();
+        $batches_result = $stmt->get_result();
+    }
+}
 
 // Check if query failed (tables don't exist)
 if (!$batches_result) {
@@ -126,6 +240,7 @@ while ($row = $batches_result->fetch_assoc()) {
     <title>Manage Batches - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
 </head>
 <body>
@@ -191,8 +306,20 @@ while ($row = $batches_result->fetch_assoc()) {
         <!-- Top Bar -->
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-layer-group"></i> Batch Management</h4>
-                <small>Create and manage course batches</small>
+                <h4><i class="fas fa-layer-group"></i> 
+                    <?php if ($is_master_admin): ?>
+                        Batch Management
+                    <?php else: ?>
+                        My Batches
+                    <?php endif; ?>
+                </h4>
+                <small>
+                    <?php if ($is_master_admin): ?>
+                        Create and manage all course batches
+                    <?php else: ?>
+                        Create and manage your course batches
+                    <?php endif; ?>
+                </small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -214,6 +341,15 @@ while ($row = $batches_result->fetch_assoc()) {
                 <div class="alert alert-<?php echo $message_type; ?>">
                     <i class="fas fa-<?php echo $message_type === 'success' ? 'check-circle' : 'exclamation-circle'; ?>"></i>
                     <?php echo $message; ?>
+                </div>
+            <?php endif; ?>
+
+            <!-- Role-based Information Banner -->
+            <?php if (!$is_master_admin): ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Course Coordinator View:</strong> You can only see and manage batches that you created. 
+                    Students can only be assigned to your batches. Master Admins can see and manage all batches.
                 </div>
             <?php endif; ?>
 
@@ -293,7 +429,13 @@ while ($row = $batches_result->fetch_assoc()) {
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-list"></i> All Batches
+                        <i class="fas fa-list"></i> 
+                        <?php if ($is_master_admin): ?>
+                            All Batches
+                        <?php else: ?>
+                            My Batches
+                        <?php endif; ?>
+                        <span class="badge badge-primary"><?php echo count($batches); ?></span>
                     </h5>
                 </div>
                 
@@ -309,6 +451,7 @@ while ($row = $batches_result->fetch_assoc()) {
                                     <th>Seats</th>
                                     <th>Fees</th>
                                     <th>Status</th>
+                                    <th>Lock Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -316,7 +459,12 @@ while ($row = $batches_result->fetch_assoc()) {
                                 <?php foreach ($batches as $batch): ?>
                                     <tr>
                                         <td><strong><?php echo htmlspecialchars($batch['batch_code']); ?></strong></td>
-                                        <td><?php echo htmlspecialchars($batch['batch_name']); ?></td>
+                                        <td>
+                                            <?php echo htmlspecialchars($batch['batch_name']); ?>
+                                            <?php if ($batch['is_locked']): ?>
+                                                <br><small class="text-muted"><i class="fas fa-lock"></i> Locked</small>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
                                         <td>
                                             <?php echo date('d M Y', strtotime($batch['start_date'])); ?><br>
@@ -337,16 +485,76 @@ while ($row = $batches_result->fetch_assoc()) {
                                             </span>
                                         </td>
                                         <td>
+                                            <?php if ($batch['is_locked']): ?>
+                                                <span class="badge badge-danger">
+                                                    <i class="fas fa-lock"></i> LOCKED
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="badge badge-success">
+                                                    <i class="fas fa-unlock"></i> UNLOCKED
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
                                             <a href="batch_details.php?id=<?php echo $batch['id']; ?>" class="btn btn-primary btn-sm" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <a href="edit_batch.php?id=<?php echo $batch['id']; ?>" class="btn btn-warning btn-sm" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                            <a href="?delete=<?php echo $batch['id']; ?>" class="btn btn-danger btn-sm" 
-                                               onclick="return confirm('Are you sure you want to delete this batch?');" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                            
+                                            <?php if ($batch['is_locked']): ?>
+                                                <!-- Locked batch actions -->
+                                                <?php if ($is_master_admin): ?>
+                                                    <!-- Master Admin can unlock -->
+                                                    <form method="POST" style="display: inline;">
+                                                        <input type="hidden" name="batch_id" value="<?php echo $batch['id']; ?>">
+                                                        <input type="hidden" name="lock_action" value="unlock">
+                                                        <button type="submit" class="btn btn-success btn-sm" title="Unlock Batch" onclick="return confirm('Are you sure you want to unlock this batch? This will allow modifications.')">
+                                                            <i class="fas fa-unlock"></i>
+                                                        </button>
+                                                    </form>
+                                                    <button class="btn btn-secondary btn-sm" disabled title="Cannot edit locked batch">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-secondary btn-sm" disabled title="Cannot delete locked batch">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                <?php else: ?>
+                                                    <!-- Course Coordinator cannot unlock -->
+                                                    <button class="btn btn-secondary btn-sm" disabled title="Batch is locked - only Master Admin can unlock">
+                                                        <i class="fas fa-lock"></i>
+                                                    </button>
+                                                    <button class="btn btn-secondary btn-sm" disabled title="Cannot edit locked batch">
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <button class="btn btn-secondary btn-sm" disabled title="Cannot delete locked batch">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <!-- Unlocked batch actions -->
+                                                <?php if ($is_master_admin): ?>
+                                                    <!-- Master Admin can lock -->
+                                                    <form method="POST" style="display: inline;">
+                                                        <input type="hidden" name="batch_id" value="<?php echo $batch['id']; ?>">
+                                                        <input type="hidden" name="lock_action" value="lock">
+                                                        <button type="submit" class="btn btn-warning btn-sm" title="Lock Batch" onclick="return confirm('Are you sure you want to lock this batch? This will prevent all modifications.')">
+                                                            <i class="fas fa-lock"></i>
+                                                        </button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                
+                                                <a href="edit_batch.php?id=<?php echo $batch['id']; ?>" class="btn btn-info btn-sm" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <a href="javascript:void(0);" 
+                                                   class="btn btn-danger btn-sm delete-batch-btn" 
+                                                   title="Delete Batch"
+                                                   data-batch-id="<?php echo $batch['id']; ?>"
+                                                   data-batch-name="<?php echo htmlspecialchars($batch['batch_name']); ?>"
+                                                   data-batch-code="<?php echo htmlspecialchars($batch['batch_code']); ?>"
+                                                   data-url="?delete=<?php echo $batch['id']; ?>">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -356,13 +564,64 @@ while ($row = $batches_result->fetch_assoc()) {
                 <?php else: ?>
                     <div style="text-align: center; padding: 40px; color: #64748b;">
                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
-                        <p style="margin: 0; font-size: 16px;">No batches found. Create your first batch above.</p>
+                        <?php if ($is_master_admin): ?>
+                            <p style="margin: 0; font-size: 16px;">No batches found. Create your first batch above.</p>
+                        <?php else: ?>
+                            <p style="margin: 0; font-size: 16px;">You haven't created any batches yet. Create your first batch above.</p>
+                            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.7;">You can only see batches that you created.</p>
+                        <?php endif; ?>
                     </div>
                 <?php endif; ?>
             </div>
         </div>
     </main>
 </div>
+
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script>
+// Show toast notification if there's a session message
+<?php if (!empty($message)): ?>
+    document.addEventListener('DOMContentLoaded', function() {
+        const messageType = '<?php echo $message_type; ?>';
+        const message = '<?php echo addslashes($message); ?>';
+        
+        // Map message types to toast types
+        const toastType = messageType === 'danger' ? 'error' : messageType;
+        
+        toast[toastType](message);
+    });
+<?php endif; ?>
+
+// Handle delete batch buttons with modern confirmation
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteButtons = document.querySelectorAll('.delete-batch-btn');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+            const batchName = this.getAttribute('data-batch-name');
+            const batchCode = this.getAttribute('data-batch-code');
+            const batchId = this.getAttribute('data-batch-id');
+            const url = this.getAttribute('data-url');
+            
+            const confirmed = await showConfirm({
+                title: 'Delete Batch',
+                message: `Are you sure you want to delete batch <strong>${batchName}</strong> (${batchCode})? This action cannot be undone and will affect all students assigned to this batch.`,
+                confirmText: 'Delete',
+                cancelText: 'Cancel',
+                type: 'danger'
+            });
+            
+            if (confirmed) {
+                // Show loading toast
+                const loadingToast = toast.loading('Deleting batch...');
+                
+                // Redirect to delete URL
+                window.location.href = url;
+            }
+        });
+    });
+});
+</script>
 
 </body>
 </html>

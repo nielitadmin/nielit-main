@@ -86,6 +86,24 @@ class NIELIT_PDF extends TCPDF {
     }
 }
 
+// Helper function to truncate text smartly
+function smartTruncate($text, $maxLength, $suffix = '...') {
+    if (empty($text)) return '';
+    
+    $text = trim($text);
+    if (strlen($text) <= $maxLength) return $text;
+    
+    // Try to break at word boundary
+    $truncated = substr($text, 0, $maxLength - strlen($suffix));
+    $lastSpace = strrpos($truncated, ' ');
+    
+    if ($lastSpace !== false && $lastSpace > $maxLength * 0.6) {
+        $truncated = substr($truncated, 0, $lastSpace);
+    }
+    
+    return $truncated . $suffix;
+}
+
 // --- 3. INITIALIZE DOCUMENT ---
 $pdf = new NIELIT_PDF('P', 'mm', 'A4', true, 'UTF-8', false);
 $pdf->SetMargins(15, 20, 15);
@@ -209,24 +227,65 @@ $pdf->Ln(5);
 // Section 5: Education Table
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 5. ACADEMIC QUALIFICATION HISTORY', 0, 1, 'L', true);
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->SetFillColor(230, 240, 255);
-$pdf->Cell(15, 12, 'Sl No', 1, 0, 'C', true); $pdf->Cell(30, 12, 'Examination', 1, 0, 'C', true); 
-$pdf->Cell(60, 12, 'University / Board', 1, 0, 'C', true); $pdf->Cell(20, 12, 'Year', 1, 0, 'C', true); 
-$pdf->Cell(30, 12, 'Stream', 1, 0, 'C', true); $pdf->Cell(25, 12, '% / CGPA', 1, 1, 'C', true);
 
-$pdf->SetFont('helvetica', '', 10);
+// Enhanced table with better column widths and text wrapping
+$pdf->SetFont('helvetica', 'B', 9);
+$pdf->SetFillColor(230, 240, 255);
+
+// Optimized column widths for better text fitting
+$col_widths = [
+    'sl' => 12,      // Serial number - reduced
+    'exam' => 35,    // Examination - increased
+    'institute' => 55, // University/Board - reduced slightly
+    'year' => 18,    // Year - increased slightly
+    'stream' => 32,  // Stream - increased
+    'percentage' => 28 // Percentage - increased
+];
+
+// Table headers with proper alignment
+$pdf->Cell($col_widths['sl'], 12, 'Sl No', 1, 0, 'C', true);
+$pdf->Cell($col_widths['exam'], 12, 'Examination', 1, 0, 'C', true);
+$pdf->Cell($col_widths['institute'], 12, 'University / Board', 1, 0, 'C', true);
+$pdf->Cell($col_widths['year'], 12, 'Year', 1, 0, 'C', true);
+$pdf->Cell($col_widths['stream'], 12, 'Stream', 1, 0, 'C', true);
+$pdf->Cell($col_widths['percentage'], 12, '% / CGPA', 1, 1, 'C', true);
+
+$pdf->SetFont('helvetica', '', 8); // Reduced font size for better fitting
+
 if (!empty($education_records)) {
     $i = 1;
     foreach ($education_records as $edu) {
-        $pdf->Cell(15, 11, $i++, 1, 0, 'C');
-        $pdf->Cell(30, 11, ' '.$edu['exam_passed'], 1, 0);
-        $pdf->Cell(60, 11, ' '.$edu['institute_name'], 1, 0);
-        $pdf->Cell(20, 11, $edu['year_of_passing'], 1, 0, 'C');
-        $pdf->Cell(30, 11, ' '.$edu['stream'], 1, 0);
-        $pdf->Cell(25, 11, $edu['percentage'], 1, 1, 'C');
+        // Smart truncation for better text fitting
+        $exam_display = smartTruncate($edu['exam_passed'] ?? '', 30);
+        $institute_display = smartTruncate($edu['institute_name'] ?? '', 45);
+        $stream_display = smartTruncate($edu['stream'] ?? '', 25);
+        
+        // Use consistent row height
+        $row_height = 14;
+        $current_y = $pdf->GetY();
+        
+        // Serial number
+        $pdf->Cell($col_widths['sl'], $row_height, $i++, 1, 0, 'C');
+        
+        // Examination - with padding
+        $pdf->Cell($col_widths['exam'], $row_height, ' ' . $exam_display, 1, 0, 'L');
+        
+        // Institute - with padding
+        $pdf->Cell($col_widths['institute'], $row_height, ' ' . $institute_display, 1, 0, 'L');
+        
+        // Year
+        $pdf->Cell($col_widths['year'], $row_height, $edu['year_of_passing'] ?? '', 1, 0, 'C');
+        
+        // Stream - with padding
+        $pdf->Cell($col_widths['stream'], $row_height, ' ' . $stream_display, 1, 0, 'L');
+        
+        // Percentage
+        $pdf->Cell($col_widths['percentage'], $row_height, $edu['percentage'] ?? '', 1, 1, 'C');
     }
-} else { $pdf->Cell($full_w, 12, 'No records found.', 1, 1, 'C'); }
+} else { 
+    $pdf->Cell($full_w, 14, 'No education records found.', 1, 1, 'C'); 
+}
+
 $pdf->Ln(10);
 
 // Section 6: Document Checklist
