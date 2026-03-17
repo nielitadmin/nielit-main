@@ -223,7 +223,7 @@ $pdf->Cell($full_w, 9, ' 4. INSTITUTIONAL & ACADEMIC INFO', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
 
 // Training Centre with text wrapping
-$training_center_text = ' '.($student['training_center'] ?: 'NIELIT BHUBANESWAR');
+$training_center_text = ' '.($student['training_center'] ?: 'NIELIT Bhubaneswar|Balasore|Raipur');
 $training_center_height = max(11, $pdf->getStringHeight(130, $training_center_text));
 $pdf->Cell(50, $training_center_height, ' Training Centre', 1, 0); 
 $pdf->MultiCell(130, $training_center_height, $training_center_text, 1, 'L', false, 1);
