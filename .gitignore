@@ -51,6 +51,7 @@ composer.lock
 /startup/
 /nielit_jobfair/
 /__test/
+/Career_Cell/
 
 # IDE & Editor
 .vscode/
