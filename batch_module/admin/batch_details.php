@@ -742,16 +742,36 @@ function downloadScannedOrder(batchId) {
                     <i class="fas fa-home"></i> Dashboard
                 </a>
             </div>
+            
+            <?php 
+            // Get user role for sidebar restrictions
+            $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+            $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
+            ?>
+            
+            <?php if (!$is_nsqf_manager): ?>
             <div class="nav-item">
                 <a href="../../admin/students.php" class="nav-link">
                     <i class="fas fa-users"></i> Students
                 </a>
             </div>
+            <?php endif; ?>
+            
+            <?php if ($is_nsqf_manager): ?>
+            <div class="nav-item">
+                <a href="../../admin/manage_nsqf_templates.php" class="nav-link">
+                    <i class="fas fa-graduation-cap"></i> Course Templates
+                </a>
+            </div>
+            <?php else: ?>
             <div class="nav-item">
                 <a href="../../admin/manage_courses.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
+            <?php endif; ?>
+            
+            <?php if (!$is_nsqf_manager): ?>
             <div class="nav-item">
                 <a href="manage_batches.php" class="nav-link active">
                     <i class="fas fa-layer-group"></i> Batches
@@ -762,11 +782,21 @@ function downloadScannedOrder(batchId) {
                     <i class="fas fa-user-check"></i> Approve Students
                 </a>
             </div>
+            <?php endif; ?>
+            
+            <?php if ($is_master_admin): ?>
+            <div class="nav-divider"></div>
             <div class="nav-item">
                 <a href="../../admin/add_admin.php" class="nav-link">
                     <i class="fas fa-user-shield"></i> Add Admin
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="../../admin/manage_admins.php" class="nav-link">
+                    <i class="fas fa-users-cog"></i> Manage Admins
+                </a>
+            </div>
+            <?php endif; ?>
             
             <div class="nav-divider"></div>
             
