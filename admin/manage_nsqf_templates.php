@@ -21,14 +21,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $created_by = $_SESSION['admin_id'];
         
         $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, eligibility, created_by) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("sssi", $course_name, $category, $eligibility, $created_by);
         
-        if ($stmt->execute()) {
-            $success = "NSQF course template added successfully!";
-        } else {
-            $error = "Error: " . $conn->error;
+        if ($stmt === false) {
+            // Table might not exist - run migration
+            include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
+            
+            // Try again after migration
+            $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, eligibility, created_by) VALUES (?, ?, ?, ?)");
+            if ($stmt === false) {
+                $error = "Error: Could not prepare statement. " . $conn->error;
+            }
         }
-        $stmt->close();
+        
+        if ($stmt !== false) {
+            $stmt->bind_param("sssi", $course_name, $category, $eligibility, $created_by);
+            
+            if ($stmt->execute()) {
+                $success = "NSQF course template added successfully!";
+            } else {
+                $error = "Error: " . $conn->error;
+            }
+            $stmt->close();
+        }
     }
     
     if ($action === 'edit') {
@@ -38,34 +52,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $eligibility = trim($_POST['eligibility']);
         
         $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, eligibility=? WHERE id=? AND created_by=?");
-        $stmt->bind_param("sssii", $course_name, $category, $eligibility, $id, $_SESSION['admin_id']);
         
-        if ($stmt->execute()) {
-            $success = "Template updated successfully!";
+        if ($stmt === false) {
+            $error = "Error: Could not prepare statement. " . $conn->error;
         } else {
-            $error = "Error: " . $conn->error;
+            $stmt->bind_param("sssii", $course_name, $category, $eligibility, $id, $_SESSION['admin_id']);
+            
+            if ($stmt->execute()) {
+                $success = "Template updated successfully!";
+            } else {
+                $error = "Error: " . $conn->error;
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
     
     if ($action === 'delete') {
         $id = intval($_POST['template_id']);
         
         $stmt = $conn->prepare("UPDATE nsqf_course_templates SET is_active=0 WHERE id=? AND created_by=?");
-        $stmt->bind_param("ii", $id, $_SESSION['admin_id']);
         
-        if ($stmt->execute()) {
-            $success = "Template deactivated successfully!";
+        if ($stmt === false) {
+            $error = "Error: Could not prepare statement. " . $conn->error;
         } else {
-            $error = "Error: " . $conn->error;
+            $stmt->bind_param("ii", $id, $_SESSION['admin_id']);
+            
+            if ($stmt->execute()) {
+                $success = "Template deactivated successfully!";
+            } else {
+                $error = "Error: " . $conn->error;
+            }
+            $stmt->close();
         }
-        $stmt->close();
     }
 }
 
 // Fetch templates created by current NSQF manager
 $templates_query = "SELECT * FROM nsqf_course_templates WHERE created_by = ? AND is_active = 1 ORDER BY created_at DESC";
 $stmt = $conn->prepare($templates_query);
+
+if ($stmt === false) {
+    // Table might not exist - run migration
+    echo "<div class='alert alert-warning'>NSQF templates table not found. Running migration...</div>";
+    include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
+    
+    // Try again after migration
+    $stmt = $conn->prepare($templates_query);
+    if ($stmt === false) {
+        die("Error: Could not prepare statement. " . $conn->error);
+    }
+}
+
 $stmt->bind_param("i", $_SESSION['admin_id']);
 $stmt->execute();
 $templates = $stmt->get_result();

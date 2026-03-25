@@ -28,6 +28,22 @@ try {
                            FROM nsqf_course_templates 
                            WHERE category = ? AND is_active = 1 
                            ORDER BY course_name ASC");
+    
+    if ($stmt === false) {
+        // Table might not exist - run migration
+        include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
+        
+        // Try again after migration
+        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
+                               FROM nsqf_course_templates 
+                               WHERE category = ? AND is_active = 1 
+                               ORDER BY course_name ASC");
+        
+        if ($stmt === false) {
+            throw new Exception("Could not prepare statement: " . $conn->error);
+        }
+    }
+    
     $stmt->bind_param("s", $category);
     $stmt->execute();
     $result = $stmt->get_result();
