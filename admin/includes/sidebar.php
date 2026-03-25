@@ -11,6 +11,7 @@ if (!isset($_SESSION['admin_role'])) {
 }
 
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
@@ -28,21 +29,38 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-home"></i> Dashboard
             </a>
         </div>
+        
+        <?php if (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="students.php" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
+        <?php endif; ?>
+        
+        <?php if ($is_nsqf_manager): ?>
+        <!-- NSQF Manager - Only Template Management -->
+        <div class="nav-item">
+            <a href="manage_nsqf_templates.php" class="nav-link <?php echo ($current_page === 'manage_nsqf_templates.php') ? 'active' : ''; ?>">
+                <i class="fas fa-graduation-cap"></i> Course Templates
+            </a>
+        </div>
+        <?php else: ?>
+        <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
             <a href="manage_courses.php" class="nav-link <?php echo ($current_page === 'manage_courses.php') ? 'active' : ''; ?>">
                 <i class="fas fa-book"></i> Courses
             </a>
         </div>
+        <?php endif; ?>
+        
+        <?php if (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <?php endif; ?>
         
         <!-- System Settings (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
@@ -66,14 +84,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         <?php endif; ?>
         
+        <?php if (!$is_nsqf_manager): ?>
         <div class="nav-divider"></div>
         
-        <!-- Student Approval (All Roles) -->
+        <!-- Student Approval (Non-NSQF Roles Only) -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
                 <i class="fas fa-user-check"></i> Approve Students
             </a>
         </div>
+        <?php endif; ?>
         
         <!-- Admin Management (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
@@ -98,13 +118,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <?php endif; ?>
-        
-        <!-- Reset Password (All Roles) -->
-        <div class="nav-item">
-            <a href="reset_password.php" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
-                <i class="fas fa-key"></i> Reset Password
-            </a>
-        </div>
         
         <div class="nav-divider"></div>
         

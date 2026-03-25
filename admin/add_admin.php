@@ -547,10 +547,12 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                         </label>
                         <select name="role" class="form-select" required style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px;">
                             <option value="course_coordinator">Course Coordinator</option>
+                            <option value="nsqf_course_manager">NSQF Course Manager</option>
                             <option value="master_admin">Master Admin</option>
                         </select>
                         <small class="text-muted">
                             <strong>Course Coordinator:</strong> Access to Dashboard, Students, Courses, Batches, Approve Students, Reset Password<br>
+                            <strong>NSQF Course Manager:</strong> Can only manage Long Term NSQF and Short Term NSQF courses<br>
                             <strong>Master Admin:</strong> Full access including admin management
                         </small>
                     </div>

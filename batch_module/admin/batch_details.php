@@ -471,6 +471,237 @@ function updateNielitRegNo(studentId, batchId) {
         btn.disabled = false;
     });
 }
+
+// Scanned Admission Order Functions
+function uploadScannedOrder(batchId, fileInput) {
+    const file = fileInput.files[0];
+    if (!file) return;
+    
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+        showToast('Only PDF files are allowed', 'error');
+        fileInput.value = '';
+        return;
+    }
+    
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+        showToast('File size must be less than 10MB', 'error');
+        fileInput.value = '';
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('action', 'upload');
+    formData.append('batch_id', batchId);
+    formData.append('scanned_file', file);
+    
+    // Show loading toast
+    showToast('Uploading scanned admission order...', 'info');
+    
+    fetch('upload_scanned_admission_order.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showToast('Error: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to upload file', 'error');
+    })
+    .finally(() => {
+        fileInput.value = '';
+    });
+}
+
+function lockScannedOrder(batchId) {
+    // Show confirmation dialog
+    const dialog = document.createElement('div');
+    dialog.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        animation: fadeIn 0.2s ease;
+    `;
+    
+    dialog.innerHTML = `
+        <div style="
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 450px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+        ">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <div style="
+                    width: 60px;
+                    height: 60px;
+                    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    margin: 0 auto 16px;
+                ">
+                    <i class="fas fa-lock" style="color: white; font-size: 28px;"></i>
+                </div>
+                <h3 style="margin: 0 0 8px 0; color: #1e293b; font-size: 20px;">Lock Scanned Admission Order?</h3>
+                <p style="margin: 0; color: #64748b; font-size: 14px;">Once locked, the document cannot be modified or replaced</p>
+            </div>
+            
+            <div style="
+                background: #fff3cd;
+                padding: 16px;
+                border-radius: 8px;
+                margin-bottom: 24px;
+                border-left: 4px solid #ffc107;
+            ">
+                <p style="margin: 0; color: #856404; font-size: 14px;">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    <strong>Warning:</strong> This action will prevent any further modifications to the scanned admission order. Only Master Admin can unlock it later.
+                </p>
+            </div>
+            
+            <div style="display: flex; gap: 12px;">
+                <button onclick="closeConfirmDialog()" style="
+                    flex: 1;
+                    padding: 12px 24px;
+                    border: 2px solid #e2e8f0;
+                    background: white;
+                    color: #64748b;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='white'">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                <button onclick="proceedLockScannedOrder(${batchId})" style="
+                    flex: 1;
+                    padding: 12px 24px;
+                    border: none;
+                    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+                    color: white;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(220, 53, 69, 0.4)'" onmouseout="this.style.transform=''; this.style.boxShadow=''">
+                    <i class="fas fa-lock"></i> Lock Document
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(dialog);
+    dialog.confirmDialog = true;
+}
+
+function proceedLockScannedOrder(batchId) {
+    closeConfirmDialog();
+    
+    const formData = new FormData();
+    formData.append('action', 'lock');
+    formData.append('batch_id', batchId);
+    
+    showToast('Locking scanned admission order...', 'info');
+    
+    fetch('upload_scanned_admission_order.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showToast('Error: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to lock document', 'error');
+    });
+}
+
+function unlockScannedOrder(batchId) {
+    const formData = new FormData();
+    formData.append('action', 'unlock');
+    formData.append('batch_id', batchId);
+    
+    showToast('Unlocking scanned admission order...', 'info');
+    
+    fetch('upload_scanned_admission_order.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message, 'success');
+            // Reload page to show updated status
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else {
+            showToast('Error: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to unlock document', 'error');
+    });
+}
+
+function downloadScannedOrder(batchId) {
+    // Create a temporary form to trigger download
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'upload_scanned_admission_order.php';
+    form.style.display = 'none';
+    
+    const actionInput = document.createElement('input');
+    actionInput.type = 'hidden';
+    actionInput.name = 'action';
+    actionInput.value = 'download';
+    
+    const batchInput = document.createElement('input');
+    batchInput.type = 'hidden';
+    batchInput.name = 'batch_id';
+    batchInput.value = batchId;
+    
+    form.appendChild(actionInput);
+    form.appendChild(batchInput);
+    document.body.appendChild(form);
+    
+    form.submit();
+    document.body.removeChild(form);
+}
 </script>
 
 <style>
@@ -695,6 +926,128 @@ function updateNielitRegNo(studentId, batchId) {
                             <?php endif; ?>
                         </p>
                     </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <!-- Scanned Admission Order Upload -->
+            <div class="content-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-file-upload"></i> Scanned Admission Order
+                    </h5>
+                </div>
+                
+                <?php
+                // Get scanned admission order info
+                $scanned_order_sql = "SELECT scanned_admission_order, scanned_order_uploaded_at, scanned_order_uploaded_by, 
+                                             scanned_order_locked, scanned_order_locked_at, scanned_order_locked_by,
+                                             u1.username as uploaded_by_username, u2.username as locked_by_username
+                                      FROM batches b
+                                      LEFT JOIN admin u1 ON b.scanned_order_uploaded_by = u1.id
+                                      LEFT JOIN admin u2 ON b.scanned_order_locked_by = u2.id
+                                      WHERE b.id = ?";
+                $scanned_stmt = $conn->prepare($scanned_order_sql);
+                $scanned_stmt->bind_param("i", $batch_id);
+                $scanned_stmt->execute();
+                $scanned_result = $scanned_stmt->get_result();
+                $scanned_info = $scanned_result->fetch_assoc();
+                
+                $has_scanned_file = !empty($scanned_info['scanned_admission_order']);
+                $is_scanned_locked = $scanned_info['scanned_order_locked'] ?? false;
+                ?>
+                
+                <div style="padding: 20px;">
+                    <?php if ($has_scanned_file): ?>
+                        <!-- File exists - show info and actions -->
+                        <div class="alert alert-success" style="margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <div>
+                                    <i class="fas fa-file-pdf" style="color: #dc3545; margin-right: 8px;"></i>
+                                    <strong>Scanned Admission Order Available</strong>
+                                    <?php if ($is_scanned_locked): ?>
+                                        <span class="badge badge-danger" style="margin-left: 8px;">
+                                            <i class="fas fa-lock"></i> LOCKED
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge badge-warning" style="margin-left: 8px;">
+                                            <i class="fas fa-unlock"></i> UNLOCKED
+                                        </span>
+                                    <?php endif; ?>
+                                </div>
+                                <div>
+                                    <button onclick="downloadScannedOrder(<?php echo $batch_id; ?>)" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-download"></i> Download
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div style="margin-top: 12px; font-size: 13px; color: #666;">
+                                <div>
+                                    <i class="fas fa-upload"></i> 
+                                    Uploaded on <?php echo date('M d, Y \a\t g:i A', strtotime($scanned_info['scanned_order_uploaded_at'])); ?>
+                                    <?php if ($scanned_info['uploaded_by_username']): ?>
+                                        by <?php echo htmlspecialchars($scanned_info['uploaded_by_username']); ?>
+                                    <?php endif; ?>
+                                </div>
+                                <?php if ($is_scanned_locked && $scanned_info['scanned_order_locked_at']): ?>
+                                    <div style="margin-top: 4px;">
+                                        <i class="fas fa-lock"></i> 
+                                        Locked on <?php echo date('M d, Y \a\t g:i A', strtotime($scanned_info['scanned_order_locked_at'])); ?>
+                                        <?php if ($scanned_info['locked_by_username']): ?>
+                                            by <?php echo htmlspecialchars($scanned_info['locked_by_username']); ?>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <!-- Action buttons -->
+                        <div style="display: flex; gap: 12px; align-items: center;">
+                            <?php if (!$is_scanned_locked): ?>
+                                <!-- Replace file option -->
+                                <div style="flex: 1;">
+                                    <label for="scanned_file_replace" class="btn btn-warning" style="margin: 0; cursor: pointer;">
+                                        <i class="fas fa-sync-alt"></i> Replace File
+                                    </label>
+                                    <input type="file" id="scanned_file_replace" accept=".pdf" style="display: none;" onchange="uploadScannedOrder(<?php echo $batch_id; ?>, this)">
+                                </div>
+                                
+                                <!-- Lock button -->
+                                <button onclick="lockScannedOrder(<?php echo $batch_id; ?>)" class="btn btn-danger">
+                                    <i class="fas fa-lock"></i> Lock Document
+                                </button>
+                            <?php else: ?>
+                                <!-- Locked state -->
+                                <div class="alert alert-info" style="flex: 1; margin: 0;">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Document is locked and cannot be modified.
+                                    <?php if ($is_master_admin): ?>
+                                        <button onclick="unlockScannedOrder(<?php echo $batch_id; ?>)" class="btn btn-warning btn-sm" style="margin-left: 12px;">
+                                            <i class="fas fa-unlock"></i> Unlock (Master Admin)
+                                        </button>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                    <?php else: ?>
+                        <!-- No file uploaded yet -->
+                        <div class="alert alert-info" style="margin-bottom: 20px;">
+                            <i class="fas fa-info-circle"></i> 
+                            No scanned admission order uploaded yet. Upload a PDF file of the signed admission order.
+                        </div>
+                        
+                        <!-- Upload form -->
+                        <div style="max-width: 400px;">
+                            <label for="scanned_file_upload" class="btn btn-success" style="width: 100%; cursor: pointer; padding: 12px;">
+                                <i class="fas fa-cloud-upload-alt"></i> Upload Scanned Admission Order (PDF)
+                            </label>
+                            <input type="file" id="scanned_file_upload" accept=".pdf" style="display: none;" onchange="uploadScannedOrder(<?php echo $batch_id; ?>, this)">
+                            <small class="form-text text-muted" style="margin-top: 8px;">
+                                Only PDF files are allowed. Maximum file size: 10MB.
+                            </small>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>

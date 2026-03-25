@@ -84,6 +84,9 @@ if ($is_course_coordinator) {
         // Coordinator has no assigned courses - show no courses
         $sql .= " AND 1=0"; // This makes the query return no results
     }
+} elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+# NSQF Course Manager sees only NSQF courses
+    $sql .= " AND (courses.category IN ('Long Term NSQF', 'Short Term NSQF') OR courses.course_type IN ('Long Term NSQF', 'Short Term NSQF'))";
 }
 
 // Add category filter
@@ -126,6 +129,14 @@ if (!$result) {
 
 // Delete course
 if (isset($_GET['delete_id'])) {
+    // Prevent NSQF managers from deleting courses
+    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+        $_SESSION['message'] = "Access denied. NSQF Course Managers cannot delete courses.";
+        $_SESSION['message_type'] = "danger";
+        header("Location: dashboard.php");
+        exit();
+    }
+    
     $delete_id = $_GET['delete_id'];
     $delete_sql = "DELETE FROM courses WHERE id = ?";
     $stmt = $conn->prepare($delete_sql);
@@ -143,6 +154,14 @@ if (isset($_GET['delete_id'])) {
 
 // Add course
 if (isset($_POST['add_course'])) {
+    // Prevent NSQF managers from adding courses
+    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+        $_SESSION['message'] = "Access denied. NSQF Course Managers cannot add courses directly. Please use Course Templates.";
+        $_SESSION['message_type'] = "danger";
+        header("Location: dashboard.php");
+        exit();
+    }
+    
     $course_name = $_POST['course_name'];
     $course_code = strtoupper($_POST['course_code'] ?? '');
     $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
@@ -236,7 +255,7 @@ if (isset($_POST['add_course'])) {
 }
 
 // Get statistics
-// Total courses (filtered for coordinators)
+// Total courses (filtered for coordinators and NSQF managers)
 if ($is_course_coordinator) {
     if (!empty($admin_courses)) {
         $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
@@ -250,6 +269,10 @@ if ($is_course_coordinator) {
         // Coordinator has no assigned courses - return 0
         $total_courses = 0;
     }
+} elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+    // NSQF Course Manager sees only NSQF courses count
+    $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses WHERE category IN ('Long Term NSQF', 'Short Term NSQF') OR course_type IN ('Long Term NSQF', 'Short Term NSQF')");
+    $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
 } else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
     $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
@@ -458,21 +481,38 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     <i class="fas fa-home"></i> Dashboard
                 </a>
             </div>
+            
+            <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
             <div class="nav-item">
                 <a href="students.php" class="nav-link">
                     <i class="fas fa-users"></i> Students
                 </a>
             </div>
+            <?php endif; ?>
+            
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'): ?>
+            <!-- NSQF Manager - Only Template Management -->
+            <div class="nav-item">
+                <a href="manage_nsqf_templates.php" class="nav-link">
+                    <i class="fas fa-graduation-cap"></i> Course Templates
+                </a>
+            </div>
+            <?php else: ?>
+            <!-- Other Roles - Full Course Management -->
             <div class="nav-item">
                 <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
+            <?php endif; ?>
+            
+            <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
             <div class="nav-item">
                 <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
                     <i class="fas fa-layer-group"></i> Batches
                 </a>
             </div>
+            <?php endif; ?>
             
             <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
             <div class="nav-item">
@@ -505,11 +545,13 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             <div class="nav-divider"></div>
             <?php endif; ?>
             
+            <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
             <div class="nav-item">
                 <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
                     <i class="fas fa-user-check"></i> Approve Students
                 </a>
             </div>
+            <?php endif; ?>
             
             <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
             <div class="nav-item">
@@ -528,12 +570,6 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                 </a>
             </div>
             <?php endif; ?>
-            
-            <div class="nav-item">
-                <a href="reset_password.php" class="nav-link">
-                    <i class="fas fa-key"></i> Reset Password
-                </a>
-            </div>
             
             <div class="nav-divider"></div>
             
@@ -555,8 +591,24 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         <!-- Top Bar -->
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-tachometer-alt"></i> Dashboard</h4>
-                <small>Welcome back, Admin!</small>
+                <h4><i class="fas fa-tachometer-alt"></i> 
+                    <?php 
+                    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+                        echo 'NSQF Course Dashboard';
+                    } else {
+                        echo 'Dashboard';
+                    }
+                    ?>
+                </h4>
+                <small>Welcome back, 
+                    <?php 
+                    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+                        echo 'NSQF Course Manager!';
+                    } else {
+                        echo 'Admin!';
+                    }
+                    ?>
+                </small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -564,9 +616,20 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
                         <span class="user-role">
                             <?php 
-                            echo isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin' 
-                                ? 'Master Administrator' 
-                                : 'Course Coordinator'; 
+                            if (isset($_SESSION['admin_role'])) {
+                                switch ($_SESSION['admin_role']) {
+                                    case 'master_admin':
+                                        echo 'Master Administrator';
+                                        break;
+                                    case 'nsqf_course_manager':
+                                        echo 'NSQF Course Manager';
+                                        break;
+                                    default:
+                                        echo 'Course Coordinator';
+                                }
+                            } else {
+                                echo 'Administrator';
+                            }
                             ?>
                         </span>
                     </div>
@@ -659,6 +722,28 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             </div>
             <?php endif; ?>
 
+            <!-- Quick Actions for NSQF Managers -->
+            <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'): ?>
+            <div class="content-card" style="margin-bottom: 2rem;">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-graduation-cap"></i> NSQF Template Management
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-3 flex-wrap">
+                        <a href="manage_nsqf_templates.php" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Manage Course Templates
+                        </a>
+                        <div class="alert alert-info" style="margin: 0; flex: 1;">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Note:</strong> As an NSQF Course Manager, you can create and manage course templates. Course Coordinators will use your templates to create actual courses.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Courses Table -->
             <div class="content-card" style="margin-bottom: 20px;">
                 <div class="card-header" style="border-bottom: 1px solid #e2e8f0;">
@@ -672,10 +757,15 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                             <label class="form-label"><i class="fas fa-tag"></i> Filter by Category</label>
                             <select name="category" class="form-select" onchange="this.form.submit()" style="width: 100%;">
                                 <option value="all" <?= $filter_category === 'all' ? 'selected' : '' ?>>All Categories</option>
+                                <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
                                 <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
                                 <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
                                 <option value="Short-Term Non-NSQF" <?= $filter_category === 'Short-Term Non-NSQF' ? 'selected' : '' ?>>Short-Term Non-NSQF</option>
                                 <option value="Internship Program" <?= $filter_category === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
+                                <?php else: ?>
+                                <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
+                                <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
+                                <?php endif; ?>
                             </select>
                         </div>
                         <div style="display: flex; align-items: center; gap: 8px; color: #64748b;">
@@ -743,16 +833,27 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-book"></i> All Courses
+                        <i class="fas fa-book"></i> 
+                        <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'): ?>
+                            NSQF Courses (Read Only)
+                        <?php else: ?>
+                            All Courses
+                        <?php endif; ?>
                         <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
                             <small style="color: #64748b; font-weight: normal;">
                                 (Showing your assigned courses: <?php echo implode(', ', $admin_courses); ?>)
                             </small>
                         <?php endif; ?>
                     </h5>
+                    <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
                     <button class="btn btn-primary" onclick="openModal('addCourseModal')">
                         <i class="fas fa-plus"></i> Add New Course
                     </button>
+                    <?php else: ?>
+                    <div class="alert alert-warning" style="margin: 0; padding: 8px 12px; font-size: 14px;">
+                        <i class="fas fa-eye"></i> View Only - Use Course Templates to create templates for coordinators
+                    </div>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="table-responsive">
@@ -813,6 +914,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                         </a>
                                     </td>
                                     <td>
+                                        <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
                                         <a href="edit_course.php?id=<?php echo $row['id']; ?>" class="btn btn-warning btn-sm">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -821,6 +923,11 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                            onclick="return confirmDelete(event, '<?php echo htmlspecialchars($row['course_name']); ?>')">
                                             <i class="fas fa-trash"></i>
                                         </a>
+                                        <?php else: ?>
+                                        <span class="badge badge-secondary">
+                                            <i class="fas fa-eye"></i> View Only
+                                        </span>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endwhile; ?>
@@ -842,6 +949,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
 </div>
 
 <!-- Add Course Modal -->
+<?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
 <div class="modal" id="addCourseModal">
     <div class="modal-dialog" style="max-width: 900px;">
         <div class="modal-content" style="background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-height: 90vh; overflow-y: auto;">
@@ -856,6 +964,9 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     <div class="form-group">
                         <label class="form-label">Course Name *</label>
                         <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required>
+                        <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
+                            <option value="">-- Select Course Template --</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Course Code * <small>(e.g., PPI-2026)</small></label>
@@ -871,7 +982,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div class="form-group">
                         <label class="form-label">Category *</label>
-                        <select class="form-select" name="category" required>
+                        <select class="form-select" name="category" id="add_category_dash" required>
                             <option value="">Select Category</option>
                             <option value="Long Term NSQF">Long Term NSQF</option>
                             <option value="Short Term NSQF">Short Term NSQF</option>
@@ -881,7 +992,8 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     </div>
                     <div class="form-group">
                         <label class="form-label">Eligibility *</label>
-                        <input type="text" class="form-control" name="eligibility" required>
+                        <input type="text" class="form-control" name="eligibility" id="add_eligibility_dash" required placeholder="Will auto-populate from template for NSQF courses">
+                        <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Duration *</label>
@@ -1001,6 +1113,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         </form>
     </div>
 </div>
+<?php endif; ?>
 
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
@@ -1080,7 +1193,126 @@ document.addEventListener('DOMContentLoaded', function() {
             statusSpan.style.fontWeight = this.checked ? 'bold' : '';
         });
     }
+    
+    // NSQF Template Integration
+    const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
+    const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
+    
+    const categorySelect = document.getElementById('add_category_dash');
+    if (categorySelect) {
+        // Restrict categories for NSQF managers
+        if (isNSQFManager) {
+            const options = categorySelect.querySelectorAll('option');
+            options.forEach(option => {
+                if (option.value && !['Long Term NSQF', 'Short Term NSQF'].includes(option.value)) {
+                    option.style.display = 'none';
+                }
+            });
+        }
+        
+        // Add change event for template integration
+        categorySelect.addEventListener('change', function() {
+            handleCategoryChangeDash(this.value);
+        });
+    }
 });
+
+// Handle category change for template integration
+function handleCategoryChangeDash(category) {
+    const courseNameInput = document.getElementById('add_course_name_dash');
+    const courseNameTemplate = document.getElementById('add_course_name_template_dash');
+    const eligibilityField = document.getElementById('add_eligibility_dash');
+    
+    const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
+    const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
+    
+    if (['Long Term NSQF', 'Short Term NSQF'].includes(category)) {
+        // Show template dropdown for Course Coordinators
+        if (isCourseCoordinator) {
+            courseNameInput.style.display = 'none';
+            courseNameTemplate.style.display = 'block';
+            courseNameTemplate.required = true;
+            courseNameInput.required = false;
+            
+            // Fetch NSQF templates
+            fetchNSQFTemplatesDash(category);
+        } else if (isNSQFManager) {
+            // NSQF managers can create new courses directly
+            courseNameInput.style.display = 'block';
+            courseNameTemplate.style.display = 'none';
+            courseNameInput.required = true;
+            courseNameTemplate.required = false;
+        }
+        
+        // Make eligibility read-only for coordinators
+        if (isCourseCoordinator && eligibilityField) {
+            eligibilityField.readOnly = true;
+            eligibilityField.placeholder = 'Will be filled from selected template';
+        }
+    } else {
+        // Non-NSQF courses - show regular input
+        courseNameInput.style.display = 'block';
+        courseNameTemplate.style.display = 'none';
+        courseNameInput.required = true;
+        courseNameTemplate.required = false;
+        
+        if (eligibilityField) {
+            eligibilityField.readOnly = false;
+            eligibilityField.placeholder = 'Enter eligibility criteria';
+        }
+    }
+}
+
+// Fetch NSQF templates for dashboard
+function fetchNSQFTemplatesDash(category) {
+    fetch('get_nsqf_templates.php?category=' + encodeURIComponent(category))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                populateTemplateDropdownDash(data.templates);
+            } else {
+                console.error('Error fetching templates:', data.message);
+                toast.error('Error loading course templates. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toast.error('Error loading course templates. Please check your connection.');
+        });
+}
+
+// Populate template dropdown for dashboard
+function populateTemplateDropdownDash(templates) {
+    const templateSelect = document.getElementById('add_course_name_template_dash');
+    
+    // Clear existing options except first
+    templateSelect.innerHTML = '<option value="">-- Select Course Template --</option>';
+    
+    // Add template options
+    templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.course_name;
+        option.dataset.eligibility = template.eligibility;
+        templateSelect.appendChild(option);
+    });
+    
+    // Add change event to populate eligibility
+    templateSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const eligibilityField = document.getElementById('add_eligibility_dash');
+        const courseNameInput = document.getElementById('add_course_name_dash');
+        
+        if (selectedOption.dataset.eligibility && eligibilityField) {
+            eligibilityField.value = selectedOption.dataset.eligibility;
+        }
+        
+        // Set the actual course name for form submission
+        if (courseNameInput) {
+            courseNameInput.value = selectedOption.textContent;
+        }
+    });
+}
 </script>
 
 </body>

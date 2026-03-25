@@ -46,6 +46,10 @@ composer.lock
 /student/uploads/other/*
 !/student/uploads/other/.gitkeep
 
+# Scanned admission orders
+/uploads/scanned_admission_orders/*
+!/uploads/scanned_admission_orders/.gitkeep
+
 # External/Legacy Projects (not part of main codebase)
 /hrms/
 /startup/

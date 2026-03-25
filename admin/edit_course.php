@@ -385,7 +385,7 @@ if (isset($_POST['update_course'])) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label class="form-label">Category *</label>
-                            <select class="form-select" name="category" required>
+                            <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
                                 <option value="">--Select Category--</option>
                                 <option value="Long Term NSQF" <?php if ($course['category'] == 'Long Term NSQF') echo 'selected'; ?>>Long Term NSQF</option>
                                 <option value="Short Term NSQF" <?php if ($course['category'] == 'Short Term NSQF') echo 'selected'; ?>>Short Term NSQF</option>
@@ -393,9 +393,20 @@ if (isset($_POST['update_course'])) {
                                 <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
                             </select>
                         </div>
+                        
+                        <!-- NSQF Template Selection (hidden by default) -->
+                        <div class="form-group" id="template_selection_group" style="display: none;">
+                            <label class="form-label">Course Template *</label>
+                            <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
+                                <option value="">-- Select Course Template --</option>
+                            </select>
+                            <small class="text-muted">Select from pre-defined NSQF course templates</small>
+                        </div>
+                        
                         <div class="form-group">
                             <label class="form-label">Eligibility *</label>
-                            <input type="text" class="form-control" name="eligibility" value="<?php echo htmlspecialchars($course['eligibility']); ?>" required>
+                            <textarea class="form-control" name="eligibility" id="edit_eligibility" rows="2" required placeholder="Will auto-populate from template for NSQF courses"><?php echo htmlspecialchars($course['eligibility']); ?></textarea>
+                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Duration *</label>
@@ -1099,6 +1110,113 @@ document.addEventListener('DOMContentLoaded', function() {
                 toast.warning('Enrollment status set to CLOSED');
             }
         });
+    }
+});
+
+// NSQF Template Integration Functions
+function handleCategoryChange(currentCategory) {
+    const categorySelect = document.getElementById('edit_category');
+    const templateGroup = document.getElementById('template_selection_group');
+    const courseNameInput = document.querySelector('input[name="course_name"]');
+    const eligibilityField = document.getElementById('edit_eligibility');
+    
+    const selectedCategory = categorySelect.value;
+    
+    // Check if user is NSQF Course Manager
+    const isNSQFManager = <?php echo (isset($_SESSION['role']) && $_SESSION['role'] === 'nsqf_course_manager') ? 'true' : 'false'; ?>;
+    
+    if (selectedCategory === 'Long Term NSQF' || selectedCategory === 'Short Term NSQF') {
+        if (!isNSQFManager) {
+            // Course Coordinators must select from templates
+            templateGroup.style.display = 'block';
+            courseNameInput.readOnly = true;
+            courseNameInput.placeholder = 'Will be filled from template selection';
+            eligibilityField.readOnly = true;
+            eligibilityField.placeholder = 'Will auto-populate from template';
+            
+            // Fetch NSQF templates
+            fetchNSQFTemplates(selectedCategory);
+        } else {
+            // NSQF managers can create new courses directly
+            templateGroup.style.display = 'none';
+            courseNameInput.readOnly = false;
+            courseNameInput.placeholder = 'Enter course name';
+            eligibilityField.readOnly = false;
+            eligibilityField.placeholder = 'Enter eligibility criteria';
+        }
+    } else {
+        // Non-NSQF courses - normal input
+        templateGroup.style.display = 'none';
+        courseNameInput.readOnly = false;
+        courseNameInput.placeholder = 'Enter course name';
+        eligibilityField.readOnly = false;
+        eligibilityField.placeholder = 'Enter eligibility criteria';
+    }
+}
+
+// Function to fetch NSQF templates via AJAX
+function fetchNSQFTemplates(category) {
+    fetch('get_nsqf_templates.php?category=' + encodeURIComponent(category))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                populateTemplateDropdown(data.templates);
+            } else {
+                console.error('Error fetching templates:', data.message);
+                toast.error('Error loading course templates. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toast.error('Error loading course templates. Please check your connection.');
+        });
+}
+
+// Function to populate template dropdown
+function populateTemplateDropdown(templates) {
+    const templateSelect = document.getElementById('course_name_template');
+    
+    // Clear existing options except first
+    templateSelect.innerHTML = '<option value="">-- Select Course Template --</option>';
+    
+    // Add template options
+    templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.course_name;
+        option.dataset.eligibility = template.eligibility;
+        templateSelect.appendChild(option);
+    });
+}
+
+// Function to handle template selection
+function handleTemplateSelection() {
+    const templateSelect = document.getElementById('course_name_template');
+    const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+    const eligibilityField = document.getElementById('edit_eligibility');
+    const courseNameInput = document.querySelector('input[name="course_name"]');
+    
+    if (selectedOption.value && selectedOption.dataset.eligibility) {
+        // Auto-populate eligibility from template
+        eligibilityField.value = selectedOption.dataset.eligibility;
+        
+        // Set the actual course name for form submission
+        courseNameInput.value = selectedOption.textContent;
+        
+        toast.success('Template selected: ' + selectedOption.textContent);
+    } else {
+        // Clear fields if no template selected
+        eligibilityField.value = '';
+        courseNameInput.value = '';
+    }
+}
+
+// Initialize template system on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if current course is NSQF and initialize template system
+    const currentCategory = '<?php echo $course['category']; ?>';
+    if (currentCategory === 'Long Term NSQF' || currentCategory === 'Short Term NSQF') {
+        handleCategoryChange(currentCategory);
     }
 });
 

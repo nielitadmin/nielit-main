@@ -21,11 +21,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $course_code = strtoupper($_POST['course_code']);
         $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
         $course_type = $_POST['course_type'];
+        
+        // Check if NSQF manager is trying to create non-NSQF course
+        if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
+            !in_array($course_type, ['Long Term NSQF', 'Short Term NSQF'])) {
+            $error = "You can only create Long Term NSQF and Short Term NSQF courses.";
+            goto skip_add;
+        }
+        
         $training_center = $_POST['training_center'];
         $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : NULL;
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
         $description = $_POST['description'];
+        $eligibility = $_POST['eligibility'] ?? '';
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         
@@ -36,8 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $registration_link = '';
         }
         
-        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, training_center, duration, fees, description, registration_link, link_published, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("issssssdssi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $registration_link, $link_published);
+        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, training_center, duration, fees, description, eligibility, registration_link, link_published, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("issssssdsssi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $link_published);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
@@ -74,6 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "Error: " . $conn->error;
         }
+        
+        skip_add:
     }
     
     if ($action === 'edit') {
@@ -97,19 +108,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $course_code = strtoupper($_POST['course_code']);
         $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
         $course_type = $_POST['course_type'];
+        
+        // Check if NSQF manager is trying to edit to non-NSQF course
+        if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
+            !in_array($course_type, ['Long Term NSQF', 'Short Term NSQF'])) {
+            $error = "You can only manage Long Term NSQF and Short Term NSQF courses.";
+            goto skip_edit;
+        }
+        
         $training_center = $_POST['training_center'];
         $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : NULL;
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
         $description = $_POST['description'];
+        $eligibility = $_POST['eligibility'] ?? '';
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         
         // Use provided link or keep existing
         $registration_link = !empty($custom_link) ? $custom_link : '';
         
-        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, registration_link=?, link_published=? WHERE id=?");
-        $stmt->bind_param("issssssdssii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $registration_link, $link_published, $id);
+        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, link_published=? WHERE id=?");
+        $stmt->bind_param("issssssdsssi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $link_published, $id);
         
         if ($stmt->execute()) {
             // Regenerate QR code if registration link exists
@@ -186,6 +206,7 @@ $filter_status = $_GET['status'] ?? 'all';
 
 // Check user role for filtering
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $current_admin_id = $_SESSION['admin_id'] ?? 0;
 
 // Build query with filters - with error handling for missing tables
@@ -218,6 +239,18 @@ if ($is_master_admin) {
         $query = "SELECT courses.*, NULL AS centre_name, NULL AS centre_code 
                   FROM courses 
                   WHERE 1=1";
+    }
+} elseif ($is_nsqf_manager) {
+    // NSQF Course Manager sees only NSQF courses
+    if ($centres_exists) {
+        $query = "SELECT courses.*, centres.name AS centre_name, centres.code AS centre_code 
+                  FROM courses 
+                  LEFT JOIN centres ON courses.centre_id = centres.id 
+                  WHERE courses.course_type IN ('Long Term NSQF', 'Short Term NSQF')";
+    } else {
+        $query = "SELECT courses.*, NULL AS centre_name, NULL AS centre_code 
+                  FROM courses 
+                  WHERE courses.course_type IN ('Long Term NSQF', 'Short Term NSQF')";
     }
 } else {
     // Course coordinators see only their assigned courses (if table exists)
@@ -319,11 +352,15 @@ if (!empty($params)) {
                         <h1 class="h2"><i class="fas fa-graduation-cap"></i> 
                             <?php if ($is_master_admin): ?>
                                 Manage Courses
+                            <?php elseif ($is_nsqf_manager): ?>
+                                Manage NSQF Courses
                             <?php else: ?>
                                 My Assigned Courses
                             <?php endif; ?>
                         </h1>
-                        <?php if (!$is_master_admin): ?>
+                        <?php if ($is_nsqf_manager): ?>
+                            <small class="text-muted">You can manage Long Term NSQF and Short Term NSQF courses only</small>
+                        <?php elseif (!$is_master_admin): ?>
                             <small class="text-muted">You can view and manage courses assigned to you</small>
                         <?php endif; ?>
                     </div>
@@ -354,6 +391,10 @@ if (!empty($params)) {
                                 <label class="form-label"><i class="fas fa-filter"></i> Filter by Category</label>
                                 <select name="type" class="form-select" onchange="this.form.submit()">
                                     <option value="all" <?= $filter_type === 'all' ? 'selected' : '' ?>>All Categories</option>
+                                    <option value="Long Term NSQF" <?= $filter_type === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
+                                    <option value="Short Term NSQF" <?= $filter_type === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
+                                    <option value="Short-Term Non-NSQF" <?= $filter_type === 'Short-Term Non-NSQF' ? 'selected' : '' ?>>Short-Term Non-NSQF</option>
+                                    <option value="Internship Program" <?= $filter_type === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
                                     <option value="Regular" <?= $filter_type === 'Regular' ? 'selected' : '' ?>>Regular</option>
                                     <option value="Internship" <?= $filter_type === 'Internship' ? 'selected' : '' ?>>Internship</option>
                                     <option value="Bootcamp" <?= $filter_type === 'Bootcamp' ? 'selected' : '' ?>>Bootcamp</option>
@@ -503,6 +544,8 @@ if (!empty($params)) {
                                                 <h5>
                                                     <?php if ($is_master_admin): ?>
                                                         No courses found
+                                                    <?php elseif ($is_nsqf_manager): ?>
+                                                        No NSQF courses found
                                                     <?php else: ?>
                                                         No courses assigned to you yet
                                                     <?php endif; ?>
@@ -510,6 +553,8 @@ if (!empty($params)) {
                                                 <p>
                                                     <?php if ($is_master_admin): ?>
                                                         Click "Add New Course" to create your first course.
+                                                    <?php elseif ($is_nsqf_manager): ?>
+                                                        Click "Add New Course" to create your first NSQF course. You can only create Long Term NSQF and Short Term NSQF courses.
                                                     <?php else: ?>
                                                         Contact your administrator to get courses assigned to you, or create a new course using the "Add New Course" button.
                                                     <?php endif; ?>
@@ -543,7 +588,10 @@ if (!empty($params)) {
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Course Name *</label>
-                                <input type="text" name="course_name" class="form-control" required>
+                                <input type="text" name="course_name" id="add_course_name" class="form-control" required>
+                                <select name="course_name_template" id="add_course_name_template" class="form-control" style="display:none;">
+                                    <option value="">-- Select Course Template --</option>
+                                </select>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Course Code * <small>(e.g., PPI, DBC15)</small></label>
@@ -558,14 +606,26 @@ if (!empty($params)) {
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Course Type *</label>
-                                <select name="course_type" class="form-control" required>
+                                <label class="form-label">Category *</label>
+                                <select name="course_type" class="form-control" required id="add_course_category">
+                                    <option value="">--Select Category--</option>
+                                    <option value="Long Term NSQF">Long Term NSQF</option>
+                                    <option value="Short Term NSQF">Short Term NSQF</option>
+                                    <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
+                                    <option value="Internship Program">Internship Program</option>
                                     <option value="Regular">Regular</option>
-                                    <option value="Internship">Internship</option>
                                     <option value="Bootcamp">Bootcamp</option>
                                     <option value="Workshop">Workshop</option>
                                 </select>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Eligibility</label>
+                                <textarea name="eligibility" id="add_eligibility" class="form-control" rows="2" placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                                <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Centre</label>
                                 <select name="centre_id" class="form-control">
@@ -667,6 +727,9 @@ if (!empty($params)) {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Course Name *</label>
                                 <input type="text" name="course_name" id="edit_course_name" class="form-control" required>
+                                <select name="course_name_template" id="edit_course_name_template" class="form-control" style="display:none;">
+                                    <option value="">-- Select Course Template --</option>
+                                </select>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Course Code *</label>
@@ -681,14 +744,26 @@ if (!empty($params)) {
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Course Type *</label>
+                                <label class="form-label">Category *</label>
                                 <select name="course_type" id="edit_course_type" class="form-control" required>
+                                    <option value="">--Select Category--</option>
+                                    <option value="Long Term NSQF">Long Term NSQF</option>
+                                    <option value="Short Term NSQF">Short Term NSQF</option>
+                                    <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
+                                    <option value="Internship Program">Internship Program</option>
                                     <option value="Regular">Regular</option>
-                                    <option value="Internship">Internship</option>
                                     <option value="Bootcamp">Bootcamp</option>
                                     <option value="Workshop">Workshop</option>
                                 </select>
                             </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Eligibility</label>
+                                <textarea name="eligibility" id="edit_eligibility" class="form-control" rows="2" placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                                <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Centre</label>
                                 <select name="centre_id" id="edit_centre_id" class="form-control">
@@ -798,6 +873,157 @@ if (!empty($params)) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Check if user is NSQF manager and restrict category options
+        const isNSQFManager = <?php echo json_encode($_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
+        const isCourseCoordinator = <?php echo json_encode($_SESSION['admin_role'] === 'course_coordinator'); ?>;
+        
+        if (isNSQFManager) {
+            // Restrict add course modal categories
+            const addCategorySelect = document.getElementById('add_course_category');
+            if (addCategorySelect) {
+                // Hide non-NSQF options
+                const options = addCategorySelect.querySelectorAll('option');
+                options.forEach(option => {
+                    if (option.value && !['Long Term NSQF', 'Short Term NSQF'].includes(option.value)) {
+                        option.style.display = 'none';
+                    }
+                });
+                
+                // Add change event to show NSQF course dropdown
+                addCategorySelect.addEventListener('change', function() {
+                    handleCategoryChange('add', this.value);
+                });
+            }
+            
+            // Restrict edit course modal categories
+            const editCategorySelect = document.getElementById('edit_course_type');
+            if (editCategorySelect) {
+                // Hide non-NSQF options
+                const options = editCategorySelect.querySelectorAll('option');
+                options.forEach(option => {
+                    if (option.value && !['Long Term NSQF', 'Short Term NSQF'].includes(option.value)) {
+                        option.style.display = 'none';
+                    }
+                });
+                
+                // Add change event to show NSQF course dropdown
+                editCategorySelect.addEventListener('change', function() {
+                    handleCategoryChange('edit', this.value);
+                });
+            }
+        }
+        
+        // For Course Coordinators, add template integration
+        if (isCourseCoordinator) {
+            const addCategorySelect = document.getElementById('add_course_category');
+            if (addCategorySelect) {
+                addCategorySelect.addEventListener('change', function() {
+                    handleCategoryChange('add', this.value);
+                });
+            }
+            
+            const editCategorySelect = document.getElementById('edit_course_type');
+            if (editCategorySelect) {
+                editCategorySelect.addEventListener('change', function() {
+                    handleCategoryChange('edit', this.value);
+                });
+            }
+        }
+        
+        // Function to handle category change and show template dropdown for NSQF courses
+        function handleCategoryChange(mode, category) {
+            const courseNameInput = document.getElementById(`${mode}_course_name`);
+            const courseNameTemplate = document.getElementById(`${mode}_course_name_template`);
+            const eligibilityField = document.getElementById(`${mode}_eligibility`);
+            
+            if (['Long Term NSQF', 'Short Term NSQF'].includes(category)) {
+                // Show template dropdown for Course Coordinators
+                if (isCourseCoordinator) {
+                    courseNameInput.style.display = 'none';
+                    courseNameTemplate.style.display = 'block';
+                    courseNameTemplate.required = true;
+                    courseNameInput.required = false;
+                    
+                    // Fetch NSQF templates
+                    fetchNSQFTemplates(category, mode);
+                } else if (isNSQFManager) {
+                    // NSQF managers can create new courses directly
+                    courseNameInput.style.display = 'block';
+                    courseNameTemplate.style.display = 'none';
+                    courseNameInput.required = true;
+                    courseNameTemplate.required = false;
+                }
+                
+                // Make eligibility read-only for coordinators
+                if (isCourseCoordinator && eligibilityField) {
+                    eligibilityField.readOnly = true;
+                    eligibilityField.placeholder = 'Will be filled from selected template';
+                }
+            } else {
+                // Non-NSQF courses - show regular input
+                courseNameInput.style.display = 'block';
+                courseNameTemplate.style.display = 'none';
+                courseNameInput.required = true;
+                courseNameTemplate.required = false;
+                
+                if (eligibilityField) {
+                    eligibilityField.readOnly = false;
+                    eligibilityField.placeholder = 'Enter eligibility criteria';
+                }
+            }
+        }
+        
+        // Function to fetch NSQF templates via AJAX
+        function fetchNSQFTemplates(category, mode) {
+            fetch('get_nsqf_templates.php?category=' + encodeURIComponent(category))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        populateTemplateDropdown(data.templates, mode);
+                    } else {
+                        console.error('Error fetching templates:', data.message);
+                        alert('Error loading course templates. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading course templates. Please check your connection.');
+                });
+        }
+        
+        // Function to populate template dropdown
+        function populateTemplateDropdown(templates, mode) {
+            const templateSelect = document.getElementById(`${mode}_course_name_template`);
+            
+            // Clear existing options except first
+            templateSelect.innerHTML = '<option value="">-- Select Course Template --</option>';
+            
+            // Add template options
+            templates.forEach(template => {
+                const option = document.createElement('option');
+                option.value = template.id;
+                option.textContent = template.course_name;
+                option.dataset.eligibility = template.eligibility;
+                templateSelect.appendChild(option);
+            });
+            
+            // Add change event to populate eligibility
+            templateSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const eligibilityField = document.getElementById(`${mode}_eligibility`);
+                const courseNameInput = document.getElementById(`${mode}_course_name`);
+                
+                if (selectedOption.dataset.eligibility && eligibilityField) {
+                    eligibilityField.value = selectedOption.dataset.eligibility;
+                }
+                
+                // Set the actual course name for form submission
+                if (courseNameInput) {
+                    courseNameInput.value = selectedOption.textContent;
+                }
+            });
+        }
+        
         // Store current QR course ID for regeneration
         let currentQRCourseId = null;
 
@@ -951,6 +1177,7 @@ if (!empty($params)) {
             document.getElementById('edit_duration').value = course.duration || '';
             document.getElementById('edit_fees').value = course.fees || '';
             document.getElementById('edit_description').value = course.description || '';
+            document.getElementById('edit_eligibility').value = course.eligibility || '';
             
             // Update abbreviation preview
             if (course.course_abbreviation) {

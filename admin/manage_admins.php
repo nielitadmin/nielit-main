@@ -296,6 +296,11 @@ $admins_result = $conn->query($admins_query);
             color: white;
         }
         
+        .role-nsqf {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+        
         .admin-card {
             background: white;
             border-radius: 12px;
@@ -546,9 +551,11 @@ $admins_result = $conn->query($admins_query);
                     <?php
                     $master_count = 0;
                     $coord_count = 0;
+                    $nsqf_count = 0;
                     $temp_result = $conn->query("SELECT role FROM admin");
                     while ($row = $temp_result->fetch_assoc()) {
                         if ($row['role'] === 'master_admin') $master_count++;
+                        elseif ($row['role'] === 'nsqf_course_manager') $nsqf_count++;
                         else $coord_count++;
                     }
                     ?>
@@ -562,6 +569,14 @@ $admins_result = $conn->query($admins_query);
                     </div>
                     <h3 class="stat-value"><?php echo $coord_count; ?></h3>
                     <p class="stat-label">Course Coordinators</p>
+                </div>
+                
+                <div class="stat-card warning">
+                    <div class="stat-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h3 class="stat-value"><?php echo $nsqf_count; ?></h3>
+                    <p class="stat-label">NSQF Managers</p>
                 </div>
             </div>
 
@@ -598,9 +613,24 @@ $admins_result = $conn->query($admins_query);
                                         </h5>
                                     </div>
                                     <div>
-                                        <span class="role-badge <?php echo $admin['role'] === 'master_admin' ? 'role-master' : 'role-coordinator'; ?>">
-                                            <i class="fas <?php echo $admin['role'] === 'master_admin' ? 'fa-crown' : 'fa-user-tie'; ?>"></i>
-                                            <?php echo $admin['role'] === 'master_admin' ? 'Master Admin' : 'Course Coordinator'; ?>
+                                        <?php 
+                                        $role_class = 'role-coordinator';
+                                        $role_icon = 'fa-user-tie';
+                                        $role_text = 'Course Coordinator';
+                                        
+                                        if ($admin['role'] === 'master_admin') {
+                                            $role_class = 'role-master';
+                                            $role_icon = 'fa-crown';
+                                            $role_text = 'Master Admin';
+                                        } elseif ($admin['role'] === 'nsqf_course_manager') {
+                                            $role_class = 'role-nsqf';
+                                            $role_icon = 'fa-graduation-cap';
+                                            $role_text = 'NSQF Course Manager';
+                                        }
+                                        ?>
+                                        <span class="role-badge <?php echo $role_class; ?>">
+                                            <i class="fas <?php echo $role_icon; ?>"></i>
+                                            <?php echo $role_text; ?>
                                         </span>
                                     </div>
                                 </div>
@@ -633,6 +663,7 @@ $admins_result = $conn->query($admins_query);
                                         <select name="role" class="form-select" style="display: inline-block; width: auto; padding: 8px 12px; margin-right: 8px;">
                                             <option value="master_admin" <?php echo $admin['role'] === 'master_admin' ? 'selected' : ''; ?>>Master Admin</option>
                                             <option value="course_coordinator" <?php echo $admin['role'] === 'course_coordinator' ? 'selected' : ''; ?>>Course Coordinator</option>
+                                            <option value="nsqf_course_manager" <?php echo $admin['role'] === 'nsqf_course_manager' ? 'selected' : ''; ?>>NSQF Course Manager</option>
                                         </select>
                                         <button type="submit" name="update_role" class="btn btn-warning btn-sm">
                                             <i class="fas fa-sync-alt"></i> Update Role
@@ -673,7 +704,7 @@ $admins_result = $conn->query($admins_query);
                 <h6 style="color: #2563eb; margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-info-circle"></i> Role Permissions
                 </h6>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
                     <div>
                         <h6 style="color: #10b981; margin: 0 0 8px 0;">
                             <i class="fas fa-crown"></i> Master Admin
@@ -696,6 +727,18 @@ $admins_result = $conn->query($admins_query);
                             <li>Manage courses</li>
                             <li>Manage batches</li>
                             <li>Approve students</li>
+                            <li>Reset own password</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h6 style="color: #f59e0b; margin: 0 0 8px 0;">
+                            <i class="fas fa-graduation-cap"></i> NSQF Course Manager
+                        </h6>
+                        <ul style="margin: 0; padding-left: 20px; color: #64748b; font-size: 14px;">
+                            <li>Dashboard access</li>
+                            <li>Manage students</li>
+                            <li>Manage NSQF courses only</li>
+                            <li>Long Term & Short Term NSQF</li>
                             <li>Reset own password</li>
                         </ul>
                     </div>
