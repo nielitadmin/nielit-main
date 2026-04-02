@@ -129,9 +129,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lock_action'])) {
     }
 }
 
-// Get all courses for dropdown
-$courses_sql = "SELECT id, course_name, course_code FROM courses ORDER BY course_name";
-$courses_result = $conn->query($courses_sql);
+// Get courses for dropdown - filtered by assignment for non-master-admins
+if ($is_master_admin) {
+    // Master admin sees all courses
+    $courses_sql = "SELECT id, course_name, course_code FROM courses ORDER BY course_name";
+    $courses_result = $conn->query($courses_sql);
+} else {
+    // Course coordinators only see their assigned courses
+    $courses_sql = "SELECT c.id, c.course_name, c.course_code 
+                    FROM courses c
+                    INNER JOIN admin_course_assignments aca ON c.id = aca.course_id
+                    WHERE aca.admin_id = ? AND aca.is_active = 1
+                    ORDER BY c.course_name";
+    $courses_stmt = $conn->prepare($courses_sql);
+    
+    if ($courses_stmt === false) {
+        // Fallback: show all courses if assignments table doesn't exist
+        $courses_result = $conn->query("SELECT id, course_name, course_code FROM courses ORDER BY course_name");
+    } else {
+        $courses_stmt->bind_param("i", $current_admin_id);
+        $courses_stmt->execute();
+        $courses_result = $courses_stmt->get_result();
+    }
+}
 $courses = [];
 while ($row = $courses_result->fetch_assoc()) {
     $courses[] = $row;
@@ -379,7 +399,7 @@ while ($row = $batches_result->fetch_assoc()) {
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
                     <strong>Course Coordinator View:</strong> You can only see and manage batches that you created. 
-                    Students can only be assigned to your batches. Master Admins can see and manage all batches.
+                    The course dropdown shows only your assigned courses. Master Admins can see and manage all batches.
                 </div>
             <?php endif; ?>
 
@@ -405,6 +425,9 @@ while ($row = $batches_result->fetch_assoc()) {
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <?php if (!$is_master_admin && empty($courses)): ?>
+                                <small class="text-danger"><i class="fas fa-exclamation-circle"></i> No courses assigned to you yet. Contact Master Admin to assign courses.</small>
+                            <?php endif; ?>
                         </div>
                         
                         <div class="form-group">
