@@ -908,6 +908,11 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         <span class="badge <?php echo $badge_class; ?>">
                                             <?php echo ucfirst($row['status']); ?>
                                         </span>
+                                        <?php if ($status == 'rejected' && !empty($row['rejection_reason'])): ?>
+                                            <br><small style="color:#dc2626; font-size:11px;" title="<?php echo htmlspecialchars($row['rejection_note'] ?? ''); ?>">
+                                                <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($row['rejection_reason']); ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </td>
                                     <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
                                     <td>
