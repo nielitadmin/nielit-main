@@ -238,7 +238,7 @@ $parent_items = $conn->query("SELECT id, label FROM navigation_menu WHERE parent
                 </a>
             </div>
             <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
+                <a href="manage_courses.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

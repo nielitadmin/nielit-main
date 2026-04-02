@@ -174,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </a>
             </div>
             <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
+                <a href="manage_courses.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
