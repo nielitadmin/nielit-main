@@ -61,19 +61,49 @@ if (isset($_GET['approve_id'])) {
 }
 
 // Handle rejecting a student
+if (isset($_POST['reject_student'])) {
+    $reject_id = $_POST['reject_id'];
+    $rejection_reason = trim($_POST['rejection_reason'] ?? '');
+    $rejection_note = trim($_POST['rejection_note'] ?? '');
+    
+    // Auto-add rejection_reason column if it doesn't exist
+    $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(255) DEFAULT NULL");
+    $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_note TEXT DEFAULT NULL");
+    
+    $reject_sql = "UPDATE students SET status = 'rejected', rejection_reason = ?, rejection_note = ? WHERE student_id = ?";
+    $stmt = $conn->prepare($reject_sql);
+    if ($stmt) {
+        $stmt->bind_param("sss", $rejection_reason, $rejection_note, $reject_id);
+        if ($stmt->execute()) {
+            $_SESSION['message'] = "Student registration rejected. Reason: " . htmlspecialchars($rejection_reason);
+            $_SESSION['message_type'] = "warning";
+        } else {
+            $_SESSION['message'] = "Error rejecting student: " . $conn->error;
+            $_SESSION['message_type'] = "danger";
+        }
+    } else {
+        // Fallback without reason columns
+        $stmt2 = $conn->prepare("UPDATE students SET status = 'rejected' WHERE student_id = ?");
+        $stmt2->bind_param("s", $reject_id);
+        $stmt2->execute();
+        $_SESSION['message'] = "Student registration rejected.";
+        $_SESSION['message_type'] = "warning";
+    }
+    
+    $redirect = "students.php";
+    if (!empty($_POST['filter_course'])) $redirect .= "?filter_course=" . urlencode($_POST['filter_course']);
+    header("Location: $redirect");
+    exit();
+}
+
+// Legacy GET reject (backward compat)
 if (isset($_GET['reject_id'])) {
     $reject_id = $_GET['reject_id'];
-    
-    $reject_sql = "UPDATE students SET status = 'rejected' WHERE student_id = ?";
-    $stmt = $conn->prepare($reject_sql);
+    $stmt = $conn->prepare("UPDATE students SET status = 'rejected' WHERE student_id = ?");
     $stmt->bind_param("s", $reject_id);
-    
     if ($stmt->execute()) {
         $_SESSION['message'] = "Student registration rejected.";
         $_SESSION['message_type'] = "warning";
-    } else {
-        $_SESSION['message'] = "Error rejecting student: " . $conn->error;
-        $_SESSION['message_type'] = "danger";
     }
 }
 
@@ -1112,6 +1142,64 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
     </div>
 </div>
 
+<!-- Rejection Reason Modal -->
+<div id="rejectModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:10000; justify-content:center; align-items:center;">
+    <div style="background:white; border-radius:12px; padding:32px; max-width:480px; width:90%; box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <div style="text-align:center; margin-bottom:20px;">
+            <div style="width:64px; height:64px; background:#fee2e2; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                <i class="fas fa-times-circle" style="font-size:32px; color:#dc2626;"></i>
+            </div>
+            <h3 style="margin:0 0 6px; font-size:20px; color:#1e293b;">Reject Student</h3>
+            <p style="margin:0; color:#64748b; font-size:14px;">Rejecting: <strong id="rejectStudentName"></strong></p>
+        </div>
+        
+        <form method="POST" action="students.php" id="rejectForm">
+            <input type="hidden" name="reject_student" value="1">
+            <input type="hidden" name="reject_id" id="rejectStudentId">
+            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
+            
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-weight:600; margin-bottom:8px; color:#374151;">Reason for Rejection *</label>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <?php
+                    $reasons = [
+                        'Not Eligible' => 'Not eligible for the course',
+                        'Incomplete Documents' => 'Incomplete or missing documents',
+                        'Invalid Documents' => 'Invalid or forged documents',
+                        'Age Criteria Not Met' => 'Age criteria not met',
+                        'Educational Qualification Not Met' => 'Educational qualification not met',
+                        'Duplicate Registration' => 'Duplicate registration',
+                        'Other' => 'Other reason'
+                    ];
+                    foreach ($reasons as $value => $label):
+                    ?>
+                    <label style="display:flex; align-items:center; gap:10px; padding:10px 14px; border:2px solid #e5e7eb; border-radius:8px; cursor:pointer; transition:all 0.2s;"
+                           class="reason-label">
+                        <input type="radio" name="rejection_reason" value="<?php echo $value; ?>" required
+                               onchange="highlightReason(this);">
+                        <span style="font-size:14px; color:#374151;"><?php echo $label; ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            
+            <div id="otherNoteDiv" style="display:none; margin-bottom:16px;">
+                <label style="display:block; font-weight:600; margin-bottom:6px; color:#374151;">Additional Note</label>
+                <textarea name="rejection_note" rows="2" placeholder="Specify the reason..." style="width:100%; padding:10px; border:2px solid #e5e7eb; border-radius:8px; font-size:14px; resize:vertical; box-sizing:border-box;"></textarea>
+            </div>
+            
+            <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+                <button type="button" onclick="closeRejectModal()" style="padding:10px 24px; border:none; border-radius:8px; background:#6b7280; color:white; font-size:14px; cursor:pointer;">
+                    Cancel
+                </button>
+                <button type="submit" style="padding:10px 24px; border:none; border-radius:8px; background:#dc2626; color:white; font-size:14px; font-weight:600; cursor:pointer;">
+                    <i class="fas fa-times"></i> Confirm Reject
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
@@ -1355,31 +1443,42 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Handle reject student buttons with modern confirmation
+    // Handle reject student buttons - show reason modal
     const rejectButtons = document.querySelectorAll('.reject-student-btn');
     rejectButtons.forEach(button => {
-        button.addEventListener('click', async function(e) {
+        button.addEventListener('click', function(e) {
             e.preventDefault();
             const studentName = this.getAttribute('data-student-name');
             const studentId = this.getAttribute('data-student-id');
-            const url = this.getAttribute('data-url');
             
-            const confirmed = await showConfirm({
-                title: 'Reject Student',
-                message: `Are you sure you want to reject <strong>${studentName}</strong> (${studentId})? This will mark their registration as rejected.`,
-                confirmText: 'Reject',
-                cancelText: 'Cancel',
-                type: 'danger'
-            });
+            document.getElementById('rejectStudentName').textContent = studentName;
+            document.getElementById('rejectStudentId').value = studentId;
             
-            if (confirmed) {
-                // Show loading toast
-                const loadingToast = toast.loading('Rejecting student...');
-                
-                // Redirect to reject URL
-                window.location.href = url;
-            }
+            // Reset form
+            document.querySelectorAll('#rejectModal input[type="radio"]').forEach(r => r.checked = false);
+            document.querySelectorAll('#rejectModal .reason-label').forEach(l => { l.style.borderColor = '#e5e7eb'; l.style.background = 'white'; });
+            document.getElementById('otherNoteDiv').style.display = 'none';
+            
+            // Show modal
+            const modal = document.getElementById('rejectModal');
+            modal.style.display = 'flex';
         });
+    });
+
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+    
+    function highlightReason(radio) {
+        document.querySelectorAll('#rejectModal .reason-label').forEach(l => { l.style.borderColor = '#e5e7eb'; l.style.background = 'white'; });
+        radio.parentElement.style.borderColor = '#dc2626';
+        radio.parentElement.style.background = '#fff5f5';
+        document.getElementById('otherNoteDiv').style.display = radio.value === 'Other' ? 'block' : 'none';
+    }
+    
+    // Close modal on backdrop click
+    document.getElementById('rejectModal').addEventListener('click', function(e) {
+        if (e.target === this) closeRejectModal();
     });
     
     // Handle select all checkbox
