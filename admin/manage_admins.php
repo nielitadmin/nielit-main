@@ -19,6 +19,9 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 
 require_once __DIR__ . '/../config/config.php';
 
+// Ensure front_office_desk role exists in enum (auto-migrate if needed)
+$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+
 // PHPMailer for OTP
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
@@ -227,9 +230,14 @@ if (isset($_POST['update_role'])) {
     $admin_id = intval($_POST['admin_id']);
     $new_role = $_POST['role'];
     
+    // Whitelist valid roles
+    $allowed_roles = ['master_admin', 'course_coordinator', 'nsqf_course_manager', 'front_office_desk', 'data_entry_operator', 'report_viewer'];
+    
     // Prevent changing own role
     if ($admin_id == $_SESSION['admin_id']) {
         $error_message = "You cannot change your own role.";
+    } elseif (!in_array($new_role, $allowed_roles)) {
+        $error_message = "Invalid role selected.";
     } else {
         $stmt = $conn->prepare("UPDATE admin SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
         $stmt->bind_param("si", $new_role, $admin_id);
@@ -237,7 +245,23 @@ if (isset($_POST['update_role'])) {
         if ($stmt->execute()) {
             $success_message = "Admin role updated successfully!";
         } else {
-            $error_message = "Failed to update role: " . $conn->error;
+            // If update fails, likely the enum doesn't have this value yet
+            if (strpos($conn->error, 'Data truncated') !== false || $stmt->affected_rows === 0) {
+                // Auto-run migration to add the role
+                $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+                
+                // Retry
+                $stmt2 = $conn->prepare("UPDATE admin SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+                $stmt2->bind_param("si", $new_role, $admin_id);
+                if ($stmt2->execute()) {
+                    $success_message = "Admin role updated successfully!";
+                } else {
+                    $error_message = "Failed to update role: " . $conn->error;
+                }
+                $stmt2->close();
+            } else {
+                $error_message = "Failed to update role: " . $conn->error;
+            }
         }
         $stmt->close();
     }
@@ -552,10 +576,12 @@ $admins_result = $conn->query($admins_query);
                     $master_count = 0;
                     $coord_count = 0;
                     $nsqf_count = 0;
+                    $front_office_count = 0;
                     $temp_result = $conn->query("SELECT role FROM admin");
                     while ($row = $temp_result->fetch_assoc()) {
                         if ($row['role'] === 'master_admin') $master_count++;
                         elseif ($row['role'] === 'nsqf_course_manager') $nsqf_count++;
+                        elseif ($row['role'] === 'front_office_desk') $front_office_count++;
                         else $coord_count++;
                     }
                     ?>
@@ -577,6 +603,14 @@ $admins_result = $conn->query($admins_query);
                     </div>
                     <h3 class="stat-value"><?php echo $nsqf_count; ?></h3>
                     <p class="stat-label">NSQF Managers</p>
+                </div>
+                
+                <div class="stat-card" style="background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%); border-left: 4px solid #0ea5e9;">
+                    <div class="stat-icon">
+                        <i class="fas fa-concierge-bell"></i>
+                    </div>
+                    <h3 class="stat-value"><?php echo $front_office_count; ?></h3>
+                    <p class="stat-label">Front Office Desk</p>
                 </div>
             </div>
 

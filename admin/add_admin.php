@@ -21,6 +21,9 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 
+// Ensure front_office_desk role exists in enum (auto-migrate if needed)
+$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+
 // PHPMailer for sending OTP
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
