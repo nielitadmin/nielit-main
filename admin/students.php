@@ -1465,17 +1465,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function closeRejectModal() {
-        document.getElementById('rejectModal').style.display = 'none';
-    }
-    
-    function highlightReason(radio) {
-        document.querySelectorAll('#rejectModal .reason-label').forEach(l => { l.style.borderColor = '#e5e7eb'; l.style.background = 'white'; });
-        radio.parentElement.style.borderColor = '#dc2626';
-        radio.parentElement.style.background = '#fff5f5';
-        document.getElementById('otherNoteDiv').style.display = radio.value === 'Other' ? 'block' : 'none';
-    }
-    
     // Close modal on backdrop click
     document.getElementById('rejectModal').addEventListener('click', function(e) {
         if (e.target === this) closeRejectModal();
@@ -1515,6 +1504,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (bulkAssignBtn) {
         bulkAssignBtn.addEventListener('click', function() {
             openBulkBatchModal();
+        });
+    }
+});
+
+// Global functions for reject modal (must be global for onclick attributes)
+function closeRejectModal() {
+    document.getElementById('rejectModal').style.display = 'none';
+}
+
+function highlightReason(radio) {
+    document.querySelectorAll('#rejectModal .reason-label').forEach(l => { l.style.borderColor = '#e5e7eb'; l.style.background = 'white'; });
+    radio.parentElement.style.borderColor = '#dc2626';
+    radio.parentElement.style.background = '#fff5f5';
+    document.getElementById('otherNoteDiv').style.display = radio.value === 'Other' ? 'block' : 'none';
+}
+
+// Close reject modal on backdrop click
+document.addEventListener('DOMContentLoaded', function() {
+    const rejectModal = document.getElementById('rejectModal');
+    if (rejectModal) {
+        rejectModal.addEventListener('click', function(e) {
+            if (e.target === this) closeRejectModal();
         });
     }
 });
