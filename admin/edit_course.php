@@ -262,54 +262,7 @@ if (isset($_POST['update_course'])) {
 
 <div class="admin-wrapper">
     <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-logo">
-            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
-            <h5>NIELIT Admin</h5>
-            <small>Bhubaneswar</small>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-home"></i> Dashboard
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="students.php" class="nav-link">
-                    <i class="fas fa-users"></i> Students
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link active">
-                    <i class="fas fa-book"></i> Courses
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="add_admin.php" class="nav-link">
-                    <i class="fas fa-user-shield"></i> Add Admin
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="reset_password.php" class="nav-link">
-                    <i class="fas fa-key"></i> Reset Password
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/index.php" class="nav-link">
-                    <i class="fas fa-globe"></i> View Website
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </nav>
-    </aside>
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- Main Content -->
     <main class="admin-content">
