@@ -625,9 +625,11 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
                         <span class="user-role">
                             <?php 
-                            echo isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin' 
-                                ? 'Master Administrator' 
-                                : 'Course Coordinator'; 
+                            $role = $_SESSION['admin_role'] ?? '';
+                            if ($role === 'master_admin') echo 'Master Administrator';
+                            elseif ($role === 'front_office_desk') echo 'Front Office Desk';
+                            elseif ($role === 'nsqf_course_manager') echo 'NSQF Course Manager';
+                            else echo 'Course Coordinator'; 
                             ?>
                         </span>
                     </div>
@@ -879,6 +881,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                     </td>
                                     <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
                                     <td>
+                                        <?php if (!$is_front_office): ?>
                                         <?php if (strtolower($row['status']) == 'pending'): ?>
                                             <a href="javascript:void(0);" 
                                                class="btn btn-success btn-sm approve-student-btn" 
@@ -937,6 +940,12 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                                     data-course="<?php echo htmlspecialchars($row['course']); ?>">
                                                 <i class="fas fa-plus-circle"></i> Assign Batch
                                             </button>
+                                        <?php endif; ?>
+                                        <?php else: ?>
+                                        <!-- Front Office Desk: only edit -->
+                                        <a href="edit_student.php?id=<?php echo $row['student_id']; ?>" class="btn btn-warning btn-sm" title="Edit Student">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
                                         <?php endif; ?>
                                         
                                         <a href="view_student_documents.php?id=<?php echo $row['student_id']; ?><?php 
