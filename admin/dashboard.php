@@ -24,6 +24,9 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
     }
 }
 
+// Always refresh role from DB to pick up any role changes made by master admin
+refresh_session_permissions();
+
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
