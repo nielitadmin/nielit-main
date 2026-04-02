@@ -485,14 +485,14 @@ if (!empty($params)) {
                                         </td>
                                         <td><?= htmlspecialchars($course['training_center']) ?></td>
                                         <td><?= htmlspecialchars($course['duration']) ?></td>
-                                        <td>₹<?= number_format($course['fees'], 2) ?></td>
+                                        <td>₹<?= number_format($course['training_fees'] ?? 0, 2) ?></td>
                                         <td>
                                             <div class="input-group input-group-sm" style="max-width: 300px;">
-                                                <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($course['registration_link']) ?>" id="link_<?= $course['id'] ?>" readonly>
+                                                <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($course['apply_link'] ?? '') ?>" id="link_<?= $course['id'] ?>" readonly>
                                                 <button class="btn btn-outline-secondary" type="button" onclick="copyLink(<?= $course['id'] ?>)" title="Copy Link">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
-                                                <a href="<?= htmlspecialchars($course['registration_link']) ?>" target="_blank" class="btn btn-outline-primary" title="Open Link">
+                                                <a href="<?= htmlspecialchars($course['apply_link'] ?? '#') ?>" target="_blank" class="btn btn-outline-primary" title="Open Link">
                                                     <i class="fas fa-external-link-alt"></i>
                                                 </a>
                                             </div>
@@ -512,7 +512,7 @@ if (!empty($params)) {
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($course['status'] === 'active'): ?>
+                                            <?php if (($course['enrollment_status'] ?? 'ongoing') === 'ongoing'): ?>
                                                 <span class="badge bg-success">Active</span>
                                             <?php else: ?>
                                                 <span class="badge bg-danger">Inactive</span>
