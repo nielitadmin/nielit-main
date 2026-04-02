@@ -9,6 +9,30 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+// Auto-create schemes tables if they don't exist
+$conn->query("CREATE TABLE IF NOT EXISTS `schemes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `scheme_name` varchar(255) NOT NULL,
+  `scheme_code` varchar(50) NOT NULL,
+  `description` text,
+  `status` enum('Active','Inactive') DEFAULT 'Active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `scheme_code` (`scheme_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+$conn->query("CREATE TABLE IF NOT EXISTS `course_schemes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `course_id` int(11) NOT NULL,
+  `scheme_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `course_scheme_unique` (`course_id`, `scheme_id`),
+  KEY `course_id` (`course_id`),
+  KEY `scheme_id` (`scheme_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Handle adding a new scheme
 if (isset($_POST['add_scheme'])) {
     $scheme_name = trim($_POST['scheme_name']);

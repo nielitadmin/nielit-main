@@ -9,6 +9,19 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+// Auto-create schemes table if it doesn't exist
+$conn->query("CREATE TABLE IF NOT EXISTS `schemes` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `scheme_name` varchar(255) NOT NULL,
+  `scheme_code` varchar(50) NOT NULL,
+  `description` text,
+  `status` enum('Active','Inactive') DEFAULT 'Active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `scheme_code` (`scheme_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Get scheme ID
 if (!isset($_GET['id'])) {
     header("Location: manage_schemes.php");
