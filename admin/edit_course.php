@@ -79,6 +79,7 @@ if (isset($_POST['update_course'])) {
     $start_date = $_POST['start_date'];
     $end_date = $_POST['end_date'];
     $description_url = $_POST['description_url'];
+    $course_description = trim($_POST['course_description'] ?? '');
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'];
@@ -149,6 +150,9 @@ if (isset($_POST['update_course'])) {
         }
     }
 
+    // Auto-add course_description column if missing
+    $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
+
     $update_sql = "UPDATE courses SET 
         course_name = ?, 
         course_code = ?,
@@ -167,11 +171,12 @@ if (isset($_POST['update_course'])) {
         training_center = ?,
         centre_id = ?,
         link_published = ?,
-        enrollment_status = ?
+        enrollment_status = ?,
+        course_description = ?
         WHERE id = ?";
 
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("sssssssssssssssiisi",
+    $stmt->bind_param("ssssssssssssssssiissi",
         $course_name,
         $course_code,
         $course_abbreviation,
@@ -190,6 +195,7 @@ if (isset($_POST['update_course'])) {
         $centre_id,
         $link_published,
         $enrollment_status,
+        $course_description,
         $course_id
     );
 
@@ -405,6 +411,12 @@ if (isset($_POST['update_course'])) {
                     <div class="form-group">
                         <label class="form-label">Course Description URL</label>
                         <input type="url" class="form-control" name="description_url" value="<?php echo htmlspecialchars($course['description_url']); ?>" placeholder="https://...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Course Description <small class="text-muted">(Optional)</small></label>
+                        <textarea class="form-control" name="course_description" rows="3" placeholder="e.g. Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details..."><?php echo htmlspecialchars($course['course_description'] ?? ''); ?></textarea>
+                        <small class="text-muted">Add location, venue, or any extra information about this course</small>
                     </div>
                     
                     <!-- Schemes/Projects Selection -->

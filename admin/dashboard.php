@@ -181,6 +181,7 @@ if (isset($_POST['add_course'])) {
     $start_date = $_POST['start_date'];
     $end_date = $_POST['end_date'];
     $description_url = $_POST['description_url'];
+    $course_description = trim($_POST['course_description'] ?? '');
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'] ?? (!empty($centres) ? $centres[0]['name'] : 'NIELIT BHUBANESWAR');
@@ -197,17 +198,20 @@ if (isset($_POST['add_course'])) {
         }
     }
 
+    // Auto-add course_description column if missing
+    $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
+
     $insert_sql = "INSERT INTO courses (
         course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
-        training_center, link_published
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        training_center, link_published, course_description
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("ssssssssssssssi", 
+    $stmt->bind_param("ssssssssssssssiss", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
-        $training_center, $link_published
+        $training_center, $link_published, $course_description
     );
 
     if ($stmt->execute()) {
@@ -1038,6 +1042,12 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                 <div class="form-group">
                     <label class="form-label">Description URL</label>
                     <input type="url" class="form-control" name="description_url" placeholder="https://...">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Course Description <small class="text-muted">(Optional)</small></label>
+                    <textarea class="form-control" name="course_description" rows="3" placeholder="e.g. Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details about the course..."></textarea>
+                    <small class="text-muted">Add location, venue, or any extra information about this course</small>
                 </div>
                 
                 <hr style="margin: 24px 0; border-color: #e3f2fd;">

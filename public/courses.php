@@ -818,6 +818,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
                                         </div>
                                     </div>
+                                    <?php if (!empty($row["course_description"])): ?>
+                                    <div class="info-item" style="grid-column: 1 / -1;">
+                                        <i class="fas fa-info-circle"></i>
+                                        <div>
+                                            <span class="info-label">Description</span>
+                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
                                     <div class="info-item">
@@ -954,6 +963,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
                                         </div>
                                     </div>
+                                    <?php if (!empty($row["course_description"])): ?>
+                                    <div class="info-item" style="grid-column: 1 / -1;">
+                                        <i class="fas fa-info-circle"></i>
+                                        <div>
+                                            <span class="info-label">Description</span>
+                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
                                     <div class="info-item">
@@ -1090,6 +1108,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
                                         </div>
                                     </div>
+                                    <?php if (!empty($row["course_description"])): ?>
+                                    <div class="info-item" style="grid-column: 1 / -1;">
+                                        <i class="fas fa-info-circle"></i>
+                                        <div>
+                                            <span class="info-label">Description</span>
+                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
                                     <div class="info-item">
@@ -1226,6 +1253,15 @@ document.addEventListener('DOMContentLoaded', function() {
                                             <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
                                         </div>
                                     </div>
+                                    <?php if (!empty($row["course_description"])): ?>
+                                    <div class="info-item" style="grid-column: 1 / -1;">
+                                        <i class="fas fa-info-circle"></i>
+                                        <div>
+                                            <span class="info-label">Description</span>
+                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
                                     <div class="info-item">
