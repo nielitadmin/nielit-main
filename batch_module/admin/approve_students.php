@@ -184,7 +184,7 @@ $active_batches = getActiveBatches($conn);
                 </a>
             </div>
             <div class="nav-item">
-                <a href="../../admin/dashboard.php" class="nav-link">
+                <a href="../../admin/manage_courses.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
