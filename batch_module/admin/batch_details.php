@@ -969,26 +969,42 @@ function downloadScannedOrder(batchId) {
                 </div>
                 
                 <?php
-                // Get scanned admission order info
-                $scanned_order_sql = "SELECT scanned_admission_order, scanned_order_uploaded_at, scanned_order_uploaded_by, 
-                                             scanned_order_locked, scanned_order_locked_at, scanned_order_locked_by,
-                                             u1.username as uploaded_by_username, u2.username as locked_by_username
-                                      FROM batches b
-                                      LEFT JOIN admin u1 ON b.scanned_order_uploaded_by = u1.id
-                                      LEFT JOIN admin u2 ON b.scanned_order_locked_by = u2.id
-                                      WHERE b.id = ?";
-                $scanned_stmt = $conn->prepare($scanned_order_sql);
-                $scanned_stmt->bind_param("i", $batch_id);
-                $scanned_stmt->execute();
-                $scanned_result = $scanned_stmt->get_result();
-                $scanned_info = $scanned_result->fetch_assoc();
+                // Get scanned admission order info - check if columns exist first
+                $scanned_info = null;
+                $has_scanned_file = false;
+                $is_scanned_locked = false;
+                
+                $col_check = $conn->query("SHOW COLUMNS FROM batches LIKE 'scanned_admission_order'");
+                if ($col_check && $col_check->num_rows > 0) {
+                    $scanned_order_sql = "SELECT scanned_admission_order, scanned_order_uploaded_at, scanned_order_uploaded_by, 
+                                                 scanned_order_locked, scanned_order_locked_at, scanned_order_locked_by,
+                                                 u1.username as uploaded_by_username, u2.username as locked_by_username
+                                          FROM batches b
+                                          LEFT JOIN admin u1 ON b.scanned_order_uploaded_by = u1.id
+                                          LEFT JOIN admin u2 ON b.scanned_order_locked_by = u2.id
+                                          WHERE b.id = ?";
+                    $scanned_stmt = $conn->prepare($scanned_order_sql);
+                    if ($scanned_stmt) {
+                        $scanned_stmt->bind_param("i", $batch_id);
+                        $scanned_stmt->execute();
+                        $scanned_result = $scanned_stmt->get_result();
+                        $scanned_info = $scanned_result->fetch_assoc();
+                    }
+                }
                 
                 $has_scanned_file = !empty($scanned_info['scanned_admission_order']);
                 $is_scanned_locked = $scanned_info['scanned_order_locked'] ?? false;
                 ?>
                 
                 <div style="padding: 20px;">
-                    <?php if ($has_scanned_file): ?>
+                    <?php if ($col_check && $col_check->num_rows === 0): ?>
+                        <!-- Migration not run yet -->
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Setup Required:</strong> The scanned admission order feature needs a database migration.
+                            Please run <code>migrations/install_scanned_admission_order.php</code> to enable this feature.
+                        </div>
+                    <?php elseif ($has_scanned_file): ?>
                         <!-- File exists - show info and actions -->
                         <div class="alert alert-success" style="margin-bottom: 20px;">
                             <div style="display: flex; align-items: center; justify-content: space-between;">
