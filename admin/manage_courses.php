@@ -485,7 +485,7 @@ if (!empty($params)) {
                                         </td>
                                         <td><?= htmlspecialchars($course['training_center']) ?></td>
                                         <td><?= htmlspecialchars($course['duration']) ?></td>
-                                        <td>₹<?= number_format($course['training_fees'] ?? 0, 2) ?></td>
+                                        <td>₹<?= number_format((float)($course['training_fees'] ?? 0), 2) ?></td>
                                         <td>
                                             <div class="input-group input-group-sm" style="max-width: 300px;">
                                                 <input type="text" class="form-control form-control-sm" value="<?= htmlspecialchars($course['apply_link'] ?? '') ?>" id="link_<?= $course['id'] ?>" readonly>
