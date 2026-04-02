@@ -129,6 +129,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['lock_action'])) {
     }
 }
 
+// Resolve role and admin ID FIRST (needed for both courses and batches queries)
+$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$current_admin_id = $_SESSION['admin_id'] ?? null;
+
+// Get current admin ID from DB if not in session
+if (!$current_admin_id && isset($_SESSION['admin'])) {
+    $admin_username = $_SESSION['admin'];
+    $admin_query = "SELECT id FROM admin WHERE username = ?";
+    $admin_stmt = $conn->prepare($admin_query);
+    $admin_stmt->bind_param("s", $admin_username);
+    $admin_stmt->execute();
+    $admin_result = $admin_stmt->get_result();
+    if ($admin_row = $admin_result->fetch_assoc()) {
+        $current_admin_id = $admin_row['id'];
+        $_SESSION['admin_id'] = $current_admin_id;
+    }
+}
+
 // Get courses for dropdown - filtered by assignment for non-master-admins
 if ($is_master_admin) {
     // Master admin sees all courses
@@ -157,23 +175,7 @@ while ($row = $courses_result->fetch_assoc()) {
     $courses[] = $row;
 }
 
-// Check user role for batch filtering
-$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
-$current_admin_id = $_SESSION['admin_id'] ?? null;
-
-// Get current admin ID if not set
-if (!$current_admin_id && isset($_SESSION['admin'])) {
-    $admin_username = $_SESSION['admin'];
-    $admin_query = "SELECT id FROM admin WHERE username = ?";
-    $admin_stmt = $conn->prepare($admin_query);
-    $admin_stmt->bind_param("s", $admin_username);
-    $admin_stmt->execute();
-    $admin_result = $admin_stmt->get_result();
-    if ($admin_row = $admin_result->fetch_assoc()) {
-        $current_admin_id = $admin_row['id'];
-        $_SESSION['admin_id'] = $current_admin_id;
-    }
-}
+// (role and admin ID already resolved above)
 
 // Build batch query with role-based filtering
 if ($is_master_admin) {
