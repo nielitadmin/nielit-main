@@ -27,6 +27,12 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
 // Always refresh role from DB to pick up any role changes made by master admin
 refresh_session_permissions();
 
+// Front Office Desk should go directly to students page - no dashboard access needed
+if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'front_office_desk') {
+    header("Location: students.php");
+    exit();
+}
+
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);

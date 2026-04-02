@@ -12,6 +12,9 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 
+// Ensure all custom roles exist in the enum (runs silently)
+$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+
 $error_message = "";
 $success_message = "";
 $show_otp_form = false;
