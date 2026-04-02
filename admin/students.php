@@ -16,6 +16,13 @@ $theme_logo = getThemeLogo($active_theme);
 
 // Handle deleting a student
 if (isset($_GET['delete_id'])) {
+    // Front office desk cannot delete students
+    if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'front_office_desk') {
+        $_SESSION['message'] = "Access denied. Front Office Desk cannot delete students.";
+        $_SESSION['message_type'] = "danger";
+        header("Location: students.php");
+        exit();
+    }
     $delete_id = $_GET['delete_id']; // Retrieve student_id to delete
 
     // Ensure the delete query only affects the selected student's record
@@ -105,6 +112,7 @@ if (isset($_POST['update_student'])) {
 $admin_courses = [];
 $admin_course_ids = [];
 $is_course_coordinator = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator';
+$is_front_office = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'front_office_desk';
 
 if ($is_course_coordinator) {
     // Get admin_id from session or fetch from database
@@ -941,6 +949,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         <a href="download_student_form.php?id=<?php echo $row['student_id']; ?>" class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                             <i class="fas fa-download"></i>
                                         </a>
+                                        <?php if (!$is_front_office): ?>
                                         <a href="javascript:void(0);" 
                                            class="btn btn-danger btn-sm delete-student-btn" 
                                            title="Delete Student"
@@ -953,6 +962,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         ?>">
                                             <i class="fas fa-trash"></i>
                                         </a>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php } ?>

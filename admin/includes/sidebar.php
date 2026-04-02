@@ -12,6 +12,7 @@ if (!isset($_SESSION['admin_role'])) {
 
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
 $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
+$is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
@@ -30,7 +31,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         
-        <?php if (!$is_nsqf_manager): ?>
+        <?php if ($is_front_office): ?>
+        <!-- Front Office Desk - Students only -->
+        <div class="nav-item">
+            <a href="students.php" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
+                <i class="fas fa-users"></i> Students
+            </a>
+        </div>
+        
+        <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="students.php" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
@@ -45,7 +54,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-graduation-cap"></i> Course Templates
             </a>
         </div>
-        <?php else: ?>
+        <?php elseif (!$is_front_office): ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
             <a href="dashboard.php" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
@@ -54,7 +63,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager): ?>
+        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
                 <i class="fas fa-layer-group"></i> Batches
@@ -84,10 +93,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager): ?>
+        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
         <div class="nav-divider"></div>
         
-        <!-- Student Approval (Non-NSQF Roles Only) -->
+        <!-- Student Approval (Non-NSQF, Non-Front-Office Roles Only) -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
                 <i class="fas fa-user-check"></i> Approve Students

@@ -626,6 +626,10 @@ $admins_result = $conn->query($admins_query);
                                             $role_class = 'role-nsqf';
                                             $role_icon = 'fa-graduation-cap';
                                             $role_text = 'NSQF Course Manager';
+                                        } elseif ($admin['role'] === 'front_office_desk') {
+                                            $role_class = 'role-front-office';
+                                            $role_icon = 'fa-concierge-bell';
+                                            $role_text = 'Front Office Desk';
                                         }
                                         ?>
                                         <span class="role-badge <?php echo $role_class; ?>">
@@ -664,6 +668,7 @@ $admins_result = $conn->query($admins_query);
                                             <option value="master_admin" <?php echo $admin['role'] === 'master_admin' ? 'selected' : ''; ?>>Master Admin</option>
                                             <option value="course_coordinator" <?php echo $admin['role'] === 'course_coordinator' ? 'selected' : ''; ?>>Course Coordinator</option>
                                             <option value="nsqf_course_manager" <?php echo $admin['role'] === 'nsqf_course_manager' ? 'selected' : ''; ?>>NSQF Course Manager</option>
+                                            <option value="front_office_desk" <?php echo $admin['role'] === 'front_office_desk' ? 'selected' : ''; ?>>Front Office Desk</option>
                                         </select>
                                         <button type="submit" name="update_role" class="btn btn-warning btn-sm">
                                             <i class="fas fa-sync-alt"></i> Update Role
