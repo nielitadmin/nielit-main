@@ -347,7 +347,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                 </a>
             </div>
             <div class="nav-item">
-                <a href="manage_courses.php" class="nav-link">
+                <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

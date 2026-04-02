@@ -186,7 +186,7 @@ if ($table_check && $table_check->num_rows > 0) {
             </div>
             <?php else: ?>
             <div class="nav-item">
-                <a href="../../admin/manage_courses.php" class="nav-link">
+                <a href="../../admin/dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

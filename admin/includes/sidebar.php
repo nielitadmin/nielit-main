@@ -48,7 +48,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php else: ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
-            <a href="manage_courses.php" class="nav-link <?php echo ($current_page === 'manage_courses.php') ? 'active' : ''; ?>">
+            <a href="dashboard.php" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
                 <i class="fas fa-book"></i> Courses
             </a>
         </div>

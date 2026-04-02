@@ -260,7 +260,7 @@ $result = getAllCentres($conn);
                 </a>
             </div>
             <div class="nav-item">
-                <a href="manage_courses.php" class="nav-link">
+                <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

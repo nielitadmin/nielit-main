@@ -765,7 +765,7 @@ function downloadScannedOrder(batchId) {
             </div>
             <?php else: ?>
             <div class="nav-item">
-                <a href="../../admin/manage_courses.php" class="nav-link">
+                <a href="../../admin/dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>

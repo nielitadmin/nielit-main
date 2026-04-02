@@ -500,7 +500,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             <?php else: ?>
             <!-- Other Roles - Full Course Management -->
             <div class="nav-item">
-                <a href="manage_courses.php" class="nav-link">
+                <a href="dashboard.php" class="nav-link">
                     <i class="fas fa-book"></i> Courses
                 </a>
             </div>
