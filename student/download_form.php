@@ -383,9 +383,29 @@ $pdf->Cell(45, 7, 'AADHAR NUMBER', 1, 0, 'L', true);
 $pdf->SetFont('helvetica', '', 9);
 $pdf->Cell(45, 7, $student['aadhar'], 1, 1, 'L');
 
-// ============================================
-// PAGE 1 BORDER
-// ============================================
+// Row 4 - APAAR ID & PWD Status
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(227, 242, 253);
+$pdf->Cell(45, 7, 'APAAR ID', 1, 0, 'L', true);
+$pdf->SetFont('helvetica', '', 9);
+$pdf->Cell(45, 7, $student['apaar_id'] ?? 'N/A', 1, 0, 'L');
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(227, 242, 253);
+$pdf->Cell(45, 7, 'PWD STATUS', 1, 0, 'L', true);
+$pdf->SetFont('helvetica', '', 9);
+$pdf->Cell(45, 7, $student['pwd_status'] ?? 'N/A', 1, 1, 'L');
+
+// Row 5 - Registration No & Distinguishing Marks
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(227, 242, 253);
+$pdf->Cell(45, 7, 'REGISTRATION NO.', 1, 0, 'L', true);
+$pdf->SetFont('helvetica', '', 9);
+$pdf->Cell(45, 7, $student['nielit_registration_no'] ?? 'N/A', 1, 0, 'L');
+$pdf->SetFont('helvetica', 'B', 8);
+$pdf->SetFillColor(227, 242, 253);
+$pdf->Cell(45, 7, 'DISTINGUISHING MARKS', 1, 0, 'L', true);
+$pdf->SetFont('helvetica', '', 9);
+$pdf->Cell(45, 7, $student['distinguishing_marks'] ?? 'None', 1, 1, 'L');
 
 // Add blue border to page 1
 $pdf->SetDrawColor(13, 71, 161);
@@ -488,6 +508,28 @@ if ($education_stmt) {
 // ============================================
 
 $pdf->Ln(6);
+$pdf->SetFillColor(13, 71, 161);
+$pdf->SetTextColor(255, 255, 255);
+$pdf->SetFont('helvetica', 'B', 11);
+$pdf->Cell(0, 8, '  DOCUMENT SUBMISSION CHECKLIST', 0, 1, 'L', true);
+$pdf->SetTextColor(0, 0, 0);
+
+$pdf->Ln(2);
+$pdf->SetFont('helvetica', '', 9);
+$documents = [
+    'Passport Size Photograph (2 copies)',
+    'Aadhar Card (Self-attested photocopy)',
+    'Educational Qualification Certificates',
+    'Date of Birth Certificate / 10th Marksheet',
+    'Category Certificate (if applicable)',
+    'APAAR ID / ABC ID (if available)'
+];
+foreach ($documents as $doc) {
+    $pdf->Cell(8, 6, chr(168), 0, 0, 'C'); // bullet
+    $pdf->Cell(0, 6, $doc, 0, 1, 'L');
+}
+
+$pdf->Ln(4);
 $pdf->SetFillColor(13, 71, 161);
 $pdf->SetTextColor(255, 255, 255);
 $pdf->SetFont('helvetica', 'B', 11);
