@@ -117,15 +117,25 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/admin/reset_password.php" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
+                <i class="fas fa-key"></i> Reset Password
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_course_assignments.php" class="nav-link <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-tie"></i> Course Assignments
             </a>
         </div>
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/view_otp_logs.php" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
-                <i class="fas fa-key"></i> OTP Logs
+                <i class="fas fa-list-alt"></i> OTP Logs
             </a>
         </div>
+        <?php endif; ?>
+        
+        
+        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
+        <!-- This section is now empty as Reset Password moved to Master Admin section -->
         <?php endif; ?>
         
         <div class="nav-divider"></div>
