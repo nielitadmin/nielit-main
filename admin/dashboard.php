@@ -582,6 +582,11 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     <i class="fas fa-user-tie"></i> Course Assignments
                 </a>
             </div>
+            <div class="nav-item">
+                <a href="view_otp_logs.php" class="nav-link">
+                    <i class="fas fa-key"></i> OTP Logs
+                </a>
+            </div>
             <?php endif; ?>
             
             <div class="nav-divider"></div>
