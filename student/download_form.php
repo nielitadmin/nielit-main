@@ -1,24 +1,20 @@
 <?php
 /**
- * NIELIT BHUBANESWAR - ADMISSION FORM GENERATOR
- * Version: 13.0
- * Fixes: Hollow-Style Watermark, Improved MultiCell Logic, Dynamic Height Handling
+ * NIELIT BHUBANESWAR - STUDENT ADMISSION FORM GENERATOR
+ * Version: 13.1 - Student Portal Version
+ * Fixes: Student Authentication, Proper Session Handling
  */
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
-// --- 1. AUTHENTICATION & DATA FETCHING ---
-if (!isset($_SESSION['admin'])) { 
-    header("Location: login_new.php"); 
-    exit(); 
-}
-if (!isset($_GET['id'])) { 
-    header("Location: students.php"); 
+// --- 1. STUDENT AUTHENTICATION & DATA FETCHING ---
+if (!isset($_SESSION['student_id'])) { 
+    header("Location: login.php"); 
     exit(); 
 }
 
-$student_id = $_GET['id'];
+$student_id = $_SESSION['student_id'];
 
 // Fetch Main Student Data
 $sql = "SELECT * FROM students WHERE student_id = ?";
@@ -29,7 +25,7 @@ $student = $stmt->get_result()->fetch_assoc();
 
 if (!$student) {
     $_SESSION['message'] = "Student record not found.";
-    header("Location: students.php");
+    header("Location: dashboard.php");
     exit();
 }
 
