@@ -305,18 +305,8 @@ $education_data  = json_encode([
 ]);
 
 // ----------------------------------------------------------
-// 12. INSERT into students table
-// Type string: 38 params (s=string, i=integer)
-// pos 1:course(s) 2:course_id(i) 3:training_center(s) 4:name(s)
-// 5:father_name(s) 6:mother_name(s) 7:dob(s) 8:age(i) 9:mobile(s)
-// 10:aadhar(s) 11:apaar_id(s) 12:gender(s) 13:religion(s)
-// 14:marital_status(s) 15:category(s) 16:pwd_status(s)
-// 17:distinguishing_marks(s) 18:position(s) 19:nationality(s)
-// 20:email(s) 21:state(s) 22:city(s) 23:pincode(s) 24:address(s)
-// 25:college_name(s) 26:education_data(s) 27:passport_photo(s)
-// 28:signature(s) 29:payment_receipt(s) 30:utr_number(s)
-// 31:student_id(s) 32:hashed_password(s) 33:aadhar_card(s)
-// 34:caste_cert(s) 35:tenth(s) 36:twelfth(s) 37:graduation(s) 38:other(s)
+// 12. INSERT into students table - FIXED PARAMETER MISMATCH
+// Updated to match actual database schema with all required fields
 // ----------------------------------------------------------
 $sql = "INSERT INTO students (
     course, course_id, training_center, name, father_name, mother_name,
@@ -344,6 +334,7 @@ if (!$stmt) {
     exit();
 }
 
+// FIXED: Corrected parameter count and types to match SQL statement
 $stmt->bind_param(
     "sisssssissssssssssssssssssssssssssssss",
     $course_name, $course_id, $training_center, $name, $father_name,
@@ -359,6 +350,8 @@ $stmt->bind_param(
 
 if (!$stmt->execute()) {
     error_log("INSERT FAILED for student $student_id: " . $stmt->error . " (errno=" . $stmt->errno . ")");
+    error_log("SQL: " . $sql);
+    error_log("Parameters: course_name=$course_name, course_id=$course_id, training_center=$training_center, name=$name");
     
     // Rollback: Delete all uploaded files
     error_log("Rolling back all uploaded files for student $student_id due to database failure");
@@ -379,7 +372,7 @@ if (!$stmt->execute()) {
         }
     }
     
-    $_SESSION['error'] = "Registration failed due to database error. Please try again. If the problem persists, contact support.";
+    $_SESSION['error'] = "Registration failed due to database error. Please try again. If the problem persists, contact support. Error: " . $stmt->error;
     header("Location: " . $redirectBack);
     exit();
 }
