@@ -3074,296 +3074,51 @@ document.getElementById('training_center').addEventListener('change', function()
 
 // Form validation with toast notifications
 document.getElementById('registrationForm').addEventListener('submit', function(e) {
-    console.log('=== FORM SUBMISSION STARTED ===');
-    console.log('Event object:', e);
-    console.log('Form element:', this);
+    console.log('Form submitted with simplified validation');
     
-    // CRITICAL: Prevent default IMMEDIATELY
-    e.preventDefault();
+    // Basic validation only - let HTML5 and server handle the rest
+    const requiredFields = ['name', 'father_name', 'mother_name', 'dob', 'gender', 'marital_status', 'mobile', 'email', 'aadhar', 'nationality', 'religion', 'category', 'position', 'state', 'city', 'pincode', 'address'];
     
-    // DEBUG: Check course_id before validation
-    const courseIdField = document.querySelector('input[name="course_id"]');
-    console.log('course_id field:', courseIdField);
-    console.log('course_id value:', courseIdField ? courseIdField.value : 'FIELD NOT FOUND');
-    
-    // DEBUG: Log all form data
-    const formData = new FormData(this);
-    console.log('Form data being submitted:');
-    for (let [key, value] of formData.entries()) {
-        if (value instanceof File) {
-            console.log(key + ': [File] ' + value.name + ' (' + value.size + ' bytes)');
-        } else {
-            console.log(key + ': ' + value);
-        }
-    }
-    
-    console.log('=== STARTING VALIDATION ===');
-    
-    // Validate mobile number
-    const mobile = document.querySelector('input[name="mobile"]').value;
-    console.log('Validating mobile:', mobile);
-    if (!/^[0-9]{10}$/.test(mobile)) {
-        console.log('VALIDATION FAILED: Invalid mobile number');
-        toast.error('Please enter a valid 10-digit mobile number');
-        return false;
-    }
-    console.log('✓ Mobile validation passed');
-    
-    // Validate Aadhar number
-    const aadhar = document.querySelector('input[name="aadhar"]').value;
-    console.log('Validating aadhar:', aadhar);
-    if (!/^[0-9]{12}$/.test(aadhar)) {
-        console.log('VALIDATION FAILED: Invalid aadhar number');
-        toast.error('Please enter a valid 12-digit Aadhar number');
-        return false;
-    }
-    console.log('✓ Aadhar validation passed');
-    
-    // Validate email
-    const email = document.querySelector('input[name="email"]').value;
-    console.log('Validating email:', email);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        console.log('VALIDATION FAILED: Invalid email');
-        toast.error('Please enter a valid email address');
-        return false;
-    }
-    console.log('✓ Email validation passed');
-    
-    // Validate pincode
-    const pincode = document.querySelector('input[name="pincode"]').value;
-    console.log('Validating pincode:', pincode);
-    if (!/^[0-9]{6}$/.test(pincode)) {
-        console.log('VALIDATION FAILED: Invalid pincode');
-        toast.error('Please enter a valid 6-digit pincode');
-        return false;
-    }
-    console.log('✓ Pincode validation passed');
-    
-    console.log('=== STARTING DOCUMENT VALIDATION ===');
-    
-    // ===== VALIDATE CATEGORIZED DOCUMENT UPLOADS =====
-    let documentValidationErrors = [];
-    
-    // Mandatory documents - ALL 4 REQUIRED
-    const mandatoryDocuments = [
-        { name: 'aadhar_card', label: 'Aadhar Card' },
-        { name: 'tenth_marksheet', label: '10th Marksheet/Certificate' }
-    ];
-    
-    console.log('Mandatory documents to check:', mandatoryDocuments);
-    
-    // Validate mandatory documents
-    for (const doc of mandatoryDocuments) {
-        const input = document.querySelector(`input[name="${doc.name}"]`);
-        console.log(`Checking ${doc.name}:`, input);
-        console.log(`  - Has files:`, input ? input.files.length : 'INPUT NOT FOUND');
-        console.log(`  - First file:`, input && input.files[0] ? input.files[0].name : 'NO FILE');
-        
-        if (!input || !input.files[0]) {
-            console.log(`  ✗ VALIDATION FAILED: ${doc.label} is missing`);
-            
-            // Show persistent alert that user must acknowledge
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            
-            alert('❌ FORM VALIDATION FAILED\n\n' +
-                  'MISSING REQUIRED DOCUMENT:\n' +
-                  `• ${doc.label} is required\n\n` +
-                  'Please upload this document and try again.\n\n' +
-                  'Location: Step 3 - Document Upload section');
-            
-            documentValidationErrors.push(`${doc.label} is required`);
-            if (input) {
-                displayFileError(input, `${doc.label} is required`);
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
+    for (let field of requiredFields) {
+        const input = document.querySelector(`[name="${field}"]`);
+        if (!input || !input.value.trim()) {
+            alert(`Please fill in the ${field.replace('_', ' ')} field.`);
+            e.preventDefault();
+            if (input) input.focus();
             return false;
-        } else {
-            // Validate the file
-            const validation = validateDocumentUpload(input);
-            console.log(`  - Validation result:`, validation);
-            if (!validation.valid) {
-                console.log(`  ✗ VALIDATION FAILED: ${doc.label} - ${validation.message}`);
-                
-                // Show persistent alert
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                
-                alert('❌ FORM VALIDATION FAILED\n\n' +
-                      'DOCUMENT VALIDATION ERROR:\n' +
-                      `• ${doc.label}: ${validation.message}\n\n` +
-                      'Please fix this issue and try again.\n\n' +
-                      'Location: Step 3 - Document Upload section');
-                
-                documentValidationErrors.push(`${doc.label}: ${validation.message}`);
-                displayFileError(input, validation.message);
-                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                return false;
-            } else {
-                console.log(`  ✓ ${doc.label} validation passed`);
-            }
         }
     }
     
-    // Optional documents - only validate if file is selected (12th is now optional)
-    const optionalDocuments = [
-        { name: 'twelfth_marksheet', label: '12th Marksheet/Diploma Certificate' },
-        { name: 'caste_certificate', label: 'Caste Certificate' },
-        { name: 'graduation_certificate', label: 'Graduation Certificate' },
-        { name: 'other_documents', label: 'Other Documents' }
-    ];
-    
-    for (const doc of optionalDocuments) {
-        const input = document.querySelector(`input[name="${doc.name}"]`);
-        if (input && input.files[0]) {
-            const validation = validateDocumentUpload(input);
-            if (!validation.valid) {
-                documentValidationErrors.push(`${doc.label}: ${validation.message}`);
-                displayFileError(input, validation.message);
-            }
+    // Check required files
+    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
+    for (let file of requiredFiles) {
+        const input = document.querySelector(`[name="${file}"]`);
+        if (!input || !input.files[0]) {
+            alert(`Please upload ${file.replace('_', ' ')}.`);
+            e.preventDefault();
+            if (input) input.focus();
+            return false;
         }
     }
     
-    console.log('=== VALIDATING PASSPORT PHOTO & SIGNATURE ===');
-    
-    // Validate passport photo and signature
-    const passportPhoto = document.querySelector('input[name="passport_photo"]');
-    const signature = document.querySelector('input[name="signature"]');
-    
-    console.log('Passport photo input:', passportPhoto);
-    console.log('Passport photo file:', passportPhoto ? passportPhoto.files[0] : 'INPUT NOT FOUND');
-    console.log('Signature input:', signature);
-    console.log('Signature file:', signature ? signature.files[0] : 'INPUT NOT FOUND');
-    
-    if (!passportPhoto || !passportPhoto.files[0]) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('✗ VALIDATION FAILED: Passport photo missing');
-        
-        // Show persistent alert that user must acknowledge
-        alert('❌ FORM VALIDATION FAILED\n\n' +
-              'MISSING REQUIRED DOCUMENT:\n' +
-              '• Passport Photo is required\n\n' +
-              'Please upload your passport photo and try again.\n\n' +
-              'Location: Step 3 - Document Upload section');
-        
-        toast.error('Please upload passport photo');
-        
-        // Scroll to passport photo field
-        if (passportPhoto) {
-            passportPhoto.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            passportPhoto.focus();
-        }
-        return false;
-    }
-    console.log('✓ Passport photo present');
-    
-    if (!signature || !signature.files[0]) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('✗ VALIDATION FAILED: Signature missing');
-        
-        // Show persistent alert that user must acknowledge
-        alert('❌ FORM VALIDATION FAILED\n\n' +
-              'MISSING REQUIRED DOCUMENT:\n' +
-              '• Signature is required\n\n' +
-              'Please upload your signature and try again.\n\n' +
-              'Location: Step 3 - Document Upload section');
-        
-        toast.error('Please upload signature');
-        
-        // Scroll to signature field
-        if (signature) {
-            signature.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            signature.focus();
-        }
-        return false;
-    }
-    console.log('✓ Signature present');
-    
-    // Validate file sizes for passport photo and signature (5MB max)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (passportPhoto.files[0] && passportPhoto.files[0].size > maxSize) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('✗ VALIDATION FAILED: Passport photo too large');
-        
-        const fileSizeMB = (passportPhoto.files[0].size / (1024 * 1024)).toFixed(2);
-        alert('❌ FORM VALIDATION FAILED\n\n' +
-              'FILE SIZE ERROR:\n' +
-              `• Passport photo is too large (${fileSizeMB}MB)\n` +
-              '• Maximum allowed size: 5MB\n\n' +
-              'Please upload a smaller file and try again.\n\n' +
-              'Location: Step 3 - Document Upload section');
-        
-        toast.error('Passport photo file size should not exceed 5MB');
-        passportPhoto.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
-    console.log('✓ Passport photo size OK');
-    
-    if (signature.files[0] && signature.files[0].size > maxSize) {
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        console.log('✗ VALIDATION FAILED: Signature too large');
-        
-        const fileSizeMB = (signature.files[0].size / (1024 * 1024)).toFixed(2);
-        alert('❌ FORM VALIDATION FAILED\n\n' +
-              'FILE SIZE ERROR:\n' +
-              `• Signature is too large (${fileSizeMB}MB)\n` +
-              '• Maximum allowed size: 5MB\n\n' +
-              'Please upload a smaller file and try again.\n\n' +
-              'Location: Step 3 - Document Upload section');
-        
-        toast.error('Signature file size should not exceed 5MB');
-        signature.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return false;
-    }
-    console.log('✓ Signature size OK');
-    
-    console.log('=== FINAL DOCUMENT VALIDATION CHECK ===');
-    console.log('Document validation errors:', documentValidationErrors);
-    console.log('Number of errors:', documentValidationErrors.length);
-    
-    // If there are document validation errors, prevent submission
-    if (documentValidationErrors.length > 0) {
+    // Basic mobile validation
+    const mobile = document.querySelector('input[name="mobile"]').value;
+    if (!/^[0-9]{10}$/.test(mobile)) {
+        alert('Please enter a valid 10-digit mobile number.');
         e.preventDefault();
-        console.log('✗ FORM SUBMISSION BLOCKED: Document validation errors found');
-        console.error('VALIDATION FAILED - ERRORS:', documentValidationErrors);
-        
-        const errorMessage = documentValidationErrors.length === 1 
-            ? documentValidationErrors[0]
-            : `Please fix ${documentValidationErrors.length} document upload errors:\n` + documentValidationErrors.join('\n');
-        
-        // Show alert that won't disappear
-        alert('FORM VALIDATION FAILED:\n\n' + errorMessage + '\n\nPlease fix these errors and try again.');
-        
-        toast.error(errorMessage);
-        
-        // Scroll to first invalid document field
-        const firstInvalidDoc = document.querySelector('input[type="file"].is-invalid');
-        if (firstInvalidDoc) {
-            firstInvalidDoc.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
         return false;
     }
     
-    console.log('✓ ALL VALIDATIONS PASSED');
-    console.log('=== FORM WILL BE SUBMITTED ===');
+    // Basic email validation
+    const email = document.querySelector('input[name="email"]').value;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        alert('Please enter a valid email address.');
+        e.preventDefault();
+        return false;
+    }
     
-    // Disable submit button and show loading
-    const submitBtn = this.querySelector('.btn-register');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner me-2"></span>Submitting...';
-    
-    // Show loading toast
-    toast.loading('Submitting your registration... Please wait');
-    
-    console.log('Form submission proceeding to server...');
-    
-    // CRITICAL: Actually submit the form after validation passes
-    // We called preventDefault() at the top, so we must explicitly submit
-    this.submit();
+    console.log('All validations passed, submitting form...');
+    // Form will submit normally - no preventDefault() called unless validation fails
 });
 
 // ===== FLYER MODAL FUNCTIONS =====
