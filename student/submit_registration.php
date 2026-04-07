@@ -145,7 +145,28 @@ if ($cr->num_rows === 0) {
 $cRow         = $cr->fetch_assoc();
 $course_name  = $cRow['course_name'];
 $course_code  = $cRow['course_code'];
-$redirectBack = APP_URL . "/student/register.php?course=" . urlencode($course_code);
+
+// FIXED: Detect which form was used and redirect appropriately
+$redirectBack = APP_URL . "/student/register.php?course=" . urlencode($course_code); // Default fallback
+
+// Check HTTP_REFERER to determine which form was used
+if (isset($_SERVER['HTTP_REFERER'])) {
+    $referer = $_SERVER['HTTP_REFERER'];
+    error_log("REDIRECT FIX: HTTP_REFERER = " . $referer);
+    
+    if (strpos($referer, 'register_fixed.php') !== false) {
+        $redirectBack = APP_URL . "/student/register_fixed.php?course=" . urlencode($course_code);
+        error_log("REDIRECT FIX: Detected register_fixed.php, redirecting to: " . $redirectBack);
+    } elseif (strpos($referer, 'test_registration_simple.php') !== false) {
+        $redirectBack = APP_URL . "/student/test_registration_simple.php";
+        error_log("REDIRECT FIX: Detected test_registration_simple.php, redirecting to: " . $redirectBack);
+    } else {
+        error_log("REDIRECT FIX: Using default redirect to: " . $redirectBack);
+    }
+    // If referer contains register.php or no specific match, use default
+} else {
+    error_log("REDIRECT FIX: No HTTP_REFERER found, using default redirect: " . $redirectBack);
+}
 
 // ----------------------------------------------------------
 // 4. Required field validation
