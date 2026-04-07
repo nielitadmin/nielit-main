@@ -32,7 +32,7 @@ if ($stmt) {
         echo "<li>Name: " . htmlspecialchars($course['course_name']) . "</li>";
         echo "<li>Code: " . htmlspecialchars($course['course_code']) . "</li>";
         echo "<li>Link Published: " . ($course['link_published'] ? 'Yes' : 'No') . "</li>";
-        echo "<li>Status: " . htmlspecialchars($course['status']) . "</li>";
+        echo "<li>Status: " . htmlspecialchars($course['status'] ?? 'Not Set') . "</li>";
         echo "</ul>";
         
         if (!$course['link_published']) {
