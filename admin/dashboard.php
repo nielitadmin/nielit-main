@@ -208,7 +208,8 @@ if (isset($_POST['add_course'])) {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("ssssssssssssssiss", 
+    // FIX: 16 variables = 15 's' + 1 'i' (link_published) + 1 's' (course_description) = "ssssssssssssssis"
+    $stmt->bind_param("ssssssssssssssis", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
         $training_center, $link_published, $course_description

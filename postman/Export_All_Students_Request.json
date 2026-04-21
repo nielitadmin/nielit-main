@@ -1,0 +1,33 @@
+{
+	"name": "🚀 Export ALL Students (Complete Dataset)",
+	"request": {
+		"method": "GET",
+		"header": [
+			{
+				"key": "X-API-Key",
+				"value": "efb21393037415f4730b729a23b46764aeceee052f1b541eb43a1f26247812ec"
+			}
+		],
+		"url": {
+			"raw": "http://localhost/public_html/api/v1/students.php?action=export_all",
+			"protocol": "http",
+			"host": [
+				"localhost"
+			],
+			"path": [
+				"public_html",
+				"api",
+				"v1",
+				"students.php"
+			],
+			"query": [
+				{
+					"key": "action",
+					"value": "export_all"
+				}
+			]
+		},
+		"description": "🚀 COMPLETE EXPORT: Get ALL 1,034+ students with complete data including passwords, addresses, and all fields. No limits, no pagination - the entire dataset for mock test integration!"
+	},
+	"response": []
+}

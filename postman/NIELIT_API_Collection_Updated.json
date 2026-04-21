@@ -1,0 +1,693 @@
+{
+	"info": {
+		"_postman_id": "nielit-api-collection-updated",
+		"name": "NIELIT API - Mock Test Integration (Updated)",
+		"description": "API collection for testing NIELIT student authentication and data access for mock test application - includes password endpoint",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Student Login - POST",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('token');",
+									"    pm.environment.set('auth_token', jsonData.data.token);",
+									"});",
+									"",
+									"pm.test(\"Response has student data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('student');",
+									"    pm.expect(jsonData.data.student).to.have.property('student_id');",
+									"    pm.expect(jsonData.data.student).to.have.property('email');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{test_student_id}}\",\n    \"password\": \"{{test_password}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth.php",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth.php"
+							]
+						},
+						"description": "Authenticate a student using student_id and password"
+					},
+					"response": []
+				},
+				{
+					"name": "Student Login - Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has token\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('token');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"{{test_email}}\",\n    \"password\": \"{{test_password}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth.php",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth.php"
+							]
+						},
+						"description": "Authenticate a student using email and password"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Students Data",
+			"item": [
+				{
+					"name": "Get All Students",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has students array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('students');",
+									"    pm.expect(jsonData.data.students).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Students have required fields (no passwords)\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.students.length > 0) {",
+									"        var student = jsonData.data.students[0];",
+									"        pm.expect(student).to.have.property('student_id');",
+									"        pm.expect(student).to.have.property('email');",
+									"        pm.expect(student).to.have.property('name');",
+									"        pm.expect(student).to.not.have.property('password');",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=list&limit=50",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "list"
+								},
+								{
+									"key": "limit",
+									"value": "50"
+								}
+							]
+						},
+						"description": "Get list of all approved students (without passwords)"
+					},
+					"response": []
+				},
+				{
+					"name": "🔐 Get All Students with Passwords",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has students array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('students');",
+									"    pm.expect(jsonData.data.students).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Students have password field\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.students.length > 0) {",
+									"        var student = jsonData.data.students[0];",
+									"        pm.expect(student).to.have.property('student_id');",
+									"        pm.expect(student).to.have.property('email');",
+									"        pm.expect(student).to.have.property('name');",
+									"        pm.expect(student).to.have.property('password');",
+									"        pm.expect(student.password).to.be.a('string');",
+									"        pm.expect(student.password.length).to.be.greaterThan(10);",
+									"    }",
+									"});",
+									"",
+									"pm.test(\"Response includes security warning\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('warning');",
+									"    pm.expect(jsonData.data.warning).to.include('password');",
+									"});",
+									"",
+									"pm.test(\"Response has pagination info\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('pagination');",
+									"    pm.expect(jsonData.data.pagination).to.have.property('total');",
+									"});",
+									"",
+									"pm.test(\"Password hash format is correct\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data.students.length > 0) {",
+									"        var student = jsonData.data.students[0];",
+									"        // Check if password looks like a bcrypt hash",
+									"        pm.expect(student.password).to.match(/^\\$2[ayb]\\$.{56}$/);",
+									"    }",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=list_with_passwords&limit=10",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "list_with_passwords"
+								},
+								{
+									"key": "limit",
+									"value": "10"
+								}
+							]
+						},
+						"description": "⚠️ SENSITIVE: Get list of students with password hashes for mock test integration. Use securely in backend only!"
+					},
+					"response": []
+				},
+				{
+					"name": "🔐 Get ALL Students with Passwords (Full Dataset)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has students array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('students');",
+									"    pm.expect(jsonData.data.students).to.be.an('array');",
+									"});",
+									"",
+									"pm.test(\"Large dataset returned\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data.pagination.total).to.be.greaterThan(1000);",
+									"    console.log('Total students in database: ' + jsonData.data.pagination.total);",
+									"});",
+									"",
+									"pm.test(\"All students have passwords\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    jsonData.data.students.forEach(function(student) {",
+									"        pm.expect(student).to.have.property('password');",
+									"        pm.expect(student.password).to.be.a('string');",
+									"        pm.expect(student.password.length).to.be.greaterThan(10);",
+									"    });",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=list_with_passwords&limit=1000",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "list_with_passwords"
+								},
+								{
+									"key": "limit",
+									"value": "1000"
+								}
+							]
+						},
+						"description": "⚠️ SENSITIVE: Get ALL students with passwords (up to 1000) for mock test database import. This will return the complete dataset!"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Student by ID",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has student data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('student');",
+									"    pm.expect(jsonData.data.student).to.have.property('student_id');",
+									"    pm.expect(jsonData.data.student).to.have.property('email');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=get&student_id={{test_student_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "get"
+								},
+								{
+									"key": "student_id",
+									"value": "{{test_student_id}}"
+								}
+							]
+						},
+						"description": "Get specific student by student_id"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Student by Email",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has student data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('student');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=get&email={{test_email}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "get"
+								},
+								{
+									"key": "email",
+									"value": "{{test_email}}"
+								}
+							]
+						},
+						"description": "Get specific student by email address"
+					},
+					"response": []
+				},
+				{
+					"name": "Search Students",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response has students array\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property('students');",
+									"    pm.expect(jsonData.data.students).to.be.an('array');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=search&q={{search_term}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "search"
+								},
+								{
+									"key": "q",
+									"value": "{{search_term}}"
+								}
+							]
+						},
+						"description": "Search students by name, email, or student_id"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Error Testing",
+			"item": [
+				{
+					"name": "Invalid API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test(\"Error message for invalid API key\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('error');",
+									"    pm.expect(jsonData.error).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "X-API-Key",
+								"value": "invalid-api-key-12345"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=list",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "list"
+								}
+							]
+						},
+						"description": "Test API response with invalid API key"
+					},
+					"response": []
+				},
+				{
+					"name": "Missing API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test(\"Error message for missing API key\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('error');",
+									"    pm.expect(jsonData.message).to.include('API key');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/students.php?action=list",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"students.php"
+							],
+							"query": [
+								{
+									"key": "action",
+									"value": "list"
+								}
+							]
+						},
+						"description": "Test API response without API key"
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Student Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401\", function () {",
+									"    pm.response.to.have.status(401);",
+									"});",
+									"",
+									"pm.test(\"Error message for invalid credentials\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData).to.have.property('error');",
+									"    pm.expect(jsonData.message).to.include('Invalid');",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"invalid_student\",\n    \"password\": \"wrong_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth.php",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"auth.php"
+							]
+						},
+						"description": "Test authentication with invalid credentials"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost/public_html",
+			"type": "string"
+		}
+	]
+}

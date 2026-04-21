@@ -143,6 +143,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-list-alt"></i> OTP Logs
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/api/admin/manage_api_keys.php" class="nav-link <?php echo ($current_page === 'manage_api_keys.php') ? 'active' : ''; ?>">
+                <i class="fas fa-key"></i> API Management
+            </a>
+        </div>
         <?php endif; ?>
         
         

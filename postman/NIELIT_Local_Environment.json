@@ -1,0 +1,49 @@
+{
+	"id": "nielit-local-env",
+	"name": "NIELIT Local Environment",
+	"values": [
+		{
+			"key": "base_url",
+			"value": "http://localhost/public_html",
+			"enabled": true,
+			"type": "default"
+		},
+		{
+			"key": "api_key",
+			"value": "YOUR_API_KEY_HERE",
+			"enabled": true,
+			"type": "secret"
+		},
+		{
+			"key": "test_student_id",
+			"value": "TEST_STUDENT_ID",
+			"enabled": true,
+			"type": "default"
+		},
+		{
+			"key": "test_email",
+			"value": "test@example.com",
+			"enabled": true,
+			"type": "default"
+		},
+		{
+			"key": "test_password",
+			"value": "test_password",
+			"enabled": true,
+			"type": "default"
+		},
+		{
+			"key": "search_term",
+			"value": "test",
+			"enabled": true,
+			"type": "default"
+		},
+		{
+			"key": "auth_token",
+			"value": "",
+			"enabled": true,
+			"type": "default"
+		}
+	],
+	"_postman_variable_scope": "environment"
+}

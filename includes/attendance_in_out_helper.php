@@ -228,7 +228,7 @@ function getSessionAttendanceList($session_id, $conn) {
 /**
  * Get monthly attendance report
  */
-function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $conn) {
+function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn) {
     $year = $year ?? date('Y');
     $month = $month ?? date('n');
     
@@ -246,6 +246,187 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
         SELECT 
             student_id,
             student_name,
+            'N/A' as course_name,
+            COUNT(*) as total_days,
+            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
+            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(total_duration_minutes) as total_minutes,
+            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
+            ROUND(
+                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
+                2
+            ) as attendance_percentage
+        FROM attendance_summary 
+        {$where_clause}
+        GROUP BY student_id, student_name
+        ORDER BY student_name ASC
+    ");
+    
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Get weekly attendance report
+ */
+function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn) {
+    $year = $year ?? date('Y');
+    $week = $week ?? date('W');
+    
+    $where_clause = "WHERE YEAR(date) = ? AND WEEK(date, 1) = ?";
+    $params = [$year, $week];
+    $types = "ii";
+    
+    if ($student_id) {
+        $where_clause .= " AND student_id = ?";
+        $params[] = $student_id;
+        $types .= "s";
+    }
+    
+    $stmt = $conn->prepare("
+        SELECT 
+            student_id,
+            student_name,
+            'N/A' as course_name,
+            COUNT(*) as total_days,
+            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
+            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(total_duration_minutes) as total_minutes,
+            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
+            ROUND(
+                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
+                2
+            ) as attendance_percentage
+        FROM attendance_summary 
+        {$where_clause}
+        GROUP BY student_id, student_name
+        ORDER BY student_name ASC
+    ");
+    
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Get quarterly attendance report
+ */
+function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn) {
+    $year = $year ?? date('Y');
+    $quarter = $quarter ?? ceil(date('n') / 3);
+    
+    // Calculate quarter months
+    $start_month = ($quarter - 1) * 3 + 1;
+    $end_month = $quarter * 3;
+    
+    $where_clause = "WHERE YEAR(date) = ? AND MONTH(date) BETWEEN ? AND ?";
+    $params = [$year, $start_month, $end_month];
+    $types = "iii";
+    
+    if ($student_id) {
+        $where_clause .= " AND student_id = ?";
+        $params[] = $student_id;
+        $types .= "s";
+    }
+    
+    $stmt = $conn->prepare("
+        SELECT 
+            student_id,
+            student_name,
+            'N/A' as course_name,
+            COUNT(*) as total_days,
+            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
+            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(total_duration_minutes) as total_minutes,
+            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
+            ROUND(
+                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
+                2
+            ) as attendance_percentage
+        FROM attendance_summary 
+        {$where_clause}
+        GROUP BY student_id, student_name
+        ORDER BY student_name ASC
+    ");
+    
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Get yearly attendance report
+ */
+function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn) {
+    $year = $year ?? date('Y');
+    
+    $where_clause = "WHERE YEAR(date) = ?";
+    $params = [$year];
+    $types = "i";
+    
+    if ($student_id) {
+        $where_clause .= " AND student_id = ?";
+        $params[] = $student_id;
+        $types .= "s";
+    }
+    
+    $stmt = $conn->prepare("
+        SELECT 
+            student_id,
+            student_name,
+            'N/A' as course_name,
+            COUNT(*) as total_days,
+            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
+            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(total_duration_minutes) as total_minutes,
+            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
+            ROUND(
+                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
+                2
+            ) as attendance_percentage
+        FROM attendance_summary 
+        {$where_clause}
+        GROUP BY student_id, student_name
+        ORDER BY student_name ASC
+    ");
+    
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    
+    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
+
+/**
+ * Get custom date range attendance report
+ */
+function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn) {
+    if (!$start_date || !$end_date) {
+        return [];
+    }
+    
+    $where_clause = "WHERE date BETWEEN ? AND ?";
+    $params = [$start_date, $end_date];
+    $types = "ss";
+    
+    if ($student_id) {
+        $where_clause .= " AND student_id = ?";
+        $params[] = $student_id;
+        $types .= "s";
+    }
+    
+    $stmt = $conn->prepare("
+        SELECT 
+            student_id,
+            student_name,
+            'N/A' as course_name,
             COUNT(*) as total_days,
             SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
             SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
