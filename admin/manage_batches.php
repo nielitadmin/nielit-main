@@ -53,13 +53,14 @@ if (isset($_POST['add_batch'])) {
     $stmt->close();
 }
 
-// Fetch course name
+// Fetch course name and description
 $course_name = '';
-$course_sql = "SELECT course_name FROM courses WHERE id = ?";
+$course_description = '';
+$course_sql = "SELECT course_name, course_description FROM courses WHERE id = ?";
 $stmt = $conn->prepare($course_sql);
 $stmt->bind_param("i", $course_id);
 $stmt->execute();
-$stmt->bind_result($course_name);
+$stmt->bind_result($course_name, $course_description);
 $stmt->fetch();
 $stmt->close();
 
@@ -150,7 +151,7 @@ $stmt->close();
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-layer-group"></i> Manage Batches</h4>
-                <small>Course: <?= htmlspecialchars($course_name) ?></small>
+                <small>Course: <?= htmlspecialchars($course_name) ?><?php if (!empty($course_description)) echo ' (' . htmlspecialchars($course_description) . ')'; ?></small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">

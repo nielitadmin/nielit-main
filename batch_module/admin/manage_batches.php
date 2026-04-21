@@ -150,11 +150,11 @@ if (!$current_admin_id && isset($_SESSION['admin'])) {
 // Get courses for dropdown - filtered by assignment for non-master-admins
 if ($is_master_admin) {
     // Master admin sees all courses
-    $courses_sql = "SELECT id, course_name, course_code FROM courses ORDER BY course_name";
+    $courses_sql = "SELECT id, course_name, course_code, course_description FROM courses ORDER BY course_name";
     $courses_result = $conn->query($courses_sql);
 } else {
     // Course coordinators only see their assigned courses
-    $courses_sql = "SELECT c.id, c.course_name, c.course_code 
+    $courses_sql = "SELECT c.id, c.course_name, c.course_code, c.course_description 
                     FROM courses c
                     INNER JOIN admin_course_assignments aca ON c.id = aca.course_id
                     WHERE aca.admin_id = ? AND aca.is_active = 1
@@ -163,7 +163,7 @@ if ($is_master_admin) {
     
     if ($courses_stmt === false) {
         // Fallback: show all courses if assignments table doesn't exist
-        $courses_result = $conn->query("SELECT id, course_name, course_code FROM courses ORDER BY course_name");
+        $courses_result = $conn->query("SELECT id, course_name, course_code, course_description FROM courses ORDER BY course_name");
     } else {
         $courses_stmt->bind_param("i", $current_admin_id);
         $courses_stmt->execute();
@@ -180,7 +180,7 @@ while ($row = $courses_result->fetch_assoc()) {
 // Build batch query with role-based filtering
 if ($is_master_admin) {
     // Master admin sees all batches
-    $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+    $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                     (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                     CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
                     FROM batches b 
@@ -189,7 +189,7 @@ if ($is_master_admin) {
     $batches_result = $conn->query($batches_sql);
 } else {
     // Course coordinators see only batches they created
-    $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+    $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                     (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                     CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
                     FROM batches b 
@@ -205,7 +205,7 @@ if ($is_master_admin) {
 // If the query fails (is_locked column doesn't exist), try without it
 if (!$batches_result) {
     if ($is_master_admin) {
-        $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+        $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                         (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                         0 as is_locked
                         FROM batches b 
@@ -213,7 +213,7 @@ if (!$batches_result) {
                         ORDER BY b.created_at DESC";
         $batches_result = $conn->query($batches_sql);
     } else {
-        $batches_sql = "SELECT b.*, c.course_name, c.course_code,
+        $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                         (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                         0 as is_locked
                         FROM batches b 
@@ -341,7 +341,14 @@ while ($row = $batches_result->fetch_assoc()) {
                                 <option value="">Select Course</option>
                                 <?php foreach ($courses as $course): ?>
                                     <option value="<?php echo $course['id']; ?>">
-                                        <?php echo htmlspecialchars($course['course_name']); ?> (<?php echo $course['course_code']; ?>)
+                                        <?php 
+                                        echo htmlspecialchars($course['course_name']); 
+                                        if (!empty($course['course_description'])) {
+                                            echo ' (' . htmlspecialchars($course['course_description']) . ')';
+                                        } else {
+                                            echo ' (' . $course['course_code'] . ')';
+                                        }
+                                        ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -438,7 +445,14 @@ while ($row = $batches_result->fetch_assoc()) {
                                                 <br><small class="text-muted"><i class="fas fa-lock"></i> Locked</small>
                                             <?php endif; ?>
                                         </td>
-                                        <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
+                                        <td>
+                                            <?php 
+                                            echo htmlspecialchars($batch['course_name']); 
+                                            if (!empty($batch['course_description'])) {
+                                                echo '<br><small class="text-muted">(' . htmlspecialchars($batch['course_description']) . ')</small>';
+                                            }
+                                            ?>
+                                        </td>
                                         <td>
                                             <?php echo date('d M Y', strtotime($batch['start_date'])); ?><br>
                                             <small class="text-muted">to <?php echo date('d M Y', strtotime($batch['end_date'])); ?></small>
