@@ -42,7 +42,7 @@ function createBatch($data, $conn) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssdiisi", 
+    $stmt->bind_param("issssdissi", 
         $data['course_id'],
         $data['batch_name'],
         $data['batch_code'],
