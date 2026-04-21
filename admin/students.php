@@ -317,10 +317,10 @@ while ($row = $category_result->fetch_assoc()) {
 if ($is_course_coordinator && !empty($admin_course_ids)) {
     // Course coordinators only see their assigned courses
     $course_ids = implode(',', array_map('intval', $admin_course_ids));
-    $sql_courses = "SELECT course_name FROM courses WHERE id IN ($course_ids) ORDER BY course_name";
+    $sql_courses = "SELECT course_name, course_description FROM courses WHERE id IN ($course_ids) ORDER BY course_name";
 } else {
     // Master admins see all courses
-    $sql_courses = "SELECT course_name FROM courses ORDER BY course_name";
+    $sql_courses = "SELECT course_name, course_description FROM courses ORDER BY course_name";
 }
 $courses_result = $conn->query($sql_courses);
 
@@ -462,10 +462,11 @@ $selected_course = isset($_GET['filter_course']) ? $_GET['filter_course'] : 'All
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
-// Modified query to include batch information and course filtering for coordinators
-$query = "SELECT s.*, b.batch_name, b.batch_code 
+// Modified query to include batch information, course filtering for coordinators, and course details
+$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_description
           FROM students s 
           LEFT JOIN batches b ON s.batch_id = b.id 
+          LEFT JOIN courses c ON s.course = c.course_name
           WHERE 1=1";
 
 // If course coordinator, only show students from their assigned courses
@@ -729,7 +730,15 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         $courses_result->data_seek(0);
                                         while ($course = $courses_result->fetch_assoc()) {
                                             $course_name = $course['course_name'];
-                                            echo "<option value=\"$course_name\" " . ($selected_course == $course_name ? 'selected' : '') . ">{$course_name}</option>";
+                                            $course_description = $course['course_description'];
+                                            
+                                            // Format: Course Name (Course Description)
+                                            $display_text = $course_name;
+                                            if (!empty($course_description)) {
+                                                $display_text .= " (" . htmlspecialchars($course_description) . ")";
+                                            }
+                                            
+                                            echo "<option value=\"$course_name\" " . ($selected_course == $course_name ? 'selected' : '') . ">{$display_text}</option>";
                                         }
                                     }
                                     ?>
@@ -876,7 +885,12 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                     <td><?php echo $row['mobile']; ?></td>
                                     <td>
                                         <span class="badge badge-primary">
-                                            <?php echo $row['course']; ?>
+                                            <?php 
+                                            echo $row['course'];
+                                            if (!empty($row['course_description'])) {
+                                                echo " (" . htmlspecialchars($row['course_description']) . ")";
+                                            }
+                                            ?>
                                         </span>
                                     </td>
                                     <td>
