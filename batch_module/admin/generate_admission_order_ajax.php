@@ -480,7 +480,14 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         <p style="margin: 3px 0;"><strong>Signature</strong></p>
         <p style="margin: 3px 0;"><?php echo date('d-m-Y'); ?></p>
         <p style="margin: 3px 0;"><strong><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></strong></p>
-        <p style="margin: 3px 0;"><strong>(<?php echo htmlspecialchars($batch['scheme_code'] ?? 'SCSP/TSP'); ?>) Incharge,</strong></p>
+        <p style="margin: 3px 0;"><strong><?php 
+            $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
+            if (strtolower($scheme_code) === 'regular') {
+                echo 'Project Incharge,';
+            } else {
+                echo '(' . htmlspecialchars($scheme_code) . ') Incharge,';
+            }
+        ?></strong></p>
         <p style="margin: 3px 0;"><strong>NIELIT Bhubaneswar.</strong></p>
     </div>
 
