@@ -340,9 +340,9 @@ header('Cache-Control: max-age=0');
         
         .logo-section { 
             display: table-cell; 
-            width: 80px; 
+            width: 100px; 
             vertical-align: top; 
-            padding-right: 10px;
+            padding-right: 12px;
             padding-top: 5px;
         }
         
@@ -448,6 +448,7 @@ header('Cache-Control: max-age=0');
         
         .details-table td:nth-child(2) { 
             width: 32%;
+            font-weight: bold;
         }
         
         .details-table td:nth-child(3) { 
@@ -457,6 +458,7 @@ header('Cache-Control: max-age=0');
         
         .details-table td:nth-child(4) { 
             width: 32%;
+            font-weight: bold;
         }
         
         /* Students Table - Enhanced to match image exactly */
