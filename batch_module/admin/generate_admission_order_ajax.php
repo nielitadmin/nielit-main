@@ -350,7 +350,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             </tr>
             <tr>
                 <td style="padding: 2px 0; vertical-align: top;"><strong>Course Name:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['course_name']); ?> (<?php echo htmlspecialchars($batch['course_code']); ?>)</td>
+                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['course_name']); ?></td>
                 <td style="padding: 2px 0; vertical-align: top;"><strong>Start Date:</strong></td>
                 <td style="padding: 2px 0; vertical-align: top;"><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
             </tr>
