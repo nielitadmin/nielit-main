@@ -813,9 +813,6 @@ function downloadScannedOrder(batchId) {
                             <button class="btn btn-secondary" disabled>
                                 <i class="fas fa-lock"></i> Generate Admission Order (Locked)
                             </button>
-                            <button class="btn btn-secondary" disabled>
-                                <i class="fas fa-lock"></i> Generate Letterhead (Locked)
-                            </button>
                         <?php elseif ($is_locked && $is_master_admin): ?>
                             <!-- Lock Override Notice for Master Admins -->
                             <div class="alert alert-info" style="margin-bottom: 16px;">
@@ -831,15 +828,9 @@ function downloadScannedOrder(batchId) {
                             <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-warning">
                                 <i class="fas fa-shield-alt"></i> Generate Admission Order (Override)
                             </a>
-                            <a href="generate_admission_order_word_letterhead.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-info">
-                                <i class="fas fa-file-word"></i> Generate Letterhead (Word)
-                            </a>
                         <?php else: ?>
                             <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-success">
                                 <i class="fas fa-file-alt"></i> Generate Admission Order
-                            </a>
-                            <a href="generate_admission_order_word_letterhead.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-info">
-                                <i class="fas fa-file-word"></i> Generate Letterhead (Word)
                             </a>
                         <?php endif; ?>
                         <a href="manage_batches.php" class="btn btn-secondary">
