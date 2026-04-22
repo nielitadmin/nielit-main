@@ -340,16 +340,16 @@ header('Cache-Control: max-age=0');
         
         .logo-section { 
             display: table-cell; 
-            width: 100px; 
+            width: 80px; 
             vertical-align: top; 
-            padding-right: 12px;
+            padding-right: 10px;
             padding-top: 5px;
         }
         
         .logo-section img { 
-            height: 85px; 
+            height: 60px; 
             width: auto; 
-            max-width: 95px;
+            max-width: 70px;
         }
         
         .header-text-section { 
@@ -713,7 +713,15 @@ header('Cache-Control: max-age=0');
 <div class="signature-section">
     <p><strong>Signature</strong></p>
     <p><?php echo date('d-m-Y'); ?></p>
-    <p><strong><?php echo htmlspecialchars($scheme_incharge); ?> (Scientist T)</strong></p>
+    <p><strong><?php 
+        $signature_name = htmlspecialchars($scheme_incharge);
+        // Check if (Scientist T) is already in the name to avoid duplication
+        if (strpos($signature_name, '(Scientist T)') === false) {
+            echo $signature_name . ' (Scientist T)';
+        } else {
+            echo $signature_name;
+        }
+    ?></strong></p>
     <p><strong>Project Incharge,</strong></p>
     <p><strong>NIELIT <?php echo htmlspecialchars($extension_centre); ?>.</strong></p>
 </div>
