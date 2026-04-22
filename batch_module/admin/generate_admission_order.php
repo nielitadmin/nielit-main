@@ -242,7 +242,7 @@ if (!$batch) {
                                     <i class="fas fa-download"></i> Download PDF
                                 </button>
                                 <button class="btn btn-warning" onclick="generateLetterhead()" style="margin-left: 5px;">
-                                    <i class="fas fa-file-word"></i> Generate Letterhead (Word)
+                                    <i class="fas fa-file-word"></i> Download in (word)
                                 </button>
                                 <button class="btn btn-primary" onclick="printOrder()" style="margin-left: 5px;">
                                     <i class="fas fa-print"></i> Print
