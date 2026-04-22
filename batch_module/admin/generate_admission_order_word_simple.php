@@ -158,88 +158,199 @@ header('Content-Type: application/msword');
 header('Content-Disposition: attachment;filename="' . $filename . '"');
 header('Cache-Control: max-age=0');
 
-// Generate RTF content (Rich Text Format - compatible with Word)
-echo '{\rtf1\ansi\deff0 {\fonttbl {\f0 Times New Roman;}}';
-echo '\f0\fs24'; // Font size 12pt
+// Generate HTML content (compatible with Word)
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Admission Order</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12pt; margin: 20px; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .hindi-text { font-size: 14pt; font-weight: bold; }
+        .english-text { font-size: 12pt; font-weight: bold; }
+        .sub-text { font-size: 10pt; }
+        .ref-date { margin: 20px 0; }
+        .ref-left { float: left; font-weight: bold; }
+        .date-right { float: right; font-weight: bold; }
+        .clear { clear: both; }
+        .title { text-align: center; font-size: 16pt; font-weight: bold; text-decoration: underline; margin: 20px 0; }
+        .details-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        .details-table td { padding: 5px; vertical-align: top; }
+        .students-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
+        .students-table th, .students-table td { border: 1px solid black; padding: 4px; text-align: center; }
+        .students-table th { background-color: #f0f0f0; font-weight: bold; }
+        .category-table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
+        .category-table th, .category-table td { border: 1px solid black; padding: 3px; text-align: center; }
+        .category-table th { background-color: #f0f0f0; }
+        .signature { text-align: right; margin-top: 30px; }
+        .copy-to { margin-top: 20px; }
+    </style>
+</head>
+<body>
 
-// Header
-echo '\qc\b\fs28 राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर\b0\fs24\par';
-echo '\qc\b\fs26 National Institute of Electronics and Information Technology (NIELIT)\b0\fs24\par';
-echo '\qc\b\fs22 Bhubaneswar/Balasore Extension Centre\b0\fs24\par';
-echo '\qc\fs18 (An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)\fs24\par\par';
+<!-- Header -->
+<div class="header">
+    <div class="hindi-text">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</div>
+    <div class="english-text">National Institute of Electronics and Information Technology (NIELIT)</div>
+    <div class="english-text">Bhubaneswar/Balasore Extension Centre</div>
+    <div class="sub-text">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</div>
+</div>
 
-// Reference and Date
-echo '\ql\b Ref: ' . $batch['admission_order_ref'] . '\b0\tab\tab\tab\tab\b Dated: ' . date('d.m.Y', strtotime($order_date)) . '\b0\par\par';
+<!-- Reference and Date -->
+<div class="ref-date">
+    <div class="ref-left">Ref: <?php echo htmlspecialchars($batch['admission_order_ref']); ?></div>
+    <div class="date-right">Dated: <?php echo date('d.m.Y', strtotime($order_date)); ?></div>
+    <div class="clear"></div>
+</div>
 
-// Title
-echo '\qc\b\ul\fs28 ADMISSION ORDER\ul0\b0\fs24\par\par';
+<!-- Title -->
+<div class="title">ADMISSION ORDER</div>
 
-// Admission details
-echo '\ql The following eligible students are admitted in the \b ' . $batch['batch_name'] . '\b0 Batch of "\b ' . $batch['course_name'] . '\b0" which commenced from \b ' . date('d-m-Y', strtotime($batch['start_date'])) . '\b0.\par\par';
+<!-- Admission Details -->
+<p>The following eligible students are admitted in the <strong><?php echo $batch['batch_name']; ?></strong> Batch of "<strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>" which commenced from <strong><?php echo date('d-m-Y', strtotime($batch['start_date'])); ?></strong>.</p>
 
-// Course details table (simplified for RTF)
-echo '\ql\b Location:\b0 ' . $location . '\tab\tab\b Faculty Name:\b0 ' . $faculty_name . '\par';
-echo '\b Course Name:\b0 ' . $batch['course_name'] . '\tab\tab\b Start Date:\b0 ' . date('d.m.Y', strtotime($batch['start_date'])) . '\par';
-echo '\b Batch ID:\b0 ' . $batch['batch_name'] . '\tab\tab\b End Date:\b0 ' . date('d.m.Y', strtotime($batch['end_date'])) . '\par';
-echo '\b Exam Month:\b0 ' . $batch['examination_month'] . '\tab\tab\b Time:\b0 ' . $class_time . '\par';
-echo '\b Scheme:\b0 ' . ($batch['scheme_name'] ?? 'General') . '\tab\tab\b Duration:\b0 ' . $batch['duration'] . '\par\par';
+<!-- Course Details -->
+<table class="details-table">
+    <tr>
+        <td width="25%"><strong>Location:</strong></td>
+        <td width="25%"><?php echo htmlspecialchars($location); ?></td>
+        <td width="25%"><strong>Faculty Name:</strong></td>
+        <td width="25%"><?php echo htmlspecialchars($faculty_name); ?></td>
+    </tr>
+    <tr>
+        <td><strong>Course Name:</strong></td>
+        <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
+        <td><strong>Start Date:</strong></td>
+        <td><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
+    </tr>
+    <tr>
+        <td><strong>Batch ID:</strong></td>
+        <td><?php echo htmlspecialchars($batch['batch_name']); ?></td>
+        <td><strong>End Date:</strong></td>
+        <td><?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></td>
+    </tr>
+    <tr>
+        <td><strong>Exam Month:</strong></td>
+        <td><?php echo htmlspecialchars($batch['examination_month']); ?></td>
+        <td><strong>Time:</strong></td>
+        <td><?php echo htmlspecialchars($class_time); ?></td>
+    </tr>
+    <tr>
+        <td><strong>Scheme:</strong></td>
+        <td><?php echo htmlspecialchars($batch['scheme_name'] ?? 'General'); ?></td>
+        <td><strong>Duration:</strong></td>
+        <td><?php echo htmlspecialchars($batch['duration']); ?></td>
+    </tr>
+</table>
 
-// Students table header
-echo '\ql\b SL\tab NIELIT REG\tab NAME\tab FATHER NAME\tab MOBILE\tab AADHAAR\tab GEN\tab CAT\tab REMARK\b0\par';
-echo '\\trowd\\trgaph108\\trleft-108\\cellx1000\\cellx2500\\cellx4500\\cellx6500\\cellx7500\\cellx8500\\cellx9000\\cellx9500\\cellx11000';
+<!-- Students Table -->
+<table class="students-table">
+    <thead>
+        <tr>
+            <th width="5%">SL</th>
+            <th width="12%">NIELIT REG</th>
+            <th width="20%">NAME</th>
+            <th width="18%">FATHER NAME</th>
+            <th width="12%">MOBILE</th>
+            <th width="13%">AADHAAR</th>
+            <th width="6%">GEN</th>
+            <th width="8%">CAT</th>
+            <th width="6%">REMARK</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php 
+        $sl_no = 1;
+        foreach ($students as $student): 
+        ?>
+        <tr>
+            <td><?php echo $sl_no++; ?></td>
+            <td><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
+            <td style="text-align: left;"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
+            <td style="text-align: left;"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
+            <td><?php echo htmlspecialchars($student['mobile']); ?></td>
+            <td><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
+            <td><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
+            <td><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
+            <td><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
+        </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
 
-// Student rows
-$sl_no = 1;
-foreach ($students as $student) {
-    echo '\\intbl ' . $sl_no++ . '\\cell ';
-    echo ($student['nielit_registration_no'] ?? $student['id']) . '\\cell ';
-    echo strtoupper($student['full_name']) . '\\cell ';
-    echo strtoupper($student['father_name'] ?? '') . '\\cell ';
-    echo $student['mobile'] . '\\cell ';
-    echo ($student['aadhar_number'] ?? 'N/A') . '\\cell ';
-    echo strtoupper(substr($student['gender'], 0, 1)) . '\\cell ';
-    echo strtoupper($student['category'] ?? 'GEN') . '\\cell ';
-    echo ($batch['scheme_code'] ?? '') . '\\cell \\row';
-}
+<!-- Category Summary -->
+<table class="category-table">
+    <tr>
+        <th colspan="2">SC</th>
+        <th colspan="2">ST</th>
+        <th colspan="2">OBC</th>
+        <th colspan="2">PWD</th>
+        <th colspan="2">GEN</th>
+        <th colspan="2">TOTAL</th>
+        <th rowspan="2">TOTAL</th>
+    </tr>
+    <tr>
+        <th>M</th><th>F</th>
+        <th>M</th><th>F</th>
+        <th>M</th><th>F</th>
+        <th>M</th><th>F</th>
+        <th>M</th><th>F</th>
+        <th>M</th><th>F</th>
+    </tr>
+    <tr>
+        <td><?php echo $category_gender_counts['SC']['M']; ?></td>
+        <td><?php echo $category_gender_counts['SC']['F']; ?></td>
+        <td><?php echo $category_gender_counts['ST']['M']; ?></td>
+        <td><?php echo $category_gender_counts['ST']['F']; ?></td>
+        <td><?php echo $category_gender_counts['OBC']['M']; ?></td>
+        <td><?php echo $category_gender_counts['OBC']['F']; ?></td>
+        <td><?php echo $category_gender_counts['PWD']['M']; ?></td>
+        <td><?php echo $category_gender_counts['PWD']['F']; ?></td>
+        <td><?php echo $category_gender_counts['GEN']['M']; ?></td>
+        <td><?php echo $category_gender_counts['GEN']['F']; ?></td>
+        <td><?php echo $total_male; ?></td>
+        <td><?php echo $total_female; ?></td>
+        <td><?php echo $total_students; ?></td>
+    </tr>
+</table>
 
-echo '\par\par';
+<!-- Footer Note -->
+<p>All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
 
-// Category summary
-echo '\ql\b Category Summary:\b0\par';
-echo 'SC: M-' . $category_gender_counts['SC']['M'] . ', F-' . $category_gender_counts['SC']['F'] . '\tab ';
-echo 'ST: M-' . $category_gender_counts['ST']['M'] . ', F-' . $category_gender_counts['ST']['F'] . '\tab ';
-echo 'OBC: M-' . $category_gender_counts['OBC']['M'] . ', F-' . $category_gender_counts['OBC']['F'] . '\par';
-echo 'GEN: M-' . $category_gender_counts['GEN']['M'] . ', F-' . $category_gender_counts['GEN']['F'] . '\tab ';
-echo 'PWD: M-' . $category_gender_counts['PWD']['M'] . ', F-' . $category_gender_counts['PWD']['F'] . '\tab ';
-echo '\b Total: M-' . $total_male . ', F-' . $total_female . ', Total-' . $total_students . '\b0\par\par';
+<!-- Signature -->
+<div class="signature">
+    <p><strong>Signature</strong></p>
+    <p><?php echo date('d-m-Y'); ?></p>
+    <p><strong><?php echo htmlspecialchars($scheme_incharge); ?></strong></p>
+    <p><strong>
+    <?php 
+    $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
+    if (strtolower($scheme_code) === 'regular') {
+        echo 'Project Incharge,';
+    } else {
+        echo '(' . htmlspecialchars($scheme_code) . ') Incharge,';
+    }
+    ?>
+    </strong></p>
+    <p><strong>NIELIT Bhubaneswar.</strong></p>
+</div>
 
-// Footer note
-echo '\ql All documents and eligibility of above listed students (' . $total_students . ' No\'s) as per Course norms and Project/scheme norms are checked and Verified by undersigned.\par\par\par';
+<!-- Copy To -->
+<div class="copy-to">
+    <p><strong>Copy to:</strong></p>
+    <ol>
+        <?php foreach ($copy_to_list as $recipient): ?>
+            <li><?php echo htmlspecialchars($recipient); ?></li>
+        <?php endforeach; ?>
+    </ol>
+</div>
 
-// Signature section
-echo '\qr\b Signature\b0\par';
-echo '\qr ' . date('d-m-Y') . '\par';
-echo '\qr\b ' . $scheme_incharge . '\b0\par';
+</body>
+</html>
 
-// Signature title based on scheme
-$scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
-if (strtolower($scheme_code) === 'regular') {
-    echo '\qr\b Project Incharge,\b0\par';
-} else {
-    echo '\qr\b (' . $scheme_code . ') Incharge,\b0\par';
-}
-
-echo '\qr\b NIELIT Bhubaneswar.\b0\par\par';
-
-// Copy to section
-echo '\ql\b Copy to:\b0\par';
-$counter = 1;
-foreach ($copy_to_list as $recipient) {
-    echo $counter++ . '. ' . $recipient . '\par';
-}
-
-echo '}'; // Close RTF document
-
+<?php
 $conn->close();
 exit;
 ?>
