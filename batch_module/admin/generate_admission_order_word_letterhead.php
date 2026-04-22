@@ -396,15 +396,16 @@ header('Cache-Control: max-age=0');
             margin: 12px 0; 
             font-size: 10pt;
             line-height: 1.2;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .ref-left { 
-            float: left; 
             font-weight: bold; 
         }
         
         .date-right { 
-            float: right; 
             font-weight: bold; 
         }
         
@@ -448,7 +449,6 @@ header('Cache-Control: max-age=0');
         
         .details-table td:nth-child(2) { 
             width: 32%;
-            font-weight: bold;
         }
         
         .details-table td:nth-child(3) { 
@@ -458,7 +458,6 @@ header('Cache-Control: max-age=0');
         
         .details-table td:nth-child(4) { 
             width: 32%;
-            font-weight: bold;
         }
         
         /* Students Table - Enhanced to match image exactly */
@@ -583,9 +582,12 @@ header('Cache-Control: max-age=0');
 
 <!-- Reference and Date -->
 <div class="ref-date-section">
-    <div class="ref-left">Ref: <?php echo htmlspecialchars($batch['admission_order_ref']); ?></div>
-    <div class="date-right">Dated: <?php echo date('d.m.Y', strtotime($order_date)); ?></div>
-    <div class="clear"></div>
+    <table style="width: 100%; border: none; margin: 0; padding: 0;">
+        <tr>
+            <td style="text-align: left; font-weight: bold; border: none; padding: 0;">Ref: <?php echo htmlspecialchars($batch['admission_order_ref']); ?></td>
+            <td style="text-align: right; font-weight: bold; border: none; padding: 0;">Dated: <?php echo date('d.m.Y', strtotime($order_date)); ?></td>
+        </tr>
+    </table>
 </div>
 
 <!-- Document Title -->
