@@ -562,8 +562,8 @@ function formatStudentDetails(student) {
                             <i class="fas fa-image"></i> Passport Photo
                         </div>
                         ${student.passport_photo ? 
-                            `<img src="../${student.passport_photo}" style="max-width: 100%; max-height: 120px; border-radius: 4px; margin-bottom: 8px;" alt="Passport Photo">
-                            <div><a href="../${student.passport_photo}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            `<img src="../../${student.passport_photo}" style="max-width: 100%; max-height: 120px; border-radius: 4px; margin-bottom: 8px;" alt="Passport Photo">
+                            <div><a href="../../${student.passport_photo}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -573,8 +573,8 @@ function formatStudentDetails(student) {
                             <i class="fas fa-signature"></i> Signature
                         </div>
                         ${student.signature ? 
-                            `<img src="../${student.signature}" style="max-width: 100%; max-height: 120px; border-radius: 4px; margin-bottom: 8px;" alt="Signature">
-                            <div><a href="../${student.signature}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            `<img src="../../${student.signature}" style="max-width: 100%; max-height: 120px; border-radius: 4px; margin-bottom: 8px;" alt="Signature">
+                            <div><a href="../../${student.signature}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -585,7 +585,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.aadhar_card_doc ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.aadhar_card_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.aadhar_card_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -596,7 +596,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.tenth_marksheet_doc ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.tenth_marksheet_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.tenth_marksheet_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -607,7 +607,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.twelfth_marksheet_doc ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.twelfth_marksheet_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.twelfth_marksheet_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -618,7 +618,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.graduation_certificate_doc ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.graduation_certificate_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.graduation_certificate_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Not Uploaded</div>'}
                     </div>
                     
@@ -629,7 +629,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.caste_certificate_doc ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.caste_certificate_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.caste_certificate_doc}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Optional</div>'}
                     </div>
                     
@@ -640,7 +640,7 @@ function formatStudentDetails(student) {
                         </div>
                         ${student.payment_receipt ? 
                             `<div style="padding: 20px;"><i class="fas fa-file-pdf" style="font-size: 40px; color: #dc3545;"></i></div>
-                            <div><a href="../${student.payment_receipt}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
+                            <div><a href="../../${student.payment_receipt}" target="_blank" style="font-size: 12px; color: #2563eb;"><i class="fas fa-eye"></i> View</a></div>` : 
                             '<div style="color: #94a3b8; font-size: 12px;"><i class="fas fa-times-circle"></i> Optional</div>'}
                     </div>
                 </div>
