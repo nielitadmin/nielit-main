@@ -443,20 +443,22 @@ header('Cache-Control: max-age=0');
         }
         
         .details-table td:first-child { 
-            font-weight: bold; 
+            font-weight: bold !important; 
             width: 18%;
         }
         
         .details-table td:nth-child(2) { 
+            font-weight: normal;
             width: 32%;
         }
         
         .details-table td:nth-child(3) { 
-            font-weight: bold; 
+            font-weight: bold !important; 
             width: 18%;
         }
         
         .details-table td:nth-child(4) { 
+            font-weight: normal;
             width: 32%;
         }
         
@@ -601,33 +603,33 @@ header('Cache-Control: max-age=0');
 <!-- Course Details Table -->
 <table class="details-table">
     <tr>
-        <td>Location:</td>
+        <td style="font-weight: bold;">Location:</td>
         <td><?php echo htmlspecialchars($location); ?></td>
-        <td>Faculty Name:</td>
+        <td style="font-weight: bold;">Faculty Name:</td>
         <td><?php echo htmlspecialchars($faculty_name); ?></td>
     </tr>
     <tr>
-        <td>Course Name:</td>
+        <td style="font-weight: bold;">Course Name:</td>
         <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
-        <td>Start Date:</td>
+        <td style="font-weight: bold;">Start Date:</td>
         <td><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
     </tr>
     <tr>
-        <td>Batch ID:</td>
+        <td style="font-weight: bold;">Batch ID:</td>
         <td><?php echo htmlspecialchars($batch['batch_name']); ?></td>
-        <td>End Date:</td>
+        <td style="font-weight: bold;">End Date:</td>
         <td><?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></td>
     </tr>
     <tr>
-        <td>Exam Month:</td>
+        <td style="font-weight: bold;">Exam Month:</td>
         <td><?php echo htmlspecialchars($batch['examination_month']); ?></td>
-        <td>Time:</td>
+        <td style="font-weight: bold;">Time:</td>
         <td><?php echo htmlspecialchars($class_time); ?></td>
     </tr>
     <tr>
-        <td>Scheme:</td>
+        <td style="font-weight: bold;">Scheme:</td>
         <td><?php echo htmlspecialchars($batch['scheme_name'] ?? 'General'); ?></td>
-        <td>Duration:</td>
+        <td style="font-weight: bold;">Duration:</td>
         <td><?php echo htmlspecialchars($batch['duration']); ?></td>
     </tr>
 </table>
