@@ -421,77 +421,65 @@ header('Cache-Control: max-age=0');
             margin: 15px 0 12px 0; 
         }
         
-        /* Content Sections */
-        .admission-details { 
+        /* Course Details Section - Simple 2-column layout */
+        .course-details { 
             margin-bottom: 12px; 
-            line-height: 1.3; 
+            line-height: 1.4; 
             font-size: 10pt;
         }
         
-        .details-table { 
+        .course-details-row { 
+            display: table; 
             width: 100%; 
-            border-collapse: collapse; 
-            margin: 8px 0; 
-            font-size: 9pt;
+            margin: 3px 0;
         }
         
-        .details-table td { 
-            padding: 2px 4px; 
-            vertical-align: top; 
-            line-height: 1.2;
+        .course-details-left { 
+            display: table-cell; 
+            width: 50%; 
+            padding-right: 10px;
         }
         
-        .details-table td:first-child { 
-            font-weight: bold; 
-            width: 18%;
+        .course-details-right { 
+            display: table-cell; 
+            width: 50%;
         }
         
-        .details-table td:nth-child(2) { 
-            width: 32%;
+        .course-details-left strong, .course-details-right strong {
             font-weight: bold;
         }
         
-        .details-table td:nth-child(3) { 
-            font-weight: bold; 
-            width: 18%;
-        }
-        
-        .details-table td:nth-child(4) { 
-            width: 32%;
-            font-weight: bold;
-        }
-        
-        /* Students Table - Enhanced to match image exactly */
+        /* Students Table - Simplified columns */
         .students-table { 
             width: 100%; 
             border-collapse: collapse; 
             margin: 12px 0; 
-            font-size: 7pt;
+            font-size: 8pt;
         }
         
         .students-table th, .students-table td { 
             border: 1px solid #000; 
-            padding: 2px 1px; 
+            padding: 3px 2px; 
             text-align: center;
-            line-height: 1.1;
+            line-height: 1.2;
         }
         
         .students-table th { 
             background-color: #f8f8f8; 
             font-weight: bold; 
-            font-size: 7pt;
-            height: 25px;
+            font-size: 8pt;
+            height: 22px;
             vertical-align: middle;
         }
         
         .students-table td { 
-            height: 20px;
+            height: 18px;
             vertical-align: middle;
         }
         
         .students-table td.text-left { 
             text-align: left; 
-            padding-left: 3px;
+            padding-left: 4px;
         }
         
         /* Category Summary Table - Exact match to image */
@@ -523,32 +511,32 @@ header('Cache-Control: max-age=0');
             font-size: 8pt;
         }
         
-        /* Signature Section */
+        /* Signature Section - Compact */
         .signature-section { 
             text-align: right; 
-            margin-top: 25px; 
+            margin-top: 20px; 
             font-size: 9pt;
-            line-height: 1.2;
+            line-height: 1.3;
         }
         
         .signature-section p { 
-            margin: 2px 0; 
+            margin: 1px 0; 
         }
         
-        /* Copy To Section */
+        /* Copy To Section - Compact */
         .copy-to-section { 
-            margin-top: 18px; 
+            margin-top: 15px; 
             font-size: 8pt;
-            line-height: 1.2;
+            line-height: 1.3;
         }
         
         .copy-to-section ol { 
-            margin: 4px 0 0 18px; 
+            margin: 3px 0 0 16px; 
             padding: 0;
         }
         
         .copy-to-section li { 
-            margin: 2px 0; 
+            margin: 1px 0; 
         }
         
         /* Page break handling */
@@ -556,11 +544,11 @@ header('Cache-Control: max-age=0');
             page-break-before: always; 
         }
         
-        /* Footer note styling */
+        /* Footer note styling - Compact */
         .footer-note {
-            margin-top: 12px; 
+            margin-top: 10px; 
             font-size: 9pt;
-            line-height: 1.2;
+            line-height: 1.3;
         }
     </style>
 </head>
@@ -596,53 +584,42 @@ header('Cache-Control: max-age=0');
     <p>The following eligible students are admitted in the <strong><?php echo htmlspecialchars($batch['batch_name']); ?></strong> Batch of "<strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>" which commenced from <strong><?php echo date('d-m-Y', strtotime($batch['start_date'])); ?></strong>.</p>
 </div>
 
-<!-- Course Details Table -->
-<table class="details-table">
-    <tr>
-        <td>Location:</td>
-        <td><?php echo htmlspecialchars($location); ?></td>
-        <td>Faculty Name:</td>
-        <td><?php echo htmlspecialchars($faculty_name); ?></td>
-    </tr>
-    <tr>
-        <td>Course Name:</td>
-        <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
-        <td>Start Date:</td>
-        <td><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
-    </tr>
-    <tr>
-        <td>Batch ID:</td>
-        <td><?php echo htmlspecialchars($batch['batch_name']); ?></td>
-        <td>End Date:</td>
-        <td><?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></td>
-    </tr>
-    <tr>
-        <td>Exam Month:</td>
-        <td><?php echo htmlspecialchars($batch['examination_month']); ?></td>
-        <td>Time:</td>
-        <td><?php echo htmlspecialchars($class_time); ?></td>
-    </tr>
-    <tr>
-        <td>Scheme:</td>
-        <td><?php echo htmlspecialchars($batch['scheme_name'] ?? 'General'); ?></td>
-        <td>Duration:</td>
-        <td><?php echo htmlspecialchars($batch['duration']); ?></td>
-    </tr>
-</table>
+<!-- Course Details - Simple 2-column layout -->
+<div class="course-details">
+    <div class="course-details-row">
+        <div class="course-details-left"><strong>Location:</strong> <?php echo htmlspecialchars($location); ?></div>
+        <div class="course-details-right"><strong>Faculty Name:</strong> <?php echo htmlspecialchars($faculty_name); ?></div>
+    </div>
+    <div class="course-details-row">
+        <div class="course-details-left"><strong>Course Name:</strong> <?php echo htmlspecialchars($batch['course_name']); ?></div>
+        <div class="course-details-right"><strong>Start Date:</strong> <?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></div>
+    </div>
+    <div class="course-details-row">
+        <div class="course-details-left"><strong>Batch ID:</strong> <?php echo htmlspecialchars($batch['batch_name']); ?></div>
+        <div class="course-details-right"><strong>End Date:</strong> <?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></div>
+    </div>
+    <div class="course-details-row">
+        <div class="course-details-left"><strong>Exam Month:</strong> <?php echo htmlspecialchars($batch['examination_month']); ?></div>
+        <div class="course-details-right"><strong>Time:</strong> <?php echo htmlspecialchars($class_time); ?></div>
+    </div>
+    <div class="course-details-row">
+        <div class="course-details-left"><strong>Scheme:</strong> <?php echo htmlspecialchars($batch['scheme_name'] ?? 'Regular'); ?></div>
+        <div class="course-details-right"><strong>Duration:</strong> <?php echo htmlspecialchars($batch['duration']); ?></div>
+    </div>
+</div>
 
-<!-- Students Table -->
+<!-- Students Table - Simplified -->
 <table class="students-table">
     <thead>
         <tr>
-            <th style="width: 4%;">SL</th>
-            <th style="width: 11%;">NIELIT REG</th>
-            <th style="width: 22%;">NAME</th>
-            <th style="width: 20%;">FATHER NAME</th>
-            <th style="width: 11%;">MOBILE</th>
-            <th style="width: 12%;">AADHAAR</th>
+            <th style="width: 6%;">SL</th>
+            <th style="width: 15%;">NIELIT REG</th>
+            <th style="width: 25%;">NAME</th>
+            <th style="width: 22%;">FATHER NAME</th>
+            <th style="width: 12%;">MOBILE</th>
+            <th style="width: 10%;">AADHAAR</th>
             <th style="width: 5%;">GEN</th>
-            <th style="width: 6%;">CAT</th>
-            <th style="width: 9%;">REMARK</th>
+            <th style="width: 5%;">CAT</th>
         </tr>
     </thead>
     <tbody>
@@ -659,7 +636,6 @@ header('Cache-Control: max-age=0');
             <td><?php echo htmlspecialchars(substr($student['aadhar_number'] ?? 'XXXXXXXXXX', -4)); ?></td>
             <td><?php echo strtoupper(substr($student['gender'] ?? 'M', 0, 1)); ?></td>
             <td><?php echo strtoupper($student['category'] ?? 'GENERAL'); ?></td>
-            <td><?php echo htmlspecialchars($batch['scheme_code'] ?? 'Regular'); ?></td>
         </tr>
         <?php endforeach; ?>
     </tbody>
@@ -707,7 +683,7 @@ header('Cache-Control: max-age=0');
 </div>
 
 <!-- Check if we need a page break for signature section -->
-<?php if ($total_students > 15): ?>
+<?php if ($total_students > 20): ?>
 <div class="page-break"></div>
 <?php endif; ?>
 
