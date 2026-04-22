@@ -315,73 +315,87 @@ header('Cache-Control: max-age=0');
     <meta charset="UTF-8">
     <title>Admission Order - Letterhead</title>
     <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            font-size: 12pt; 
-            margin: 15mm 10mm 15mm 10mm; 
-            line-height: 1.2;
+        @page {
+            size: A4;
+            margin: 0.5in 0.4in 0.5in 0.4in;
         }
         
-        /* Letterhead Header Styles */
+        body { 
+            font-family: Arial, sans-serif; 
+            font-size: 11pt; 
+            margin: 0;
+            padding: 0;
+            line-height: 1.1;
+            color: #000;
+        }
+        
+        /* Letterhead Header Styles - Exact match to image */
         .letterhead-header { 
             display: table; 
             width: 100%; 
-            margin-bottom: 20px; 
-            border-bottom: 2px solid #000;
-            padding-bottom: 10px;
+            margin-bottom: 15px; 
+            padding-bottom: 8px;
+            border-bottom: 1px solid #000;
         }
         
         .logo-section { 
             display: table-cell; 
-            width: 80px; 
-            vertical-align: middle; 
-            padding-right: 15px;
+            width: 100px; 
+            vertical-align: top; 
+            padding-right: 12px;
+            padding-top: 5px;
         }
         
         .logo-section img { 
-            height: 70px; 
+            height: 85px; 
             width: auto; 
-            max-width: 80px;
+            max-width: 95px;
         }
         
         .header-text-section { 
             display: table-cell; 
-            vertical-align: middle; 
+            vertical-align: top; 
             text-align: center;
+            padding-top: 8px;
         }
         
         .hindi-institutional-name { 
-            font-size: 16pt; 
+            font-size: 15pt; 
             font-weight: bold; 
-            margin: 2px 0;
+            margin: 1px 0 3px 0;
             color: #000;
+            line-height: 1.1;
         }
         
         .english-institutional-name { 
-            font-size: 14pt; 
+            font-size: 13pt; 
             font-weight: bold; 
-            margin: 2px 0;
+            margin: 1px 0 2px 0;
             color: #000;
+            line-height: 1.1;
         }
         
         .extension-centre { 
-            font-size: 12pt; 
+            font-size: 11pt; 
             font-weight: bold; 
-            margin: 2px 0;
+            margin: 1px 0 2px 0;
             color: #000;
+            line-height: 1.1;
         }
         
         .government-affiliation { 
-            font-size: 9pt; 
-            margin: 2px 0;
-            color: #333;
+            font-size: 8pt; 
+            margin: 1px 0;
+            color: #000;
             font-style: italic;
+            line-height: 1.1;
         }
         
         /* Reference and Date Section */
         .ref-date-section { 
-            margin: 15px 0; 
+            margin: 12px 0; 
             font-size: 10pt;
+            line-height: 1.2;
         }
         
         .ref-left { 
@@ -401,103 +415,150 @@ header('Cache-Control: max-age=0');
         /* Document Title */
         .document-title { 
             text-align: center; 
-            font-size: 16pt; 
+            font-size: 14pt; 
             font-weight: bold; 
             text-decoration: underline; 
-            margin: 20px 0; 
+            margin: 15px 0 12px 0; 
         }
         
         /* Content Sections */
         .admission-details { 
-            margin-bottom: 15px; 
-            line-height: 1.4; 
+            margin-bottom: 12px; 
+            line-height: 1.3; 
             font-size: 10pt;
         }
         
         .details-table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 10px 0; 
+            margin: 8px 0; 
             font-size: 9pt;
         }
         
         .details-table td { 
-            padding: 3px 5px; 
+            padding: 2px 4px; 
             vertical-align: top; 
+            line-height: 1.2;
         }
         
         .details-table td:first-child { 
             font-weight: bold; 
-            width: 20%;
+            width: 18%;
         }
         
-        /* Students Table */
+        .details-table td:nth-child(2) { 
+            width: 32%;
+        }
+        
+        .details-table td:nth-child(3) { 
+            font-weight: bold; 
+            width: 18%;
+        }
+        
+        .details-table td:nth-child(4) { 
+            width: 32%;
+        }
+        
+        /* Students Table - Enhanced to match image exactly */
         .students-table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 15px 0; 
-            font-size: 8pt;
+            margin: 12px 0; 
+            font-size: 7pt;
         }
         
         .students-table th, .students-table td { 
             border: 1px solid #000; 
-            padding: 3px; 
+            padding: 2px 1px; 
             text-align: center;
+            line-height: 1.1;
         }
         
         .students-table th { 
-            background-color: #f0f0f0; 
+            background-color: #f8f8f8; 
             font-weight: bold; 
             font-size: 7pt;
+            height: 25px;
+            vertical-align: middle;
+        }
+        
+        .students-table td { 
+            height: 20px;
+            vertical-align: middle;
         }
         
         .students-table td.text-left { 
             text-align: left; 
+            padding-left: 3px;
         }
         
-        /* Category Summary Table */
+        /* Category Summary Table - Exact match to image */
         .category-table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 15px 0; 
+            margin: 12px 0; 
             font-size: 8pt;
         }
         
         .category-table th, .category-table td { 
             border: 1px solid #000; 
-            padding: 2px; 
+            padding: 2px 1px; 
             text-align: center;
+            line-height: 1.1;
+            height: 18px;
+            vertical-align: middle;
         }
         
         .category-table th { 
-            background-color: #f0f0f0; 
+            background-color: #f8f8f8; 
             font-weight: bold;
+            font-size: 7pt;
+        }
+        
+        .category-table .total-header {
+            background-color: #f8f8f8;
+            font-weight: bold;
+            font-size: 8pt;
         }
         
         /* Signature Section */
         .signature-section { 
             text-align: right; 
-            margin-top: 30px; 
-            font-size: 10pt;
+            margin-top: 25px; 
+            font-size: 9pt;
+            line-height: 1.2;
         }
         
         .signature-section p { 
-            margin: 3px 0; 
+            margin: 2px 0; 
         }
         
         /* Copy To Section */
         .copy-to-section { 
-            margin-top: 20px; 
-            font-size: 9pt;
+            margin-top: 18px; 
+            font-size: 8pt;
+            line-height: 1.2;
         }
         
         .copy-to-section ol { 
-            margin: 5px 0 0 20px; 
+            margin: 4px 0 0 18px; 
             padding: 0;
         }
         
         .copy-to-section li { 
-            margin: 3px 0; 
+            margin: 2px 0; 
+        }
+        
+        /* Page break handling */
+        .page-break { 
+            page-break-before: always; 
+        }
+        
+        /* Footer note styling */
+        .footer-note {
+            margin-top: 12px; 
+            font-size: 9pt;
+            line-height: 1.2;
         }
     </style>
 </head>
@@ -513,7 +574,7 @@ header('Cache-Control: max-age=0');
     <div class="header-text-section">
         <div class="hindi-institutional-name">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</div>
         <div class="english-institutional-name">National Institute of Electronics and Information Technology (NIELIT)</div>
-        <div class="extension-centre"><?php echo htmlspecialchars($extension_centre); ?> Extension Centre</div>
+        <div class="extension-centre"><?php echo htmlspecialchars($extension_centre); ?>/Balasore Extension Centre</div>
         <div class="government-affiliation">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</div>
     </div>
 </div>
@@ -571,15 +632,15 @@ header('Cache-Control: max-age=0');
 <table class="students-table">
     <thead>
         <tr>
-            <th style="width: 5%;">SL</th>
-            <th style="width: 12%;">NIELIT REG</th>
-            <th style="width: 20%;">NAME</th>
-            <th style="width: 18%;">FATHER NAME</th>
-            <th style="width: 12%;">MOBILE</th>
-            <th style="width: 13%;">AADHAAR</th>
-            <th style="width: 6%;">GEN</th>
-            <th style="width: 8%;">CAT</th>
-            <th style="width: 6%;">REMARK</th>
+            <th style="width: 4%;">SL</th>
+            <th style="width: 11%;">NIELIT REG</th>
+            <th style="width: 22%;">NAME</th>
+            <th style="width: 20%;">FATHER NAME</th>
+            <th style="width: 11%;">MOBILE</th>
+            <th style="width: 12%;">AADHAAR</th>
+            <th style="width: 5%;">GEN</th>
+            <th style="width: 6%;">CAT</th>
+            <th style="width: 9%;">REMARK</th>
         </tr>
     </thead>
     <tbody>
@@ -589,14 +650,14 @@ header('Cache-Control: max-age=0');
         ?>
         <tr>
             <td><?php echo $sl_no++; ?></td>
-            <td><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
+            <td><?php echo htmlspecialchars($student['nielit_registration_no'] ?? ($student['id'] ?? '001')); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
             <td><?php echo htmlspecialchars($student['mobile']); ?></td>
-            <td><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
-            <td><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
-            <td><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
-            <td><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
+            <td><?php echo htmlspecialchars(substr($student['aadhar_number'] ?? 'XXXXXXXXXX', -4)); ?></td>
+            <td><?php echo strtoupper(substr($student['gender'] ?? 'M', 0, 1)); ?></td>
+            <td><?php echo strtoupper($student['category'] ?? 'GENERAL'); ?></td>
+            <td><?php echo htmlspecialchars($batch['scheme_code'] ?? 'Regular'); ?></td>
         </tr>
         <?php endforeach; ?>
     </tbody>
@@ -610,8 +671,8 @@ header('Cache-Control: max-age=0');
         <th colspan="2">OBC</th>
         <th colspan="2">PWD</th>
         <th colspan="2">GEN</th>
-        <th colspan="2">TOTAL</th>
-        <th rowspan="2">TOTAL</th>
+        <th colspan="2" class="total-header">TOTAL</th>
+        <th rowspan="2" class="total-header">TOTAL</th>
     </tr>
     <tr>
         <th>M</th><th>F</th>
@@ -632,30 +693,28 @@ header('Cache-Control: max-age=0');
         <td><?php echo $category_gender_counts['PWD']['F']; ?></td>
         <td><?php echo $category_gender_counts['GEN']['M']; ?></td>
         <td><?php echo $category_gender_counts['GEN']['F']; ?></td>
-        <td><?php echo $total_male; ?></td>
-        <td><?php echo $total_female; ?></td>
-        <td><?php echo $total_students; ?></td>
+        <td><strong><?php echo $total_male; ?></strong></td>
+        <td><strong><?php echo $total_female; ?></strong></td>
+        <td><strong><?php echo $total_students; ?></strong></td>
     </tr>
 </table>
 
 <!-- Footer Note -->
-<p style="margin-top: 15px; font-size: 10pt;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
+<div class="footer-note">
+    <p>All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
+</div>
+
+<!-- Check if we need a page break for signature section -->
+<?php if ($total_students > 15): ?>
+<div class="page-break"></div>
+<?php endif; ?>
 
 <!-- Signature Section -->
 <div class="signature-section">
     <p><strong>Signature</strong></p>
     <p><?php echo date('d-m-Y'); ?></p>
-    <p><strong><?php echo htmlspecialchars($scheme_incharge); ?></strong></p>
-    <p><strong>
-    <?php 
-    $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
-    if (strtolower($scheme_code) === 'regular') {
-        echo 'Project Incharge,';
-    } else {
-        echo '(' . htmlspecialchars($scheme_code) . ') Incharge,';
-    }
-    ?>
-    </strong></p>
+    <p><strong><?php echo htmlspecialchars($scheme_incharge); ?> (Scientist T)</strong></p>
+    <p><strong>Project Incharge,</strong></p>
     <p><strong>NIELIT <?php echo htmlspecialchars($extension_centre); ?>.</strong></p>
 </div>
 
@@ -667,6 +726,11 @@ header('Cache-Control: max-age=0');
             <li><?php echo htmlspecialchars($recipient); ?></li>
         <?php endforeach; ?>
     </ol>
+</div>
+
+<!-- Page footer -->
+<div style="text-align: center; margin-top: 20px; font-size: 8pt; color: #666;">
+    Page 1 of 1
 </div>
 
 </body>
