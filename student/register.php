@@ -13,7 +13,7 @@ $selected_course_id = $_GET['course_id'] ?? $_GET['course'] ?? '';
 /*  */
 // If no course_id provided, show error and redirect
 if (empty($selected_course_id)) {
-    $_SESSION['error'] = 'Invalid access! Registration is only available through course registration links.';
+    $_SESSION['error'] = 'Invalid access! Registration is only available through course registration links. Please select a course from the courses page first.';
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -1399,6 +1399,12 @@ if (isset($_SESSION['info'])) {
         <div class="alert alert-info mt-3 mb-0" style="font-size: 0.9rem;">
             <i class="fas fa-info-circle me-2"></i>
             <strong>Note:</strong> Course and training centre are locked as you accessed this page via a registration link. You cannot change the course selection.
+        </div>
+        
+        <div class="alert alert-warning mt-2 mb-0" style="font-size: 0.9rem;">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Multi-Step Process:</strong> This is a 3-step registration form. Complete all steps to see the Submit button.
+            <br><small>Step 1: Personal Info → Step 2: Contact Info → Step 3: Documents & Submit</small>
         </div>
     </div>
 
@@ -3076,6 +3082,13 @@ document.getElementById('training_center').addEventListener('change', function()
 document.getElementById('registrationForm').addEventListener('submit', function(e) {
     console.log('Form submitted with simplified validation');
     
+    // Add visual feedback for debugging
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+        submitBtn.disabled = true;
+    }
+    
     // Basic validation only - let HTML5 and server handle the rest
     const requiredFields = ['name', 'father_name', 'mother_name', 'dob', 'gender', 'marital_status', 'mobile', 'email', 'aadhar', 'nationality', 'religion', 'category', 'position', 'state', 'city', 'pincode', 'address'];
     
@@ -3118,6 +3131,12 @@ document.getElementById('registrationForm').addEventListener('submit', function(
     }
     
     console.log('All validations passed, submitting form...');
+    
+    // Show success message before submission
+    if (submitBtn) {
+        submitBtn.innerHTML = '<i class="fas fa-check me-2"></i>Validated - Submitting...';
+    }
+    
     // Form will submit normally - no preventDefault() called unless validation fails
 });
 
