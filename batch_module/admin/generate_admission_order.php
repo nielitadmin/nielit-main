@@ -232,13 +232,19 @@ if (!$batch) {
                                     <i class="fas fa-lock"></i> Download PDF (Locked)
                                 </button>
                                 <button class="btn btn-secondary" disabled>
+                                    <i class="fas fa-lock"></i> Download Word (Locked)
+                                </button>
+                                <button class="btn btn-secondary" disabled>
                                     <i class="fas fa-lock"></i> Print (Locked)
                                 </button>
                             <?php else: ?>
                                 <button class="btn btn-success" onclick="downloadPDF()">
                                     <i class="fas fa-download"></i> Download PDF
                                 </button>
-                                <button class="btn btn-primary" onclick="printOrder()">
+                                <button class="btn btn-info" onclick="downloadWord()" style="margin-left: 5px;">
+                                    <i class="fas fa-file-word"></i> Download Word
+                                </button>
+                                <button class="btn btn-primary" onclick="printOrder()" style="margin-left: 5px;">
                                     <i class="fas fa-print"></i> Print
                                 </button>
                             <?php endif; ?>
@@ -587,6 +593,32 @@ function saveAndRegenerate(event) {
         btn.innerHTML = originalText;
         btn.disabled = false;
     });
+}
+
+function downloadWord() {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot download Word: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+    
+    // Show loading toast
+    showToast('Generating Word document...', 'info');
+    
+    // Create download URL
+    const downloadUrl = 'generate_admission_order_word_simple.php?batch_id=<?php echo $batch_id; ?>&scheme_id=<?php echo $batch['scheme_id'] ?? 0; ?>';
+    
+    // Create temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = 'admission_order_<?php echo $batch['batch_name']; ?>.doc';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Show success message after a short delay
+    setTimeout(() => {
+        showToast('Word document download started!', 'success');
+    }, 500);
 }
 </script>
 
