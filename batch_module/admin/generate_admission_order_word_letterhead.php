@@ -345,9 +345,9 @@ header('Cache-Control: max-age=0');
         }
         
         .logo-section img { 
-            height: 45px; 
+            height: 20px; 
             width: auto; 
-            max-width: 60px;
+            max-width: 25px;
         }
         
         .header-text-section { 
