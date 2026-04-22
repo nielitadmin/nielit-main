@@ -329,9 +329,10 @@ header('Cache-Control: max-age=0');
             color: #000;
         }
         
-        /* Letterhead Header Styles - Exact match to image */
+        /* Letterhead Header Styles - Compact single-line format */
         .letterhead-header { 
-            display: table; 
+            display: flex; 
+            align-items: center; 
             width: 100%; 
             margin-bottom: 15px; 
             padding-bottom: 8px;
@@ -339,53 +340,48 @@ header('Cache-Control: max-age=0');
         }
         
         .logo-section { 
-            display: table-cell; 
-            width: 100px; 
-            vertical-align: top; 
-            padding-right: 12px;
-            padding-top: 5px;
+            flex-shrink: 0;
+            margin-right: 15px;
         }
         
         .logo-section img { 
-            height: 60px; 
+            height: 45px; 
             width: auto; 
-            max-width: 70px;
+            max-width: 60px;
         }
         
         .header-text-section { 
-            display: table-cell; 
-            vertical-align: top; 
-            text-align: center;
-            padding-top: 8px;
+            flex-grow: 1;
+            text-align: left;
         }
         
         .hindi-institutional-name { 
-            font-size: 15pt; 
+            font-size: 12pt; 
             font-weight: bold; 
-            margin: 1px 0 3px 0;
+            margin: 0 0 2px 0;
             color: #000;
             line-height: 1.1;
         }
         
         .english-institutional-name { 
-            font-size: 13pt; 
+            font-size: 11pt; 
             font-weight: bold; 
-            margin: 1px 0 2px 0;
+            margin: 0 0 1px 0;
             color: #000;
             line-height: 1.1;
         }
         
         .extension-centre { 
-            font-size: 11pt; 
-            font-weight: bold; 
-            margin: 1px 0 2px 0;
+            font-size: 9pt; 
+            font-weight: normal; 
+            margin: 0 0 1px 0;
             color: #000;
             line-height: 1.1;
         }
         
         .government-affiliation { 
             font-size: 8pt; 
-            margin: 1px 0;
+            margin: 0;
             color: #000;
             font-style: italic;
             line-height: 1.1;
