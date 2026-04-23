@@ -910,7 +910,7 @@ function addNewFaculty() {
     });
 }
 
-function deleteFaculty() {
+async function deleteFaculty() {
     const deleteSelect = document.getElementById('faculty_to_delete');
     const facultyId = deleteSelect.value;
     const facultyName = deleteSelect.options[deleteSelect.selectedIndex].getAttribute('data-name');
@@ -920,7 +920,8 @@ function deleteFaculty() {
         return;
     }
     
-    if (!confirm(`Are you sure you want to delete "${facultyName}"? This action cannot be undone.`)) {
+    const confirmed = await showDeleteConfirmToast(facultyName);
+    if (!confirmed) {
         return;
     }
     
@@ -976,6 +977,71 @@ function deleteFaculty() {
         // Restore button
         btn.innerHTML = originalText;
         btn.disabled = false;
+    });
+}
+
+function showDeleteConfirmToast(facultyName) {
+    return new Promise((resolve) => {
+        const existingToast = document.getElementById('delete-confirm-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        const toast = document.createElement('div');
+        toast.id = 'delete-confirm-toast';
+        toast.style.position = 'fixed';
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.maxWidth = '420px';
+        toast.style.background = '#fff';
+        toast.style.border = '1px solid #dc3545';
+        toast.style.borderRadius = '8px';
+        toast.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.2)';
+        toast.style.padding = '14px';
+        toast.style.zIndex = '10000';
+
+        const message = document.createElement('div');
+        message.style.marginBottom = '10px';
+        message.style.color = '#212529';
+        message.style.fontSize = '14px';
+        message.textContent = `Delete "${facultyName}"? This action cannot be undone.`;
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.justifyContent = 'flex-end';
+        actions.style.gap = '8px';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.type = 'button';
+        cancelBtn.className = 'btn btn-sm btn-secondary';
+        cancelBtn.textContent = 'Cancel';
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.type = 'button';
+        deleteBtn.className = 'btn btn-sm btn-danger';
+        deleteBtn.textContent = 'Delete';
+
+        actions.appendChild(cancelBtn);
+        actions.appendChild(deleteBtn);
+        toast.appendChild(message);
+        toast.appendChild(actions);
+        document.body.appendChild(toast);
+
+        const cleanup = (confirmed) => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+            resolve(confirmed);
+        };
+
+        cancelBtn.addEventListener('click', () => cleanup(false));
+        deleteBtn.addEventListener('click', () => cleanup(true));
+
+        setTimeout(() => {
+            if (document.body.contains(toast)) {
+                cleanup(false);
+            }
+        }, 12000);
     });
 }
 
