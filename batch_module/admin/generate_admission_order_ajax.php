@@ -369,7 +369,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             <option value="<?php echo htmlspecialchars($faculty['name']); ?>" 
                                     data-id="<?php echo $faculty['id']; ?>"
                                     data-designation="<?php echo htmlspecialchars($faculty['designation']); ?>"
-                                    data-can-delete="<?php echo ($is_own_faculty || $admin_role === 'master_admin') ? 'true' : 'false'; ?>"
+                                    data-can-delete="<?php echo ($admin_role === 'master_admin') ? 'true' : 'false'; ?>"
                                     <?php echo $is_selected ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($faculty['name']); ?>
                                 <?php if (!empty($faculty['designation'])): ?>
@@ -377,7 +377,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                                 <?php endif; ?>
                                 <?php if ($is_global_faculty): ?>
                                     [Global]
-                                <?php elseif ($is_own_faculty): ?>
+                                <?php elseif ($is_own_faculty && $admin_role === 'master_admin'): ?>
                                     [My Faculty]
                                 <?php endif; ?>
                                 <?php if ($admin_role === 'master_admin' && !$is_global_faculty && !empty($faculty['creator_username'])): ?>
@@ -388,23 +388,28 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     </select>
                     <small style="color: #666; display: block; margin-top: 5px;">
                         Hold Ctrl/Cmd to select multiple faculty members<br>
-                        <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System/master-admin faculty
-                        <?php if ($admin_role === 'master_admin'): ?> | <strong>[By: username]</strong> = Added by coordinator<?php endif; ?><br>
-                        <span style="color: #dc3545;">Right-click on your faculty to delete them</span>
+                        <?php if ($admin_role === 'master_admin'): ?>
+                            <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System/master-admin faculty | <strong>[By: username]</strong> = Added by coordinator<br>
+                            <span style="color: #dc3545;">Right-click on your faculty to delete them</span>
+                        <?php else: ?>
+                            <strong>[Global]</strong> = System/master-admin faculty
+                        <?php endif; ?>
                     </small>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 5px;">
-                    <button type="button" id="addFacultyBtn" class="btn btn-sm btn-success" 
-                            onclick="openAddFacultyModal();"
-                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
-                        <i class="fas fa-plus"></i> Add Faculty
-                    </button>
-                    <button type="button" id="deleteFacultyBtn" class="btn btn-sm btn-danger" 
-                            onclick="openDeleteFacultyModal();"
-                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
-                        <i class="fas fa-trash"></i> Delete Faculty
-                    </button>
-                </div>
+                <?php if ($admin_role === 'master_admin'): ?>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <button type="button" id="addFacultyBtn" class="btn btn-sm btn-success" 
+                                onclick="openAddFacultyModal();"
+                                style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
+                            <i class="fas fa-plus"></i> Add Faculty
+                        </button>
+                        <button type="button" id="deleteFacultyBtn" class="btn btn-sm btn-danger" 
+                                onclick="openDeleteFacultyModal();"
+                                style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
+                            <i class="fas fa-trash"></i> Delete Faculty
+                        </button>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
         <div>
