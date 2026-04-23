@@ -1059,10 +1059,7 @@ function updateFacultyField() {
         return;
     }
     
-    const facultyNames = selectedOptions.map(option => {
-        const designation = option.getAttribute('data-designation');
-        return option.value + (designation ? ' (' + designation + ')' : '');
-    });
+    const facultyNames = selectedOptions.map(option => option.value);
     
     const displayElement = document.getElementById('display_faculty');
     if (displayElement) {

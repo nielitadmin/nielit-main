@@ -88,7 +88,7 @@ if (empty($faculty_list) && !empty($faculty_name)) {
 $faculty_display = '';
 if (!empty($faculty_list)) {
     $faculty_names = array_map(function($f) {
-        return $f['name'] . (!empty($f['designation']) ? ' (' . $f['designation'] . ')' : '');
+        return $f['name'];
     }, $faculty_list);
     $faculty_display = implode(', ', $faculty_names);
 } else {
@@ -667,10 +667,7 @@ function updateFacultyField() {
         return;
     }
     
-    const facultyNames = selectedOptions.map(option => {
-        const designation = option.getAttribute('data-designation');
-        return option.value + (designation ? ' (' + designation + ')' : '');
-    });
+    const facultyNames = selectedOptions.map(option => option.value);
     
     document.getElementById('display_faculty').textContent = facultyNames.join(', ');
 }
