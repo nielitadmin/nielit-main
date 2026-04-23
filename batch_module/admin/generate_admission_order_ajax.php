@@ -378,12 +378,12 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     </small>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 5px;">
-                    <button type="button" class="btn btn-sm btn-success" onclick="openAddFacultyModal()" 
-                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px;">
+                    <button type="button" class="btn btn-sm btn-success" id="addFacultyBtn"
+                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
                         <i class="fas fa-plus"></i> Add Faculty
                     </button>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="openDeleteFacultyModal()" 
-                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px;">
+                    <button type="button" class="btn btn-sm btn-danger" id="deleteFacultyBtn"
+                            style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
                         <i class="fas fa-trash"></i> Delete Faculty
                     </button>
                 </div>
@@ -674,8 +674,12 @@ function updateFacultyField() {
 }
 
 function openAddFacultyModal() {
+    console.log('openAddFacultyModal called'); // Debug log
+    alert('Add Faculty button clicked! Modal will open now.'); // Test alert
+    
     // Create modal HTML if it doesn't exist
     if (!document.getElementById('addFacultyModal')) {
+        console.log('Creating add faculty modal'); // Debug log
         const modalHTML = `
         <div class="modal fade" id="addFacultyModal" tabindex="-1" aria-labelledby="addFacultyModalLabel" aria-hidden="true"
              style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050;">
@@ -753,6 +757,9 @@ function openAddFacultyModal() {
 }
 
 function openDeleteFacultyModal() {
+    console.log('openDeleteFacultyModal called'); // Debug log
+    alert('Delete Faculty button clicked! Modal will open now.'); // Test alert
+    
     // Get all faculty that can be deleted (owned by current user)
     const facultySelect = document.getElementById('edit_faculty');
     const deletableFaculty = Array.from(facultySelect.options).filter(option => 
@@ -1024,6 +1031,66 @@ function showToast(message, type = 'info') {
         }
     }, 5000);
 }
+
+// Add event listeners when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners');
+    
+    // Add Faculty button
+    const addBtn = document.getElementById('addFacultyBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Add Faculty button clicked');
+            openAddFacultyModal();
+        });
+        console.log('Add Faculty button listener added');
+    } else {
+        console.log('Add Faculty button not found');
+    }
+    
+    // Delete Faculty button
+    const deleteBtn = document.getElementById('deleteFacultyBtn');
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Delete Faculty button clicked');
+            openDeleteFacultyModal();
+        });
+        console.log('Delete Faculty button listener added');
+    } else {
+        console.log('Delete Faculty button not found');
+    }
+});
+
+// Also try to add listeners after a short delay in case DOM isn't ready
+setTimeout(function() {
+    console.log('Delayed setup of event listeners');
+    
+    // Add Faculty button
+    const addBtn = document.getElementById('addFacultyBtn');
+    if (addBtn && !addBtn.hasAttribute('data-listener-added')) {
+        addBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Add Faculty button clicked (delayed)');
+            openAddFacultyModal();
+        });
+        addBtn.setAttribute('data-listener-added', 'true');
+        console.log('Add Faculty button listener added (delayed)');
+    }
+    
+    // Delete Faculty button
+    const deleteBtn = document.getElementById('deleteFacultyBtn');
+    if (deleteBtn && !deleteBtn.hasAttribute('data-listener-added')) {
+        deleteBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Delete Faculty button clicked (delayed)');
+            openDeleteFacultyModal();
+        });
+        deleteBtn.setAttribute('data-listener-added', 'true');
+        console.log('Delete Faculty button listener added (delayed)');
+    }
+}, 1000);
 </script>
 
 <?php
