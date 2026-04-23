@@ -39,6 +39,7 @@ $theme_logo = getThemeLogo($active_theme);
 
 // Get admin's assigned courses for filtering (used throughout the page)
 $admin_courses = [];
+$admin_course_ids = [];
 $is_course_coordinator = isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator';
 
 if ($is_course_coordinator) {
@@ -71,6 +72,7 @@ if ($is_course_coordinator) {
         $course_result = $course_stmt->get_result();
         while ($course_row = $course_result->fetch_assoc()) {
             $admin_courses[] = $course_row['course_name'];
+            $admin_course_ids[] = (int)$course_row['id'];
         }
     }
 }
@@ -80,15 +82,15 @@ $filter_category = $_GET['category'] ?? 'all';
 
 // Build query with filter and student count
 $sql = "SELECT courses.*, 
-        (SELECT COUNT(*) FROM students WHERE students.course = courses.course_name) as student_count 
+    (SELECT COUNT(*) FROM students WHERE students.course_id = courses.id) as student_count 
         FROM courses WHERE 1=1";
 
 // Add course coordinator filtering
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
+    if (!empty($admin_course_ids)) {
         // Coordinator has assigned courses - show only those courses
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $sql .= " AND courses.course_name IN ($placeholders)";
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
+        $sql .= " AND courses.id IN ($placeholders)";
     } else {
         // Coordinator has no assigned courses - show no courses
         $sql .= " AND 1=0"; // This makes the query return no results
@@ -110,9 +112,9 @@ $bind_types = '';
 $bind_values = [];
 
 // Add admin courses if coordinator (only if they have assigned courses)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $bind_types .= str_repeat('s', count($admin_courses));
-    $bind_values = array_merge($bind_values, $admin_courses);
+if ($is_course_coordinator && !empty($admin_course_ids)) {
+    $bind_types .= str_repeat('i', count($admin_course_ids));
+    $bind_values = array_merge($bind_values, $admin_course_ids);
 }
 
 // Add category filter
@@ -271,11 +273,11 @@ if (isset($_POST['add_course'])) {
 // Get statistics
 // Total courses (filtered for coordinators and NSQF managers)
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $stats_sql = "SELECT COUNT(*) as count FROM courses WHERE course_name IN ($placeholders)";
+    if (!empty($admin_course_ids)) {
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
+        $stats_sql = "SELECT COUNT(*) as count FROM courses WHERE id IN ($placeholders)";
         $stats_stmt = $conn->prepare($stats_sql);
-        $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stats_stmt->bind_param(str_repeat('i', count($admin_course_ids)), ...$admin_course_ids);
         $stats_stmt->execute();
         $stats_result = $stats_stmt->get_result();
         $total_courses = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
@@ -294,11 +296,11 @@ if ($is_course_coordinator) {
 
 // Total students (filtered for coordinators)
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $stats_sql = "SELECT COUNT(*) as count FROM students WHERE course IN ($placeholders)";
+    if (!empty($admin_course_ids)) {
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
+        $stats_sql = "SELECT COUNT(*) as count FROM students WHERE course_id IN ($placeholders)";
         $stats_stmt = $conn->prepare($stats_sql);
-        $stats_stmt->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stats_stmt->bind_param(str_repeat('i', count($admin_course_ids)), ...$admin_course_ids);
         $stats_stmt->execute();
         $stats_result = $stats_stmt->get_result();
         $total_students = $stats_result ? $stats_result->fetch_assoc()['count'] : 0;
@@ -805,7 +807,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                                         $student_count = $row['student_count'] ?? 0;
                                         $badge_class = $student_count > 0 ? 'badge-success' : 'badge-secondary';
                                         ?>
-                                        <a href="students.php?filter_course=<?php echo urlencode($row['course_name']); ?>" 
+                                                     <a href="students.php?filter_course_id=<?php echo urlencode($row['id']); ?>" 
                                            class="badge <?php echo $badge_class; ?>" 
                                            style="text-decoration: none; font-size: 14px; padding: 6px 12px;">
                                             <i class="fas fa-users"></i> <?php echo $student_count; ?>

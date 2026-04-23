@@ -181,12 +181,12 @@ if ($is_course_coordinator) {
 
 // Query to get total number of students (filtered for coordinators)
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    if (!empty($admin_course_ids)) {
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
         // For coordinators: count students not assigned to batches and not rejected
-        $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course IN ($placeholders) AND batch_id IS NULL AND status != 'rejected'";
+        $total_students_query = "SELECT COUNT(*) AS total_students FROM students WHERE course_id IN ($placeholders) AND batch_id IS NULL AND status != 'rejected'";
         $stmt_total = $conn->prepare($total_students_query);
-        $stmt_total->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_total->bind_param(str_repeat('i', count($admin_course_ids)), ...$admin_course_ids);
         $stmt_total->execute();
         $total_students_result = $stmt_total->get_result();
     } else {
@@ -209,12 +209,12 @@ if ($total_students_result) {
 
 // Query to get pending students count (filtered for coordinators)
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    if (!empty($admin_course_ids)) {
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
         // For coordinators: count students pending approval (not yet active)
-        $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course IN ($placeholders)";
+        $pending_students_query = "SELECT COUNT(*) AS pending_students FROM students WHERE status = 'pending' AND course_id IN ($placeholders)";
         $stmt_pending = $conn->prepare($pending_students_query);
-        $stmt_pending->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_pending->bind_param(str_repeat('i', count($admin_course_ids)), ...$admin_course_ids);
         $stmt_pending->execute();
         $pending_students_result = $stmt_pending->get_result();
     } else {
@@ -237,12 +237,12 @@ if ($pending_students_result) {
 
 // Query to get active students count (filtered for coordinators)
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
+    if (!empty($admin_course_ids)) {
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
         // For coordinators: count active students not assigned to batches (available for batch assignment)
-        $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND batch_id IS NULL AND course IN ($placeholders)";
+        $active_students_query = "SELECT COUNT(*) AS active_students FROM students WHERE status = 'active' AND batch_id IS NULL AND course_id IN ($placeholders)";
         $stmt_active = $conn->prepare($active_students_query);
-        $stmt_active->bind_param(str_repeat('s', count($admin_courses)), ...$admin_courses);
+        $stmt_active->bind_param(str_repeat('i', count($admin_course_ids)), ...$admin_course_ids);
         $stmt_active->execute();
         $active_students_result = $stmt_active->get_result();
     } else {
@@ -466,15 +466,15 @@ $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 $query = "SELECT s.*, b.batch_name, b.batch_code, c.course_description
           FROM students s 
           LEFT JOIN batches b ON s.batch_id = b.id 
-          LEFT JOIN courses c ON s.course = c.course_name
+          LEFT JOIN courses c ON s.course_id = c.id
           WHERE 1=1";
 
 // If course coordinator, only show students from their assigned courses
 if ($is_course_coordinator) {
-    if (!empty($admin_courses)) {
+    if (!empty($admin_course_ids)) {
         // Coordinator has assigned courses - show only those students
-        $placeholders = str_repeat('?,', count($admin_courses) - 1) . '?';
-        $query .= " AND s.course IN ($placeholders)";
+        $placeholders = str_repeat('?,', count($admin_course_ids) - 1) . '?';
+        $query .= " AND s.course_id IN ($placeholders)";
         
         // IMPORTANT: For course coordinators, hide students who are:
         // 1. Already assigned to a batch (batch_id IS NOT NULL)
@@ -491,7 +491,7 @@ if ($is_course_coordinator) {
 }
 
 if ($selected_course != 'All') {
-    $query .= " AND s.course = ?";
+    $query .= " AND s.course_id = ?";
 }
 
 if (!empty($start_date) && !empty($end_date)) {
@@ -508,15 +508,15 @@ $bind_types = '';
 $bind_values = [];
 
 // Add admin courses if coordinator (only if they have assigned courses)
-if ($is_course_coordinator && !empty($admin_courses)) {
-    $bind_types .= str_repeat('s', count($admin_courses));
-    $bind_values = array_merge($bind_values, $admin_courses);
+if ($is_course_coordinator && !empty($admin_course_ids)) {
+    $bind_types .= str_repeat('i', count($admin_course_ids));
+    $bind_values = array_merge($bind_values, $admin_course_ids);
 }
 
 // Add selected course filter
 if ($selected_course != 'All') {
-    $bind_types .= 's';
-    $bind_values[] = $selected_course;
+    $bind_types .= 'i';
+    $bind_values[] = intval($selected_course);
 }
 
 // Add date range filter
@@ -729,6 +729,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                     if ($courses_result && $courses_result->num_rows > 0) {
                                         $courses_result->data_seek(0);
                                         while ($course = $courses_result->fetch_assoc()) {
+                                            $course_id = (int)$course['id'];
                                             $course_name = $course['course_name'];
                                             $course_description = $course['course_description'];
                                             
@@ -738,7 +739,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                                 $display_text .= " (" . htmlspecialchars($course_description) . ")";
                                             }
                                             
-                                            echo "<option value=\"$course_name\" " . ($selected_course == $course_name ? 'selected' : '') . ">{$display_text}</option>";
+                                            echo "<option value=\"$course_id\" " . ($selected_course != 'All' && intval($selected_course) === $course_id ? 'selected' : '') . ">$display_text</option>";
                                         }
                                     }
                                     ?>
@@ -1048,7 +1049,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
         
         <form method="POST" action="students.php">
             <input type="hidden" name="student_id" id="modal-student-id">
-            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+                    <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
             
