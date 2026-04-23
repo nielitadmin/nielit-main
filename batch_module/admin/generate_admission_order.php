@@ -523,6 +523,11 @@ function saveAndRegenerate(event) {
     }
     
     // Collect all edited values
+    const facultySelect = document.getElementById('edit_faculty');
+    const selectedFacultyIds = Array.from(facultySelect.selectedOptions).map(option => {
+        return parseInt(option.getAttribute('data-id')) || 0;
+    }).filter(id => id > 0);
+    
     const data = {
         batch_id: batchId,
         admission_order_ref: document.getElementById('edit_ref').value,
@@ -532,7 +537,8 @@ function saveAndRegenerate(event) {
         class_time: document.getElementById('edit_time').value,
         batch_coordinator: document.getElementById('edit_faculty').value,
         scheme_incharge: document.getElementById('edit_incharge').value,
-        copy_to_list: document.getElementById('edit_copy_to').value
+        copy_to_list: document.getElementById('edit_copy_to').value,
+        faculty_ids: selectedFacultyIds
     };
     
     console.log('Data to save:', data);

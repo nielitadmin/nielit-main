@@ -58,6 +58,53 @@ if (empty($batch['examination_month'])) {
 $faculty_name = !empty($batch['course_coordinator']) ? $batch['course_coordinator'] : 
                 (!empty($batch['batch_coordinator']) ? $batch['batch_coordinator'] : 'To be assigned');
 
+// Fetch faculty members assigned to this batch
+$faculty_list = [];
+$assigned_faculty_ids = [];
+$faculty_query = "SELECT f.id, f.name, f.designation 
+                  FROM batch_faculty bf 
+                  INNER JOIN faculty f ON bf.faculty_id = f.id 
+                  WHERE bf.batch_id = ? AND f.is_active = 1 
+                  ORDER BY f.name";
+$stmt = $conn->prepare($faculty_query);
+if ($stmt) {
+    $stmt->bind_param("i", $batch_id);
+    $stmt->execute();
+    $faculty_result = $stmt->get_result();
+    
+    while ($row = $faculty_result->fetch_assoc()) {
+        $faculty_list[] = $row;
+        $assigned_faculty_ids[] = $row['id'];
+    }
+    $stmt->close();
+}
+
+// If no faculty assigned to batch, use the course coordinator as fallback
+if (empty($faculty_list) && !empty($faculty_name)) {
+    $faculty_list[] = ['id' => 0, 'name' => $faculty_name, 'designation' => ''];
+}
+
+// Create faculty display string
+$faculty_display = '';
+if (!empty($faculty_list)) {
+    $faculty_names = array_map(function($f) {
+        return $f['name'] . (!empty($f['designation']) ? ' (' . $f['designation'] . ')' : '');
+    }, $faculty_list);
+    $faculty_display = implode(', ', $faculty_names);
+} else {
+    $faculty_display = $faculty_name;
+}
+
+// Fetch all available faculty for dropdown
+$all_faculty = [];
+$all_faculty_query = "SELECT id, name, designation FROM faculty WHERE is_active = 1 ORDER BY name";
+$result = $conn->query($all_faculty_query);
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $all_faculty[] = $row;
+    }
+}
+
 // Use scheme_incharge if set, otherwise use faculty_name
 $scheme_incharge = !empty($batch['scheme_incharge']) ? $batch['scheme_incharge'] : $faculty_name;
 
@@ -279,11 +326,23 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         </div>
         <div>
             <strong>Faculty Name:</strong>
-            <input type="text" id="edit_faculty" class="inline-edit-field" 
-                   value="<?php echo htmlspecialchars($faculty_name); ?>" 
-                   oninput="updateField('faculty', this.value)"
-                   placeholder="e.g., Kaushik Mohanty"
-                   style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px;">
+            <select id="edit_faculty" class="inline-edit-field" multiple 
+                    onchange="updateFacultyField()"
+                    style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px; min-height: 80px;">
+                <?php foreach ($all_faculty as $faculty): ?>
+                    <?php $is_selected = in_array($faculty['id'], $assigned_faculty_ids); ?>
+                    <option value="<?php echo htmlspecialchars($faculty['name']); ?>" 
+                            data-id="<?php echo $faculty['id']; ?>"
+                            data-designation="<?php echo htmlspecialchars($faculty['designation']); ?>"
+                            <?php echo $is_selected ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($faculty['name']); ?>
+                        <?php if (!empty($faculty['designation'])): ?>
+                            (<?php echo htmlspecialchars($faculty['designation']); ?>)
+                        <?php endif; ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <small style="color: #666; display: block; margin-top: 5px;">Hold Ctrl/Cmd to select multiple faculty members</small>
         </div>
         <div>
             <strong>Scheme/Project Incharge:</strong>
@@ -346,7 +405,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                 <td style="width: 25%; padding: 2px 0; vertical-align: top;"><strong>Location:</strong></td>
                 <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_location"><?php echo htmlspecialchars($location); ?></span></td>
                 <td style="width: 25%; padding: 2px 0; vertical-align: top;"><strong>Faculty Name:</strong></td>
-                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_faculty"><?php echo htmlspecialchars($faculty_name); ?></span></td>
+                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_faculty"><?php echo htmlspecialchars($faculty_display); ?></span></td>
             </tr>
             <tr>
                 <td style="padding: 2px 0; vertical-align: top;"><strong>Course Name:</strong></td>
@@ -550,6 +609,23 @@ function updateField(field, value) {
             });
             break;
     }
+}
+
+function updateFacultyField() {
+    const select = document.getElementById('edit_faculty');
+    const selectedOptions = Array.from(select.selectedOptions);
+    
+    if (selectedOptions.length === 0) {
+        document.getElementById('display_faculty').textContent = 'To be assigned';
+        return;
+    }
+    
+    const facultyNames = selectedOptions.map(option => {
+        const designation = option.getAttribute('data-designation');
+        return option.value + (designation ? ' (' + designation + ')' : '');
+    });
+    
+    document.getElementById('display_faculty').textContent = facultyNames.join(', ');
 }
 </script>
 
