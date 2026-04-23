@@ -27,8 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $department = trim($_POST['department']);
                 
                 if (!empty($name)) {
-                    $stmt = $pdo->prepare("INSERT INTO faculty (name, email, phone, designation, department, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-                    if ($stmt->execute([$name, $email, $phone, $designation, $department, $admin_id])) {
+                    $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("sssssi", $name, $email, $phone, $designation, $department, $admin_id);
+                    if ($stmt->execute()) {
                         $success_message = "Faculty member added successfully!";
                     } else {
                         $error_message = "Error adding faculty member.";
@@ -45,8 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $department = trim($_POST['department']);
                 $is_active = isset($_POST['is_active']) ? 1 : 0;
                 
-                $stmt = $pdo->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, is_active = ? WHERE id = ?");
-                if ($stmt->execute([$name, $email, $phone, $designation, $department, $is_active, $faculty_id])) {
+                $stmt = $conn->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, is_active = ? WHERE id = ?");
+                $stmt->bind_param("sssssii", $name, $email, $phone, $designation, $department, $is_active, $faculty_id);
+                if ($stmt->execute()) {
                     $success_message = "Faculty member updated successfully!";
                 } else {
                     $error_message = "Error updating faculty member.";
@@ -55,8 +57,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete_faculty':
                 $faculty_id = $_POST['faculty_id'];
-                $stmt = $pdo->prepare("UPDATE faculty SET is_active = 0 WHERE id = ?");
-                if ($stmt->execute([$faculty_id])) {
+                $stmt = $conn->prepare("UPDATE faculty SET is_active = 0 WHERE id = ?");
+                $stmt->bind_param("i", $faculty_id);
+                if ($stmt->execute()) {
                     $success_message = "Faculty member deactivated successfully!";
                 } else {
                     $error_message = "Error deactivating faculty member.";
@@ -67,9 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch all faculty members
-$stmt = $pdo->prepare("SELECT * FROM faculty ORDER BY is_active DESC, name ASC");
-$stmt->execute();
-$faculty_members = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$result = $conn->query("SELECT * FROM faculty ORDER BY is_active DESC, name ASC");
+$faculty_members = [];
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $faculty_members[] = $row;
+    }
+}
 
 include 'includes/header.php';
 ?>

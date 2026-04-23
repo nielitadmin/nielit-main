@@ -8,7 +8,7 @@ require_once __DIR__ . '/../config/database.php';
 
 try {
     // Start transaction
-    $pdo->beginTransaction();
+    $conn->autocommit(FALSE);
     
     echo "Installing Faculty Management System...\n";
     
@@ -29,7 +29,10 @@ try {
         INDEX idx_active (is_active)
     )";
     
-    $pdo->exec($sql_faculty);
+    $result = $conn->query($sql_faculty);
+    if (!$result) {
+        throw new Exception("Error creating faculty table: " . $conn->error);
+    }
     echo "✓ Faculty table created\n";
     
     // Create batch_faculty junction table
@@ -45,7 +48,10 @@ try {
         INDEX idx_faculty_id (faculty_id)
     )";
     
-    $pdo->exec($sql_batch_faculty);
+    $result = $conn->query($sql_batch_faculty);
+    if (!$result) {
+        throw new Exception("Error creating batch_faculty table: " . $conn->error);
+    }
     echo "✓ Batch-Faculty junction table created\n";
     
     // Insert sample faculty data
@@ -57,16 +63,22 @@ try {
         ['Ms. Kavita Joshi', 'kavita.joshi@nielit.gov.in', '9876543214', 'Lecturer', 'Web Development']
     ];
     
-    $stmt = $pdo->prepare("INSERT IGNORE INTO faculty (name, email, phone, designation, department, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+    $stmt = $conn->prepare("INSERT IGNORE INTO faculty (name, email, phone, designation, department, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+    if (!$stmt) {
+        throw new Exception("Error preparing faculty insert statement: " . $conn->error);
+    }
     
     foreach ($sample_faculty as $faculty) {
-        $stmt->execute($faculty);
+        $stmt->bind_param("sssss", $faculty[0], $faculty[1], $faculty[2], $faculty[3], $faculty[4]);
+        if (!$stmt->execute()) {
+            throw new Exception("Error inserting faculty data: " . $stmt->error);
+        }
     }
     
     echo "✓ Sample faculty data inserted\n";
     
     // Commit transaction
-    $pdo->commit();
+    $conn->commit();
     
     echo "\n✅ Faculty Management System installed successfully!\n";
     echo "\nNext steps:\n";
@@ -76,7 +88,7 @@ try {
     
 } catch (Exception $e) {
     // Rollback transaction on error
-    $pdo->rollback();
+    $conn->rollback();
     echo "\n❌ Error installing Faculty Management System: " . $e->getMessage() . "\n";
     exit(1);
 }
