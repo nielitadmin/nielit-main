@@ -57,6 +57,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'delete_faculty':
                 $faculty_id = $_POST['faculty_id'];
+                
+                // Check if current admin can delete this faculty
+                $check_stmt = $conn->prepare("SELECT created_by FROM faculty WHERE id = ?");
+                $check_stmt->bind_param("i", $faculty_id);
+                $check_stmt->execute();
+                $check_result = $check_stmt->get_result();
+                $faculty_data = $check_result->fetch_assoc();
+                $check_stmt->close();
+                
+                if (!$faculty_data) {
+                    $error_message = "Faculty member not found.";
+                    break;
+                }
+                
+                // Check permissions - only allow deletion if:
+                // 1. Master admin can delete any faculty
+                // 2. Course coordinator can only delete faculty they created
+                if ($admin_role !== 'master_admin' && $faculty_data['created_by'] != $admin_id) {
+                    $error_message = "You can only delete faculty members you have added.";
+                    break;
+                }
+                
                 $stmt = $conn->prepare("UPDATE faculty SET is_active = 0 WHERE id = ?");
                 $stmt->bind_param("i", $faculty_id);
                 if ($stmt->execute()) {
@@ -158,10 +180,24 @@ include 'includes/header.php';
                                         <button class="btn btn-sm btn-outline-primary" onclick="editFaculty(<?php echo htmlspecialchars(json_encode($faculty)); ?>)">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <?php if ($faculty['is_active']): ?>
+                                        <?php 
+                                        // Show delete button only if:
+                                        // 1. Faculty is active
+                                        // 2. Master admin can delete any faculty
+                                        // 3. Course coordinator can only delete faculty they created
+                                        $can_delete = $faculty['is_active'] && 
+                                                     ($admin_role === 'master_admin' || $faculty['created_by'] == $admin_id);
+                                        ?>
+                                        <?php if ($can_delete): ?>
                                         <button class="btn btn-sm btn-outline-danger" onclick="deactivateFaculty(<?php echo $faculty['id']; ?>, '<?php echo htmlspecialchars($faculty['name']); ?>')">
                                             <i class="fas fa-ban"></i>
                                         </button>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($faculty['created_by'] == $admin_id): ?>
+                                        <small class="text-muted d-block" style="font-size: 10px;">My Faculty</small>
+                                        <?php elseif (empty($faculty['created_by']) || $faculty['created_by'] == 0): ?>
+                                        <small class="text-muted d-block" style="font-size: 10px;">Global</small>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
