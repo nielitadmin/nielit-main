@@ -102,14 +102,25 @@ $admin_role = $_SESSION['admin_role'] ?? '';
 
 // Master admins can see all faculty, course coordinators only see their own + global faculty
 if ($admin_role === 'master_admin') {
-    $all_faculty_query = "SELECT id, name, designation, created_by FROM faculty WHERE is_active = 1 ORDER BY name";
+    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.created_by, a.username AS creator_username, a.role AS creator_role
+                          FROM faculty f
+                          LEFT JOIN admin a ON f.created_by = a.id
+                          WHERE f.is_active = 1
+                          ORDER BY f.name";
     $result = $conn->query($all_faculty_query);
 } else {
-    // Course coordinators see only faculty they created + faculty created by master admins (created_by = 0 or NULL)
-    $all_faculty_query = "SELECT id, name, designation, created_by FROM faculty 
-                          WHERE is_active = 1 
-                          AND (created_by = ? OR created_by = 0 OR created_by IS NULL)
-                          ORDER BY name";
+    // Course coordinators see own faculty + global faculty (system or created by master admin)
+    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.created_by, a.username AS creator_username, a.role AS creator_role
+                          FROM faculty f
+                          LEFT JOIN admin a ON f.created_by = a.id
+                          WHERE f.is_active = 1
+                          AND (
+                              f.created_by = ?
+                              OR f.created_by = 0
+                              OR f.created_by IS NULL
+                              OR a.role = 'master_admin'
+                          )
+                          ORDER BY f.name";
     $stmt = $conn->prepare($all_faculty_query);
     $stmt->bind_param("i", $admin_id);
     $stmt->execute();
@@ -352,7 +363,8 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             <?php 
                             $is_selected = in_array($faculty['id'], $assigned_faculty_ids);
                             $is_own_faculty = ($faculty['created_by'] == $admin_id);
-                            $is_global_faculty = (empty($faculty['created_by']) || $faculty['created_by'] == 0);
+                            $is_master_created = (($faculty['creator_role'] ?? '') === 'master_admin');
+                            $is_global_faculty = (empty($faculty['created_by']) || $faculty['created_by'] == 0 || $is_master_created);
                             ?>
                             <option value="<?php echo htmlspecialchars($faculty['name']); ?>" 
                                     data-id="<?php echo $faculty['id']; ?>"
@@ -363,17 +375,21 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                                 <?php if (!empty($faculty['designation'])): ?>
                                     (<?php echo htmlspecialchars($faculty['designation']); ?>)
                                 <?php endif; ?>
-                                <?php if ($is_own_faculty): ?>
-                                    [My Faculty]
-                                <?php elseif ($is_global_faculty): ?>
+                                <?php if ($is_global_faculty): ?>
                                     [Global]
+                                <?php elseif ($is_own_faculty): ?>
+                                    [My Faculty]
+                                <?php endif; ?>
+                                <?php if ($admin_role === 'master_admin' && !$is_global_faculty && !empty($faculty['creator_username'])): ?>
+                                    [By: <?php echo htmlspecialchars($faculty['creator_username']); ?>]
                                 <?php endif; ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
                     <small style="color: #666; display: block; margin-top: 5px;">
                         Hold Ctrl/Cmd to select multiple faculty members<br>
-                        <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System faculty<br>
+                        <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System/master-admin faculty
+                        <?php if ($admin_role === 'master_admin'): ?> | <strong>[By: username]</strong> = Added by coordinator<?php endif; ?><br>
                         <span style="color: #dc3545;">Right-click on your faculty to delete them</span>
                     </small>
                 </div>
@@ -1053,7 +1069,8 @@ function addNewFaculty() {
             newOption.selected = true; // Auto-select the new faculty
             
             const displayText = result.faculty.name + 
-                (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '');
+                (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') +
+                (<?php echo json_encode($admin_role === 'master_admin'); ?> ? ' [Global]' : ' [My Faculty]');
             newOption.textContent = displayText;
             
             facultySelect.appendChild(newOption);

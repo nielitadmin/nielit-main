@@ -881,7 +881,8 @@ function addNewFaculty() {
                 newOption.selected = true; // Auto-select the new faculty
                 
                 const displayText = result.faculty.name + 
-                    (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') + ' [My Faculty]';
+                    (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') +
+                    (<?php echo json_encode(($_SESSION['admin_role'] ?? '') === 'master_admin'); ?> ? ' [Global]' : ' [My Faculty]');
                 newOption.textContent = displayText;
                 
                 facultySelect.appendChild(newOption);
