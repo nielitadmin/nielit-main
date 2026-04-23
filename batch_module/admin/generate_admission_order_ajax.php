@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 
-if (!isset($_SESSION['admin'])) {
+if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_id'])) {
     die('Unauthorized');
 }
 
@@ -97,8 +97,8 @@ if (!empty($faculty_list)) {
 
 // Fetch all available faculty for dropdown - only show faculty created by current admin or global faculty
 $all_faculty = [];
-$admin_id = $_SESSION['admin']['id'] ?? 1;
-$admin_role = $_SESSION['admin']['role'] ?? '';
+$admin_id = $_SESSION['admin_id'] ?? 1;
+$admin_role = $_SESSION['admin_role'] ?? '';
 
 // Master admins can see all faculty, course coordinators only see their own + global faculty
 if ($admin_role === 'master_admin') {
@@ -357,7 +357,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             <option value="<?php echo htmlspecialchars($faculty['name']); ?>" 
                                     data-id="<?php echo $faculty['id']; ?>"
                                     data-designation="<?php echo htmlspecialchars($faculty['designation']); ?>"
-                                    data-can-delete="<?php echo $is_own_faculty ? 'true' : 'false'; ?>"
+                                    data-can-delete="<?php echo ($is_own_faculty || $admin_role === 'master_admin') ? 'true' : 'false'; ?>"
                                     <?php echo $is_selected ? 'selected' : ''; ?>>
                                 <?php echo htmlspecialchars($faculty['name']); ?>
                                 <?php if (!empty($faculty['designation'])): ?>
@@ -378,11 +378,13 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     </small>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 5px;">
-                    <button type="button" class="btn btn-sm btn-success" id="addFacultyBtn"
+                    <button type="button" id="addFacultyBtn" class="btn btn-sm btn-success" 
+                            onclick="openAddFacultyModal();"
                             style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
                         <i class="fas fa-plus"></i> Add Faculty
                     </button>
-                    <button type="button" class="btn btn-sm btn-danger" id="deleteFacultyBtn"
+                    <button type="button" id="deleteFacultyBtn" class="btn btn-sm btn-danger" 
+                            onclick="openDeleteFacultyModal();"
                             style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
                         <i class="fas fa-trash"></i> Delete Faculty
                     </button>
@@ -860,6 +862,13 @@ function openDeleteFacultyModal() {
     };
 }
 
+function closeAddFacultyModal() {
+    const modal = document.getElementById('addFacultyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 function closeDeleteFacultyModal() {
     const modal = document.getElementById('deleteFacultyModal');
     if (modal) {
@@ -1035,16 +1044,29 @@ function showToast(message, type = 'info') {
 // Add event listeners when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up event listeners');
-    
+    setupFacultyButtons();
+});
+
+// Also try to add listeners after a short delay in case DOM isn't ready
+setTimeout(function() {
+    console.log('Delayed setup of event listeners');
+    setupFacultyButtons();
+}, 1000);
+
+function setupFacultyButtons() {
     // Add Faculty button
     const addBtn = document.getElementById('addFacultyBtn');
     if (addBtn) {
-        addBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Add Faculty button clicked');
-            openAddFacultyModal();
-        });
-        console.log('Add Faculty button listener added');
+        console.log('Add Faculty button found');
+        if (!addBtn.hasAttribute('data-listener-added')) {
+            addBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Add Faculty button clicked via event listener');
+                openAddFacultyModal();
+            });
+            addBtn.setAttribute('data-listener-added', 'true');
+            console.log('Add Faculty button listener added');
+        }
     } else {
         console.log('Add Faculty button not found');
     }
@@ -1052,45 +1074,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delete Faculty button
     const deleteBtn = document.getElementById('deleteFacultyBtn');
     if (deleteBtn) {
-        deleteBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Delete Faculty button clicked');
-            openDeleteFacultyModal();
-        });
-        console.log('Delete Faculty button listener added');
+        console.log('Delete Faculty button found');
+        if (!deleteBtn.hasAttribute('data-listener-added')) {
+            deleteBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                console.log('Delete Faculty button clicked via event listener');
+                openDeleteFacultyModal();
+            });
+            deleteBtn.setAttribute('data-listener-added', 'true');
+            console.log('Delete Faculty button listener added');
+        }
     } else {
         console.log('Delete Faculty button not found');
     }
-});
-
-// Also try to add listeners after a short delay in case DOM isn't ready
-setTimeout(function() {
-    console.log('Delayed setup of event listeners');
-    
-    // Add Faculty button
-    const addBtn = document.getElementById('addFacultyBtn');
-    if (addBtn && !addBtn.hasAttribute('data-listener-added')) {
-        addBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Add Faculty button clicked (delayed)');
-            openAddFacultyModal();
-        });
-        addBtn.setAttribute('data-listener-added', 'true');
-        console.log('Add Faculty button listener added (delayed)');
-    }
-    
-    // Delete Faculty button
-    const deleteBtn = document.getElementById('deleteFacultyBtn');
-    if (deleteBtn && !deleteBtn.hasAttribute('data-listener-added')) {
-        deleteBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            console.log('Delete Faculty button clicked (delayed)');
-            openDeleteFacultyModal();
-        });
-        deleteBtn.setAttribute('data-listener-added', 'true');
-        console.log('Delete Faculty button listener added (delayed)');
-    }
-}, 1000);
+}
 </script>
 
 <?php

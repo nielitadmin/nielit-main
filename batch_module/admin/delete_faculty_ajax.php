@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../config/config.php';
 header('Content-Type: application/json');
 
 // Check if admin is logged in
-if (!isset($_SESSION['admin'])) {
+if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_id'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();
 }
@@ -27,8 +27,8 @@ if (!isset($data['faculty_id']) || empty($data['faculty_id'])) {
     exit();
 }
 
-$admin_id = $_SESSION['admin']['id'] ?? 1;
-$admin_role = $_SESSION['admin']['role'] ?? '';
+$admin_id = $_SESSION['admin_id'];
+$admin_role = $_SESSION['admin_role'] ?? '';
 $faculty_id = intval($data['faculty_id']);
 
 try {
