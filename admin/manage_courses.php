@@ -8,6 +8,48 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 
+function findDuplicateCourseFields($conn, $course_code, $course_abbreviation, $exclude_id = null) {
+    $course_code = strtoupper(trim($course_code));
+    $course_abbreviation = strtoupper(trim($course_abbreviation));
+
+    if ($exclude_id !== null) {
+        $sql = "SELECT id, course_name, course_code, course_abbreviation
+                FROM courses
+                WHERE id != ? AND (UPPER(course_code) = ? OR UPPER(course_abbreviation) = ?)
+                LIMIT 5";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("iss", $exclude_id, $course_code, $course_abbreviation);
+    } else {
+        $sql = "SELECT id, course_name, course_code, course_abbreviation
+                FROM courses
+                WHERE UPPER(course_code) = ? OR UPPER(course_abbreviation) = ?
+                LIMIT 5";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("ss", $course_code, $course_abbreviation);
+    }
+
+    $duplicates = [
+        'code' => null,
+        'abbreviation' => null
+    ];
+
+    if ($stmt) {
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            if (strtoupper($row['course_code']) === $course_code && $duplicates['code'] === null) {
+                $duplicates['code'] = $row;
+            }
+            if (strtoupper($row['course_abbreviation']) === $course_abbreviation && $duplicates['abbreviation'] === null) {
+                $duplicates['abbreviation'] = $row;
+            }
+        }
+        $stmt->close();
+    }
+
+    return $duplicates;
+}
+
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
@@ -18,14 +60,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if ($action === 'add') {
         $course_name = $_POST['course_name'];
-        $course_code = strtoupper($_POST['course_code']);
-        $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
+        $course_code = strtoupper(trim($_POST['course_code']));
+        $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
         $course_type = $_POST['course_type'];
         
         // Check if NSQF manager is trying to create non-NSQF course
         if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
             !in_array($course_type, ['Long Term NSQF', 'Short Term NSQF'])) {
             $error = "You can only create Long Term NSQF and Short Term NSQF courses.";
+            goto skip_add;
+        }
+
+        $duplicates = findDuplicateCourseFields($conn, $course_code, $course_abbreviation);
+        if ($duplicates['code'] || $duplicates['abbreviation']) {
+            $messages = [];
+            if ($duplicates['code']) {
+                $messages[] = "Course Code '{$course_code}' is already used by '{$duplicates['code']['course_name']}'.";
+            }
+            if ($duplicates['abbreviation']) {
+                $messages[] = "Student ID Code '{$course_abbreviation}' is already used by '{$duplicates['abbreviation']['course_name']}'.";
+            }
+            $error = implode(' ', $messages) . " Please make a different one.";
+            $show_duplicate_popup = true;
             goto skip_add;
         }
         
@@ -88,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     
     if ($action === 'edit') {
-        $id = $_POST['course_id'];
+        $id = intval($_POST['course_id']);
         
         // Check if course coordinator has permission to edit this course
         if ($_SESSION['admin_role'] === 'course_coordinator') {
@@ -105,14 +161,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $course_name = $_POST['course_name'];
-        $course_code = strtoupper($_POST['course_code']);
-        $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
+        $course_code = strtoupper(trim($_POST['course_code']));
+        $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
         $course_type = $_POST['course_type'];
         
         // Check if NSQF manager is trying to edit to non-NSQF course
         if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
             !in_array($course_type, ['Long Term NSQF', 'Short Term NSQF'])) {
             $error = "You can only manage Long Term NSQF and Short Term NSQF courses.";
+            goto skip_edit;
+        }
+
+        $duplicates = findDuplicateCourseFields($conn, $course_code, $course_abbreviation, $id);
+        if ($duplicates['code'] || $duplicates['abbreviation']) {
+            $messages = [];
+            if ($duplicates['code']) {
+                $messages[] = "Course Code '{$course_code}' is already used by '{$duplicates['code']['course_name']}'.";
+            }
+            if ($duplicates['abbreviation']) {
+                $messages[] = "Student ID Code '{$course_abbreviation}' is already used by '{$duplicates['abbreviation']['course_name']}'.";
+            }
+            $error = implode(' ', $messages) . " Please make a different one.";
+            $show_duplicate_popup = true;
             goto skip_edit;
         }
         
@@ -129,7 +199,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $registration_link = !empty($custom_link) ? $custom_link : '';
         
         $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, link_published=? WHERE id=?");
-        $stmt->bind_param("issssssdsssi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $link_published, $id);
+        $stmt->bind_param("issssssdsssii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $link_published, $id);
         
         if ($stmt->execute()) {
             // Regenerate QR code if registration link exists
@@ -381,6 +451,14 @@ if (!empty($params)) {
                         <?= $error ?>
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
+                <?php endif; ?>
+
+                <?php if (!empty($show_duplicate_popup) && isset($error)): ?>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            alert(<?php echo json_encode($error); ?>);
+                        });
+                    </script>
                 <?php endif; ?>
 
                 <!-- Filter Section -->
