@@ -69,8 +69,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch all faculty members
-$result = $conn->query("SELECT * FROM faculty ORDER BY is_active DESC, name ASC");
+// Fetch all faculty members - filter based on role
+$admin_id = $_SESSION['admin_id'];
+$admin_role = $_SESSION['role'] ?? '';
+
+if ($admin_role === 'master_admin') {
+    // Master admins can see all faculty
+    $result = $conn->query("SELECT * FROM faculty ORDER BY is_active DESC, name ASC");
+} else {
+    // Course coordinators see only faculty they created + global faculty (created_by = 0 or NULL)
+    $stmt = $conn->prepare("SELECT * FROM faculty 
+                           WHERE (created_by = ? OR created_by = 0 OR created_by IS NULL)
+                           ORDER BY is_active DESC, name ASC");
+    $stmt->bind_param("i", $admin_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+}
+
 $faculty_members = [];
 if ($result) {
     while ($row = $result->fetch_assoc()) {
