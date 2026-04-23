@@ -321,7 +321,7 @@ function downloadPDF() {
     
     const opt = {
         margin: [8, 5, 8, 5], // Top, Right, Bottom, Left margins in mm (minimal margins)
-        filename: 'admission_order_<?php echo $batch['batch_code']; ?>.pdf',
+        filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
             scale: 2,
@@ -611,12 +611,12 @@ function generateLetterhead() {
     showToast('Generating letterhead Word document...', 'info');
     
     // Create download URL for letterhead generator
-    const letterheadUrl = 'generate_admission_order_word_letterhead.php?batch_id=<?php echo $batch_id; ?>&scheme_id=<?php echo $batch['scheme_id'] ?? 0; ?>';
+    const letterheadUrl = <?php echo json_encode('generate_admission_order_word_letterhead.php?batch_id=' . $batch_id . '&scheme_id=' . ($batch['scheme_id'] ?? 0)); ?>;
     
     // Create temporary link and trigger download
     const link = document.createElement('a');
     link.href = letterheadUrl;
-    link.download = 'admission_order_letterhead_<?php echo $batch['batch_name']; ?>.doc';
+    link.download = <?php echo json_encode('admission_order_letterhead_' . $batch['batch_name'] . '.doc'); ?>;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -625,6 +625,383 @@ function generateLetterhead() {
     setTimeout(() => {
         showToast('Letterhead Word document download started!', 'success');
     }, 500);
+}
+
+// Faculty Management Functions
+function openAddFacultyModal() {
+    console.log('openAddFacultyModal called');
+    
+    // Create modal HTML if it doesn't exist
+    if (!document.getElementById('addFacultyModal')) {
+        console.log('Creating add faculty modal');
+        const modalHTML = `
+        <div class="modal fade" id="addFacultyModal" tabindex="-1" aria-labelledby="addFacultyModalLabel" aria-hidden="true"
+             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog" style="position: relative; margin: 50px auto; max-width: 500px;">
+                <div class="modal-content" style="background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
+                        <h5 class="modal-title" id="addFacultyModalLabel" style="margin: 0; font-size: 16px; font-weight: 600;">
+                            <i class="fas fa-user-plus"></i> Add New Faculty Member
+                        </h5>
+                        <button type="button" class="btn-close" onclick="closeAddFacultyModal()" aria-label="Close" 
+                                style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <form id="addFacultyForm">
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_name" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Name *</label>
+                                <input type="text" class="form-control" id="faculty_name" name="name" required 
+                                       placeholder="e.g., Dr. John Smith"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_email" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                                <input type="email" class="form-control" id="faculty_email" name="email" 
+                                       placeholder="e.g., john.smith@nielit.gov.in"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_phone" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Phone</label>
+                                <input type="text" class="form-control" id="faculty_phone" name="phone" 
+                                       placeholder="e.g., 9876543210"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_designation" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Designation</label>
+                                <input type="text" class="form-control" id="faculty_designation" name="designation" 
+                                       placeholder="e.g., Professor, Assistant Professor, Lecturer"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_department" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Department</label>
+                                <input type="text" class="form-control" id="faculty_department" name="department" 
+                                       placeholder="e.g., Computer Science, Information Technology"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddFacultyModal()"
+                                style="padding: 8px 16px; border: 1px solid #6c757d; background: #6c757d; color: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                        <button type="button" class="btn btn-success" onclick="addNewFaculty()"
+                                style="padding: 8px 16px; border: 1px solid #198754; background: #198754; color: white; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-save"></i> Add Faculty
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    // Clear form
+    document.getElementById('addFacultyForm').reset();
+    
+    // Show modal
+    const modal = document.getElementById('addFacultyModal');
+    modal.style.display = 'block';
+    
+    // Add click outside to close
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeAddFacultyModal();
+        }
+    };
+}
+
+function closeAddFacultyModal() {
+    const modal = document.getElementById('addFacultyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function openDeleteFacultyModal() {
+    console.log('openDeleteFacultyModal called');
+    
+    // Get all faculty that can be deleted (owned by current user)
+    const facultySelect = document.getElementById('edit_faculty');
+    if (!facultySelect) {
+        alert('Faculty dropdown not found. Please refresh the page.');
+        return;
+    }
+    
+    const deletableFaculty = Array.from(facultySelect.options).filter(option => 
+        option.getAttribute('data-can-delete') === 'true'
+    );
+    
+    if (deletableFaculty.length === 0) {
+        alert('You have no faculty members to delete. You can only delete faculty you have added.');
+        return;
+    }
+    
+    // Create modal HTML if it doesn't exist
+    if (!document.getElementById('deleteFacultyModal')) {
+        const modalHTML = `
+        <div class="modal fade" id="deleteFacultyModal" tabindex="-1" aria-labelledby="deleteFacultyModalLabel" aria-hidden="true"
+             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog" style="position: relative; margin: 50px auto; max-width: 500px;">
+                <div class="modal-content" style="background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
+                        <h5 class="modal-title" id="deleteFacultyModalLabel" style="margin: 0; font-size: 16px; font-weight: 600; color: #dc3545;">
+                            <i class="fas fa-trash"></i> Delete Faculty Member
+                        </h5>
+                        <button type="button" class="btn-close" onclick="closeDeleteFacultyModal()" aria-label="Close" 
+                                style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="alert alert-warning" style="padding: 10px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 15px;">
+                            <strong>Warning:</strong> You can only delete faculty members you have added. This action cannot be undone.
+                        </div>
+                        <div class="mb-3" style="margin-bottom: 15px;">
+                            <label for="faculty_to_delete" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Select Faculty to Delete:</label>
+                            <select class="form-control" id="faculty_to_delete" name="faculty_to_delete" 
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                                <option value="">-- Select Faculty --</option>
+                            </select>
+                        </div>
+                        <div id="delete_faculty_info" style="display: none; padding: 10px; background: #f8f9fa; border-radius: 4px; margin-top: 10px;">
+                            <strong>Faculty Details:</strong><br>
+                            <span id="delete_faculty_details"></span>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeDeleteFacultyModal()"
+                                style="padding: 8px 16px; border: 1px solid #6c757d; background: #6c757d; color: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                        <button type="button" class="btn btn-danger" onclick="deleteFaculty()" id="confirmDeleteBtn" disabled
+                                style="padding: 8px 16px; border: 1px solid #dc3545; background: #dc3545; color: white; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-trash"></i> Delete Faculty
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    // Populate the delete dropdown
+    const deleteSelect = document.getElementById('faculty_to_delete');
+    deleteSelect.innerHTML = '<option value="">-- Select Faculty --</option>';
+    
+    deletableFaculty.forEach(option => {
+        const deleteOption = document.createElement('option');
+        deleteOption.value = option.getAttribute('data-id');
+        deleteOption.textContent = option.textContent;
+        deleteOption.setAttribute('data-name', option.value);
+        deleteOption.setAttribute('data-designation', option.getAttribute('data-designation'));
+        deleteSelect.appendChild(deleteOption);
+    });
+    
+    // Add change event listener
+    deleteSelect.onchange = function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const infoDiv = document.getElementById('delete_faculty_info');
+        const detailsSpan = document.getElementById('delete_faculty_details');
+        
+        if (this.value) {
+            const name = selectedOption.getAttribute('data-name');
+            const designation = selectedOption.getAttribute('data-designation');
+            detailsSpan.innerHTML = `Name: ${name}<br>Designation: ${designation || 'Not specified'}`;
+            infoDiv.style.display = 'block';
+            confirmBtn.disabled = false;
+        } else {
+            infoDiv.style.display = 'none';
+            confirmBtn.disabled = true;
+        }
+    };
+    
+    // Show modal
+    const modal = document.getElementById('deleteFacultyModal');
+    modal.style.display = 'block';
+    
+    // Add click outside to close
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeDeleteFacultyModal();
+        }
+    };
+}
+
+function closeDeleteFacultyModal() {
+    const modal = document.getElementById('deleteFacultyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+function addNewFaculty() {
+    const form = document.getElementById('addFacultyForm');
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const name = formData.get('name').trim();
+    if (!name) {
+        alert('Faculty name is required!');
+        return;
+    }
+    
+    // Show loading state
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    btn.disabled = true;
+    
+    // Prepare data
+    const facultyData = {
+        action: 'add_faculty',
+        name: name,
+        email: formData.get('email').trim(),
+        phone: formData.get('phone').trim(),
+        designation: formData.get('designation').trim(),
+        department: formData.get('department').trim()
+    };
+    
+    // Send AJAX request
+    fetch('add_faculty_ajax.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(facultyData)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Add new faculty to dropdown
+            const facultySelect = document.getElementById('edit_faculty');
+            if (facultySelect) {
+                const newOption = document.createElement('option');
+                newOption.value = result.faculty.name;
+                newOption.setAttribute('data-id', result.faculty.id);
+                newOption.setAttribute('data-designation', result.faculty.designation || '');
+                newOption.setAttribute('data-can-delete', 'true');
+                newOption.selected = true; // Auto-select the new faculty
+                
+                const displayText = result.faculty.name + 
+                    (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') + ' [My Faculty]';
+                newOption.textContent = displayText;
+                
+                facultySelect.appendChild(newOption);
+                
+                // Update the display
+                updateFacultyField();
+            }
+            
+            // Close modal
+            closeAddFacultyModal();
+            
+            // Show success message
+            showToast('Faculty member added successfully!', 'success');
+        } else {
+            alert('Error adding faculty: ' + result.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding faculty. Please try again.');
+    })
+    .finally(() => {
+        // Restore button
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function deleteFaculty() {
+    const deleteSelect = document.getElementById('faculty_to_delete');
+    const facultyId = deleteSelect.value;
+    const facultyName = deleteSelect.options[deleteSelect.selectedIndex].getAttribute('data-name');
+    
+    if (!facultyId) {
+        alert('Please select a faculty member to delete.');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to delete "${facultyName}"? This action cannot be undone.`)) {
+        return;
+    }
+    
+    // Show loading state
+    const btn = document.getElementById('confirmDeleteBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+    btn.disabled = true;
+    
+    // Send AJAX request
+    fetch('delete_faculty_ajax.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'delete_faculty',
+            faculty_id: facultyId
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Remove faculty from dropdown
+            const facultySelect = document.getElementById('edit_faculty');
+            if (facultySelect) {
+                const optionToRemove = Array.from(facultySelect.options).find(option => 
+                    option.getAttribute('data-id') === facultyId
+                );
+                
+                if (optionToRemove) {
+                    facultySelect.removeChild(optionToRemove);
+                }
+                
+                // Update the display
+                updateFacultyField();
+            }
+            
+            // Close modal
+            closeDeleteFacultyModal();
+            
+            // Show success message
+            showToast('Faculty member deleted successfully!', 'success');
+        } else {
+            alert('Error deleting faculty: ' + result.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting faculty. Please try again.');
+    })
+    .finally(() => {
+        // Restore button
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
+
+function updateFacultyField() {
+    const select = document.getElementById('edit_faculty');
+    if (!select) return;
+    
+    const selectedOptions = Array.from(select.selectedOptions);
+    
+    if (selectedOptions.length === 0) {
+        const displayElement = document.getElementById('display_faculty');
+        if (displayElement) {
+            displayElement.textContent = 'To be assigned';
+        }
+        return;
+    }
+    
+    const facultyNames = selectedOptions.map(option => {
+        const designation = option.getAttribute('data-designation');
+        return option.value + (designation ? ' (' + designation + ')' : '');
+    });
+    
+    const displayElement = document.getElementById('display_faculty');
+    if (displayElement) {
+        displayElement.textContent = facultyNames.join(', ');
+    }
 }
 </script>
 
