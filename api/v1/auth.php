@@ -63,6 +63,29 @@ function handleLogin() {
             WHERE (s.student_id = ? OR s.email = ?) AND s.status IN ('approved', 'active')
             LIMIT 1
         ");
+
+        if (!$stmt) {
+            $stmt = $conn->prepare("
+                SELECT 
+                    id,
+                    student_id,
+                    name,
+                    email,
+                    password,
+                    course_id,
+                    NULL AS course_name,
+                    training_center,
+                    status,
+                    created_at
+                FROM students
+                WHERE (student_id = ? OR email = ?) AND status IN ('approved', 'active')
+                LIMIT 1
+            ");
+        }
+
+        if (!$stmt) {
+            sendApiError('Failed to prepare authentication query', 500, 'QUERY_PREPARE_FAILED');
+        }
     
     $stmt->bind_param("ss", $username, $username);
     $stmt->execute();
