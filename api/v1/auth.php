@@ -58,7 +58,7 @@ function handleLogin() {
             status,
             created_at
         FROM students 
-        WHERE (student_id = ? OR email = ?) AND status = 'approved'
+        WHERE (student_id = ? OR email = ?) AND status IN ('approved', 'active')
         LIMIT 1
     ");
     
@@ -95,7 +95,7 @@ function handleLogin() {
     } else {
         // Log failed login attempt
         logFailedLogin($username, $_SERVER['REMOTE_ADDR']);
-        sendApiError('Student not found or not approved', 401, 'STUDENT_NOT_FOUND');
+        sendApiError('Student not found or not in allowed status', 401, 'STUDENT_NOT_FOUND');
     }
 }
 

@@ -65,7 +65,7 @@ function getStudentsList($limit, $offset) {
     global $conn;
     
     // Get total count
-    $count_query = "SELECT COUNT(*) as total FROM students WHERE status = 'approved'";
+    $count_query = "SELECT COUNT(*) as total FROM students WHERE status IN ('approved', 'active')";
     $count_result = $conn->query($count_query);
     $total = $count_result->fetch_assoc()['total'];
     
@@ -81,7 +81,7 @@ function getStudentsList($limit, $offset) {
             created_at,
             status
         FROM students 
-        WHERE status = 'approved'
+        WHERE status IN ('approved', 'active')
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
     ");
@@ -125,7 +125,7 @@ function getStudentsListWithPasswords($limit, $offset) {
     global $conn;
     
     // Get total count
-    $count_query = "SELECT COUNT(*) as total FROM students WHERE status = 'approved'";
+    $count_query = "SELECT COUNT(*) as total FROM students WHERE status IN ('approved', 'active')";
     $count_result = $conn->query($count_query);
     $total = $count_result->fetch_assoc()['total'];
     
@@ -142,7 +142,7 @@ function getStudentsListWithPasswords($limit, $offset) {
             created_at,
             status
         FROM students 
-        WHERE status = 'approved'
+        WHERE status IN ('approved', 'active')
         ORDER BY created_at DESC
         LIMIT ? OFFSET ?
     ");
@@ -188,7 +188,7 @@ function exportAllStudentsWithPasswords() {
     global $conn;
     
     // Get total count first
-    $count_query = "SELECT COUNT(*) as total FROM students WHERE status = 'approved'";
+    $count_query = "SELECT COUNT(*) as total FROM students WHERE status IN ('approved', 'active')";
     $count_result = $conn->query($count_query);
     $total = $count_result->fetch_assoc()['total'];
     
@@ -213,7 +213,7 @@ function exportAllStudentsWithPasswords() {
             state,
             pincode
         FROM students 
-        WHERE status = 'approved'
+        WHERE status IN ('approved', 'active')
         ORDER BY created_at DESC
     ");
     
@@ -281,7 +281,7 @@ function getStudentById($student_id) {
             state,
             pincode
         FROM students 
-        WHERE student_id = ? AND status = 'approved'
+        WHERE student_id = ? AND status IN ('approved', 'active')
     ");
     
     $stmt->bind_param("s", $student_id);
@@ -324,7 +324,7 @@ function getStudentByEmail($email) {
             state,
             pincode
         FROM students 
-        WHERE email = ? AND status = 'approved'
+        WHERE email = ? AND status IN ('approved', 'active')
     ");
     
     $stmt->bind_param("s", $email);
@@ -367,7 +367,7 @@ function authenticateStudent() {
             training_center,
             status
         FROM students 
-        WHERE (student_id = ? OR email = ?) AND status = 'approved'
+        WHERE (student_id = ? OR email = ?) AND status IN ('approved', 'active')
     ");
     
     $stmt->bind_param("ss", $username, $username);
@@ -391,7 +391,7 @@ function authenticateStudent() {
             sendApiError('Invalid credentials', 401);
         }
     } else {
-        sendApiError('Student not found or not approved', 401);
+        sendApiError('Student not found or not in allowed status', 401);
     }
 }
 
@@ -424,7 +424,7 @@ function searchStudents() {
             name LIKE ? OR 
             email LIKE ? OR 
             student_id LIKE ?
-        ) AND status = 'approved'
+        ) AND status IN ('approved', 'active')
         ORDER BY name ASC
         LIMIT ?
     ");
