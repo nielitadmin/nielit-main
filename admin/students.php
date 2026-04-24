@@ -317,10 +317,10 @@ while ($row = $category_result->fetch_assoc()) {
 if ($is_course_coordinator && !empty($admin_course_ids)) {
     // Course coordinators only see their assigned courses
     $course_ids = implode(',', array_map('intval', $admin_course_ids));
-    $sql_courses = "SELECT course_name, course_description FROM courses WHERE id IN ($course_ids) ORDER BY course_name";
+    $sql_courses = "SELECT id, course_name, course_description FROM courses WHERE id IN ($course_ids) ORDER BY course_name";
 } else {
     // Master admins see all courses
-    $sql_courses = "SELECT course_name, course_description FROM courses ORDER BY course_name";
+    $sql_courses = "SELECT id, course_name, course_description FROM courses ORDER BY course_name";
 }
 $courses_result = $conn->query($sql_courses);
 
