@@ -8,6 +8,9 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../config/api_config.php';
 
+// This is an admin HTML page, so override API JSON content type.
+header('Content-Type: text/html; charset=UTF-8');
+
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
     header("Location: ../admin/login.php");
