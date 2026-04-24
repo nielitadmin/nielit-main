@@ -90,7 +90,6 @@ function getStudentsList($limit, $offset) {
     $stmt->execute();
     $result = $stmt->get_result();
     
-    $students = [];
     while ($row = $result->fetch_assoc()) {
         $students[] = [
             'student_id' => $row['student_id'],
@@ -105,6 +104,7 @@ function getStudentsList($limit, $offset) {
     }
     
     $response_data = [
+            $stmt = $conn->prepare("
         'students' => $students,
         'pagination' => [
             'total' => (int)$total,
@@ -133,7 +133,8 @@ function getStudentsListWithPasswords($limit, $offset) {
     $stmt = $conn->prepare("
         SELECT 
             student_id,
-            name,
+                    'course_id' => $row['course_id'],
+                    'course_name' => $row['course_name'],
             email,
             mobile,
             password,
@@ -261,28 +262,30 @@ function exportAllStudentsWithPasswords() {
 function getStudentById($student_id) {
     global $conn;
     
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            name,
-            father_name,
-            mother_name,
-            email,
-            mobile,
-            password,
-            course_id,
-            training_center,
-            created_at,
-            status,
-            dob,
-            gender,
-            address,
-            city,
-            state,
-            pincode
-        FROM students 
-        WHERE student_id = ? AND status IN ('approved', 'active')
-    ");
+        $stmt = $conn->prepare("
+            SELECT 
+                s.student_id,
+                s.name,
+                s.father_name,
+                s.mother_name,
+                s.email,
+                s.mobile,
+                s.password,
+                s.course_id,
+                c.course_name,
+                s.training_center,
+                s.created_at,
+                s.status,
+                s.dob,
+                s.gender,
+                s.address,
+                s.city,
+                s.state,
+                s.pincode
+            FROM students s
+            LEFT JOIN courses c ON s.course_id = c.id
+            WHERE s.student_id = ? AND s.status IN ('approved', 'active')
+        ");
     
     $stmt->bind_param("s", $student_id);
     $stmt->execute();
@@ -304,28 +307,30 @@ function getStudentById($student_id) {
 function getStudentByEmail($email) {
     global $conn;
     
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            name,
-            father_name,
-            mother_name,
-            email,
-            mobile,
-            password,
-            course_id,
-            training_center,
-            created_at,
-            status,
-            dob,
-            gender,
-            address,
-            city,
-            state,
-            pincode
-        FROM students 
-        WHERE email = ? AND status IN ('approved', 'active')
-    ");
+        $stmt = $conn->prepare("
+            SELECT 
+                s.student_id,
+                s.name,
+                s.father_name,
+                s.mother_name,
+                s.email,
+                s.mobile,
+                s.password,
+                s.course_id,
+                c.course_name,
+                s.training_center,
+                s.created_at,
+                s.status,
+                s.dob,
+                s.gender,
+                s.address,
+                s.city,
+                s.state,
+                s.pincode
+            FROM students s
+            LEFT JOIN courses c ON s.course_id = c.id
+            WHERE s.email = ? AND s.status IN ('approved', 'active')
+        ");
     
     $stmt->bind_param("s", $email);
     $stmt->execute();

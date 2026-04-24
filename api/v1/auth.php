@@ -46,21 +46,23 @@ function handleLogin() {
     }
     
     // Try to find student by student_id or email
-    $stmt = $conn->prepare("
-        SELECT 
-            id,
-            student_id,
-            name,
-            email,
-            password,
-            course_id,
-            training_center,
-            status,
-            created_at
-        FROM students 
-        WHERE (student_id = ? OR email = ?) AND status IN ('approved', 'active')
-        LIMIT 1
-    ");
+        $stmt = $conn->prepare("
+            SELECT 
+                s.id,
+                s.student_id,
+                s.name,
+                s.email,
+                s.password,
+                s.course_id,
+                c.course_name,
+                s.training_center,
+                s.status,
+                s.created_at
+            FROM students s
+            LEFT JOIN courses c ON s.course_id = c.id
+            WHERE (s.student_id = ? OR s.email = ?) AND s.status IN ('approved', 'active')
+            LIMIT 1
+        ");
     
     $stmt->bind_param("ss", $username, $username);
     $stmt->execute();
