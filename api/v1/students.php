@@ -393,7 +393,6 @@ function getStudentById($student_id) {
     $result = $stmt->get_result();
 
     if ($student = $result->fetch_assoc()) {
-        unset($student['password']);
         sendApiResponse(['student' => $student]);
     }
 
@@ -469,7 +468,6 @@ function getStudentByEmail($email) {
     $result = $stmt->get_result();
 
     if ($student = $result->fetch_assoc()) {
-        unset($student['password']);
         sendApiResponse(['student' => $student]);
     }
 
