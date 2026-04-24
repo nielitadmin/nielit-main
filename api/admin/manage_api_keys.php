@@ -61,7 +61,21 @@ function createApiKey() {
         VALUES (?, ?, ?, ?, ?, ?, NOW())
     ");
     
-    $stmt->bind_param("ssssis", $name, $description, $api_key_hash, $permissions, $rate_limit, $admin_id);
+        if (!$stmt) {
+            $stmt = $conn->prepare("
+                INSERT INTO api_keys (name, description, api_key_hash)
+                VALUES (?, ?, ?)
+            ");
+        
+            if (!$stmt) {
+                $_SESSION['error'] = 'Failed to create API key: ' . $conn->error;
+                return;
+            }
+        
+            $stmt->bind_param("sss", $name, $description, $api_key_hash);
+        } else {
+            $stmt->bind_param("ssssii", $name, $description, $api_key_hash, $permissions, $rate_limit, $admin_id);
+        }
     
     if ($stmt->execute()) {
         $_SESSION['success'] = 'API key created successfully';
@@ -77,6 +91,16 @@ function revokeApiKey() {
     $api_key_id = (int)($_POST['api_key_id'] ?? 0);
     
     $stmt = $conn->prepare("UPDATE api_keys SET is_active = 0, revoked_at = NOW() WHERE id = ?");
+
+    if (!$stmt) {
+        $stmt = $conn->prepare("UPDATE api_keys SET is_active = 0 WHERE id = ?");
+    }
+
+    if (!$stmt) {
+        $_SESSION['error'] = 'Failed to revoke API key: ' . $conn->error;
+        return;
+    }
+
     $stmt->bind_param("i", $api_key_id);
     
     if ($stmt->execute()) {
@@ -100,6 +124,19 @@ function updateApiKey() {
         SET name = ?, description = ?, permissions = ?, rate_limit = ?, updated_at = NOW() 
         WHERE id = ?
     ");
+    
+        if (!$stmt) {
+            $stmt = $conn->prepare("
+                UPDATE api_keys 
+                SET name = ?, description = ?, permissions = ?, rate_limit = ? 
+                WHERE id = ?
+            ");
+        }
+    
+        if (!$stmt) {
+            $_SESSION['error'] = 'Failed to update API key: ' . $conn->error;
+            return;
+        }
     
     $stmt->bind_param("sssii", $name, $description, $permissions, $rate_limit, $api_key_id);
     
