@@ -69,6 +69,57 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     return ['success'=>false,'error'=>"move_uploaded_file failed. Dest: $dest | Writable: ".(is_writable($dir)?'YES':'NO')];
 }
 
+function validateThumbImpressionUpload($file) {
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    $allowedExtensions = ['jpg', 'jpeg', 'png'];
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return ['valid' => false, 'message' => 'Upload error: ' . $file['error']];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes, true)) {
+        return ['valid' => false, 'message' => "Invalid file type: $mimeType"];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExtensions, true)) {
+        return ['valid' => false, 'message' => "Invalid extension: .$ext"];
+    }
+
+    if ($file['size'] > 2 * 1024 * 1024) {
+        return ['valid' => false, 'message' => 'Thumb impression must be 2MB or smaller'];
+    }
+
+    return ['valid' => true];
+}
+
+function handleThumbImpressionUpload($file, $student_id) {
+    $validation = validateThumbImpressionUpload($file);
+    if (!$validation['valid']) {
+        return ['success' => false, 'error' => $validation['message']];
+    }
+
+    $dir = __DIR__ . '/uploads/students/thumb_impression/';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        return ['success' => false, 'error' => "Cannot create directory: $dir"];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $safe_id = str_replace(['/', '\\', ' '], '-', $student_id);
+    $filename = $safe_id . '_' . time() . '_thumb.' . $ext;
+    $dest = $dir . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $dest)) {
+        return ['success' => false, 'error' => 'Failed to save thumb impression image'];
+    }
+
+    return ['success' => true, 'path' => 'student/uploads/students/thumb_impression/' . $filename];
+}
+
 // ============================================================
 // MAIN
 // ============================================================
@@ -206,6 +257,7 @@ if (!is_dir($uploadDir)) {
 $passport_photo_path  = '';
 $signature_path       = '';
 $payment_receipt_path = '';
+$left_thumb_impression_path = null;
 
 // ----------------------------------------------------------
 // 7. Upload passport photo (mandatory)
@@ -254,6 +306,20 @@ if (!move_uploaded_file($_FILES['signature']['tmp_name'], $uploadDir . $fn)) {
 $signature_path = 'student/uploads/students/' . $fn;
 
 // ----------------------------------------------------------
+// 9A. Upload left hand thumb impression (optional)
+// ----------------------------------------------------------
+if (isset($_FILES['left_thumb_impression']) && $_FILES['left_thumb_impression']['error'] === UPLOAD_ERR_OK) {
+    $r = handleThumbImpressionUpload($_FILES['left_thumb_impression'], $student_id);
+    if ($r['success']) {
+        $left_thumb_impression_path = $r['path'];
+    } else {
+        $_SESSION['error'] = "Thumb impression invalid: " . $r['error'];
+        header("Location: " . $redirectBack);
+        exit();
+    }
+}
+
+// ----------------------------------------------------------
 // 9. Upload payment receipt (optional)
 // ----------------------------------------------------------
 if (isset($_FILES['payment_receipt']) && $_FILES['payment_receipt']['error'] === UPLOAD_ERR_OK) {
@@ -296,7 +362,7 @@ if (!empty($uploadErrors)) {
         $msg .= "- " . ucwords(str_replace('_',' ',$f)) . ": $e<br>";
     $_SESSION['error'] = $msg;
     // Rollback uploaded files
-    foreach (array_merge($uploadedDocs, array_filter([$passport_photo_path,$signature_path,$payment_receipt_path])) as $p) {
+    foreach (array_merge($uploadedDocs, array_filter([$passport_photo_path,$signature_path,$left_thumb_impression_path,$payment_receipt_path])) as $p) {
         $abs = __DIR__ . '/' . $p;
         if (!empty($p) && file_exists($abs)) unlink($abs);
     }
@@ -334,16 +400,16 @@ $sql = "INSERT INTO students (
     dob, age, mobile, aadhar, apaar_id, gender, religion, marital_status,
     category, pwd_status, distinguishing_marks, position, nationality, email,
     state, city, pincode, address, college_name, education_details,
-    passport_photo, signature, payment_receipt, utr_number,
+    passport_photo, signature, left_thumb_impression, payment_receipt, utr_number,
     student_id, password,
     aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc,
     twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc,
     status, registration_date
 ) VALUES (
-    ?,?,?,?,?,?, ?,?,?,?,?,?,?,?,
-    ?,?,?,?,?,?, ?,?,?,?,?,?,
-    ?,?,?,?, ?,?,
-    ?,?,?, ?,?,?,
+    ?,?,?,?,?,?,?,?,?,?,
+    ?,?,?,?,?,?,?,?,?,?,
+    ?,?,?,?,?,?,?,?,?,?,
+    ?,?,?,?,?,?,?,?,?,
     'pending', NOW()
 )";
 
@@ -356,14 +422,15 @@ if (!$stmt) {
 }
 
 // FIXED: Corrected parameter count and types to match SQL statement
+$bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 31);
 $stmt->bind_param(
-    "sisssssissssssssssssssssssssssssssssss",
+    $bindTypes,
     $course_name, $course_id, $training_center, $name, $father_name,
     $mother_name, $dob, $age, $mobile, $aadhar, $apaar_id, $gender,
     $religion, $marital_status, $student_category, $pwd_status,
     $distinguishing_marks, $position, $nationality, $email,
     $state, $city, $pincode, $address, $college_name, $education_data,
-    $passport_photo_path, $signature_path, $payment_receipt_path, $utr_number,
+    $passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path, $utr_number,
     $student_id, $hashed_password,
     $aadhar_card_path, $caste_certificate_path, $tenth_marksheet_path,
     $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path
@@ -378,7 +445,7 @@ if (!$stmt->execute()) {
     error_log("Rolling back all uploaded files for student $student_id due to database failure");
     
     $allUploadedFiles = array_merge(
-        array_filter([$passport_photo_path, $signature_path, $payment_receipt_path]),
+        array_filter([$passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path]),
         array_values($uploadedDocs)
     );
     

@@ -2095,6 +2095,28 @@ if (isset($_SESSION['info'])) {
                         </div>
                     </div>
                 </div>
+
+                <!-- Left Hand Thumb Impression (Optional) -->
+                <div class="document-category optional">
+                    <h4 class="category-title">
+                        <i class="fas fa-fingerprint"></i> Left Hand Thumb Impression
+                        <span class="required-badge" style="background: #3b82f6;">Optional</span>
+                    </h4>
+
+                    <div class="form-group">
+                        <label class="form-label">Thumb Impression</label>
+                        <input type="file" class="form-control" name="left_thumb_impression" accept="image/*">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            If available, upload a clear left hand thumb impression taken on plain white paper (JPG/PNG, max 2MB).
+                            Leave this blank if you do not have one yet.
+                        </small>
+                        <small class="text-muted d-block mt-1" style="color: #10b981;">
+                            <i class="fas fa-check-circle"></i>
+                            Place your left thumb on a clean sheet, capture it clearly, then upload the image.
+                        </small>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -2599,17 +2621,18 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
             
             const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
             
-            // Check if this is passport photo or signature for image preview
-            const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature');
+            // Check if this is an image-based document for image preview
+            const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression');
             const isImageFile = file.type.startsWith('image/');
+            const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo' : (fieldName === 'signature' ? 'Signature' : 'Left Hand Thumb Impression');
             
             if (isImageField && isImageFile) {
-                // Show actual image preview for passport photo and signature
+                // Show actual image preview for image-based identity documents
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     preview.innerHTML = `
                         <div class="file-preview-image-container" style="width: 100%; text-align: center; margin-bottom: 10px;">
-                            <img src="${e.target.result}" alt="${fieldName === 'passport_photo' ? 'Passport Photo' : 'Signature'}" 
+                            <img src="${e.target.result}" alt="${previewLabel}" 
                                  style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0d47a1; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         </div>
                         <div class="file-preview-icon">

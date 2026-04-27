@@ -256,6 +256,40 @@ if ($stmt_education) {
                     <?php endif; ?>
                 </div>
 
+                <!-- Left Hand Thumb Impression -->
+                <div class="document-card">
+                    <h5 class="doc-title"><i class="fas fa-fingerprint"></i> Left Hand Thumb Impression</h5>
+                    <?php if (!empty($student['left_thumb_impression']) && file_exists(__DIR__ . '/../' . $student['left_thumb_impression'])): ?>
+                        <span class="doc-status uploaded"><i class="fas fa-check-circle"></i> Uploaded</span>
+                        <br>
+                        <?php $thumb_ext = strtolower(pathinfo($student['left_thumb_impression'], PATHINFO_EXTENSION)); ?>
+                        <?php if (in_array($thumb_ext, ['jpg', 'jpeg', 'png'])): ?>
+                            <img src="../<?php echo htmlspecialchars($student['left_thumb_impression']); ?>" 
+                                 alt="Left Hand Thumb Impression" 
+                                 class="document-preview">
+                            <br>
+                            <a href="../<?php echo htmlspecialchars($student['left_thumb_impression']); ?>" 
+                               target="_blank" 
+                               class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye"></i> View Full Size
+                            </a>
+                        <?php else: ?>
+                            <i class="fas fa-file-alt document-icon image-icon"></i>
+                            <p style="font-weight: 600; color: #1e293b; margin: 12px 0;">Thumb Impression File</p>
+                            <a href="../<?php echo htmlspecialchars($student['left_thumb_impression']); ?>" 
+                               target="_blank" 
+                               class="btn btn-primary btn-sm">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <span class="doc-status missing"><i class="fas fa-times-circle"></i> Not Uploaded</span>
+                        <br>
+                        <i class="fas fa-fingerprint document-icon no-doc-icon"></i>
+                        <p style="color: #64748b; margin-top: 12px;">No thumb impression available</p>
+                    <?php endif; ?>
+                </div>
+
                 <!-- Educational Documents -->
                 <div class="document-card">
                     <h5 class="doc-title"><i class="fas fa-file-pdf"></i> Educational Documents</h5>

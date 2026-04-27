@@ -79,6 +79,57 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     return ['success'=>false,'error'=>"move_uploaded_file failed. Dest: $dest | Writable: ".(is_writable($dir)?'YES':'NO')];
 }
 
+function validateThumbImpressionUpload($file) {
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    $allowedExtensions = ['jpg', 'jpeg', 'png'];
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        return ['valid' => false, 'message' => 'Upload error: ' . $file['error']];
+    }
+
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+
+    if (!in_array($mimeType, $allowedTypes, true)) {
+        return ['valid' => false, 'message' => "Invalid file type: $mimeType"];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExtensions, true)) {
+        return ['valid' => false, 'message' => "Invalid extension: .$ext"];
+    }
+
+    if ($file['size'] > 2 * 1024 * 1024) {
+        return ['valid' => false, 'message' => 'Thumb impression must be 2MB or smaller'];
+    }
+
+    return ['valid' => true];
+}
+
+function handleThumbImpressionUpload($file, $student_id) {
+    $validation = validateThumbImpressionUpload($file);
+    if (!$validation['valid']) {
+        return ['success' => false, 'error' => $validation['message']];
+    }
+
+    $dir = __DIR__ . '/../student/uploads/students/thumb_impression/';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        return ['success' => false, 'error' => "Cannot create directory: $dir"];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $safe_id = str_replace(['/', '\\', ' '], '-', $student_id);
+    $filename = $safe_id . '_' . time() . '_thumb.' . $ext;
+    $dest = $dir . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $dest)) {
+        return ['success' => false, 'error' => 'Failed to save thumb impression image'];
+    }
+
+    return ['success' => true, 'path' => 'student/uploads/students/thumb_impression/' . $filename];
+}
+
 // Check if the database connection is successful
 if (!$conn) {
     die("Database connection failed: " . mysqli_connect_error());
@@ -200,6 +251,7 @@ if (isset($_POST['update_student'])) {
     // File uploads fallback
     $passport_photo = $student['passport_photo'];
     $signature = $student['signature'];
+    $left_thumb_impression = $student['left_thumb_impression'] ?? '';
     $documents = $student['documents'];
     $payment_receipt = $student['payment_receipt'] ?? '';
 
@@ -259,6 +311,17 @@ if (isset($_POST['update_student'])) {
             }
         } else {
             $_SESSION['message'] = "Invalid document file type.";
+            $_SESSION['message_type'] = "danger";
+        }
+    }
+
+    // Validate and upload left hand thumb impression
+    if (!empty($_FILES['left_thumb_impression']['name'])) {
+        $thumb_result = handleThumbImpressionUpload($_FILES['left_thumb_impression'], $student_id);
+        if ($thumb_result['success']) {
+            $left_thumb_impression = $thumb_result['path'];
+        } else {
+            $_SESSION['message'] = "Thumb impression upload failed: " . $thumb_result['error'];
             $_SESSION['message_type'] = "danger";
         }
     }
@@ -355,7 +418,7 @@ if (isset($_POST['update_student'])) {
         course=?, status=?, address=?, city=?, state=?, pincode=?, aadhar=?, apaar_id=?,
         gender=?, religion=?, marital_status=?, category=?, pwd_status=?, distinguishing_marks=?, position=?, nationality=?, 
         college_name=?, utr_number=?, training_center=?,
-        passport_photo=?, signature=?, documents=?, payment_receipt=?,
+        passport_photo=?, signature=?, left_thumb_impression=?, documents=?, payment_receipt=?,
         aadhar_card_doc=?, tenth_marksheet_doc=?, twelfth_marksheet_doc=?,
         caste_certificate_doc=?, graduation_certificate_doc=?, other_documents_doc=?
         WHERE student_id=?";
@@ -365,12 +428,13 @@ if (isset($_POST['update_student'])) {
         die("Statement preparation failed: " . $conn->error);
     }
     
-    $stmt->bind_param("sssssssssssssssssssssssssssssssssssss", 
+    $bindTypes = str_repeat('s', 38);
+    $stmt->bind_param($bindTypes, 
         $name, $father_name, $mother_name, $dob, $age, $mobile, $email,
         $course, $status, $address, $city, $state, $pincode, $aadhar, $apaar_id,
         $gender, $religion, $marital_status, $category, $pwd_status, $distinguishing_marks, $position, $nationality,
         $college_name, $utr_number, $training_center,
-        $passport_photo, $signature, $documents, $payment_receipt,
+        $passport_photo, $signature, $left_thumb_impression, $documents, $payment_receipt,
         $aadhar_card_doc, $tenth_marksheet_doc, $twelfth_marksheet_doc,
         $caste_certificate_doc, $graduation_certificate_doc, $other_documents_doc,
         $student_id);
@@ -1104,6 +1168,21 @@ $courses_result = $conn->query($sql_courses);
                             <?php endif; ?>
                             <input type="file" name="signature" class="form-control" accept=".jpg,.jpeg,.png">
                             <small class="file-info">Upload new signature (JPG/PNG, max 2MB)</small>
+                        </div>
+
+                        <!-- Left Hand Thumb Impression -->
+                        <div class="form-group">
+                            <label class="form-label">Left Hand Thumb Impression</label>
+                            <?php if (!empty($student['left_thumb_impression'])): ?>
+                                <div class="photo-preview">
+                                    <img src="<?php echo APP_URL . '/' . $student['left_thumb_impression']; ?>" alt="Left Hand Thumb Impression">
+                                    <a href="<?php echo APP_URL . '/' . $student['left_thumb_impression']; ?>" download class="btn btn-sm btn-primary">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" name="left_thumb_impression" class="form-control" accept=".jpg,.jpeg,.png">
+                            <small class="file-info">Upload new thumb impression (JPG/PNG, max 2MB)</small>
                         </div>
 
                         <!-- Legacy Documents (kept for backward compatibility) -->
