@@ -61,6 +61,7 @@ composer.lock
 /admin/config/
 /hash.php
 /student/uploads/caste_certificates/
+/nielit-bbsr-mock
 
 # IDE & Editor
 .vscode/
