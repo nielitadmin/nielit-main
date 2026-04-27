@@ -1,4 +1,4 @@
-# PHP
+﻿# PHP
 *.log
 *.cache
 *.tmp
@@ -58,8 +58,6 @@ composer.lock
 /Career_Cell/
 /DGR/
 /Salary_Slip/
-/nielit-bbsr-mock/
-/tpms/
 /admin/config/
 /hash.php
 /student/uploads/caste_certificates/
