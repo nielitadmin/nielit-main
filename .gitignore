@@ -56,6 +56,11 @@ composer.lock
 /nielit_jobfair/
 /__test/
 /Career_Cell/
+/DGR/
+/Salary_Slip/
+/admin/config/
+/hash.php
+/student/uploads/caste_certificates/
 
 # IDE & Editor
 .vscode/
