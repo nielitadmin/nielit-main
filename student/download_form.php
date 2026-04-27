@@ -337,16 +337,6 @@ $dec_text = "I hereby declare that the information provided above is true and co
 $pdf->MultiCell($full_w, 8, $dec_text, 0, 'L');
 
 $pdf->Ln(25);
-$thumb_box_w = 42;
-$thumb_box_h = 22;
-$thumb_x = $pdf->GetX() + (($full_w - $thumb_box_w) / 2);
-$thumb_y = $pdf->GetY();
-$pdf->Rect($thumb_x, $thumb_y, $thumb_box_w, $thumb_box_h, 'D');
-$pdf->SetXY($thumb_x, $thumb_y + $thumb_box_h + 1);
-$pdf->SetFont('helvetica', 'B', 8);
-$pdf->Cell($thumb_box_w, 4, 'LEFT HAND THUMB IMPRESSION', 0, 1, 'C');
-
-$pdf->Ln(2);
 $pdf->SetFont('freesans', 'B', 11);
 $pdf->Cell(90, 5, 'Date: ________________', 0, 0);
 $pdf->Cell(90, 5, 'Signature of Candidate', 0, 1, 'R');
