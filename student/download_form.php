@@ -151,6 +151,12 @@ $pdf->SetXY($photo_x, $sig_y + 18);
 $pdf->SetFont('helvetica', 'B', 8);
 $pdf->Cell(37, 6, 'CANDIDATE SIGNATURE', 0, 0, 'C');
 
+$thumb_y = $sig_y + 28;
+$pdf->Rect($photo_x, $thumb_y, 37, 26, 'D');
+$pdf->SetXY($photo_x, $thumb_y + 26);
+$pdf->SetFont('helvetica', 'B', 7);
+$pdf->MultiCell(37, 4, 'LEFT HAND THUMB IMPRESSION', 0, 'C', false, 1);
+
 // --- 6. DATA TABLES ---
 $pdf->SetY($start_y);
 $left_col_w = 140; 
