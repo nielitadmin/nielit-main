@@ -179,7 +179,7 @@ $pdf->Ln(4);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($left_col_w, 9, ' 2. CANDIDATE PERSONAL PROFILE', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 10);
-$c1 = 30; $c2 = 40; 
+$c1 = 38; $c2 = 52; 
 $pdf->Cell($c1, 9, ' Father Name', 1, 0); $pdf->Cell($c2, 9, ' '.$student['father_name'], 1, 0);
 $pdf->Cell($c1, 9, ' Mother Name', 1, 0); $pdf->Cell($c2, 9, ' '.$student['mother_name'], 1, 1);
 $pdf->Cell($c1, 9, ' Date of Birth', 1, 0); $pdf->Cell($c2, 9, ' '.$student['dob'], 1, 0);
