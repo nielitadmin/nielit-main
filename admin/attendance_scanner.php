@@ -182,32 +182,22 @@ if (empty($courses)) {
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-graduation-cap"></i> NIELIT Admin
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="dashboard.php">
-                    <i class="fas fa-home"></i> Dashboard
-                </a>
-                <a class="nav-link" href="logout.php">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
+    <!-- Sidebar -->
+    <?php 
+    // Include sidebar navigation
+    require_once __DIR__ . '/includes/sidebar.php'; 
+    ?>
+
+    <!-- Main Content -->
+    <div class="admin-content">
+        <div class="container-fluid py-4">
+            <!-- Page Header -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h2><i class="fas fa-qrcode"></i> QR Attendance Scanner</h2>
+                    <p class="text-muted">Scan student QR codes to mark attendance for your classes</p>
+                </div>
             </div>
-        </div>
-    </nav>
-
-
-<div class="container-fluid py-4">
-    <!-- Page Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2><i class="fas fa-qrcode"></i> QR Attendance Scanner</h2>
-            <p class="text-muted">Scan student QR codes to mark attendance for your classes</p>
-        </div>
-    </div>
 
     <!-- Quick Actions -->
     <div class="row mb-4">
@@ -295,7 +285,7 @@ if (empty($courses)) {
             </div>
         </div>
     </div>
-</div>
+    </div><!-- Close container-fluid -->
 
 <!-- Create Session Modal -->
 <div class="modal fade" id="createSessionModal" tabindex="-1">
@@ -1028,5 +1018,6 @@ if (empty($courses)) {
         }, 5000);
     }
     </script>
+    </div><!-- Close admin-content -->
 </body>
 </html>
