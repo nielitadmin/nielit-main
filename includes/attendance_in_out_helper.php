@@ -315,7 +315,11 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
         ORDER BY student_name ASC
     ");
     
-    $stmt->bind_param($types, ...$params);
+        if (!$stmt) {
+            error_log("Prepare failed in getMonthlyAttendanceReport: " . $conn->error);
+            return [];
+        }
+        $stmt->bind_param($types, ...$params);
     $stmt->execute();
     
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -359,6 +363,10 @@ function getWeeklyAttendanceReport($student_id = null, $year = null, $week = nul
         ORDER BY student_name ASC
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in getWeeklyAttendanceReport: " . $conn->error);
+        return [];
+    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     
@@ -407,6 +415,10 @@ function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter
         ORDER BY student_name ASC
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in getQuarterlyAttendanceReport: " . $conn->error);
+        return [];
+    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     
@@ -450,6 +462,10 @@ function getYearlyAttendanceReport($student_id = null, $year = null, $course_id 
         ORDER BY student_name ASC
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in getYearlyAttendanceReport: " . $conn->error);
+        return [];
+    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     
@@ -495,6 +511,10 @@ function getCustomRangeAttendanceReport($student_id = null, $start_date = null, 
         ORDER BY student_name ASC
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in getCustomRangeAttendanceReport: " . $conn->error);
+        return [];
+    }
     $stmt->bind_param($types, ...$params);
     $stmt->execute();
     
@@ -516,9 +536,19 @@ function getAttendanceStatistics($session_id, $conn) {
         WHERE session_id = ?
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in getAttendanceStatistics: " . $conn->error);
+        return [
+            'total_students' => 0,
+            'present_count' => 0,
+            'partial_count' => 0,
+            'absent_count' => 0,
+            'avg_duration_minutes' => 0
+        ];
+    }
     $stmt->bind_param("i", $session_id);
     $stmt->execute();
-    
+
     return $stmt->get_result()->fetch_assoc();
 }
 ?>
