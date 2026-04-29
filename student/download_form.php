@@ -291,12 +291,12 @@ if (!empty($education_records)) {
     $i = 1;
     foreach ($education_records as $edu) {
         // Smart truncation for better text fitting
-        $exam_display = smartTruncate($edu['exam_passed'] ?? '', 30);
-        $institute_display = smartTruncate($edu['institute_name'] ?? '', 45);
-        $stream_display = smartTruncate($edu['stream'] ?? '', 25);
+        $exam_display = smartTruncate($edu['exam_passed'] ?? '', 22);
+        $institute_display = smartTruncate($edu['institute_name'] ?? '', 28);
+        $stream_display = smartTruncate($edu['stream'] ?? '', 16);
         
         // Use consistent row height
-        $row_height = 14;
+        $row_height = 13;
         $current_y = $pdf->GetY();
         
         // Serial number
