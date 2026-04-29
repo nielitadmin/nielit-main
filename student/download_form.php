@@ -392,7 +392,7 @@ $pdf->Cell(60, $h1, $label1, 1, 0);
 $pdf->MultiCell(120, $h1, $opts, 1, 'L', false, 1);
 
 $label2 = ' Signature of Official/Nodal Officer/Project Incharge:';
-$sigText = ' __________________________________________';
+$sigText = ' ________________________________';
 $dateText = ' Date: ___________';
 $label2_h = max(11, $pdf->getStringHeight(60, $label2));
 $rowH = max($label2_h, 11);
