@@ -385,8 +385,20 @@ $pdf->Ln(4);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 7. FOR OFFICE USE ONLY', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(60, 10, ' Document Verification:', 1, 0); $pdf->Cell(120, 10, ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found', 1, 1);
-$pdf->Cell(60, 11, ' Signature of Official/Nodal Officer/Project Incharge:', 1, 0); $pdf->Cell(80, 11, ' __________________________________________', 1, 0); $pdf->Cell(40, 11, ' Date: ___________', 1, 1);
+$label1 = ' Document Verification:';
+$opts = ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found';
+$h1 = max(10, $pdf->getStringHeight(120, $opts));
+$pdf->Cell(60, $h1, $label1, 1, 0);
+$pdf->MultiCell(120, $h1, $opts, 1, 'L', false, 1);
+
+$label2 = ' Signature of Official/Nodal Officer/Project Incharge:';
+$sigText = ' __________________________________________';
+$dateText = ' Date: ___________';
+$label2_h = max(11, $pdf->getStringHeight(60, $label2));
+$rowH = max($label2_h, 11);
+$pdf->MultiCell(60, $rowH, $label2, 1, 'L', false, 0);
+$pdf->Cell(80, $rowH, $sigText, 1, 0);
+$pdf->Cell(40, $rowH, $dateText, 1, 1);
 
 $pdf->Ln(6);
 $pdf->SetFont('helvetica', 'B', 11);
