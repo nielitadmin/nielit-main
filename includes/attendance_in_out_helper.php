@@ -26,6 +26,13 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
 
         // Get session details
         $session_stmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
+        if (!$session_stmt) {
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error (session lookup): ' . $conn->error
+            ];
+        }
         $session_stmt->bind_param("i", $session_id);
         $session_stmt->execute();
         $session = $session_stmt->get_result()->fetch_assoc();
@@ -35,6 +42,51 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
                 'success' => false,
                 'result' => 'expired',
                 'message' => 'Session not active or expired'
+            ];
+        }
+
+        // Verify student exists and is enrolled in the session's course
+        $student_check = $conn->prepare("SELECT course_id, status FROM students WHERE student_id = ? LIMIT 1");
+        if (!$student_check) {
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error (student lookup): ' . $conn->error
+            ];
+        }
+        $student_check->bind_param("s", $student_id);
+        $student_check->execute();
+        $student_row = $student_check->get_result()->fetch_assoc();
+
+        if (!$student_row) {
+            return [
+                'success' => false,
+                'result' => 'unknown_student',
+                'message' => 'Student not found in system'
+            ];
+        }
+
+        // Ensure student is enrolled in the session's course
+        $student_course_id = (int)$student_row['course_id'];
+        $session_course_id = (int)$session['course_id'];
+
+        if ($student_course_id !== $session_course_id) {
+            return [
+                'success' => false,
+                'result' => 'not_enrolled',
+                'message' => 'Student is not enrolled in this course',
+                'student_id' => $student_id
+            ];
+        }
+
+        // Optionally ensure student status is active
+        $student_status = $student_row['status'] ?? '';
+        if (!empty($student_status) && $student_status !== 'active') {
+            return [
+                'success' => false,
+                'result' => 'invalid_status',
+                'message' => 'Student status is not active',
+                'status' => $student_status
             ];
         }
 
