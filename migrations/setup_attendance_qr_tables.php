@@ -15,7 +15,8 @@ $successes = [];
 // 1. Add attendance_qr_code column to students if it doesn't exist
 $check_qr_code = $conn->query("DESCRIBE students LIKE 'attendance_qr_code'");
 if (!$check_qr_code || $check_qr_code->num_rows == 0) {
-    $alter_sql = "ALTER TABLE `students` ADD COLUMN `attendance_qr_code` VARCHAR(255) DEFAULT NULL AFTER `qr_code_path`";
+    // Try to add after qr_code_path first, then fall back to after email
+    $alter_sql = "ALTER TABLE `students` ADD COLUMN `attendance_qr_code` VARCHAR(255) DEFAULT NULL AFTER `email`";
     if ($conn->query($alter_sql)) {
         $successes[] = "✅ Added attendance_qr_code column to students table";
     } else {
@@ -97,7 +98,7 @@ if (!$check_scan_timestamp || $check_scan_timestamp->num_rows == 0) {
 // Add coordinator_id to attendance
 $check_att_coordinator = $conn->query("DESCRIBE attendance LIKE 'coordinator_id'");
 if (!$check_att_coordinator || $check_att_coordinator->num_rows == 0) {
-    $alter_coordinator = "ALTER TABLE `attendance` ADD COLUMN `coordinator_id` VARCHAR(50) DEFAULT NULL AFTER `marked_by`";
+    $alter_coordinator = "ALTER TABLE `attendance` ADD COLUMN `coordinator_id` VARCHAR(50) DEFAULT NULL";
     if ($conn->query($alter_coordinator)) {
         $successes[] = "✅ Added coordinator_id column to attendance table";
     } else {
