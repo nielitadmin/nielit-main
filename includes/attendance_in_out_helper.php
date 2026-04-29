@@ -280,9 +280,13 @@ function getSessionAttendanceList($session_id, $conn) {
 /**
  * Get monthly attendance report
  */
-function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn) {
+function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn = null) {
     $year = $year ?? date('Y');
     $month = $month ?? date('n');
+    if ($conn === null) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if ($conn === null) return [];
+    }
     
     $where_clause = "WHERE YEAR(date) = ? AND MONTH(date) = ?";
     $params = [$year, $month];
@@ -328,9 +332,13 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
 /**
  * Get weekly attendance report
  */
-function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn) {
+function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn = null) {
     $year = $year ?? date('Y');
     $week = $week ?? date('W');
+    if ($conn === null) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if ($conn === null) return [];
+    }
     
     $where_clause = "WHERE YEAR(date) = ? AND WEEK(date, 1) = ?";
     $params = [$year, $week];
@@ -376,9 +384,13 @@ function getWeeklyAttendanceReport($student_id = null, $year = null, $week = nul
 /**
  * Get quarterly attendance report
  */
-function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn) {
+function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn = null) {
     $year = $year ?? date('Y');
     $quarter = $quarter ?? ceil(date('n') / 3);
+    if ($conn === null) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if ($conn === null) return [];
+    }
     
     // Calculate quarter months
     $start_month = ($quarter - 1) * 3 + 1;
@@ -428,8 +440,12 @@ function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter
 /**
  * Get yearly attendance report
  */
-function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn) {
+function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn = null) {
     $year = $year ?? date('Y');
+    if ($conn === null) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if ($conn === null) return [];
+    }
     
     $where_clause = "WHERE YEAR(date) = ?";
     $params = [$year];
@@ -475,9 +491,13 @@ function getYearlyAttendanceReport($student_id = null, $year = null, $course_id 
 /**
  * Get custom date range attendance report
  */
-function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn) {
+function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn = null) {
     if (!$start_date || !$end_date) {
         return [];
+    }
+    if ($conn === null) {
+        $conn = $GLOBALS['conn'] ?? null;
+        if ($conn === null) return [];
     }
     
     $where_clause = "WHERE date BETWEEN ? AND ?";
