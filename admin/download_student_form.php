@@ -116,6 +116,34 @@ function compactAddress($addressParts, $maxLength = 90) {
     return ' ' . implode("\n", $parts);
 }
 
+function renderCompactAddressRow($pdf, $labelWidth, $valueWidth, $addressParts) {
+    $lines = array_values(array_filter(array_map('trim', $addressParts), function ($value) {
+        return $value !== '' && strtolower($value) !== 'n/a';
+    }));
+
+    if (empty($lines)) {
+        $lines = ['N/A'];
+    }
+
+    $leftLine = implode(', ', array_slice($lines, 0, 2));
+    $rightLine = implode(', ', array_slice($lines, 2));
+    if ($rightLine === '') {
+        $rightLine = ' ';
+    }
+
+    $pdf->SetFont('helvetica', '', 8);
+    $halfWidth = $valueWidth / 2;
+    $rowHeight = max(
+        12,
+        $pdf->getStringHeight($halfWidth, ' ' . $leftLine),
+        $pdf->getStringHeight($halfWidth, ' ' . $rightLine)
+    );
+
+    $pdf->Cell($labelWidth, $rowHeight, ' Full Address', 1, 0, 'L');
+    $pdf->MultiCell($halfWidth, $rowHeight, ' ' . $leftLine, 1, 'L', false, 0);
+    $pdf->MultiCell($halfWidth, $rowHeight, ' ' . $rightLine, 1, 'L', false, 1);
+}
+
 function renderWrappedEducationRow($pdf, $widths, $serial, $exam, $institute, $year, $stream, $percentage) {
     $exam = ' ' . trim((string) $exam);
     $institute = ' ' . trim((string) $institute);
@@ -261,9 +289,13 @@ $addr_text = compactAddress([
     $student['state'] ?? '',
     !empty($student['pincode']) ? 'PIN ' . $student['pincode'] : ''
 ], 85);
-$addr_h = max(10, $pdf->getStringHeight(135, $addr_text));
-$pdf->Cell(45, $addr_h, ' Full Address', 1, 0);
-$pdf->MultiCell(135, $addr_h, ' '.$addr_text, 1, 'L', false, 1);
+$pdf->SetFont('helvetica', '', 10);
+renderCompactAddressRow($pdf, 45, 135, [
+    $student['address'] ?? '',
+    $student['city'] ?? '',
+    $student['state'] ?? '',
+    !empty($student['pincode']) ? 'PIN ' . $student['pincode'] : ''
+]);
 $pdf->Ln(4);
 
 // Section 4: Institutional
