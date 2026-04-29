@@ -104,6 +104,18 @@ function smartTruncate($text, $maxLength, $suffix = '...') {
     return $truncated . $suffix;
 }
 
+function compactAddress($addressParts, $maxLength = 90) {
+    $parts = array_filter(array_map('trim', $addressParts), function ($value) {
+        return $value !== '' && strtolower($value) !== 'n/a';
+    });
+
+    if (empty($parts)) {
+        return ' N/A';
+    }
+
+    return ' ' . smartTruncate(implode(', ', $parts), $maxLength);
+}
+
 // --- 3. INITIALIZE DOCUMENT ---
 $pdf = new NIELIT_PDF('P', 'mm', 'A4', true, 'UTF-8', false);
 $pdf->SetMargins(15, 20, 15);
@@ -214,15 +226,20 @@ $full_w = 180;
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 3. CONTACT & COMMUNICATION DETAILS', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
-$pdf->Cell(45, 11, ' Mobile Number', 1, 0); $pdf->Cell(45, 11, ' '.$student['mobile'], 1, 0);
-$pdf->Cell(35, 11, ' Email ID', 1, 0); 
-$pdf->MultiCell(55, 11, ' '.$student['email'], 1, 'L', false, 1);
+$pdf->Cell(45, 9, ' Mobile Number', 1, 0); $pdf->Cell(45, 9, ' '.$student['mobile'], 1, 0);
+$pdf->Cell(35, 9, ' Email ID', 1, 0); 
+$pdf->MultiCell(55, 9, ' '.$student['email'], 1, 'L', false, 1);
 
-$addr_text = $student['address'].", ".$student['city'].", ".$student['state']." - ".$student['pincode'];
-$addr_h = max(12, $pdf->getStringHeight(135, $addr_text));
+$addr_text = compactAddress([
+    $student['address'] ?? '',
+    $student['city'] ?? '',
+    $student['state'] ?? '',
+    !empty($student['pincode']) ? 'PIN ' . $student['pincode'] : ''
+], 85);
+$addr_h = max(10, $pdf->getStringHeight(135, $addr_text));
 $pdf->Cell(45, $addr_h, ' Full Address', 1, 0);
 $pdf->MultiCell(135, $addr_h, ' '.$addr_text, 1, 'L', false, 1);
-$pdf->Ln(6);
+$pdf->Ln(4);
 
 // Section 4: Institutional
 $pdf->SetFont('helvetica', 'B', 11);
@@ -231,16 +248,16 @@ $pdf->SetFont('helvetica', '', 11);
 
 // Training Centre with text wrapping
 $training_center_text = ' '.($student['training_center'] ?: 'NIELIT Bhubaneswar|Balasore|Raipur');
-$training_center_height = max(11, $pdf->getStringHeight(130, $training_center_text));
+$training_center_height = max(9, $pdf->getStringHeight(130, $training_center_text));
 $pdf->Cell(50, $training_center_height, ' Training Centre', 1, 0); 
 $pdf->MultiCell(130, $training_center_height, $training_center_text, 1, 'L', false, 1);
 
 // Last College Name with text wrapping
 $college_name_text = ' '.$student['college_name'];
-$college_name_height = max(11, $pdf->getStringHeight(130, $college_name_text));
+$college_name_height = max(9, $pdf->getStringHeight(130, $college_name_text));
 $pdf->Cell(50, $college_name_height, ' Last College Name', 1, 0); 
 $pdf->MultiCell(130, $college_name_height, $college_name_text, 1, 'L', false, 1);
-$pdf->Cell(50, 11, ' Fee Payment UTR', 1, 0); $pdf->Cell(130, 11, ' '.($student['utr_number'] ?: 'N/A'), 1, 1);
+$pdf->Cell(50, 9, ' Fee Payment UTR', 1, 0); $pdf->Cell(130, 9, ' '.($student['utr_number'] ?: 'N/A'), 1, 1);
 
 // --- 7. PAGE 2: EDUCATION & OFFICE VERIFICATION ---
 $pdf->AddPage();
@@ -308,7 +325,7 @@ if (!empty($education_records)) {
     $pdf->Cell($full_w, 14, 'No education records found.', 1, 1, 'C'); 
 }
 
-$pdf->Ln(10);
+$pdf->Ln(4);
 
 // Section 6: Document Checklist
 $pdf->SetFont('helvetica', 'B', 11);
@@ -321,28 +338,28 @@ $docs_checklist = [
 ];
 $j = 0;
 foreach ($docs_checklist as $label => $key) {
-    $pdf->Cell(45, 11, ' '.$label, 1, 0);
-    $pdf->Cell(45, 11, (!empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]'), 1, ($j % 2 == 1 ? 1 : 0), 'C');
+    $pdf->Cell(45, 9, ' '.$label, 1, 0);
+    $pdf->Cell(45, 9, (!empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]'), 1, ($j % 2 == 1 ? 1 : 0), 'C');
     $j++;
 }
-$pdf->Ln(10);
+$pdf->Ln(4);
 
 // Section 7: Office Use
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 7. FOR OFFICE USE ONLY', 0, 1, 'L', true);
-$pdf->SetFont('helvetica', '', 11);
-$pdf->Cell(60, 13, ' Document Verification:', 1, 0); $pdf->Cell(120, 13, ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found', 1, 1);
-$pdf->Cell(60, 15, ' Signature of Official/Nodal Officer/Project Incharge:', 1, 0); $pdf->Cell(80, 15, ' __________________________________________', 1, 0); $pdf->Cell(40, 15, ' Date: ___________', 1, 1);
+$pdf->SetFont('helvetica', '', 10);
+$pdf->Cell(60, 10, ' Document Verification:', 1, 0); $pdf->Cell(120, 10, ' [   ] Verified    [   ] Under Review    [   ] Discrepancy Found', 1, 1);
+$pdf->Cell(60, 11, ' Signature of Official/Nodal Officer/Project Incharge:', 1, 0); $pdf->Cell(80, 11, ' __________________________________________', 1, 0); $pdf->Cell(40, 11, ' Date: ___________', 1, 1);
 
-$pdf->Ln(15);
+$pdf->Ln(6);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell(0, 7, ' DECLARATION BY CANDIDATE', 0, 1, 'L');
-$pdf->SetFont('freesans', '', 10);
+$pdf->SetFont('freesans', '', 9);
 $dec_text = "I hereby declare that the information provided above is true and correct to the best of my knowledge. I understand that any false information may result in the cancellation of my admission/registration.\n\nमैं एतद्द्वारा घोषणा करता/करती हूं कि ऊपर दी गई जानकारी मेरी जानकारी के अनुसार सत्य और सही है। मैं समझता/समझती हूं कि कोई भी गलत जानकारी मेरे प्रवेश/प्रंजीकरण को रद्द कर सकती है।";
-$pdf->MultiCell($full_w, 8, $dec_text, 0, 'L');
+$pdf->MultiCell($full_w, 6, $dec_text, 0, 'L');
 
-$thumb_box_w = 38;
-$thumb_box_h = 18;
+$thumb_box_w = 34;
+$thumb_box_h = 16;
 $thumb_x = 15 + (($full_w - $thumb_box_w) / 2);
 $thumb_y = $pdf->GetY() + 2;
 $thumb_path = !empty($student['left_thumb_impression']) ? __DIR__ . '/../' . $student['left_thumb_impression'] : '';
