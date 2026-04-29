@@ -441,6 +441,9 @@ if (isset($_GET['remove_batch'])) {
     if (isset($_GET['filter_course']) && !empty($_GET['filter_course'])) {
         $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);
     }
+    if (isset($_GET['filter_gender']) && !empty($_GET['filter_gender']) && $_GET['filter_gender'] != 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_GET['filter_gender']);
+    }
     if (isset($_GET['start_date']) && !empty($_GET['start_date'])) {
         $redirect_params[] = 'start_date=' . urlencode($_GET['start_date']);
     }
@@ -457,8 +460,9 @@ if (isset($_GET['remove_batch'])) {
     exit();
 }
 
-// Handle course filter and date range filter
+// Handle course filter, date range filter, and gender filter
 $selected_course = isset($_GET['filter_course']) ? $_GET['filter_course'] : 'All';
+$selected_gender = isset($_GET['filter_gender']) ? $_GET['filter_gender'] : 'All';
 $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
@@ -494,6 +498,10 @@ if ($selected_course != 'All') {
     $query .= " AND s.course_id = ?";
 }
 
+if ($selected_gender != 'All') {
+    $query .= " AND s.gender = ?";
+}
+
 if (!empty($start_date) && !empty($end_date)) {
     $query .= " AND s.created_at BETWEEN ? AND ?";
 }
@@ -517,6 +525,12 @@ if ($is_course_coordinator && !empty($admin_course_ids)) {
 if ($selected_course != 'All') {
     $bind_types .= 'i';
     $bind_values[] = intval($selected_course);
+}
+
+// Add selected gender filter
+if ($selected_gender != 'All') {
+    $bind_types .= 's';
+    $bind_values[] = $selected_gender;
 }
 
 // Add date range filter
@@ -715,7 +729,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                 </div>
                 
                 <form method="GET" action="students.php">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
                         <div class="form-group" style="margin-bottom: 0;">
                             <label class="form-label">Filter by Course</label>
                             <select name="filter_course" class="form-select">
@@ -744,6 +758,15 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                     }
                                     ?>
                                 <?php endif; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Filter by Gender</label>
+                            <select name="filter_gender" class="form-select">
+                                <option value="All" <?php if ($selected_gender == 'All') echo 'selected'; ?>>All Genders</option>
+                                <option value="Male" <?php if ($selected_gender == 'Male') echo 'selected'; ?>>Male</option>
+                                <option value="Female" <?php if ($selected_gender == 'Female') echo 'selected'; ?>>Female</option>
                             </select>
                         </div>
                         
