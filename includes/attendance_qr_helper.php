@@ -134,6 +134,14 @@ function createAttendanceSession($session_data, $conn) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
         ");
         
+        if (!$stmt) {
+            error_log("Prepare failed in createAttendanceSession: " . $conn->error);
+            return [
+                'success' => false,
+                'message' => 'Database error: ' . $conn->error
+            ];
+        }
+        
         $stmt->bind_param("sisssssss", 
             $session_data['session_name'],
             $session_data['course_id'],
@@ -195,6 +203,15 @@ function processAttendanceQRScan($qr_data, $session_id, $coordinator_id, $conn) 
 
         // Get session details
         $session_stmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
+        if (!$session_stmt) {
+            error_log("Prepare failed in processAttendanceQRScan (session): " . $conn->error);
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error: ' . $conn->error
+            ];
+        }
+        
         $session_stmt->bind_param("i", $session_id);
         $session_stmt->execute();
         $session = $session_stmt->get_result()->fetch_assoc();
@@ -212,6 +229,16 @@ function processAttendanceQRScan($qr_data, $session_id, $coordinator_id, $conn) 
             SELECT id FROM attendance 
             WHERE student_id = ? AND session_id = ? AND date = ? AND status = 'present'
         ");
+        
+        if (!$check_stmt) {
+            error_log("Prepare failed in processAttendanceQRScan (check): " . $conn->error);
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error: ' . $conn->error
+            ];
+        }
+        
         $check_stmt->bind_param("sis", $student_id, $session_id, $session['date']);
         $check_stmt->execute();
         
@@ -232,6 +259,15 @@ function processAttendanceQRScan($qr_data, $session_id, $coordinator_id, $conn) 
             (session_id, student_id, date, subject, time, status, scan_method, scan_timestamp, marked_by, coordinator_id, remarks) 
             VALUES (?, ?, ?, ?, ?, 'present', 'qr_scan', NOW(), ?, ?, 'Marked via QR scan')
         ");
+        
+        if (!$attendance_stmt) {
+            error_log("Prepare failed in processAttendanceQRScan (attendance): " . $conn->error);
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error: ' . $conn->error
+            ];
+        }
         
         $current_time = date('H:i:s');
         $attendance_stmt->bind_param("issssss", 
@@ -282,11 +318,16 @@ function logQRScan($session_id, $student_id, $student_name, $result, $coordinato
         VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
     
+    if (!$stmt) {
+        error_log("Prepare failed in logQRScan: " . $conn->error);
+        return false;
+    }
+    
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
     
     $stmt->bind_param("issssss", $session_id, $student_id, $student_name, $result, $coordinator_id, $ip_address, $user_agent);
-    $stmt->execute();
+    return $stmt->execute();
 }
 
 /**
@@ -298,6 +339,12 @@ function getActiveAttendanceSessions($coordinator_id, $conn) {
         WHERE coordinator_id = ? AND status IN ('scheduled', 'active') 
         ORDER BY date DESC, start_time DESC
     ");
+    
+    if (!$stmt) {
+        error_log("Prepare failed in getActiveAttendanceSessions: " . $conn->error);
+        return [];
+    }
+    
     $stmt->bind_param("s", $coordinator_id);
     $stmt->execute();
     
@@ -313,6 +360,12 @@ function activateAttendanceSession($session_id, $coordinator_id, $conn) {
         SET status = 'active', qr_scanner_active = 1, updated_at = NOW() 
         WHERE id = ? AND coordinator_id = ?
     ");
+    
+    if (!$stmt) {
+        error_log("Prepare failed in activateAttendanceSession: " . $conn->error);
+        return false;
+    }
+    
     $stmt->bind_param("is", $session_id, $coordinator_id);
     
     return $stmt->execute();
@@ -327,6 +380,12 @@ function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
         SET status = 'completed', qr_scanner_active = 0, updated_at = NOW() 
         WHERE id = ? AND coordinator_id = ?
     ");
+    
+    if (!$stmt) {
+        error_log("Prepare failed in deactivateAttendanceSession: " . $conn->error);
+        return false;
+    }
+    
     $stmt->bind_param("is", $session_id, $coordinator_id);
     
     return $stmt->execute();
@@ -344,6 +403,12 @@ function getSessionAttendanceStats($session_id, $conn) {
         FROM attendance 
         WHERE session_id = ?
     ");
+    
+    if (!$stmt) {
+        error_log("Prepare failed in getSessionAttendanceStats: " . $conn->error);
+        return ['total_scans' => 0, 'present_count' => 0, 'unique_students' => 0];
+    }
+    
     $stmt->bind_param("i", $session_id);
     $stmt->execute();
     
