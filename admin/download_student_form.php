@@ -113,7 +113,7 @@ function compactAddress($addressParts, $maxLength = 90) {
         return ' N/A';
     }
 
-    return ' ' . smartTruncate(implode(', ', $parts), $maxLength);
+    return ' ' . implode("\n", $parts);
 }
 
 function renderWrappedEducationRow($pdf, $widths, $serial, $exam, $institute, $year, $stream, $percentage) {
