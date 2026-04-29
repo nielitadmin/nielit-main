@@ -13,9 +13,8 @@ $errors = [];
 $successes = [];
 
 // 1. Add attendance_qr_code column to students if it doesn't exist
-$check_qr_code = $conn->query("DESCRIBE students LIKE 'attendance_qr_code'");
+$check_qr_code = $conn->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='students' AND COLUMN_NAME='attendance_qr_code'");
 if (!$check_qr_code || $check_qr_code->num_rows == 0) {
-    // Try to add after qr_code_path first, then fall back to after email
     $alter_sql = "ALTER TABLE `students` ADD COLUMN `attendance_qr_code` VARCHAR(255) DEFAULT NULL AFTER `email`";
     if ($conn->query($alter_sql)) {
         $successes[] = "✅ Added attendance_qr_code column to students table";
@@ -57,7 +56,7 @@ if ($conn->query($create_sessions)) {
 }
 
 // 3. Add session_id and related columns to attendance table if they don't exist
-$check_session_id = $conn->query("DESCRIBE attendance LIKE 'session_id'");
+$check_session_id = $conn->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='attendance' AND COLUMN_NAME='session_id'");
 if (!$check_session_id || $check_session_id->num_rows == 0) {
     $alter_attendance = "ALTER TABLE `attendance` ADD COLUMN `session_id` INT(11) DEFAULT NULL AFTER `id`";
     if ($conn->query($alter_attendance)) {
@@ -70,7 +69,7 @@ if (!$check_session_id || $check_session_id->num_rows == 0) {
 }
 
 // Add scan_method column
-$check_scan_method = $conn->query("DESCRIBE attendance LIKE 'scan_method'");
+$check_scan_method = $conn->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='attendance' AND COLUMN_NAME='scan_method'");
 if (!$check_scan_method || $check_scan_method->num_rows == 0) {
     $alter_scan_method = "ALTER TABLE `attendance` ADD COLUMN `scan_method` ENUM('manual','qr_scan','auto') DEFAULT 'manual' AFTER `status`";
     if ($conn->query($alter_scan_method)) {
@@ -83,7 +82,7 @@ if (!$check_scan_method || $check_scan_method->num_rows == 0) {
 }
 
 // Add scan_timestamp column
-$check_scan_timestamp = $conn->query("DESCRIBE attendance LIKE 'scan_timestamp'");
+$check_scan_timestamp = $conn->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='attendance' AND COLUMN_NAME='scan_timestamp'");
 if (!$check_scan_timestamp || $check_scan_timestamp->num_rows == 0) {
     $alter_scan_timestamp = "ALTER TABLE `attendance` ADD COLUMN `scan_timestamp` TIMESTAMP NULL DEFAULT NULL AFTER `scan_method`";
     if ($conn->query($alter_scan_timestamp)) {
@@ -96,7 +95,7 @@ if (!$check_scan_timestamp || $check_scan_timestamp->num_rows == 0) {
 }
 
 // Add coordinator_id to attendance
-$check_att_coordinator = $conn->query("DESCRIBE attendance LIKE 'coordinator_id'");
+$check_att_coordinator = $conn->query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='attendance' AND COLUMN_NAME='coordinator_id'");
 if (!$check_att_coordinator || $check_att_coordinator->num_rows == 0) {
     $alter_coordinator = "ALTER TABLE `attendance` ADD COLUMN `coordinator_id` VARCHAR(50) DEFAULT NULL";
     if ($conn->query($alter_coordinator)) {
