@@ -112,6 +112,31 @@ function compactAddress($addressParts, $maxLength = 90) {
     return ' ' . smartTruncate(implode(', ', $parts), $maxLength);
 }
 
+function renderWrappedEducationRow($pdf, $widths, $serial, $exam, $institute, $year, $stream, $percentage) {
+    $exam = ' ' . trim((string) $exam);
+    $institute = ' ' . trim((string) $institute);
+    $stream = ' ' . trim((string) $stream);
+
+    $rowHeight = max(
+        13,
+        $pdf->getStringHeight($widths['exam'], $exam),
+        $pdf->getStringHeight($widths['institute'], $institute),
+        $pdf->getStringHeight($widths['stream'], $stream)
+    );
+
+    $startX = $pdf->GetX();
+    $startY = $pdf->GetY();
+
+    $pdf->Cell($widths['sl'], $rowHeight, $serial, 1, 0, 'C');
+    $pdf->MultiCell($widths['exam'], $rowHeight, $exam, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+    $pdf->MultiCell($widths['institute'], $rowHeight, $institute, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+    $pdf->Cell($widths['year'], $rowHeight, ' ' . trim((string) $year), 1, 0, 'C');
+    $pdf->MultiCell($widths['stream'], $rowHeight, $stream, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+    $pdf->Cell($widths['percentage'], $rowHeight, ' ' . trim((string) $percentage), 1, 1, 'C');
+
+    $pdf->SetXY($startX, $startY + $rowHeight);
+}
+
 // --- 3. INITIALIZE DOCUMENT ---
 $pdf = new NIELIT_PDF('P', 'mm', 'A4', true, 'UTF-8', false);
 $pdf->SetMargins(15, 20, 15);
@@ -290,32 +315,16 @@ $pdf->SetFont('helvetica', '', 8); // Reduced font size for better fitting
 if (!empty($education_records)) {
     $i = 1;
     foreach ($education_records as $edu) {
-        // Smart truncation for better text fitting
-        $exam_display = smartTruncate($edu['exam_passed'] ?? '', 22);
-        $institute_display = smartTruncate($edu['institute_name'] ?? '', 28);
-        $stream_display = smartTruncate($edu['stream'] ?? '', 16);
-        
-        // Use consistent row height
-        $row_height = 13;
-        $current_y = $pdf->GetY();
-        
-        // Serial number
-        $pdf->Cell($col_widths['sl'], $row_height, $i++, 1, 0, 'C');
-        
-        // Examination - with padding
-        $pdf->Cell($col_widths['exam'], $row_height, ' ' . $exam_display, 1, 0, 'L');
-        
-        // Institute - with padding
-        $pdf->Cell($col_widths['institute'], $row_height, ' ' . $institute_display, 1, 0, 'L');
-        
-        // Year
-        $pdf->Cell($col_widths['year'], $row_height, $edu['year_of_passing'] ?? '', 1, 0, 'C');
-        
-        // Stream - with padding
-        $pdf->Cell($col_widths['stream'], $row_height, ' ' . $stream_display, 1, 0, 'L');
-        
-        // Percentage
-        $pdf->Cell($col_widths['percentage'], $row_height, $edu['percentage'] ?? '', 1, 1, 'C');
+        renderWrappedEducationRow(
+            $pdf,
+            $col_widths,
+            $i++,
+            $edu['exam_passed'] ?? '',
+            $edu['institute_name'] ?? '',
+            $edu['year_of_passing'] ?? '',
+            $edu['stream'] ?? '',
+            $edu['percentage'] ?? ''
+        );
     }
 } else { 
     $pdf->Cell($full_w, 14, 'No education records found.', 1, 1, 'C'); 
