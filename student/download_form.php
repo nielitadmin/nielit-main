@@ -180,8 +180,15 @@ $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($left_col_w, 9, ' 2. CANDIDATE PERSONAL PROFILE', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 10);
 $c1 = 38; $c2 = 52; 
-$pdf->Cell($c1, 9, ' Father Name', 1, 0); $pdf->Cell($c2, 9, ' '.$student['father_name'], 1, 0);
-$pdf->Cell($c1, 9, ' Mother Name', 1, 0); $pdf->Cell($c2, 9, ' '.$student['mother_name'], 1, 1);
+
+// Father Name - with text wrapping for long names
+$father_text = ' '.smartTruncate($student['father_name'], 35);
+$father_h = max(9, $pdf->getStringHeight(52, $father_text));
+$pdf->Cell($c1, $father_h, ' Father Name', 1, 0, 'L'); 
+$pdf->MultiCell($c2, $father_h, $father_text, 1, 'L', false, 0);
+$pdf->Cell($c1, $father_h, ' Mother Name', 1, 0); 
+$pdf->MultiCell($c2, $father_h, ' '.smartTruncate($student['mother_name'], 35), 1, 'L', false, 1);
+
 $pdf->Cell($c1, 9, ' Date of Birth', 1, 0); $pdf->Cell($c2, 9, ' '.$student['dob'], 1, 0);
 $pdf->Cell($c1, 9, ' Religion', 1, 0); $pdf->Cell($c2, 9, ' '.$student['religion'], 1, 1);
 $pdf->Cell($c1, 9, ' Gender', 1, 0); $pdf->Cell($c2, 9, ' '.$student['gender'], 1, 0);
