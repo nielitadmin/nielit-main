@@ -61,10 +61,10 @@ function loadActiveTheme($conn, $force_reload = false) {
 function getDefaultTheme() {
     return [
         'id' => null,
-        'theme_name' => 'Default Theme',
-        'primary_color' => '#0d47a1',
-        'secondary_color' => '#1565c0',
-        'accent_color' => '#ffc107',
+        'theme_name' => 'Modern Navy & Gold Theme',
+        'primary_color' => '#0a1628',
+        'secondary_color' => '#1a56db',
+        'accent_color' => '#f59e0b',
         'logo_path' => 'assets/images/bhubaneswar_logo.png',
         'favicon_path' => 'assets/images/favicon.ico',
         'is_active' => 1,

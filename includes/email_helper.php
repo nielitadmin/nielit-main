@@ -81,7 +81,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                 <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                     <!-- Header -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); padding: 30px; text-align: center;">
+                        <td style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); padding: 30px; text-align: center;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
                                 🎓 Registration Successful!
                             </h1>
@@ -103,12 +103,12 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                             </p>
                             
                             <!-- Credentials Box -->
-                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e3f2fd; border-left: 4px solid #0d47a1; border-radius: 4px; margin: 20px 0;">
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #e3f2fd; border-left: 4px solid #0a1628; border-radius: 4px; margin: 20px 0;">
                                 <tr>
                                     <td style="padding: 20px;">
                                         <table width="100%" cellpadding="8" cellspacing="0">
                                             <tr>
-                                                <td style="color: #0d47a1; font-weight: 700; font-size: 14px; width: 40%;">
+                                                <td style="color: #0a1628; font-weight: 700; font-size: 14px; width: 40%;">
                                                     Student ID:
                                                 </td>
                                                 <td style="color: #333; font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace;">
@@ -116,7 +116,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td style="color: #0d47a1; font-weight: 700; font-size: 14px;">
+                                                <td style="color: #0a1628; font-weight: 700; font-size: 14px;">
                                                     Password:
                                                 </td>
                                                 <td style="color: #333; font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace;">
@@ -124,7 +124,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td style="color: #0d47a1; font-weight: 700; font-size: 14px;">
+                                                <td style="color: #0a1628; font-weight: 700; font-size: 14px;">
                                                     Course:
                                                 </td>
                                                 <td style="color: #333; font-size: 14px;">
@@ -132,7 +132,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td style="color: #0d47a1; font-weight: 700; font-size: 14px;">
+                                                <td style="color: #0a1628; font-weight: 700; font-size: 14px;">
                                                     Training Centre:
                                                 </td>
                                                 <td style="color: #333; font-size: 14px;">
@@ -156,7 +156,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                 <tr>
                                     <td align="center">
                                         <a href="https://nielitbhubaneswar.in/student/login.php" 
-                                           style="display: inline-block; background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 6px rgba(13, 71, 161, 0.3);">
+                                           style="display: inline-block; background: linear-gradient(135deg, #0a1628 0%, #112240 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 6px rgba(13, 71, 161, 0.3);">
                                             Login to Student Portal
                                         </a>
                                     </td>
@@ -167,7 +167,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                 If you have any questions or need assistance, please contact us at:
                             </p>
                             
-                            <p style="color: #0d47a1; font-size: 14px; margin: 10px 0 0 0;">
+                            <p style="color: #0a1628; font-size: 14px; margin: 10px 0 0 0;">
                                 📧 Email: admin@nielitbhubaneswar.in<br>
                                 📞 Phone: 0674-2960354
                             </p>

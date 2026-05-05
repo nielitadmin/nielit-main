@@ -8,11 +8,11 @@
    CSS VARIABLES (THEME COLORS)
    ============================================ */
 :root {
-    /* Primary Colors - Deep Blue Theme (Matching Public Pages) */
+    /* Primary Colors - Modern Navy Theme (Matching Public Pages) */
     /* These can be overridden by theme_loader.php via --primary-color, --secondary-color, --accent-color */
-    --primary: var(--primary-color, #0d47a1);
-    --primary-dark: #0a3a7f;
-    --primary-light: var(--secondary-color, #1565c0);
+    --primary: var(--primary-color, #0a1628);
+    --primary-dark: #050e1a;
+    --primary-light: var(--secondary-color, #112240);
     
     /* Secondary Colors */
     --secondary: #64748b;
@@ -20,7 +20,7 @@
     --secondary-light: #94a3b8;
     
     /* Accent Color (Gold - Matching Public Pages) */
-    --accent-gold: var(--accent-color, #ffc107);
+    --accent-gold: var(--accent-color, #f59e0b);
     
     /* Status Colors */
     --success: #10b981;
@@ -45,10 +45,10 @@
     --light: #f0f9ff;
     --white: #ffffff;
     
-    /* Background Colors - Deep Blue Gradient (Matching Public Pages) */
-    --bg-body: #f8f9fa;
+    /* Background Colors - Cream/Light Background (Matching Public Pages) */
+    --bg-body: #fafaf8;
     --bg-card: #ffffff;
-    --bg-sidebar: linear-gradient(180deg, #0d47a1 0%, #1565c0 100%);
+    --bg-sidebar: linear-gradient(180deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 100%);
     
     /* Text Colors */
     --text-primary: #1e293b;
@@ -93,8 +93,8 @@
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f8fafc 100%);
+    font-family: 'Sora', 'DM Sans', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #fafaf8 0%, #f5f3f0 50%, #fafaf8 100%);
     background-size: 400% 400%;
     animation: gradientShift 15s ease infinite;
     color: var(--text-primary);
@@ -120,8 +120,8 @@ body::before {
     width: 100%;
     height: 100%;
     background-image: 
-        radial-gradient(circle at 20% 50%, rgba(13, 71, 161, 0.03) 0%, transparent 50%),
-        radial-gradient(circle at 80% 80%, rgba(21, 101, 192, 0.03) 0%, transparent 50%);
+        radial-gradient(circle at 20% 50%, rgba(10, 22, 40, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(26, 86, 219, 0.02) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
 }
@@ -139,7 +139,7 @@ body::before {
 /* Sidebar */
 .admin-sidebar {
     width: 260px;
-    background: linear-gradient(180deg, #0d47a1 0%, #1565c0 50%, #0d47a1 100%);
+    background: linear-gradient(180deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 50%, var(--primary-color, #0a1628) 100%);
     background-size: 100% 200%;
     animation: sidebarGradient 10s ease infinite;
     position: fixed;
@@ -576,21 +576,27 @@ body::before {
 }
 
 .btn-primary {
-    background: var(--primary);
-    color: var(--white);
+    background: var(--accent-gold);
+    color: var(--primary);
+    font-weight: 700;
 }
 
 .btn-primary:hover {
-    background: var(--primary-dark);
+    background: #f0a312;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(245, 158, 11, 0.3);
 }
 
 .btn-success {
-    background: var(--success);
-    color: var(--white);
+    background: var(--accent-gold);
+    color: var(--primary);
+    font-weight: 600;
 }
 
 .btn-success:hover {
-    background: var(--success-dark);
+    background: #f0a312;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(245, 158, 11, 0.3);
 }
 
 .btn-warning {
@@ -621,12 +627,12 @@ body::before {
 }
 
 .btn-secondary {
-    background: var(--secondary);
+    background: var(--primary-light);
     color: var(--white);
 }
 
 .btn-secondary:hover {
-    background: var(--secondary-dark);
+    background: var(--primary);
 }
 
 .btn-sm {
@@ -831,13 +837,8 @@ body::before {
 }
 
 .modal-dialog {
-    background: var(--white);
-    border-radius: var(--radius-lg);
     max-width: 600px;
     width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    box-shadow: var(--shadow-xl);
     margin: auto;
     position: relative;
 }
@@ -845,23 +846,25 @@ body::before {
 .modal-content {
     background: var(--white);
     border-radius: var(--radius-lg);
+    border-top: 4px solid var(--accent-gold);
     max-width: 700px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: var(--shadow-xl);
+    box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3);
     margin: auto;
     position: relative;
 }
 
 .modal-header {
-    background: var(--primary);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     color: var(--white);
     padding: var(--spacing-lg) var(--spacing-xl);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 2px 8px rgba(10, 22, 40, 0.15);
 }
 
 .modal-title {
@@ -900,10 +903,11 @@ body::before {
 
 .modal-footer {
     padding: var(--spacing-lg) var(--spacing-xl);
-    border-top: 1px solid var(--border-color);
+    border-top: 2px solid var(--accent-gold);
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-md);
+    background: linear-gradient(to right, rgba(245, 158, 11, 0.02) 0%, transparent 100%);
 }
 
 /* ============================================

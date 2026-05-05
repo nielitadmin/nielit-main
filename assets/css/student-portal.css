@@ -1,41 +1,54 @@
-/* Student Portal Styles - Matching Main Site Design */
+/* Student Portal Styles - Modern Navy/Gold/Cream Theme */
 :root {
-    --primary-blue: #0d47a1;
-    --secondary-blue: #1565c0;
-    --accent-gold: #ffc107;
-    --light-bg: #f8f9fa;
-    --text-dark: #212529;
-    --text-muted: #6c757d;
+    --navy: #0a1628;
+    --navy-mid: #112240;
+    --blue: #1a56db;
+    --blue-light: #3b82f6;
+    --gold: #f59e0b;
+    --gold-light: #fcd34d;
+    --cream: #fafaf8;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: rgba(0,0,0,0.08);
+    
+    /* Legacy aliases for compatibility */
+    --primary-blue: var(--navy);
+    --secondary-blue: var(--blue);
+    --accent-gold: var(--gold);
+    --light-bg: var(--cream);
+    --text-dark: var(--text);
+    --text-muted: var(--muted);
     --success-color: #10b981;
-    --warning-color: #ffc107;
-    --danger-color: #dc3545;
-    --info-color: #17a2b8;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
+    --info-color: #06b6d4;
 }
 
 body {
-    font-family: 'Inter', sans-serif;
-    background-color: var(--light-bg);
-    color: var(--text-dark);
+    font-family: 'DM Sans', 'Inter', sans-serif;
+    background-color: var(--cream);
+    color: var(--text);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Sora', 'Poppins', sans-serif;
 }
 
 /* Top Bar */
 .top-bar {
     background-color: #fff;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border);
     padding: 8px 0;
     font-size: 0.85rem;
 }
 
 /* Navigation */
 .student-navbar {
-    background-color: var(--primary-blue);
+    background-color: var(--navy);
+    border-bottom: 3px solid var(--gold);
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
     padding: 0.5rem 1rem;
 }
@@ -46,27 +59,36 @@ h1, h2, h3, h4, h5, h6 {
     color: #fff !important;
 }
 
+.student-navbar .navbar-brand span {
+    color: var(--gold);
+}
+
 .student-navbar .nav-link {
-    color: rgba(255,255,255,0.9) !important;
+    color: rgba(255,255,255,0.82) !important;
     font-weight: 500;
     margin: 0 5px;
     transition: all 0.3s ease;
 }
 
 .student-navbar .nav-link:hover {
-    color: var(--accent-gold) !important;
+    color: #fff !important;
 }
 
 .student-navbar .dropdown-menu {
-    border: none;
+    background-color: var(--navy-mid);
+    border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
     border-radius: 8px;
     margin-top: 10px;
 }
 
+.student-navbar .dropdown-item {
+    color: rgba(255,255,255,0.82) !important;
+}
+
 .student-navbar .dropdown-item:hover {
-    background-color: #e3f2fd;
-    color: var(--primary-blue);
+    background-color: rgba(245,158,11,0.2);
+    color: var(--gold) !important;
 }
 
 /* Main Content */
@@ -78,7 +100,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Welcome Card */
 .welcome-card {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
     color: white;
     padding: 30px;
     border-radius: 12px;
@@ -124,7 +146,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .bg-primary-gradient {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, var(--blue) 0%, var(--navy) 100%);
 }
 
 .bg-success-gradient {

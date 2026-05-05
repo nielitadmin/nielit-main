@@ -388,7 +388,7 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         }
         
         .modal-header {
-            background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
             padding: 1.5rem;
             border-radius: 12px 12px 0 0;
@@ -445,8 +445,8 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         
         .form-control:focus {
             outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            border-color: #0a1628;
+            box-shadow: 0 0 0 3px rgba(10, 22, 40, 0.1);
         }
         
         .btn {
@@ -462,12 +462,12 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         }
         
         .btn-primary {
-            background: #2563eb;
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
         }
         
         .btn-primary:hover {
-            background: #1d4ed8;
+            background: linear-gradient(135deg, #112240 0%, #1a2d4a 100%);
         }
         
         .btn-secondary {

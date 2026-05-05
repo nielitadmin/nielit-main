@@ -65,7 +65,7 @@ function sendOTPEmail($toEmail, $otp, $username) {
         $mail->Subject = 'Email Verification - New Admin Account | NIELIT Bhubaneswar';
         $mail->Body = '
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 10px;">
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <div style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
                 <h2 style="color: white; margin: 0;">NIELIT Bhubaneswar</h2>
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Admin Account Verification</p>
             </div>
@@ -73,7 +73,7 @@ function sendOTPEmail($toEmail, $otp, $username) {
                 <p style="font-size: 16px; color: #1e293b;">Dear ' . htmlspecialchars($username) . ',</p>
                 <p style="font-size: 14px; color: #64748b;">A new administrator account has been created for you. Please verify your email address using the OTP below:</p>
                 <div style="background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                    <h1 style="color: #2563eb; margin: 0; font-size: 36px; letter-spacing: 8px;">' . htmlspecialchars($otp) . '</h1>
+                    <h1 style="color: #0a1628; margin: 0; font-size: 36px; letter-spacing: 8px;">' . htmlspecialchars($otp) . '</h1>
                 </div>
                 <p style="font-size: 13px; color: #64748b;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
                 <div style="background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b; margin: 20px 0;">
@@ -268,9 +268,9 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
         
         .step.active .step-circle {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.4);
+            box-shadow: 0 4px 12px rgba(10, 22, 40, 0.4);
         }
         
         .step.completed .step-circle {
@@ -284,7 +284,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
         
         .step.active .step-label {
-            color: #0d47a1;
+            color: #0a1628;
         }
         
         .step.completed .step-label {
@@ -297,15 +297,15 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
         
         .info-box {
-            background: #e3f2fd;
-            border-left: 4px solid #2563eb;
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
             padding: 16px;
             border-radius: 8px;
             margin-bottom: 20px;
         }
         
         .info-box i {
-            color: #2563eb;
+            color: #f59e0b;
             margin-right: 8px;
         }
         

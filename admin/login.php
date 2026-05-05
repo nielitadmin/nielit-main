@@ -37,7 +37,7 @@ function sendOTP($toEmail, $otp, $username = null) {
         $mail->Subject = 'Your OTP for Admin Login - NIELIT Bhubaneswar';
         $mail->Body = '
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f8fafc; border-radius: 10px;">
-            <div style="background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <div style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
                 <h2 style="color: white; margin: 0;">NIELIT Bhubaneswar</h2>
                 <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Admin Login Verification</p>
             </div>
@@ -45,7 +45,7 @@ function sendOTP($toEmail, $otp, $username = null) {
                 <p style="font-size: 16px; color: #1e293b;">Dear Admin,</p>
                 <p style="font-size: 14px; color: #64748b;">Your One-Time Password (OTP) for admin login is:</p>
                 <div style="background: #f1f5f9; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-                    <h1 style="color: #2563eb; margin: 0; font-size: 36px; letter-spacing: 8px;">' . htmlspecialchars($otp) . '</h1>
+                    <h1 style="color: #0a1628; margin: 0; font-size: 36px; letter-spacing: 8px;">' . htmlspecialchars($otp) . '</h1>
                 </div>
                 <p style="font-size: 13px; color: #64748b;">This OTP is valid for 10 minutes. Do not share this code with anyone.</p>
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
@@ -175,7 +175,7 @@ if (isset($_POST['resend_otp'])) {
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -486,7 +486,7 @@ if (isset($_POST['resend_otp'])) {
         }
 
         .login-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             padding: 40px 30px;
             text-align: center;
             position: relative;
@@ -844,7 +844,7 @@ if (isset($_POST['resend_otp'])) {
 
         .form-label i {
             margin-right: 6px;
-            color: #667eea;
+            color: #f59e0b;
         }
 
         .form-control {
@@ -859,9 +859,9 @@ if (isset($_POST['resend_otp'])) {
 
         .form-control:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #0a1628;
             background: white;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 4px rgba(10, 22, 40, 0.1);
         }
 
         .btn {
@@ -879,14 +879,14 @@ if (isset($_POST['resend_otp'])) {
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(10, 22, 40, 0.4);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 6px 20px rgba(10, 22, 40, 0.5);
         }
 
         .btn-primary:active {
@@ -964,7 +964,7 @@ if (isset($_POST['resend_otp'])) {
         }
 
         .login-footer i {
-            color: #667eea;
+            color: #f59e0b;
             margin-right: 6px;
         }
 
@@ -990,7 +990,7 @@ if (isset($_POST['resend_otp'])) {
         }
 
         .password-toggle:hover {
-            color: #667eea;
+            color: #f59e0b;
         }
 
         /* OTP Input Boxes */
@@ -1017,9 +1017,9 @@ if (isset($_POST['resend_otp'])) {
 
         .otp-input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #0a1628;
             background: white;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            box-shadow: 0 0 0 4px rgba(10, 22, 40, 0.1);
             transform: scale(1.05);
         }
 

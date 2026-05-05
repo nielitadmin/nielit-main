@@ -45,12 +45,12 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
         .otp-code { 
             font-size: 2rem; 
             font-weight: 700; 
-            color: #2563eb; 
+            color: #0a1628; 
             letter-spacing: 4px; 
             font-family: 'Courier New', monospace;
         }
         .page-header { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%); 
             color: white; 
             padding: 2rem 0; 
             margin-bottom: 2rem; 

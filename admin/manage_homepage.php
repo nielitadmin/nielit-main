@@ -667,7 +667,7 @@ $content_sections = getAllContentSections($conn);
         }
         
         .modal-header {
-            background: linear-gradient(135deg, var(--primary-color, #0d47a1) 0%, var(--secondary-color, #1565c0) 100%);
+            background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 100%);
             color: white;
             border-radius: 12px 12px 0 0;
             padding: 20px 24px;

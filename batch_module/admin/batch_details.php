@@ -264,14 +264,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             margin-bottom: 24px;
         }
         .stat-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
             text-align: center;
         }
         .stat-card:nth-child(2) {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%);
         }
         .stat-card:nth-child(3) {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);

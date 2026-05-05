@@ -250,7 +250,7 @@ $quarters = [
         .percentage-poor { color: #dc3545; }
         
         .filter-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
         }
         

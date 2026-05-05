@@ -172,22 +172,22 @@ $stats = $stats_result->fetch_assoc();
     <link href="../assets/css/toast-notifications.css" rel="stylesheet">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
     <style>
-        .modern-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 20px; color: white; transition: all 0.3s ease; position: relative; overflow: hidden; }
+        .modern-card { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); border: none; border-radius: 20px; color: white; transition: all 0.3s ease; position: relative; overflow: hidden; }
         .modern-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%); pointer-events: none; }
         .modern-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
         .stats-card { background: white; border-radius: 15px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .stats-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, #667eea, #764ba2); }
+        .stats-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, #1a56db, #0a1628); }
         .stats-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,0,0,0.15); }
-        .stats-number { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .stats-number { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .stats-label { color: #6c757d; font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
         .stats-icon { width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; }
-        .icon-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .icon-primary { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); }
         .icon-success { background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); }
         .icon-info    { background: linear-gradient(135deg, #3498db 0%, #85c1e9 100%); }
         .icon-warning { background: linear-gradient(135deg, #f39c12 0%, #f7dc6f 100%); }
         .modern-table { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; }
         .modern-table .table { margin: 0; }
-        .modern-table .table thead th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 1.2rem 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
+        .modern-table .table thead th { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; border: none; padding: 1.2rem 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
         .modern-table .table tbody td { padding: 1rem; border-color: #f8f9fa; vertical-align: middle; }
         .modern-table .table tbody tr:hover { background-color: #f8f9fa; }
         .text-break { word-break: break-word; }
@@ -195,7 +195,7 @@ $stats = $stats_result->fetch_assoc();
         .table td:nth-child(2) { max-width: 180px; } /* Email column */
         .table td:nth-child(3) { max-width: 220px; } /* Course name column */
         .modern-btn { border-radius: 10px; padding: 0.6rem 1.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; transition: all 0.3s ease; border: none; cursor: pointer; }
-        .modern-btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+        .modern-btn-primary { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; }
         .modern-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102,126,234,0.3); color: white; }
         .modern-btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #f1948a 100%); color: white; }
         .form-control, .form-select { border-radius: 10px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; transition: all 0.3s ease; }
@@ -203,7 +203,7 @@ $stats = $stats_result->fetch_assoc();
         .badge-modern { padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
         .badge-auto   { background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); color: white; }
         .badge-manual { background: linear-gradient(135deg, #3498db 0%, #85c1e9 100%); color: white; }
-        .page-header  { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; border-radius: 0 0 30px 30px; }
+        .page-header  { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; border-radius: 0 0 30px 30px; }
         .empty-state  { text-align: center; padding: 3rem; color: #6c757d; }
         .empty-state i { font-size: 4rem; margin-bottom: 1rem; opacity: 0.3; }
     </style>

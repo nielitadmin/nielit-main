@@ -8,14 +8,26 @@
    CSS VARIABLES
    ============================================ */
 :root {
-    /* Primary Colors - Professional Blue */
+    /* Primary Colors - Modern Navy & Gold Theme */
     /* These can be overridden by theme_loader.php via --primary-color, --secondary-color, --accent-color */
-    --primary-blue: var(--primary-color, #0d47a1);
-    --secondary-blue: var(--secondary-color, #1565c0);
-    --accent-gold: var(--accent-color, #ffc107);
-    --light-bg: #f8f9fa;
-    --text-dark: #212529;
-    --text-muted: #6c757d;
+    --navy: var(--primary-color, #0a1628);
+    --navy-mid: #112240;
+    --blue: var(--secondary-color, #1a56db);
+    --blue-light: #3b82f6;
+    --gold: var(--accent-color, #f59e0b);
+    --gold-light: #fcd34d;
+    --cream: #fafaf8;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: rgba(0,0,0,0.08);
+    
+    /* Legacy aliases for backward compatibility */
+    --primary-blue: var(--blue);
+    --secondary-blue: var(--blue-light);
+    --accent-gold: var(--gold);
+    --light-bg: var(--cream);
+    --text-dark: var(--text);
+    --text-muted: var(--muted);
     
     /* Additional Colors */
     --success: #10b981;
@@ -23,7 +35,7 @@
     --danger: #ef4444;
     --info: #06b6d4;
     --white: #ffffff;
-    --border-color: #e9ecef;
+    --border-color: var(--border);
     
     /* Shadows */
     --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
@@ -42,9 +54,9 @@
 }
 
 body {
-    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: var(--light-bg);
-    color: var(--text-dark);
+    font-family: 'DM Sans', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--cream);
+    color: var(--text);
     line-height: 1.6;
     font-size: 14px;
 }
@@ -58,7 +70,7 @@ h1, h2, h3, h4, h5, h6 {
    ============================================ */
 .top-bar {
     background-color: #fff;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border);
     padding: 8px 0;
     font-size: 0.85rem;
 }
@@ -70,7 +82,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .ministry-text {
     font-weight: 600;
-    color: var(--text-dark);
+    color: var(--text);
     line-height: 1.2;
 }
 
@@ -78,9 +90,14 @@ h1, h2, h3, h4, h5, h6 {
    MAIN NAVBAR
    ============================================ */
 .navbar {
-    background-color: var(--primary-blue) !important;
+    background-color: var(--navy) !important;
+    border-bottom: 3px solid var(--gold);
     box-shadow: var(--shadow-md);
     padding: 0.5rem 1rem;
+}
+
+.navbar.sticky-top {
+    background-color: var(--navy) !important;
 }
 
 .navbar-brand {
@@ -89,17 +106,52 @@ h1, h2, h3, h4, h5, h6 {
     color: #fff !important;
 }
 
+.navbar-brand span {
+    color: var(--gold);
+}
+
+.navbar-dark .navbar-brand {
+    color: #fff !important;
+}
+
 .nav-link {
-    color: rgba(255,255,255,0.9) !important;
+    color: rgba(255,255,255,0.82) !important;
     font-weight: 500;
     margin: 0 5px;
     transition: all 0.3s ease;
     position: relative;
 }
 
+.navbar-dark .nav-link {
+    color: rgba(255,255,255,0.82) !important;
+}
+
 .nav-link:hover, 
 .nav-link.active {
-    color: var(--accent-gold) !important;
+    color: #fff !important;
+    border-bottom: 2px solid var(--gold);
+}
+
+.navbar-dark .nav-link:hover,
+.navbar-dark .nav-link.active {
+    color: #fff !important;
+}
+
+.dropdown-menu {
+    background-color: var(--navy-mid) !important;
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: var(--shadow-lg);
+    border-radius: 8px;
+}
+
+.dropdown-item {
+    color: rgba(255,255,255,0.82) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item.active {
+    background-color: rgba(245,158,11,0.2) !important;
+    color: var(--gold) !important;
 }
 
 .dropdown-menu {
@@ -118,8 +170,8 @@ h1, h2, h3, h4, h5, h6 {
    NOTICE TICKER
    ============================================ */
 .notice-bar {
-    background: linear-gradient(90deg, var(--secondary-blue) 0%, #42a5f5 100%);
-    color: white;
+    background: var(--gold);
+    color: var(--navy);
     padding: 10px 0;
     overflow: hidden;
     white-space: nowrap;
@@ -133,6 +185,16 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 500;
 }
 
+.notice-label {
+    background: var(--navy);
+    color: var(--gold);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 12px;
+    border-radius: 20px;
+    margin-right: 10px;
+}
+
 @keyframes ticker {
     0% { transform: translate3d(0, 0, 0); }
     100% { transform: translate3d(-100%, 0, 0); }
@@ -142,7 +204,7 @@ h1, h2, h3, h4, h5, h6 {
    PAGE HEADER
    ============================================ */
 .page-header {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
     color: var(--white);
     padding: 3rem 0;
     margin-bottom: 2rem;
@@ -213,11 +275,11 @@ h1, h2, h3, h4, h5, h6 {
 .course-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-xl);
-    border-color: var(--primary-blue);
+    border-color: var(--gold);
 }
 
 .course-card-header {
-    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
     padding: 1.25rem;
     color: var(--white);
 }
@@ -226,6 +288,7 @@ h1, h2, h3, h4, h5, h6 {
     margin: 0;
     font-size: 1.25rem;
     font-weight: 600;
+    color: #ffffff !important;
 }
 
 .course-card-body {
@@ -246,7 +309,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .info-item i {
-    color: var(--secondary-blue);
+    color: var(--gold);
     margin-top: 0.25rem;
     font-size: 1rem;
 }
@@ -491,7 +554,7 @@ footer a:hover {
 
 .contact-item {
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--border);
 }
 
 .contact-item:last-child {

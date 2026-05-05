@@ -467,7 +467,7 @@ $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
 $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
 // Modified query to include batch information, course filtering for coordinators, and course details
-$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_description
+$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name
           FROM students s 
           LEFT JOIN batches b ON s.batch_id = b.id 
           LEFT JOIN courses c ON s.course_id = c.id
@@ -511,6 +511,11 @@ $query .= " ORDER BY s.created_at DESC";
 // Preparing the final query based on the conditions
 $stmt = $conn->prepare($query);
 
+// Check if prepare was successful
+if ($stmt === false) {
+    die("Database Error: " . $conn->error);
+}
+
 // Bind parameters dynamically
 $bind_types = '';
 $bind_values = [];
@@ -542,11 +547,15 @@ if (!empty($start_date) && !empty($end_date)) {
 
 // Bind parameters if any
 if (!empty($bind_values)) {
-    $stmt->bind_param($bind_types, ...$bind_values);
+    if (!$stmt->bind_param($bind_types, ...$bind_values)) {
+        die("Binding parameters failed: " . $stmt->error);
+    }
 }
 
+if (!$stmt->execute()) {
+    die("Execute failed: " . $stmt->error);
+}
 
-$stmt->execute();
 $result = $stmt->get_result();
 
 // Check if created_by column exists in batches table

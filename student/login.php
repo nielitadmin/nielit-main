@@ -61,7 +61,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Student Login - NIELIT Bhubaneswar</title>
 
     <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -71,35 +71,40 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <style>
         :root {
-            --primary-blue: #0d47a1;
-            --secondary-blue: #1565c0;
-            --accent-gold: #ffc107;
-            --light-bg: #f8f9fa;
-            --text-dark: #212529;
-            --text-muted: #6c757d;
+            --navy: #0a1628;
+            --navy-mid: #112240;
+            --blue: #1a56db;
+            --blue-light: #3b82f6;
+            --gold: #f59e0b;
+            --gold-light: #fcd34d;
+            --cream: #fafaf8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: rgba(0,0,0,0.08);
         }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--light-bg);
-            color: var(--text-dark);
+            font-family: 'DM Sans', 'Inter', sans-serif;
+            background-color: var(--cream);
+            color: var(--text);
         }
 
         h1, h2, h3, h4, h5, h6 {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Sora', 'Poppins', sans-serif;
         }
 
         /* Top Bar */
         .top-bar {
             background-color: #fff;
-            border-bottom: 1px solid #e9ecef;
+            border-bottom: 1px solid var(--border);
             padding: 8px 0;
             font-size: 0.85rem;
         }
 
         /* Navbar */
         .navbar {
-            background-color: var(--primary-blue);
+            background-color: var(--navy);
+            border-bottom: 3px solid var(--gold);
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             padding: 0.5rem 1rem;
         }
@@ -110,27 +115,36 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             color: #fff !important;
         }
 
+        .navbar-brand span {
+            color: var(--gold);
+        }
+
         .nav-link {
-            color: rgba(255,255,255,0.9) !important;
+            color: rgba(255,255,255,0.82) !important;
             font-weight: 500;
             margin: 0 5px;
             transition: all 0.3s ease;
         }
 
         .nav-link:hover {
-            color: var(--accent-gold) !important;
+            color: #fff !important;
         }
 
         .dropdown-menu {
-            border: none;
+            background-color: var(--navy-mid);
+            border: 1px solid rgba(255,255,255,0.1);
             box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
             border-radius: 8px;
             margin-top: 10px;
         }
 
+        .dropdown-item {
+            color: rgba(255,255,255,0.82) !important;
+        }
+
         .dropdown-item:hover {
-            background-color: #e3f2fd;
-            color: var(--primary-blue);
+            background-color: rgba(245,158,11,0.2);
+            color: var(--gold) !important;
         }
 
         /* Login Section */
@@ -150,7 +164,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .login-header {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%);
             color: white;
             padding: 40px;
             text-align: center;
@@ -160,6 +174,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 64px;
             margin-bottom: 20px;
             opacity: 0.9;
+            color: var(--gold);
         }
 
         .login-header h2 {
@@ -179,12 +194,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         .form-label {
             font-weight: 600;
-            color: var(--text-dark);
+            color: var(--text);
             margin-bottom: 8px;
         }
 
         .form-control {
-            border: 2px solid #e9ecef;
+            border: 2px solid var(--border);
             border-radius: 8px;
             padding: 12px 16px;
             font-size: 0.95rem;
@@ -192,13 +207,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .form-control:focus {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 0.2rem rgba(13, 71, 161, 0.1);
+            border-color: var(--blue);
+            box-shadow: 0 0 0 0.2rem rgba(26, 86, 219, 0.1);
         }
 
         .input-group-text {
             background: white;
-            border: 2px solid #e9ecef;
+            border: 2px solid var(--border);
             border-left: none;
             cursor: pointer;
             transition: all 0.3s;
@@ -209,11 +224,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .input-group-text:hover {
-            color: var(--primary-blue);
+            color: var(--blue);
         }
 
         .btn-login {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
+            background: linear-gradient(135deg, var(--blue) 0%, var(--navy) 100%);
             border: none;
             color: white;
             padding: 14px;
@@ -221,12 +236,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             font-size: 1rem;
             border-radius: 8px;
             transition: all 0.3s;
-            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);
+            box-shadow: 0 4px 12px rgba(26, 86, 219, 0.3);
         }
 
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(13, 71, 161, 0.4);
+            box-shadow: 0 6px 16px rgba(26, 86, 219, 0.4);
+            background: linear-gradient(135deg, var(--blue-light) 0%, var(--blue) 100%);
             color: white;
         }
 
@@ -249,7 +265,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             border-radius: 12px;
             padding: 25px;
             text-align: center;
-            border: 1px solid #e9ecef;
+            border: 1px solid var(--border);
             transition: all 0.3s;
             height: 100%;
         }
@@ -257,12 +273,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         .info-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-            border-color: var(--primary-blue);
+            border-color: var(--blue);
         }
 
         .info-card i {
             font-size: 2.5rem;
-            color: var(--primary-blue);
+            color: var(--blue);
             margin-bottom: 15px;
         }
 
@@ -272,15 +288,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         }
 
         .info-card p {
-            color: var(--text-muted);
+            color: var(--muted);
             font-size: 0.9rem;
             margin: 0;
         }
 
         /* Footer */
         footer {
-            background-color: #1a202c;
-            color: #cbd5e0;
+            background-color: #050e1a;
+            color: rgba(255,255,255,0.62);
             font-size: 0.95rem;
             margin-top: 60px;
         }
@@ -299,7 +315,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             bottom: -8px;
             width: 40px;
             height: 3px;
-            background-color: var(--accent-gold);
+            background-color: var(--gold);
         }
 
         footer a {

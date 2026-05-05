@@ -934,7 +934,7 @@ if (!empty($params)) {
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="qr_code_image" src="" alt="QR Code" style="max-width: 100%; height: auto; border: 2px solid #0d47a1; border-radius: 8px; padding: 10px;">
+                    <img id="qr_code_image" src="" alt="QR Code" style="max-width: 100%; height: auto; border: 2px solid #0a1628; border-radius: 8px; padding: 10px;">
                     <div class="mt-3">
                         <p class="text-muted mb-2">Scan this QR code to register for the course</p>
                         <a id="qr_download_link" href="" download class="btn btn-primary">

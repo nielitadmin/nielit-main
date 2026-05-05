@@ -77,12 +77,12 @@ $selected_course = $course_details['course_name'];
     <link href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css" rel="stylesheet">
     <style>
         :root {
-            --primary-blue: #0d47a1;
-            --secondary-blue: #1565c0;
-            --accent-gold: #ffc107;
-            --light-bg: #f8f9fa;
-            --text-dark: #212529;
-            --text-muted: #6c757d;
+            --primary-blue: #0a1628;
+            --secondary-blue: #1a56db;
+            --accent-gold: #f59e0b;
+            --light-bg: #fafaf8;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
         }
 
         body {
@@ -157,9 +157,9 @@ $selected_course = $course_details['course_name'];
         .page-title h1 {
             font-size: 2.5rem;
             font-weight: 700;
-            color: #0d47a1;
+            color: #0a1628;
             margin-bottom: 10px;
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -197,7 +197,7 @@ $selected_course = $course_details['course_name'];
             top: 25px;
             left: 20%;
             height: 4px;
-            background: linear-gradient(90deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(90deg, #0a1628 0%, #112240 100%);
             transition: width 0.5s ease;
             z-index: 1;
         }
@@ -228,11 +228,11 @@ $selected_course = $course_details['course_name'];
         }
         
         .progress-step.active .progress-circle {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
-            border-color: #0d47a1;
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            border-color: #0a1628;
             color: white;
             transform: scale(1.1);
-            box-shadow: 0 4px 16px rgba(13, 71, 161, 0.4);
+            box-shadow: 0 4px 16px rgba(10, 22, 40, 0.4);
         }
         
         .progress-step.completed .progress-circle {
@@ -263,7 +263,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .progress-step.active .progress-label {
-            color: #0d47a1;
+            color: #0a1628;
         }
         
         .progress-step.completed .progress-label {
@@ -347,7 +347,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .level-badge.level-1 {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             color: white;
         }
         
@@ -364,7 +364,7 @@ $selected_course = $course_details['course_name'];
         .level-title {
             font-size: 1.8rem;
             font-weight: 700;
-            color: #0d47a1;
+            color: #0a1628;
             margin: 12px 0 8px;
         }
         
@@ -387,7 +387,7 @@ $selected_course = $course_details['course_name'];
             margin-bottom: 28px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
             border: 1px solid #e2e8f0;
-            border-left: 5px solid #0d47a1;
+            border-left: 5px solid #0a1628;
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
@@ -400,7 +400,7 @@ $selected_course = $course_details['course_name'];
             left: -2px;
             right: -2px;
             bottom: -2px;
-            background: linear-gradient(135deg, #0d47a1, #1976d2, #06b6d4);
+            background: linear-gradient(135deg, #0a1628, #112240, #1a56db);
             border-radius: 16px;
             opacity: 0;
             transition: opacity 0.3s ease;
@@ -428,13 +428,13 @@ $selected_course = $course_details['course_name'];
         .section-icon {
             width: 50px;
             height: 50px;
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
             margin-right: 16px;
-            box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);
+            box-shadow: 0 4px 12px rgba(10, 22, 40, 0.3);
             transition: transform 0.3s ease;
         }
         
@@ -450,7 +450,7 @@ $selected_course = $course_details['course_name'];
         .section-title {
             font-size: 22px;
             font-weight: 700;
-            color: #0d47a1;
+            color: #0a1628;
             margin: 0;
             line-height: 1.2;
         }
@@ -474,7 +474,7 @@ $selected_course = $course_details['course_name'];
         
         .form-control:focus + .form-label,
         .form-select:focus + .form-label {
-            color: #0d47a1;
+            color: #0a1628;
         }
         
         .required-mark {
@@ -496,15 +496,15 @@ $selected_course = $course_details['course_name'];
         }
         
         .form-control:focus, .form-select:focus {
-            border-color: #0d47a1;
-            box-shadow: 0 0 0 4px rgba(13, 71, 161, 0.1);
+            border-color: #0a1628;
+            box-shadow: 0 0 0 4px rgba(10, 22, 40, 0.1);
             outline: none;
             background: #f8fafc;
             transform: translateY(-1px);
         }
         
         .form-control:hover, .form-select:hover {
-            border-color: #1976d2;
+            border-color: #112240;
         }
         
         /* Input validation states */
@@ -567,7 +567,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .course-info-card h5 {
-            color: #0d47a1;
+            color: #0a1628;
             font-weight: 700;
             margin-bottom: 16px;
             font-size: 18px;
@@ -603,7 +603,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .form-control[type="file"]::-webkit-file-upload-button {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #1a56db 100%);
             color: white;
             border: none;
             padding: 8px 16px;
@@ -616,7 +616,7 @@ $selected_course = $course_details['course_name'];
         
         .form-control[type="file"]::-webkit-file-upload-button:hover {
             transform: scale(1.05);
-            box-shadow: 0 2px 8px rgba(13, 71, 161, 0.3);
+            box-shadow: 0 2px 8px rgba(10, 22, 40, 0.3);
         }
         
         .file-preview {
@@ -637,7 +637,7 @@ $selected_course = $course_details['course_name'];
         .file-preview-icon {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -693,7 +693,7 @@ $selected_course = $course_details['course_name'];
             max-width: 200px;
             max-height: 200px;
             border-radius: 8px;
-            border: 2px solid #0d47a1;
+            border: 2px solid #0a1628;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             object-fit: contain;
         }
@@ -734,7 +734,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .category-title i {
-            color: #0d47a1;
+            color: #0a1628;
             font-size: 20px;
         }
         
@@ -813,9 +813,9 @@ $selected_course = $course_details['course_name'];
         }
         
         .education-table th {
-            background: linear-gradient(135deg, #f8fafc 0%, #e3f2fd 100%);
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
             font-weight: 700;
-            color: #0d47a1;
+            color: #0a1628;
             font-size: 13px;
             padding: 14px 10px;
             border: none;
@@ -837,8 +837,8 @@ $selected_course = $course_details['course_name'];
         }
         
         .education-table input:focus {
-            border-color: #0d47a1;
-            box-shadow: 0 0 0 2px rgba(13, 71, 161, 0.1);
+            border-color: #0a1628;
+            box-shadow: 0 0 0 2px rgba(10, 22, 40, 0.1);
             outline: none;
         }
         
@@ -852,13 +852,13 @@ $selected_course = $course_details['course_name'];
         }
         
         .education-table select:focus {
-            border-color: #0d47a1;
-            box-shadow: 0 0 0 2px rgba(13, 71, 161, 0.1);
+            border-color: #0a1628;
+            box-shadow: 0 0 0 2px rgba(10, 22, 40, 0.1);
             outline: none;
         }
         
         .education-table select:hover {
-            border-color: #1976d2;
+            border-color: #1a56db;
         }
         
         /* Enhanced dropdown styling */
@@ -935,7 +935,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .btn-register {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #1a56db 100%);
             color: white;
             padding: 16px 48px;
             border-radius: 12px;
@@ -944,7 +944,7 @@ $selected_course = $course_details['course_name'];
             border: none;
             cursor: pointer;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 16px rgba(13, 71, 161, 0.3);
+            box-shadow: 0 4px 16px rgba(10, 22, 40, 0.3);
             display: inline-flex;
             align-items: center;
             gap: 10px;
@@ -972,7 +972,7 @@ $selected_course = $course_details['course_name'];
         
         .btn-register:hover {
             transform: translateY(-3px);
-            box-shadow: 0 8px 24px rgba(13, 71, 161, 0.4);
+            box-shadow: 0 8px 24px rgba(10, 22, 40, 0.4);
             color: white;
         }
         
@@ -988,7 +988,7 @@ $selected_course = $course_details['course_name'];
         
         .btn-register:disabled:hover {
             transform: none;
-            box-shadow: 0 4px 16px rgba(13, 71, 161, 0.3);
+            box-shadow: 0 4px 16px rgba(10, 22, 40, 0.3);
         }
         
         /* File Upload Styling */
@@ -998,7 +998,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .form-control[type="file"]::-webkit-file-upload-button {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%);
+            background: linear-gradient(135deg, #0a1628 0%, #1a56db 100%);
             color: white;
             border: none;
             padding: 8px 16px;
@@ -1130,22 +1130,22 @@ $selected_course = $course_details['course_name'];
         
         /* Focus Visible for Accessibility */
         *:focus-visible {
-            outline: 2px solid #0d47a1;
+            outline: 2px solid #0a1628;
             outline-offset: 2px;
         }
         
         /* Locked Fields Styling */
         .form-control[readonly] {
-            background-color: #f0f9ff !important;
+            background-color: #f8fafc !important;
             cursor: not-allowed;
-            border-color: #90caf9;
-            color: #0d47a1;
+            border-color: #cbd5e1;
+            color: #0a1628;
             font-weight: 600;
         }
         
         .form-control[readonly]:focus {
             box-shadow: none;
-            border-color: #90caf9;
+            border-color: #cbd5e1;
         }
         
         /* Smooth Scrolling */
@@ -1191,13 +1191,13 @@ $selected_course = $course_details['course_name'];
         }
         
         .btn-next {
-            background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%) !important;
-            box-shadow: 0 4px 16px rgba(13, 71, 161, 0.4) !important;
+            background: linear-gradient(135deg, #0a1628 0%, #1a56db 100%) !important;
+            box-shadow: 0 4px 16px rgba(10, 22, 40, 0.4) !important;
         }
         
         .btn-next:hover {
-            box-shadow: 0 8px 24px rgba(13, 71, 161, 0.5) !important;
-            background: linear-gradient(135deg, #1565c0 0%, #1e88e5 100%) !important;
+            box-shadow: 0 8px 24px rgba(10, 22, 40, 0.5) !important;
+            background: linear-gradient(135deg, #1a56db 0%, #3b82f6 100%) !important;
         }
         
         .btn-previous {
@@ -1234,7 +1234,7 @@ $selected_course = $course_details['course_name'];
         }
         
         .help-tooltip:hover i {
-            color: #0d47a1;
+            color: #0a1628;
         }
         
         /* Loading Spinner */
@@ -1413,11 +1413,11 @@ if (isset($_SESSION['info'])) {
     <div class="course-flyer-section" style="margin-bottom: 40px;">
         <div class="content-card" style="background: white; border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0;">
             <div class="section-header" style="display: flex; align-items: center; margin-bottom: 24px; padding-bottom: 18px; border-bottom: 2px solid #e3f2fd;">
-                <div class="section-icon" style="width: 50px; height: 50px; background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px; box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);">
+                <div class="section-icon" style="width: 50px; height: 50px; background: linear-gradient(135deg, #0a1628 0%, #112240 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-right: 16px; box-shadow: 0 4px 12px rgba(10, 22, 40, 0.3);">
                     <i class="fas fa-image" style="color: white; font-size: 22px;"></i>
                 </div>
                 <div>
-                    <h3 style="font-size: 22px; font-weight: 700; color: #0d47a1; margin: 0; line-height: 1.2;">Course Flyer</h3>
+                    <h3 style="font-size: 22px; font-weight: 700; color: #0a1628; margin: 0; line-height: 1.2;">Course Flyer</h3>
                     <p style="font-size: 14px; color: #64748b; margin: 4px 0 0 0; font-weight: 400;">View detailed course information</p>
                 </div>
             </div>
@@ -1432,7 +1432,7 @@ if (isset($_SESSION['info'])) {
                     <a href="<?php echo APP_URL . '/' . htmlspecialchars($course_details['course_flyer']); ?>" 
                        download 
                        class="btn btn-primary" 
-                       style="background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); color: white; padding: 12px 32px; border-radius: 8px; font-weight: 600; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(13, 71, 161, 0.3);">
+                       style="background: linear-gradient(135deg, #0a1628 0%, #1a56db 100%); color: white; padding: 12px 32px; border-radius: 8px; font-weight: 600; border: none; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(10, 22, 40, 0.3);">
                         <i class="fas fa-download"></i> Download Flyer
                     </a>
                     <button type="button" 
@@ -2633,7 +2633,7 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
                     preview.innerHTML = `
                         <div class="file-preview-image-container" style="width: 100%; text-align: center; margin-bottom: 10px;">
                             <img src="${e.target.result}" alt="${previewLabel}" 
-                                 style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0d47a1; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                 style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0a1628; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
                         </div>
                         <div class="file-preview-icon">
                             <i class="fas fa-check-circle" style="color: #10b981;"></i>

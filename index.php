@@ -5,904 +5,1374 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NIELIT Bhubaneswar | Ministry of Electronics & IT</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <?php 
     require_once __DIR__ . '/config/config.php';
     require_once __DIR__ . '/includes/theme_loader.php';
     require_once __DIR__ . '/includes/navigation_helper.php';
     
-    // Load active theme
     $active_theme = loadActiveTheme($conn);
     $theme_logo = getThemeLogo($active_theme);
     
-    // Load navigation menu from database (with fallback to hardcoded menu)
     $navigation_menu_html = '';
     if (navigationMenuTableExists($conn)) {
         $menu_items = getNavigationMenu($conn);
         $current_page = basename($_SERVER['PHP_SELF']);
         $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
     }
-    
-    // Use fallback if no menu items found
     if (empty($navigation_menu_html)) {
         $navigation_menu_html = getFallbackNavigationMenu();
     }
-    
-    // Inject theme CSS
     injectThemeCSS($active_theme);
     
-    // Load homepage content sections from database with caching
-    // Cache Strategy:
-    // - Cache duration: 1 hour (3600 seconds)
-    // - Cache storage: PHP session
-    // - Cache key: 'homepage_content_cache'
-    // - Cache invalidation: Automatic after 1 hour, or manual via cache clearing (Task 15.4)
-    // - Performance benefit: Reduces database queries on every page load
-    $banners = [];
-    $announcements_content = [];
-    $featured_courses = [];
-    $text_blocks = [];
-    $image_blocks = [];
-    
-    // Cache configuration
-    $cache_duration = 3600; // 1 hour in seconds
-    $cache_key = 'homepage_content_cache';
-    $cache_time_key = 'homepage_content_cache_time';
-    
-    // Check if cached content exists and is not expired
+    $banners = []; $announcements_content = []; $featured_courses = [];
+    $text_blocks = []; $image_blocks = [];
+    $cache_duration = 3600; $cache_key = 'homepage_content_cache'; $cache_time_key = 'homepage_content_cache_time';
     $use_cache = false;
     if (isset($_SESSION[$cache_key]) && isset($_SESSION[$cache_time_key])) {
-        $cache_age = time() - $_SESSION[$cache_time_key];
-        if ($cache_age < $cache_duration) {
-            $use_cache = true;
-        }
+        if (time() - $_SESSION[$cache_time_key] < $cache_duration) $use_cache = true;
     }
-    
     if ($use_cache) {
-        // Use cached content
         $cached_data = $_SESSION[$cache_key];
-        $banners = $cached_data['banners'];
-        $announcements_content = $cached_data['announcements_content'];
-        $featured_courses = $cached_data['featured_courses'];
-        $text_blocks = $cached_data['text_blocks'];
-        $image_blocks = $cached_data['image_blocks'];
+        extract($cached_data);
     } else {
-        // Cache is invalid or doesn't exist - query database
         try {
-            // Query homepage_content table for active sections ordered by display_order
-            $content_sql = "SELECT * FROM homepage_content WHERE is_active = 1 ORDER BY display_order ASC";
-            $content_result = $conn->query($content_sql);
-            
+            $content_result = $conn->query("SELECT * FROM homepage_content WHERE is_active = 1 ORDER BY display_order ASC");
             if ($content_result) {
-                // Group sections by type for easier rendering
                 while ($section = $content_result->fetch_assoc()) {
                     switch ($section['section_type']) {
-                        case 'banner':
-                            $banners[] = $section;
-                            break;
-                        case 'announcement':
-                            $announcements_content[] = $section;
-                            break;
-                        case 'featured_course':
-                            $featured_courses[] = $section;
-                            break;
-                        case 'text_block':
-                            $text_blocks[] = $section;
-                            break;
-                        case 'image_block':
-                            $image_blocks[] = $section;
-                            break;
+                        case 'banner': $banners[] = $section; break;
+                        case 'announcement': $announcements_content[] = $section; break;
+                        case 'featured_course': $featured_courses[] = $section; break;
+                        case 'text_block': $text_blocks[] = $section; break;
+                        case 'image_block': $image_blocks[] = $section; break;
                     }
                 }
             }
-            
-            // Store results in cache
-            $_SESSION[$cache_key] = [
-                'banners' => $banners,
-                'announcements_content' => $announcements_content,
-                'featured_courses' => $featured_courses,
-                'text_blocks' => $text_blocks,
-                'image_blocks' => $image_blocks
-            ];
+            $_SESSION[$cache_key] = compact('banners','announcements_content','featured_courses','text_blocks','image_blocks');
             $_SESSION[$cache_time_key] = time();
-            
-        } catch (Exception $e) {
-            // Log error and continue with empty arrays (fallback to hardcoded content)
-            error_log("Homepage content query failed: " . $e->getMessage());
-        }
+        } catch (Exception $e) { error_log("Homepage content query failed: " . $e->getMessage()); }
     }
+    // Decorative background uses CSS gradients; no SVG asset needed
     ?>
 
     <style>
         :root {
-            --primary-blue: var(--primary-color, #0d47a1); /* Use theme primary color */
-            --secondary-blue: var(--secondary-color, #1565c0); /* Use theme secondary color */
-            --accent-gold: var(--accent-color, #ffc107); /* Use theme accent color */
-            --light-bg: #f8f9fa;
-            --text-dark: #212529;
-            --text-muted: #6c757d;
+            --navy: #0a1628;
+            --navy-mid: #112240;
+            --blue: #1a56db;
+            --blue-light: #3b82f6;
+            --gold: #f59e0b;
+            --gold-light: #fcd34d;
+            --cream: #fafaf8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: rgba(0,0,0,0.08);
         }
+
+        * { box-sizing: border-box; }
 
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--light-bg);
-            color: var(--text-dark);
-            padding-top: 0; /* Bootstrap 5 navbar handling */
+            font-family: 'DM Sans', sans-serif;
+            background: var(--cream);
+            color: var(--text);
+            overflow-x: hidden;
         }
 
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Poppins', sans-serif;
-        }
+        h1,h2,h3,h4,h5,h6 { font-family: 'Sora', sans-serif; }
 
-        /* ===== TOP BAR (Gov Info) ===== */
+        /* ===== TOP BAR ===== */
         .top-bar {
-            background-color: #fff;
-            border-bottom: 1px solid #e9ecef;
-            padding: 8px 0;
-            font-size: 0.85rem;
+            background: #fff;
+            border-bottom: 1px solid var(--border);
+            padding: 10px 0;
         }
-        
-        .gov-logos img {
-            height: 45px;
-            width: auto;
-        }
-
-        .ministry-text {
-            font-weight: 600;
-            color: var(--text-dark);
-            line-height: 1.2;
-        }
-
-        /* ===== MAIN NAVBAR ===== */
-        .navbar {
-            background-color: var(--primary-blue);
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-            padding: 0.5rem 1rem;
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            font-size: 1.2rem;
-            color: #fff !important;
-        }
-
-        .nav-link {
-            color: rgba(255,255,255,0.9) !important;
+        .top-bar img { height: 48px; }
+        .top-bar .inst-name-hi { font-size: 0.82rem; color: var(--blue); font-weight: 600; font-family: 'Sora', sans-serif; }
+        .top-bar .inst-name-en { font-size: 0.95rem; font-weight: 700; color: var(--navy); font-family: 'Sora', sans-serif; }
+        .top-bar .ministry-badge {
+            background: var(--navy);
+            color: #fff;
+            font-size: 0.72rem;
+            padding: 3px 10px;
+            border-radius: 20px;
             font-weight: 500;
-            margin: 0 5px;
-            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            background: var(--navy);
+            padding: 0;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 3px solid var(--gold);
+        }
+        .navbar .container { padding: 0 1rem; }
+        .navbar-brand {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: #fff !important;
+            padding: 18px 0;
+            letter-spacing: -0.5px;
+        }
+        .navbar-brand span { color: var(--gold); }
+        .nav-link {
+            color: rgba(255,255,255,0.82) !important;
+            font-weight: 500;
+            font-size: 0.9rem;
+            padding: 22px 14px !important;
             position: relative;
+            transition: color 0.2s;
         }
-
-        .nav-link:hover, .nav-link.active {
-            color: var(--accent-gold) !important;
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 14px; right: 14px;
+            height: 3px;
+            background: var(--gold);
+            transform: scaleX(0);
+            transition: transform 0.25s ease;
         }
-
+        .nav-link:hover, .nav-link.active { color: #fff !important; }
+        .nav-link:hover::after, .nav-link.active::after { transform: scaleX(1); }
         .dropdown-menu {
-            border: none;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-            border-radius: 8px;
-            margin-top: 10px;
+            background: var(--navy-mid);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 8px;
+            margin-top: 0;
         }
-
-        .dropdown-item:hover {
-            background-color: #e3f2fd;
-            color: var(--primary-blue);
-        }
+        .dropdown-item { color: rgba(255,255,255,0.8); border-radius: 6px; padding: 9px 14px; font-size: 0.88rem; }
+        .dropdown-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .navbar-toggler { border: 1px solid rgba(255,255,255,0.3); }
+        .navbar-toggler-icon { filter: invert(1); }
 
         /* ===== NOTICE TICKER ===== */
         .notice-bar {
-            background: linear-gradient(90deg, #1565c0 0%, #42a5f5 100%);
-            color: white;
-            padding: 10px 0;
+            background: var(--gold);
+            color: var(--navy);
+            padding: 9px 0;
             overflow: hidden;
             white-space: nowrap;
-            position: relative;
         }
-
+        .notice-label {
+            background: var(--navy);
+            color: var(--gold);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 12px;
+            border-radius: 20px;
+            margin-right: 12px;
+            font-family: 'Sora', sans-serif;
+            letter-spacing: 0.5px;
+        }
         .notice-content {
             display: inline-block;
             padding-left: 100%;
-            animation: ticker 25s linear infinite;
+            animation: ticker 28s linear infinite;
+            font-weight: 500;
+            font-size: 0.88rem;
+        }
+        @keyframes ticker {
+            0% { transform: translate3d(0,0,0); }
+            100% { transform: translate3d(-100%,0,0); }
+        }
+
+        /* ===== HERO ===== */
+        .hero-section {
+            position: relative;
+            height: 92vh;
+            min-height: 560px;
+            max-height: 780px;
+            overflow: hidden;
+            background: var(--navy);
+        }
+        .hero-carousel, .hero-carousel .carousel-inner, .hero-carousel .carousel-item {
+            height: 100%;
+        }
+        .hero-carousel .carousel-item img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+            opacity: 0.45;
+            filter: saturate(0.6);
+        }
+        .hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(10,22,40,0.85) 0%, rgba(10,22,40,0.3) 100%);
+            display: flex;
+            align-items: center;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .hero-content { max-width: 720px; pointer-events: auto; }
+        .hero-eyebrow {
+            display: inline-block;
+            background: rgba(245,158,11,0.15);
+            border: 1px solid rgba(245,158,11,0.4);
+            color: var(--gold-light);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 5px 14px;
+            border-radius: 20px;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            font-family: 'Sora', sans-serif;
+        }
+        .hero-title {
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.1;
+            letter-spacing: -1.5px;
+            margin-bottom: 20px;
+        }
+        .hero-title em {
+            font-style: normal;
+            color: var(--gold);
+        }
+        .hero-sub {
+            color: rgba(255,255,255,0.72);
+            font-size: 1.08rem;
+            line-height: 1.7;
+            margin-bottom: 36px;
+            max-width: 540px;
+        }
+        .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+        .btn-hero-primary {
+            background: var(--gold);
+            color: var(--navy);
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            padding: 14px 30px;
+            border-radius: 50px;
+            border: none;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.25s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-hero-primary:hover {
+            background: var(--gold-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(245,158,11,0.4);
+            color: var(--navy);
+        }
+        .btn-hero-outline {
+            background: transparent;
+            color: #fff;
+            font-weight: 600;
+            font-family: 'Sora', sans-serif;
+            padding: 13px 28px;
+            border-radius: 50px;
+            border: 2px solid rgba(255,255,255,0.4);
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.25s;
+        }
+        .btn-hero-outline:hover {
+            border-color: #fff;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .hero-stats {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            z-index: 3;
+            background: rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255,255,255,0.12);
+        }
+        .hero-stat {
+            padding: 22px 0;
+            text-align: center;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        .hero-stat:last-child { border-right: none; }
+        .hero-stat .number {
+            font-family: 'Sora', sans-serif;
+            font-size: 1.9rem;
+            font-weight: 800;
+            color: var(--gold);
+            display: block;
+            line-height: 1;
+        }
+        .hero-stat .label {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.6);
+            margin-top: 4px;
             font-weight: 500;
         }
-
-        @keyframes ticker {
-            0% { transform: translate3d(0, 0, 0); }
-            100% { transform: translate3d(-100%, 0, 0); }
+        .carousel-control-prev, .carousel-control-next {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 50%;
+            top: 50%;
+            transform: translateY(-50%);
+            bottom: auto;
+            z-index: 5;
+            pointer-events: auto;
         }
-
-        /* ===== HERO CAROUSEL ===== */
-        .carousel-item {
-            height: 500px;
+        .carousel-control-prev { left: 24px; }
+        .carousel-control-next { right: 24px; }
+        .hero-carousel .carousel-indicators {
+            bottom: 90px;
+            margin-bottom: 0;
+            z-index: 4;
         }
-        
-        .carousel-item img {
-            height: 100%;
-            object-fit: cover;
-            filter: brightness(0.9); /* Slight dim for better text readability if added */
+        .hero-carousel .carousel-indicators [data-bs-target] {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            margin: 0 4px;
+            background-color: rgba(255,255,255,0.55);
+            border: 0;
+        }
+        .hero-carousel .carousel-indicators .active { background-color: var(--gold); }
+
+        /* ===== SECTION TITLES ===== */
+        .section-eyebrow {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--blue);
+            font-family: 'Sora', sans-serif;
+            margin-bottom: 10px;
+            display: block;
+        }
+        .section-title {
+            font-size: clamp(1.8rem, 3vw, 2.6rem);
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.8px;
+            line-height: 1.15;
+            margin-bottom: 16px;
+        }
+        .section-divider {
+            width: 48px;
+            height: 4px;
+            background: var(--gold);
+            border-radius: 2px;
+            margin: 0 auto 16px;
+        }
+        .section-divider.left { margin-left: 0; }
+
+        /* ===== WELCOME STRIP ===== */
+        .welcome-strip {
+            background: var(--navy);
+            padding: 60px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .welcome-strip::before {
+            content: '';
+            position: absolute;
+            right: -80px; top: -80px;
+            width: 400px; height: 400px;
+            background: radial-gradient(circle, rgba(245,158,11,0.12) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .welcome-strip .section-title { color: #fff; }
+        .welcome-strip .section-eyebrow { color: var(--gold-light); }
+        .welcome-strip p { color: rgba(255,255,255,0.68); line-height: 1.8; font-size: 1rem; }
+        .stat-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 50px;
+            padding: 10px 20px;
+            color: #fff;
+            font-size: 0.88rem;
+            font-weight: 500;
+            margin: 6px 4px;
+        }
+        .stat-pill i { color: var(--gold); font-size: 0.9rem; }
+        .stat-pill a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
+        .stat-pill:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
+        .stat-pill[role="link"] { cursor: pointer; }
+        /* Decorative premium CSS background for white sections */
+        .section-white-pattern {
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+            background:
+                radial-gradient(circle at 15% 20%, rgba(26,86,219,0.07) 0, rgba(26,86,219,0) 33%),
+                radial-gradient(circle at 85% 30%, rgba(245,158,11,0.09) 0, rgba(245,158,11,0) 36%),
+                linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+        }
+        .section-white-pattern::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(90deg, rgba(17,34,64,0.045) 1px, transparent 1px),
+                linear-gradient(0deg, rgba(17,34,64,0.045) 1px, transparent 1px);
+            background-size: 42px 42px;
+            opacity: 0.55;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .section-white-pattern::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 44px;
+            width: min(820px, 88%);
+            height: 120px;
+            transform: translateX(-50%);
+            background: linear-gradient(180deg, rgba(16,44,93,0.08) 0%, rgba(16,44,93,0) 100%);
+            clip-path: polygon(0 100%, 7% 52%, 13% 72%, 21% 38%, 30% 66%, 39% 26%, 49% 62%, 60% 32%, 70% 66%, 80% 46%, 89% 76%, 100% 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .section-white-pattern > * {
+            position: relative;
+            z-index: 1;
         }
 
         /* ===== FEATURE CARDS ===== */
-        .feature-card {
-            background: #fff;
-            border-radius: 12px;
-            padding: 25px;
+        .features-section { padding: 90px 0; background: #fff; }
+        .feat-card {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px 28px;
             height: 100%;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            border: 1px solid #eee;
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            position: relative;
+            overflow: hidden;
+        }
+        .feat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--blue) 0%, var(--gold) 100%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .feat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.1);
+            background: #fff;
+            border-color: transparent;
+        }
+        .feat-card:hover::before { opacity: 1; }
+        .feat-icon-wrap {
+            width: 58px; height: 58px;
+            background: var(--navy);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 22px;
+        }
+        .feat-icon-wrap i { font-size: 1.5rem; color: var(--gold); }
+        .feat-card h5 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--navy);
+            margin-bottom: 10px;
+        }
+        .feat-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin: 0; }
+
+        /* ===== INFO CARDS (DETAILED) ===== */
+        .info-section { padding: 90px 0; background: var(--cream); }
+        .info-card {
+            background: #fff;
+            border-radius: 24px;
+            padding: 40px 36px;
+            height: 100%;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .info-card::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--navy) 0%, var(--blue) 100%);
+            border-radius: 0 0 24px 24px;
+        }
+        .info-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .info-icon-box {
+            width: 68px; height: 68px;
+            background: var(--navy);
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 24px;
+        }
+        .info-icon-box i { font-size: 1.8rem; color: var(--gold); }
+        .info-card h4 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 1.35rem;
+            color: var(--navy);
+            margin-bottom: 14px;
+        }
+        .info-card p { color: var(--muted); line-height: 1.75; font-size: 0.92rem; margin-bottom: 20px; }
+        .check-list { list-style: none; padding: 0; margin: 0; }
+        .check-list li {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.9rem;
+            padding: 9px 0;
+            border-bottom: 1px solid #f1f5f9;
+            color: var(--text);
+        }
+        .check-list li:last-child { border-bottom: none; }
+        .check-list i { color: #22c55e; font-size: 0.85rem; flex-shrink: 0; }
+
+        /* ===== QUICK LINKS ===== */
+        .quick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 22px;
+        }
+        .quick-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px 10px;
+            color: var(--navy);
+            font-weight: 600;
+            font-size: 0.82rem;
+            font-family: 'Sora', sans-serif;
+            text-decoration: none;
+            transition: all 0.25s;
+        }
+        .quick-btn i { font-size: 1.2rem; color: var(--blue); }
+        .quick-btn:hover {
+            background: var(--navy);
+            color: var(--gold);
+            border-color: var(--navy);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(10,22,40,0.2);
+        }
+        .quick-btn:hover i { color: var(--gold); }
+
+        /* ===== ANNOUNCEMENTS ===== */
+        .announcements-section { padding: 80px 0; background: var(--navy); }
+        .announcements-section .section-title { color: #fff; }
+        .announcements-section .section-eyebrow { color: var(--gold-light); }
+        .announce-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 28px 24px;
+            height: 100%;
+            transition: all 0.3s;
+        }
+        .announce-card:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateY(-4px);
+        }
+        .announce-type {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+            margin-bottom: 14px;
+        }
+        .type-info { background: rgba(59,130,246,0.2); color: #93c5fd; }
+        .type-success { background: rgba(34,197,94,0.2); color: #86efac; }
+        .type-warning { background: rgba(245,158,11,0.14); color: #f59e0b; border: 1px solid rgba(245,158,11,0.35); }
+        .type-danger { background: rgba(239,68,68,0.2); color: #fca5a5; }
+        .announce-card h6 {
+            color: #fff;
+            font-family: 'Sora', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+        .announce-card p { color: rgba(255,255,255,0.62); font-size: 0.88rem; line-height: 1.6; margin: 0; }
+        .announce-card .date-tag {
+            color: rgba(255,255,255,0.38);
+            font-size: 0.78rem;
+            margin-top: 14px;
+            display: block;
         }
 
-        .feature-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            border-color: var(--primary-blue);
+        /* ===== DYNAMIC SECTIONS ===== */
+        .dynamic-banner { padding: 80px 0; background: linear-gradient(135deg, #e8f0fe 0%, #fafaf8 100%); }
+        .dynamic-banner h2 { font-family: 'Sora', sans-serif; font-weight: 800; color: var(--navy); }
+        .dynamic-course { padding: 80px 0; background: #fff; }
+        .course-card {
+            background: var(--cream);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 28px;
+            height: 100%;
+            transition: all 0.3s;
         }
-
-        .feature-icon {
-            font-size: 2rem;
-            color: var(--secondary-blue);
-            margin-bottom: 15px;
-        }
+        .course-card:hover { transform: translateY(-6px); box-shadow: 0 16px 32px rgba(0,0,0,0.1); }
+        .course-card h5 { font-family: 'Sora', sans-serif; font-weight: 700; color: var(--navy); margin-bottom: 10px; }
+        .course-icon { font-size: 2rem; color: var(--blue); margin-bottom: 16px; }
 
         /* ===== FOOTER ===== */
         footer {
-            background-color: #1a202c; /* Darker modern footer */
-            color: #cbd5e0;
-            font-size: 0.95rem;
-        }
-
-        footer h5 {
-            color: #fff;
-            font-weight: 600;
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-        
-        footer h5::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            bottom: -8px;
-            width: 40px;
-            height: 3px;
-            background-color: var(--accent-gold);
-        }
-
-        footer a {
-            color: #cbd5e0;
-            text-decoration: none;
-            transition: color 0.2s;
-            display: block;
-            margin-bottom: 8px;
-        }
-
-        footer a:hover {
-            color: var(--accent-gold);
-            padding-left: 5px;
-        }
-
-        .copyright-bar {
-            background-color: #111827;
-            padding: 15px 0;
-            border-top: 1px solid #2d3748;
-        }
-
-        /* ===== LEVEL INDICATORS ===== */
-        .level-indicator {
-            animation: fadeInDown 0.6s ease-out;
-        }
-
-        @keyframes fadeInDown {
-            from {
-                opacity: 0;
-                transform: translateY(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* ===== INFO DETAIL CARDS (LEVEL 3) ===== */
-        .info-detail-card {
-            background: #fff;
-            border-radius: 16px;
-            padding: 32px;
-            height: 100%;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            border: 1px solid #e9ecef;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .info-detail-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
-        }
-
-        .info-detail-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
-            border-color: var(--primary-blue);
-        }
-
-        .card-icon-header {
-            width: 70px;
-            height: 70px;
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 20px;
-            box-shadow: 0 8px 16px rgba(13, 71, 161, 0.3);
-        }
-
-        .card-icon-header i {
-            font-size: 32px;
-            color: white;
-        }
-
-        .info-detail-card .card-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary-blue);
-            margin-bottom: 16px;
-        }
-
-        .info-detail-card .card-text {
-            color: var(--text-muted);
-            line-height: 1.7;
-            margin-bottom: 20px;
-            font-size: 0.95rem;
-        }
-
-        .detail-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-
-        .detail-list li {
-            padding: 10px 0;
-            color: var(--text-dark);
+            background: #050e1a;
+            color: rgba(255,255,255,0.62);
             font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid #f1f5f9;
         }
-
-        .detail-list li:last-child {
-            border-bottom: none;
-        }
-
-        .detail-list i {
-            color: #10b981;
-            font-size: 1rem;
-        }
-
-        /* ===== QUICK LINKS GRID ===== */
-        .quick-links-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 20px;
-        }
-
-        .quick-link-btn {
-            background: linear-gradient(135deg, #f8fafc 0%, #e3f2fd 100%);
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 14px 10px;
-            text-align: center;
-            text-decoration: none;
-            color: var(--primary-blue);
-            font-weight: 600;
-            font-size: 0.85rem;
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .quick-link-btn i {
-            font-size: 1.3rem;
+        .footer-main { padding: 70px 0 50px; }
+        .footer-brand { margin-bottom: 24px; }
+        .footer-brand .brand-name {
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: #fff;
+            display: block;
             margin-bottom: 4px;
         }
+        .footer-brand .brand-sub { font-size: 0.8rem; color: rgba(255,255,255,0.45); }
+        .footer-brand p { color: rgba(255,255,255,0.5); font-size: 0.85rem; line-height: 1.7; margin-top: 14px; }
+        .footer-contact-item {
+            display: flex; align-items: flex-start; gap: 10px;
+            margin-bottom: 12px; font-size: 0.85rem;
+        }
+        .footer-contact-item i { color: var(--gold); margin-top: 2px; flex-shrink: 0; }
+        footer h5 {
+            font-family: 'Sora', sans-serif;
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 22px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        footer a {
+            color: rgba(255,255,255,0.55);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 0;
+            font-size: 0.88rem;
+            transition: all 0.2s;
+        }
+        footer a:hover { color: var(--gold); padding-left: 4px; }
+        footer a i { font-size: 0.65rem; }
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.06);
+            padding: 20px 0;
+            font-size: 0.82rem;
+            color: rgba(255,255,255,0.3);
+        }
+        .footer-bottom a { color: rgba(255,255,255,0.4); display: inline; padding: 0; font-size: 0.82rem; }
+        .footer-bottom a:hover { color: var(--gold); padding-left: 0; }
+        .footer-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 0.75rem;
+            color: rgba(255,255,255,0.4);
+        }
+        .footer-badge span { color: var(--gold); }
 
-        .quick-link-btn:hover {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--secondary-blue) 100%);
-            color: white;
-            transform: translateY(-3px);
-            box-shadow: 0 6px 16px rgba(13, 71, 161, 0.3);
-            border-color: var(--primary-blue);
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.7s ease forwards; }
+        .fade-up-delay-1 { animation-delay: 0.1s; opacity: 0; animation-fill-mode: forwards; }
+        .fade-up-delay-2 { animation-delay: 0.2s; opacity: 0; animation-fill-mode: forwards; }
+        .fade-up-delay-3 { animation-delay: 0.35s; opacity: 0; animation-fill-mode: forwards; }
+
+        /* ===== TYPING EFFECT ===== */
+        .hero-title {
+            font-size: clamp(2.4rem, 5vw, 4rem);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.15;
+            letter-spacing: -1.5px;
+            margin-bottom: 20px;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+        .hero-title em {
+            font-style: normal;
+            color: var(--gold);
+        }
+        .typing-text {
+            display: block;
+            color: #fff;
+            font-family: 'Sora', sans-serif;
+            font-weight: 800;
+            line-height: 1.15;
+            min-height: 1.2em;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+        
+        #typing-line2 {
+            display: block;
+        }
+        
+        .typing-cursor {
+            display: inline-block;
+            width: 3px;
+            height: 1em;
+            background-color: var(--gold);
+            margin-left: 4px;
+            animation: blink 0.8s infinite;
+            vertical-align: middle;
+        }
+        
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
         }
 
-        /* ===== ENHANCED FEATURE CARDS ===== */
-        .feature-card {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .feature-card::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-blue) 0%, var(--accent-gold) 100%);
-            transform: scaleX(0);
-            transition: transform 0.3s ease;
-        }
-
-        .feature-card:hover::after {
-            transform: scaleX(1);
-        }
-
-        /* ===== MOBILE TWEAKS ===== */
+        /* ===== MOBILE ===== */
         @media (max-width: 768px) {
-            .carousel-item { height: 250px; }
-            .gov-logos { justify-content: center !important; margin-top: 10px; }
-            .text-header-group { text-align: center; }
-            .feature-card { text-align: center; }
-            
-            .info-detail-card {
-                padding: 24px;
-                margin-bottom: 20px;
-            }
-            
-            .card-icon-header {
-                width: 60px;
-                height: 60px;
-            }
-            
-            .card-icon-header i {
-                font-size: 28px;
-            }
-            
-            .quick-links-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .quick-link-btn {
-                padding: 16px;
-            }
+            .hero-section { height: 70vh; }
+            .hero-stats { display: none; }
+            .hero-carousel .carousel-indicators { bottom: 16px; }
+            .top-bar .inst-name-hi { display: none; }
+            .info-card { padding: 28px 22px; }
+            .quick-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <div class="top-bar">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
-                    <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-3" style="height: 50px;">
-                    <div>
-                        <div class="fw-bold text-primary d-none d-sm-block">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                        <div class="fw-bold text-dark">National Institute of Electronics & Information Technology, Bhubaneswar</div>
-                    </div>
+<!-- ===== TOP BAR ===== -->
+<div class="top-bar">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-8 d-flex align-items-center gap-3">
+                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo">
+                <div>
+                    <div class="inst-name-hi">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
+                    <div class="inst-name-en">National Institute of Electronics & Information Technology, Bhubaneswar</div>
                 </div>
-                <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
-                    <div class="text-end me-3 d-none d-lg-block">
-                        <small class="d-block fw-bold text-secondary">Ministry of Electronics & IT</small>
-                        <small class="d-block text-secondary">Government of India</small>
-                    </div>
-                    <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
+            </div>
+            <div class="col-md-4 d-flex justify-content-md-end justify-content-center align-items-center gap-3 mt-2 mt-md-0">
+                <div class="text-end d-none d-md-block">
+                    <div class="ministry-badge">Ministry of Electronics & IT &nbsp; | &nbsp; Govt. of India</div>
                 </div>
+                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 48px;">
             </div>
         </div>
     </div>
+</div>
 
-    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
-        <div class="container">
-            <a class="navbar-brand" href="index.php">
-                <i class="fas fa-university me-2"></i> NIELIT
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-
-            <div class="collapse navbar-collapse" id="mainNav">
-                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <?php echo $navigation_menu_html; ?>
-                </ul>
-            </div>
-        </div>
-    </nav>
-
-    <div class="notice-bar">
-        <div class="notice-content">
-            <span class="badge bg-warning text-dark me-2">NEW</span> 
-            Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Balasore Extension Center today.
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar navbar-expand-lg navbar-dark">
+    <div class="container">
+        <a class="navbar-brand" href="index.php">
+            <i class="fas fa-university me-2" style="color:var(--gold);"></i> NIELIT <span>Bhubaneswar</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                <?php echo $navigation_menu_html; ?>
+            </ul>
         </div>
     </div>
+</nav>
 
-    <div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel">
+<!-- ===== NOTICE TICKER ===== -->
+<div class="notice-bar">
+    <div class="notice-content">
+        <span class="notice-label">NOTICE</span>
+        Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Balasore Extension Center today. &nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;
+        <span class="notice-label">NEW</span>
+        Online Registrations are now live — Apply before the deadline!
+    </div>
+</div>
+
+<!-- ===== HERO ===== -->
+<section class="hero-section">
+    <div id="heroCarousel" class="carousel slide carousel-fade hero-carousel" data-bs-ride="carousel" data-bs-interval="3000" data-bs-wrap="true" data-bs-touch="true">
         <div class="carousel-inner">
-            <div class="carousel-item active">
-                <img src="<?php echo APP_URL; ?>/assets/images/banners/bhubaneswar_banner.jpg" class="d-block w-100" alt="NIELIT Campus">
+            <?php
+            // Load all banner images from assets/images/banners (including subfolders)
+            $banner_dir = __DIR__ . '/assets/images/banners';
+            $banner_files = [];
+            $allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'];
+            if (is_dir($banner_dir)) {
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator($banner_dir, FilesystemIterator::SKIP_DOTS)
+                );
+                foreach ($iterator as $file_info) {
+                    if (!$file_info->isFile()) {
+                        continue;
+                    }
+                    $ext = strtolower($file_info->getExtension());
+                    if (in_array($ext, $allowed_extensions, true)) {
+                        $banner_files[] = $file_info->getPathname();
+                    }
+                }
+                natsort($banner_files);
+                $banner_files = array_values($banner_files);
+            }
+
+            // Build encoded relative URLs so names with spaces/special chars work correctly
+            $banner_urls = [];
+            foreach ($banner_files as $file_path) {
+                $relative_path = str_replace('\\', '/', substr($file_path, strlen(__DIR__) + 1));
+                $banner_urls[] = implode('/', array_map('rawurlencode', explode('/', $relative_path)));
+            }
+
+            // Fallback slide (inline SVG) if no local banner files exist
+            if (empty($banner_urls)) {
+                $fallback_svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 900'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#0a1628'/><stop offset='100%' stop-color='#112240'/></linearGradient></defs><rect width='1920' height='900' fill='url(#g)'/><text x='50%' y='50%' fill='#fcd34d' text-anchor='middle' font-family='Arial,sans-serif' font-size='72' font-weight='700'>NIELIT Bhubaneswar</text></svg>";
+                $banner_urls[] = 'data:image/svg+xml,' . rawurlencode($fallback_svg);
+            }
+            ?>
+            <?php foreach ($banner_urls as $i => $url): ?>
+            <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
+                <img src="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Banner <?php echo $i + 1; ?>">
             </div>
-            <div class="carousel-item">
-                <img src="<?php echo APP_URL; ?>/assets/images/banners/bhubaneswar_banner_2.jpg" class="d-block w-100" alt="NIELIT Lab">
-            </div>
-            <div class="carousel-item">
-                <img src="https://via.placeholder.com/1920x600/356c9f/ffffff?text=NIELIT+Events" class="d-block w-100" alt="Events">
-            </div>
+            <?php endforeach; ?>
         </div>
+        <?php if (count($banner_urls) > 1): ?>
+        <div class="carousel-indicators">
+            <?php foreach ($banner_urls as $i => $url): ?>
+            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="<?php echo $i; ?>" class="<?php echo $i === 0 ? 'active' : ''; ?>" aria-current="<?php echo $i === 0 ? 'true' : 'false'; ?>" aria-label="Slide <?php echo $i + 1; ?>"></button>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
         <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
-            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+            <span class="carousel-control-prev-icon"></span>
         </button>
         <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
-            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+            <span class="carousel-control-next-icon"></span>
         </button>
     </div>
 
-    <?php
-    // Check if ALL content arrays are empty to determine if we should show fallback content
-    // Requirement 12.4: Display hardcoded content if no database content exists
-    $has_database_content = !empty($banners) || !empty($announcements_content) || 
-                           !empty($featured_courses) || !empty($text_blocks) || 
-                           !empty($image_blocks);
-    ?>
-
-    <?php if ($has_database_content): ?>
-        <!-- ===== DYNAMIC BANNER SECTIONS ===== -->
-        <?php if (!empty($banners)): ?>
-            <?php foreach ($banners as $banner): ?>
-            <section class="py-5" style="background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);">
-                <div class="container">
-                    <div class="text-center">
-                        <h2 class="fw-bold mb-3" style="color: var(--primary-blue);">
-                            <?php echo htmlspecialchars($banner['section_title']); ?>
-                        </h2>
-                        <div class="lead">
-                            <?php echo $banner['section_content']; ?>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <?php endforeach; ?>
-        <?php endif; ?>
-
-        <!-- ===== DYNAMIC ANNOUNCEMENT SECTIONS ===== -->
-        <?php if (!empty($announcements_content)): ?>
-        <section class="py-4" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);">
-            <div class="container">
-                <div class="row g-3">
-                    <?php foreach ($announcements_content as $announcement): ?>
-                    <div class="col-md-<?php echo count($announcements_content) <= 2 ? '6' : '4'; ?>">
-                        <div class="alert alert-warning h-100 mb-0" role="alert">
-                            <h6 class="alert-heading fw-bold">
-                                <i class="fas fa-bullhorn"></i>
-                                <?php echo htmlspecialchars($announcement['section_title']); ?>
-                            </h6>
-                            <div class="small">
-                                <?php echo $announcement['section_content']; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </section>
-        <?php endif; ?>
-
-        <!-- ===== DYNAMIC FEATURED COURSES ===== -->
-        <?php if (!empty($featured_courses)): ?>
-        <section class="py-5 bg-white">
-            <div class="container">
-                <div class="text-center mb-4">
-                    <h3 class="fw-bold" style="color: var(--primary-blue);">
-                        <i class="fas fa-star"></i> Featured Courses
-                    </h3>
-                </div>
-                <div class="row g-4">
-                    <?php foreach ($featured_courses as $course): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="feature-card">
-                            <div class="feature-icon"><i class="fas fa-graduation-cap"></i></div>
-                            <h5 class="fw-bold"><?php echo htmlspecialchars($course['section_title']); ?></h5>
-                            <div class="text-muted small">
-                                <?php echo $course['section_content']; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-        </section>
-        <?php endif; ?>
-
-        <!-- ===== DYNAMIC TEXT BLOCKS ===== -->
-        <?php if (!empty($text_blocks)): ?>
-            <?php foreach ($text_blocks as $text_block): ?>
-            <section class="py-5 bg-light">
-                <div class="container">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-10">
-                            <h3 class="fw-bold mb-3" style="color: var(--primary-blue);">
-                                <?php echo htmlspecialchars($text_block['section_title']); ?>
-                            </h3>
-                            <div class="text-muted" style="line-height: 1.8;">
-                                <?php echo $text_block['section_content']; ?>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <?php endforeach; ?>
-        <?php endif; ?>
-
-        <!-- ===== DYNAMIC IMAGE BLOCKS ===== -->
-        <?php if (!empty($image_blocks)): ?>
-            <?php foreach ($image_blocks as $image_block): ?>
-            <section class="py-5 bg-white">
-                <div class="container">
-                    <div class="text-center mb-4">
-                        <h3 class="fw-bold" style="color: var(--primary-blue);">
-                            <?php echo htmlspecialchars($image_block['section_title']); ?>
-                        </h3>
-                    </div>
-                    <div class="row justify-content-center">
-                        <div class="col-lg-10">
-                            <?php echo $image_block['section_content']; ?>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <?php endforeach; ?>
-        <?php endif; ?>
-    
-    <?php else: ?>
-        <!-- ===== FALLBACK: HARDCODED CONTENT (When no database content exists) ===== -->
-        <!-- ===== LEVEL 1: WELCOME SECTION (Fallback/Default Content) ===== -->
-    <section class="py-5 bg-white">
+    <div class="hero-overlay">
         <div class="container">
-            <div class="row justify-content-center text-center mb-5">
-                <div class="col-lg-10">
-                    <h2 class="fw-bold mb-4" style="font-size: 2.5rem; background: linear-gradient(135deg, #0d47a1 0%, #1976d2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-                        Welcome to NIELIT Bhubaneswar
-                    </h2>
-                    <p class="text-muted lead mb-4" style="font-size: 1.15rem; line-height: 1.8;">
-                        Established in 2021, we are a premier center dedicated to skilling and reskilling professionals in Information, Electronics, and Communication Technology (IECT).
-                    </p>
-                    <div style="height: 4px; width: 80px; background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); margin: 0 auto; border-radius: 2px;"></div>
+            <div class="hero-content">
+                <div class="hero-eyebrow fade-up">Ministry of Electronics & IT · Est. 2021</div>
+                <h1 class="hero-title fade-up fade-up-delay-1">
+                    <div style="display: flex; align-items: flex-start; gap: 4px;">
+                        <span id="typing-line1" class="typing-text"></span><span id="cursor1" class="typing-cursor"></span>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 4px; opacity: 0; transition: opacity 0.3s;" id="line2-container">
+                        <span id="typing-line2" class="typing-text"></span><span id="cursor2" class="typing-cursor"></span>
+                    </div>
+                </h1>
+                <p class="hero-sub fade-up fade-up-delay-2">
+                    NIELIT Bhubaneswar — your gateway to NSQF-aligned technology education across Odisha and Chhattisgarh. Skills that power India's future.
+                </p>
+                <div class="hero-btns fade-up fade-up-delay-3">
+                    <a href="public/courses.php" class="btn-hero-primary">
+                        Explore Courses <i class="fas fa-arrow-right fa-sm"></i>
+                    </a>
+                    <a href="student/login.php" class="btn-hero-outline">
+                        Student Portal
+                    </a>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- KEY FEATURES -->
-            <div class="mb-5 pb-4">
-                <div class="text-center mb-5">
-                    <h3 class="fw-bold mb-2" style="color: var(--primary-blue); font-size: 2rem;">Key Features</h3>
-                    <div style="height: 3px; width: 60px; background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); margin: 0 auto; border-radius: 2px;"></div>
+    <div class="hero-stats">
+        <div class="container">
+            <div class="row g-0">
+                <div class="col-3 hero-stat">
+                    <span class="number">15+</span>
+                    <span class="label">Courses Offered</span>
                 </div>
-                <div class="row g-4">
-                    <div class="col-md-6 col-lg-3">
-                        <div class="feature-card text-center">
-                            <div class="feature-icon"><i class="fas fa-laptop-code"></i></div>
-                            <h5 class="fw-bold">Skill Development</h5>
-                            <p class="text-muted small">Focused on NSQF-aligned courses to boost employability in the tech sector.</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3">
-                        <div class="feature-card text-center">
-                            <div class="feature-icon"><i class="fas fa-map-marked-alt"></i></div>
-                            <h5 class="fw-bold">Regional Scope</h5>
-                            <p class="text-muted small">Operating extensively across Odisha and Chhattisgarh to reach aspiring students.</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3">
-                        <div class="feature-card text-center">
-                            <div class="feature-icon"><i class="fas fa-building"></i></div>
-                            <h5 class="fw-bold">Modern Facilities</h5>
-                            <p class="text-muted small">State-of-the-art labs, classrooms, and conference halls at OCAC Tower.</p>
-                        </div>
-                    </div>
-                    <div class="col-md-6 col-lg-3">
-                        <div class="feature-card text-center">
-                            <div class="feature-icon"><i class="fas fa-network-wired"></i></div>
-                            <h5 class="fw-bold">Balasore Extension</h5>
-                            <p class="text-muted small">Expanding our footprint to provide quality education in the Balasore region.</p>
-                        </div>
-                    </div>
+                <div class="col-3 hero-stat">
+                    <span class="number">2</span>
+                    <span class="label">Centers Active</span>
+                </div>
+                <div class="col-3 hero-stat">
+                    <span class="number">5000+</span>
+                    <span class="label">Students Trained</span>
+                </div>
+                <div class="col-3 hero-stat">
+                    <span class="number">100%</span>
+                    <span class="label">Govt. Certified</span>
                 </div>
             </div>
+        </div>
+    </div>
+</section>
 
-            <!-- DETAILED INFORMATION -->
-            <div class="mt-5 pt-5" style="border-top: 2px solid #e3f2fd;">
-                <div class="text-center mb-5">
-                    <h3 class="fw-bold mb-2" style="color: var(--primary-blue); font-size: 2rem;">Detailed Information</h3>
-                    <div style="height: 3px; width: 60px; background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%); margin: 0 auto; border-radius: 2px;"></div>
+<!-- ===== WELCOME STRIP ===== -->
+<section class="welcome-strip">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="section-eyebrow">Welcome to NIELIT Bhubaneswar</span>
+                <h2 class="section-title mb-4">Excellence in Technology Education Since 2021.</h2>
+                <p>We are a premier autonomous scientific society under MeitY, Government of India — dedicated to developing human resources in Information, Electronics, and Communication Technology (IECT) through industry-aligned programs.</p>
+            </div>
+            <div class="col-lg-6">
+                <div>
+                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar" target="_blank" rel="noopener" title="Open OCAC Tower in Google Maps" role="link">
+                        <i class="fas fa-map-marker-alt"></i> OCAC Tower, Bhubaneswar
+                    </a>
+                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=Balasore+Extension+Center+Balasore" target="_blank" rel="noopener" title="Open Balasore Extension Center in Google Maps" role="link">
+                        <i class="fas fa-map-marker-alt"></i> Balasore Extension Center
+                    </a>
+                    <div class="stat-pill"><i class="fas fa-clock"></i> Mon–Fri: 09:00 AM – 5:30 PM</div>
+                    <div class="stat-pill"><i class="fas fa-phone-alt"></i> 0674-2960354</div>
+                    <a class="stat-pill" href="mailto:dir-bbsr@nielit.gov.in" title="Send email to NIELIT Bhubaneswar">
+                        <i class="fas fa-envelope"></i> dir-bbsr@nielit.gov.in
+                    </a>
+                    <a class="stat-pill" href="https://www.nielit.gov.in/content/nsqf-it" target="_blank" rel="noopener" title="NSQF information on NIELIT" role="link">
+                        <i class="fas fa-shield-alt"></i> NSQF Aligned Programs
+                    </a>
                 </div>
-                <div class="row g-4">
-                    <!-- About Us Card -->
-                    <div class="col-lg-4">
-                        <div class="info-detail-card">
-                            <div class="card-icon-header">
-                                <i class="fas fa-university"></i>
-                            </div>
-                            <h4 class="card-title">About NIELIT</h4>
-                            <p class="card-text">
-                                NIELIT Bhubaneswar is an autonomous scientific society under the Ministry of Electronics & IT, Government of India. We focus on human resource development in IECT through quality education and training.
-                            </p>
-                            <ul class="detail-list">
-                                <li><i class="fas fa-check-circle"></i> Government of India Initiative</li>
-                                <li><i class="fas fa-check-circle"></i> NSQF Aligned Programs</li>
-                                <li><i class="fas fa-check-circle"></i> Industry-Ready Training</li>
-                            </ul>
-                        </div>
-                    </div>
+            </div>
+        </div>
+    </div>
+</section>
 
-                    <!-- Our Mission Card -->
-                    <div class="col-lg-4">
-                        <div class="info-detail-card">
-                            <div class="card-icon-header">
-                                <i class="fas fa-bullseye"></i>
-                            </div>
-                            <h4 class="card-title">Our Mission</h4>
-                            <p class="card-text">
-                                To empower youth with cutting-edge technology skills, making them industry-ready and contributing to India's digital transformation through quality education and practical training.
-                            </p>
-                            <ul class="detail-list">
-                                <li><i class="fas fa-check-circle"></i> Skill Enhancement</li>
-                                <li><i class="fas fa-check-circle"></i> Employment Generation</li>
-                                <li><i class="fas fa-check-circle"></i> Digital India Support</li>
-                            </ul>
-                        </div>
-                    </div>
+<!-- ===== FEATURES SECTION ===== -->
+<section class="features-section section-white-pattern">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="section-eyebrow">What We Offer</span>
+            <h2 class="section-title">Built for the Future of Work.</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <div class="feat-card">
+                    <div class="feat-icon-wrap"><i class="fas fa-laptop-code"></i></div>
+                    <h5>Skill Development</h5>
+                    <p>NSQF-aligned courses to boost employability in the rapidly evolving technology sector.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feat-card">
+                    <div class="feat-icon-wrap"><i class="fas fa-map-marked-alt"></i></div>
+                    <h5>Regional Scope</h5>
+                    <p>Operating extensively across Odisha and Chhattisgarh to reach every aspiring student.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feat-card">
+                    <div class="feat-icon-wrap"><i class="fas fa-building"></i></div>
+                    <h5>Modern Facilities</h5>
+                    <p>State-of-the-art labs, smart classrooms, and conference halls at OCAC Tower.</p>
+                </div>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <div class="feat-card">
+                    <div class="feat-icon-wrap"><i class="fas fa-network-wired"></i></div>
+                    <h5>Balasore Extension</h5>
+                    <p>Expanding our footprint to deliver quality education across the Balasore region.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
-                    <!-- Quick Links Card -->
-                    <div class="col-lg-4">
-                        <div class="info-detail-card">
-                            <div class="card-icon-header">
-                                <i class="fas fa-link"></i>
-                            </div>
-                            <h4 class="card-title">Quick Access</h4>
-                            <p class="card-text">
-                                Explore our offerings and get started with your learning journey. Access courses, register online, and connect with us for any queries.
-                            </p>
-                            <div class="quick-links-grid">
-                                <a href="public/courses.php" class="quick-link-btn">
-                                    <i class="fas fa-book"></i> View Courses
-                                </a>
-                                <a href="student/login.php" class="quick-link-btn">
-                                    <i class="fas fa-sign-in-alt"></i> Student Portal
-                                </a>
-                                <a href="public/contact.php" class="quick-link-btn">
-                                    <i class="fas fa-envelope"></i> Contact Us
-                                </a>
-                                <a href="public/news.php" class="quick-link-btn">
-                                    <i class="fas fa-newspaper"></i> News & Events
-                                </a>
-                            </div>
-                        </div>
+<!-- ===== INFO DETAILED SECTION ===== -->
+<section class="info-section section-white-pattern">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="section-eyebrow">Learn More</span>
+            <h2 class="section-title">Everything You Need to Know.</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <div class="info-card">
+                    <div class="info-icon-box"><i class="fas fa-university"></i></div>
+                    <h4>About NIELIT</h4>
+                    <p>An autonomous scientific society under MeitY, Govt. of India — focused on human resource development in IECT through quality education and practical training programs.</p>
+                    <ul class="check-list">
+                        <li><i class="fas fa-check-circle"></i> Government of India Initiative</li>
+                        <li><i class="fas fa-check-circle"></i> NSQF Aligned Programs</li>
+                        <li><i class="fas fa-check-circle"></i> Industry-Ready Training</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="info-card">
+                    <div class="info-icon-box"><i class="fas fa-bullseye"></i></div>
+                    <h4>Our Mission</h4>
+                    <p>To empower youth with cutting-edge technology skills, making them industry-ready and contributing to India's digital transformation through quality education and practical training.</p>
+                    <ul class="check-list">
+                        <li><i class="fas fa-check-circle"></i> Skill Enhancement & Certification</li>
+                        <li><i class="fas fa-check-circle"></i> Employment Generation</li>
+                        <li><i class="fas fa-check-circle"></i> Digital India Mission Support</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="info-card">
+                    <div class="info-icon-box"><i class="fas fa-link"></i></div>
+                    <h4>Quick Access</h4>
+                    <p>Explore our offerings and start your learning journey. Access courses, register online, and connect with us for queries.</p>
+                    <div class="quick-grid">
+                        <a href="public/courses.php" class="quick-btn">
+                            <i class="fas fa-book"></i> View Courses
+                        </a>
+                        <a href="student/login.php" class="quick-btn">
+                            <i class="fas fa-sign-in-alt"></i> Student Portal
+                        </a>
+                        <a href="public/contact.php" class="quick-btn">
+                            <i class="fas fa-envelope"></i> Contact Us
+                        </a>
+                        <a href="public/news.php" class="quick-btn">
+                            <i class="fas fa-newspaper"></i> News & Events
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
-    <?php endif; // End of fallback content check ?>
+    </div>
+</section>
 
-    <!-- ===== ANNOUNCEMENTS SECTION ===== -->
-    <?php
-    // Fetch active announcements for public (all or students)
-    $announcements_sql = "SELECT * FROM announcements 
-                          WHERE is_active = 1 
-                          AND (target_audience = 'all' OR target_audience = 'students')
-                          ORDER BY created_at DESC 
-                          LIMIT 3";
-    $announcements_result = $conn->query($announcements_sql);
-    ?>
-    
-    <?php if ($announcements_result && $announcements_result->num_rows > 0): ?>
-    <section class="py-5" style="background: linear-gradient(135deg, #e3f2fd 0%, #f8f9fa 100%);">
-        <div class="container">
-            <div class="text-center mb-4">
-                <h3 class="fw-bold" style="color: var(--primary-blue);">
-                    <i class="fas fa-bullhorn"></i> Latest Announcements
-                </h3>
+<?php
+// ===== DYNAMIC DB CONTENT =====
+$has_database_content = !empty($banners) || !empty($announcements_content) || !empty($featured_courses) || !empty($text_blocks) || !empty($image_blocks);
+
+if ($has_database_content):
+    if (!empty($banners)):
+        foreach ($banners as $banner): ?>
+<section class="dynamic-banner">
+    <div class="container text-center">
+        <h2 class="fw-bold mb-3"><?php echo htmlspecialchars($banner['section_title']); ?></h2>
+        <div class="lead text-muted"><?php echo $banner['section_content']; ?></div>
+    </div>
+</section>
+<?php   endforeach;
+    endif;
+
+    if (!empty($featured_courses)): ?>
+<section class="dynamic-course section-white-pattern">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="section-eyebrow">Courses</span>
+            <h2 class="section-title">Featured Courses.</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        <div class="row g-4">
+            <?php foreach ($featured_courses as $course): ?>
+            <div class="col-md-6 col-lg-4">
+                <div class="course-card">
+                    <div class="course-icon"><i class="fas fa-graduation-cap"></i></div>
+                    <h5><?php echo htmlspecialchars($course['section_title']); ?></h5>
+                    <div class="text-muted small"><?php echo $course['section_content']; ?></div>
+                </div>
             </div>
-            <div class="row g-3">
-                <?php while ($announcement = $announcements_result->fetch_assoc()): 
-                    $alert_class = [
-                        'info' => 'alert-info',
-                        'success' => 'alert-success',
-                        'warning' => 'alert-warning',
-                        'danger' => 'alert-danger'
-                    ];
-                    $icon_class = [
-                        'info' => 'fa-info-circle',
-                        'success' => 'fa-check-circle',
-                        'warning' => 'fa-exclamation-triangle',
-                        'danger' => 'fa-exclamation-circle'
-                    ];
-                    $type = $announcement['type'];
-                ?>
-                <div class="col-md-4">
-                    <div class="alert <?php echo $alert_class[$type]; ?> h-100 mb-0" role="alert">
-                        <h6 class="alert-heading fw-bold">
-                            <i class="fas <?php echo $icon_class[$type]; ?>"></i>
-                            <?php echo htmlspecialchars($announcement['title']); ?>
-                        </h6>
-                        <p class="mb-2 small"><?php echo nl2br(htmlspecialchars($announcement['message'])); ?></p>
-                        <hr>
-                        <small class="text-muted">
-                            <i class="fas fa-clock"></i> 
-                            <?php echo date('M d, Y', strtotime($announcement['created_at'])); ?>
-                        </small>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; endif; ?>
+
+<!-- ===== ANNOUNCEMENTS ===== -->
+<?php
+$announcements_sql = "SELECT * FROM announcements WHERE is_active = 1 AND (target_audience = 'all' OR target_audience = 'students') ORDER BY created_at DESC LIMIT 3";
+$announcements_result = $conn->query($announcements_sql);
+
+if ($announcements_result && $announcements_result->num_rows > 0): ?>
+<section class="announcements-section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="section-eyebrow" style="color:var(--gold-light);">Latest Updates</span>
+            <h2 class="section-title">Announcements.</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        <div class="row g-4">
+            <?php
+            $type_class = ['info'=>'type-info','success'=>'type-success','warning'=>'type-warning','danger'=>'type-danger'];
+            $type_icon  = ['info'=>'fa-info-circle','success'=>'fa-check-circle','warning'=>'fa-exclamation-triangle','danger'=>'fa-exclamation-circle'];
+            while ($ann = $announcements_result->fetch_assoc()):
+                $t = $ann['type'];
+            ?>
+            <div class="col-md-4">
+                <div class="announce-card">
+                    <div class="announce-type <?php echo $type_class[$t] ?? 'type-info'; ?>">
+                        <i class="fas <?php echo $type_icon[$t] ?? 'fa-info-circle'; ?>"></i>
+                        <?php echo ucfirst($t); ?>
+                    </div>
+                    <h6><?php echo htmlspecialchars($ann['title']); ?></h6>
+                    <p><?php echo nl2br(htmlspecialchars($ann['message'])); ?></p>
+                    <span class="date-tag"><i class="fas fa-clock me-1"></i><?php echo date('M d, Y', strtotime($ann['created_at'])); ?></span>
+                </div>
+            </div>
+            <?php endwhile; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
+<!-- ===== FOOTER ===== -->
+<footer>
+    <div class="footer-main">
+        <div class="container">
+            <div class="row gy-5">
+                <div class="col-lg-4">
+                    <div class="footer-brand">
+                        <span class="brand-name">NIELIT Bhubaneswar</span>
+                        <span class="brand-sub">National Institute of Electronics & Information Technology</span>
+                        <p>An autonomous scientific society under the Ministry of Electronics & IT, Government of India — dedicated to technology education and skill development.</p>
+                    </div>
+                    <div class="footer-contact-item">
+                        <i class="fas fa-map-marker-alt mt-1"></i>
+                        <span>OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha</span>
+                    </div>
+                    <div class="footer-contact-item">
+                        <i class="fas fa-phone-alt"></i>
+                        <span>0674-2960354</span>
+                    </div>
+                    <div class="footer-contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>dir-bbsr@nielit.gov.in</span>
+                    </div>
+                    <div class="footer-contact-item">
+                        <i class="fas fa-clock"></i>
+                        <span>Mon–Fri: 09:00 AM – 5:30 PM</span>
                     </div>
                 </div>
-                <?php endwhile; ?>
-            </div>
-        </div>
-    </section>
-    <?php endif; ?>
 
-    <footer class="pt-5">
-        <div class="container pb-4">
-            <div class="row gy-4">
-                <div class="col-lg-4 col-md-6">
+                <div class="col-6 col-lg-2">
                     <h5>Important Links</h5>
-                    <ul class="list-unstyled">
-                        <li><a href="https://india.gov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>National Portal of India</a></li>
-                        <li><a href="https://www.mygov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>MyGov</a></li>
-                        <li><a href="https://rtionline.gov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>RTI Online</a></li>
-                        <li><a href="http://meity.gov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>MeitY</a></li>
-                        <li><a href="https://www.nielit.gov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>NIELIT HQ</a></li>
-                    </ul>
+                    <a href="https://india.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> National Portal</a>
+                    <a href="https://www.mygov.in/" target="_blank"><i class="fas fa-chevron-right"></i> MyGov</a>
+                    <a href="https://rtionline.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> RTI Online</a>
+                    <a href="http://meity.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> MeitY</a>
+                    <a href="https://www.nielit.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> NIELIT HQ</a>
                 </div>
 
-                <div class="col-lg-4 col-md-6">
-                    <h5>Quick Explore</h5>
-                    <ul class="list-unstyled">
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>About Us</a></li>
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Privacy Policy</a></li>
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Terms & Conditions</a></li>
-                        <li><a href="public/contact.php"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
-                    </ul>
+                <div class="col-6 col-lg-2">
+                    <h5>Quick Links</h5>
+                    <a href="#"><i class="fas fa-chevron-right"></i> About Us</a>
+                    <a href="public/courses.php"><i class="fas fa-chevron-right"></i> Courses</a>
+                    <a href="public/news.php"><i class="fas fa-chevron-right"></i> News & Events</a>
+                    <a href="public/contact.php"><i class="fas fa-chevron-right"></i> Contact Us</a>
+                    <a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a>
+                    <a href="#"><i class="fas fa-chevron-right"></i> Terms & Conditions</a>
                 </div>
 
-                <div class="col-lg-4 col-md-12">
-                    <h5>Contact Info</h5>
-                    <p class="small text-muted mb-3">National Institute of Electronics & Information Technology, Bhubaneswar</p>
-                    <ul class="list-unstyled">
-                        <li class="mb-2"><i class="fas fa-phone-alt me-2 text-warning"></i> 0674-2960354</li>
-                        <li class="mb-2"><i class="fas fa-envelope me-2 text-warning"></i> dir-bbsr@nielit.gov.in</li>
-                        <li class="mb-2"><i class="fas fa-clock me-2 text-warning"></i> Mon-Fri: 09:00 AM – 5:30 PM</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="copyright-bar text-center text-muted small">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-6 text-md-start">
-                        © 2025 NIELIT Bhubaneswar. All Rights Reserved.
-                    </div>
-                    <div class="col-md-6 text-md-end">
-                        Designed & Developed by NIELIT Team
+                <div class="col-lg-4">
+                    <h5>Student Access</h5>
+                    <a href="student/login.php"><i class="fas fa-chevron-right"></i> Student Login</a>
+                    <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Admit Card</a>
+                    <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Results</a>
+                    <a href="#"><i class="fas fa-chevron-right"></i> Certificate Verification</a>
+                    <div style="margin-top: 24px;">
+                        <div class="footer-badge"><span>●</span> Balasore Extension Active</div>
                     </div>
                 </div>
             </div>
         </div>
-    </footer>
+    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <div class="footer-bottom">
+        <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>© 2025 NIELIT Bhubaneswar. All Rights Reserved.</span>
+            <span>Designed & Developed by <a href="#">NIELIT Team</a></span>
+        </div>
+    </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Scroll animation observer
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.style.opacity = '1';
+                entry.target.style.transform = 'translateY(0)';
+                entry.target.style.transition = 'all 0.6s ease';
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card').forEach(el => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(24px)';
+        observer.observe(el);
+    });
+
+    // Ensure hero carousel controls, keyboard navigation, and auto-slide work consistently
+    const heroCarouselEl = document.getElementById('heroCarousel');
+    if (heroCarouselEl && window.bootstrap && bootstrap.Carousel) {
+        const heroCarousel = bootstrap.Carousel.getOrCreateInstance(heroCarouselEl, {
+            interval: 3000,
+            ride: 'carousel',
+            pause: false,
+            touch: true,
+            keyboard: true,
+            wrap: true
+        });
+        heroCarousel.cycle();
+    }
+
+    // Typing Effect Animation - Multiple Pickup Lines
+    const line1El = document.getElementById('typing-line1');
+    const line2El = document.getElementById('typing-line2');
+    const cursor1 = document.getElementById('cursor1');
+    const cursor2 = document.getElementById('cursor2');
+    const line2Container = document.getElementById('line2-container');
+    
+    // Array of pickup lines
+    const pickupLines = [
+        { line1: 'Code Tomorrow.', line2: 'Transform Today.' },
+        { line1: 'Learn Today.', line2: 'Lead Tomorrow.' },
+        { line1: 'Skills Today.', line2: 'Success Tomorrow.' },
+        { line1: 'Train Now.', line2: 'Transform Forever.' },
+        { line1: 'Build Skills.', line2: 'Change Futures.' },
+        { line1: 'Code Smart.', line2: 'Grow Strong.' },
+        { line1: 'Start Today.', line2: 'Thrive Tomorrow.' },
+        { line1: 'Master Tech.', line2: 'Master Life.' },
+        { line1: 'Learn Together.', line2: 'Grow Stronger.' },
+        { line1: 'Shape Future.', line2: 'Start Now.' },
+        { line1: 'Innovation Starts.', line2: 'Here & Now.' }
+    ];
+    
+    let currentLineSet = 0;
+    let line1Index = 0;
+    let line2Index = 0;
+    let currentLine = 1;
+    let isDeleting = false;
+    let typingSpeed = 80;
+    let pauseTime = 2000;
+
+    function typeEffect() {
+        const currentSet = pickupLines[currentLineSet];
+        const line1Text = currentSet.line1;
+        const line2Text = currentSet.line2;
+
+        if (!isDeleting) {
+            // Typing Phase
+            if (currentLine === 1) {
+                if (line1Index <= line1Text.length) {
+                    let displayText = line1Text.substring(0, line1Index);
+                    // Highlight last word in gold
+                    const words = displayText.split(' ');
+                    if (words.length > 0) {
+                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                        displayText = words.join(' ');
+                    }
+                    line1El.innerHTML = displayText;
+                    
+                    if (line1Index === line1Text.length) {
+                        // Finished typing line 1, move to line 2
+                        currentLine = 2;
+                        cursor1.style.display = 'none';
+                        line2Container.style.opacity = '1';
+                        cursor2.style.display = 'inline-block';
+                        line2Index = 0;
+                        setTimeout(typeEffect, 500);
+                    } else {
+                        line1Index++;
+                        setTimeout(typeEffect, typingSpeed);
+                    }
+                }
+            } else if (currentLine === 2) {
+                if (line2Index <= line2Text.length) {
+                    let displayText = line2Text.substring(0, line2Index);
+                    // Highlight last word in gold
+                    const words = displayText.split(' ');
+                    if (words.length > 0) {
+                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                        displayText = words.join(' ');
+                    }
+                    line2El.innerHTML = displayText;
+                    
+                    if (line2Index === line2Text.length) {
+                        // Finished typing line 2, pause then delete
+                        setTimeout(() => {
+                            isDeleting = true;
+                            typeEffect();
+                        }, pauseTime);
+                    } else {
+                        line2Index++;
+                        setTimeout(typeEffect, typingSpeed);
+                    }
+                }
+            }
+        } else {
+            // Deleting Phase
+            if (currentLine === 2) {
+                if (line2Index > 0) {
+                    line2Index--;
+                    let displayText = line2Text.substring(0, line2Index);
+                    const words = displayText.split(' ');
+                    if (words.length > 0) {
+                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                        displayText = words.join(' ');
+                    }
+                    line2El.innerHTML = displayText;
+                    setTimeout(typeEffect, 50);
+                } else {
+                    // Move to line 1 delete
+                    currentLine = 1;
+                    cursor1.style.display = 'inline-block';
+                    cursor2.style.display = 'none';
+                    line2Container.style.opacity = '0';
+                    line1Index = line1Text.length;
+                    setTimeout(typeEffect, 50);
+                }
+            } else if (currentLine === 1) {
+                if (line1Index > 0) {
+                    line1Index--;
+                    let displayText = line1Text.substring(0, line1Index);
+                    const words = displayText.split(' ');
+                    if (words.length > 0) {
+                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                        displayText = words.join(' ');
+                    }
+                    line1El.innerHTML = displayText;
+                    setTimeout(typeEffect, 50);
+                } else {
+                    // Move to next pickup line
+                    currentLineSet = (currentLineSet + 1) % pickupLines.length;
+                    isDeleting = false;
+                    currentLine = 1;
+                    line1Index = 0;
+                    line2Index = 0;
+                    line1El.innerHTML = '';
+                    line2El.innerHTML = '';
+                    setTimeout(typeEffect, 500);
+                }
+            }
+        }
+    }
+
+    // Start typing effect when page loads
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            typeEffect();
+        });
+    } else {
+        typeEffect();
+    }
+</script>
 </body>
 </html>

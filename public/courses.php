@@ -61,6 +61,41 @@ $result_internship = $conn->query($sql_internship);
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="<?php echo APP_URL; ?>/assets/css/public-theme.css" rel="stylesheet">
     <link rel="icon" href="<?php echo APP_URL . '/' . getThemeFavicon($active_theme); ?>" type="image/x-icon">
+
+    <style>
+        .course-card-header {
+            background: linear-gradient(135deg, #0a1628 0%, #112240 100%) !important;
+            border-bottom: 1px solid rgba(245,158,11,0.25);
+        }
+
+        .course-card-header h4 {
+            color: #fff !important;
+        }
+
+        .course-card-header .enrollment-status-badge .status-badge.status-ongoing {
+            background: linear-gradient(135deg, #d1fae5 0%, #bbf7d0 100%);
+            color: #0a1628;
+            border-color: rgba(10, 22, 40, 0.08);
+        }
+
+        .course-card-header .enrollment-status-badge .status-badge.status-closed {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #0a1628;
+            border-color: rgba(10, 22, 40, 0.08);
+        }
+
+        .course-card-footer {
+            background: #f8fafc !important;
+        }
+
+        .section-header {
+            border-left-color: var(--gold) !important;
+        }
+
+        .section-header i {
+            color: var(--gold) !important;
+        }
+    </style>
 </head>
 <body>
 
@@ -71,14 +106,14 @@ $result_internship = $conn->query($sql_internship);
             <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
                 <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                 <div>
-                    <div class="fw-bold text-primary d-none d-sm-block">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                    <div class="fw-bold text-dark">National Institute of Electronics & Information Technology, Bhubaneswar</div>
+                    <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
+                    <div class="fw-bold" style="color: var(--navy); font-size: 0.95rem; font-family: 'Sora', sans-serif;">National Institute of Electronics & Information Technology, Bhubaneswar</div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
                 <div class="text-end me-3 d-none d-lg-block">
-                    <small class="d-block fw-bold text-secondary">Ministry of Electronics & IT</small>
-                    <small class="d-block text-secondary">Government of India</small>
+                    <small class="d-block fw-bold" style="color: var(--navy);">Ministry of Electronics & IT</small>
+                    <small class="d-block" style="color: var(--muted);">Government of India</small>
                 </div>
                 <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
             </div>
@@ -119,34 +154,36 @@ $result_internship = $conn->query($sql_internship);
 <!-- Notice Ticker -->
 <div class="notice-bar">
     <div class="notice-content">
-        <span class="badge bg-warning text-dark me-2">NEW</span> 
+        <span class="notice-label">NEW</span>
         Admissions Open! Explore our NSQF-aligned courses and internship programs. Apply now for upcoming batches.
     </div>
 </div>
 
 <!-- Page Header -->
-<div class="page-header">
-    <div class="container">
-        <h1 class="text-center">
-            <i class="fas fa-graduation-cap"></i> Courses Offered
-        </h1>
-        <p class="text-center">
-            NIELIT Bhubaneswar offers various long-term and short-term courses designed to equip students with industry-standard skills. 
-            Explore our comprehensive range of NSQF-aligned courses, internship programs, and boot camps.
-        </p>
+<section class="py-5" style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); position: relative; overflow: hidden;">
+    <div style="position: absolute; inset: 0; opacity: 0.08; background-image: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.3"><circle cx="30" cy="30" r="2"/></g></svg>'); background-size: 60px 60px;"></div>
+    <div class="container position-relative py-4 py-lg-5">
+        <div class="text-center mx-auto" style="max-width: 760px;">
+            <span class="section-eyebrow" style="color: var(--gold-light);">Academic Programs</span>
+            <h1 style="color: #fff; font-family: 'Sora', sans-serif; font-size: clamp(2.4rem, 4vw, 4rem); font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 18px;">Courses Offered</h1>
+            <p style="color: rgba(255,255,255,0.78); font-size: 1.05rem; line-height: 1.8; margin: 0;">
+                NIELIT Bhubaneswar offers long-term and short-term courses designed to build industry-ready skills.
+                Explore our NSQF-aligned courses, internship programs, and boot camps.
+            </p>
+        </div>
     </div>
-</div>
+</section>
 
 <!-- Filter Section -->
-<section class="py-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); position: relative; overflow: hidden;">
+<section class="py-5" style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); position: relative; overflow: hidden;">
     <!-- Background Pattern -->
     <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.1; background-image: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.3"><circle cx="30" cy="30" r="2"/></g></svg>'); background-size: 60px 60px;"></div>
     
     <div class="container position-relative">
         <!-- Section Header -->
         <div class="text-center mb-5">
-            <div class="filter-icon" style="width: 80px; height: 80px; background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(20px); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; border: 2px solid rgba(255, 255, 255, 0.3);">
-                <i class="fas fa-map-marker-alt" style="font-size: 2rem; color: white;"></i>
+            <div class="filter-icon" style="width: 80px; height: 80px; background: rgba(245,158,11,0.2); backdrop-filter: blur(20px); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; border: 2px solid rgba(245,158,11,0.3);">
+                <i class="fas fa-map-marker-alt" style="font-size: 2rem; color: #f59e0b;"></i>
             </div>
             <h2 style="color: white; font-weight: 700; margin-bottom: 0.5rem; font-family: 'Poppins', sans-serif;">Choose Your Training Centre</h2>
             <p style="color: rgba(255, 255, 255, 0.9); margin: 0; font-size: 1.2rem;">Select a NIELIT centre to view available courses</p>
@@ -169,19 +206,19 @@ $result_internship = $conn->query($sql_internship);
                     overflow: hidden;
                 ">
                     <!-- Card Background Pattern -->
-                    <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.1)); border-radius: 50%; transform: rotate(45deg);"></div>
+                    <div style="position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; background: linear-gradient(45deg, transparent, rgba(245, 158, 11, 0.08)); border-radius: 50%; transform: rotate(45deg);"></div>
                     
                     <div class="text-center position-relative">
-                        <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);">
+                        <div class="centre-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #0a1628 0%, #112240 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 20px rgba(10, 22, 40, 0.3);">
                             <i class="fas fa-globe" style="font-size: 1.5rem; color: white;"></i>
                         </div>
-                        <h4 style="color: #2d3748; font-weight: 700; margin-bottom: 0.5rem;">All Training Centres</h4>
-                        <p style="color: #718096; margin-bottom: 1rem; font-size: 0.9rem;">View courses from all NIELIT centres across India</p>
+                        <h4 style="color: #0a1628; font-weight: 700; margin-bottom: 0.5rem;">All Training Centres</h4>
+                        <p style="color: #64748b; margin-bottom: 1rem; font-size: 0.9rem;">View courses from all NIELIT centres across India</p>
                         
                         <!-- Stats -->
                         <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #667eea;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #0a1628;">
                                     <?php 
                                     $total_courses = 0;
                                     if ($result_long_term) $total_courses += $result_long_term->num_rows;
@@ -191,17 +228,17 @@ $result_internship = $conn->query($sql_internship);
                                     echo $total_courses;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #718096;">Courses</div>
+                                <div style="font-size: 0.75rem; color: #64748b;">Courses</div>
                             </div>
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #10b981;">
                                     <?php 
                                     $centres_result = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
                                     $centres_count = $centres_result ? $centres_result->fetch_assoc()['count'] : 0;
                                     echo $centres_count;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #718096;">Centres</div>
+                                <div style="font-size: 0.75rem; color: #64748b;">Centres</div>
                             </div>
                         </div>
                     </div>
@@ -254,7 +291,7 @@ $result_internship = $conn->query($sql_internship);
                         transform: scale(1.05);
                     ">
                         <!-- Featured Badge -->
-                        <div style="position: absolute; top: 15px; right: 15px; background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; padding: 0.4rem 0.8rem; border-radius: 15px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <div style="position: absolute; top: 15px; right: 15px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #0a1628; padding: 0.4rem 0.8rem; border-radius: 15px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
                             <i class="fas fa-star me-1"></i>Featured
                         </div>
                         
@@ -282,20 +319,20 @@ $result_internship = $conn->query($sql_internship);
                     
                     <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(72, 187, 120, 0.1);">
                         <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #48bb78;">' . $course_count . '</div>
-                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Available Courses</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">' . $course_count . '</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Available Courses</div>
                         </div>
                         <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #ed8936;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">
                                 <i class="fas fa-award"></i>
                             </div>
-                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Premium Quality</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Premium Quality</div>
                         </div>
                         <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #667eea;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1a56db;">
                                 <i class="fas fa-users"></i>
                             </div>
-                            <div style="font-size: 0.8rem; color: #718096; font-weight: 500;">Expert Faculty</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Expert Faculty</div>
                         </div>
                     </div>
                 </div>
@@ -504,12 +541,12 @@ $result_internship = $conn->query($sql_internship);
 .centre-card:hover {
     transform: translateY(-8px) !important;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
-    border-color: rgba(102, 126, 234, 0.3) !important;
+    border-color: rgba(26, 86, 219, 0.3) !important;
 }
 
 .centre-card.active {
-    border-color: #667eea !important;
-    box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2) !important;
+    border-color: #1a56db !important;
+    box-shadow: 0 15px 35px rgba(26, 86, 219, 0.2) !important;
     transform: translateY(-5px) !important;
 }
 
@@ -520,7 +557,7 @@ $result_internship = $conn->query($sql_internship);
     right: 10px;
     width: 20px;
     height: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -1356,12 +1393,12 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
 
             <div class="col-lg-4 col-md-12">
-                <h5>Contact Info</h5>
+                    <h5>Contact Info</h5>
                 <p class="small text-muted mb-3">National Institute of Electronics & Information Technology, Bhubaneswar</p>
                 <ul class="list-unstyled">
-                    <li class="mb-2"><i class="fas fa-phone-alt me-2 text-warning"></i> 0674-2960354</li>
-                    <li class="mb-2"><i class="fas fa-envelope me-2 text-warning"></i> dir-bbsr@nielit.gov.in</li>
-                    <li class="mb-2"><i class="fas fa-clock me-2 text-warning"></i> Mon-Fri: 09:00 AM – 5:30 PM</li>
+                    <li class="mb-2"><i class="fas fa-phone-alt me-2" style="color: var(--gold);"></i> 0674-2960354</li>
+                    <li class="mb-2"><i class="fas fa-envelope me-2" style="color: var(--gold);"></i> dir-bbsr@nielit.gov.in</li>
+                    <li class="mb-2"><i class="fas fa-clock me-2" style="color: var(--gold);"></i> Mon-Fri: 09:00 AM – 5:30 PM</li>
                 </ul>
             </div>
         </div>
