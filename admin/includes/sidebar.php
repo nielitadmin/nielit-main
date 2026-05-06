@@ -91,6 +91,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-home"></i> Homepage Content
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/admin/manage_news.php" class="nav-link <?php echo ($current_page === 'manage_news.php') ? 'active' : ''; ?>">
+                <i class="fas fa-newspaper"></i> News & Updates
+            </a>
+        </div>
         <?php endif; ?>
         
         <?php if (!$is_nsqf_manager && !$is_front_office): ?>
