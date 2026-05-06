@@ -8,6 +8,58 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+// Create news table if it doesn't exist
+$create_table_sql = "CREATE TABLE IF NOT EXISTS news (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    content LONGTEXT NOT NULL,
+    category VARCHAR(100),
+    image_url VARCHAR(500),
+    is_featured TINYINT(1) DEFAULT 0,
+    is_active TINYINT(1) DEFAULT 1,
+    created_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+)";
+@$conn->query($create_table_sql);
+
+// Create uploads directory if it doesn't exist
+$upload_dir = __DIR__ . '/../uploads/news/';
+if (!is_dir($upload_dir)) {
+    mkdir($upload_dir, 0755, true);
+}
+
+// Function to handle image upload
+function uploadNewsImage($file) {
+    $upload_dir = __DIR__ . '/../uploads/news/';
+    
+    // Validate file
+    $allowed_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    $max_size = 5 * 1024 * 1024; // 5MB
+    
+    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+        return ['success' => false, 'message' => 'No file uploaded'];
+    }
+    
+    if (!in_array($file['type'], $allowed_types)) {
+        return ['success' => false, 'message' => 'Invalid file type. Allowed: JPG, PNG, WebP, GIF'];
+    }
+    
+    if ($file['size'] > $max_size) {
+        return ['success' => false, 'message' => 'File size exceeds 5MB limit'];
+    }
+    
+    // Generate unique filename
+    $filename = 'news_' . time() . '_' . uniqid() . '.' . pathinfo($file['name'], PATHINFO_EXTENSION);
+    $filepath = $upload_dir . $filename;
+    
+    if (move_uploaded_file($file['tmp_name'], $filepath)) {
+        return ['success' => true, 'path' => 'uploads/news/' . $filename];
+    } else {
+        return ['success' => false, 'message' => 'Failed to upload file'];
+    }
+}
+
 // Handle Add News
 if (isset($_POST['add_news'])) {
     $title = $_POST['title'];
@@ -19,20 +71,16 @@ if (isset($_POST['add_news'])) {
     $created_by = $_SESSION['admin'];
     $created_at = date('Y-m-d H:i:s');
 
-    // Create news table if it doesn't exist
-    $create_table_sql = "CREATE TABLE IF NOT EXISTS news (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        title VARCHAR(255) NOT NULL,
-        content LONGTEXT NOT NULL,
-        category VARCHAR(100),
-        image_url VARCHAR(500),
-        is_featured TINYINT(1) DEFAULT 0,
-        is_active TINYINT(1) DEFAULT 1,
-        created_by VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )";
-    $conn->query($create_table_sql);
+    // Handle image upload if file is provided
+    if (isset($_FILES['image_file']) && $_FILES['image_file']['size'] > 0) {
+        $upload_result = uploadNewsImage($_FILES['image_file']);
+        if ($upload_result['success']) {
+            $image_url = APP_URL . '/' . $upload_result['path'];
+        } else {
+            $_SESSION['message'] = $upload_result['message'];
+            $_SESSION['message_type'] = "warning";
+        }
+    }
 
     $sql = "INSERT INTO news (title, content, category, image_url, is_featured, is_active, created_by, created_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -59,6 +107,17 @@ if (isset($_POST['edit_news'])) {
     $image_url = $_POST['image_url'] ?? null;
     $is_featured = isset($_POST['is_featured']) ? 1 : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
+
+    // Handle image upload if file is provided
+    if (isset($_FILES['image_file']) && $_FILES['image_file']['size'] > 0) {
+        $upload_result = uploadNewsImage($_FILES['image_file']);
+        if ($upload_result['success']) {
+            $image_url = APP_URL . '/' . $upload_result['path'];
+        } else {
+            $_SESSION['message'] = $upload_result['message'];
+            $_SESSION['message_type'] = "warning";
+        }
+    }
 
     $sql = "UPDATE news SET title=?, content=?, category=?, image_url=?, is_featured=?, is_active=? WHERE id=?";
     $stmt = $conn->prepare($sql);
@@ -92,12 +151,6 @@ if (isset($_GET['delete'])) {
     header("Location: manage_news.php");
     exit();
 }
-
-// Create news table if it doesn't exist
-$create_table_sql = "CREATE TABLE IF NOT EXISTS news (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(255) NOT NULL,
-    content LONGTEXT NOT NULL,
     category VARCHAR(100),
     image_url VARCHAR(500),
     is_featured TINYINT(1) DEFAULT 0,
@@ -360,7 +413,7 @@ $active_theme = loadActiveTheme($conn);
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <div class="modal-body">
                         <?php if ($edit_news): ?>
                             <input type="hidden" name="id" value="<?php echo $edit_news['id']; ?>">
@@ -385,11 +438,59 @@ $active_theme = loadActiveTheme($conn);
                                     <option value="Other" <?php echo $edit_news && $edit_news['category'] == 'Other' ? 'selected' : ''; ?>>Other</option>
                                 </select>
                             </div>
-                            <div class="col-md-6">
-                                <label class="form-label fw-600">Image URL</label>
-                                <input type="url" class="form-control" name="image_url" 
-                                       value="<?php echo $edit_news ? htmlspecialchars($edit_news['image_url'] ?? '') : ''; ?>"
-                                       placeholder="https://example.com/image.jpg">
+                        </div>
+
+                        <!-- Image Upload Section -->
+                        <div class="mb-4">
+                            <label class="form-label fw-600">News Image</label>
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-info-circle"></i> 
+                                Recommended resolution: <strong>1200x600px</strong> or <strong>400x300px</strong>. Max size: 5MB
+                            </p>
+                            
+                            <!-- Image Upload Tab -->
+                            <ul class="nav nav-tabs mb-3" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button">
+                                        <i class="fas fa-upload me-2"></i>Upload Image
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="url-tab" data-bs-toggle="tab" data-bs-target="#url-pane" type="button">
+                                        <i class="fas fa-link me-2"></i>Use Image URL
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                <!-- Upload Tab -->
+                                <div class="tab-pane fade show active" id="upload-pane" role="tabpanel">
+                                    <div class="mb-3">
+                                        <input type="file" class="form-control" id="image_file" name="image_file" accept="image/*">
+                                        <small class="text-muted d-block mt-2">
+                                            <strong>Formats:</strong> JPG, PNG, WebP, GIF<br>
+                                            <strong>Tip:</strong> Use high-resolution images for better quality on the homepage
+                                        </small>
+                                    </div>
+                                    
+                                    <!-- Image Preview -->
+                                    <div id="image-preview" class="mb-3" style="display: none;">
+                                        <div class="border rounded p-2" style="max-width: 300px;">
+                                            <img id="preview-img" src="" alt="Preview" style="width: 100%; height: auto; border-radius: 8px;">
+                                            <small class="d-block mt-2 text-muted">Preview of selected image</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- URL Tab -->
+                                <div class="tab-pane fade" id="url-pane" role="tabpanel">
+                                    <input type="url" class="form-control" name="image_url" 
+                                           value="<?php echo $edit_news ? htmlspecialchars($edit_news['image_url'] ?? '') : ''; ?>"
+                                           placeholder="https://example.com/image.jpg">
+                                    <small class="text-muted d-block mt-2">
+                                        Enter a complete image URL. This is ignored if you upload an image file.
+                                    </small>
+                                </div>
                             </div>
                         </div>
 
@@ -439,6 +540,28 @@ $active_theme = loadActiveTheme($conn);
             var newsModal = new bootstrap.Modal(document.getElementById('newsModal'));
             newsModal.show();
         <?php endif; ?>
+
+        // Image preview functionality
+        document.getElementById('image_file').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('preview-img').src = event.target.result;
+                    document.getElementById('image-preview').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Show image resolution recommendations tooltip
+        document.addEventListener('DOMContentLoaded', function() {
+            // You can add Bootstrap tooltip initialization here if needed
+            const tooltip = document.querySelector('[data-bs-toggle="tooltip"]');
+            if (tooltip) {
+                new bootstrap.Tooltip(tooltip);
+            }
+        });
     </script>
 </body>
 </html>
