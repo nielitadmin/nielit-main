@@ -170,58 +170,202 @@ body::before {
     border-radius: var(--radius-full);
 }
 
-/* OTP Logs card styles - use theme variables so OTP page is included in themes */
+/* ============================================
+   OTP LOGS STYLES - Themed & Professional
+   ============================================ */
+
+.content-body {
+    padding: var(--spacing-lg);
+}
+
+/* OTP Card - Professional design with better hierarchy */
 .otp-card {
     background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 8px rgba(10, 22, 40, 0.08);
+    border: 1px solid rgba(15, 23, 42, 0.08);
     margin-bottom: 1rem;
-    transition: var(--transition);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
 }
+
+.otp-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(to right, var(--accent-gold), rgba(245, 158, 11, 0.3));
+}
+
 .otp-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 28px rgba(10, 22, 40, 0.12);
+    border-color: var(--accent-gold);
 }
+
+/* OTP Code display */
 .otp-code {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--primary-color, #0a1628);
+    letter-spacing: 5px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, rgba(10, 22, 40, 0.02) 100%);
+    border-radius: 8px;
+    text-align: center;
+    user-select: all;
+    cursor: pointer;
+}
+
+/* Page Header - Premium look */
+.page-header {
+    background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 50%, var(--primary-color, #0a1628) 100%);
+    background-size: 200% 200%;
+    animation: headerGradient 8s ease infinite;
+    color: #ffffff;
+    padding: 2.5rem 0;
+    margin-bottom: 2.5rem;
+    border-radius: 0 0 20px 20px;
+    box-shadow: 0 10px 30px rgba(10, 22, 40, 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.page-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at 20% 50%, rgba(245, 158, 11, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(26, 86, 219, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.page-header .container-fluid {
+    position: relative;
+    z-index: 1;
+}
+
+.page-header h1 {
     font-size: 2rem;
     font-weight: 700;
-    color: var(--text-dark);
-    letter-spacing: 4px;
-    font-family: 'Courier New', monospace;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
-.page-header {
-    background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 100%);
+
+.page-header p {
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+.page-header .btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     color: #ffffff;
-    padding: 2rem 0;
-    margin-bottom: 2rem;
-    border-radius: 0 0 30px 30px;
+    transition: all 0.2s ease;
 }
+
+.page-header .btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+
+@keyframes headerGradient {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+}
+
+/* Status Badges - Modern style */
 .status-badge {
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
+    padding: 0.4rem 0.9rem;
+    border-radius: 999px;
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: inline-block;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
 }
+
+.status-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .status-sent {
     background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
     color: #ffffff;
 }
+
 .status-failed {
     background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
     color: #ffffff;
 }
+
+/* Empty State - Professional messaging */
 .empty-state {
     text-align: center;
-    padding: 3rem;
+    padding: 4rem 2rem;
     color: var(--text-muted);
 }
-.empty-state i { 
-    font-size: 4rem; 
-    margin-bottom: 1rem; 
-    opacity: 0.3; 
+
+.empty-state i {
+    font-size: 5rem;
+    margin-bottom: 1.5rem;
+    color: var(--accent-gold);
+    opacity: 0.3;
+}
+
+.empty-state h5 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.empty-state small {
+    display: block;
+    font-size: 0.9rem;
+}
+
+/* Content body spacing */
+.content-body {
+    max-width: 100%;
+}
+
+/* Improve text hierarchy in OTP cards */
+.otp-card h6 {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.3rem;
+}
+
+.otp-card .text-muted {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.otp-card small {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 
 /* Sidebar Logo - Universal styles for both structures */
