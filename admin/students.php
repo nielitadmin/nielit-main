@@ -854,6 +854,39 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
 
                 $where = count($whereClauses) ? implode(' AND ', $whereClauses) : '1=1';
 
+                // Build a safe SQL string by properly embedding integer lists and escaping strings
+                // Convert any 'IN' placeholders created earlier into explicit integer lists
+                // (we constructed those placeholders by adding course_id IN (...))
+                // Ensure all params used above are already in $params but we'll avoid prepared binds here
+
+                // If admin_course_ids were added as individual ? earlier, replace that clause with an explicit list
+                if ($is_course_coordinator && !empty($admin_course_ids)) {
+                    // Build safe integer list
+                    $int_ids = array_map('intval', $admin_course_ids);
+                    $admin_list = implode(',', $int_ids);
+                    // Replace the first occurrence of "course_id IN (?,?,...)" style with explicit list
+                    $where = preg_replace('/course_id IN \([^)]+\)/', "course_id IN ($admin_list)", $where, 1);
+                }
+
+                // Sanitize gender values and dates in the where string by replacing placeholders with escaped literals
+                // For selected_course numeric filter, replace the placeholder
+                if (!empty($selected_course) && $selected_course !== 'All') {
+                    $where = preg_replace('/course_id = \?/', 'course_id = ' . intval($selected_course), $where, 1);
+                }
+                if (!empty($selected_gender) && $selected_gender !== 'All') {
+                    $where = preg_replace('/gender = \?/', "gender = '" . $conn->real_escape_string($selected_gender) . "'", $where, 1);
+                }
+                if (!empty($start_date) && !empty($end_date)) {
+                    $where = preg_replace('/created_at BETWEEN \? AND \?/', "created_at BETWEEN '" . $conn->real_escape_string($start_date) . "' AND '" . $conn->real_escape_string($end_date) . "'", $where, 1);
+                } else {
+                    if (!empty($start_date)) {
+                        $where = preg_replace('/created_at >= \?/', "created_at >= '" . $conn->real_escape_string($start_date) . "'", $where, 1);
+                    }
+                    if (!empty($end_date)) {
+                        $where = preg_replace('/created_at <= \?/', "created_at <= '" . $conn->real_escape_string($end_date) . "'", $where, 1);
+                    }
+                }
+
                 $sql = "SELECT
                             COUNT(*) AS total,
                             SUM(status='active') AS active,
@@ -862,17 +895,8 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                          FROM students
                          WHERE $where";
 
-                if ($stmt = $conn->prepare($sql)) {
-                    if (!empty($params)) {
-                        $bind_names = [];
-                        $bind_names[] = & $types;
-                        for ($i = 0; $i < count($params); $i++) {
-                            $bind_names[] = & $params[$i];
-                        }
-                        call_user_func_array(array($stmt, 'bind_param'), $bind_names);
-                    }
-                    $stmt->execute();
-                    $result = $stmt->get_result();
+                $result = $conn->query($sql);
+                if ($result) {
                     if ($row = $result->fetch_assoc()) {
                         $stats = [
                             'total' => (int)$row['total'],
@@ -881,7 +905,9 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                             'female' => (int)$row['female']
                         ];
                     }
-                    $stmt->close();
+                } else {
+                    // Log SQL error for debugging
+                    error_log('Students stats SQL error: ' . $conn->error . ' -- SQL: ' . $sql);
                 }
                 ?>
 
