@@ -738,8 +738,8 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                 </div>
                 
                 <form method="GET" action="students.php">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
-                        <div class="form-group" style="margin-bottom: 0;">
+                    <div class="filter-grid">
+                        <div class="form-group">
                             <label class="form-label">Filter by Course</label>
                             <select name="filter_course" class="form-select">
                                 <?php if ($is_course_coordinator && empty($admin_course_ids)): ?>
@@ -770,7 +770,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                             </select>
                         </div>
                         
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group">
                             <label class="form-label">Filter by Gender</label>
                             <select name="filter_gender" class="form-select">
                                 <option value="All" <?php if ($selected_gender == 'All') echo 'selected'; ?>>All Genders</option>
@@ -779,17 +779,17 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                             </select>
                         </div>
                         
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group">
                             <label class="form-label">Start Date</label>
                             <input type="date" name="start_date" class="form-control" value="<?php echo $start_date; ?>">
                         </div>
                         
-                        <div class="form-group" style="margin-bottom: 0;">
+                        <div class="form-group">
                             <label class="form-label">End Date</label>
                             <input type="date" name="end_date" class="form-control" value="<?php echo $end_date; ?>">
                         </div>
                         
-                        <button type="submit" class="btn btn-primary">
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
                             <i class="fas fa-search"></i> Filter
                         </button>
                     </div>

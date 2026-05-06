@@ -612,6 +612,385 @@ html[data-mode="night"] .otp-empty-state {
     --bs-gutter-y: 1.5rem;
 }
 
+/* ============================================
+   FILTER GRID - RESPONSIVE LAYOUT
+   ============================================ */
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    align-items: end;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.02) 0%, transparent 100%);
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    margin-bottom: 2rem;
+}
+
+.filter-grid .form-group {
+    margin-bottom: 0;
+}
+
+.filter-grid .form-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.filter-grid .form-select,
+.filter-grid .form-control {
+    border-radius: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    padding: 0.65rem 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.filter-grid .form-select:focus,
+.filter-grid .form-control:focus {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+@media (max-width: 768px) {
+    .filter-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   STATISTICS SUMMARY SECTION
+   ============================================ */
+
+/* Statistics Grid - Enhanced */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+}
+
+/* Stat Cards - Professional design */
+.stat-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 1.75rem;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--primary-color, #0a1628);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stat-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.1) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 28px rgba(10, 22, 40, 0.12);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.stat-card:hover::before {
+    opacity: 1;
+}
+
+.stat-card.primary::before {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.stat-card.warning::before {
+    background: linear-gradient(135deg, var(--warning) 0%, var(--warning-light) 100%);
+}
+
+.stat-card.success::before {
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+}
+
+.stat-card.danger::before {
+    background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.stat-card.primary .stat-icon {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+}
+
+.stat-card.warning .stat-icon {
+    background: linear-gradient(135deg, var(--warning) 0%, var(--warning-light) 100%);
+}
+
+.stat-card.success .stat-icon {
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+}
+
+.stat-card.danger .stat-icon {
+    background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+}
+
+.stat-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin: 0;
+    font-weight: 500;
+}
+
+/* Modern Content Card */
+.content-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.content-card:hover {
+    box-shadow: 0 8px 20px rgba(10, 22, 40, 0.08);
+}
+
+.card-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.02) 0%, transparent 100%);
+}
+
+.card-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.card-title i {
+    color: var(--accent-gold);
+    font-size: 1.2rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Modern Table Styling */
+.table-responsive {
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+}
+
+.modern-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+}
+
+.modern-table thead {
+    background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 100%);
+    color: white;
+}
+
+.modern-table thead th {
+    padding: 1.25rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: none;
+    text-align: left;
+}
+
+.modern-table tbody tr {
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    transition: all 0.2s ease;
+}
+
+.modern-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%);
+}
+
+.modern-table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.modern-table tbody td {
+    padding: 1.25rem;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    vertical-align: middle;
+}
+
+.modern-table strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+/* Action Buttons in Table */
+.btn-sm {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    margin-right: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.btn-sm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, #f0a312 100%);
+    color: #0a1628;
+}
+
+.btn-success {
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+    color: white;
+}
+
+.btn-warning {
+    background: linear-gradient(135deg, var(--warning) 0%, var(--warning-light) 100%);
+    color: white;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+    color: white;
+}
+
+.btn-secondary {
+    background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+    color: white;
+}
+
+.btn-info {
+    background: linear-gradient(135deg, var(--info) 0%, var(--info-light) 100%);
+    color: white;
+}
+
+.btn-light {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.btn-light:hover {
+    background: white;
+    border-color: var(--accent-gold);
+}
+
+/* Selection Checkbox */
+input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--accent-gold);
+}
+
+/* Bulk Action Bar */
+#selected-count {
+    background: linear-gradient(135deg, var(--accent-gold) 0%, #f0a312 100%);
+    color: #0a1628;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Dark Mode Adjustments for Students Page */
+html[data-mode="night"] .stat-card {
+    background: var(--bg-card);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-mode="night"] .stat-card:hover {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+html[data-mode="night"] .content-card {
+    background: var(--bg-card);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-mode="night"] .modern-table {
+    background: var(--bg-card);
+}
+
+html[data-mode="night"] .modern-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%);
+}
+
+html[data-mode="night"] .modern-table tbody tr {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-mode="night"] .card-header {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.03) 0%, transparent 100%);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
 /* Sidebar Logo - Universal styles for both structures */
 .sidebar-logo {
     padding: var(--spacing-xl) var(--spacing-lg);
