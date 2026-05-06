@@ -63,6 +63,19 @@ $result_internship = $conn->query($sql_internship);
     <link rel="icon" href="<?php echo APP_URL . '/' . getThemeFavicon($active_theme); ?>" type="image/x-icon">
 
     <style>
+        :root {
+            --navy: #0a1628;
+            --navy-mid: #112240;
+            --blue: #1a56db;
+            --blue-light: #3b82f6;
+            --gold: #f59e0b;
+            --gold-light: #fcd34d;
+            --cream: #fafaf8;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: rgba(0,0,0,0.08);
+        }
+
         .course-card-header {
             background: linear-gradient(135deg, #0a1628 0%, #112240 100%) !important;
             border-bottom: 1px solid rgba(245,158,11,0.25);
