@@ -4,6 +4,11 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 
+// Temporary debugging during troubleshooting - enable verbose errors locally
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");  // Redirect if not logged in as admin
@@ -128,7 +133,8 @@ if (isset($_POST['update_student'])) {
                     course = ?, status = ?, address = ?, city = ?, state = ?, pincode = ? 
                     WHERE student_id = ?";
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("ssssssssssssi", $name, $father_name, $mother_name, $dob, $mobile, $email, 
+    // student_id is stored as string in many places; bind as string to avoid type mismatch
+    $stmt->bind_param("sssssssssssss", $name, $father_name, $mother_name, $dob, $mobile, $email, 
                      $course, $status, $address, $city, $state, $pincode, $student_id);
     if ($stmt->execute()) {
         $_SESSION['message'] = "Student updated successfully!";
@@ -912,9 +918,10 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                          FROM students
                          WHERE $where";
 
-                $result = $conn->query($sql);
-                if ($result) {
-                    if ($row = $result->fetch_assoc()) {
+                // Use a dedicated result variable to avoid clobbering the main students result
+                $stats_result = $conn->query($sql);
+                if ($stats_result) {
+                    if ($row = $stats_result->fetch_assoc()) {
                         $stats = [
                             'total' => (int)$row['total'],
                             'active' => (int)$row['active'],
@@ -1246,7 +1253,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                 </tr>
                                 <?php
                                 // Developer debug info (only for master_admin)
-                                if (($role ?? '') === 'master_admin') {
+                                if (($_SESSION['admin_role'] ?? '') === 'master_admin') {
                                     // Print SQL and bound params in an HTML comment to avoid UI clutter
                                     $debugInfo = "Query: " . preg_replace('/\s+/', ' ', $query) . " -- Types: " . ($bind_types ?? '') . " -- Values: " . json_encode($bind_values ?? []);
                                     echo "<!-- DEBUG: " . htmlspecialchars($debugInfo) . " -->";
