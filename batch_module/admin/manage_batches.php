@@ -379,7 +379,7 @@ while ($row = $batches_result->fetch_assoc()) {
                         
                         <div class="form-group">
                             <label class="form-label">Total Seats *</label>
-                            <input type="number" class="form-control" name="seats_total" placeholder="30" required>
+                            <input type="number" class="form-control" name="seats_total" min="1" placeholder="30" required>
                         </div>
                         
                         <div class="form-group">

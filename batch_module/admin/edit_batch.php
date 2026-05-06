@@ -311,7 +311,7 @@ if ($table_check && $table_check->num_rows > 0) {
                         
                         <div class="form-group">
                             <label class="form-label">Total Seats *</label>
-                            <input type="number" class="form-control" name="seats_total" 
+                            <input type="number" class="form-control" name="seats_total" min="1"
                                    value="<?php echo $batch['seats_total']; ?>" required>
                             <small class="text-muted">Currently filled: <?php echo $batch['seats_filled']; ?> seats</small>
                         </div>
