@@ -904,7 +904,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         <?php if (empty($row['batch_name'])): ?>
                                             <input type="checkbox" class="student-checkbox" 
                                                    value="<?php echo $row['student_id']; ?>"
-                                                   data-course="<?php echo htmlspecialchars($row['course']); ?>">
+                                                   data-course="<?php echo htmlspecialchars(!empty($row['course_name']) ? $row['course_name'] : $row['course']); ?>">
                                         <?php else: ?>
                                             <span style="color: #cbd5e1;" title="Already assigned to a batch">
                                                 <i class="fas fa-check-circle"></i>
@@ -919,7 +919,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                     <td>
                                         <span class="badge badge-primary">
                                             <?php 
-                                            echo $row['course'];
+                                            echo !empty($row['course_name']) ? $row['course_name'] : $row['course'];
                                             if (!empty($row['course_description'])) {
                                                 echo " (" . htmlspecialchars($row['course_description']) . ")";
                                             }
@@ -1019,7 +1019,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                                     title="Assign to Batch"
                                                     data-student-id="<?php echo $row['student_id']; ?>"
                                                     data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                                    data-course="<?php echo htmlspecialchars($row['course']); ?>">
+                                                    data-course="<?php echo htmlspecialchars(!empty($row['course_name']) ? $row['course_name'] : $row['course']); ?>">
                                                 <i class="fas fa-plus-circle"></i> Assign Batch
                                             </button>
                                         <?php endif; ?>
@@ -1277,33 +1277,32 @@ function openBatchModal(studentId, studentName, course) {
     document.getElementById('modal-student-id').value = studentId;
     document.getElementById('modal-student-name').textContent = studentName;
     document.getElementById('modal-course').textContent = course;
-    
-    // Filter batches by course
+
+    // Normalize student course for comparison
+    const studentCourseNorm = (course || '').toString().trim().toLowerCase();
+
+    // Filter batches by course (case-insensitive, trimmed)
     const batchSelect = document.getElementById('modal-batch-select');
     const options = batchSelect.querySelectorAll('option');
-    
-    console.log('Student Course:', course);
+
     let matchCount = 0;
-    
+
     options.forEach(option => {
         if (option.value === '') {
             option.style.display = 'block';
             return;
         }
-        
-        const optionCourse = option.getAttribute('data-course');
-        console.log('Batch Option:', option.text, '| Course:', optionCourse, '| Match:', optionCourse === course);
-        
-        if (optionCourse === course) {
+
+        const optionCourse = (option.getAttribute('data-course') || '').toString().trim().toLowerCase();
+
+        if (optionCourse === studentCourseNorm) {
             option.style.display = 'block';
             matchCount++;
         } else {
             option.style.display = 'none';
         }
     });
-    
-    console.log('Total matching batches:', matchCount);
-    
+
     batchSelect.value = '';
     document.getElementById('batchModal').style.display = 'block';
 }
@@ -1328,20 +1327,20 @@ window.onclick = function(event) {
 function openBulkBatchModal() {
     const checkboxes = document.querySelectorAll('.student-checkbox:checked');
     const count = checkboxes.length;
-    
+
     if (count === 0) {
         toast.warning('Please select at least one student');
         return;
     }
-    
+
     // Update count
     document.getElementById('bulk-modal-count').textContent = count;
-    
+
     // Clear previous student IDs
     const container = document.getElementById('bulk-student-ids');
     container.innerHTML = '';
-    
-    // Collect courses of selected students
+
+    // Collect normalized courses of selected students
     const courses = new Set();
     checkboxes.forEach(checkbox => {
         // Add hidden input for each student ID
@@ -1350,9 +1349,9 @@ function openBulkBatchModal() {
         input.name = 'student_ids[]';
         input.value = checkbox.value;
         container.appendChild(input);
-        
-        // Collect course
-        const course = checkbox.getAttribute('data-course');
+
+        // Collect course and normalize
+        const course = (checkbox.getAttribute('data-course') || '').toString().trim().toLowerCase();
         if (course) {
             courses.add(course);
         }
@@ -1367,8 +1366,8 @@ function openBulkBatchModal() {
             option.style.display = 'block';
             return;
         }
-        
-        const optionCourse = option.getAttribute('data-course');
+
+        const optionCourse = (option.getAttribute('data-course') || '').toString().trim().toLowerCase();
         if (courses.has(optionCourse)) {
             option.style.display = 'block';
         } else {
