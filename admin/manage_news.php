@@ -151,15 +151,6 @@ if (isset($_GET['delete'])) {
     header("Location: manage_news.php");
     exit();
 }
-    category VARCHAR(100),
-    image_url VARCHAR(500),
-    is_featured TINYINT(1) DEFAULT 0,
-    is_active TINYINT(1) DEFAULT 1,
-    created_by VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-)";
-$conn->query($create_table_sql);
 
 // Fetch all news
 $sql_news = "SELECT * FROM news ORDER BY created_at DESC";
