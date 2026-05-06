@@ -108,6 +108,39 @@ $result_internship = $conn->query($sql_internship);
         .section-header i {
             color: var(--gold) !important;
         }
+
+        .notice-bar {
+            background: var(--gold);
+            color: var(--navy);
+            padding: 9px 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+        
+        .notice-label {
+            background: var(--navy);
+            color: var(--gold);
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 12px;
+            border-radius: 20px;
+            margin-right: 12px;
+            font-family: 'Sora', sans-serif;
+            letter-spacing: 0.5px;
+        }
+        
+        .notice-content {
+            display: inline-block;
+            padding-left: 100%;
+            animation: ticker 28s linear infinite;
+            font-weight: 500;
+            font-size: 0.88rem;
+        }
+        
+        @keyframes ticker {
+            0% { transform: translate3d(0,0,0); }
+            100% { transform: translate3d(-100%,0,0); }
+        }
     </style>
 </head>
 <body>
