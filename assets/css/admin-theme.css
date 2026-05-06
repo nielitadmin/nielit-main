@@ -170,6 +170,60 @@ body::before {
     border-radius: var(--radius-full);
 }
 
+/* OTP Logs card styles - use theme variables so OTP page is included in themes */
+.otp-card {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+    transition: var(--transition);
+}
+.otp-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+}
+.otp-code {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: 4px;
+    font-family: 'Courier New', monospace;
+}
+.page-header {
+    background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 100%);
+    color: #ffffff;
+    padding: 2rem 0;
+    margin-bottom: 2rem;
+    border-radius: 0 0 30px 30px;
+}
+.status-badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}
+.status-sent {
+    background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+    color: #ffffff;
+}
+.status-failed {
+    background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
+    color: #ffffff;
+}
+.empty-state {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-muted);
+}
+.empty-state i { 
+    font-size: 4rem; 
+    margin-bottom: 1rem; 
+    opacity: 0.3; 
+}
+
 /* Sidebar Logo - Universal styles for both structures */
 .sidebar-logo {
     padding: var(--spacing-xl) var(--spacing-lg);

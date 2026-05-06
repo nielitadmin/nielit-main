@@ -28,60 +28,7 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin-theme.css" rel="stylesheet">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
-    <style>
-        .otp-card { 
-            background: white; 
-            border-radius: 15px; 
-            padding: 1.5rem; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1); 
-            border: none; 
-            margin-bottom: 1rem;
-            transition: all 0.3s ease;
-        }
-        .otp-card:hover { 
-            transform: translateY(-3px); 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.15); 
-        }
-        .otp-code { 
-            font-size: 2rem; 
-            font-weight: 700; 
-            color: #0a1628; 
-            letter-spacing: 4px; 
-            font-family: 'Courier New', monospace;
-        }
-        .page-header { 
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%); 
-            color: white; 
-            padding: 2rem 0; 
-            margin-bottom: 2rem; 
-            border-radius: 0 0 30px 30px; 
-        }
-        .status-badge { 
-            padding: 0.5rem 1rem; 
-            border-radius: 20px; 
-            font-weight: 600; 
-            font-size: 0.75rem; 
-            text-transform: uppercase; 
-        }
-        .status-sent { 
-            background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); 
-            color: white; 
-        }
-        .status-failed { 
-            background: linear-gradient(135deg, #e74c3c 0%, #f1948a 100%); 
-            color: white; 
-        }
-        .empty-state { 
-            text-align: center; 
-            padding: 3rem; 
-            color: #6c757d; 
-        }
-        .empty-state i { 
-            font-size: 4rem; 
-            margin-bottom: 1rem; 
-            opacity: 0.3; 
-        }
-    </style>
+    <!-- OTP Logs styles are provided by admin-theme.css (so they follow active theme) -->
 </head>
 <body>
 <div class="admin-wrapper">
