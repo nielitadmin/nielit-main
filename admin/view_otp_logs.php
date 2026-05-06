@@ -52,49 +52,114 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
         </div>
 
         <div class="content-body">
+            <!-- Summary Stats -->
+            <?php 
+            $total_otps = $otp_logs_result ? $otp_logs_result->num_rows : 0;
+            $otp_logs_result->data_seek(0);
+            $sent_count = 0;
+            $failed_count = 0;
+            while ($log = $otp_logs_result->fetch_assoc()) {
+                if ($log['status'] === 'sent') $sent_count++;
+                else $failed_count++;
+            }
+            $otp_logs_result->data_seek(0);
+            ?>
+            <div class="otp-stats-container">
+                <div class="otp-stat-card">
+                    <div class="stat-icon stat-sent">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value"><?php echo $sent_count; ?></div>
+                        <div class="stat-label">Sent</div>
+                    </div>
+                </div>
+                <div class="otp-stat-card">
+                    <div class="stat-icon stat-failed">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value"><?php echo $failed_count; ?></div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                </div>
+                <div class="otp-stat-card">
+                    <div class="stat-icon stat-total">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-value"><?php echo $total_otps; ?></div>
+                        <div class="stat-label">Total (24h)</div>
+                    </div>
+                </div>
+            </div>
+
             <?php if ($otp_logs_result && $otp_logs_result->num_rows > 0): ?>
+                <div class="otp-logs-header">
+                    <h5 class="mb-0"><i class="fas fa-history"></i> Recent OTP Codes</h5>
+                    <span class="otp-filter-badge"><?php echo $total_otps; ?> entries</span>
+                </div>
                 <div class="row">
                     <?php while ($log = $otp_logs_result->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-4 mb-3">
-                            <div class="otp-card">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
-                                    <div>
-                                        <h6 class="mb-1"><?php echo htmlspecialchars($log['purpose']); ?></h6>
-                                        <small class="text-muted"><?php echo htmlspecialchars($log['email']); ?></small>
+                        <div class="col-md-6 col-lg-4 mb-4">
+                            <div class="otp-card-modern">
+                                <!-- Card Header -->
+                                <div class="otp-card-header">
+                                    <div class="otp-purpose">
+                                        <i class="fas fa-envelope-open-text"></i>
+                                        <?php echo htmlspecialchars($log['purpose']); ?>
                                     </div>
                                     <span class="status-badge <?php echo $log['status'] === 'sent' ? 'status-sent' : 'status-failed'; ?>">
+                                        <i class="fas fa-<?php echo $log['status'] === 'sent' ? 'check' : 'exclamation'; ?>"></i>
                                         <?php echo ucfirst($log['status']); ?>
                                     </span>
                                 </div>
-                                
-                                <div class="text-center mb-3">
-                                    <div class="otp-code"><?php echo htmlspecialchars($log['otp_code']); ?></div>
+
+                                <!-- OTP Code Display -->
+                                <div class="otp-code-container">
+                                    <div class="otp-code-label">Code</div>
+                                    <div class="otp-code-display" onclick="copyToClipboard(this, '<?php echo htmlspecialchars($log['otp_code']); ?>')" title="Click to copy">
+                                        <?php echo htmlspecialchars($log['otp_code']); ?>
+                                    </div>
+                                    <div class="copy-hint">Click to copy</div>
                                 </div>
-                                
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <small class="text-muted">
-                                        <i class="fas fa-clock"></i> 
-                                        <?php echo date('M d, Y g:i A', strtotime($log['created_at'])); ?>
-                                    </small>
-                                    <small class="text-muted">
+
+                                <!-- Email Info -->
+                                <div class="otp-email-info">
+                                    <i class="fas fa-envelope"></i>
+                                    <div>
+                                        <div class="otp-email-label">Email</div>
+                                        <div class="otp-email-value"><?php echo htmlspecialchars($log['email']); ?></div>
+                                    </div>
+                                </div>
+
+                                <!-- Card Footer -->
+                                <div class="otp-card-footer">
+                                    <div class="otp-time-info">
+                                        <i class="fas fa-clock"></i>
+                                        <div>
+                                            <div class="time-label">Time</div>
+                                            <div class="time-value"><?php echo date('M d, g:i A', strtotime($log['created_at'])); ?></div>
+                                        </div>
+                                    </div>
+                                    <div class="otp-time-ago">
                                         <?php 
                                         $time_diff = time() - strtotime($log['created_at']);
                                         if ($time_diff < 60) {
-                                            echo $time_diff . 's ago';
+                                            echo '<span class="badge badge-info">' . $time_diff . 's ago</span>';
                                         } elseif ($time_diff < 3600) {
-                                            echo floor($time_diff / 60) . 'm ago';
+                                            echo '<span class="badge badge-info">' . floor($time_diff / 60) . 'm ago</span>';
                                         } else {
-                                            echo floor($time_diff / 3600) . 'h ago';
+                                            echo '<span class="badge badge-info">' . floor($time_diff / 3600) . 'h ago</span>';
                                         }
                                         ?>
-                                    </small>
+                                    </div>
                                 </div>
-                                
+
                                 <?php if (isset($log['username']) && $log['username']): ?>
-                                    <div class="mt-2">
-                                        <small class="text-muted">
-                                            <i class="fas fa-user"></i> <?php echo htmlspecialchars($log['username']); ?>
-                                        </small>
+                                    <div class="otp-user-info">
+                                        <i class="fas fa-user-circle"></i>
+                                        <span><?php echo htmlspecialchars($log['username']); ?></span>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -102,30 +167,50 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
                     <?php endwhile; ?>
                 </div>
             <?php else: ?>
-                <div class="otp-card">
-                    <div class="empty-state">
-                        <i class="fas fa-key"></i>
-                        <h5>No OTP Logs Found</h5>
-                        <p class="text-muted">No OTP codes have been generated in the last 24 hours.</p>
-                        <small class="text-muted">OTP logs will appear here when admins attempt to login or when new admins are created.</small>
+                <div class="otp-empty-state">
+                    <div class="empty-illustration">
+                        <i class="fas fa-inbox"></i>
                     </div>
+                    <h4>No OTP Logs Found</h4>
+                    <p>No OTP codes have been generated in the last 24 hours.</p>
+                    <small>OTP logs will appear here when admins attempt to login or when new admins are created.</small>
                 </div>
             <?php endif; ?>
 
-            <!-- Info Box -->
-            <div class="otp-card mt-4">
-                <div class="d-flex align-items-start">
-                    <div class="me-3">
-                        <i class="fas fa-info-circle text-primary" style="font-size: 1.5rem;"></i>
+            <!-- Security Info Box -->
+            <div class="otp-security-box">
+                <div class="security-header">
+                    <i class="fas fa-shield-alt"></i>
+                    <h5>Security Information</h5>
+                </div>
+                <div class="security-grid">
+                    <div class="security-item">
+                        <i class="fas fa-hourglass-half"></i>
+                        <div>
+                            <strong>10-Minute Validity</strong>
+                            <p>OTP codes expire after 10 minutes for security</p>
+                        </div>
                     </div>
-                    <div>
-                        <h6><i class="fas fa-shield-alt"></i> Security Information:</h6>
-                        <ul class="mb-0 small text-muted">
-                            <li>OTP codes are valid for 10 minutes only</li>
-                            <li>This page is only accessible to Master Admins</li>
-                            <li>Logs are automatically cleaned after 24 hours</li>
-                            <li>Use this for debugging email delivery issues</li>
-                        </ul>
+                    <div class="security-item">
+                        <i class="fas fa-lock"></i>
+                        <div>
+                            <strong>Master Admin Only</strong>
+                            <p>This page is restricted to Master Admins only</p>
+                        </div>
+                    </div>
+                    <div class="security-item">
+                        <i class="fas fa-trash-alt"></i>
+                        <div>
+                            <strong>Auto Cleanup</strong>
+                            <p>Logs are automatically cleaned after 24 hours</p>
+                        </div>
+                    </div>
+                    <div class="security-item">
+                        <i class="fas fa-bug"></i>
+                        <div>
+                            <strong>Debug Tool</strong>
+                            <p>Use for troubleshooting email delivery issues</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -134,5 +219,28 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Copy to clipboard functionality
+function copyToClipboard(element, text) {
+    // Create a temporary textarea
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    
+    // Show visual feedback
+    const hint = element.nextElementSibling;
+    if (hint) {
+        hint.textContent = 'Copied!';
+        hint.style.opacity = '1';
+        setTimeout(() => {
+            hint.textContent = 'Click to copy';
+            hint.style.opacity = '0';
+        }, 2000);
+    }
+}
+</script>
 </body>
 </html>
