@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/email_helper.php';
 
 // Set JSON header
 header('Content-Type: application/json');
@@ -54,9 +55,25 @@ try {
     if ($stmt->execute()) {
         $faculty_id = $conn->insert_id;
         
+        // Send confirmation email if email is provided
+        $email_sent = false;
+        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
+            
+            // Update sent_email timestamp if email was sent successfully
+            if ($email_sent) {
+                $update_sql = "UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?";
+                $update_stmt = $conn->prepare($update_sql);
+                $update_stmt->bind_param("i", $faculty_id);
+                $update_stmt->execute();
+                $update_stmt->close();
+            }
+        }
+        
         echo json_encode([
             'success' => true,
-            'message' => 'Faculty member added successfully',
+            'message' => 'Faculty member added successfully' . ($email_sent ? ' and confirmation email sent' : ''),
+            'email_sent' => $email_sent,
             'faculty' => [
                 'id' => $faculty_id,
                 'name' => $name,

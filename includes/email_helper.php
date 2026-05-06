@@ -306,4 +306,194 @@ function testEmailConfiguration($test_email) {
         return ['success' => false, 'message' => "Email sending failed: {$mail->ErrorInfo}"];
     }
 }
+
+/**
+ * Send faculty confirmation email
+ * 
+ * @param string $to_email Faculty email address
+ * @param string $faculty_name Faculty full name
+ * @param string $designation Faculty designation
+ * @param string $department Faculty department
+ * @return bool True on success, false on failure
+ */
+function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '', $department = '') {
+    $mail = new PHPMailer(true);
+    
+    try {
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = SMTP_PORT;
+        
+        // Recipients
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($to_email, $faculty_name);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'Faculty Account Registered - NIELIT Bhubaneswar';
+        $mail->Body = getFacultyEmailTemplate($faculty_name, $designation, $department);
+        $mail->AltBody = getFacultyEmailPlainText($faculty_name, $designation, $department);
+        
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Faculty email sending failed: {$mail->ErrorInfo}");
+        return false;
+    }
+}
+
+/**
+ * Get HTML email template for faculty confirmation
+ */
+function getFacultyEmailTemplate($faculty_name, $designation = '', $department = '') {
+    $current_year = date('Y');
+    
+    return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Account Registration</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); padding: 30px; text-align: center;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700;">
+                                👨‍🏫 Faculty Account Registered
+                            </h1>
+                            <p style="color: #e3f2fd; margin: 10px 0 0 0; font-size: 14px;">
+                                NIELIT Bhubaneswar
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                                Dear <strong>{$faculty_name}</strong>,
+                            </p>
+                            
+                            <p style="color: #555; font-size: 15px; line-height: 1.8; margin: 0 0 20px 0;">
+                                We are pleased to inform you that your faculty account has been successfully registered in the NIELIT Bhubaneswar Management System.
+                            </p>
+                            
+                            <!-- Account Details -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; border-left: 4px solid #1a56db; margin: 20px 0;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <h3 style="color: #1a56db; margin: 0 0 15px 0; font-size: 16px;">Account Details</h3>
+                                        <table cellpadding="8" cellspacing="0" width="100%">
+                                            <tr>
+                                                <td style="color: #666; font-weight: 600; width: 35%;">Name:</td>
+                                                <td style="color: #333;">{$faculty_name}</td>
+                                            </tr>
+                                            <?php if (!empty($designation)): ?>
+                                            <tr>
+                                                <td style="color: #666; font-weight: 600;">Designation:</td>
+                                                <td style="color: #333;">{$designation}</td>
+                                            </tr>
+                                            <?php endif; ?>
+                                            <?php if (!empty($department)): ?>
+                                            <tr>
+                                                <td style="color: #666; font-weight: 600;">Department:</td>
+                                                <td style="color: #333;">{$department}</td>
+                                            </tr>
+                                            <?php endif; ?>
+                                            <tr>
+                                                <td style="color: #666; font-weight: 600;">Email:</td>
+                                                <td style="color: #333;">{$_SESSION['email'] ?? 'Registered'}</td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #555; font-size: 15px; line-height: 1.8; margin: 20px 0;">
+                                You can now access the faculty portal and view your assigned batches, students, and other administrative functions.
+                            </p>
+                            
+                            <p style="color: #555; font-size: 15px; line-height: 1.8; margin: 20px 0;">
+                                <strong>Access Details:</strong><br>
+                                Portal URL: <a href="https://nielitbhubaneswar.in" style="color: #1a56db; text-decoration: none;">https://nielitbhubaneswar.in</a>
+                            </p>
+                            
+                            <!-- Call to Action -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="https://nielitbhubaneswar.in" style="background-color: #1a56db; color: #ffffff; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+                                            Access Faculty Portal
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 20px 0; padding: 15px; background-color: #eff6ff; border-left: 4px solid #0284c7; border-radius: 4px;">
+                                <strong>Note:</strong> If you did not register an account with NIELIT Bhubaneswar, please ignore this email or contact our support team immediately.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="color: #666; font-size: 12px; margin: 0;">
+                                © {$current_year} NIELIT Bhubaneswar. All rights reserved.
+                            </p>
+                            <p style="color: #999; font-size: 11px; margin: 10px 0 0 0;">
+                                Email: admin@nielitbhubaneswar.in | Phone: 0674-2960354
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+}
+
+/**
+ * Get plain text version of faculty confirmation email
+ */
+function getFacultyEmailPlainText($faculty_name, $designation = '', $department = '') {
+    return <<<TEXT
+FACULTY ACCOUNT REGISTERED - NIELIT Bhubaneswar
+
+Dear {$faculty_name},
+
+We are pleased to inform you that your faculty account has been successfully registered in the NIELIT Bhubaneswar Management System.
+
+ACCOUNT DETAILS:
+================
+Name: {$faculty_name}
+{$designation} Designation: {$designation}
+{$department} Department: {$department}
+
+You can now access the faculty portal and view your assigned batches, students, and other administrative functions.
+
+Access Faculty Portal: https://nielitbhubaneswar.in
+
+If you have any questions or need assistance, please contact us at:
+Email: admin@nielitbhubaneswar.in
+Phone: 0674-2960354
+
+© 2026 NIELIT Bhubaneswar. All rights reserved.
+This is an automated email. Please do not reply to this message.
+TEXT;
+}
 ?>
