@@ -509,6 +509,7 @@ if (!empty($start_date) && !empty($end_date)) {
 $query .= " ORDER BY s.created_at DESC";
 
 // Preparing the final query based on the conditions
+// Prepare and execute the main students query
 $stmt = $conn->prepare($query);
 
 // Check if prepare was successful
@@ -556,9 +557,25 @@ if (!$stmt->execute()) {
     die("Execute failed: " . $stmt->error);
 }
 
-                $result = $stmt->get_result();
-                // Expose result count for conditional display later
-                $students_result_count = $result ? $result->num_rows : 0;
+// Try to get result via get_result(); if unavailable or false, fallback to building final SQL and using query()
+$result = false;
+if (method_exists($stmt, 'get_result')) {
+    $tmp = $stmt->get_result();
+    if ($tmp !== false) $result = $tmp;
+}
+
+if ($result === false) {
+    // Fallback: substitute bind values into query safely and run direct query
+    $finalQuery = $query;
+    foreach ($bind_values as $val) {
+        $replacement = is_int($val) || ctype_digit((string)$val) ? intval($val) : "'" . $conn->real_escape_string($val) . "'";
+        $finalQuery = preg_replace('/\?/', $replacement, $finalQuery, 1);
+    }
+    $result = $conn->query($finalQuery);
+}
+
+// Expose result count for conditional display later
+$students_result_count = $result ? $result->num_rows : 0;
 
 // Check if created_by column exists in batches table
 $column_check = $conn->query("SHOW COLUMNS FROM batches LIKE 'created_by'");
