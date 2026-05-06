@@ -556,7 +556,9 @@ if (!$stmt->execute()) {
     die("Execute failed: " . $stmt->error);
 }
 
-$result = $stmt->get_result();
+                $result = $stmt->get_result();
+                // Expose result count for conditional display later
+                $students_result_count = $result ? $result->num_rows : 0;
 
 // Check if created_by column exists in batches table
 $column_check = $conn->query("SHOW COLUMNS FROM batches LIKE 'created_by'");
@@ -1030,7 +1032,8 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                         <tbody>
                             <?php
                             $sl_no = 1;
-                            while ($row = $result->fetch_assoc()) { ?>
+                            if ($result && $students_result_count > 0) {
+                                while ($row = $result->fetch_assoc()) { ?>
                                 <tr>
                                     <td>
                                         <?php if (empty($row['batch_name'])): ?>
@@ -1188,6 +1191,24 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                                         <?php endif; ?>
                                     </td>
                                 </tr>
+                            <?php }
+                            else { ?>
+                                <tr>
+                                    <td colspan="11" style="padding:2.5rem; text-align:center; color:var(--text-muted);">
+                                        <div style="font-size:1rem;">
+                                            <strong>No students found for the selected filters.</strong>
+                                            <?php if ($selected_course != 'All') echo ' Showing results for the selected course.'; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php
+                                // Developer debug info (only for master_admin)
+                                if (($role ?? '') === 'master_admin') {
+                                    // Print SQL and bound params in an HTML comment to avoid UI clutter
+                                    $debugInfo = "Query: " . preg_replace('/\s+/', ' ', $query) . " -- Types: " . ($bind_types ?? '') . " -- Values: " . json_encode($bind_values ?? []);
+                                    echo "<!-- DEBUG: " . htmlspecialchars($debugInfo) . " -->";
+                                }
+                            ?>
                             <?php } ?>
                         </tbody>
                     </table>
