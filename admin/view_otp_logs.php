@@ -99,9 +99,9 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
                     <h5 class="mb-0"><i class="fas fa-history"></i> Recent OTP Codes</h5>
                     <span class="otp-filter-badge"><?php echo $total_otps; ?> entries</span>
                 </div>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($log = $otp_logs_result->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="col-12 col-sm-6 col-lg-4">
                             <div class="otp-card-modern">
                                 <!-- Card Header -->
                                 <div class="otp-card-header">

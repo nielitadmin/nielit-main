@@ -176,14 +176,26 @@ body::before {
 
 .content-body {
     padding: var(--spacing-lg);
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* OTP Stats Container */
 .otp-stats-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 1.5rem;
     margin-bottom: 3rem;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .otp-stats-container {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
 }
 
 .otp-stat-card {
@@ -253,6 +265,8 @@ body::before {
     padding: 1.5rem 0;
     margin-bottom: 2rem;
     border-bottom: 2px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .otp-logs-header h5 {
@@ -260,6 +274,7 @@ body::before {
     color: var(--text-primary);
     font-weight: 600;
     font-size: 1.3rem;
+    flex: 1;
 }
 
 .otp-filter-badge {
@@ -589,6 +604,12 @@ html[data-mode="night"] .otp-code-display:hover {
 html[data-mode="night"] .otp-empty-state {
     background: var(--bg-card);
     border-color: rgba(245, 158, 11, 0.1);
+}
+
+/* Bootstrap grid gap utility */
+.row.g-4 {
+    --bs-gutter-x: 1.5rem;
+    --bs-gutter-y: 1.5rem;
 }
 
 /* Sidebar Logo - Universal styles for both structures */
