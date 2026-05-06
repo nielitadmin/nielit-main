@@ -42,43 +42,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                $data = [
-                    'course_id' => $_POST['course_id'],
-                    'batch_name' => $_POST['batch_name'],
-                    'batch_code' => $batch_code,
-                    'start_date' => $_POST['start_date'],
-                    'end_date' => $_POST['end_date'],
-                    'training_fees' => $_POST['training_fees'],
-                    'seats_total' => $_POST['seats_total'],
-                    'batch_coordinator' => $_POST['batch_coordinator'],
-                    'status' => $_POST['status'],
-                    'created_by' => $admin_id
-                ];
-                
-                $result = createBatch($data, $conn);
-                if ($result) {
-                    $message = "Batch created successfully! Batch Code: " . $batch_code;
-                    $message_type = 'success';
-                } else {
-                    $message = "Error creating batch";
+                // Validate and sanitize seats_total
+                $seats_total = intval($_POST['seats_total']);
+                if ($seats_total < 1) {
+                    $message = "Total seats must be at least 1";
                     $message_type = 'danger';
+                } else {
+                    $data = [
+                        'course_id' => $_POST['course_id'],
+                        'batch_name' => $_POST['batch_name'],
+                        'batch_code' => $batch_code,
+                        'start_date' => $_POST['start_date'],
+                        'end_date' => $_POST['end_date'],
+                        'training_fees' => $_POST['training_fees'],
+                        'seats_total' => $seats_total,
+                        'batch_coordinator' => $_POST['batch_coordinator'],
+                        'status' => $_POST['status'],
+                        'created_by' => $admin_id
+                    ];
+                    
+                    $result = createBatch($data, $conn);
+                    if ($result) {
+                        $message = "Batch created successfully! Batch Code: " . $batch_code;
+                        $message_type = 'success';
+                    } else {
+                        $message = "Error creating batch";
+                        $message_type = 'danger';
+                    }
                 }
                 break;
                 
             case 'update_batch':
-                $data = [
-                    'batch_name' => $_POST['batch_name'],
-                    'start_date' => $_POST['start_date'],
-                    'end_date' => $_POST['end_date'],
-                    'training_fees' => $_POST['training_fees'],
-                    'seats_total' => $_POST['seats_total'],
-                    'batch_coordinator' => $_POST['batch_coordinator'],
-                    'status' => $_POST['status']
-                ];
-                
-                $result = updateBatch($_POST['batch_id'], $data, $conn);
-                $message = $result ? "Batch updated successfully" : "Error updating batch";
-                $message_type = $result ? 'success' : 'danger';
+                // Validate and sanitize seats_total
+                $seats_total = intval($_POST['seats_total']);
+                if ($seats_total < 1) {
+                    $message = "Total seats must be at least 1";
+                    $message_type = 'danger';
+                } else {
+                    $data = [
+                        'batch_name' => $_POST['batch_name'],
+                        'start_date' => $_POST['start_date'],
+                        'end_date' => $_POST['end_date'],
+                        'training_fees' => $_POST['training_fees'],
+                        'seats_total' => $seats_total,
+                        'batch_coordinator' => $_POST['batch_coordinator'],
+                        'status' => $_POST['status']
+                    ];
+                    
+                    $result = updateBatch($_POST['batch_id'], $data, $conn);
+                    $message = $result ? "Batch updated successfully" : "Error updating batch";
+                    $message_type = $result ? 'success' : 'danger';
+                }
                 break;
         }
     }
@@ -379,7 +393,8 @@ while ($row = $batches_result->fetch_assoc()) {
                         
                         <div class="form-group">
                             <label class="form-label">Total Seats *</label>
-                            <input type="number" class="form-control" name="seats_total" min="1" placeholder="30" required>
+                            <input type="number" class="form-control" name="seats_total" min="1" step="1" placeholder="30" required>
+                            <small class="text-muted">Enter the total number of available seats</small>
                         </div>
                         
                         <div class="form-group">

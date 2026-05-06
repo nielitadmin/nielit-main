@@ -54,30 +54,38 @@ $lock_info = getBatchLockInfo($batch_id, $conn);
 
 // Handle form submission (only if batch is not locked)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked) {
-    $data = [
-        'batch_name' => $_POST['batch_name'],
-        'start_date' => $_POST['start_date'],
-        'end_date' => $_POST['end_date'],
-        'training_fees' => $_POST['training_fees'],
-        'seats_total' => $_POST['seats_total'],
-        'batch_coordinator' => $_POST['batch_coordinator'],
-        'status' => $_POST['status'],
-        'scheme_id' => !empty($_POST['scheme_id']) ? $_POST['scheme_id'] : null,
-        'admission_order_ref' => $_POST['admission_order_ref'] ?? null,
-        'admission_order_date' => $_POST['admission_order_date'] ?? null,
-        'examination_month' => $_POST['examination_month'] ?? null,
-        'class_time' => $_POST['class_time'] ?? '9:00 AM to 1:30 PM',
-        'copy_to_list' => $_POST['copy_to_list'] ?? null,
-        'location' => $_POST['location'] ?? 'NIELIT Bhubaneswar'
-    ];
+    // Validate and sanitize seats_total
+    $seats_total = intval($_POST['seats_total']);
     
-    $result = updateBatch($batch_id, $data, $conn);
-    if ($result) {
-        $message = "Batch updated successfully!";
-        $message_type = 'success';
+    if ($seats_total < 1) {
+        $_SESSION['message'] = "Total seats must be at least 1";
+        $_SESSION['message_type'] = 'danger';
     } else {
-        $message = "Error updating batch";
-        $message_type = 'danger';
+        $data = [
+            'batch_name' => $_POST['batch_name'],
+            'start_date' => $_POST['start_date'],
+            'end_date' => $_POST['end_date'],
+            'training_fees' => $_POST['training_fees'],
+            'seats_total' => $seats_total,
+            'batch_coordinator' => $_POST['batch_coordinator'],
+            'status' => $_POST['status'],
+            'scheme_id' => !empty($_POST['scheme_id']) ? $_POST['scheme_id'] : null,
+            'admission_order_ref' => $_POST['admission_order_ref'] ?? null,
+            'admission_order_date' => $_POST['admission_order_date'] ?? null,
+            'examination_month' => $_POST['examination_month'] ?? null,
+            'class_time' => $_POST['class_time'] ?? '9:00 AM to 1:30 PM',
+            'copy_to_list' => $_POST['copy_to_list'] ?? null,
+            'location' => $_POST['location'] ?? 'NIELIT Bhubaneswar'
+        ];
+        
+        $result = updateBatch($batch_id, $data, $conn);
+        if ($result) {
+            $_SESSION['message'] = "Batch updated successfully!";
+            $_SESSION['message_type'] = 'success';
+        } else {
+            $_SESSION['message'] = "Error updating batch";
+            $_SESSION['message_type'] = 'danger';
+        }
     }
 }
 
@@ -311,7 +319,7 @@ if ($table_check && $table_check->num_rows > 0) {
                         
                         <div class="form-group">
                             <label class="form-label">Total Seats *</label>
-                            <input type="number" class="form-control" name="seats_total" min="1"
+                            <input type="number" class="form-control" name="seats_total" min="1" step="1"
                                    value="<?php echo $batch['seats_total']; ?>" required>
                             <small class="text-muted">Currently filled: <?php echo $batch['seats_filled']; ?> seats</small>
                         </div>
