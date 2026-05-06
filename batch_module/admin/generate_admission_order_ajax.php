@@ -95,37 +95,18 @@ if (!empty($faculty_list)) {
     $faculty_display = $faculty_name;
 }
 
-// Fetch all available faculty for dropdown - only show faculty created by current admin or global faculty
+// Fetch all active faculty for dropdown so the admin can choose from the full list
 $all_faculty = [];
 $admin_id = $_SESSION['admin_id'] ?? 1;
 $admin_role = $_SESSION['admin_role'] ?? '';
 
-// Master admins can see all faculty, course coordinators only see their own + global faculty
-if ($admin_role === 'master_admin') {
-    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
-                          FROM faculty f
-                          LEFT JOIN admin a ON f.created_by = a.id
-                          WHERE f.is_active = 1
-                          ORDER BY f.name";
-    $result = $conn->query($all_faculty_query);
-} else {
-    // Course coordinators see own faculty + global faculty (system or created by master admin)
-    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
-                          FROM faculty f
-                          LEFT JOIN admin a ON f.created_by = a.id
-                          WHERE f.is_active = 1
-                          AND (
-                              f.created_by = ?
-                              OR f.created_by = 0
-                              OR f.created_by IS NULL
-                              OR a.role = 'master_admin'
-                          )
-                          ORDER BY f.name";
-    $stmt = $conn->prepare($all_faculty_query);
-    $stmt->bind_param("i", $admin_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-}
+// Show all faculty records so the admission order can reference any active faculty member
+$all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
+                      FROM faculty f
+                      LEFT JOIN admin a ON f.created_by = a.id
+                      WHERE f.is_active = 1
+                      ORDER BY f.name";
+$result = $conn->query($all_faculty_query);
 
 if ($result) {
     while ($row = $result->fetch_assoc()) {
@@ -402,9 +383,9 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             </div>
                             <small style="color: #64748b;">Resend the confirmation email from here</small>
                         </div>
-                        <?php if (!empty($faculty_list)): ?>
+                        <?php if (!empty($all_faculty)): ?>
                             <div style="display: grid; gap: 8px;">
-                                <?php foreach ($faculty_list as $faculty): ?>
+                                <?php foreach ($all_faculty as $faculty): ?>
                                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
                                         <div style="min-width: 0;">
                                             <div style="font-weight: 600; color: #1e293b;">
