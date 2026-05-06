@@ -473,9 +473,22 @@ while ($row = $batches_result->fetch_assoc()) {
                                             <small class="text-muted">to <?php echo date('d M Y', strtotime($batch['end_date'])); ?></small>
                                         </td>
                                         <td>
-                                            <span class="badge badge-info">
+                                            <?php 
+                                            $is_batch_full = $batch['enrolled_count'] >= $batch['seats_total'];
+                                            $is_batch_almost_full = $batch['enrolled_count'] >= ($batch['seats_total'] * 0.9);
+                                            ?>
+                                            <span class="badge <?php echo $is_batch_full ? 'badge-danger' : ($is_batch_almost_full ? 'badge-warning' : 'badge-info'); ?>">
                                                 <?php echo $batch['enrolled_count']; ?> / <?php echo $batch['seats_total']; ?>
                                             </span>
+                                            <?php if ($is_batch_full): ?>
+                                                <br><span class="badge badge-danger" style="margin-top: 4px;">
+                                                    <i class="fas fa-ban"></i> FULL
+                                                </span>
+                                            <?php elseif ($is_batch_almost_full): ?>
+                                                <br><span class="badge badge-warning" style="margin-top: 4px;">
+                                                    <i class="fas fa-exclamation-triangle"></i> Almost Full
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                         <td>₹<?php echo number_format($batch['training_fees'], 2); ?></td>
                                         <td>

@@ -862,7 +862,22 @@ function downloadScannedOrder(batchId) {
                     </div>
                     <div class="info-box">
                         <h6>Seats</h6>
-                        <p><?php echo $batch['seats_filled']; ?> / <?php echo $batch['seats_total']; ?></p>
+                        <p>
+                            <?php echo $batch['seats_filled']; ?> / <?php echo $batch['seats_total']; ?>
+                            <?php 
+                            $is_full = $batch['seats_filled'] >= $batch['seats_total'];
+                            $is_almost_full = $batch['seats_filled'] >= ($batch['seats_total'] * 0.9);
+                            if ($is_full): 
+                            ?>
+                                <br><span style="display: inline-block; background: #dc2626; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 8px;">
+                                    <i class="fas fa-ban"></i> BATCH FULL
+                                </span>
+                            <?php elseif ($is_almost_full): ?>
+                                <br><span style="display: inline-block; background: #f59e0b; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-top: 8px;">
+                                    <i class="fas fa-exclamation-triangle"></i> Almost Full
+                                </span>
+                            <?php endif; ?>
+                        </p>
                     </div>
                     <?php if (!empty($batch['scheme_name'])): ?>
                     <div class="info-box" style="border-left-color: #10b981;">

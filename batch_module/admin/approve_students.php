@@ -28,9 +28,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'approve':
-                $result = approveStudent($_POST['student_id'], $_POST['batch_id'], $_SESSION['admin'], $conn);
+                // Check if batch has available seats before approving
+                $batch_sql = "SELECT seats_total, (SELECT COUNT(*) FROM students WHERE batch_id = ?) as enrolled_count FROM batches WHERE id = ?";
+                $batch_check = $conn->prepare($batch_sql);
+                $batch_check->bind_param("ii", $_POST['batch_id'], $_POST['batch_id']);
+                $batch_check->execute();
+                $batch_info = $batch_check->get_result()->fetch_assoc();
+                $batch_check->close();
+                
+                if ($batch_info && $batch_info['enrolled_count'] >= $batch_info['seats_total']) {
+                    $result = ['success' => false, 'message' => '❌ Batch is FULL! No more seats available. Please select a different batch.'];
+                    $message_type = 'danger';
+                } else {
+                    $result = approveStudent($_POST['student_id'], $_POST['batch_id'], $_SESSION['admin'], $conn);
+                    $message_type = $result['success'] ? 'success' : 'danger';
+                }
                 $message = $result['message'];
-                $message_type = $result['success'] ? 'success' : 'danger';
                 break;
                 
             case 'reject':
@@ -267,17 +280,36 @@ $active_batches = getActiveBatches($conn);
                             <form method="POST" action="" class="action-buttons">
                                 <input type="hidden" name="student_id" value="<?php echo $student['id']; ?>">
                                 
-                                <select name="batch_id" class="form-control batch-select" required>
+                                <select name="batch_id" class="form-control batch-select" required onchange="checkBatchCapacity(this)">
                                     <option value="">Select Batch</option>
                                     <?php foreach ($active_batches as $batch): ?>
-                                        <?php if ($batch['course_name'] === $student['course']): ?>
-                                            <option value="<?php echo $batch['id']; ?>">
-                                                <?php echo htmlspecialchars($batch['batch_name']); ?> 
-                                                (<?php echo $batch['enrolled_count']; ?>/<?php echo $batch['seats_total']; ?> seats)
-                                            </option>
-                                        <?php endif; ?>
+                                        <?php 
+                                        $is_full = $batch['enrolled_count'] >= $batch['seats_total'];
+                                        $is_almost_full = $batch['enrolled_count'] >= ($batch['seats_total'] * 0.9);
+                                        ?>
+                                        <option value="<?php echo $batch['id']; ?>" 
+                                                data-enrolled="<?php echo $batch['enrolled_count']; ?>"
+                                                data-total="<?php echo $batch['seats_total']; ?>"
+                                                data-is-full="<?php echo $is_full ? 'true' : 'false'; ?>"
+                                                <?php if ($batch['course_name'] === $student['course']): ?>
+                                                    <?php if ($is_full): ?>disabled<?php endif; ?>
+                                                <?php else: ?>
+                                                    disabled style="display: none;"
+                                                <?php endif; ?>
+                                        >
+                                            <?php echo htmlspecialchars($batch['batch_name']); ?> 
+                                            (<?php echo $batch['enrolled_count']; ?>/<?php echo $batch['seats_total']; ?> seats)
+                                            <?php if ($is_full): ?>
+                                                ❌ FULL
+                                            <?php elseif ($is_almost_full): ?>
+                                                ⚠️ Almost Full
+                                            <?php endif; ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div id="batch-warning-<?php echo $student['id']; ?>" style="display: none; margin-top: 8px; padding: 10px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; color: #92400e;">
+                                    <i class="fas fa-exclamation-triangle"></i> <span id="warning-text-<?php echo $student['id']; ?>"></span>
+                                </div>
                                 
                                 <button type="submit" name="action" value="approve" class="btn btn-success">
                                     <i class="fas fa-check"></i> Approve
@@ -334,6 +366,51 @@ $active_batches = getActiveBatches($conn);
 </div>
 
 <script>
+// Check batch capacity and show warnings
+function checkBatchCapacity(selectElement) {
+    const studentCard = selectElement.closest('.student-card');
+    const studentId = selectElement.form.querySelector('input[name="student_id"]').value;
+    const selectedOption = selectElement.options[selectElement.selectedIndex];
+    const warningDiv = document.getElementById('batch-warning-' + studentId);
+    const warningText = document.getElementById('warning-text-' + studentId);
+    const approveBtn = selectElement.form.querySelector('button[value="approve"]');
+    
+    if (selectElement.value === '') {
+        warningDiv.style.display = 'none';
+        approveBtn.disabled = false;
+        return;
+    }
+    
+    const enrolled = parseInt(selectedOption.getAttribute('data-enrolled'));
+    const total = parseInt(selectedOption.getAttribute('data-total'));
+    const isFull = selectedOption.getAttribute('data-is-full') === 'true';
+    
+    if (isFull) {
+        warningDiv.style.backgroundColor = '#fee2e2';
+        warningDiv.style.borderColor = '#fca5a5';
+        warningDiv.style.color = '#7f1d1d';
+        warningText.innerHTML = '<strong>❌ BATCH FULL!</strong> All ' + total + ' seats are taken. Please select a different batch.';
+        warningDiv.style.display = 'block';
+        approveBtn.disabled = true;
+        selectElement.style.borderColor = '#dc2626';
+        selectElement.style.backgroundColor = '#fff5f5';
+    } else if (enrolled >= total * 0.9) {
+        warningDiv.style.backgroundColor = '#fef3c7';
+        warningDiv.style.borderColor = '#fcd34d';
+        warningDiv.style.color = '#92400e';
+        warningText.innerHTML = '<strong>⚠️ WARNING:</strong> Batch is almost full (' + enrolled + '/' + total + ' seats). Only ' + (total - enrolled) + ' seat(s) remaining.';
+        warningDiv.style.display = 'block';
+        approveBtn.disabled = false;
+        selectElement.style.borderColor = '#f59e0b';
+        selectElement.style.backgroundColor = '#fffbf0';
+    } else {
+        warningDiv.style.display = 'none';
+        approveBtn.disabled = false;
+        selectElement.style.borderColor = '';
+        selectElement.style.backgroundColor = '';
+    }
+}
+
 function viewStudentDetails(studentId) {
     const modal = document.getElementById('studentDetailsModal');
     const content = document.getElementById('studentDetailsContent');
