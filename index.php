@@ -29,7 +29,32 @@
     injectThemeCSS($active_theme);
     
     $banners = []; $announcements_content = []; $featured_courses = [];
-    $text_blocks = []; $image_blocks = [];
+    $text_blocks = []; $image_blocks = []; $news_items = [];
+    
+    // Create news table if it doesn't exist
+    $create_table_sql = "CREATE TABLE IF NOT EXISTS news (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        title VARCHAR(255) NOT NULL,
+        content LONGTEXT NOT NULL,
+        category VARCHAR(100),
+        image_url VARCHAR(500),
+        is_featured TINYINT(1) DEFAULT 0,
+        is_active TINYINT(1) DEFAULT 1,
+        created_by VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )";
+    @$conn->query($create_table_sql);
+    
+    // Fetch news items
+    $news_sql = "SELECT * FROM news WHERE is_active = 1 ORDER BY is_featured DESC, created_at DESC LIMIT 6";
+    $news_result = $conn->query($news_sql);
+    if ($news_result) {
+        while ($row = $news_result->fetch_assoc()) {
+            $news_items[] = $row;
+        }
+    }
+    
     $cache_duration = 3600; $cache_key = 'homepage_content_cache'; $cache_time_key = 'homepage_content_cache_time';
     $use_cache = false;
     if (isset($_SESSION[$cache_key]) && isset($_SESSION[$cache_time_key])) {
@@ -615,6 +640,142 @@
             display: block;
         }
 
+        /* ===== NEWS CARDS ===== */
+        .news-section { padding: 80px 0; position: relative; overflow: hidden; }
+        .news-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -15%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(26,86,219,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .news-container { position: relative; z-index: 1; }
+        .news-card {
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.08);
+            border-radius: 16px;
+            overflow: hidden;
+            height: 100%;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.320, 1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .news-card:hover {
+            box-shadow: 0 20px 48px rgba(0,0,0,0.12);
+            transform: translateY(-8px);
+            border-color: rgba(26,86,219,0.2);
+        }
+        .news-card-image {
+            width: 100%;
+            height: 200px;
+            background: linear-gradient(135deg, #e8f0fe 0%, #f0f4ff 100%);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: rgba(26,86,219,0.2);
+        }
+        .news-card-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .news-card-body {
+            padding: 24px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        .news-card-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+        .news-category {
+            display: inline-block;
+            background: linear-gradient(135deg, #1a56db 0%, #1e40af 100%);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .news-date {
+            font-size: 0.85rem;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .news-featured-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            box-shadow: 0 4px 12px rgba(245,158,11,0.3);
+            z-index: 10;
+        }
+        .news-card-title {
+            font-family: 'Sora', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 10px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .news-card-excerpt {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 16px;
+            flex-grow: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .news-read-more {
+            align-self: flex-start;
+            color: #1a56db;
+            font-weight: 600;
+            font-size: 0.9rem;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.3s;
+        }
+        .news-read-more:hover {
+            color: #1e40af;
+            gap: 10px;
+        }
+        .news-card:hover .news-read-more {
+            color: #1a56db;
+        }
+
         /* ===== DYNAMIC SECTIONS ===== */
         .dynamic-banner { padding: 80px 0; background: linear-gradient(135deg, #e8f0fe 0%, #fafaf8 100%); }
         .dynamic-banner h2 { font-family: 'Sora', sans-serif; font-weight: 800; color: var(--navy); }
@@ -1093,6 +1254,69 @@ if ($has_database_content):
 </section>
 <?php endif; endif; ?>
 
+<!-- ===== LATEST NEWS SECTION ===== -->
+<?php if (!empty($news_items)): ?>
+<section class="news-section section-white-pattern">
+    <div class="container news-container">
+        <div class="text-center mb-5">
+            <span class="section-eyebrow">Stay Informed</span>
+            <h2 class="section-title">Latest News & Updates.</h2>
+            <div class="section-divider mx-auto"></div>
+        </div>
+        
+        <div class="row g-4">
+            <?php foreach ($news_items as $index => $news): ?>
+                <div class="col-md-6 col-lg-4">
+                    <div class="news-card">
+                        <?php if ($news['is_featured']): ?>
+                            <div class="news-featured-badge">
+                                <i class="fas fa-star"></i> Featured
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div class="news-card-image">
+                            <?php if (!empty($news['image_url'])): ?>
+                                <img src="<?php echo htmlspecialchars($news['image_url']); ?>" alt="<?php echo htmlspecialchars($news['title']); ?>">
+                            <?php else: ?>
+                                <i class="fas fa-newspaper"></i>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <div class="news-card-body">
+                            <div class="news-card-meta">
+                                <?php if (!empty($news['category'])): ?>
+                                    <span class="news-category"><?php echo htmlspecialchars($news['category']); ?></span>
+                                <?php endif; ?>
+                                <span class="news-date">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <?php echo date('M d, Y', strtotime($news['created_at'])); ?>
+                                </span>
+                            </div>
+                            
+                            <h3 class="news-card-title"><?php echo htmlspecialchars($news['title']); ?></h3>
+                            
+                            <p class="news-card-excerpt">
+                                <?php echo htmlspecialchars(mb_substr(strip_tags($news['content']), 0, 120)); ?>
+                            </p>
+                            
+                            <a href="public/news.php#news-<?php echo $news['id']; ?>" class="news-read-more">
+                                Read More <i class="fas fa-arrow-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        
+        <div class="text-center mt-5">
+            <a href="public/news.php" class="btn btn-primary btn-lg" style="border-radius: 10px; padding: 12px 32px; font-weight: 600;">
+                <i class="fas fa-newspaper me-2"></i>View All News
+            </a>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 <!-- ===== ANNOUNCEMENTS ===== -->
 <?php
 $announcements_sql = "SELECT * FROM announcements WHERE is_active = 1 AND (target_audience = 'all' OR target_audience = 'students') ORDER BY created_at DESC LIMIT 3";
@@ -1213,7 +1437,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
         });
     }, { threshold: 0.1 });
 
-    document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card').forEach(el => {
+    document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card, .news-card').forEach(el => {
         el.style.opacity = '0';
         el.style.transform = 'translateY(24px)';
         observer.observe(el);
