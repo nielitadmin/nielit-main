@@ -1067,6 +1067,67 @@ function updateFacultyField() {
         displayElement.textContent = facultyNames.join(', ');
     }
 }
+
+/**
+ * Resend confirmation email to faculty member
+ * @param {number} facultyId - The ID of the faculty member
+ * @param {string} facultyName - The name of the faculty member
+ */
+function resendFacultyEmail(facultyId, facultyName) {
+    // Show confirmation
+    if (!confirm(`Resend confirmation email to ${facultyName}?`)) {
+        return;
+    }
+    
+    // Find and disable the button
+    const btn = event.target;
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    
+    // Send resend email request
+    fetch('resend_faculty_email_ajax.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'resend_email',
+            faculty_id: facultyId
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            // Show success toast
+            showToast(result.message, 'success');
+            
+            // Update button state
+            btn.innerHTML = '<i class="fas fa-check"></i> Email Sent';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            
+            // Reset button after 3 seconds
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+            }, 3000);
+        } else {
+            // Show error toast
+            showToast('Error: ' + result.message, 'error');
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showToast('Failed to resend email: ' + error.message, 'error');
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    });
+}
 </script>
 
 <style>
