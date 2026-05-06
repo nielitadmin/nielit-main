@@ -102,7 +102,7 @@ $admin_role = $_SESSION['admin_role'] ?? '';
 
 // Master admins can see all faculty, course coordinators only see their own + global faculty
 if ($admin_role === 'master_admin') {
-    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.created_by, a.username AS creator_username, a.role AS creator_role
+    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
                           FROM faculty f
                           LEFT JOIN admin a ON f.created_by = a.id
                           WHERE f.is_active = 1
@@ -110,7 +110,7 @@ if ($admin_role === 'master_admin') {
     $result = $conn->query($all_faculty_query);
 } else {
     // Course coordinators see own faculty + global faculty (system or created by master admin)
-    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.created_by, a.username AS creator_username, a.role AS creator_role
+    $all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
                           FROM faculty f
                           LEFT JOIN admin a ON f.created_by = a.id
                           WHERE f.is_active = 1
@@ -395,6 +395,40 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             <strong>[Global]</strong> = System/master-admin faculty
                         <?php endif; ?>
                     </small>
+                    <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid #dbeafe; border-radius: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
+                            <div style="font-weight: 600; color: #0f172a;">
+                                <i class="fas fa-envelope" style="color: #f59e0b;"></i> Faculty Email Options
+                            </div>
+                            <small style="color: #64748b;">Resend the confirmation email from here</small>
+                        </div>
+                        <?php if (!empty($faculty_list)): ?>
+                            <div style="display: grid; gap: 8px;">
+                                <?php foreach ($faculty_list as $faculty): ?>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
+                                        <div style="min-width: 0;">
+                                            <div style="font-weight: 600; color: #1e293b;">
+                                                <?php echo htmlspecialchars($faculty['name']); ?>
+                                            </div>
+                                            <div style="font-size: 12px; color: #64748b;">
+                                                <?php echo !empty($faculty['email']) ? htmlspecialchars($faculty['email']) : 'No email address saved'; ?>
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-warning"
+                                                onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, <?php echo json_encode($faculty['name']); ?>, this)"
+                                                <?php echo empty($faculty['email']) ? 'disabled title="No email available"' : ''; ?>
+                                                style="white-space: nowrap;">
+                                            <i class="fas fa-paper-plane"></i> Resend Email
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <div style="color: #64748b; font-size: 13px;">
+                                No faculty assigned yet. Add faculty first, then resend options will appear here.
+                            </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 <?php if ($admin_role === 'master_admin'): ?>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
