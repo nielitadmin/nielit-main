@@ -798,26 +798,54 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                 // Course-specific statistics block: total, active, male, female
                 $stats = ['total' => 0, 'active' => 0, 'male' => 0, 'female' => 0];
 
-                // Build dynamic WHERE clauses based on active filters
+                // Build dynamic WHERE clauses based on active filters and coordinator restrictions
                 $whereClauses = [];
                 $params = [];
                 $types = '';
 
+                // If course coordinator, restrict to their assigned courses and hide rejected/assigned (same as main query)
+                if ($is_course_coordinator) {
+                    if (!empty($admin_course_ids)) {
+                        $placeholders = implode(',', array_fill(0, count($admin_course_ids), '?'));
+                        $whereClauses[] = "course_id IN ($placeholders)";
+                        $types .= str_repeat('i', count($admin_course_ids));
+                        foreach ($admin_course_ids as $cid) $params[] = $cid;
+
+                        // apply same coordinator visibility rules
+                        $whereClauses[] = 'batch_id IS NULL';
+                        $whereClauses[] = "status != 'rejected'";
+                    } else {
+                        // no courses assigned -> zero stats
+                        $whereClauses[] = '1=0';
+                    }
+                }
+
+                // Selected course filter (dropdown provides course id)
                 if (!empty($selected_course) && $selected_course !== 'All') {
-                    $course_id = (int)$selected_course;
                     $whereClauses[] = 'course_id = ?';
                     $types .= 'i';
-                    $params[] = $course_id;
+                    $params[] = (int)$selected_course;
                 }
 
-                if (!empty($start_date)) {
-                    $whereClauses[] = 'registration_date >= ?';
+                // Gender filter
+                if (!empty($selected_gender) && $selected_gender !== 'All') {
+                    $whereClauses[] = 'gender = ?';
+                    $types .= 's';
+                    $params[] = $selected_gender;
+                }
+
+                // Date filters use created_at to match other queries
+                if (!empty($start_date) && !empty($end_date)) {
+                    $whereClauses[] = 'created_at BETWEEN ? AND ?';
+                    $types .= 'ss';
+                    $params[] = $start_date;
+                    $params[] = $end_date;
+                } elseif (!empty($start_date)) {
+                    $whereClauses[] = 'created_at >= ?';
                     $types .= 's';
                     $params[] = $start_date;
-                }
-
-                if (!empty($end_date)) {
-                    $whereClauses[] = 'registration_date <= ?';
+                } elseif (!empty($end_date)) {
+                    $whereClauses[] = 'created_at <= ?';
                     $types .= 's';
                     $params[] = $end_date;
                 }
@@ -826,7 +854,7 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
 
                 $sql = "SELECT
                             COUNT(*) AS total,
-                            SUM(active=1) AS active,
+                            SUM(status='active') AS active,
                             SUM(gender='Male') AS male,
                             SUM(gender='Female') AS female
                          FROM students
@@ -834,7 +862,6 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
 
                 if ($stmt = $conn->prepare($sql)) {
                     if (!empty($params)) {
-                        // bind parameters dynamically
                         $bind_names = [];
                         $bind_names[] = & $types;
                         for ($i = 0; $i < count($params); $i++) {
