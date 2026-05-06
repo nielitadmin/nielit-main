@@ -794,6 +794,111 @@ if ($is_course_coordinator && $admin_id && $has_created_by_column) {
                         </button>
                     </div>
                 </form>
+                <?php
+                // Course-specific statistics block: total, active, male, female
+                $stats = ['total' => 0, 'active' => 0, 'male' => 0, 'female' => 0];
+
+                // Build dynamic WHERE clauses based on active filters
+                $whereClauses = [];
+                $params = [];
+                $types = '';
+
+                if (!empty($selected_course) && $selected_course !== 'All') {
+                    $course_id = (int)$selected_course;
+                    $whereClauses[] = 'course_id = ?';
+                    $types .= 'i';
+                    $params[] = $course_id;
+                }
+
+                if (!empty($start_date)) {
+                    $whereClauses[] = 'registration_date >= ?';
+                    $types .= 's';
+                    $params[] = $start_date;
+                }
+
+                if (!empty($end_date)) {
+                    $whereClauses[] = 'registration_date <= ?';
+                    $types .= 's';
+                    $params[] = $end_date;
+                }
+
+                $where = count($whereClauses) ? implode(' AND ', $whereClauses) : '1=1';
+
+                $sql = "SELECT
+                            COUNT(*) AS total,
+                            SUM(active=1) AS active,
+                            SUM(gender='Male') AS male,
+                            SUM(gender='Female') AS female
+                         FROM students
+                         WHERE $where";
+
+                if ($stmt = $conn->prepare($sql)) {
+                    if (!empty($params)) {
+                        // bind parameters dynamically
+                        $bind_names = [];
+                        $bind_names[] = & $types;
+                        for ($i = 0; $i < count($params); $i++) {
+                            $bind_names[] = & $params[$i];
+                        }
+                        call_user_func_array(array($stmt, 'bind_param'), $bind_names);
+                    }
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    if ($row = $result->fetch_assoc()) {
+                        $stats = [
+                            'total' => (int)$row['total'],
+                            'active' => (int)$row['active'],
+                            'male' => (int)$row['male'],
+                            'female' => (int)$row['female']
+                        ];
+                    }
+                    $stmt->close();
+                }
+                ?>
+
+                <div class="course-stats">
+                    <div class="stats-grid">
+                        <div class="stat-card primary">
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                                <div>
+                                    <p class="stat-value"><?php echo number_format($stats['total']); ?></p>
+                                    <p class="stat-label">Total Registered</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card success">
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                                <div>
+                                    <p class="stat-value"><?php echo number_format($stats['active']); ?></p>
+                                    <p class="stat-label">Active Students</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card warning">
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <div class="stat-icon"><i class="fas fa-venus-mars"></i></div>
+                                <div>
+                                    <p class="stat-value"><?php echo number_format($stats['male']); ?></p>
+                                    <p class="stat-label">Male Students</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stat-card danger">
+                            <div style="display:flex; align-items:center; gap:1rem;">
+                                <div class="stat-icon"><i class="fas fa-venus"></i></div>
+                                <div>
+                                    <p class="stat-value"><?php echo number_format($stats['female']); ?></p>
+                                    <p class="stat-label">Female Students</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Students Table -->
