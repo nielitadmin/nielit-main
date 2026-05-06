@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");
@@ -12,6 +13,10 @@ if (!isset($_GET['course_id'])) {
 }
 
 $course_id = $_GET['course_id'];
+
+// Load active theme so batch page respects the same theme / dark mode state as other admin pages
+$active_theme = loadActiveTheme($conn);
+$theme_logo = getThemeLogo($active_theme);
 
 // Handle delete batch action
 if (isset($_GET['delete_batch'])) {
@@ -84,6 +89,7 @@ $stmt->close();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Batches - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
 </head>
