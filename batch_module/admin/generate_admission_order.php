@@ -269,15 +269,6 @@ if (!$batch) {
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
-window.facultyModuleConfig = {
-    dropdownId: 'edit_faculty',
-    displayId: 'display_faculty',
-    endpoint: 'add_faculty_ajax.php',
-    isMasterAdmin: <?php echo json_encode(($_SESSION['admin_role'] ?? '') === 'master_admin'); ?>
-};
-</script>
-<script src="<?php echo APP_URL; ?>/assets/js/add-faculty-module.js"></script>
-<script>
 // Fallback showToast function if toast-notifications.js doesn't load
 if (typeof showToast === 'undefined') {
     function showToast(message, type) {

@@ -100,8 +100,19 @@ $all_faculty = [];
 $admin_id = $_SESSION['admin_id'] ?? 1;
 $admin_role = $_SESSION['admin_role'] ?? '';
 
+// Keep query compatible across environments where optional columns may not exist.
+$has_email_confirmed_at = false;
+$column_check = $conn->query("SHOW COLUMNS FROM faculty LIKE 'email_confirmed_at'");
+if ($column_check && $column_check->num_rows > 0) {
+    $has_email_confirmed_at = true;
+}
+
+$email_confirmed_select = $has_email_confirmed_at
+    ? 'f.email_confirmed_at'
+    : 'NULL AS email_confirmed_at';
+
 // Show all faculty records so the admission order can reference any active faculty member
-$all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, f.email_confirmed_at, f.created_by, a.username AS creator_username, a.role AS creator_role
+$all_faculty_query = "SELECT f.id, f.name, f.designation, f.email, {$email_confirmed_select}, f.created_by, a.username AS creator_username, a.role AS creator_role
                       FROM faculty f
                       LEFT JOIN admin a ON f.created_by = a.id
                       WHERE f.is_active = 1
@@ -111,6 +122,21 @@ $result = $conn->query($all_faculty_query);
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $all_faculty[] = $row;
+    }
+}
+
+if (empty($all_faculty) && !empty($faculty_list)) {
+    foreach ($faculty_list as $faculty_row) {
+        $all_faculty[] = [
+            'id' => $faculty_row['id'] ?? 0,
+            'name' => $faculty_row['name'] ?? '',
+            'designation' => $faculty_row['designation'] ?? '',
+            'email' => '',
+            'email_confirmed_at' => null,
+            'created_by' => 0,
+            'creator_username' => null,
+            'creator_role' => null
+        ];
     }
 }
 
@@ -370,8 +396,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     <small style="color: #666; display: block; margin-top: 5px;">
                         Hold Ctrl/Cmd to select multiple faculty members<br>
                         <?php if ($admin_role === 'master_admin'): ?>
-                            <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System/master-admin faculty | <strong>[By: username]</strong> = Added by coordinator<br>
-                            <span style="color: #dc3545;">Right-click on your faculty to delete them</span>
+                            <strong>[My Faculty]</strong> = Faculty you added | <strong>[Global]</strong> = System/master-admin faculty | <strong>[By: username]</strong> = Added by coordinator
                         <?php else: ?>
                             <strong>[Global]</strong> = System/master-admin faculty
                         <?php endif; ?>
@@ -411,20 +436,6 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                         <?php endif; ?>
                     </div>
                 </div>
-                <?php if ($admin_role === 'master_admin'): ?>
-                    <div style="display: flex; flex-direction: column; gap: 5px;">
-                        <button type="button" id="addFacultyBtn" class="btn btn-sm btn-success" 
-                                onclick="openAddFacultyModal();"
-                                style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
-                            <i class="fas fa-plus"></i> Add Faculty
-                        </button>
-                        <button type="button" id="deleteFacultyBtn" class="btn btn-sm btn-danger" 
-                                onclick="openDeleteFacultyModal();"
-                                style="white-space: nowrap; padding: 8px 12px; font-size: 12px; cursor: pointer; z-index: 1000; position: relative;">
-                            <i class="fas fa-trash"></i> Delete Faculty
-                        </button>
-                    </div>
-                <?php endif; ?>
             </div>
         </div>
         <div>
