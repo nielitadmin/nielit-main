@@ -69,6 +69,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chalkboard-teacher"></i> Manage Faculty
+            </a>
+        </div>
         <?php endif; ?>
         
         <!-- System Settings (Master Admin Only) -->
