@@ -1,6 +1,9 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 
+// Set timezone to Indian Standard Time for consistent logging
+date_default_timezone_set('Asia/Kolkata');
+
 /**
  * Log OTP code to database for debugging purposes
  * 
@@ -15,6 +18,9 @@ function logOTP($email, $otp_code, $purpose = 'Login', $username = null, $status
     global $conn;
     
     try {
+        // Set MySQL timezone to IST for consistent timestamps
+        $conn->query("SET time_zone = '+05:30'");
+        
         $stmt = $conn->prepare("INSERT INTO otp_logs (email, otp_code, purpose, username, status) VALUES (?, ?, ?, ?, ?)");
         $stmt->bind_param("sssss", $email, $otp_code, $purpose, $username, $status);
         return $stmt->execute();

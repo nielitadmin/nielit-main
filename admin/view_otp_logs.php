@@ -15,6 +15,9 @@ require_once '../includes/theme_loader.php';
 // Set timezone to Indian Standard Time
 date_default_timezone_set('Asia/Kolkata');
 
+// Also set MySQL timezone to IST
+$conn->query("SET time_zone = '+05:30'");
+
 $active_theme = loadActiveTheme($conn);
 
 // Get OTP logs from the last 24 hours
@@ -375,6 +378,8 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
 
         .detail-content {
             flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .detail-label {
@@ -382,12 +387,16 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
             color: var(--muted);
             font-weight: 500;
             margin-bottom: 0.2rem;
+            display: block;
+            line-height: 1.2;
         }
 
         .detail-value {
             font-weight: 600;
             color: var(--navy);
             font-size: 0.9rem;
+            display: block;
+            line-height: 1.4;
         }
 
         .time-ago {
