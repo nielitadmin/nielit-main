@@ -70,6 +70,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link <?php echo ($current_page === 'manage_schemes.php') ? 'active' : ''; ?>">
+                <i class="fas fa-project-diagram"></i> Schemes/Projects
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chalkboard-teacher"></i> Manage Faculty
             </a>
