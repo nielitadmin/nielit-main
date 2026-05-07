@@ -142,13 +142,28 @@ if ($result) {
 </head>
 <body>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Faculty Management</h1>
+<div class="admin-wrapper">
+    <?php include 'includes/sidebar.php'; ?>
+
+    <main class="admin-content">
+        <div class="admin-topbar">
+            <div class="topbar-left">
+                <h4><i class="fas fa-chalkboard-teacher"></i> Faculty Management</h4>
+                <small>Add, edit, and deactivate faculty records</small>
+            </div>
+            <div class="topbar-right">
+                <div class="user-info">
+                    <div class="user-details">
+                        <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
+                        <span class="user-role"><?php echo $admin_role === 'master_admin' ? 'Master Administrator' : 'Course Coordinator'; ?></span>
+                    </div>
+                    <div class="user-avatar"><?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-main">
+            <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
                     <i class="fas fa-plus"></i> Add Faculty
                 </button>
@@ -168,10 +183,9 @@ if ($result) {
                 </div>
             <?php endif; ?>
 
-            <!-- Faculty List -->
-            <div class="card">
+            <div class="content-card">
                 <div class="card-header">
-                    <h5 class="mb-0">Faculty Members</h5>
+                    <h5 class="card-title"><i class="fas fa-users"></i> Faculty Members</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -204,20 +218,15 @@ if ($result) {
                                         <button class="btn btn-sm btn-outline-primary" onclick="editFaculty(<?php echo htmlspecialchars(json_encode($faculty)); ?>)">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                        <?php 
-                                        // Show delete button only if:
-                                        // 1. Faculty is active
-                                        // 2. Master admin can delete any faculty
-                                        // 3. Course coordinator can only delete faculty they created
-                                        $can_delete = $faculty['is_active'] && 
-                                                     ($admin_role === 'master_admin' || $faculty['created_by'] == $admin_id);
+                                        <?php
+                                        $can_delete = $faculty['is_active'] && ($admin_role === 'master_admin' || $faculty['created_by'] == $admin_id);
                                         ?>
                                         <?php if ($can_delete): ?>
                                         <button class="btn btn-sm btn-outline-danger" onclick="deactivateFaculty(<?php echo $faculty['id']; ?>, '<?php echo htmlspecialchars($faculty['name']); ?>')">
                                             <i class="fas fa-ban"></i>
                                         </button>
                                         <?php endif; ?>
-                                        
+
                                         <?php if ($faculty['created_by'] == $admin_id): ?>
                                         <small class="text-muted d-block" style="font-size: 10px;">My Faculty</small>
                                         <?php elseif (empty($faculty['created_by']) || $faculty['created_by'] == 0): ?>
@@ -231,8 +240,8 @@ if ($result) {
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
+        </div>
+    </main>
 </div>
 
 <!-- Add Faculty Modal -->
