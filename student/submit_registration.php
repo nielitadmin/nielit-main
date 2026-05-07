@@ -160,6 +160,8 @@ $payment_date     = trim($_POST['payment_date']      ?? '');
 $distinguishing_marks = trim($_POST['distinguishing_marks'] ?? '') ?: null;
 $apaar_id         = trim($_POST['apaar_id'] ?? '') ?: null;
 
+$payment_date_db = !empty($payment_date) ? date('Y-m-d H:i:s', strtotime($payment_date)) : null;
+
 // Sanitize enum values to match DB definitions
 if (!in_array($gender,           ['Male','Female','Other']))                       $gender = 'Male';
 if (!in_array($religion,         ['Hindu','Muslim','Christian','Sikh','Other']))   $religion = 'Other';
@@ -402,7 +404,7 @@ $sql = "INSERT INTO students (
     dob, age, mobile, aadhar, apaar_id, gender, religion, marital_status,
     category, pwd_status, distinguishing_marks, position, nationality, email,
     state, city, pincode, address, college_name, education_details,
-    passport_photo, signature, left_thumb_impression, payment_receipt, utr_number,
+    passport_photo, signature, left_thumb_impression, payment_receipt, utr_number, payment_date,
     student_id, password,
     aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc,
     twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc,
@@ -424,7 +426,7 @@ if (!$stmt) {
 }
 
 // FIXED: Corrected parameter count and types to match SQL statement
-$bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 31);
+$bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 32);
 $stmt->bind_param(
     $bindTypes,
     $course_name, $course_id, $training_center, $name, $father_name,
@@ -432,7 +434,7 @@ $stmt->bind_param(
     $religion, $marital_status, $student_category, $pwd_status,
     $distinguishing_marks, $position, $nationality, $email,
     $state, $city, $pincode, $address, $college_name, $education_data,
-    $passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path, $utr_number,
+    $passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path, $utr_number, $payment_date_db,
     $student_id, $hashed_password,
     $aadhar_card_path, $caste_certificate_path, $tenth_marksheet_path,
     $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path
@@ -514,25 +516,6 @@ $_SESSION['student_password'] = $password;
 $_SESSION['student_email']    = $email;
 $_SESSION['course_name']      = $course_name;
 $_SESSION['training_center']  = $training_center;
-
-// If payment info was provided during registration, record a payment entry
-if (!empty($payment_date) || !empty($utr_number) || !empty($payment_receipt_path)) {
-    $amount = $course_fee ?? 0.00;
-    $payment_mode = 'Online';
-    $payment_date_db = !empty($payment_date) ? date('Y-m-d H:i:s', strtotime($payment_date)) : date('Y-m-d H:i:s');
-    $remarks = 'Recorded during registration';
-
-    $pstmt = $conn->prepare("INSERT INTO payments (student_id, amount, transaction_id, payment_mode, payment_date, status, receipt_path, remarks) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)");
-    if ($pstmt) {
-        $pstmt->bind_param('sdsssss', $student_id, $amount, $utr_number, $payment_mode, $payment_date_db, $payment_receipt_path, $remarks);
-        if (!$pstmt->execute()) {
-            error_log('Failed to insert payments record during registration: ' . $pstmt->error);
-        }
-        $pstmt->close();
-    } else {
-        error_log('Failed to prepare payment insert: ' . $conn->error);
-    }
-}
 
 header("Location: " . APP_URL . "/student/registration_success.php");
 exit();
