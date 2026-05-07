@@ -187,7 +187,23 @@ if ($course_id <= 0) {
 // ----------------------------------------------------------
 // 3. Fetch course details
 // ----------------------------------------------------------
-$s = $conn->prepare("SELECT course_name, course_code, fees FROM courses WHERE id = ?");
+$feeColumn = '0 AS fees';
+$feeColumnCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'fees'");
+if ($feeColumnCheck && $feeColumnCheck->num_rows > 0) {
+    $feeColumn = 'fees';
+} else {
+    $trainingFeeColumnCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'training_fees'");
+    if ($trainingFeeColumnCheck && $trainingFeeColumnCheck->num_rows > 0) {
+        $feeColumn = 'training_fees AS fees';
+    }
+}
+
+$s = $conn->prepare("SELECT course_name, course_code, $feeColumn FROM courses WHERE id = ?");
+if (!$s) {
+    $_SESSION['error'] = "Database error loading course details: " . $conn->error;
+    header("Location: " . APP_URL . "/public/courses.php");
+    exit();
+}
 $s->bind_param("i", $course_id);
 $s->execute();
 $cr = $s->get_result();
