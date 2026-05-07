@@ -378,39 +378,30 @@ function editFaculty(faculty) {
 }
 
 function deactivateFaculty(facultyId, facultyName) {
-    showConfirm({
-        title: 'Deactivate Faculty',
-        message: `Are you sure you want to deactivate <strong>${facultyName}</strong>? They will no longer appear in active faculty lists.`,
-        type: 'danger',
-        confirmText: 'Deactivate',
-        cancelText: 'Cancel'
-    }).then(confirmed => {
-        if (!confirmed) return;
+    if (!confirm('Deactivate ' + facultyName + '? They will no longer appear in active faculty lists.')) return;
 
-        fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
-        })
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(result => {
-            if (result.success) {
-                toast.deleted(`${facultyName} has been deactivated.`);
-                // Remove the row from the table
-                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
-                if (row) {
-                    row.style.transition = 'opacity 0.4s';
-                    row.style.opacity = '0';
-                    setTimeout(() => row.remove(), 400);
-                } else {
-                    setTimeout(() => location.reload(), 1200);
-                }
+    fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
+    })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(result => {
+        if (result.success) {
+            showToast(facultyName + ' has been deactivated.', 'delete');
+            const row = document.querySelector('tr[data-faculty-id="' + facultyId + '"]');
+            if (row) {
+                row.style.transition = 'opacity 0.4s';
+                row.style.opacity = '0';
+                setTimeout(() => row.remove(), 400);
             } else {
-                showToast('Error: ' + (result.message || 'Could not deactivate faculty'), 'error');
+                setTimeout(() => location.reload(), 1200);
             }
-        })
-        .catch(err => showToast('Request failed: ' + err.message, 'error'));
-    });
+        } else {
+            showToast('Error: ' + (result.message || 'Could not deactivate faculty'), 'error');
+        }
+    })
+    .catch(err => showToast('Request failed: ' + err.message, 'error'));
 }
 
 function deleteFacultyPermanent(facultyId, facultyName) {
@@ -449,48 +440,40 @@ function deleteFacultyPermanent(facultyId, facultyName) {
 }
 
 function resendFacultyEmail(facultyId, facultyName, btn) {
-    showConfirm({
-        title: 'Resend Email',
-        message: `Send confirmation email to <strong>${facultyName}</strong>?`,
-        type: 'warning',
-        confirmText: 'Send',
-        cancelText: 'Cancel'
-    }).then(confirmed => {
-        if (!confirmed) return;
+    if (!confirm('Send confirmation email to ' + facultyName + '?')) return;
 
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-        btn.disabled = true;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
 
-        fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
-        })
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-        .then(result => {
-            if (result.success) {
-                btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
-                btn.classList.remove('btn-warning');
-                btn.classList.add('btn-success');
-                showToast('Email sent to ' + facultyName + ' successfully!', 'success');
-                setTimeout(() => {
-                    btn.innerHTML = originalText;
-                    btn.classList.remove('btn-success');
-                    btn.classList.add('btn-warning');
-                    btn.disabled = false;
-                }, 3000);
-            } else {
-                showToast('Error: ' + (result.message || 'Unknown error'), 'error');
+    fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
+    })
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(result => {
+        if (result.success) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            showToast('Email sent to ' + facultyName + ' successfully!', 'success');
+            setTimeout(() => {
                 btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
                 btn.disabled = false;
-            }
-        })
-        .catch(err => {
-            showToast('Failed to send email: ' + err.message, 'error');
+            }, 3000);
+        } else {
+            showToast('Error: ' + (result.message || 'Unknown error'), 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
-        });
+        }
+    })
+    .catch(err => {
+        showToast('Failed to send email: ' + err.message, 'error');
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     });
 }
 
