@@ -358,6 +358,8 @@ if ($result) {
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
 function editFaculty(faculty) {
     document.getElementById('edit_faculty_id').value = faculty.id;
@@ -396,15 +398,22 @@ function resendFacultyEmail(facultyId, facultyName, btn) {
     fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faculty_id: facultyId })
+        body: JSON.stringify({ 
+            action: 'resend_email',
+            faculty_id: facultyId 
+        })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+    })
     .then(result => {
         if (result.success) {
             btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
             btn.classList.remove('btn-warning');
             btn.classList.add('btn-success');
             if (typeof showToast === 'function') showToast('Email sent to ' + facultyName + ' successfully!', 'success');
+            else alert('Email sent to ' + facultyName + ' successfully!');
             setTimeout(() => {
                 btn.innerHTML = originalText;
                 btn.classList.remove('btn-success');
@@ -412,28 +421,22 @@ function resendFacultyEmail(facultyId, facultyName, btn) {
                 btn.disabled = false;
             }, 3000);
         } else {
-            if (typeof showToast === 'function') {
-                showToast('Error sending email: ' + (result.message || 'Unknown error'), 'error');
-            } else {
-                alert('Error sending email: ' + (result.message || 'Unknown error'));
-            }
+            const msg = 'Error: ' + (result.message || 'Unknown error');
+            if (typeof showToast === 'function') showToast(msg, 'error');
+            else alert(msg);
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     })
     .catch(error => {
-        if (typeof showToast === 'function') {
-            showToast('Error sending email: ' + error.message, 'error');
-        } else {
-            alert('Error sending email: ' + error.message);
-        }
+        const msg = 'Failed to send email: ' + error.message;
+        if (typeof showToast === 'function') showToast(msg, 'error');
+        else alert(msg);
         btn.innerHTML = originalText;
         btn.disabled = false;
     });
 }
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 </body>
 </html>
