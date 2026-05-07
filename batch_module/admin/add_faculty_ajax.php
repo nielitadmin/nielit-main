@@ -60,13 +60,20 @@ try {
         if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
             
-            // Update sent_email timestamp if email was sent successfully
+            // Update confirmation timestamp only when the column exists
             if ($email_sent) {
+                $column_check = $conn->query("SHOW COLUMNS FROM faculty LIKE 'email_confirmed_at'");
+                $has_confirmation_column = ($column_check && $column_check->num_rows > 0);
+
+                if ($has_confirmation_column) {
                 $update_sql = "UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?";
                 $update_stmt = $conn->prepare($update_sql);
-                $update_stmt->bind_param("i", $faculty_id);
-                $update_stmt->execute();
-                $update_stmt->close();
+                    if ($update_stmt) {
+                        $update_stmt->bind_param("i", $faculty_id);
+                        $update_stmt->execute();
+                        $update_stmt->close();
+                    }
+                }
             }
         }
         

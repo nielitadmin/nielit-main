@@ -867,42 +867,53 @@ function addNewFaculty() {
         },
         body: JSON.stringify(facultyData)
     })
-    .then(response => response.json())
+    .then(response => response.text().then(text => {
+        try {
+            return JSON.parse(text);
+        } catch (parseError) {
+            throw new Error('Server returned invalid response: ' + text.substring(0, 160));
+        }
+    }))
     .then(result => {
         if (result.success) {
-            // Add new faculty to dropdown
-            const facultySelect = document.getElementById('edit_faculty');
-            if (facultySelect) {
-                const newOption = document.createElement('option');
-                newOption.value = result.faculty.name;
-                newOption.setAttribute('data-id', result.faculty.id);
-                newOption.setAttribute('data-designation', result.faculty.designation || '');
-                newOption.setAttribute('data-can-delete', 'true');
-                newOption.selected = true; // Auto-select the new faculty
+            try {
+                // Add new faculty to dropdown
+                const facultySelect = document.getElementById('edit_faculty');
+                if (facultySelect) {
+                    const newOption = document.createElement('option');
+                    newOption.value = result.faculty.name;
+                    newOption.setAttribute('data-id', result.faculty.id);
+                    newOption.setAttribute('data-designation', result.faculty.designation || '');
+                    newOption.setAttribute('data-can-delete', 'true');
+                    newOption.selected = true; // Auto-select the new faculty
+                    
+                    const displayText = result.faculty.name + 
+                        (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') +
+                        (<?php echo json_encode(($_SESSION['admin_role'] ?? '') === 'master_admin'); ?> ? ' [Global]' : ' [My Faculty]');
+                    newOption.textContent = displayText;
+                    
+                    facultySelect.appendChild(newOption);
+                    
+                    // Update the display
+                    updateFacultyField();
+                }
                 
-                const displayText = result.faculty.name + 
-                    (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') +
-                    (<?php echo json_encode(($_SESSION['admin_role'] ?? '') === 'master_admin'); ?> ? ' [Global]' : ' [My Faculty]');
-                newOption.textContent = displayText;
+                // Close modal
+                closeAddFacultyModal();
                 
-                facultySelect.appendChild(newOption);
-                
-                // Update the display
-                updateFacultyField();
+                // Show success message
+                showToast(result.message || 'Faculty member added successfully!', 'success');
+            } catch (uiError) {
+                console.error('Faculty added, but UI update failed:', uiError);
+                showToast(result.message || 'Faculty member added successfully!', 'success');
             }
-            
-            // Close modal
-            closeAddFacultyModal();
-            
-            // Show success message
-            showToast('Faculty member added successfully!', 'success');
         } else {
-            alert('Error adding faculty: ' + result.message);
+            alert('Error adding faculty: ' + (result.message || 'Unknown error'));
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error adding faculty. Please try again.');
+        alert('Error adding faculty: ' + error.message);
     })
     .finally(() => {
         // Restore button

@@ -337,7 +337,7 @@ function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '
         // Content
         $mail->isHTML(true);
         $mail->Subject = 'Faculty Account Registered - NIELIT Bhubaneswar';
-        $mail->Body = getFacultyEmailTemplate($faculty_name, $designation, $department);
+        $mail->Body = getFacultyEmailTemplate($faculty_name, $designation, $department, $to_email);
         $mail->AltBody = getFacultyEmailPlainText($faculty_name, $designation, $department);
         
         $mail->send();
@@ -351,7 +351,7 @@ function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '
 /**
  * Get HTML email template for faculty confirmation
  */
-function getFacultyEmailTemplate($faculty_name, $designation = '', $department = '') {
+function getFacultyEmailTemplate($faculty_name, $designation = '', $department = '', $email = 'Registered') {
     $current_year = date('Y');
     
     return <<<HTML
@@ -414,7 +414,7 @@ function getFacultyEmailTemplate($faculty_name, $designation = '', $department =
                                             <?php endif; ?>
                                             <tr>
                                                 <td style="color: #666; font-weight: 600;">Email:</td>
-                                                <td style="color: #333;">{$_SESSION['email'] ?? 'Registered'}</td>
+                                                <td style="color: #333;">{$email}</td>
                                             </tr>
                                         </table>
                                     </td>
