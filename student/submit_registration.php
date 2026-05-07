@@ -156,6 +156,7 @@ $pincode          = trim($_POST['pincode']           ?? '');
 $address          = trim($_POST['address']           ?? '');
 $college_name     = trim($_POST['college_name']      ?? '');
 $utr_number       = trim($_POST['utr_number']        ?? '');
+$payment_date     = trim($_POST['payment_date']      ?? '');
 $distinguishing_marks = trim($_POST['distinguishing_marks'] ?? '') ?: null;
 $apaar_id         = trim($_POST['apaar_id'] ?? '') ?: null;
 
@@ -184,7 +185,7 @@ if ($course_id <= 0) {
 // ----------------------------------------------------------
 // 3. Fetch course details
 // ----------------------------------------------------------
-$s = $conn->prepare("SELECT course_name, course_code FROM courses WHERE id = ?");
+$s = $conn->prepare("SELECT course_name, course_code, fees FROM courses WHERE id = ?");
 $s->bind_param("i", $course_id);
 $s->execute();
 $cr = $s->get_result();
@@ -196,6 +197,7 @@ if ($cr->num_rows === 0) {
 $cRow         = $cr->fetch_assoc();
 $course_name  = $cRow['course_name'];
 $course_code  = $cRow['course_code'];
+$course_fee   = isset($cRow['fees']) ? (float)$cRow['fees'] : 0.00;
 
 // FIXED: Detect which form was used and redirect appropriately
 $redirectBack = APP_URL . "/student/register.php?course=" . urlencode($course_code); // Default fallback
@@ -512,6 +514,25 @@ $_SESSION['student_password'] = $password;
 $_SESSION['student_email']    = $email;
 $_SESSION['course_name']      = $course_name;
 $_SESSION['training_center']  = $training_center;
+
+// If payment info was provided during registration, record a payment entry
+if (!empty($payment_date) || !empty($utr_number) || !empty($payment_receipt_path)) {
+    $amount = $course_fee ?? 0.00;
+    $payment_mode = 'Online';
+    $payment_date_db = !empty($payment_date) ? date('Y-m-d H:i:s', strtotime($payment_date)) : date('Y-m-d H:i:s');
+    $remarks = 'Recorded during registration';
+
+    $pstmt = $conn->prepare("INSERT INTO payments (student_id, amount, transaction_id, payment_mode, payment_date, status, receipt_path, remarks) VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)");
+    if ($pstmt) {
+        $pstmt->bind_param('sdsssss', $student_id, $amount, $utr_number, $payment_mode, $payment_date_db, $payment_receipt_path, $remarks);
+        if (!$pstmt->execute()) {
+            error_log('Failed to insert payments record during registration: ' . $pstmt->error);
+        }
+        $pstmt->close();
+    } else {
+        error_log('Failed to prepare payment insert: ' . $conn->error);
+    }
+}
 
 header("Location: " . APP_URL . "/student/registration_success.php");
 exit();

@@ -176,6 +176,16 @@ include 'includes/header.php';
                         <a href="make_payment.php" class="btn btn-primary">
                             <i class="fas fa-credit-card"></i> Make Payment
                         </a>
+
+                        <?php
+                        $qrFile = __DIR__ . '/../uploads/payment_qr.png';
+                        if (file_exists($qrFile)): ?>
+                        <div class="mt-3 text-center">
+                            <p class="mb-1"><strong>Or scan QR to pay</strong></p>
+                            <img src="<?php echo APP_URL; ?>/uploads/payment_qr.png" alt="Payment QR" style="max-width:240px;" class="img-fluid mx-auto">
+                        </div>
+                        <?php endif; ?>
+
                     <?php else: ?>
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle"></i> 

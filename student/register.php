@@ -1902,16 +1902,36 @@ if (isset($_SESSION['info'])) {
                 </div>
                 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-4 mb-3">
                         <label class="form-label">UTR/Transaction ID</label>
                         <input type="text" class="form-control" name="utr_number" placeholder="Enter UTR or Transaction ID (Optional)">
                         <small class="text-muted">Leave blank if payment not yet made</small>
                     </div>
-                    
-                    <div class="col-md-6 mb-3">
+
+                    <div class="col-md-4 mb-3">
                         <label class="form-label">Payment Receipt</label>
                         <input type="file" class="form-control" name="payment_receipt" accept="image/*,.pdf">
                         <small class="text-muted">Upload receipt if available</small>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Payment Date</label>
+                        <input type="date" class="form-control" name="payment_date" placeholder="YYYY-MM-DD">
+                        <small class="text-muted">Select payment date (if paid)</small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-12 text-center">
+                        <?php
+                        $qrFile = __DIR__ . '/../uploads/payment_qr.png';
+                        if (file_exists($qrFile)):
+                        ?>
+                        <div class="mb-3">
+                            <p class="mb-1"><strong>Scan to Pay</strong></p>
+                            <img src="<?php echo APP_URL; ?>/uploads/payment_qr.png" alt="Payment QR Code" class="img-fluid" style="max-width:220px;">
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
