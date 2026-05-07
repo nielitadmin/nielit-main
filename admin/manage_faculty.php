@@ -25,7 +25,7 @@ $active_theme = loadActiveTheme($conn);
 $admin_id = $_SESSION['admin_id'];
 $admin_role = $_SESSION['admin_role'] ?? ($_SESSION['role'] ?? '');
 
-if (!in_array($admin_role, ['master_admin', 'course_coordinator'], true)) {
+if (!in_array($admin_role, ['master_admin'], true)) {
     header('Location: dashboard.php');
     exit();
 }

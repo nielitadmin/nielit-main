@@ -9,6 +9,14 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+// Role-based access control - Only Master Admin can access Schemes/Projects
+$admin_role = $_SESSION['admin_role'] ?? ($_SESSION['role'] ?? '');
+
+if (!in_array($admin_role, ['master_admin'], true)) {
+    header('Location: ../../admin/dashboard.php');
+    exit();
+}
+
 // Auto-create schemes tables if they don't exist
 $conn->query("CREATE TABLE IF NOT EXISTS `schemes` (
   `id` int(11) NOT NULL AUTO_INCREMENT,

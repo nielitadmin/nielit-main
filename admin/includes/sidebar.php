@@ -13,6 +13,7 @@ if (!isset($_SESSION['admin_role'])) {
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
 $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
+$is_course_coordinator = ($_SESSION['admin_role'] === 'course_coordinator');
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
@@ -69,11 +70,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <?php endif; ?>
+        
+        <?php if ($is_master_admin): ?>
+        <!-- Schemes/Projects - Master Admin Only -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link <?php echo ($current_page === 'manage_schemes.php') ? 'active' : ''; ?>">
                 <i class="fas fa-project-diagram"></i> Schemes/Projects
             </a>
         </div>
+        <!-- Manage Faculty - Master Admin Only -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chalkboard-teacher"></i> Manage Faculty
