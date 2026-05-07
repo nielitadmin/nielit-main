@@ -1694,15 +1694,29 @@ if (isset($_SESSION['info'])) {
                     <div class="col-md-4 mb-3">
                         <label class="form-label">State <span class="required-mark">*</span></label>
                         <select class="form-select" name="state" id="state" required>
-                            <option value="">Select State</option>
+                            <option value="">Loading states...</option>
                         </select>
+                        <small class="text-muted" id="stateStatus">
+                            <i class="fas fa-spinner fa-spin"></i> Loading Indian states from API...
+                        </small>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.testStateAPI()" style="font-size: 12px;">
+                                <i class="fas fa-flask"></i> Test API
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()" style="font-size: 12px;">
+                                <i class="fas fa-refresh"></i> Reload
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="col-md-4 mb-3">
                         <label class="form-label">City/District <span class="required-mark">*</span></label>
-                        <select class="form-select" name="city" id="city" required>
-                            <option value="">Select City</option>
+                        <select class="form-select" name="city" id="city" required disabled>
+                            <option value="">Select State First</option>
                         </select>
+                        <small class="text-muted" id="cityStatus">
+                            <i class="fas fa-info-circle"></i> Please select a state first
+                        </small>
                     </div>
                     
                     <div class="col-md-4 mb-3">
@@ -3060,46 +3074,355 @@ function removeRow(button) {
     updateProgress();
 }
 
-// State and City API
-const API_KEY = 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==';
-const BASE_URL = 'https://api.countrystatecity.in/v1';
+// Fallback states list (in case API fails)
+const fallbackStates = [
+    { iso2: 'AN', name: 'Andaman and Nicobar Islands' },
+    { iso2: 'AP', name: 'Andhra Pradesh' },
+    { iso2: 'AR', name: 'Arunachal Pradesh' },
+    { iso2: 'AS', name: 'Assam' },
+    { iso2: 'BR', name: 'Bihar' },
+    { iso2: 'CH', name: 'Chandigarh' },
+    { iso2: 'CT', name: 'Chhattisgarh' },
+    { iso2: 'DN', name: 'Dadra and Nagar Haveli' },
+    { iso2: 'DD', name: 'Daman and Diu' },
+    { iso2: 'DL', name: 'Delhi' },
+    { iso2: 'GA', name: 'Goa' },
+    { iso2: 'GJ', name: 'Gujarat' },
+    { iso2: 'HR', name: 'Haryana' },
+    { iso2: 'HP', name: 'Himachal Pradesh' },
+    { iso2: 'JK', name: 'Jammu and Kashmir' },
+    { iso2: 'JH', name: 'Jharkhand' },
+    { iso2: 'KA', name: 'Karnataka' },
+    { iso2: 'KL', name: 'Kerala' },
+    { iso2: 'LD', name: 'Lakshadweep' },
+    { iso2: 'MP', name: 'Madhya Pradesh' },
+    { iso2: 'MH', name: 'Maharashtra' },
+    { iso2: 'MN', name: 'Manipur' },
+    { iso2: 'ML', name: 'Meghalaya' },
+    { iso2: 'MZ', name: 'Mizoram' },
+    { iso2: 'NL', name: 'Nagaland' },
+    { iso2: 'OR', name: 'Odisha' },
+    { iso2: 'PY', name: 'Puducherry' },
+    { iso2: 'PB', name: 'Punjab' },
+    { iso2: 'RJ', name: 'Rajasthan' },
+    { iso2: 'SK', name: 'Sikkim' },
+    { iso2: 'TN', name: 'Tamil Nadu' },
+    { iso2: 'TG', name: 'Telangana' },
+    { iso2: 'TR', name: 'Tripura' },
+    { iso2: 'UP', name: 'Uttar Pradesh' },
+    { iso2: 'UT', name: 'Uttarakhand' },
+    { iso2: 'WB', name: 'West Bengal' }
+];
 
-// Load states
-fetch(`${BASE_URL}/countries/IN/states`, {
-    headers: {'X-CSCAPI-KEY': API_KEY}
-})
-.then(res => res.json())
-.then(states => {
-    const stateSelect = document.getElementById('state');
-    states.forEach(state => {
+// Function to load fallback states
+function loadFallbackStates(stateSelect) {
+    console.log('Loading fallback states...');
+    updateStateStatus('Loading backup state list...', false, false);
+    
+    hideLoadingState(stateSelect, 'Select State');
+    
+    fallbackStates.forEach(state => {
         const option = document.createElement('option');
         option.value = state.iso2;
         option.textContent = state.name;
+        option.setAttribute('data-name', state.name);
         stateSelect.appendChild(option);
+    });
+    
+    updateStateStatus('Loaded backup state list (API unavailable)', false, true);
+    
+    if (typeof toast !== 'undefined') {
+        toast.warning('Using backup state list. City selection may be limited.');
+    }
+}
+
+// State and City API with Enhanced Error Handling and Debugging
+const API_KEY = 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==';
+const BASE_URL = 'https://api.countrystatecity.in/v1';
+
+// Function to update status messages
+function updateStateStatus(message, isError = false, isSuccess = false) {
+    const statusElement = document.getElementById('stateStatus');
+    if (statusElement) {
+        let icon = 'fas fa-spinner fa-spin';
+        let color = '#64748b';
+        
+        if (isError) {
+            icon = 'fas fa-exclamation-triangle';
+            color = '#ef4444';
+        } else if (isSuccess) {
+            icon = 'fas fa-check-circle';
+            color = '#10b981';
+        }
+        
+        statusElement.innerHTML = `<i class="${icon}" style="color: ${color};"></i> ${message}`;
+    }
+}
+
+function updateCityStatus(message, isError = false, isSuccess = false) {
+    const statusElement = document.getElementById('cityStatus');
+    if (statusElement) {
+        let icon = 'fas fa-spinner fa-spin';
+        let color = '#64748b';
+        
+        if (isError) {
+            icon = 'fas fa-exclamation-triangle';
+            color = '#ef4444';
+        } else if (isSuccess) {
+            icon = 'fas fa-check-circle';
+            color = '#10b981';
+        }
+        
+        statusElement.innerHTML = `<i class="${icon}" style="color: ${color};"></i> ${message}`;
+    }
+}
+
+// Function to show loading state
+function showLoadingState(selectElement, message) {
+    selectElement.innerHTML = `<option value="">${message}</option>`;
+    selectElement.disabled = true;
+}
+
+// Function to hide loading state
+function hideLoadingState(selectElement, defaultMessage) {
+    selectElement.innerHTML = `<option value="">${defaultMessage}</option>`;
+    selectElement.disabled = false;
+}
+
+// Function to show error state
+function showErrorState(selectElement, errorMessage) {
+    selectElement.innerHTML = `<option value="">Error: ${errorMessage}</option>`;
+    selectElement.disabled = false;
+}
+
+// Load states when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Loading states from API...');
+    
+    const stateSelect = document.getElementById('state');
+    const citySelect = document.getElementById('city');
+    
+    // Check if elements exist
+    if (!stateSelect) {
+        console.error('State select element not found!');
+        return;
+    }
+    
+    if (!citySelect) {
+        console.error('City select element not found!');
+        return;
+    }
+    
+    // Show loading state
+    showLoadingState(stateSelect, 'Loading states...');
+    updateStateStatus('Loading Indian states from API...');
+    
+    // Load states
+    fetch(`${BASE_URL}/countries/IN/states`, {
+        method: 'GET',
+        headers: {
+            'X-CSCAPI-KEY': API_KEY,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('States API Response Status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        return response.json();
+    })
+    .then(states => {
+        console.log('States loaded successfully:', states.length, 'states');
+        
+        // Clear loading state
+        hideLoadingState(stateSelect, 'Select State');
+        updateStateStatus(`${states.length} states loaded successfully`, false, true);
+        
+        // Populate states
+        states.forEach(state => {
+            const option = document.createElement('option');
+            option.value = state.iso2;
+            option.textContent = state.name;
+            option.setAttribute('data-name', state.name);
+            stateSelect.appendChild(option);
+        });
+        
+        console.log('States dropdown populated successfully');
+    })
+    .catch(error => {
+        console.error('Error loading states:', error);
+        updateStateStatus('API failed - Loading backup state list...', false, false);
+        
+        // Load fallback states
+        loadFallbackStates(stateSelect);
+        
+        // Show user-friendly error message
+        if (typeof toast !== 'undefined') {
+            toast.warning('State API unavailable. Using backup list. City selection may be limited.');
+        }
     });
 });
 
 // Load cities when state changes
-document.getElementById('state').addEventListener('change', function() {
-    const stateCode = this.value;
+document.addEventListener('DOMContentLoaded', function() {
+    const stateSelect = document.getElementById('state');
     const citySelect = document.getElementById('city');
-    citySelect.innerHTML = '<option value="">Select City</option>';
     
-    if (stateCode) {
-        fetch(`${BASE_URL}/countries/IN/states/${stateCode}/cities`, {
-            headers: {'X-CSCAPI-KEY': API_KEY}
-        })
-        .then(res => res.json())
-        .then(cities => {
-            cities.forEach(city => {
-                const option = document.createElement('option');
-                option.value = city.name;
-                option.textContent = city.name;
-                citySelect.appendChild(option);
-            });
-        });
+    if (!stateSelect || !citySelect) {
+        console.error('State or City select elements not found!');
+        return;
     }
-    updateProgress();
+    
+    stateSelect.addEventListener('change', function() {
+        const stateCode = this.value;
+        const stateName = this.options[this.selectedIndex]?.getAttribute('data-name') || 'Unknown';
+        
+        console.log('State changed:', stateCode, stateName);
+        
+        // Reset city dropdown
+        hideLoadingState(citySelect, 'Select City');
+        updateCityStatus('Please select a state first');
+        
+        if (stateCode) {
+            // Show loading state
+            showLoadingState(citySelect, 'Loading cities...');
+            updateCityStatus(`Loading cities for ${stateName}...`);
+            
+            console.log('Loading cities for state:', stateCode);
+            
+            fetch(`${BASE_URL}/countries/IN/states/${stateCode}/cities`, {
+                method: 'GET',
+                headers: {
+                    'X-CSCAPI-KEY': API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log('Cities API Response Status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return response.json();
+            })
+            .then(cities => {
+                console.log('Cities loaded successfully:', cities.length, 'cities for', stateName);
+                
+                // Clear loading state
+                hideLoadingState(citySelect, 'Select City');
+                updateCityStatus(`${cities.length} cities loaded for ${stateName}`, false, true);
+                
+                // Populate cities
+                cities.forEach(city => {
+                    const option = document.createElement('option');
+                    option.value = city.name;
+                    option.textContent = city.name;
+                    citySelect.appendChild(option);
+                });
+                
+                console.log('Cities dropdown populated successfully');
+                
+                // Show success message if many cities loaded
+                if (cities.length > 0 && typeof toast !== 'undefined') {
+                    toast.success(`${cities.length} cities loaded for ${stateName}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading cities:', error);
+                
+                // Provide manual input option
+                citySelect.innerHTML = `
+                    <option value="">Select City</option>
+                    <option value="manual_input">Type City Name Manually</option>
+                `;
+                citySelect.disabled = false;
+                
+                updateCityStatus(`Cities API failed for ${stateName} - Manual input available`, true);
+                
+                // Show user-friendly error message
+                if (typeof toast !== 'undefined') {
+                    toast.warning(`Cities API failed for ${stateName}. You can type the city name manually.`);
+                }
+            });
+        }
+        
+        updateProgress();
+    });
+    
+    // Handle manual city input
+    citySelect.addEventListener('change', function() {
+        if (this.value === 'manual_input') {
+            const manualCity = prompt('Please enter your city/district name:');
+            if (manualCity && manualCity.trim()) {
+                // Add the manual city as an option
+                const option = document.createElement('option');
+                option.value = manualCity.trim();
+                option.textContent = manualCity.trim() + ' (Manual Entry)';
+                option.selected = true;
+                
+                // Insert before the manual input option
+                this.insertBefore(option, this.querySelector('option[value="manual_input"]'));
+                
+                updateCityStatus(`Manual city entered: ${manualCity.trim()}`, false, true);
+                
+                if (typeof toast !== 'undefined') {
+                    toast.success(`City "${manualCity.trim()}" added successfully`);
+                }
+            } else {
+                // Reset to default if cancelled
+                this.value = '';
+            }
+        }
+        updateProgress();
+    });
+});
+
+// API Test Function - Call this from browser console to test
+window.testStateAPI = function() {
+    console.log('Testing State API...');
+    console.log('API Key:', API_KEY);
+    console.log('Base URL:', BASE_URL);
+    
+    fetch(`${BASE_URL}/countries/IN/states`, {
+        method: 'GET',
+        headers: {
+            'X-CSCAPI-KEY': API_KEY,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        console.log('Test Response Status:', response.status);
+        console.log('Test Response Headers:', response.headers);
+        return response.text();
+    })
+    .then(text => {
+        console.log('Test Response Text:', text);
+        try {
+            const json = JSON.parse(text);
+            console.log('Test Response JSON:', json);
+        } catch (e) {
+            console.error('Failed to parse JSON:', e);
+        }
+    })
+    .catch(error => {
+        console.error('Test API Error:', error);
+    });
+};
+
+// Auto-test API on page load (for debugging)
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Page loaded - State/City API debugging enabled');
+    console.log('Call testStateAPI() in console to test the API manually');
+    
+    // Auto-test after 2 seconds
+    setTimeout(() => {
+        console.log('Auto-testing API...');
+        window.testStateAPI();
+    }, 2000);
 });
 
 // Filter courses by training centre (only if not locked)
