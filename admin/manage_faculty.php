@@ -1,19 +1,31 @@
 <?php
 session_start();
-require_once '../config/database.php';
-require_once '../includes/check_permission.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/session_manager.php';
 
-// Check if user is logged in and has permission
-if (!isset($_SESSION['admin_id'])) {
-    header('Location: login.php');
+if (!isset($_SESSION['admin'])) {
+    header('Location: login_new.php');
     exit();
 }
 
-// Check permission for faculty management
-checkPermission('manage_faculty');
+if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
+    if (!init_admin_session($_SESSION['admin'])) {
+        session_unset();
+        session_destroy();
+        header('Location: login_new.php');
+        exit();
+    }
+}
+
+refresh_session_permissions();
 
 $admin_id = $_SESSION['admin_id'];
-$admin_role = $_SESSION['role'] ?? '';
+$admin_role = $_SESSION['admin_role'] ?? ($_SESSION['role'] ?? '');
+
+if (!in_array($admin_role, ['master_admin', 'course_coordinator'], true)) {
+    header('Location: dashboard.php');
+    exit();
+}
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -93,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Fetch all faculty members - filter based on role
 $admin_id = $_SESSION['admin_id'];
-$admin_role = $_SESSION['role'] ?? '';
+$admin_role = $_SESSION['admin_role'] ?? ($_SESSION['role'] ?? '');
 
 if ($admin_role === 'master_admin') {
     // Master admins can see all faculty
@@ -115,8 +127,20 @@ if ($result) {
     }
 }
 
-include 'includes/header.php';
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Faculty - NIELIT Admin</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
 
 <div class="container-fluid">
     <div class="row">
@@ -336,4 +360,6 @@ function deactivateFaculty(facultyId, facultyName) {
 }
 </script>
 
-<?php include 'includes/footer.php'; ?>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
