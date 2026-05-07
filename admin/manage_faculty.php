@@ -222,7 +222,7 @@ if ($result) {
                                     <td>
                                         <?php if (!empty($faculty['email'])): ?>
                                             <button class="btn btn-sm btn-warning"
-                                                    onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, <?php echo json_encode($faculty['name']); ?>, this)"
+                                                    onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, '<?php echo addslashes($faculty['name']); ?>', this)"
                                                     title="Resend confirmation email to <?php echo htmlspecialchars($faculty['name']); ?>">
                                                 <i class="fas fa-paper-plane"></i> Resend Email
                                             </button>
@@ -231,7 +231,8 @@ if ($result) {
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-primary" onclick="editFaculty(<?php echo htmlspecialchars(json_encode($faculty)); ?>)">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick='editFaculty(<?php echo json_encode($faculty); ?>)'>
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <?php
