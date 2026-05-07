@@ -346,40 +346,50 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
     <style>
-        /* Modal Styles */
+        /* Modern Professional Modal Styles */
         .modal {
             display: none;
             position: fixed;
-            z-index: 9999; /* Increased z-index */
+            z-index: 10000;
             left: 0;
             top: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.8); /* Darker backdrop for testing */
-            backdrop-filter: blur(2px);
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            animation: modalBackdropFadeIn 0.3s ease-out;
         }
         
         .modal.show {
-            display: flex !important; /* Added !important for testing */
+            display: flex !important;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
         
         .modal-dialog {
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 900px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-            animation: modalSlideIn 0.3s ease-out;
+            background: #ffffff;
+            border-radius: 20px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.05);
+            max-width: 1000px;
+            width: 100%;
+            max-height: 95vh;
+            overflow: hidden;
+            animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            position: relative;
+        }
+        
+        @keyframes modalBackdropFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         
         @keyframes modalSlideIn {
             from {
                 opacity: 0;
-                transform: translateY(-50px) scale(0.9);
+                transform: translateY(-40px) scale(0.95);
             }
             to {
                 opacity: 1;
@@ -388,43 +398,144 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
         }
         
         .modal-header {
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
-            padding: 1.5rem;
-            border-radius: 12px 12px 0 0;
-            display: flex;
-            justify-content: between;
-            align-items: center;
+            padding: 2rem 2.5rem 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modal-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(245,158,11,0.2) 0%, transparent 70%);
+            border-radius: 50%;
         }
         
         .modal-title {
             margin: 0;
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .modal-title i {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            z-index: 3;
+        }
+        
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
         }
         
         .modal-body {
-            padding: 2rem;
+            padding: 2.5rem;
+            max-height: calc(95vh - 200px);
+            overflow-y: auto;
+        }
+        
+        .modal-body::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .modal-body::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        .modal-body::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
         
         .modal-footer {
-            padding: 1.5rem;
-            border-top: 1px solid #e5e7eb;
+            padding: 1.5rem 2.5rem 2rem;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
             display: flex;
             justify-content: flex-end;
             gap: 1rem;
-            border-radius: 0 0 12px 12px;
         }
         
-        .form-row {
-            display: flex;
-            gap: 1rem;
+        /* Modern Form Styles */
+        .form-section {
+            margin-bottom: 2rem;
+        }
+        
+        .form-section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary);
             margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .form-section-title i {
+            width: 24px;
+            height: 24px;
+            background: rgba(10, 22, 40, 0.1);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            color: var(--primary);
+        }
+        
+        .form-grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+        
+        .form-grid-2 {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .form-grid-3 {
+            grid-template-columns: 2fr 1fr 1fr;
         }
         
         .form-group {
-            flex: 1;
-            margin-bottom: 1rem;
+            position: relative;
         }
         
         .form-label {
@@ -432,51 +543,244 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             margin-bottom: 0.5rem;
             font-weight: 600;
             color: #374151;
-        }
-        
-        .form-control {
-            width: 100%;
-            padding: 0.75rem;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
             font-size: 0.875rem;
-            transition: border-color 0.2s;
         }
         
-        .form-control:focus {
+        .form-label .required {
+            color: #ef4444;
+            margin-left: 2px;
+        }
+        
+        .form-control, .form-select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
+            background: #ffffff;
+        }
+        
+        .form-control:focus, .form-select:focus {
             outline: none;
-            border-color: #0a1628;
-            box-shadow: 0 0 0 3px rgba(10, 22, 40, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(10, 22, 40, 0.1);
+            transform: translateY(-1px);
         }
         
+        .form-control:hover, .form-select:hover {
+            border-color: #d1d5db;
+        }
+        
+        .form-help {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .form-help i {
+            font-size: 0.7rem;
+        }
+        
+        /* Enhanced Button Styles */
         .btn {
-            padding: 0.75rem 1.5rem;
+            padding: 0.875rem 1.75rem;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            font-size: 0.875rem;
+            text-decoration: none;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
+            box-shadow: 0 4px 12px rgba(10, 22, 40, 0.3);
         }
         
         .btn-primary:hover {
-            background: linear-gradient(135deg, #112240 0%, #1a2d4a 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(10, 22, 40, 0.4);
         }
         
         .btn-secondary {
             background: #6b7280;
             color: white;
+            box-shadow: 0 4px 12px rgba(107, 114, 128, 0.3);
         }
         
         .btn-secondary:hover {
             background: #4b5563;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(107, 114, 128, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        /* Special Input Styles */
+        .input-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: end;
+        }
+        
+        .input-group .form-control {
+            flex: 1;
+        }
+        
+        .input-group .btn {
+            white-space: nowrap;
+            margin-bottom: 0;
+        }
+        
+        /* Checkbox Styles */
+        .checkbox-group {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 12px;
+            border: 2px solid #e5e7eb;
+            margin-top: 0.5rem;
+        }
+        
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        
+        .checkbox-item:hover {
+            background: rgba(10, 22, 40, 0.05);
+        }
+        
+        .checkbox-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: var(--primary);
+        }
+        
+        /* Info Boxes */
+        .info-box {
+            background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+            border: 1px solid #bfdbfe;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+        
+        .info-box i {
+            color: #1d4ed8;
+            font-size: 1.1rem;
+            margin-top: 0.1rem;
+        }
+        
+        .info-box-content {
+            flex: 1;
+        }
+        
+        .info-box-title {
+            font-weight: 600;
+            color: #1e40af;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-box-text {
+            color: #1e40af;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        
+        .warning-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 1px solid #f59e0b;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .warning-box i {
+            color: #d97706;
+        }
+        
+        .warning-box-title {
+            color: #92400e;
+        }
+        
+        .warning-box-text {
+            color: #92400e;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+            
+            .modal-header {
+                padding: 1.5rem 1.5rem 1rem;
+            }
+            
+            .modal-body {
+                padding: 1.5rem;
+            }
+            
+            .modal-footer {
+                padding: 1rem 1.5rem 1.5rem;
+                flex-direction: column;
+            }
+            
+            .form-grid-2, .form-grid-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
         }
     </style>
 </head>
@@ -848,103 +1152,201 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
     </main>
 </div>
 
-<!-- Add Course Modal -->
+<!-- Modern Add Course Modal -->
 <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
 <div class="modal" id="addCourseModal">
-    <div class="modal-dialog" style="max-width: 900px;">
-        <div class="modal-content" style="background: white; border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); max-height: 90vh; overflow-y: auto;">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fas fa-plus"></i> Add New Course</h5>
-                <button type="button" onclick="closeModal('addCourseModal')" style="background: none; border: none; color: white; font-size: 24px; cursor: pointer;">&times;</button>
-            </div>
-            <form action="dashboard.php" method="POST" enctype="multipart/form-data">
+    <div class="modal-dialog">
+        <div class="modal-header">
+            <h5 class="modal-title">
+                <i class="fas fa-graduation-cap"></i>
+                Add New Course
+            </h5>
+            <button type="button" class="modal-close" onclick="closeModal('addCourseModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form action="dashboard.php" method="POST" enctype="multipart/form-data">
             <div class="modal-body">
-                <!-- Course Name and Codes Row -->
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Course Name *</label>
-                        <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required>
-                        <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
-                            <option value="">-- Select Course Template --</option>
-                        </select>
+                <!-- Basic Course Information -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-info-circle"></i>
+                        Basic Course Information
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Course Code * <small>(e.g., PPI-2026)</small></label>
-                        <input type="text" class="form-control" name="course_code" maxlength="20" required style="text-transform: uppercase;">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Student ID Code * <small>(e.g., PPI)</small></label>
-                        <input type="text" class="form-control" name="course_abbreviation" id="add_abbr_dash" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
-                        <small class="text-muted">For ID: NIELIT/2026/<strong>PPI</strong>/0001</small>
-                    </div>
-                </div>
-                
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                    <div class="form-group">
-                        <label class="form-label">Category *</label>
-                        <select class="form-select" name="category" id="add_category_dash" required>
-                            <option value="">Select Category</option>
-                            <option value="Long Term NSQF">Long Term NSQF</option>
-                            <option value="Short Term NSQF">Short Term NSQF</option>
-                            <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
-                            <option value="Internship Program">Internship Program</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Eligibility *</label>
-                        <input type="text" class="form-control" name="eligibility" id="add_eligibility_dash" required placeholder="Will auto-populate from template for NSQF courses">
-                        <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Duration *</label>
-                        <input type="text" class="form-control" name="duration" placeholder="e.g., 6 Months" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Training Fees *</label>
-                        <input type="text" class="form-control" name="training_fees" placeholder="e.g., 15000" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Course Coordinator *</label>
-                        <input type="text" class="form-control" name="course_coordinator" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Training Centre *</label>
-                        <select class="form-select" name="training_center" required>
-                            <option value="">-- Select Training Centre --</option>
-                            <?php foreach ($centres as $centre): ?>
-                                <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Start Date *</label>
-                        <input type="date" class="form-control" name="start_date" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">End Date *</label>
-                        <input type="date" class="form-control" name="end_date" required>
+                    
+                    <div class="form-grid form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Course Name <span class="required">*</span></label>
+                            <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required placeholder="e.g., Post Graduate Programme in Artificial Intelligence">
+                            <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
+                                <option value="">-- Select Course Template --</option>
+                            </select>
+                            <div class="form-help">
+                                <i class="fas fa-lightbulb"></i>
+                                Enter the full course name as it will appear on certificates
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Course Code <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="course_code" maxlength="20" required style="text-transform: uppercase;" placeholder="PPI-2026">
+                            <div class="form-help">
+                                <i class="fas fa-tag"></i>
+                                Unique identifier (e.g., PPI-2026)
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Student ID Code <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="course_abbreviation" id="add_abbr_dash" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
+                            <div class="form-help">
+                                <i class="fas fa-id-card"></i>
+                                For ID: NIELIT/2026/<strong>PPI</strong>/0001
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Description URL</label>
-                    <input type="url" class="form-control" name="description_url" placeholder="https://...">
+
+                <!-- Course Details -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-cogs"></i>
+                        Course Details
+                    </div>
+                    
+                    <div class="form-grid form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Category <span class="required">*</span></label>
+                            <select class="form-select" name="category" id="add_category_dash" required>
+                                <option value="">Select Category</option>
+                                <option value="Long Term NSQF">Long Term NSQF</option>
+                                <option value="Short Term NSQF">Short Term NSQF</option>
+                                <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
+                                <option value="Internship Program">Internship Program</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Eligibility <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="eligibility" id="add_eligibility_dash" required placeholder="Graduate in any discipline">
+                            <div class="form-help">
+                                <i class="fas fa-user-graduate"></i>
+                                For NSQF courses, this will be filled automatically from template
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Duration <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="duration" placeholder="6 Months" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Training Fees <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="training_fees" placeholder="15000" required>
+                            <div class="form-help">
+                                <i class="fas fa-rupee-sign"></i>
+                                Enter amount in INR (without currency symbol)
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Course Description <small class="text-muted">(Optional)</small></label>
-                    <textarea class="form-control" name="course_description" rows="3" placeholder="e.g. Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details about the course..."></textarea>
-                    <small class="text-muted">Add location, venue, or any extra information about this course</small>
+
+                <!-- Administrative Details -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-users-cog"></i>
+                        Administrative Details
+                    </div>
+                    
+                    <div class="form-grid form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Course Coordinator <span class="required">*</span></label>
+                            <input type="text" class="form-control" name="course_coordinator" required placeholder="Dr. John Smith">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Training Centre <span class="required">*</span></label>
+                            <select class="form-select" name="training_center" required>
+                                <option value="">-- Select Training Centre --</option>
+                                <?php if (!empty($centres)): ?>
+                                    <?php foreach ($centres as $centre): ?>
+                                        <option value="<?= htmlspecialchars($centre['name']) ?>">
+                                            <?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <option value="NIELIT BHUBANESWAR">NIELIT BHUBANESWAR (Default)</option>
+                                <?php endif; ?>
+                            </select>
+                            <div class="form-help">
+                                <i class="fas fa-building"></i>
+                                <?php if (empty($centres)): ?>
+                                    <span style="color: #f59e0b;">No training centres found. Using default centre.</span>
+                                <?php else: ?>
+                                    Select the training centre where this course will be conducted
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Start Date <span class="required">*</span></label>
+                            <input type="date" class="form-control" name="start_date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">End Date <span class="required">*</span></label>
+                            <input type="date" class="form-control" name="end_date" required>
+                        </div>
+                    </div>
                 </div>
-                
-                <hr style="margin: 24px 0; border-color: #e3f2fd;">
-                <h6 style="color: #0d47a1; margin-bottom: 16px;"><i class="fas fa-link"></i> Registration Link Settings</h6>
-                
-                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+
+                <!-- Additional Information -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-file-alt"></i>
+                        Additional Information
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description URL</label>
+                        <input type="url" class="form-control" name="description_url" placeholder="https://nielit.gov.in/course-details">
+                        <div class="form-help">
+                            <i class="fas fa-link"></i>
+                            Optional: Link to detailed course information
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Course Description</label>
+                        <textarea class="form-control" name="course_description" rows="3" placeholder="Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details about the course..."></textarea>
+                        <div class="form-help">
+                            <i class="fas fa-map-marker-alt"></i>
+                            Add location, venue, or any extra information about this course
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Description PDF</label>
+                        <input type="file" class="form-control" name="description_pdf" accept=".pdf">
+                        <div class="form-help">
+                            <i class="fas fa-file-pdf"></i>
+                            Upload course brochure or detailed syllabus (PDF only)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Registration Link Settings -->
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <i class="fas fa-link"></i>
+                        Registration Link Settings
+                    </div>
+                    
                     <!-- Schemes/Projects Selection -->
                     <div class="form-group">
                         <label class="form-label">
-                            <i class="fas fa-project-diagram"></i> Schemes/Projects
+                            <i class="fas fa-project-diagram"></i> Associated Schemes/Projects
                         </label>
                         <?php
                         // Fetch all active schemes for add course form
@@ -952,68 +1354,82 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                         $schemes_result_add = $conn->query($schemes_query_add);
                         ?>
                         
-                        <div style="background: #f8f9fa; padding: 16px; border-radius: 6px; border: 1px solid #dee2e6;">
+                        <div class="checkbox-group">
                             <?php if ($schemes_result_add && $schemes_result_add->num_rows > 0): ?>
                                 <?php while ($scheme = $schemes_result_add->fetch_assoc()): ?>
-                                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
-                                        <input type="checkbox" 
-                                               name="schemes[]" 
-                                               value="<?php echo $scheme['id']; ?>"
-                                               style="width: 18px; height: 18px;">
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="schemes[]" value="<?php echo $scheme['id']; ?>">
                                         <span style="font-weight: 500;"><?php echo htmlspecialchars($scheme['scheme_name']); ?></span>
                                         <span style="color: #6c757d; font-size: 12px;">(<?php echo htmlspecialchars($scheme['scheme_code']); ?>)</span>
                                     </label>
                                 <?php endwhile; ?>
                             <?php else: ?>
-                                <p style="color: #6c757d; margin: 0;">
+                                <div style="text-align: center; padding: 1rem; color: #6c757d;">
                                     <i class="fas fa-info-circle"></i> No schemes available. 
                                     <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" target="_blank" style="color: #007bff;">Create schemes</a>
-                                </p>
+                                </div>
                             <?php endif; ?>
                         </div>
-                        <small class="text-muted">Select one or more schemes/projects for this course</small>
+                        <div class="form-help">
+                            <i class="fas fa-check-square"></i>
+                            Select one or more schemes/projects for this course
+                        </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label class="form-label">Apply Link</label>
-                        <div style="display: flex; gap: 8px;">
-                            <input type="url" class="form-control" name="apply_link" id="add_apply_link_dash" placeholder="Will be auto-generated" readonly>
-                            <button type="button" class="btn btn-success" onclick="generateApplyLinkDash()" style="white-space: nowrap;">
-                                <i class="fas fa-magic"></i> Generate Link
-                            </button>
+                    <div class="form-grid form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Registration Link</label>
+                            <div class="input-group">
+                                <input type="url" class="form-control" name="apply_link" id="add_apply_link_dash" placeholder="Will be auto-generated" readonly>
+                                <button type="button" class="btn btn-success" onclick="generateApplyLinkDash()">
+                                    <i class="fas fa-magic"></i> Generate
+                                </button>
+                            </div>
+                            <div class="form-help">
+                                <i class="fas fa-wand-magic-sparkles"></i>
+                                Click "Generate" to create registration URL automatically
+                            </div>
                         </div>
-                        <small class="text-muted">Click "Generate Link" to create registration URL automatically</small>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Publish Status</label>
-                        <div style="padding-top: 8px;">
-                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                <input type="checkbox" name="link_published" id="add_link_published_dash" value="1" style="width: 20px; height: 20px;">
-                                <span id="add_publish_status_dash">Unpublished</span>
-                            </label>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Publish Status</label>
+                            <div style="padding-top: 0.875rem;">
+                                <label class="checkbox-item" style="margin-bottom: 0;">
+                                    <input type="checkbox" name="link_published" id="add_link_published_dash" value="1">
+                                    <span id="add_publish_status_dash">Unpublished</span>
+                                </label>
+                            </div>
+                            <div class="form-help">
+                                <i class="fas fa-eye"></i>
+                                Toggle to show/hide on website
+                            </div>
                         </div>
-                        <small class="text-muted">Toggle to show/hide on website</small>
                     </div>
-                </div>
-                
-                <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-top: 12px;">
-                    <strong><i class="fas fa-info-circle"></i> Preview:</strong> 
-                    <span id="link_preview_dash">Enter course name and click "Generate Link"</span>
-                </div>
-                
-                <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 12px; border-left: 4px solid #ffc107;">
-                    <i class="fas fa-lightbulb"></i> <strong>Note:</strong> QR code will be generated automatically when you save the course with a registration link.
-                </div>
-                
-                <div class="form-group" style="margin-top: 16px;">
-                    <label class="form-label">Description PDF</label>
-                    <input type="file" class="form-control" name="description_pdf" accept=".pdf">
+                    
+                    <div class="info-box">
+                        <i class="fas fa-info-circle"></i>
+                        <div class="info-box-content">
+                            <div class="info-box-title">Registration Link Preview</div>
+                            <div class="info-box-text" id="link_preview_dash">Enter course name and click "Generate Link"</div>
+                        </div>
+                    </div>
+                    
+                    <div class="info-box warning-box">
+                        <i class="fas fa-qrcode"></i>
+                        <div class="info-box-content">
+                            <div class="warning-box-title">QR Code Generation</div>
+                            <div class="warning-box-text">QR code will be generated automatically when you save the course with a registration link.</div>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('addCourseModal')">Cancel</button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addCourseModal')">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
                 <button type="submit" name="add_course" class="btn btn-primary">
-                    <i class="fas fa-save"></i> Add Course
+                    <i class="fas fa-save"></i> Create Course
                 </button>
             </div>
         </form>
