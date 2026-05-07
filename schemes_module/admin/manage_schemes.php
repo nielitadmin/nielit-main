@@ -2,6 +2,7 @@
 // Start session and include the database connection
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/theme_loader.php';
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -114,6 +115,9 @@ $schemes_query = "SELECT s.*,
                   FROM schemes s 
                   ORDER BY s.created_at DESC";
 $schemes_result = $conn->query($schemes_query);
+
+// Load active theme
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -121,10 +125,11 @@ $schemes_result = $conn->query($schemes_query);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Schemes - NIELIT Bhubaneswar</title>
+    <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
 </head>
 <body>
 
