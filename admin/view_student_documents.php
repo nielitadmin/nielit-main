@@ -902,8 +902,20 @@ if ($stmt_education) {
                             <tr>
                                 <td style="background: #f8fafc; font-weight: 600;">Registration Date</td>
                                 <td><?php echo date('d M Y', strtotime($student['created_at'])); ?></td>
+                                <td style="background: #f8fafc; font-weight: 600;">Payment Date</td>
+                                <td>
+                                    <?php
+                                    if (!empty($student['payment_date']) && strtotime($student['payment_date']) !== false) {
+                                        echo date('d M Y', strtotime($student['payment_date']));
+                                    } else {
+                                        echo '-';
+                                    }
+                                    ?>
+                                </td>
+                            </tr>
+                            <tr>
                                 <td style="background: #f8fafc; font-weight: 600;">UTR Number</td>
-                                <td><?php echo !empty($student['utr_number']) ? htmlspecialchars($student['utr_number']) : '-'; ?></td>
+                                <td colspan="3"><?php echo !empty($student['utr_number']) ? htmlspecialchars($student['utr_number']) : '-'; ?></td>
                             </tr>
                         </tbody>
                     </table>
