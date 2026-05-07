@@ -45,7 +45,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, created_by) VALUES (?, ?, ?, ?, ?, ?)");
                     $stmt->bind_param("sssssi", $name, $email, $phone, $designation, $department, $admin_id);
                     if ($stmt->execute()) {
-                        $success_message = "Faculty member added successfully!";
+                        // Auto-send confirmation email if email is provided
+                        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                            $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
+                            $success_message = $email_sent
+                                ? "Faculty member added successfully! Confirmation email sent to <strong>$email</strong>."
+                                : "Faculty member added successfully! (Email could not be sent — check SMTP settings.)";
+                        } else {
+                            $success_message = "Faculty member added successfully!";
+                        }
                     } else {
                         $error_message = "Error adding faculty member.";
                     }
@@ -174,17 +182,11 @@ if ($result) {
             </div>
 
             <?php if (isset($success_message)): ?>
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <?php echo $success_message; ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <!-- success shown via toast -->
             <?php endif; ?>
 
             <?php if (isset($error_message)): ?>
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <?php echo $error_message; ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
+                <!-- error shown via toast -->
             <?php endif; ?>
 
             <div class="content-card">
@@ -208,7 +210,7 @@ if ($result) {
                             </thead>
                             <tbody>
                                 <?php foreach ($faculty_members as $faculty): ?>
-                                <tr>
+                                <tr data-faculty-id="<?php echo (int)$faculty['id']; ?>">
                                     <td><?php echo htmlspecialchars($faculty['name']); ?></td>
                                     <td><?php echo htmlspecialchars($faculty['email']); ?></td>
                                     <td><?php echo htmlspecialchars($faculty['phone']); ?></td>
@@ -370,73 +372,133 @@ function editFaculty(faculty) {
     document.getElementById('edit_designation').value = faculty.designation || '';
     document.getElementById('edit_department').value = faculty.department || '';
     document.getElementById('edit_is_active').checked = faculty.is_active == 1;
-    
     new bootstrap.Modal(document.getElementById('editFacultyModal')).show();
 }
 
 function deactivateFaculty(facultyId, facultyName) {
-    if (confirm(`Are you sure you want to deactivate ${facultyName}?`)) {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.innerHTML = `
-            <input type="hidden" name="action" value="delete_faculty">
-            <input type="hidden" name="faculty_id" value="${facultyId}">
-        `;
-        document.body.appendChild(form);
-        form.submit();
-    }
+    showConfirm({
+        title: 'Deactivate Faculty',
+        message: `Are you sure you want to deactivate <strong>${facultyName}</strong>? They will no longer appear in active faculty lists.`,
+        type: 'danger',
+        confirmText: 'Deactivate',
+        cancelText: 'Cancel'
+    }).then(confirmed => {
+        if (!confirmed) return;
+
+        fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
+        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(result => {
+            if (result.success) {
+                toast.deleted(`${facultyName} has been deactivated.`);
+                // Remove the row from the table
+                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+                if (row) {
+                    row.style.transition = 'opacity 0.4s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 400);
+                } else {
+                    setTimeout(() => location.reload(), 1200);
+                }
+            } else {
+                showToast('Error: ' + (result.message || 'Could not deactivate faculty'), 'error');
+            }
+        })
+        .catch(err => showToast('Request failed: ' + err.message, 'error'));
+    });
+}
+
+function deleteFacultyPermanent(facultyId, facultyName) {
+    showConfirm({
+        title: 'Delete Faculty',
+        message: `Permanently delete <strong>${facultyName}</strong>? This cannot be undone.`,
+        type: 'danger',
+        confirmText: 'Delete',
+        cancelText: 'Cancel'
+    }).then(confirmed => {
+        if (!confirmed) return;
+
+        fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', faculty_id: facultyId })
+        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(result => {
+            if (result.success) {
+                toast.deleted(`${facultyName} has been permanently deleted.`);
+                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+                if (row) {
+                    row.style.transition = 'opacity 0.4s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 400);
+                } else {
+                    setTimeout(() => location.reload(), 1200);
+                }
+            } else {
+                showToast('Error: ' + (result.message || 'Could not delete faculty'), 'error');
+            }
+        })
+        .catch(err => showToast('Request failed: ' + err.message, 'error'));
+    });
 }
 
 function resendFacultyEmail(facultyId, facultyName, btn) {
-    if (!confirm(`Resend confirmation email to ${facultyName}?`)) {
-        return;
-    }
+    showConfirm({
+        title: 'Resend Email',
+        message: `Send confirmation email to <strong>${facultyName}</strong>?`,
+        type: 'warning',
+        confirmText: 'Send',
+        cancelText: 'Cancel'
+    }).then(confirmed => {
+        if (!confirmed) return;
 
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-    btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        btn.disabled = true;
 
-    fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            action: 'resend_email',
-            faculty_id: facultyId 
+        fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
         })
-    })
-    .then(response => {
-        if (!response.ok) throw new Error('HTTP ' + response.status);
-        return response.json();
-    })
-    .then(result => {
-        if (result.success) {
-            btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-success');
-            if (typeof showToast === 'function') showToast('Email sent to ' + facultyName + ' successfully!', 'success');
-            else alert('Email sent to ' + facultyName + ' successfully!');
-            setTimeout(() => {
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(result => {
+            if (result.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                showToast('Email sent to ' + facultyName + ' successfully!', 'success');
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                showToast('Error: ' + (result.message || 'Unknown error'), 'error');
                 btn.innerHTML = originalText;
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-warning');
                 btn.disabled = false;
-            }, 3000);
-        } else {
-            const msg = 'Error: ' + (result.message || 'Unknown error');
-            if (typeof showToast === 'function') showToast(msg, 'error');
-            else alert(msg);
+            }
+        })
+        .catch(err => {
+            showToast('Failed to send email: ' + err.message, 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
-        }
-    })
-    .catch(error => {
-        const msg = 'Failed to send email: ' + error.message;
-        if (typeof showToast === 'function') showToast(msg, 'error');
-        else alert(msg);
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        });
     });
 }
+
+// Show success/error from PHP page reload (add/update actions)
+<?php if (isset($success_message)): ?>
+document.addEventListener('DOMContentLoaded', () => showToast(<?php echo json_encode($success_message); ?>, 'success'));
+<?php endif; ?>
+<?php if (isset($error_message)): ?>
+document.addEventListener('DOMContentLoaded', () => showToast(<?php echo json_encode($error_message); ?>, 'error'));
+<?php endif; ?>
 </script>
 
 </body>
