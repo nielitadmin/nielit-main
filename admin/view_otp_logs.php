@@ -12,6 +12,9 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
 require_once '../config/database.php';
 require_once '../includes/theme_loader.php';
 
+// Set timezone to Indian Standard Time
+date_default_timezone_set('Asia/Kolkata');
+
 $active_theme = loadActiveTheme($conn);
 
 // Get OTP logs from the last 24 hours
@@ -710,10 +713,16 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
                                             </div>
                                             <div class="detail-content">
                                                 <div class="detail-label">Generated At</div>
-                                                <div class="detail-value"><?php echo date('M d, Y g:i A', strtotime($log['created_at'])); ?></div>
+                                                <div class="detail-value"><?php 
+                                                // Set timezone to Indian Standard Time
+                                                date_default_timezone_set('Asia/Kolkata');
+                                                echo date('d.m.Y, h:i A', strtotime($log['created_at'])); 
+                                                ?></div>
                                             </div>
                                             <div class="time-ago">
                                                 <?php 
+                                                // Set timezone to Indian Standard Time for accurate time calculation
+                                                date_default_timezone_set('Asia/Kolkata');
                                                 $time_diff = time() - strtotime($log['created_at']);
                                                 if ($time_diff < 60) {
                                                     echo $time_diff . 's ago';
