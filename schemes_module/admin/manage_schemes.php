@@ -23,6 +23,12 @@ $conn->query("CREATE TABLE IF NOT EXISTS `schemes` (
   `scheme_name` varchar(255) NOT NULL,
   `scheme_code` varchar(50) NOT NULL,
   `description` text,
+  `sponsor_agency` varchar(255) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `physical_target` int(11) DEFAULT NULL,
+  `project_incharge_name` varchar(255) DEFAULT NULL,
+  `target_beneficiary` varchar(255) DEFAULT NULL,
   `status` enum('Active','Inactive') DEFAULT 'Active',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -46,6 +52,12 @@ if (isset($_POST['add_scheme'])) {
     $scheme_name = trim($_POST['scheme_name']);
     $scheme_code = trim($_POST['scheme_code']);
     $description = trim($_POST['description']);
+    $sponsor_agency = trim($_POST['sponsor_agency']);
+    $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
+    $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
+    $physical_target = !empty($_POST['physical_target']) ? (int)$_POST['physical_target'] : null;
+    $project_incharge_name = trim($_POST['project_incharge_name']);
+    $target_beneficiary = isset($_POST['target_beneficiary']) ? implode(',', $_POST['target_beneficiary']) : '';
     $status = $_POST['status'];
     
     // Check if scheme code already exists
@@ -59,9 +71,9 @@ if (isset($_POST['add_scheme'])) {
         $_SESSION['message'] = "Scheme code '{$scheme_code}' already exists. Please use a different code.";
         $_SESSION['message_type'] = "danger";
     } else {
-        $insert_sql = "INSERT INTO schemes (scheme_name, scheme_code, description, status) VALUES (?, ?, ?, ?)";
+        $insert_sql = "INSERT INTO schemes (scheme_name, scheme_code, description, sponsor_agency, start_date, end_date, physical_target, project_incharge_name, target_beneficiary, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         $stmt = $conn->prepare($insert_sql);
-        $stmt->bind_param("ssss", $scheme_name, $scheme_code, $description, $status);
+        $stmt->bind_param("ssssssisss", $scheme_name, $scheme_code, $description, $sponsor_agency, $start_date, $end_date, $physical_target, $project_incharge_name, $target_beneficiary, $status);
         
         if ($stmt->execute()) {
             $_SESSION['message'] = "Scheme added successfully!";
@@ -164,10 +176,12 @@ $schemes_result = $conn->query($schemes_query);
                                 <th>Sl. No.</th>
                                 <th>Scheme Code</th>
                                 <th>Scheme Name</th>
-                                <th>Description</th>
-                                <th>Courses</th>
+                                <th>Sponsor Agency</th>
+                                <th>Duration</th>
+                                <th>Physical Target</th>
+                                <th>Project Incharge</th>
+                                <th>Target Beneficiary</th>
                                 <th>Status</th>
-                                <th>Created Date</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -179,12 +193,51 @@ $schemes_result = $conn->query($schemes_query);
                                 <tr>
                                     <td><?php echo $sl_no++; ?></td>
                                     <td><strong><?php echo htmlspecialchars($scheme['scheme_code']); ?></strong></td>
-                                    <td><?php echo htmlspecialchars($scheme['scheme_name']); ?></td>
-                                    <td><?php echo htmlspecialchars(substr($scheme['description'], 0, 80)) . (strlen($scheme['description']) > 80 ? '...' : ''); ?></td>
                                     <td>
-                                        <span class="badge badge-info">
-                                            <i class="fas fa-book"></i> <?php echo $scheme['course_count']; ?> Courses
-                                        </span>
+                                        <div style="font-weight: 600; color: #1e293b;"><?php echo htmlspecialchars($scheme['scheme_name']); ?></div>
+                                        <?php if (!empty($scheme['description'])): ?>
+                                            <small style="color: #64748b;"><?php echo htmlspecialchars(substr($scheme['description'], 0, 60)) . (strlen($scheme['description']) > 60 ? '...' : ''); ?></small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($scheme['sponsor_agency'] ?? 'Not specified'); ?></td>
+                                    <td>
+                                        <?php if ($scheme['start_date'] && $scheme['end_date']): ?>
+                                            <div style="font-size: 12px;">
+                                                <div><strong>Start:</strong> <?php echo date('d M Y', strtotime($scheme['start_date'])); ?></div>
+                                                <div><strong>End:</strong> <?php echo date('d M Y', strtotime($scheme['end_date'])); ?></div>
+                                            </div>
+                                        <?php elseif ($scheme['start_date']): ?>
+                                            <div style="font-size: 12px;">
+                                                <strong>Start:</strong> <?php echo date('d M Y', strtotime($scheme['start_date'])); ?>
+                                            </div>
+                                        <?php else: ?>
+                                            <span style="color: #64748b; font-size: 12px;">Not specified</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($scheme['physical_target']): ?>
+                                            <span class="badge badge-info"><?php echo number_format($scheme['physical_target']); ?></span>
+                                        <?php else: ?>
+                                            <span style="color: #64748b; font-size: 12px;">Not set</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($scheme['project_incharge_name'] ?? 'Not assigned'); ?></td>
+                                    <td>
+                                        <?php if (!empty($scheme['target_beneficiary'])): ?>
+                                            <?php 
+                                            $beneficiaries = explode(',', $scheme['target_beneficiary']);
+                                            foreach ($beneficiaries as $beneficiary): 
+                                                $beneficiary = trim($beneficiary);
+                                                if (!empty($beneficiary)):
+                                            ?>
+                                                <span class="badge badge-outline" style="margin: 1px; font-size: 10px;"><?php echo htmlspecialchars($beneficiary); ?></span>
+                                            <?php 
+                                                endif;
+                                            endforeach; 
+                                            ?>
+                                        <?php else: ?>
+                                            <span style="color: #64748b; font-size: 12px;">Not specified</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($scheme['status'] == 'Active'): ?>
@@ -193,7 +246,6 @@ $schemes_result = $conn->query($schemes_query);
                                             <span class="badge badge-secondary">Inactive</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo date('d M Y', strtotime($scheme['created_at'])); ?></td>
                                     <td>
                                         <a href="edit_scheme.php?id=<?php echo $scheme['id']; ?>" class="btn btn-warning btn-sm" title="Edit Scheme">
                                             <i class="fas fa-edit"></i>
@@ -211,7 +263,7 @@ $schemes_result = $conn->query($schemes_query);
                             <?php endwhile;
                             else: ?>
                                 <tr>
-                                    <td colspan="8" style="text-align: center; padding: 40px;">
+                                    <td colspan="10" style="text-align: center; padding: 40px;">
                                         <i class="fas fa-inbox" style="font-size: 48px; color: #cbd5e0; margin-bottom: 16px;"></i>
                                         <p style="color: #64748b;">No schemes found. Click "Add New Scheme" to create one.</p>
                                     </td>
@@ -234,27 +286,98 @@ $schemes_result = $conn->query($schemes_query);
         </div>
         
         <form method="POST" action="manage_schemes.php">
-            <div class="form-group">
-                <label class="form-label">Scheme Name <span style="color: red;">*</span></label>
-                <input type="text" name="scheme_name" class="form-control" required placeholder="e.g., Special Component Plan for Scheduled Castes">
-            </div>
-            
-            <div class="form-group">
-                <label class="form-label">Scheme Code <span style="color: red;">*</span></label>
-                <input type="text" name="scheme_code" class="form-control" required placeholder="e.g., SCSP">
+            <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                    <label class="form-label">Scheme Name / Project Name <span style="color: red;">*</span></label>
+                    <input type="text" name="scheme_name" class="form-control" required placeholder="e.g., Special Component Plan for Scheduled Castes">
+                </div>
+                
+                <div class="form-group" style="flex: 1; margin-left: 10px;">
+                    <label class="form-label">Scheme Code / Project Code <span style="color: red;">*</span></label>
+                    <input type="text" name="scheme_code" class="form-control" required placeholder="e.g., SCSP">
+                </div>
             </div>
             
             <div class="form-group">
                 <label class="form-label">Description</label>
-                <textarea name="description" class="form-control" rows="3" placeholder="Brief description of the scheme"></textarea>
+                <textarea name="description" class="form-control" rows="2" placeholder="Brief description of the scheme/project"></textarea>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                    <label class="form-label">Sponsor Agency</label>
+                    <input type="text" name="sponsor_agency" class="form-control" placeholder="e.g., Ministry of Electronics and Information Technology">
+                </div>
+                
+                <div class="form-group" style="flex: 1; margin-left: 10px;">
+                    <label class="form-label">Project Incharge Name</label>
+                    <input type="text" name="project_incharge_name" class="form-control" placeholder="e.g., Dr. John Smith">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control">
+                </div>
+                
+                <div class="form-group" style="flex: 1; margin-left: 10px;">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control">
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group" style="flex: 1; margin-right: 10px;">
+                    <label class="form-label">Physical Target</label>
+                    <input type="number" name="physical_target" class="form-control" placeholder="e.g., 1000" min="0">
+                </div>
+                
+                <div class="form-group" style="flex: 1; margin-left: 10px;">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-control">
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                </div>
             </div>
             
             <div class="form-group">
-                <label class="form-label">Status</label>
-                <select name="status" class="form-control">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                </select>
+                <label class="form-label">Target Beneficiary</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="General" style="margin-right: 5px;">
+                        General
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="SC" style="margin-right: 5px;">
+                        SC (Scheduled Caste)
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="ST" style="margin-right: 5px;">
+                        ST (Scheduled Tribe)
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="OBC" style="margin-right: 5px;">
+                        OBC (Other Backward Class)
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="EWS" style="margin-right: 5px;">
+                        EWS (Economically Weaker Section)
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="Minority" style="margin-right: 5px;">
+                        Minority
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="Women" style="margin-right: 5px;">
+                        Women
+                    </label>
+                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                        <input type="checkbox" name="target_beneficiary[]" value="PWD" style="margin-right: 5px;">
+                        PWD (Person with Disability)
+                    </label>
+                </div>
             </div>
             
             <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -344,12 +467,14 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 .batch-modal-content {
     background-color: #fff;
-    margin: 5% auto;
+    margin: 2% auto;
     padding: 30px;
     border-radius: 8px;
     width: 90%;
-    max-width: 600px;
+    max-width: 800px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    max-height: 90vh;
+    overflow-y: auto;
 }
 .batch-modal-header {
     display: flex;
@@ -379,6 +504,45 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 .close-modal:hover {
     color: #e74c3c;
+}
+.form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #374151;
+}
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+.badge-outline {
+    background: transparent;
+    border: 1px solid #3b82f6;
+    color: #3b82f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+}
+@media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    .form-group {
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+    }
 }
 </style>
 

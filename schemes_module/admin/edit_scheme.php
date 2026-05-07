@@ -23,6 +23,12 @@ $conn->query("CREATE TABLE IF NOT EXISTS `schemes` (
   `scheme_name` varchar(255) NOT NULL,
   `scheme_code` varchar(50) NOT NULL,
   `description` text,
+  `sponsor_agency` varchar(255) DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `physical_target` int(11) DEFAULT NULL,
+  `project_incharge_name` varchar(255) DEFAULT NULL,
+  `target_beneficiary` varchar(255) DEFAULT NULL,
   `status` enum('Active','Inactive') DEFAULT 'Active',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -43,11 +49,17 @@ if (isset($_POST['update_scheme'])) {
     $scheme_name = trim($_POST['scheme_name']);
     $scheme_code = trim($_POST['scheme_code']);
     $description = trim($_POST['description']);
+    $sponsor_agency = trim($_POST['sponsor_agency']);
+    $start_date = !empty($_POST['start_date']) ? $_POST['start_date'] : null;
+    $end_date = !empty($_POST['end_date']) ? $_POST['end_date'] : null;
+    $physical_target = !empty($_POST['physical_target']) ? (int)$_POST['physical_target'] : null;
+    $project_incharge_name = trim($_POST['project_incharge_name']);
+    $target_beneficiary = isset($_POST['target_beneficiary']) ? implode(',', $_POST['target_beneficiary']) : '';
     $status = $_POST['status'];
     
-    $update_sql = "UPDATE schemes SET scheme_name = ?, scheme_code = ?, description = ?, status = ? WHERE id = ?";
+    $update_sql = "UPDATE schemes SET scheme_name = ?, scheme_code = ?, description = ?, sponsor_agency = ?, start_date = ?, end_date = ?, physical_target = ?, project_incharge_name = ?, target_beneficiary = ?, status = ? WHERE id = ?";
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("ssssi", $scheme_name, $scheme_code, $description, $status, $scheme_id);
+    $stmt->bind_param("ssssssisssi", $scheme_name, $scheme_code, $description, $sponsor_agency, $start_date, $end_date, $physical_target, $project_incharge_name, $target_beneficiary, $status, $scheme_id);
     
     if ($stmt->execute()) {
         $_SESSION['message'] = "Scheme updated successfully!";
@@ -209,27 +221,88 @@ $courses_result = $stmt->get_result();
                 </div>
                 
                 <form method="POST" action="">
-                    <div class="form-group">
-                        <label class="form-label">Scheme Name <span style="color: red;">*</span></label>
-                        <input type="text" name="scheme_name" class="form-control" required value="<?php echo htmlspecialchars($scheme['scheme_name']); ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Scheme Code <span style="color: red;">*</span></label>
-                        <input type="text" name="scheme_code" class="form-control" required value="<?php echo htmlspecialchars($scheme['scheme_code']); ?>">
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; margin-right: 10px;">
+                            <label class="form-label">Scheme Name / Project Name <span style="color: red;">*</span></label>
+                            <input type="text" name="scheme_name" class="form-control" required value="<?php echo htmlspecialchars($scheme['scheme_name']); ?>">
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1; margin-left: 10px;">
+                            <label class="form-label">Scheme Code / Project Code <span style="color: red;">*</span></label>
+                            <input type="text" name="scheme_code" class="form-control" required value="<?php echo htmlspecialchars($scheme['scheme_code']); ?>">
+                        </div>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">Description</label>
-                        <textarea name="description" class="form-control" rows="4"><?php echo htmlspecialchars($scheme['description']); ?></textarea>
+                        <textarea name="description" class="form-control" rows="3"><?php echo htmlspecialchars($scheme['description']); ?></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; margin-right: 10px;">
+                            <label class="form-label">Sponsor Agency</label>
+                            <input type="text" name="sponsor_agency" class="form-control" value="<?php echo htmlspecialchars($scheme['sponsor_agency'] ?? ''); ?>" placeholder="e.g., Ministry of Electronics and Information Technology">
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1; margin-left: 10px;">
+                            <label class="form-label">Project Incharge Name</label>
+                            <input type="text" name="project_incharge_name" class="form-control" value="<?php echo htmlspecialchars($scheme['project_incharge_name'] ?? ''); ?>" placeholder="e.g., Dr. John Smith">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; margin-right: 10px;">
+                            <label class="form-label">Start Date</label>
+                            <input type="date" name="start_date" class="form-control" value="<?php echo $scheme['start_date'] ?? ''; ?>">
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1; margin-left: 10px;">
+                            <label class="form-label">End Date</label>
+                            <input type="date" name="end_date" class="form-control" value="<?php echo $scheme['end_date'] ?? ''; ?>">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; margin-right: 10px;">
+                            <label class="form-label">Physical Target</label>
+                            <input type="number" name="physical_target" class="form-control" value="<?php echo $scheme['physical_target'] ?? ''; ?>" placeholder="e.g., 1000" min="0">
+                        </div>
+                        
+                        <div class="form-group" style="flex: 1; margin-left: 10px;">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-control">
+                                <option value="Active" <?php echo $scheme['status'] == 'Active' ? 'selected' : ''; ?>>Active</option>
+                                <option value="Inactive" <?php echo $scheme['status'] == 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-control">
-                            <option value="Active" <?php echo $scheme['status'] == 'Active' ? 'selected' : ''; ?>>Active</option>
-                            <option value="Inactive" <?php echo $scheme['status'] == 'Inactive' ? 'selected' : ''; ?>>Inactive</option>
-                        </select>
+                        <label class="form-label">Target Beneficiary</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;">
+                            <?php 
+                            $current_beneficiaries = !empty($scheme['target_beneficiary']) ? explode(',', $scheme['target_beneficiary']) : [];
+                            $current_beneficiaries = array_map('trim', $current_beneficiaries);
+                            
+                            $beneficiary_options = ['General', 'SC', 'ST', 'OBC', 'EWS', 'Minority', 'Women', 'PWD'];
+                            foreach ($beneficiary_options as $option): 
+                                $checked = in_array($option, $current_beneficiaries) ? 'checked' : '';
+                            ?>
+                                <label style="display: flex; align-items: center; margin-right: 15px;">
+                                    <input type="checkbox" name="target_beneficiary[]" value="<?php echo $option; ?>" <?php echo $checked; ?> style="margin-right: 5px;">
+                                    <?php 
+                                    switch($option) {
+                                        case 'SC': echo 'SC (Scheduled Caste)'; break;
+                                        case 'ST': echo 'ST (Scheduled Tribe)'; break;
+                                        case 'OBC': echo 'OBC (Other Backward Class)'; break;
+                                        case 'EWS': echo 'EWS (Economically Weaker Section)'; break;
+                                        case 'PWD': echo 'PWD (Person with Disability)'; break;
+                                        default: echo $option; break;
+                                    }
+                                    ?>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                     
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -326,6 +399,39 @@ $courses_result = $stmt->get_result();
 </div>
 
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<style>
+.form-row {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+.form-label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: #374151;
+}
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+}
+@media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+        gap: 0;
+    }
+    .form-group {
+        margin-right: 0 !important;
+        margin-left: 0 !important;
+    }
+}
+</style>
 <script>
 // Show toast notification if there's a session message
 <?php if (isset($_SESSION['message'])): ?>
