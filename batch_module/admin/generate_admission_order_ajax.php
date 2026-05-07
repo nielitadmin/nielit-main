@@ -401,39 +401,10 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                             <strong>[Global]</strong> = System/master-admin faculty
                         <?php endif; ?>
                     </small>
-                    <div style="margin-top: 12px; padding: 12px; background: #f8fafc; border: 1px solid #dbeafe; border-radius: 8px;">
-                        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;">
-                            <div style="font-weight: 600; color: #0f172a;">
-                                <i class="fas fa-envelope" style="color: #f59e0b;"></i> Faculty Email Options
-                            </div>
-                            <small style="color: #64748b;">Resend the confirmation email from here</small>
-                        </div>
-                        <?php if (!empty($all_faculty)): ?>
-                            <div style="display: grid; gap: 8px;">
-                                <?php foreach ($all_faculty as $faculty): ?>
-                                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px;">
-                                        <div style="min-width: 0;">
-                                            <div style="font-weight: 600; color: #1e293b;">
-                                                <?php echo htmlspecialchars($faculty['name']); ?>
-                                            </div>
-                                            <div style="font-size: 12px; color: #64748b;">
-                                                <?php echo !empty($faculty['email']) ? htmlspecialchars($faculty['email']) : 'No email address saved'; ?>
-                                            </div>
-                                        </div>
-                                        <button type="button" class="btn btn-sm btn-warning"
-                                                onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, <?php echo json_encode($faculty['name']); ?>, this)"
-                                                <?php echo empty($faculty['email']) ? 'disabled title="No email available"' : ''; ?>
-                                                style="white-space: nowrap;">
-                                            <i class="fas fa-paper-plane"></i> Resend Email
-                                        </button>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        <?php else: ?>
-                            <div style="color: #64748b; font-size: 13px;">
-                                No faculty assigned yet. Add faculty first, then resend options will appear here.
-                            </div>
-                        <?php endif; ?>
+                    <div style="margin-top: 10px;">
+                        <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" target="_blank" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-envelope"></i> Manage Faculty Emails
+                        </a>
                     </div>
                 </div>
             </div>

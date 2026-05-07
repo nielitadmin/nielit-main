@@ -202,6 +202,7 @@ if ($result) {
                                     <th>Designation</th>
                                     <th>Department</th>
                                     <th>Status</th>
+                                    <th>Send Email</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -217,6 +218,17 @@ if ($result) {
                                         <span class="badge <?php echo $faculty['is_active'] ? 'bg-success' : 'bg-secondary'; ?>">
                                             <?php echo $faculty['is_active'] ? 'Active' : 'Inactive'; ?>
                                         </span>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($faculty['email'])): ?>
+                                            <button class="btn btn-sm btn-warning"
+                                                    onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, <?php echo json_encode($faculty['name']); ?>, this)"
+                                                    title="Resend confirmation email to <?php echo htmlspecialchars($faculty['name']); ?>">
+                                                <i class="fas fa-paper-plane"></i> Resend Email
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted" style="font-size: 12px;">No email</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary" onclick="editFaculty(<?php echo htmlspecialchars(json_encode($faculty)); ?>)">
@@ -371,8 +383,57 @@ function deactivateFaculty(facultyId, facultyName) {
         form.submit();
     }
 }
+
+function resendFacultyEmail(facultyId, facultyName, btn) {
+    if (!confirm(`Resend confirmation email to ${facultyName}?`)) {
+        return;
+    }
+
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+    btn.disabled = true;
+
+    fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ faculty_id: facultyId })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-success');
+            if (typeof showToast === 'function') showToast('Email sent to ' + facultyName + ' successfully!', 'success');
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-warning');
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            if (typeof showToast === 'function') {
+                showToast('Error sending email: ' + (result.message || 'Unknown error'), 'error');
+            } else {
+                alert('Error sending email: ' + (result.message || 'Unknown error'));
+            }
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    })
+    .catch(error => {
+        if (typeof showToast === 'function') {
+            showToast('Error sending email: ' + error.message, 'error');
+        } else {
+            alert('Error sending email: ' + error.message);
+        }
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
+}
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 </body>
 </html>
