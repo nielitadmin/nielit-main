@@ -241,8 +241,10 @@ if ($result) {
                                         $can_delete = $faculty['is_active'] && ($admin_role === 'master_admin' || $faculty['created_by'] == $admin_id);
                                         ?>
                                         <?php if ($can_delete): ?>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deactivateFaculty(<?php echo $faculty['id']; ?>, '<?php echo htmlspecialchars($faculty['name']); ?>')">
-                                            <i class="fas fa-ban"></i>
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                onclick="deactivateFaculty(<?php echo $faculty['id']; ?>, '<?php echo addslashes(htmlspecialchars($faculty['name'], ENT_QUOTES)); ?>')"
+                                                title="Deactivate <?php echo htmlspecialchars($faculty['name']); ?>">
+                                            <i class="fas fa-ban"></i> Deactivate
                                         </button>
                                         <?php endif; ?>
 
