@@ -207,9 +207,6 @@ $courses_result = $stmt->get_result();
                 <a href="manage_schemes.php" class="btn btn-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Schemes
                 </a>
-                <a href="generate_admission_order.php?scheme_id=<?php echo $scheme_id; ?>" class="btn btn-success">
-                    <i class="fas fa-file-alt"></i> Generate Admission Order
-                </a>
             </div>
 
             <!-- Edit Scheme Form -->
