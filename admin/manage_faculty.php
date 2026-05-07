@@ -151,6 +151,7 @@ if ($result) {
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo time(); ?>">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css?v=<?php echo time(); ?>">
 </head>
 <body>
 
@@ -378,30 +379,47 @@ function editFaculty(faculty) {
 }
 
 function deactivateFaculty(facultyId, facultyName) {
-    if (!confirm('Deactivate ' + facultyName + '? They will no longer appear in active faculty lists.')) return;
+    showConfirm({
+        title: 'Deactivate Faculty',
+        message: `Deactivate <strong>${facultyName}</strong>? They will no longer appear in active faculty lists.`,
+        type: 'warning',
+        confirmText: 'Deactivate',
+        cancelText: 'Cancel'
+    }).then(confirmed => {
+        if (!confirmed) return;
 
-    fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
-    })
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(result => {
-        if (result.success) {
-            showToast(facultyName + ' has been deactivated.', 'delete');
-            const row = document.querySelector('tr[data-faculty-id="' + facultyId + '"]');
-            if (row) {
-                row.style.transition = 'opacity 0.4s';
-                row.style.opacity = '0';
-                setTimeout(() => row.remove(), 400);
+        // Show loading toast
+        const loadingToast = toast.loading(`Deactivating ${facultyName}...`);
+
+        fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
+        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(result => {
+            // Remove loading toast
+            toast.remove(loadingToast);
+            
+            if (result.success) {
+                toast.deleted(`${facultyName} has been deactivated.`);
+                const row = document.querySelector('tr[data-faculty-id="' + facultyId + '"]');
+                if (row) {
+                    row.style.transition = 'opacity 0.4s';
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 400);
+                } else {
+                    setTimeout(() => location.reload(), 1200);
+                }
             } else {
-                setTimeout(() => location.reload(), 1200);
+                toast.error('Error: ' + (result.message || 'Could not deactivate faculty'));
             }
-        } else {
-            showToast('Error: ' + (result.message || 'Could not deactivate faculty'), 'error');
-        }
-    })
-    .catch(err => showToast('Request failed: ' + err.message, 'error'));
+        })
+        .catch(err => {
+            toast.remove(loadingToast);
+            toast.error('Request failed: ' + err.message);
+        });
+    });
 }
 
 function deleteFacultyPermanent(facultyId, facultyName) {
@@ -440,50 +458,114 @@ function deleteFacultyPermanent(facultyId, facultyName) {
 }
 
 function resendFacultyEmail(facultyId, facultyName, btn) {
-    if (!confirm('Send confirmation email to ' + facultyName + '?')) return;
+    showConfirm({
+        title: 'Send Email',
+        message: `Send confirmation email to <strong>${facultyName}</strong>?`,
+        type: 'info',
+        confirmText: 'Send Email',
+        cancelText: 'Cancel'
+    }).then(confirmed => {
+        if (!confirmed) return;
 
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-    btn.disabled = true;
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        btn.disabled = true;
 
-    fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
-    })
-    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(result => {
-        if (result.success) {
-            btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
-            btn.classList.remove('btn-warning');
-            btn.classList.add('btn-success');
-            showToast('Email sent to ' + facultyName + ' successfully!', 'success');
-            setTimeout(() => {
+        // Show loading toast
+        const loadingToast = toast.loading(`Sending email to ${facultyName}...`);
+
+        fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
+        })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(result => {
+            // Remove loading toast
+            toast.remove(loadingToast);
+            
+            if (result.success) {
+                btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-success');
+                toast.success(`Email sent to ${facultyName} successfully!`);
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('btn-success');
+                    btn.classList.add('btn-warning');
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                toast.error('Error: ' + (result.message || 'Unknown error'));
                 btn.innerHTML = originalText;
-                btn.classList.remove('btn-success');
-                btn.classList.add('btn-warning');
                 btn.disabled = false;
-            }, 3000);
-        } else {
-            showToast('Error: ' + (result.message || 'Unknown error'), 'error');
+            }
+        })
+        .catch(err => {
+            toast.remove(loadingToast);
+            toast.error('Failed to send email: ' + err.message);
             btn.innerHTML = originalText;
             btn.disabled = false;
-        }
-    })
-    .catch(err => {
-        showToast('Failed to send email: ' + err.message, 'error');
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+        });
     });
 }
 
 // Show success/error from PHP page reload (add/update actions)
 <?php if (isset($success_message)): ?>
-document.addEventListener('DOMContentLoaded', () => showToast(<?php echo json_encode($success_message); ?>, 'success'));
+document.addEventListener('DOMContentLoaded', () => toast.success(<?php echo json_encode($success_message); ?>));
 <?php endif; ?>
 <?php if (isset($error_message)): ?>
-document.addEventListener('DOMContentLoaded', () => showToast(<?php echo json_encode($error_message); ?>, 'error'));
+document.addEventListener('DOMContentLoaded', () => toast.error(<?php echo json_encode($error_message); ?>));
 <?php endif; ?>
+
+// Enhanced form submission with loading states
+document.addEventListener('DOMContentLoaded', function() {
+    // Add Faculty Form
+    const addForm = document.querySelector('#addFacultyModal form');
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Faculty...';
+            submitBtn.disabled = true;
+            
+            // Show loading toast
+            const loadingToast = toast.loading('Adding faculty member...');
+            
+            // The form will submit normally, but we show the loading state
+            setTimeout(() => {
+                if (submitBtn) {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            }, 1000);
+        });
+    }
+    
+    // Edit Faculty Form
+    const editForm = document.querySelector('#editFacultyModal form');
+    if (editForm) {
+        editForm.addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            submitBtn.disabled = true;
+            
+            // Show loading toast
+            const loadingToast = toast.loading('Updating faculty member...');
+            
+            // The form will submit normally, but we show the loading state
+            setTimeout(() => {
+                if (submitBtn) {
+                    submitBtn.innerHTML = originalText;
+                    submitBtn.disabled = false;
+                }
+            }, 1000);
+        });
+    }
+});
 </script>
 
 </body>
