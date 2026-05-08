@@ -3194,9 +3194,10 @@ async function loadStatesFromAPI() {
         // Populate states from API data
         states.forEach(state => {
             const option = document.createElement('option');
-            option.value = state.id;
+            option.value = state.iso2;  // Use ISO2 code as primary value
             option.textContent = state.name;
             option.setAttribute('data-name', state.name);
+            option.setAttribute('data-id', state.id);
             option.setAttribute('data-iso2', state.iso2);
             stateSelect.appendChild(option);
         });
@@ -3225,8 +3226,8 @@ async function loadStatesFromAPI() {
 }
 
 // Load cities from API with local fallback
-async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
-    console.log('Loading cities from API for:', stateName, 'ID:', stateId, 'ISO2:', stateIso2);
+async function loadCitiesFromAPI(stateIso2, stateName) {
+    console.log('Loading cities from API for:', stateName, 'ISO2:', stateIso2);
     
     const citySelect = document.getElementById('city');
     if (!citySelect) {
@@ -3241,8 +3242,8 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
     citySelect.disabled = true;
     
     try {
-        // Try loading cities with state ID
-        let response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateId}/cities`, {
+        // Try loading cities with ISO2 code (this is what the API expects)
+        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateIso2}/cities`, {
             method: 'GET',
             headers: {
                 'X-CSCAPI-KEY': API_CONFIG.API_KEY,
@@ -3250,20 +3251,7 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
             }
         });
         
-        console.log('First attempt response status:', response.status, 'State ID:', stateId);
-        
-        // Fallback: Try with ISO2 code if state ID fails
-        if (!response.ok || response.status === 404) {
-            console.warn('State ID failed, trying with ISO2 code:', stateIso2);
-            response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateIso2}/cities`, {
-                method: 'GET',
-                headers: {
-                    'X-CSCAPI-KEY': API_CONFIG.API_KEY,
-                    'Content-Type': 'application/json'
-                }
-            });
-            console.log('Second attempt response status:', response.status, 'State ISO2:', stateIso2);
-        }
+        console.log('API response status:', response.status, 'State ISO2:', stateIso2);
         
         if (!response.ok) {
             throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -3366,19 +3354,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Handle state change
     stateSelect.addEventListener('change', function() {
-        const stateId = this.value;
+        const stateIso2 = this.value;  // This is now the ISO2 code directly
         const stateName = this.options[this.selectedIndex]?.getAttribute('data-name') || 'Unknown';
-        const stateIso2 = this.options[this.selectedIndex]?.getAttribute('data-iso2') || '';
         
-        console.log('State changed:', stateId, stateName, 'ISO2:', stateIso2);
+        console.log('State changed:', stateIso2, stateName);
         
         // Reset city dropdown
         citySelect.innerHTML = '<option value="">Select City</option>';
         citySelect.disabled = true;
         updateCityStatus('Please select a state first');
         
-        if (stateId) {
-            loadCitiesFromAPI(stateId, stateName, stateIso2);
+        if (stateIso2) {
+            loadCitiesFromAPI(stateIso2, stateName, stateIso2);
         }
         
         updateProgress();
