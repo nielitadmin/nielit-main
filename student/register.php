@@ -3162,6 +3162,9 @@ async function loadStatesFromAPI() {
             stateSelect.appendChild(option);
         });
         
+        // Log first state data for debugging
+        console.log('Sample state data from API:', states[0]);
+        
         stateSelect.disabled = false;
         updateStateStatus(`${states.length} states loaded successfully`, false, true);
         console.log(`States loaded successfully from API: ${states.length} states`);
@@ -3208,6 +3211,8 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
             }
         });
         
+        console.log('First attempt response status:', response.status, 'State ID:', stateId);
+        
         // Fallback: Try with ISO2 code if state ID fails
         if (!response.ok || response.status === 404) {
             console.warn('State ID failed, trying with ISO2 code:', stateIso2);
@@ -3218,6 +3223,7 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
                     'Content-Type': 'application/json'
                 }
             });
+            console.log('Second attempt response status:', response.status, 'State ISO2:', stateIso2);
         }
         
         if (!response.ok) {
@@ -3225,6 +3231,7 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
         }
         
         const cities = await response.json();
+        console.log('Cities response received:', cities);
         
         if (!Array.isArray(cities) || cities.length === 0) {
             throw new Error('No cities data returned from API. Please enter city manually.');
