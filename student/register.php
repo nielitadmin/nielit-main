@@ -3183,8 +3183,8 @@ async function loadStatesFromAPI() {
 }
 
 // Load cities from API
-async function loadCitiesFromAPI(stateId, stateName) {
-    console.log('Loading cities from API for:', stateName);
+async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
+    console.log('Loading cities from API for:', stateName, 'ID:', stateId, 'ISO2:', stateIso2);
     
     const citySelect = document.getElementById('city');
     if (!citySelect) {
@@ -3199,13 +3199,26 @@ async function loadCitiesFromAPI(stateId, stateName) {
     citySelect.disabled = true;
     
     try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateId}/cities`, {
+        // Try loading cities with state ID
+        let response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateId}/cities`, {
             method: 'GET',
             headers: {
                 'X-CSCAPI-KEY': API_CONFIG.API_KEY,
                 'Content-Type': 'application/json'
             }
         });
+        
+        // Fallback: Try with ISO2 code if state ID fails
+        if (!response.ok || response.status === 404) {
+            console.warn('State ID failed, trying with ISO2 code:', stateIso2);
+            response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateIso2}/cities`, {
+                method: 'GET',
+                headers: {
+                    'X-CSCAPI-KEY': API_CONFIG.API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            });
+        }
         
         if (!response.ok) {
             throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -3214,7 +3227,7 @@ async function loadCitiesFromAPI(stateId, stateName) {
         const cities = await response.json();
         
         if (!Array.isArray(cities) || cities.length === 0) {
-            throw new Error('No cities data returned from API');
+            throw new Error('No cities data returned from API. Please enter city manually.');
         }
         
         // Populate cities from API data
@@ -3242,14 +3255,21 @@ async function loadCitiesFromAPI(stateId, stateName) {
         }
     } catch (error) {
         console.error('Error loading cities from API:', error);
-        updateCityStatus(`Error loading cities: ${error.message}`, true);
+        updateCityStatus(`${error.message}`, true);
+        
+        // Add manual input option as fallback
+        const manualOption = document.createElement('option');
+        manualOption.value = 'manual_input';
+        manualOption.textContent = 'Type City Name Manually (API unavailable)';
+        manualOption.style.fontStyle = 'italic';
+        manualOption.style.color = '#dc2626';
+        citySelect.appendChild(manualOption);
+        
+        citySelect.disabled = false;
         
         if (typeof toast !== 'undefined') {
-            toast.error(`Failed to load cities: ${error.message}`);
+            toast.error(`Could not load cities: ${error.message}`);
         }
-        
-        // Keep select disabled
-        citySelect.disabled = true;
     }
 }
 
@@ -3272,8 +3292,9 @@ document.addEventListener('DOMContentLoaded', function() {
     stateSelect.addEventListener('change', function() {
         const stateId = this.value;
         const stateName = this.options[this.selectedIndex]?.getAttribute('data-name') || 'Unknown';
+        const stateIso2 = this.options[this.selectedIndex]?.getAttribute('data-iso2') || '';
         
-        console.log('State changed:', stateId, stateName);
+        console.log('State changed:', stateId, stateName, 'ISO2:', stateIso2);
         
         // Reset city dropdown
         citySelect.innerHTML = '<option value="">Select City</option>';
@@ -3281,7 +3302,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCityStatus('Please select a state first');
         
         if (stateId) {
-            loadCitiesFromAPI(stateId, stateName);
+            loadCitiesFromAPI(stateId, stateName, stateIso2);
         }
         
         updateProgress();
