@@ -3074,148 +3074,10 @@ function removeRow(button) {
     updateProgress();
 }
 
-// Complete Indian States and Cities Database (Local - No API Required)
-const indianStatesAndCities = {
-    'AN': {
-        name: 'Andaman and Nicobar Islands',
-        cities: ['Port Blair', 'Diglipur', 'Mayabunder', 'Rangat', 'Car Nicobar', 'Nancowry']
-    },
-    'AP': {
-        name: 'Andhra Pradesh',
-        cities: ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Tirupati', 'Kadapa', 'Anantapur', 'Eluru', 'Ongole', 'Chittoor', 'Machilipatnam', 'Adoni', 'Tenali', 'Proddatur', 'Hindupur', 'Bhimavaram', 'Madanapalle', 'Guntakal']
-    },
-    'AR': {
-        name: 'Arunachal Pradesh',
-        cities: ['Itanagar', 'Naharlagun', 'Pasighat', 'Tezpur', 'Bomdila', 'Ziro', 'Along', 'Changlang', 'Tezu', 'Khonsa']
-    },
-    'AS': {
-        name: 'Assam',
-        cities: ['Guwahati', 'Silchar', 'Dibrugarh', 'Jorhat', 'Nagaon', 'Tinsukia', 'Tezpur', 'Bongaigaon', 'Dhubri', 'Diphu', 'North Lakhimpur', 'Karimganj', 'Sivasagar', 'Goalpara', 'Barpeta', 'Mangaldoi', 'Haflong', 'Hailakandi', 'Morigaon', 'Hojai']
-    },
-    'BR': {
-        name: 'Bihar',
-        cities: ['Patna', 'Gaya', 'Bhagalpur', 'Muzaffarpur', 'Purnia', 'Darbhanga', 'Bihar Sharif', 'Arrah', 'Begusarai', 'Katihar', 'Munger', 'Chhapra', 'Danapur', 'Saharsa', 'Sasaram', 'Hajipur', 'Dehri', 'Siwan', 'Motihari', 'Nawada']
-    },
-    'CH': {
-        name: 'Chandigarh',
-        cities: ['Chandigarh']
-    },
-    'CT': {
-        name: 'Chhattisgarh',
-        cities: ['Raipur', 'Bhilai', 'Bilaspur', 'Korba', 'Durg', 'Rajnandgaon', 'Jagdalpur', 'Raigarh', 'Ambikapur', 'Mahasamund', 'Dhamtari', 'Chirmiri', 'Janjgir', 'Sakti', 'Tilda Newra', 'Mungeli', 'Naila Janjgir', 'Champa', 'Akaltara', 'Dongargarh']
-    },
-    'DN': {
-        name: 'Dadra and Nagar Haveli and Daman and Diu',
-        cities: ['Daman', 'Diu', 'Silvassa']
-    },
-    'DL': {
-        name: 'Delhi',
-        cities: ['New Delhi', 'Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi', 'Central Delhi', 'North East Delhi', 'North West Delhi', 'South East Delhi', 'South West Delhi']
-    },
-    'GA': {
-        name: 'Goa',
-        cities: ['Panaji', 'Vasco da Gama', 'Margao', 'Mapusa', 'Ponda', 'Bicholim', 'Curchorem', 'Sanquelim', 'Cuncolim', 'Quepem']
-    },
-    'GJ': {
-        name: 'Gujarat',
-        cities: ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar', 'Jamnagar', 'Junagadh', 'Gandhinagar', 'Anand', 'Navsari', 'Morbi', 'Nadiad', 'Surendranagar', 'Bharuch', 'Mehsana', 'Bhuj', 'Porbandar', 'Palanpur', 'Valsad', 'Vapi', 'Gondal', 'Veraval', 'Godhra', 'Patan', 'Kalol']
-    },
-    'HR': {
-        name: 'Haryana',
-        cities: ['Faridabad', 'Gurgaon', 'Panipat', 'Ambala', 'Yamunanagar', 'Rohtak', 'Hisar', 'Karnal', 'Sonipat', 'Panchkula', 'Bhiwani', 'Sirsa', 'Bahadurgarh', 'Jind', 'Thanesar', 'Kaithal', 'Palwal', 'Rewari', 'Hansi', 'Narnaul']
-    },
-    'HP': {
-        name: 'Himachal Pradesh',
-        cities: ['Shimla', 'Dharamshala', 'Solan', 'Mandi', 'Palampur', 'Baddi', 'Nahan', 'Paonta Sahib', 'Sundarnagar', 'Chamba', 'Una', 'Kullu', 'Hamirpur', 'Bilaspur', 'Yol', 'Jubbal', 'Chail', 'Gagret', 'Kangra', 'Nurpur']
-    },
-    'JK': {
-        name: 'Jammu and Kashmir',
-        cities: ['Srinagar', 'Jammu', 'Baramulla', 'Anantnag', 'Sopore', 'Kathua', 'Rajauri', 'Punch', 'Udhampur', 'Leh', 'Kargil']
-    },
-    'JH': {
-        name: 'Jharkhand',
-        cities: ['Ranchi', 'Jamshedpur', 'Dhanbad', 'Bokaro', 'Deoghar', 'Phusro', 'Hazaribagh', 'Giridih', 'Ramgarh', 'Medininagar', 'Chirkunda', 'Pakaur', 'Chaibasa', 'Dumka', 'Sahibganj', 'Mihijam', 'Patratu', 'Lohardaga', 'Tenu dam-cum-Kathhara', 'Hussainabad']
-    },
-    'KA': {
-        name: 'Karnataka',
-        cities: ['Bangalore', 'Mysore', 'Hubli-Dharwad', 'Mangalore', 'Belgaum', 'Gulbarga', 'Davanagere', 'Bellary', 'Bijapur', 'Shimoga', 'Tumkur', 'Raichur', 'Bidar', 'Hospet', 'Hassan', 'Gadag-Betigeri', 'Udupi', 'Bhadravati', 'Chitradurga', 'Kolar', 'Mandya', 'Chikmagalur', 'Gangavati', 'Bagalkot', 'Ranebennuru']
-    },
-    'KL': {
-        name: 'Kerala',
-        cities: ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Kollam', 'Thrissur', 'Alappuzha', 'Palakkad', 'Kannur', 'Kasaragod', 'Kottayam', 'Malappuram', 'Pathanamthitta', 'Idukki', 'Wayanad', 'Ernakulam']
-    },
-    'LD': {
-        name: 'Lakshadweep',
-        cities: ['Kavaratti', 'Agatti', 'Minicoy']
-    },
-    'MP': {
-        name: 'Madhya Pradesh',
-        cities: ['Indore', 'Bhopal', 'Jabalpur', 'Gwalior', 'Ujjain', 'Sagar', 'Dewas', 'Satna', 'Ratlam', 'Rewa', 'Murwara', 'Singrauli', 'Burhanpur', 'Khandwa', 'Bhind', 'Chhindwara', 'Guna', 'Shivpuri', 'Vidisha', 'Chhatarpur', 'Damoh', 'Mandsaur', 'Khargone', 'Neemuch', 'Pithampur']
-    },
-    'MH': {
-        name: 'Maharashtra',
-        cities: ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Aurangabad', 'Solapur', 'Amravati', 'Kolhapur', 'Sangli', 'Malegaon', 'Akola', 'Latur', 'Dhule', 'Ahmednagar', 'Chandrapur', 'Parbhani', 'Jalgaon', 'Bhiwandi', 'Nanded', 'Satara', 'Beed', 'Yavatmal', 'Kamptee', 'Gondia']
-    },
-    'MN': {
-        name: 'Manipur',
-        cities: ['Imphal', 'Thoubal', 'Lilong', 'Mayang Imphal', 'Kakching']
-    },
-    'ML': {
-        name: 'Meghalaya',
-        cities: ['Shillong', 'Tura', 'Nongstoin', 'Jowai', 'Baghmara', 'Williamnagar', 'Resubelpara', 'Mawkyrwat']
-    },
-    'MZ': {
-        name: 'Mizoram',
-        cities: ['Aizawl', 'Lunglei', 'Saiha', 'Champhai', 'Kolasib', 'Serchhip', 'Mamit', 'Lawngtlai']
-    },
-    'NL': {
-        name: 'Nagaland',
-        cities: ['Kohima', 'Dimapur', 'Mokokchung', 'Tuensang', 'Wokha', 'Zunheboto', 'Phek', 'Kiphire', 'Longleng', 'Peren', 'Mon']
-    },
-    'OR': {
-        name: 'Odisha',
-        cities: ['Bhubaneswar', 'Cuttack', 'Rourkela', 'Brahmapur', 'Sambalpur', 'Puri', 'Balasore', 'Bhadrak', 'Baripada', 'Jharsuguda', 'Jeypore', 'Barbil', 'Khordha', 'Rayagada', 'Koraput', 'Kendujhar', 'Jagatsinghpur', 'Paradip', 'Bhawanipatna', 'Dhenkanal']
-    },
-    'PY': {
-        name: 'Puducherry',
-        cities: ['Puducherry', 'Karaikal', 'Yanam', 'Mahe']
-    },
-    'PB': {
-        name: 'Punjab',
-        cities: ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali', 'Firozpur', 'Batala', 'Pathankot', 'Moga', 'Abohar', 'Malerkotla', 'Khanna', 'Phagwara', 'Muktsar', 'Barnala', 'Rajpura', 'Hoshiarpur', 'Kapurthala', 'Faridkot']
-    },
-    'RJ': {
-        name: 'Rajasthan',
-        cities: ['Jaipur', 'Jodhpur', 'Kota', 'Bikaner', 'Ajmer', 'Udaipur', 'Bhilwara', 'Alwar', 'Bharatpur', 'Sikar', 'Pali', 'Sri Ganganagar', 'Kishangarh', 'Baran', 'Dhaulpur', 'Tonk', 'Beawar', 'Hanumangarh', 'Gangapur City', 'Banswara', 'Sawai Madhopur', 'Jhunjhunu', 'Makrana', 'Fatehpur', 'Chittorgarh']
-    },
-    'SK': {
-        name: 'Sikkim',
-        cities: ['Gangtok', 'Namchi', 'Geyzing', 'Mangan']
-    },
-    'TN': {
-        name: 'Tamil Nadu',
-        cities: ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Tirunelveli', 'Tiruppur', 'Vellore', 'Erode', 'Thoothukkudi', 'Dindigul', 'Thanjavur', 'Ranipet', 'Sivakasi', 'Karur', 'Udhagamandalam', 'Hosur', 'Nagercoil', 'Kanchipuram', 'Kumarakonam', 'Karaikkudi', 'Neyveli', 'Cuddalore', 'Kumbakonam', 'Tiruvannamalai']
-    },
-    'TG': {
-        name: 'Telangana',
-        cities: ['Hyderabad', 'Warangal', 'Nizamabad', 'Khammam', 'Karimnagar', 'Ramagundam', 'Mahabubnagar', 'Nalgonda', 'Adilabad', 'Suryapet', 'Miryalaguda', 'Jagtial', 'Mancherial', 'Nirmal', 'Kothagudem', 'Bodhan', 'Sangareddy', 'Metpally', 'Zahirabad', 'MeerpetJillelguda']
-    },
-    'TR': {
-        name: 'Tripura',
-        cities: ['Agartala', 'Dharmanagar', 'Udaipur', 'Kailasahar', 'Belonia', 'Khowai', 'Pratapgarh', 'Ranir Bazar', 'Sonamura', 'Kumarghat']
-    },
-    'UP': {
-        name: 'Uttar Pradesh',
-        cities: ['Lucknow', 'Kanpur', 'Ghaziabad', 'Agra', 'Varanasi', 'Meerut', 'Allahabad', 'Bareilly', 'Aligarh', 'Moradabad', 'Saharanpur', 'Gorakhpur', 'Noida', 'Firozabad', 'Jhansi', 'Muzaffarnagar', 'Mathura', 'Rampur', 'Shahjahanpur', 'Farrukhabad', 'Mau', 'Hapur', 'Etawah', 'Mirzapur', 'Bulandshahr', 'Sambhal', 'Amroha', 'Hardoi', 'Fatehpur', 'Raebareli']
-    },
-    'UT': {
-        name: 'Uttarakhand',
-        cities: ['Dehradun', 'Haridwar', 'Roorkee', 'Haldwani-cum-Kathgodam', 'Rudrapur', 'Kashipur', 'Rishikesh', 'Pithoragarh', 'Ramnagar', 'Rudraprayag', 'Jaspur', 'Kotdwara', 'Nainital', 'Mussoorie', 'Tehri', 'Pauri', 'Bageshwar', 'Champawat', 'Almora', 'Uttarkashi']
-    },
-    'WB': {
-        name: 'West Bengal',
-        cities: ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri', 'Malda', 'Bardhaman', 'Baharampur', 'Habra', 'Kharagpur', 'Shantipur', 'Dankuni', 'Dhulian', 'Ranaghat', 'Haldia', 'Raiganj', 'Krishnanagar', 'Nabadwip', 'Medinipur', 'Jalpaiguri', 'Balurghat', 'Basirhat', 'Bankura', 'Chakdaha', 'Darjeeling']
-    }
+// API Configuration for States and Cities
+const API_CONFIG = {
+    API_KEY: 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==',
+    BASE_URL: 'https://api.countrystatecity.in/v1'
 };
 
 // Function to update status messages
@@ -3255,9 +3117,9 @@ function updateCityStatus(message, isError = false, isSuccess = false) {
     }
 }
 
-// Load states from local database (primary method)
-function loadStatesFromLocalData() {
-    console.log('Loading states from local database...');
+// Load states from API
+async function loadStatesFromAPI() {
+    console.log('Loading states from API...');
     
     const stateSelect = document.getElementById('state');
     if (!stateSelect) {
@@ -3269,30 +3131,60 @@ function loadStatesFromLocalData() {
     
     // Clear existing options
     stateSelect.innerHTML = '<option value="">Select State</option>';
+    stateSelect.disabled = true;
     
-    // Populate states from local data
-    Object.keys(indianStatesAndCities).forEach(stateCode => {
-        const stateData = indianStatesAndCities[stateCode];
-        const option = document.createElement('option');
-        option.value = stateCode;
-        option.textContent = stateData.name;
-        option.setAttribute('data-name', stateData.name);
-        stateSelect.appendChild(option);
-    });
-    
-    stateSelect.disabled = false;
-    updateStateStatus(`${Object.keys(indianStatesAndCities).length} states loaded successfully`, false, true);
-    
-    console.log('States loaded successfully from local database');
-    
-    if (typeof toast !== 'undefined') {
-        toast.success('States loaded successfully from local database');
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states`, {
+            method: 'GET',
+            headers: {
+                'X-CSCAPI-KEY': API_CONFIG.API_KEY,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const states = await response.json();
+        
+        if (!Array.isArray(states) || states.length === 0) {
+            throw new Error('No states data returned from API');
+        }
+        
+        // Populate states from API data
+        states.forEach(state => {
+            const option = document.createElement('option');
+            option.value = state.id;
+            option.textContent = state.name;
+            option.setAttribute('data-name', state.name);
+            option.setAttribute('data-iso2', state.iso2);
+            stateSelect.appendChild(option);
+        });
+        
+        stateSelect.disabled = false;
+        updateStateStatus(`${states.length} states loaded successfully`, false, true);
+        console.log(`States loaded successfully from API: ${states.length} states`);
+        
+        if (typeof toast !== 'undefined') {
+            toast.success(`${states.length} states loaded successfully`);
+        }
+    } catch (error) {
+        console.error('Error loading states from API:', error);
+        updateStateStatus(`Error loading states: ${error.message}`, true);
+        
+        if (typeof toast !== 'undefined') {
+            toast.error(`Failed to load states: ${error.message}`);
+        }
+        
+        // Keep select disabled
+        stateSelect.disabled = true;
     }
 }
 
-// Load cities from local database
-function loadCitiesFromLocalData(stateCode, stateName) {
-    console.log('Loading cities from local database for:', stateName);
+// Load cities from API
+async function loadCitiesFromAPI(stateId, stateName) {
+    console.log('Loading cities from API for:', stateName);
     
     const citySelect = document.getElementById('city');
     if (!citySelect) {
@@ -3304,15 +3196,32 @@ function loadCitiesFromLocalData(stateCode, stateName) {
     
     // Clear existing options
     citySelect.innerHTML = '<option value="">Select City</option>';
+    citySelect.disabled = true;
     
-    if (stateCode && indianStatesAndCities[stateCode]) {
-        const cities = indianStatesAndCities[stateCode].cities;
+    try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateId}/cities`, {
+            method: 'GET',
+            headers: {
+                'X-CSCAPI-KEY': API_CONFIG.API_KEY,
+                'Content-Type': 'application/json'
+            }
+        });
         
-        // Populate cities
-        cities.forEach(cityName => {
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+        
+        const cities = await response.json();
+        
+        if (!Array.isArray(cities) || cities.length === 0) {
+            throw new Error('No cities data returned from API');
+        }
+        
+        // Populate cities from API data
+        cities.forEach(city => {
             const option = document.createElement('option');
-            option.value = cityName;
-            option.textContent = cityName;
+            option.value = city.name;
+            option.textContent = city.name;
             citySelect.appendChild(option);
         });
         
@@ -3326,63 +3235,27 @@ function loadCitiesFromLocalData(stateCode, stateName) {
         
         citySelect.disabled = false;
         updateCityStatus(`${cities.length} cities loaded for ${stateName}`, false, true);
-        
-        console.log(`Cities loaded successfully: ${cities.length} cities for ${stateName}`);
+        console.log(`Cities loaded successfully from API: ${cities.length} cities for ${stateName}`);
         
         if (typeof toast !== 'undefined') {
             toast.success(`${cities.length} cities loaded for ${stateName}`);
         }
-    } else {
-        updateCityStatus('No cities found for selected state', true);
+    } catch (error) {
+        console.error('Error loading cities from API:', error);
+        updateCityStatus(`Error loading cities: ${error.message}`, true);
+        
+        if (typeof toast !== 'undefined') {
+            toast.error(`Failed to load cities: ${error.message}`);
+        }
+        
+        // Keep select disabled
+        citySelect.disabled = true;
     }
 }
 
-// API Test Function (for debugging external API - optional)
-window.testStateAPI = function() {
-    console.log('Testing External State API (for debugging only)...');
-    const API_KEY = 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==';
-    const BASE_URL = 'https://api.countrystatecity.in/v1';
-    
-    console.log('API Key:', API_KEY);
-    console.log('Base URL:', BASE_URL);
-    
-    fetch(`${BASE_URL}/countries/IN/states`, {
-        method: 'GET',
-        headers: {
-            'X-CSCAPI-KEY': API_KEY,
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => {
-        console.log('Test Response Status:', response.status);
-        if (response.status === 401) {
-            console.error('API Key is invalid or expired');
-            if (typeof toast !== 'undefined') {
-                toast.error('External API key is expired. Using local database instead.');
-            }
-        }
-        return response.text();
-    })
-    .then(text => {
-        console.log('Test Response Text:', text);
-        try {
-            const json = JSON.parse(text);
-            console.log('Test Response JSON:', json);
-        } catch (e) {
-            console.error('Failed to parse JSON:', e);
-        }
-    })
-    .catch(error => {
-        console.error('Test API Error:', error);
-        if (typeof toast !== 'undefined') {
-            toast.error('External API test failed. Using local database.');
-        }
-    });
-};
-
 // Initialize state and city functionality
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded - Initializing State/City system...');
+    console.log('Page loaded - Initializing State/City system with API...');
     
     const stateSelect = document.getElementById('state');
     const citySelect = document.getElementById('city');
@@ -3392,23 +3265,23 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Load states immediately from local data
-    loadStatesFromLocalData();
+    // Load states immediately from API
+    loadStatesFromAPI();
     
     // Handle state change
     stateSelect.addEventListener('change', function() {
-        const stateCode = this.value;
+        const stateId = this.value;
         const stateName = this.options[this.selectedIndex]?.getAttribute('data-name') || 'Unknown';
         
-        console.log('State changed:', stateCode, stateName);
+        console.log('State changed:', stateId, stateName);
         
         // Reset city dropdown
         citySelect.innerHTML = '<option value="">Select City</option>';
         citySelect.disabled = true;
         updateCityStatus('Please select a state first');
         
-        if (stateCode) {
-            loadCitiesFromLocalData(stateCode, stateName);
+        if (stateId) {
+            loadCitiesFromAPI(stateId, stateName);
         }
         
         updateProgress();
@@ -3441,7 +3314,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateProgress();
     });
     
-    console.log('State/City system initialized successfully with local database');
+    console.log('State/City system initialized successfully with API');
 });
 
 // Filter courses by training centre (only if not locked)
