@@ -3074,6 +3074,45 @@ function removeRow(button) {
     updateProgress();
 }
 
+// Local cities database as fallback
+const citiesByState = {
+    'OR': ['Bhubaneswar', 'Cuttack', 'Rourkela', 'Brahmapur', 'Sambalpur', 'Puri', 'Balasore', 'Bhadrak', 'Baripada', 'Jharsuguda', 'Jeypore', 'Barbil', 'Khordha', 'Rayagada', 'Koraput', 'Kendujhar', 'Jagatsinghpur', 'Paradip', 'Bhawanipatna', 'Dhenkanal'],
+    'AN': ['Port Blair', 'Diglipur', 'Mayabunder', 'Rangat'],
+    'AP': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Tirupati', 'Kadapa', 'Anantapur'],
+    'AR': ['Itanagar', 'Naharlagun', 'Pasighat', 'Tezpur', 'Bomdila'],
+    'AS': ['Guwahati', 'Silchar', 'Dibrugarh', 'Jorhat', 'Nagaon', 'Tinsukia', 'Tezpur', 'Bongaigaon'],
+    'BR': ['Patna', 'Gaya', 'Bhagalpur', 'Muzaffarpur', 'Purnia', 'Darbhanga', 'Bihar Sharif', 'Arrah'],
+    'CH': ['Chandigarh'],
+    'CT': ['Raipur', 'Bhilai', 'Bilaspur', 'Korba', 'Durg', 'Rajnandgaon', 'Jagdalpur', 'Raigarh'],
+    'DN': ['Daman', 'Diu', 'Silvassa'],
+    'DL': ['New Delhi', 'Delhi', 'Noida', 'Gurgaon'],
+    'GA': ['Panaji', 'Vasco da Gama', 'Margao', 'Mapusa', 'Ponda'],
+    'GJ': ['Ahmedabad', 'Surat', 'Vadodara', 'Rajkot', 'Bhavnagar', 'Jamnagar', 'Junagadh', 'Gandhinagar'],
+    'HR': ['Faridabad', 'Gurgaon', 'Panipat', 'Ambala', 'Yamunanagar', 'Rohtak', 'Hisar', 'Karnal'],
+    'HP': ['Shimla', 'Dharamshala', 'Solan', 'Mandi', 'Palampur', 'Baddi'],
+    'JK': ['Srinagar', 'Jammu', 'Baramulla', 'Anantnag', 'Leh', 'Kargil'],
+    'JH': ['Ranchi', 'Jamshedpur', 'Dhanbad', 'Bokaro', 'Deoghar', 'Phusro', 'Hazaribagh', 'Giridih'],
+    'KA': ['Bangalore', 'Mysore', 'Hubli-Dharwad', 'Mangalore', 'Belgaum', 'Gulbarga', 'Davanagere'],
+    'KL': ['Thiruvananthapuram', 'Kochi', 'Kozhikode', 'Kollam', 'Thrissur', 'Alappuzha', 'Palakkad'],
+    'LD': ['Kavaratti', 'Agatti', 'Minicoy'],
+    'MP': ['Indore', 'Bhopal', 'Jabalpur', 'Gwalior', 'Ujjain', 'Sagar', 'Dewas', 'Satna'],
+    'MH': ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Aurangabad', 'Solapur', 'Amravati'],
+    'MN': ['Imphal', 'Thoubal', 'Lilong', 'Mayang Imphal'],
+    'ML': ['Shillong', 'Tura', 'Nongstoin', 'Jowai'],
+    'MZ': ['Aizawl', 'Lunglei', 'Saiha', 'Champhai'],
+    'NL': ['Kohima', 'Dimapur', 'Mokokchung', 'Tuensang'],
+    'PY': ['Puducherry', 'Karaikal', 'Yanam', 'Mahe'],
+    'PB': ['Ludhiana', 'Amritsar', 'Jalandhar', 'Patiala', 'Bathinda', 'Mohali', 'Firozpur'],
+    'RJ': ['Jaipur', 'Jodhpur', 'Kota', 'Bikaner', 'Ajmer', 'Udaipur', 'Bhilwara', 'Alwar'],
+    'SK': ['Gangtok', 'Namchi', 'Geyzing', 'Mangan'],
+    'TN': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Tirunelveli', 'Tiruppur', 'Vellore'],
+    'TG': ['Hyderabad', 'Warangal', 'Nizamabad', 'Khammam', 'Karimnagar', 'Ramagundam'],
+    'TR': ['Agartala', 'Dharmanagar', 'Udaipur', 'Kailasahar', 'Belonia'],
+    'UP': ['Lucknow', 'Kanpur', 'Ghaziabad', 'Agra', 'Varanasi', 'Meerut', 'Allahabad', 'Bareilly'],
+    'UT': ['Dehradun', 'Haridwar', 'Roorkee', 'Rishikesh', 'Nainital'],
+    'WB': ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri', 'Malda', 'Bardhaman']
+};
+
 // API Configuration for States and Cities
 const API_CONFIG = {
     API_KEY: 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==',
@@ -3185,7 +3224,7 @@ async function loadStatesFromAPI() {
     }
 }
 
-// Load cities from API
+// Load cities from API with local fallback
 async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
     console.log('Loading cities from API for:', stateName, 'ID:', stateId, 'ISO2:', stateIso2);
     
@@ -3234,7 +3273,7 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
         console.log('Cities response received:', cities);
         
         if (!Array.isArray(cities) || cities.length === 0) {
-            throw new Error('No cities data returned from API. Please enter city manually.');
+            throw new Error('No cities data returned from API');
         }
         
         // Populate cities from API data
@@ -3262,20 +3301,50 @@ async function loadCitiesFromAPI(stateId, stateName, stateIso2) {
         }
     } catch (error) {
         console.error('Error loading cities from API:', error);
-        updateCityStatus(`${error.message}`, true);
+        console.log('Falling back to local database for:', stateIso2);
         
-        // Add manual input option as fallback
-        const manualOption = document.createElement('option');
-        manualOption.value = 'manual_input';
-        manualOption.textContent = 'Type City Name Manually (API unavailable)';
-        manualOption.style.fontStyle = 'italic';
-        manualOption.style.color = '#dc2626';
-        citySelect.appendChild(manualOption);
-        
-        citySelect.disabled = false;
-        
-        if (typeof toast !== 'undefined') {
-            toast.error(`Could not load cities: ${error.message}`);
+        // Use local database as fallback
+        if (stateIso2 && citiesByState[stateIso2]) {
+            const cities = citiesByState[stateIso2];
+            
+            // Populate cities from local data
+            cities.forEach(cityName => {
+                const option = document.createElement('option');
+                option.value = cityName;
+                option.textContent = cityName;
+                citySelect.appendChild(option);
+            });
+            
+            // Add manual input option
+            const manualOption = document.createElement('option');
+            manualOption.value = 'manual_input';
+            manualOption.textContent = 'Type City Name Manually';
+            manualOption.style.fontStyle = 'italic';
+            manualOption.style.color = '#6c757d';
+            citySelect.appendChild(manualOption);
+            
+            citySelect.disabled = false;
+            updateCityStatus(`${cities.length} cities loaded (local database)`, false, true);
+            console.log(`Cities loaded from local database: ${cities.length} cities for ${stateName}`);
+            
+            if (typeof toast !== 'undefined') {
+                toast.info(`Cities loaded from local database for ${stateName}`);
+            }
+        } else {
+            // Add manual input option as last resort
+            const manualOption = document.createElement('option');
+            manualOption.value = 'manual_input';
+            manualOption.textContent = 'Type City Name Manually (API and database unavailable)';
+            manualOption.style.fontStyle = 'italic';
+            manualOption.style.color = '#dc2626';
+            citySelect.appendChild(manualOption);
+            
+            citySelect.disabled = false;
+            updateCityStatus(`Please enter city manually`, true);
+            
+            if (typeof toast !== 'undefined') {
+                toast.error(`Could not load cities. Please enter manually.`);
+            }
         }
     }
 }
