@@ -120,6 +120,52 @@ function handleThumbImpressionUpload($file, $student_id) {
     return ['success' => true, 'path' => 'student/uploads/students/thumb_impression/' . $filename];
 }
 
+function normalizeStateName($state) {
+    $state = trim((string)$state);
+
+    $stateMap = [
+        'AN' => 'Andaman and Nicobar Islands',
+        'AP' => 'Andhra Pradesh',
+        'AR' => 'Arunachal Pradesh',
+        'AS' => 'Assam',
+        'BR' => 'Bihar',
+        'CH' => 'Chandigarh',
+        'CT' => 'Chhattisgarh',
+        'DN' => 'Dadra and Nagar Haveli and Daman and Diu',
+        'DL' => 'Delhi',
+        'GA' => 'Goa',
+        'GJ' => 'Gujarat',
+        'HR' => 'Haryana',
+        'HP' => 'Himachal Pradesh',
+        'JK' => 'Jammu and Kashmir',
+        'JH' => 'Jharkhand',
+        'KA' => 'Karnataka',
+        'KL' => 'Kerala',
+        'LD' => 'Lakshadweep',
+        'MP' => 'Madhya Pradesh',
+        'MH' => 'Maharashtra',
+        'MN' => 'Manipur',
+        'ML' => 'Meghalaya',
+        'MZ' => 'Mizoram',
+        'NL' => 'Nagaland',
+        'OD' => 'Odisha',
+        'OR' => 'Odisha',
+        'PB' => 'Punjab',
+        'PY' => 'Puducherry',
+        'RJ' => 'Rajasthan',
+        'SK' => 'Sikkim',
+        'TN' => 'Tamil Nadu',
+        'TG' => 'Telangana',
+        'TR' => 'Tripura',
+        'UP' => 'Uttar Pradesh',
+        'UT' => 'Uttarakhand',
+        'WB' => 'West Bengal'
+    ];
+
+    $upperState = strtoupper($state);
+    return $stateMap[$upperState] ?? $state;
+}
+
 // ============================================================
 // MAIN
 // ============================================================
@@ -161,6 +207,9 @@ $distinguishing_marks = trim($_POST['distinguishing_marks'] ?? '') ?: null;
 $apaar_id         = trim($_POST['apaar_id'] ?? '') ?: null;
 
 $payment_date_db = !empty($payment_date) ? date('Y-m-d H:i:s', strtotime($payment_date)) : null;
+
+// Store a readable state name in the database even if the form posts ISO2 code.
+$state = normalizeStateName($state);
 
 // Sanitize enum values to match DB definitions
 if (!in_array($gender,           ['Male','Female','Other']))                       $gender = 'Male';
