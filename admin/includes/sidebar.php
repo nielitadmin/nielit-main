@@ -17,7 +17,11 @@ $is_course_coordinator = ($_SESSION['admin_role'] === 'course_coordinator');
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
-<aside class="admin-sidebar">
+<button type="button" class="sidebar-toggle-btn" aria-label="Toggle navigation" onclick="toggleAdminSidebar()">
+    <i class="fas fa-bars"></i>
+</button>
+
+<aside class="admin-sidebar" id="adminSidebar">
     <div class="sidebar-logo">
         <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
         <h5>NIELIT Admin</h5>
@@ -191,3 +195,29 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
     </nav>
 </aside>
+
+<div class="sidebar-overlay" onclick="closeAdminSidebar()"></div>
+
+<script>
+function toggleAdminSidebar() {
+    document.body.classList.toggle('sidebar-open');
+}
+
+function closeAdminSidebar() {
+    document.body.classList.remove('sidebar-open');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.innerWidth <= 480) {
+        document.body.classList.add('sidebar-open');
+    }
+
+    document.querySelectorAll('.admin-sidebar .nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth <= 768) {
+                closeAdminSidebar();
+            }
+        });
+    });
+});
+</script>

@@ -457,6 +457,17 @@ if ($stats_res) {
         'female' => (int)($stats_row['female'] ?? 0),
     ];
 }
+
+$other_gender_count = max($stats['total'] - $stats['male'] - $stats['female'], 0);
+$gender_chart_labels = ['Male', 'Female'];
+$gender_chart_values = [$stats['male'], $stats['female']];
+$gender_chart_colors = ['#0ea5e9', '#f97316'];
+
+if ($other_gender_count > 0) {
+    $gender_chart_labels[] = 'Other / Unspecified';
+    $gender_chart_values[] = $other_gender_count;
+    $gender_chart_colors[] = '#94a3b8';
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -506,6 +517,213 @@ if ($stats_res) {
         .batch-info { background: #f8fafc; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
         .batch-info p { margin: 5px 0; color: #475569; }
         .batch-info strong { color: #1e293b; }
+        .overview-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+            gap: 1.25rem;
+            align-items: stretch;
+        }
+        .overview-card {
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            border: 1px solid #dbe4f0;
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+        }
+        .overview-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .overview-kicker {
+            margin: 0 0 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+        .overview-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .overview-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.8rem;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #334155;
+            font-size: 0.88rem;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .chart-wrap {
+            position: relative;
+            max-width: 340px;
+            height: 280px;
+            margin: 0 auto;
+        }
+        .chart-center {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            text-align: center;
+        }
+        .chart-center-value {
+            font-size: 2rem;
+            line-height: 1;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .chart-center-label {
+            margin-top: 0.25rem;
+            font-size: 0.85rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .metric-list {
+            display: grid;
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+        .metric-item {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.85rem 1rem;
+            border-radius: 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+        }
+        .metric-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            flex: 0 0 auto;
+        }
+        .metric-copy {
+            min-width: 0;
+            flex: 1;
+        }
+        .metric-label {
+            margin: 0;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .metric-note {
+            margin: 0.15rem 0 0;
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.9rem;
+        }
+        .summary-card {
+            padding: 1rem;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+        }
+        .summary-top {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.8rem;
+        }
+        .summary-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 1rem;
+            flex: 0 0 auto;
+        }
+        .summary-value {
+            margin: 0;
+            font-size: 1.6rem;
+            font-weight: 800;
+            line-height: 1;
+            color: #0f172a;
+        }
+        .summary-label {
+            margin: 0.25rem 0 0;
+            font-size: 0.86rem;
+            color: #64748b;
+            font-weight: 600;
+        }
+        .summary-total .summary-icon { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+        .summary-active .summary-icon { background: linear-gradient(135deg, #10b981, #34d399); }
+        .summary-male .summary-icon { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+        .summary-female .summary-icon { background: linear-gradient(135deg, #f97316, #fb7185); }
+        .empty-chart-state {
+            min-height: 280px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+            border-radius: 18px;
+            background: #ffffff;
+        }
+        @media (max-width: 992px) {
+            .overview-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 640px) {
+            .overview-card {
+                padding: 1rem;
+                border-radius: 16px;
+            }
+            .overview-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .overview-pill {
+                width: 100%;
+                justify-content: center;
+                white-space: normal;
+                text-align: center;
+            }
+            .summary-grid { grid-template-columns: 1fr; }
+            .summary-card { padding: 0.9rem; }
+            .summary-value { font-size: 1.45rem; }
+            .chart-wrap {
+                width: min(100%, 260px);
+                height: 220px;
+            }
+            .chart-center-value { font-size: 1.7rem; }
+            .chart-center-label { font-size: 0.8rem; }
+            .metric-item {
+                align-items: flex-start;
+                flex-wrap: wrap;
+            }
+            .metric-value {
+                margin-left: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -625,40 +843,112 @@ if ($stats_res) {
 
                 <!-- Filter Stats (FIX: uses $stats_* variables, NOT $result) -->
                 <div class="course-stats" style="margin-top:1.5rem;">
-                    <div class="stats-grid">
-                        <div class="stat-card primary">
-                            <div style="display:flex;align-items:center;gap:1rem;">
-                                <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="overview-grid">
+                        <div class="overview-card">
+                            <div class="overview-header">
                                 <div>
-                                    <p class="stat-value"><?php echo number_format($stats['total']); ?></p>
-                                    <p class="stat-label">Total Registered</p>
+                                    <p class="overview-kicker">Student Overview</p>
+                                    <h4 class="overview-title">Gender distribution</h4>
+                                </div>
+                                <div class="overview-pill">
+                                    <i class="fas fa-users"></i>
+                                    <?php echo number_format($stats['total']); ?> total students
                                 </div>
                             </div>
+
+                            <?php if ($stats['total'] > 0): ?>
+                                <div class="chart-wrap">
+                                    <canvas id="studentGenderChart"></canvas>
+                                    <div class="chart-center">
+                                        <div class="chart-center-value"><?php echo number_format($stats['total']); ?></div>
+                                        <div class="chart-center-label">Registered</div>
+                                    </div>
+                                </div>
+
+                                <div class="metric-list">
+                                    <div class="metric-item">
+                                        <span class="metric-dot" style="background:#0ea5e9;"></span>
+                                        <div class="metric-copy">
+                                            <p class="metric-label">Male Students</p>
+                                            <p class="metric-note">Current filtered set</p>
+                                        </div>
+                                        <div class="metric-value"><?php echo number_format($stats['male']); ?></div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-dot" style="background:#f97316;"></span>
+                                        <div class="metric-copy">
+                                            <p class="metric-label">Female Students</p>
+                                            <p class="metric-note">Current filtered set</p>
+                                        </div>
+                                        <div class="metric-value"><?php echo number_format($stats['female']); ?></div>
+                                    </div>
+                                    <?php if ($other_gender_count > 0): ?>
+                                    <div class="metric-item">
+                                        <span class="metric-dot" style="background:#94a3b8;"></span>
+                                        <div class="metric-copy">
+                                            <p class="metric-label">Other / Unspecified</p>
+                                            <p class="metric-note">Not marked as male or female</p>
+                                        </div>
+                                        <div class="metric-value"><?php echo number_format($other_gender_count); ?></div>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-chart-state">
+                                    <i class="fas fa-chart-pie" style="font-size:2rem;margin-bottom:0.75rem;opacity:0.5;"></i>
+                                    <strong>No student data available</strong>
+                                    <span>Try adjusting the filters to see a chart.</span>
+                                </div>
+                            <?php endif; ?>
                         </div>
-                        <div class="stat-card success">
-                            <div style="display:flex;align-items:center;gap:1rem;">
-                                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+
+                        <div class="overview-card">
+                            <div class="overview-header">
                                 <div>
-                                    <p class="stat-value"><?php echo number_format($stats['active']); ?></p>
-                                    <p class="stat-label">Active Students</p>
+                                    <p class="overview-kicker">Quick Metrics</p>
+                                    <h4 class="overview-title">At a glance</h4>
                                 </div>
                             </div>
-                        </div>
-                        <div class="stat-card warning">
-                            <div style="display:flex;align-items:center;gap:1rem;">
-                                <div class="stat-icon"><i class="fas fa-mars"></i></div>
-                                <div>
-                                    <p class="stat-value"><?php echo number_format($stats['male']); ?></p>
-                                    <p class="stat-label">Male Students</p>
+
+                            <div class="summary-grid">
+                                <div class="summary-card summary-total">
+                                    <div class="summary-top">
+                                        <div class="summary-icon"><i class="fas fa-users"></i></div>
+                                        <div>
+                                            <p class="summary-value"><?php echo number_format($stats['total']); ?></p>
+                                            <p class="summary-label">Total Registered</p>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="stat-card danger">
-                            <div style="display:flex;align-items:center;gap:1rem;">
-                                <div class="stat-icon"><i class="fas fa-venus"></i></div>
-                                <div>
-                                    <p class="stat-value"><?php echo number_format($stats['female']); ?></p>
-                                    <p class="stat-label">Female Students</p>
+
+                                <div class="summary-card summary-active">
+                                    <div class="summary-top">
+                                        <div class="summary-icon"><i class="fas fa-check-circle"></i></div>
+                                        <div>
+                                            <p class="summary-value"><?php echo number_format($stats['active']); ?></p>
+                                            <p class="summary-label">Active Students</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="summary-card summary-male">
+                                    <div class="summary-top">
+                                        <div class="summary-icon"><i class="fas fa-mars"></i></div>
+                                        <div>
+                                            <p class="summary-value"><?php echo number_format($stats['male']); ?></p>
+                                            <p class="summary-label">Male Students</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="summary-card summary-female">
+                                    <div class="summary-top">
+                                        <div class="summary-icon"><i class="fas fa-venus"></i></div>
+                                        <div>
+                                            <p class="summary-value"><?php echo number_format($stats['female']); ?></p>
+                                            <p class="summary-label">Female Students</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1047,6 +1337,12 @@ if ($stats_res) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
+const studentGenderChartData = <?php echo json_encode([
+    'labels' => $gender_chart_labels,
+    'values' => $gender_chart_values,
+    'colors' => $gender_chart_colors,
+], JSON_UNESCAPED_SLASHES); ?>;
+
 // ── Toast on page load (from session) ────────────────────────────────────────
 <?php if (isset($_SESSION['message'])): ?>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1057,6 +1353,49 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
 <?php endif; ?>
+
+document.addEventListener('DOMContentLoaded', function () {
+    const chartCanvas = document.getElementById('studentGenderChart');
+    if (!chartCanvas || !studentGenderChartData.values.length) {
+        return;
+    }
+
+    const totalValue = studentGenderChartData.values.reduce((sum, value) => sum + Number(value || 0), 0);
+    if (!totalValue) {
+        return;
+    }
+
+    new Chart(chartCanvas, {
+        type: 'doughnut',
+        data: {
+            labels: studentGenderChartData.labels,
+            datasets: [{
+                data: studentGenderChartData.values,
+                backgroundColor: studentGenderChartData.colors,
+                borderColor: '#ffffff',
+                borderWidth: 4,
+                hoverOffset: 8,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label(context) {
+                            const value = Number(context.raw || 0);
+                            const percent = totalValue ? ((value / totalValue) * 100).toFixed(1) : '0.0';
+                            return `${context.label}: ${value} (${percent}%)`;
+                        },
+                    },
+                },
+            },
+        },
+    });
+});
 
 // ── Batch modal (single) ──────────────────────────────────────────────────────
 function openBatchModal(studentId, studentName, course) {
