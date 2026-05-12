@@ -1362,13 +1362,15 @@ $dashboard_payload = [
         }
 
         .modern-table thead th {
-            background: rgba(37, 99, 235, 0.05);
-            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-            color: #334155;
+            background: linear-gradient(90deg, #0f2e66 0%, #2563eb 100%);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+            color: rgba(255, 255, 255, 0.96) !important;
             font-size: 0.78rem;
             letter-spacing: 0.08em;
             text-transform: uppercase;
             padding: 0.95rem;
+            font-weight: 800;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
 
         .modern-table tbody td {
