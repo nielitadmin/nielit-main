@@ -403,23 +403,38 @@ if ($gq) {
 }
 
 // Detect and compute reservation category counts (SC/ST/GEN/OBC/Other)
-$category_counts = ['GEN' => 0, 'SC' => 0, 'ST' => 0, 'OBC' => 0, 'OTHER' => 0];
+$category_counts = ['GEN' => 0, 'SC' => 0, 'ST' => 0, 'OBC' => 0, 'OTHER' => 0, 'UNKNOWN' => 0];
 $catCandidates = ['category','caste','caste_category','caste_name','reserved_category'];
 $cat_col = null;
 foreach ($catCandidates as $cc) {
     $check = $conn->query("SELECT COUNT(*) as c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='".$cc."'");
     if ($check && (int)$check->fetch_assoc()['c'] > 0) { $cat_col = $cc; break; }
 }
+// fetch raw category buckets for debugging and mapping
+$raw_category_buckets = [];
 if ($cat_col) {
-    $cq = $conn->query("SELECT COALESCE(NULLIF(TRIM(LOWER(".$cat_col.")),'') ,'unknown') AS cat, COUNT(*) AS total FROM students GROUP BY COALESCE(NULLIF(TRIM(LOWER(".$cat_col.")),'') ,'unknown')");
+    $safeCol = $conn->real_escape_string($cat_col);
+    $cq = $conn->query("SELECT COALESCE(NULLIF(TRIM(".$safeCol."),''),'unknown') AS cat_raw, COUNT(*) AS total FROM students GROUP BY COALESCE(NULLIF(TRIM(".$safeCol."),''),'unknown') ORDER BY COUNT(*) DESC");
     if ($cq) {
         while ($cr = $cq->fetch_assoc()) {
-            $val = strtoupper(trim($cr['cat']));
-            if (strpos($val,'sc') !== false) $category_counts['SC'] += (int)$cr['total'];
-            elseif (strpos($val,'st') !== false) $category_counts['ST'] += (int)$cr['total'];
-            elseif (strpos($val,'obc') !== false) $category_counts['OBC'] += (int)$cr['total'];
-            elseif (strpos($val,'gen') !== false || $val === 'GENERAL') $category_counts['GEN'] += (int)$cr['total'];
-            else $category_counts['OTHER'] += (int)$cr['total'];
+            $raw = $cr['cat_raw'];
+            $count = (int)$cr['total'];
+            $raw_category_buckets[$raw] = $count;
+            $val = strtoupper($raw);
+            $val_norm = preg_replace('/[^A-Z0-9]/','',$val);
+            if ($val === 'UNKNOWN' || $val === '' || in_array($val, ['NA','N/A','NOT PROVIDED','NONE'])) {
+                $category_counts['UNKNOWN'] += $count;
+            } elseif (strpos($val_norm,'SC') !== false && strpos($val_norm,'ST') === false) {
+                $category_counts['SC'] += $count;
+            } elseif (strpos($val_norm,'ST') !== false && strpos($val_norm,'SC') === false) {
+                $category_counts['ST'] += $count;
+            } elseif (strpos($val_norm,'OBC') !== false || strpos($val_norm,'BACKWARD') !== false) {
+                $category_counts['OBC'] += $count;
+            } elseif (strpos($val_norm,'GEN') !== false || strpos($val_norm,'GENERAL') !== false || strpos($val_norm,'OPEN') !== false) {
+                $category_counts['GEN'] += $count;
+            } else {
+                $category_counts['OTHER'] += $count;
+            }
         }
     }
 }
@@ -1895,6 +1910,22 @@ $dashboard_payload = [
                                     <?php endforeach; ?>
                                 </div>
                             </div>
+                            <?php if (!empty($raw_category_buckets)): ?>
+                                <div style="height:8px"></div>
+                                <details style="font-size:0.9rem;">
+                                    <summary style="cursor:pointer; color:var(--dash-muted);">Raw category values (click to expand)</summary>
+                                    <div style="max-height:200px; overflow:auto; margin-top:0.6rem;">
+                                        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+                                            <thead><tr><th style="text-align:left; padding:6px 8px;">Value</th><th style="text-align:right; padding:6px 8px;">Count</th></tr></thead>
+                                            <tbody>
+                                            <?php foreach ($raw_category_buckets as $rv => $rc): ?>
+                                                <tr><td style="padding:6px 8px; border-top:1px solid rgba(0,0,0,0.04);"><?php echo htmlspecialchars($rv); ?></td><td style="padding:6px 8px; text-align:right; border-top:1px solid rgba(0,0,0,0.04);"><?php echo number_format($rc); ?></td></tr>
+                                            <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </details>
+                            <?php endif; ?>
                             <div style="height:8px"></div>
                             <div>
                                 <small style="font-weight:700; color:var(--dash-muted);">Reservation / Category</small>
@@ -1904,6 +1935,7 @@ $dashboard_payload = [
                                     <div class="summary-item"><div>SC</div><strong><?php echo number_format($category_counts['SC']); ?></strong></div>
                                     <div class="summary-item"><div>ST</div><strong><?php echo number_format($category_counts['ST']); ?></strong></div>
                                     <div class="summary-item"><div>Other</div><strong><?php echo number_format($category_counts['OTHER']); ?></strong></div>
+                                    <div class="summary-item"><div>Unknown / Blank</div><strong><?php echo number_format($category_counts['UNKNOWN']); ?></strong></div>
                                 </div>
                             </div>
                             <div style="height:8px"></div>
