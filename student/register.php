@@ -1699,11 +1699,7 @@ if (isset($_SESSION['info'])) {
                         <small class="text-muted" id="stateStatus">
                             <i class="fas fa-spinner fa-spin"></i> Loading Indian states from local database...
                         </small>
-                        <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()" style="font-size: 12px;">
-                                <i class="fas fa-refresh"></i> Reload
-                            </button>
-                        </div>
+
                     </div>
                     
                     <div class="col-md-4 mb-3">
