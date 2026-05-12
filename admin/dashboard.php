@@ -332,6 +332,129 @@ $active_theme_name = $stats_query && $stats_query->num_rows > 0 ? $stats_query->
 
 $stats_query = $conn->query("SELECT COUNT(*) as count FROM homepage_content WHERE is_active = 1");
 $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+
+$notification_count = 0;
+$notification_query = $conn->query("SELECT COUNT(*) as count FROM announcements WHERE is_active = 1");
+if ($notification_query) {
+    $notification_count = (int) $notification_query->fetch_assoc()['count'];
+}
+
+$course_distribution_rows = [];
+$course_distribution_query = $conn->query("SELECT COALESCE(category, 'Uncategorized') AS label, COUNT(*) AS total FROM courses GROUP BY COALESCE(category, 'Uncategorized') ORDER BY total DESC LIMIT 8");
+if ($course_distribution_query) {
+    while ($row = $course_distribution_query->fetch_assoc()) {
+        $course_distribution_rows[] = $row;
+    }
+}
+
+$student_growth_rows = [];
+$student_growth_query = $conn->query("SELECT DATE_FORMAT(created_at, '%Y-%m') AS month_key, COUNT(*) AS total FROM students WHERE created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 5 MONTH), '%Y-%m-01') GROUP BY month_key ORDER BY month_key ASC");
+if ($student_growth_query) {
+    while ($row = $student_growth_query->fetch_assoc()) {
+        $student_growth_rows[] = $row;
+    }
+}
+
+$batch_performance_rows = [];
+$batch_performance_query = $conn->query("SELECT b.batch_name, b.seats_total, b.seats_filled, COALESCE(ROUND(AVG(COALESCE(bs.attendance_percentage, 0)), 1), 0) AS avg_attendance FROM batches b LEFT JOIN batch_students bs ON bs.batch_id = b.id GROUP BY b.id ORDER BY b.updated_at DESC LIMIT 5");
+if ($batch_performance_query) {
+    while ($row = $batch_performance_query->fetch_assoc()) {
+        $batch_performance_rows[] = $row;
+    }
+}
+
+$recent_courses_rows = [];
+$recent_courses_query = $conn->query("SELECT c.id, c.course_name, c.category, c.duration, c.start_date, c.course_code, c.course_abbreviation, COALESCE((SELECT COUNT(*) FROM students s WHERE s.course_id = c.id), 0) AS student_count FROM courses c ORDER BY c.created_at DESC LIMIT 5");
+if ($recent_courses_query) {
+    while ($row = $recent_courses_query->fetch_assoc()) {
+        $recent_courses_rows[] = $row;
+    }
+}
+
+$recent_students_rows = [];
+$recent_students_query = $conn->query("SELECT s.name, s.student_id, s.status, s.created_at, c.course_name FROM students s INNER JOIN courses c ON c.id = s.course_id ORDER BY s.created_at DESC LIMIT 5");
+if ($recent_students_query) {
+    while ($row = $recent_students_query->fetch_assoc()) {
+        $recent_students_rows[] = $row;
+    }
+}
+
+$recent_batches_rows = [];
+$recent_batches_query = $conn->query("SELECT b.batch_name, b.batch_code, b.status, b.created_at, c.course_name FROM batches b INNER JOIN courses c ON c.id = b.course_id ORDER BY b.created_at DESC LIMIT 5");
+if ($recent_batches_query) {
+    while ($row = $recent_batches_query->fetch_assoc()) {
+        $recent_batches_rows[] = $row;
+    }
+}
+
+$recent_activity_rows = [];
+foreach ($recent_courses_rows as $course) {
+    $recent_activity_rows[] = [
+        'type' => 'course',
+        'title' => $course['course_name'],
+        'detail' => $course['category'] ?: 'Uncategorized',
+        'time' => $course['start_date'] ? date('d M Y', strtotime($course['start_date'])) : 'Recently',
+    ];
+}
+foreach ($recent_students_rows as $student) {
+    $recent_activity_rows[] = [
+        'type' => 'student',
+        'title' => $student['name'],
+        'detail' => $student['course_name'],
+        'time' => $student['created_at'] ? date('d M Y', strtotime($student['created_at'])) : 'Recently',
+    ];
+}
+foreach ($recent_batches_rows as $batch) {
+    $recent_activity_rows[] = [
+        'type' => 'batch',
+        'title' => $batch['batch_name'],
+        'detail' => $batch['course_name'],
+        'time' => $batch['created_at'] ? date('d M Y', strtotime($batch['created_at'])) : 'Recently',
+    ];
+}
+
+usort($recent_activity_rows, function ($left, $right) {
+    return strcmp($right['time'] ?? '', $left['time'] ?? '');
+});
+$recent_activity_rows = array_slice($recent_activity_rows, 0, 10);
+
+$growthMonths = [];
+for ($offset = 5; $offset >= 0; $offset--) {
+    $growthMonths[] = (new DateTime('first day of this month'))->modify('-' . $offset . ' months')->format('Y-m');
+}
+
+$growthLabels = [];
+$growthValues = [];
+foreach ($growthMonths as $monthKey) {
+    $growthLabels[] = (new DateTime($monthKey . '-01'))->format('M Y');
+    $match = array_values(array_filter($student_growth_rows, function ($row) use ($monthKey) {
+        return $row['month_key'] === $monthKey;
+    }));
+    $growthValues[] = $match ? (int) $match[0]['total'] : 0;
+}
+
+$distributionLabels = [];
+$distributionValues = [];
+foreach ($course_distribution_rows as $row) {
+    $distributionLabels[] = $row['label'];
+    $distributionValues[] = (int) $row['total'];
+}
+
+$batchLabels = [];
+$batchFillValues = [];
+$batchAttendanceValues = [];
+foreach ($batch_performance_rows as $row) {
+    $batchLabels[] = $row['batch_name'];
+    $batchFillValues[] = $row['seats_total'] > 0 ? round(($row['seats_filled'] / $row['seats_total']) * 100, 1) : 0;
+    $batchAttendanceValues[] = (float) $row['avg_attendance'];
+}
+
+$dashboard_payload = [
+    'studentGrowth' => ['labels' => $growthLabels, 'values' => $growthValues],
+    'courseDistribution' => ['labels' => $distributionLabels, 'values' => $distributionValues],
+    'batchPerformance' => ['labels' => $batchLabels, 'fillRate' => $batchFillValues, 'attendanceRate' => $batchAttendanceValues],
+    'notificationCount' => $notification_count,
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -753,38 +876,673 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
             color: #92400e;
         }
         
-        /* Responsive Design */
+        /* Premium Dashboard Skin for Existing Structure */
+        :root {
+            --dash-bg: #eef3f9;
+            --dash-surface: rgba(255, 255, 255, 0.82);
+            --dash-border: rgba(148, 163, 184, 0.18);
+            --dash-text: #0f172a;
+            --dash-muted: #64748b;
+            --dash-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+            --dash-radius: 22px;
+        }
+
+        body {
+            font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 28%),
+                radial-gradient(circle at top right, rgba(124, 58, 237, 0.10), transparent 24%),
+                linear-gradient(180deg, #f8fbff 0%, var(--dash-bg) 100%);
+            color: var(--dash-text);
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            width: 360px;
+            height: 360px;
+            border-radius: 50%;
+            filter: blur(12px);
+            opacity: 0.18;
+            z-index: 0;
+            pointer-events: none;
+            animation: blobFloat 18s ease-in-out infinite;
+        }
+
+        body::before {
+            top: -120px;
+            left: -80px;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.65), transparent 68%);
+        }
+
+        body::after {
+            bottom: -120px;
+            right: -80px;
+            background: radial-gradient(circle, rgba(124, 58, 237, 0.58), transparent 68%);
+            animation-delay: -6s;
+        }
+
+        @keyframes blobFloat {
+            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+            50% { transform: translate3d(0, 18px, 0) scale(1.05); }
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(148, 163, 184, 0.12);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #2563eb, #7c3aed);
+            border-radius: 999px;
+        }
+
+        .admin-wrapper,
+        .admin-content,
+        .admin-main {
+            position: relative;
+            z-index: 1;
+        }
+
+        .admin-content {
+            background: transparent;
+        }
+
+        .admin-main {
+            padding: 1rem 1.15rem 1.35rem;
+        }
+
+        .admin-topbar {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.90), rgba(248, 250, 252, 0.84));
+            border: 1px solid var(--dash-border);
+            border-radius: 26px;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+            backdrop-filter: blur(24px) saturate(160%);
+        }
+
+        .topbar-left h4 {
+            margin: 0;
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: var(--dash-text);
+        }
+
+        .topbar-left h4 i {
+            width: 38px;
+            height: 38px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            color: #fff;
+            margin-right: 0.5rem;
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+        }
+
+        .topbar-left small {
+            color: var(--dash-muted);
+            font-size: 0.9rem;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.35rem 0.4rem 0.35rem 0.95rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+        }
+
+        .user-details {
+            text-align: right;
+            line-height: 1.15;
+        }
+
+        .user-name {
+            display: block;
+            color: var(--dash-text);
+            font-weight: 800;
+        }
+
+        .user-role {
+            display: block;
+            color: var(--dash-muted);
+            font-size: 0.76rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .user-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-weight: 800;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            box-shadow: 0 16px 26px rgba(37, 99, 235, 0.24);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card,
+        .content-card,
+        .glass-panel {
+            position: relative;
+            overflow: hidden;
+            background: var(--dash-surface);
+            border: 1px solid var(--dash-border);
+            border-radius: var(--dash-radius);
+            box-shadow: var(--dash-shadow);
+            backdrop-filter: blur(20px) saturate(150%);
+        }
+
+        .stat-card {
+            padding: 1.15rem 1.15rem 1.05rem;
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+        }
+
+        .stat-card::before,
+        .content-card::before,
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: auto -18% -42% auto;
+            width: 8rem;
+            height: 8rem;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(37, 99, 235, 0.16) 0%, transparent 68%);
+            pointer-events: none;
+        }
+
+        .stat-card:hover,
+        .content-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 48px rgba(15, 23, 42, 0.12);
+            border-color: rgba(37, 99, 235, 0.24);
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 0.8rem;
+            color: #fff;
+            box-shadow: 0 14px 26px rgba(15, 23, 42, 0.12);
+        }
+
+        .stat-card.primary .stat-icon { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+        .stat-card.success .stat-icon { background: linear-gradient(135deg, #10b981, #34d399); }
+        .stat-card.info .stat-icon { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+        .stat-card.warning .stat-icon { background: linear-gradient(135deg, #f59e0b, #fb923c); }
+        .stat-card.secondary .stat-icon { background: linear-gradient(135deg, #64748b, #94a3b8); }
+
+        .stat-value {
+            margin: 0;
+            font-size: clamp(1.65rem, 2.2vw, 2.05rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--dash-text);
+        }
+
+        .stat-label {
+            margin: 0.3rem 0 0;
+            color: var(--dash-muted);
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .dashboard-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr);
+            gap: 1rem;
+            padding: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero-copy h2 {
+            margin: 0.25rem 0 0.6rem;
+            font-size: clamp(1.45rem, 2.4vw, 2.05rem);
+            letter-spacing: -0.05em;
+            color: var(--dash-text);
+        }
+
+        .hero-copy p {
+            margin: 0;
+            color: var(--dash-muted);
+            max-width: 62ch;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.10);
+            color: #1d4ed8;
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .hero-badges {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .hero-badge {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.15rem 0.8rem;
+            align-items: center;
+            padding: 0.95rem 1rem;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+
+        .hero-badge strong {
+            font-size: 1.2rem;
+            color: var(--dash-text);
+        }
+
+        .hero-badge small {
+            grid-column: 2;
+            color: var(--dash-muted);
+        }
+
+        .badge-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            display: inline-block;
+        }
+
+        .badge-dot.success { background: linear-gradient(135deg, #10b981, #34d399); }
+        .badge-dot.accent { background: linear-gradient(135deg, #2563eb, #7c3aed); }
+        .badge-dot.info { background: linear-gradient(135deg, #06b6d4, #22d3ee); }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .analytics-card-large { grid-column: span 12; }
+        .analytics-card-wide { grid-column: span 12; }
+        .analytics-card { grid-column: span 6; }
+
+        .card-header-soft {
+            align-items: flex-start !important;
+        }
+
+        .section-note {
+            margin-top: 0.35rem;
+            color: var(--dash-muted);
+            font-size: 0.85rem;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(16, 185, 129, 0.10);
+            color: #047857;
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .live-pill::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35);
+            animation: pulseDot 1.8s infinite;
+        }
+
+        @keyframes pulseDot {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .chart-wrap {
+            min-height: 290px;
+        }
+
+        .chart-wrap-small {
+            min-height: 260px;
+        }
+
+        .ring-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.9rem;
+        }
+
+        .ring-card {
+            display: grid;
+            justify-items: center;
+            gap: 0.45rem;
+            padding: 0.9rem;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+        }
+
+        .ring {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: conic-gradient(#2563eb var(--ring-value), rgba(226, 232, 240, 0.95) 0);
+            position: relative;
+            box-shadow: inset 0 0 0 12px rgba(255, 255, 255, 0.95);
+        }
+
+        .ring::after {
+            content: '';
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: #fff;
+        }
+
+        .ring span {
+            position: relative;
+            z-index: 1;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: var(--dash-text);
+        }
+
+        .ring-card small {
+            color: var(--dash-muted);
+            font-weight: 600;
+        }
+
+        .activity-table {
+            overflow: auto;
+            border-radius: 18px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .activity-table table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.72);
+        }
+
+        .activity-table th,
+        .activity-table td {
+            padding: 0.9rem 1rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            text-align: left;
+            color: var(--dash-text);
+        }
+
+        .activity-table th {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #475569;
+            background: rgba(37, 99, 235, 0.05);
+        }
+
+        .activity-type {
+            display: inline-flex;
+            padding: 0.38rem 0.72rem;
+            border-radius: 999px;
+            font-size: 0.76rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .activity-type-course { background: rgba(37, 99, 235, 0.10); color: #1d4ed8; }
+        .activity-type-student { background: rgba(16, 185, 129, 0.10); color: #047857; }
+        .activity-type-batch { background: rgba(245, 158, 11, 0.12); color: #b45309; }
+
+        .loading-surface {
+            position: relative;
+        }
+
+        .loading-surface::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+            transform: translateX(-100%);
+            animation: shimmer 2.4s infinite;
+            pointer-events: none;
+            opacity: 0.18;
+        }
+
+        @keyframes shimmer {
+            to { transform: translateX(100%); }
+        }
+
+        .modern-table {
+            margin: 0;
+            color: var(--dash-text);
+        }
+
+        .modern-table thead th {
+            background: rgba(37, 99, 235, 0.05);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            color: #334155;
+            font-size: 0.78rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 0.95rem;
+        }
+
+        .modern-table tbody td {
+            padding: 0.95rem;
+            vertical-align: middle;
+            border-color: rgba(148, 163, 184, 0.12);
+        }
+
+        .modern-table tbody tr:hover {
+            background: rgba(37, 99, 235, 0.04);
+        }
+
+        .modern-table .badge {
+            border-radius: 999px;
+            padding: 0.5rem 0.8rem;
+            font-weight: 700;
+        }
+
+        .btn {
+            border-radius: 999px;
+            font-weight: 700;
+            padding-inline: 0.95rem;
+            transition: transform 180ms ease, box-shadow 180ms ease, opacity 180ms ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            border: none;
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+        }
+
+        .btn-outline-primary,
+        .btn-outline-secondary,
+        .btn-outline-success,
+        .btn-secondary {
+            border-width: 1px;
+        }
+
+        .form-control,
+        .form-select {
+            border-radius: 16px;
+            border-color: rgba(148, 163, 184, 0.24);
+            padding: 0.8rem 0.95rem;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: rgba(37, 99, 235, 0.42);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .modal {
+            backdrop-filter: blur(10px);
+        }
+
+        .modal-dialog {
+            border-radius: 24px;
+        }
+
+        .modal-content {
+            border: 0;
+            border-radius: 22px;
+            overflow: hidden;
+            box-shadow: 0 28px 80px rgba(15, 23, 42, 0.28);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            border: 0;
+            padding: 1.1rem 1.35rem;
+        }
+
+        .modal-body {
+            padding: 1.25rem 1.35rem;
+        }
+
+        .modal-footer {
+            border-top: 1px solid rgba(148, 163, 184, 0.16);
+            background: #f8fafc;
+            padding: 0.95rem 1.35rem 1.1rem;
+        }
+
+        .info-box,
+        .warning-box {
+            border-radius: 18px;
+        }
+
+        @media (max-width: 1200px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .analytics-card { grid-column: span 12; }
+        }
+
+        @media (max-width: 992px) {
+            .admin-main {
+                padding: 1rem;
+            }
+
+            .content-card .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .dashboard-hero {
+                grid-template-columns: 1fr;
+            }
+        }
+
         @media (max-width: 768px) {
-            .modal-dialog {
-                margin: 10px;
-                max-width: calc(100% - 20px);
+            .admin-topbar {
+                padding: 1rem;
             }
-            
-            .modal-header {
-                padding: 1.5rem 1.5rem 1rem;
+
+            .user-details {
+                display: none;
             }
-            
-            .modal-body {
-                padding: 1.5rem;
+
+            .stats-grid {
+                grid-template-columns: 1fr;
             }
-            
-            .modal-footer {
-                padding: 1rem 1.5rem 1.5rem;
+
+            .stat-card,
+            .content-card,
+            .glass-panel {
+                border-radius: 20px;
+            }
+
+            .dashboard-hero {
+                padding: 1rem;
+            }
+
+            .hero-actions {
                 flex-direction: column;
             }
-            
+
+            .hero-actions .btn {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .ring-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .modal-body,
+            .modal-header,
+            .modal-footer {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
             .form-grid-2, .form-grid-3 {
                 grid-template-columns: 1fr;
             }
-            
-            .btn {
-                width: 100%;
-                justify-content: center;
+
+            .content-card .card-header {
+                padding: 0.9rem 1rem;
             }
         }
     </style>
 </head>
-<body>
+<body class="premium-dashboard">
 
 <div class="admin-wrapper">
     <!-- Sidebar -->
@@ -897,6 +1655,149 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
                     <h3 class="stat-value"><?php echo $total_homepage_sections; ?></h3>
                     <p class="stat-label">Homepage Sections</p>
                 </div>
+            </div>
+
+            <div class="dashboard-hero glass-panel">
+                <div class="hero-copy">
+                    <div class="eyebrow">Live operations</div>
+                    <h2>Premium admin analytics with quick operational insight.</h2>
+                    <p>Track course growth, student activity, batch health, and system content from one clean control panel.</p>
+                    <div class="hero-actions">
+                        <button class="btn btn-primary" onclick="openModal('addCourseModal')">
+                            <i class="fas fa-plus"></i> Add New Course
+                        </button>
+                        <a href="manage_courses.php" class="btn btn-outline-primary">
+                            <i class="fas fa-layer-group"></i> Manage Courses
+                        </a>
+                        <a href="students.php" class="btn btn-outline-secondary">
+                            <i class="fas fa-users"></i> View Students
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-badges">
+                    <div class="hero-badge">
+                        <span class="badge-dot success"></span>
+                        <strong><?php echo $notification_count; ?></strong>
+                        <small>Active notices</small>
+                    </div>
+                    <div class="hero-badge">
+                        <span class="badge-dot accent"></span>
+                        <strong><?php echo $total_students; ?></strong>
+                        <small>Live students</small>
+                    </div>
+                    <div class="hero-badge">
+                        <span class="badge-dot info"></span>
+                        <strong><?php echo count($recent_activity_rows); ?></strong>
+                        <small>Recent activities</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="analytics-grid">
+                <section class="content-card analytics-card analytics-card-large loading-surface">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-chart-line"></i> Student Growth</h5>
+                            <div class="section-note">Monthly registrations across the last six months.</div>
+                        </div>
+                        <span class="live-pill">Live counters</span>
+                    </div>
+                    <div class="card-body chart-wrap">
+                        <canvas id="studentGrowthChart" height="120"></canvas>
+                    </div>
+                </section>
+
+                <section class="content-card analytics-card loading-surface">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-chart-pie"></i> Course Distribution</h5>
+                            <div class="section-note">Quick view of where courses are concentrated.</div>
+                        </div>
+                    </div>
+                    <div class="card-body chart-wrap chart-wrap-small">
+                        <canvas id="courseDistributionChart" height="220"></canvas>
+                    </div>
+                </section>
+
+                <section class="content-card analytics-card loading-surface">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-chart-column"></i> Batch Performance</h5>
+                            <div class="section-note">Seat fill and average attendance by batch.</div>
+                        </div>
+                    </div>
+                    <div class="card-body chart-wrap chart-wrap-small">
+                        <canvas id="batchPerformanceChart" height="220"></canvas>
+                    </div>
+                </section>
+
+                <section class="content-card analytics-card loading-surface">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-ring"></i> Progress Rings</h5>
+                            <div class="section-note">Compact operational health indicators.</div>
+                        </div>
+                    </div>
+                    <div class="card-body ring-grid">
+                        <div class="ring-card">
+                            <div class="ring" style="--ring-value: <?php echo min(100, round(($total_students / max($total_courses, 1)) * 12, 0)); ?>%"><span><?php echo $total_courses; ?></span></div>
+                            <small>Courses</small>
+                        </div>
+                        <div class="ring-card">
+                            <div class="ring" style="--ring-value: <?php echo min(100, $total_centres * 8); ?>%"><span><?php echo $total_centres; ?></span></div>
+                            <small>Centres</small>
+                        </div>
+                        <div class="ring-card">
+                            <div class="ring" style="--ring-value: <?php echo min(100, $total_homepage_sections * 12); ?>%"><span><?php echo $total_homepage_sections; ?></span></div>
+                            <small>Sections</small>
+                        </div>
+                        <div class="ring-card">
+                            <div class="ring" style="--ring-value: <?php echo min(100, $notification_count * 12); ?>%"><span><?php echo $notification_count; ?></span></div>
+                            <small>Notices</small>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="content-card analytics-card analytics-card-wide loading-surface">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-stream"></i> Recent Activity</h5>
+                            <div class="section-note">Latest courses, students, and batch updates.</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="activity-table">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Item</th>
+                                        <th>Details</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (!empty($recent_activity_rows)): ?>
+                                        <?php foreach ($recent_activity_rows as $activity): ?>
+                                            <tr>
+                                                <td>
+                                                    <span class="activity-type activity-type-<?php echo htmlspecialchars($activity['type']); ?>">
+                                                        <?php echo ucfirst(htmlspecialchars($activity['type'])); ?>
+                                                    </span>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($activity['title']); ?></td>
+                                                <td><?php echo htmlspecialchars($activity['detail']); ?></td>
+                                                <td><?php echo htmlspecialchars($activity['time']); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <tr><td colspan="4" style="text-align:center; color:#6b7280;">No recent activity found.</td></tr>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
 
             <!-- Quick Actions for Course Coordinators -->
@@ -1437,8 +2338,11 @@ $total_homepage_sections = $stats_query ? $stats_query->fetch_assoc()['count'] :
 </div>
 <?php endif; ?>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
+const dashboardPayload = <?php echo json_encode($dashboard_payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
+
 function openModal(modalId) {
     document.getElementById(modalId).classList.add('show');
 }
@@ -1635,6 +2539,135 @@ function populateTemplateDropdownDash(templates) {
         }
     });
 }
+
+function initDashboardCharts() {
+    if (typeof Chart === 'undefined') {
+        return;
+    }
+
+    const growthCanvas = document.getElementById('studentGrowthChart');
+    const distributionCanvas = document.getElementById('courseDistributionChart');
+    const batchCanvas = document.getElementById('batchPerformanceChart');
+
+    if (growthCanvas) {
+        new Chart(growthCanvas, {
+            type: 'line',
+            data: {
+                labels: dashboardPayload.studentGrowth.labels,
+                datasets: [{
+                    label: 'Student Growth',
+                    data: dashboardPayload.studentGrowth.values,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.14)',
+                    tension: 0.42,
+                    fill: true,
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderWidth: 3,
+                    pointBorderColor: '#2563eb'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                        padding: 12,
+                        titleColor: '#fff',
+                        bodyColor: '#e2e8f0',
+                        cornerRadius: 14,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(148, 163, 184, 0.12)' }, ticks: { color: '#64748b' } },
+                    y: { grid: { color: 'rgba(148, 163, 184, 0.12)' }, ticks: { color: '#64748b', precision: 0 } }
+                }
+            }
+        });
+    }
+
+    if (distributionCanvas) {
+        new Chart(distributionCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: dashboardPayload.courseDistribution.labels,
+                datasets: [{
+                    data: dashboardPayload.courseDistribution.values,
+                    backgroundColor: ['#2563eb', '#7c3aed', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#14b8a6', '#64748b'],
+                    borderWidth: 0,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '68%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#475569', usePointStyle: true, pointStyle: 'circle' }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                        padding: 12,
+                        titleColor: '#fff',
+                        bodyColor: '#e2e8f0',
+                        cornerRadius: 14
+                    }
+                }
+            }
+        });
+    }
+
+    if (batchCanvas) {
+        new Chart(batchCanvas, {
+            type: 'bar',
+            data: {
+                labels: dashboardPayload.batchPerformance.labels,
+                datasets: [{
+                    label: 'Seat Fill %',
+                    data: dashboardPayload.batchPerformance.fillRate,
+                    backgroundColor: 'rgba(37, 99, 235, 0.8)',
+                    borderRadius: 12
+                }, {
+                    label: 'Attendance %',
+                    data: dashboardPayload.batchPerformance.attendanceRate,
+                    backgroundColor: 'rgba(16, 185, 129, 0.78)',
+                    borderRadius: 12
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: '#475569', usePointStyle: true, pointStyle: 'circle' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(15, 23, 42, 0.96)',
+                        padding: 12,
+                        titleColor: '#fff',
+                        bodyColor: '#e2e8f0',
+                        cornerRadius: 14
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#64748b' } },
+                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(148, 163, 184, 0.12)' }, ticks: { color: '#64748b', callback: value => value + '%' } }
+                }
+            }
+        });
+    }
+
+    document.querySelectorAll('.loading-surface').forEach(surface => {
+        surface.classList.remove('loading-surface');
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initDashboardCharts);
 </script>
 
 </body>

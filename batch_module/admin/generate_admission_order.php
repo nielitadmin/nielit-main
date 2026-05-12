@@ -627,6 +627,96 @@ function generateLetterhead() {
     }, 500);
 }
 
+// Faculty Management Functions
+function openAddFacultyModal() {
+    console.log('openAddFacultyModal called');
+    
+    // Create modal HTML if it doesn't exist
+    if (!document.getElementById('addFacultyModal')) {
+        console.log('Creating add faculty modal');
+        const modalHTML = `
+        <div class="modal fade" id="addFacultyModal" tabindex="-1" aria-labelledby="addFacultyModalLabel" aria-hidden="true"
+             style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1050;">
+            <div class="modal-dialog" style="position: relative; margin: 50px auto; max-width: 500px;">
+                <div class="modal-content" style="background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                    <div class="modal-header" style="padding: 15px 20px; border-bottom: 1px solid #dee2e6; display: flex; justify-content: space-between; align-items: center;">
+                        <h5 class="modal-title" id="addFacultyModalLabel" style="margin: 0; font-size: 16px; font-weight: 600;">
+                            <i class="fas fa-user-plus"></i> Add New Faculty Member
+                        </h5>
+                        <button type="button" class="btn-close" onclick="closeAddFacultyModal()" aria-label="Close" 
+                                style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <form id="addFacultyForm">
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_name" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Name *</label>
+                                <input type="text" class="form-control" id="faculty_name" name="name" required 
+                                       placeholder="e.g., Dr. John Smith"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_email" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Email</label>
+                                <input type="email" class="form-control" id="faculty_email" name="email" 
+                                       placeholder="e.g., john.smith@nielit.gov.in"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_phone" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Phone</label>
+                                <input type="text" class="form-control" id="faculty_phone" name="phone" 
+                                       placeholder="e.g., 9876543210"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_designation" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Designation</label>
+                                <input type="text" class="form-control" id="faculty_designation" name="designation" 
+                                       placeholder="e.g., Professor, Assistant Professor, Lecturer"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div class="mb-3" style="margin-bottom: 15px;">
+                                <label for="faculty_department" class="form-label" style="display: block; margin-bottom: 5px; font-weight: 500;">Department</label>
+                                <input type="text" class="form-control" id="faculty_department" name="department" 
+                                       placeholder="e.g., Computer Science, Information Technology"
+                                       style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer" style="padding: 15px 20px; border-top: 1px solid #dee2e6; display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeAddFacultyModal()"
+                                style="padding: 8px 16px; border: 1px solid #6c757d; background: #6c757d; color: white; border-radius: 4px; cursor: pointer;">Cancel</button>
+                        <button type="button" class="btn btn-success" onclick="addNewFaculty()"
+                                style="padding: 8px 16px; border: 1px solid #198754; background: #198754; color: white; border-radius: 4px; cursor: pointer;">
+                            <i class="fas fa-save"></i> Add Faculty
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+    }
+    
+    // Clear form
+    document.getElementById('addFacultyForm').reset();
+    
+    // Show modal
+    const modal = document.getElementById('addFacultyModal');
+    modal.style.display = 'block';
+    
+    // Add click outside to close
+    modal.onclick = function(event) {
+        if (event.target === modal) {
+            closeAddFacultyModal();
+        }
+    };
+}
+
+function closeAddFacultyModal() {
+    const modal = document.getElementById('addFacultyModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 function openDeleteFacultyModal() {
     console.log('openDeleteFacultyModal called');
     
@@ -740,6 +830,96 @@ function closeDeleteFacultyModal() {
     if (modal) {
         modal.style.display = 'none';
     }
+}
+
+function addNewFaculty() {
+    const form = document.getElementById('addFacultyForm');
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const name = formData.get('name').trim();
+    if (!name) {
+        alert('Faculty name is required!');
+        return;
+    }
+    
+    // Show loading state
+    const btn = event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    btn.disabled = true;
+    
+    // Prepare data
+    const facultyData = {
+        action: 'add_faculty',
+        name: name,
+        email: formData.get('email').trim(),
+        phone: formData.get('phone').trim(),
+        designation: formData.get('designation').trim(),
+        department: formData.get('department').trim()
+    };
+    
+    // Send AJAX request
+    fetch('add_faculty_ajax.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(facultyData)
+    })
+    .then(response => response.text().then(text => {
+        try {
+            return JSON.parse(text);
+        } catch (parseError) {
+            throw new Error('Server returned invalid response: ' + text.substring(0, 160));
+        }
+    }))
+    .then(result => {
+        if (result.success) {
+            try {
+                // Add new faculty to dropdown
+                const facultySelect = document.getElementById('edit_faculty');
+                if (facultySelect) {
+                    const newOption = document.createElement('option');
+                    newOption.value = result.faculty.name;
+                    newOption.setAttribute('data-id', result.faculty.id);
+                    newOption.setAttribute('data-designation', result.faculty.designation || '');
+                    newOption.setAttribute('data-can-delete', 'true');
+                    newOption.selected = true; // Auto-select the new faculty
+                    
+                    const displayText = result.faculty.name + 
+                        (result.faculty.designation ? ' (' + result.faculty.designation + ')' : '') +
+                        (<?php echo json_encode(($_SESSION['admin_role'] ?? '') === 'master_admin'); ?> ? ' [Global]' : ' [My Faculty]');
+                    newOption.textContent = displayText;
+                    
+                    facultySelect.appendChild(newOption);
+                    
+                    // Update the display
+                    updateFacultyField();
+                }
+                
+                // Close modal
+                closeAddFacultyModal();
+                
+                // Show success message
+                showToast(result.message || 'Faculty member added successfully!', 'success');
+            } catch (uiError) {
+                console.error('Faculty added, but UI update failed:', uiError);
+                showToast(result.message || 'Faculty member added successfully!', 'success');
+            }
+        } else {
+            alert('Error adding faculty: ' + (result.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding faculty: ' + error.message);
+    })
+    .finally(() => {
+        // Restore button
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    });
 }
 
 async function deleteFaculty() {
