@@ -1386,9 +1386,11 @@ $dashboard_payload = [
         .analytics-side .card-body { padding: 1.25rem; }
         /* Make pie chart larger and centered */
         #categoryPieChart { max-width: 220px !important; width: 40%; height: auto !important; display:block; margin-right: 0.6rem; transition: transform 220ms ease, filter 220ms ease; will-change: transform; }
-        .category-chart-wrap { display:flex; gap:0.6rem; align-items:center; padding:0.35rem 0.1rem; border-radius:16px; transition: transform 220ms ease, background-color 220ms ease, box-shadow 220ms ease; }
-        .category-chart-wrap:hover { transform: translateY(-2px); background: rgba(255,255,255,0.55); box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08); }
-        .category-chart-wrap:hover #categoryPieChart { transform: scale(1.06) rotate(-1deg); filter: saturate(1.05) drop-shadow(0 8px 14px rgba(37, 99, 235, 0.12)); }
+        .category-chart-wrap { position:relative; display:flex; gap:0.6rem; align-items:center; padding:0.35rem 0.1rem; border-radius:16px; overflow:hidden; transition: transform 220ms ease, background-color 220ms ease, box-shadow 220ms ease; }
+        .category-chart-wrap::before { content:''; position:absolute; inset:0; background: radial-gradient(circle at 20% 50%, rgba(37,99,235,0.12), transparent 42%), radial-gradient(circle at 80% 50%, rgba(124,58,237,0.10), transparent 45%); opacity:0; transition: opacity 220ms ease; pointer-events:none; }
+        .category-chart-wrap:hover { transform: translateY(-2px); background: rgba(255,255,255,0.62); box-shadow: 0 18px 40px rgba(37, 99, 235, 0.12), 0 0 0 1px rgba(37, 99, 235, 0.08); }
+        .category-chart-wrap:hover::before { opacity:1; }
+        .category-chart-wrap:hover #categoryPieChart { transform: scale(1.06) rotate(-1deg); filter: saturate(1.08) drop-shadow(0 10px 18px rgba(37, 99, 235, 0.16)); }
         .category-chart-caption { flex:1; font-size:0.95rem; color:var(--dash-muted); transition: color 220ms ease, transform 220ms ease, opacity 220ms ease; }
         .category-chart-wrap:hover .category-chart-caption { color: var(--dash-text); transform: translateX(2px); opacity: 0.98; }
         @media (max-width: 1100px) { .analytics-card-wide { grid-column: span 12; } .analytics-side { grid-column: span 12; } #categoryPieChart { width: 100%; max-width: 320px; margin: 0 auto; } }
