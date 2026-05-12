@@ -387,6 +387,21 @@ if ($recent_batches_query) {
     }
 }
 
+// Additional quick counts for right-side summary
+$total_batches = 0;
+$bq = $conn->query("SELECT COUNT(*) as count FROM batches");
+if ($bq) { $total_batches = (int)$bq->fetch_assoc()['count']; }
+
+$gender_counts = ['Male' => 0, 'Female' => 0, 'Other' => 0, 'Unknown' => 0];
+$gq = $conn->query("SELECT COALESCE(NULLIF(TRIM(LOWER(gender)),''),'unknown') AS g, COUNT(*) AS total FROM students GROUP BY COALESCE(NULLIF(TRIM(LOWER(gender)),''),'unknown')");
+if ($gq) {
+    while ($gr = $gq->fetch_assoc()) {
+        $key = ucfirst($gr['g']);
+        if (!in_array($key, ['Male','Female','Other','Unknown'])) $key = 'Other';
+        $gender_counts[$key] = (int)$gr['total'];
+    }
+}
+
 $recent_activity_rows = [];
 foreach ($recent_courses_rows as $course) {
     $recent_activity_rows[] = [
@@ -1198,7 +1213,8 @@ $dashboard_payload = [
         }
 
         .analytics-card-large { grid-column: span 12; }
-        .analytics-card-wide { grid-column: span 12; }
+        .analytics-card-wide { grid-column: span 8; }
+        .analytics-side { grid-column: span 4; }
         .analytics-card { grid-column: span 6; }
 
         .card-header-soft {
@@ -1300,6 +1316,13 @@ $dashboard_payload = [
             border-radius: 18px;
             border: 1px solid rgba(148, 163, 184, 0.14);
         }
+
+        /* Right-side summary */
+        .summary-list { display: grid; gap: 0.8rem; }
+        .summary-item { display:flex; justify-content:space-between; align-items:center; padding: 0.85rem; border-radius:12px; background: rgba(255,255,255,0.78); border:1px solid rgba(148,163,184,0.08); }
+        .summary-item strong { font-size:1.15rem; color:var(--dash-text); }
+        .gender-bar { width:100%; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; margin-top:6px; }
+        .gender-fill { height:100%; }
 
         .activity-table table {
             width: 100%;
@@ -1797,6 +1820,41 @@ $dashboard_payload = [
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </section>
+                <section class="content-card analytics-side">
+                    <div class="card-header card-header-soft">
+                        <div>
+                            <h5 class="card-title"><i class="fas fa-eye"></i> Snapshot</h5>
+                            <div class="section-note">Quick operational counters and gender split.</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="summary-list">
+                            <div class="summary-item"><div>Students</div><strong><?php echo number_format($total_students); ?></strong></div>
+                            <div class="summary-item"><div>Courses</div><strong><?php echo number_format($total_courses); ?></strong></div>
+                            <div class="summary-item"><div>Batches</div><strong><?php echo number_format($total_batches); ?></strong></div>
+                            <div class="summary-item"><div>Centres</div><strong><?php echo number_format($total_centres); ?></strong></div>
+                            <div style="height:6px"></div>
+                            <div>
+                                <small style="font-weight:700; color:var(--dash-muted);">Gender distribution</small>
+                                <div style="display:grid; gap:0.6rem; margin-top:0.6rem;">
+                                    <?php
+                                        $totalGender = array_sum($gender_counts) ?: 1;
+                                        foreach ($gender_counts as $gk => $gv):
+                                            $pct = round(($gv / $totalGender) * 100, 1);
+                                            $color = $gk === 'Male' ? '#2563eb' : ($gk === 'Female' ? '#ec4899' : '#f59e0b');
+                                    ?>
+                                        <div style="display:flex; align-items:center; gap:0.6rem;">
+                                            <div style="flex:1;">
+                                                <div style="display:flex; justify-content:space-between; font-weight:600; color:var(--dash-muted); font-size:0.9rem;"><span><?php echo htmlspecialchars($gk); ?></span><span><?php echo $gv; ?> (<small><?php echo $pct; ?>%</small>)</span></div>
+                                                <div class="gender-bar"><div class="gender-fill" style="width:<?php echo $pct; ?>%; background: linear-gradient(90deg, <?php echo $color; ?>, rgba(124,58,237,0.6));"></div></div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
