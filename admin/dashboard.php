@@ -1918,37 +1918,10 @@ $dashboard_payload = [
                                     <?php endforeach; ?>
                                 </div>
                             </div>
-                            <?php if (!empty($raw_category_buckets)): ?>
-                                <div style="height:8px"></div>
-                                <details style="font-size:0.9rem;">
-                                    <summary style="cursor:pointer; color:var(--dash-muted);">Raw category values (click to expand)</summary>
-                                    <div style="max-height:200px; overflow:auto; margin-top:0.6rem;">
-                                        <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
-                                            <thead><tr><th style="text-align:left; padding:6px 8px;">Value</th><th style="text-align:right; padding:6px 8px;">Count</th></tr></thead>
-                                            <tbody>
-                                            <?php foreach ($raw_category_buckets as $rv => $rc): ?>
-                                                <tr><td style="padding:6px 8px; border-top:1px solid rgba(0,0,0,0.04);"><?php echo htmlspecialchars($rv); ?></td><td style="padding:6px 8px; text-align:right; border-top:1px solid rgba(0,0,0,0.04);"><?php echo number_format($rc); ?></td></tr>
-                                            <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </details>
-                            <?php endif; ?>
                             <div style="height:8px"></div>
-                            <div>
-                                <small style="font-weight:700; color:var(--dash-muted);">Reservation / Category</small>
-                                <div style="display:grid; gap:0.6rem; margin-top:0.6rem;">
-                                    <div class="summary-item"><div>General</div><strong><?php echo number_format($category_counts['GEN']); ?></strong></div>
-                                    <div class="summary-item"><div>OBC</div><strong><?php echo number_format($category_counts['OBC']); ?></strong></div>
-                                    <div class="summary-item"><div>SC</div><strong><?php echo number_format($category_counts['SC']); ?></strong></div>
-                                    <div class="summary-item"><div>ST</div><strong><?php echo number_format($category_counts['ST']); ?></strong></div>
-                                    <div class="summary-item"><div>Other</div><strong><?php echo number_format($category_counts['OTHER']); ?></strong></div>
-                                    <div class="summary-item"><div>Unknown / Blank</div><strong><?php echo number_format($category_counts['UNKNOWN']); ?></strong></div>
-                                </div>
-                                <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
-                                    <canvas id="categoryPieChart" width="160" height="160" style="max-width:160px; height:100px;"></canvas>
-                                    <div style="flex:1; font-size:0.95rem; color:var(--dash-muted);">Category breakdown — hover the chart for details. Expand raw values below to inspect unexpected labels.</div>
-                                </div>
+                            <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
+                                <canvas id="categoryPieChart" width="160" height="160" style="max-width:160px; height:100px;"></canvas>
+                                <div style="flex:1; font-size:0.95rem; color:var(--dash-muted);">Category breakdown — hover the chart for details.</div>
                             </div>
                             <div style="height:8px"></div>
                             <div class="summary-item"><div>PWD</div><strong><?php echo number_format($pwd_count); ?></strong></div>
