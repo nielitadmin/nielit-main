@@ -1700,9 +1700,6 @@ if (isset($_SESSION['info'])) {
                             <i class="fas fa-spinner fa-spin"></i> Loading Indian states from local database...
                         </small>
                         <div class="mt-2">
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.testStateAPI()" style="font-size: 12px;">
-                                <i class="fas fa-flask"></i> Test External API
-                            </button>
                             <button type="button" class="btn btn-sm btn-outline-secondary" onclick="location.reload()" style="font-size: 12px;">
                                 <i class="fas fa-refresh"></i> Reload
                             </button>
