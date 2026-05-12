@@ -1385,7 +1385,12 @@ $dashboard_payload = [
         .summary-item { display:flex; justify-content:space-between; align-items:center; padding: 0.85rem; border-radius:12px; background: rgba(255,255,255,0.78); border:1px solid rgba(148,163,184,0.08); }
         .analytics-side .card-body { padding: 1.25rem; }
         /* Make pie chart larger and centered */
-        #categoryPieChart { max-width: 220px !important; width: 40%; height: auto !important; display:block; margin-right: 0.6rem; }
+        #categoryPieChart { max-width: 220px !important; width: 40%; height: auto !important; display:block; margin-right: 0.6rem; transition: transform 220ms ease, filter 220ms ease; will-change: transform; }
+        .category-chart-wrap { display:flex; gap:0.6rem; align-items:center; padding:0.35rem 0.1rem; border-radius:16px; transition: transform 220ms ease, background-color 220ms ease, box-shadow 220ms ease; }
+        .category-chart-wrap:hover { transform: translateY(-2px); background: rgba(255,255,255,0.55); box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08); }
+        .category-chart-wrap:hover #categoryPieChart { transform: scale(1.06) rotate(-1deg); filter: saturate(1.05) drop-shadow(0 8px 14px rgba(37, 99, 235, 0.12)); }
+        .category-chart-caption { flex:1; font-size:0.95rem; color:var(--dash-muted); transition: color 220ms ease, transform 220ms ease, opacity 220ms ease; }
+        .category-chart-wrap:hover .category-chart-caption { color: var(--dash-text); transform: translateX(2px); opacity: 0.98; }
         @media (max-width: 1100px) { .analytics-card-wide { grid-column: span 12; } .analytics-side { grid-column: span 12; } #categoryPieChart { width: 100%; max-width: 320px; margin: 0 auto; } }
         .summary-item strong { font-size:1.15rem; color:var(--dash-text); }
         .gender-bar { width:100%; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; margin-top:6px; }
@@ -1923,9 +1928,9 @@ $dashboard_payload = [
                                 </div>
                             </div>
                             <div style="height:8px"></div>
-                            <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
+                            <div class="category-chart-wrap" style="margin-top:0.6rem;">
                                 <canvas id="categoryPieChart" width="160" height="160" style="max-width:160px; height:100px;"></canvas>
-                                <div style="flex:1; font-size:0.95rem; color:var(--dash-muted);">Category breakdown — hover the chart for details.</div>
+                                <div class="category-chart-caption">Category breakdown — hover the chart for details.</div>
                             </div>
                             <div style="height:8px"></div>
                         </div>
