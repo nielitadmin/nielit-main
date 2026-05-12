@@ -439,6 +439,13 @@ if ($cat_col) {
     }
 }
 
+// Sanity: if category sums exceed total_students, adjust 'OTHER' down to match (prevents double-counting anomalies)
+$sumCats = array_sum($category_counts);
+if (isset($total_students) && $sumCats > $total_students) {
+    $over = $sumCats - $total_students;
+    $category_counts['OTHER'] = max(0, $category_counts['OTHER'] - $over);
+}
+
 // Detect and compute PWD count (various possible column names)
 $pwd_count = 0;
 $pwdCandidates = ['pwd','is_pwd','disability','is_disabled','pdisable','person_with_disability'];
@@ -524,6 +531,7 @@ $dashboard_payload = [
     'courseDistribution' => ['labels' => $distributionLabels, 'values' => $distributionValues],
     'batchPerformance' => ['labels' => $batchLabels, 'fillRate' => $batchFillValues, 'attendanceRate' => $batchAttendanceValues],
     'notificationCount' => $notification_count,
+    'categoryDistribution' => ['labels' => array_values(array_keys($category_counts)), 'values' => array_values($category_counts)],
 ];
 ?>
 <!DOCTYPE html>
@@ -1937,6 +1945,10 @@ $dashboard_payload = [
                                     <div class="summary-item"><div>Other</div><strong><?php echo number_format($category_counts['OTHER']); ?></strong></div>
                                     <div class="summary-item"><div>Unknown / Blank</div><strong><?php echo number_format($category_counts['UNKNOWN']); ?></strong></div>
                                 </div>
+                                <div style="margin-top:0.6rem; display:flex; gap:0.6rem; align-items:center;">
+                                    <canvas id="categoryPieChart" width="160" height="160" style="max-width:160px; height:100px;"></canvas>
+                                    <div style="flex:1; font-size:0.95rem; color:var(--dash-muted);">Category breakdown — hover the chart for details. Expand raw values below to inspect unexpected labels.</div>
+                                </div>
                             </div>
                             <div style="height:8px"></div>
                             <div class="summary-item"><div>PWD</div><strong><?php echo number_format($pwd_count); ?></strong></div>
@@ -2802,6 +2814,32 @@ function initDashboardCharts() {
                 scales: {
                     x: { grid: { display: false }, ticks: { color: '#64748b' } },
                     y: { beginAtZero: true, max: 100, grid: { color: 'rgba(148, 163, 184, 0.12)' }, ticks: { color: '#64748b', callback: value => value + '%' } }
+                }
+            }
+        });
+    }
+
+    const categoryCanvas = document.getElementById('categoryPieChart');
+    if (categoryCanvas && dashboardPayload.categoryDistribution) {
+        const catLabels = dashboardPayload.categoryDistribution.labels;
+        const catValues = dashboardPayload.categoryDistribution.values;
+        new Chart(categoryCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catValues,
+                    backgroundColor: ['#10b981','#2563eb','#f59e0b','#ef4444','#7c3aed','#94a3b8'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.96)', titleColor: '#fff', bodyColor: '#e2e8f0' }
                 }
             }
         });
