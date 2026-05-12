@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cities Demo for AN, AP, AR</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .demo-container { max-width: 800px; margin: 0 auto; }
+        .state-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .state-title { color: #0a1628; font-size: 1.5rem; margin-bottom: 15px; }
+        .api-response { background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .cities-count { background: #d1ecf1; color: #0c5460; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .cities-json { background: #f8f9fa; border: 1px solid #dee2e6; padding: 15px; border-radius: 5px; font-family: monospace; white-space: pre-wrap; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Cities Details for Specific States</h1>
+        <p>This demonstrates the expected output format for the states you requested:</p>
+        
+        <div class="state-section">
+            <div class="state-title">🏝️ Andaman and Nicobar Islands (AN)</div>
+            <div class="api-response">🏙️ Cities API Response: 200 for Andaman and Nicobar Islands</div>
+            <div class="cities-count">✅ Cities loaded: 4 cities for Andaman and Nicobar Islands</div>
+            <div class="cities-json">[
+  {
+    "id": "57704",
+    "name": "Port Blair"
+  },
+  {
+    "id": "57705", 
+    "name": "Diglipur"
+  },
+  {
+    "id": "57706",
+    "name": "Mayabunder"
+  },
+  {
+    "id": "57707",
+    "name": "Rangat"
+  }
+]</div>
+        </div>
+
+        <div class="state-section">
+            <div class="state-title">🏛️ Andhra Pradesh (AP)</div>
+            <div class="api-response">🏙️ Cities API Response: 200 for Andhra Pradesh</div>
+            <div class="cities-count">✅ Cities loaded: 168 cities for Andhra Pradesh</div>
+            <div class="cities-json">[
+  {
+    "id": "134465",
+    "name": "Visakhapatnam"
+  },
+  {
+    "id": "134467",
+    "name": "Vijayawada"
+  },
+  {
+    "id": "57785",
+    "name": "Guntur"
+  },
+  {
+    "id": "57786",
+    "name": "Nellore"
+  },
+  {
+    "id": "57787",
+    "name": "Kurnool"
+  },
+  {
+    "id": "57788",
+    "name": "Rajahmundry"
+  },
+  {
+    "id": "57789",
+    "name": "Tirupati"
+  },
+  {
+    "id": "57790",
+    "name": "Kadapa"
+  },
+  {
+    "id": "57791",
+    "name": "Anantapur"
+  }
+]</div>
+        </div>
+
+        <div class="state-section">
+            <div class="state-title">🏔️ Arunachal Pradesh (AR)</div>
+            <div class="api-response">🏙️ Cities API Response: 200 for Arunachal Pradesh</div>
+            <div class="cities-count">✅ Cities loaded: 26 cities for Arunachal Pradesh</div>
+            <div class="cities-json">[
+  {
+    "id": "57800",
+    "name": "Itanagar"
+  },
+  {
+    "id": "57801",
+    "name": "Naharlagun"
+  },
+  {
+    "id": "57802",
+    "name": "Pasighat"
+  },
+  {
+    "id": "57803",
+    "name": "Tezpur"
+  },
+  {
+    "id": "57804",
+    "name": "Bomdila"
+  }
+]</div>
+        </div>
+
+        <div style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <h3>📋 How to Use the Test Tool:</h3>
+            <ol>
+                <li>Open <strong>test_state_api.html</strong> in your browser</li>
+                <li>Click <strong>"Get AN, AP, AR Cities"</strong> button to fetch cities for these specific states</li>
+                <li>Or select individual states and click <strong>"Show JSON Format"</strong> to see detailed city data</li>
+                <li>Use <strong>"Export State Cities"</strong> to download CSV files for individual states</li>
+                <li>The tool handles API rate limiting automatically with local database fallback</li>
+            </ol>
+        </div>
+
+        <div style="background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 5px; margin-top: 20px;">
+            <h3>🔧 Features Available:</h3>
+            <ul>
+                <li><strong>API Testing:</strong> Test external API with rate limiting protection</li>
+                <li><strong>Local Fallback:</strong> Automatic fallback to local database when API fails</li>
+                <li><strong>Data Export:</strong> Export to JSON and CSV formats</li>
+                <li><strong>Detailed Viewer:</strong> View all cities for any state with full details</li>
+                <li><strong>Comparison Tools:</strong> Compare API data with local database</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

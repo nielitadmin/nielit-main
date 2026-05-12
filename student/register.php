@@ -3113,11 +3113,54 @@ const citiesByState = {
     'WB': ['Kolkata', 'Howrah', 'Durgapur', 'Asansol', 'Siliguri', 'Malda', 'Bardhaman']
 };
 
-// API Configuration for States and Cities
-const API_CONFIG = {
-    API_KEY: 'N3hJNDk4TEl0bTAzSnE2RVdhZzdaQXN3OElvTzRnRnlaY3VYdVhVSg==',
-    BASE_URL: 'https://api.countrystatecity.in/v1'
-};
+// Complete states and cities data from downloaded API records
+const statesData = [
+    { id: "4023", name: "Andaman and Nicobar Islands", iso2: "AN", latitude: "12.6112387", longitude: "92.8316541" },
+    { id: "4017", name: "Andhra Pradesh", iso2: "AP", latitude: "15.9240905", longitude: "80.1863809" },
+    { id: "4024", name: "Arunachal Pradesh", iso2: "AR", latitude: "28.0937702", longitude: "94.5921326" },
+    { id: "4027", name: "Assam", iso2: "AS", latitude: "26.4073841", longitude: "93.2551303" },
+    { id: "4037", name: "Bihar", iso2: "BR", latitude: "25.6440845", longitude: "85.906508" },
+    { id: "4031", name: "Chandigarh", iso2: "CH", latitude: "30.7333148", longitude: "76.7794179" },
+    { id: "4040", name: "Chhattisgarh", iso2: "CT", latitude: "21.6637359", longitude: "81.8406351" },
+    { id: "4033", name: "Dadra and Nagar Haveli and Daman and Diu", iso2: "DN", latitude: "20.7181749", longitude: "70.9323834" },
+    { id: "4021", name: "Delhi", iso2: "DL", latitude: "28.6328027", longitude: "77.2197713" },
+    { id: "4009", name: "Goa", iso2: "GA", latitude: "15.3004543", longitude: "74.0855134" },
+    { id: "4030", name: "Gujarat", iso2: "GJ", latitude: "22.2587084", longitude: "71.1924553" },
+    { id: "4007", name: "Haryana", iso2: "HR", latitude: "29.0587757", longitude: "76.0856471" },
+    { id: "4020", name: "Himachal Pradesh", iso2: "HP", latitude: "31.1471305", longitude: "77.1734033" },
+    { id: "4029", name: "Jammu and Kashmir", iso2: "JK", latitude: "34.2996776", longitude: "74.2379532" },
+    { id: "4025", name: "Jharkhand", iso2: "JH", latitude: "23.6102571", longitude: "85.2799329" },
+    { id: "4026", name: "Karnataka", iso2: "KA", latitude: "15.3172775", longitude: "75.7138884" },
+    { id: "4028", name: "Kerala", iso2: "KL", latitude: "10.8505159", longitude: "76.2710833" },
+    { id: "4852", name: "Ladakh", iso2: "LA", latitude: "34.2996776", longitude: "78.2932723" },
+    { id: "4019", name: "Lakshadweep", iso2: "LD", latitude: "10.5667", longitude: "72.6417" },
+    { id: "4039", name: "Madhya Pradesh", iso2: "MP", latitude: "22.9734229", longitude: "78.6568942" },
+    { id: "4008", name: "Maharashtra", iso2: "MH", latitude: "19.7514798", longitude: "75.7138884" },
+    { id: "4010", name: "Manipur", iso2: "MN", latitude: "24.6637569", longitude: "93.9063328" },
+    { id: "4006", name: "Meghalaya", iso2: "ML", latitude: "25.4670319", longitude: "91.3662718" },
+    { id: "4036", name: "Mizoram", iso2: "MZ", latitude: "23.1645599", longitude: "92.9376026" },
+    { id: "4018", name: "Nagaland", iso2: "NL", latitude: "26.1584354", longitude: "94.5624426" },
+    { id: "4013", name: "Odisha", iso2: "OR", latitude: "20.9516658", longitude: "85.0985422" },
+    { id: "4011", name: "Puducherry", iso2: "PY", latitude: "11.9415618", longitude: "79.8083133" },
+    { id: "4015", name: "Punjab", iso2: "PB", latitude: "31.1471305", longitude: "75.3412179" },
+    { id: "4014", name: "Rajasthan", iso2: "RJ", latitude: "27.0238036", longitude: "74.2179326" },
+    { id: "4034", name: "Sikkim", iso2: "SK", latitude: "27.5330491", longitude: "88.5122298" },
+    { id: "4035", name: "Tamil Nadu", iso2: "TN", latitude: "11.1271225", longitude: "78.6568942" },
+    { id: "4012", name: "Telangana", iso2: "TG", latitude: "18.1124372", longitude: "79.0193274" },
+    { id: "4038", name: "Tripura", iso2: "TR", latitude: "23.9408482", longitude: "91.9881527" },
+    { id: "4016", name: "Uttarakhand", iso2: "UK", latitude: "30.0668480", longitude: "79.0193274" },
+    { id: "4022", name: "Uttar Pradesh", iso2: "UP", latitude: "26.8467088", longitude: "80.9461592" },
+    { id: "4853", name: "West Bengal", iso2: "WB", latitude: "22.9867569", longitude: "87.8549755" }
+];
+
+// Complete cities data from downloaded API records (showing first few for each state)
+// Note: This is a comprehensive dataset with 4,199+ cities across all Indian states
+const citiesDataComplete = <?php
+// Read and embed the JSON data
+$jsonData = file_get_contents(__DIR__ . '/../state-city-api-data-2026-05-12.json');
+$data = json_decode($jsonData, true);
+echo json_encode($data['cities'], JSON_PRETTY_PRINT);
+?>;
 
 // Function to update status messages
 function updateStateStatus(message, isError = false, isSuccess = false) {
@@ -3157,8 +3200,9 @@ function updateCityStatus(message, isError = false, isSuccess = false) {
 }
 
 // Load states from API
-async function loadStatesFromAPI() {
-    console.log('Loading states from API...');
+// Load states from local data (no API calls)
+function loadStatesFromLocal() {
+    console.log('Loading states from local database...');
     
     const stateSelect = document.getElementById('state');
     if (!stateSelect) {
@@ -3173,25 +3217,14 @@ async function loadStatesFromAPI() {
     stateSelect.disabled = true;
     
     try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states`, {
-            method: 'GET',
-            headers: {
-                'X-CSCAPI-KEY': API_CONFIG.API_KEY,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-        
-        const states = await response.json();
+        // Use local states data
+        const states = statesData;
         
         if (!Array.isArray(states) || states.length === 0) {
-            throw new Error('No states data returned from API');
+            throw new Error('No states data available in local database');
         }
         
-        // Populate states from API data
+        // Populate states from local data
         states.forEach(state => {
             const option = document.createElement('option');
             option.value = state.iso2;  // Use ISO2 code as primary value
@@ -3203,17 +3236,17 @@ async function loadStatesFromAPI() {
         });
         
         // Log first state data for debugging
-        console.log('Sample state data from API:', states[0]);
+        console.log('Sample state data from local database:', states[0]);
         
         stateSelect.disabled = false;
         updateStateStatus(`${states.length} states loaded successfully`, false, true);
-        console.log(`States loaded successfully from API: ${states.length} states`);
+        console.log(`States loaded successfully from local database: ${states.length} states`);
         
         if (typeof toast !== 'undefined') {
-            toast.success(`${states.length} states loaded successfully`);
+            toast.success(`${states.length} states loaded from local database`);
         }
     } catch (error) {
-        console.error('Error loading states from API:', error);
+        console.error('Error loading states from local database:', error);
         updateStateStatus(`Error loading states: ${error.message}`, true);
         
         if (typeof toast !== 'undefined') {
@@ -3226,8 +3259,9 @@ async function loadStatesFromAPI() {
 }
 
 // Load cities from API with local fallback
-async function loadCitiesFromAPI(stateIso2, stateName) {
-    console.log('Loading cities from API for:', stateName, 'ISO2:', stateIso2);
+// Load cities from local data (no API calls)
+function loadCitiesFromLocal(stateIso2, stateName) {
+    console.log('Loading cities from local database for:', stateName, 'ISO2:', stateIso2);
     
     const citySelect = document.getElementById('city');
     if (!citySelect) {
@@ -3242,64 +3276,22 @@ async function loadCitiesFromAPI(stateIso2, stateName) {
     citySelect.disabled = true;
     
     try {
-        // Try loading cities with ISO2 code (this is what the API expects)
-        const response = await fetch(`${API_CONFIG.BASE_URL}/countries/IN/states/${stateIso2}/cities`, {
-            method: 'GET',
-            headers: {
-                'X-CSCAPI-KEY': API_CONFIG.API_KEY,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log('API response status:', response.status, 'State ISO2:', stateIso2);
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        }
-        
-        const cities = await response.json();
-        console.log('Cities response received:', cities);
-        
-        if (!Array.isArray(cities) || cities.length === 0) {
-            throw new Error('No cities data returned from API');
-        }
-        
-        // Populate cities from API data
-        cities.forEach(city => {
-            const option = document.createElement('option');
-            option.value = city.name;
-            option.textContent = city.name;
-            citySelect.appendChild(option);
-        });
-        
-        // Add manual input option
-        const manualOption = document.createElement('option');
-        manualOption.value = 'manual_input';
-        manualOption.textContent = 'Type City Name Manually';
-        manualOption.style.fontStyle = 'italic';
-        manualOption.style.color = '#6c757d';
-        citySelect.appendChild(manualOption);
-        
-        citySelect.disabled = false;
-        updateCityStatus(`${cities.length} cities loaded for ${stateName}`, false, true);
-        console.log(`Cities loaded successfully from API: ${cities.length} cities for ${stateName}`);
-        
-        if (typeof toast !== 'undefined') {
-            toast.success(`${cities.length} cities loaded for ${stateName}`);
-        }
-    } catch (error) {
-        console.error('Error loading cities from API:', error);
-        console.log('Falling back to local database for:', stateIso2);
-        
-        // Use local database as fallback
-        if (stateIso2 && citiesByState[stateIso2]) {
-            const cities = citiesByState[stateIso2];
+        // Use complete cities data from downloaded API records
+        if (stateIso2 && citiesDataComplete[stateIso2]) {
+            const cities = citiesDataComplete[stateIso2];
             
-            // Populate cities from local data
-            cities.forEach(cityName => {
+            console.log('Cities data found for', stateName, ':', cities.length, 'cities');
+            
+            if (!Array.isArray(cities) || cities.length === 0) {
+                throw new Error('No cities data available for this state');
+            }
+            
+            // Populate cities from complete local data
+            cities.forEach(city => {
                 const option = document.createElement('option');
-                option.value = cityName;
-                option.textContent = cityName;
+                option.value = city.name;
+                option.textContent = city.name;
+                option.setAttribute('data-id', city.id);
                 citySelect.appendChild(option);
             });
             
@@ -3312,34 +3304,69 @@ async function loadCitiesFromAPI(stateIso2, stateName) {
             citySelect.appendChild(manualOption);
             
             citySelect.disabled = false;
-            updateCityStatus(`${cities.length} cities loaded (local database)`, false, true);
-            console.log(`Cities loaded from local database: ${cities.length} cities for ${stateName}`);
+            updateCityStatus(`${cities.length} cities loaded for ${stateName}`, false, true);
+            console.log(`Cities loaded successfully from local database: ${cities.length} cities for ${stateName}`);
             
             if (typeof toast !== 'undefined') {
-                toast.info(`Cities loaded from local database for ${stateName}`);
+                toast.success(`${cities.length} cities loaded for ${stateName}`);
             }
         } else {
-            // Add manual input option as last resort
-            const manualOption = document.createElement('option');
-            manualOption.value = 'manual_input';
-            manualOption.textContent = 'Type City Name Manually (API and database unavailable)';
-            manualOption.style.fontStyle = 'italic';
-            manualOption.style.color = '#dc2626';
-            citySelect.appendChild(manualOption);
+            // Fallback to basic local database if state not found in complete data
+            console.log('State not found in complete data, trying basic fallback for:', stateIso2);
             
-            citySelect.disabled = false;
-            updateCityStatus(`Please enter city manually`, true);
-            
-            if (typeof toast !== 'undefined') {
-                toast.error(`Could not load cities. Please enter manually.`);
+            if (stateIso2 && citiesByState[stateIso2]) {
+                const cities = citiesByState[stateIso2];
+                
+                // Populate cities from basic local data
+                cities.forEach(cityName => {
+                    const option = document.createElement('option');
+                    option.value = cityName;
+                    option.textContent = cityName;
+                    citySelect.appendChild(option);
+                });
+                
+                // Add manual input option
+                const manualOption = document.createElement('option');
+                manualOption.value = 'manual_input';
+                manualOption.textContent = 'Type City Name Manually';
+                manualOption.style.fontStyle = 'italic';
+                manualOption.style.color = '#6c757d';
+                citySelect.appendChild(manualOption);
+                
+                citySelect.disabled = false;
+                updateCityStatus(`${cities.length} cities loaded (basic database)`, false, true);
+                console.log(`Cities loaded from basic local database: ${cities.length} cities for ${stateName}`);
+                
+                if (typeof toast !== 'undefined') {
+                    toast.info(`Cities loaded from basic database for ${stateName}`);
+                }
+            } else {
+                throw new Error('No cities data available for this state');
             }
+        }
+    } catch (error) {
+        console.error('Error loading cities from local database:', error);
+        
+        // Add manual input option as last resort
+        const manualOption = document.createElement('option');
+        manualOption.value = 'manual_input';
+        manualOption.textContent = 'Type City Name Manually (Database unavailable)';
+        manualOption.style.fontStyle = 'italic';
+        manualOption.style.color = '#dc2626';
+        citySelect.appendChild(manualOption);
+        
+        citySelect.disabled = false;
+        updateCityStatus(`Please enter city manually`, true);
+        
+        if (typeof toast !== 'undefined') {
+            toast.error(`Could not load cities. Please enter manually.`);
         }
     }
 }
 
 // Initialize state and city functionality
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded - Initializing State/City system with API...');
+    console.log('Page loaded - Initializing State/City system with local database...');
     
     const stateSelect = document.getElementById('state');
     const citySelect = document.getElementById('city');
@@ -3349,8 +3376,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Load states immediately from API
-    loadStatesFromAPI();
+    // Load states immediately from local database
+    loadStatesFromLocal();
     
     // Handle state change
     stateSelect.addEventListener('change', function() {
@@ -3365,7 +3392,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateCityStatus('Please select a state first');
         
         if (stateIso2) {
-            loadCitiesFromAPI(stateIso2, stateName, stateIso2);
+            loadCitiesFromLocal(stateIso2, stateName);
         }
         
         updateProgress();
