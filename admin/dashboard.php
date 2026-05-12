@@ -1276,8 +1276,8 @@ $dashboard_payload = [
         }
 
         .analytics-card-large { grid-column: span 12; }
-        .analytics-card-wide { grid-column: span 8; }
-        .analytics-side { grid-column: span 4; }
+        .analytics-card-wide { grid-column: span 7; }
+        .analytics-side { grid-column: span 5; }
         .analytics-card { grid-column: span 6; }
 
         .card-header-soft {
@@ -1383,6 +1383,10 @@ $dashboard_payload = [
         /* Right-side summary */
         .summary-list { display: grid; gap: 0.8rem; }
         .summary-item { display:flex; justify-content:space-between; align-items:center; padding: 0.85rem; border-radius:12px; background: rgba(255,255,255,0.78); border:1px solid rgba(148,163,184,0.08); }
+        .analytics-side .card-body { padding: 1.25rem; }
+        /* Make pie chart larger and centered */
+        #categoryPieChart { max-width: 220px !important; width: 40%; height: auto !important; display:block; margin-right: 0.6rem; }
+        @media (max-width: 1100px) { .analytics-card-wide { grid-column: span 12; } .analytics-side { grid-column: span 12; } #categoryPieChart { width: 100%; max-width: 320px; margin: 0 auto; } }
         .summary-item strong { font-size:1.15rem; color:var(--dash-text); }
         .gender-bar { width:100%; height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; margin-top:6px; }
         .gender-fill { height:100%; }
@@ -1924,7 +1928,6 @@ $dashboard_payload = [
                                 <div style="flex:1; font-size:0.95rem; color:var(--dash-muted);">Category breakdown — hover the chart for details.</div>
                             </div>
                             <div style="height:8px"></div>
-                            <div class="summary-item"><div>PWD</div><strong><?php echo number_format($pwd_count); ?></strong></div>
                         </div>
                     </div>
                 </section>
