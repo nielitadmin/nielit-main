@@ -402,6 +402,46 @@ if ($gq) {
     }
 }
 
+// Detect and compute reservation category counts (SC/ST/GEN/OBC/Other)
+$category_counts = ['GEN' => 0, 'SC' => 0, 'ST' => 0, 'OBC' => 0, 'OTHER' => 0];
+$catCandidates = ['category','caste','caste_category','caste_name','reserved_category'];
+$cat_col = null;
+foreach ($catCandidates as $cc) {
+    $check = $conn->query("SELECT COUNT(*) as c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='".$cc."'");
+    if ($check && (int)$check->fetch_assoc()['c'] > 0) { $cat_col = $cc; break; }
+}
+if ($cat_col) {
+    $cq = $conn->query("SELECT COALESCE(NULLIF(TRIM(LOWER(".$cat_col.")),'') ,'unknown') AS cat, COUNT(*) AS total FROM students GROUP BY COALESCE(NULLIF(TRIM(LOWER(".$cat_col.")),'') ,'unknown')");
+    if ($cq) {
+        while ($cr = $cq->fetch_assoc()) {
+            $val = strtoupper(trim($cr['cat']));
+            if (strpos($val,'sc') !== false) $category_counts['SC'] += (int)$cr['total'];
+            elseif (strpos($val,'st') !== false) $category_counts['ST'] += (int)$cr['total'];
+            elseif (strpos($val,'obc') !== false) $category_counts['OBC'] += (int)$cr['total'];
+            elseif (strpos($val,'gen') !== false || $val === 'GENERAL') $category_counts['GEN'] += (int)$cr['total'];
+            else $category_counts['OTHER'] += (int)$cr['total'];
+        }
+    }
+}
+
+// Detect and compute PWD count (various possible column names)
+$pwd_count = 0;
+$pwdCandidates = ['pwd','is_pwd','disability','is_disabled','pdisable','person_with_disability'];
+$pwd_col = null;
+foreach ($pwdCandidates as $pc) {
+    $check = $conn->query("SELECT COUNT(*) as c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='students' AND COLUMN_NAME='".$pc."'");
+    if ($check && (int)$check->fetch_assoc()['c'] > 0) { $pwd_col = $pc; break; }
+}
+if ($pwd_col) {
+    $pq = $conn->query("SELECT COALESCE(NULLIF(TRIM(LOWER(".$pwd_col.")),'') ,'no') AS pwd, COUNT(*) AS total FROM students GROUP BY COALESCE(NULLIF(TRIM(LOWER(".$pwd_col.")),'') ,'no')");
+    if ($pq) {
+        while ($pr = $pq->fetch_assoc()) {
+            $pv = strtolower($pr['pwd']);
+            if (in_array($pv, ['1','yes','y','true','t','si','sí','oui'])) $pwd_count += (int)$pr['total'];
+        }
+    }
+}
+
 $recent_activity_rows = [];
 foreach ($recent_courses_rows as $course) {
     $recent_activity_rows[] = [
@@ -1855,6 +1895,19 @@ $dashboard_payload = [
                                     <?php endforeach; ?>
                                 </div>
                             </div>
+                            <div style="height:8px"></div>
+                            <div>
+                                <small style="font-weight:700; color:var(--dash-muted);">Reservation / Category</small>
+                                <div style="display:grid; gap:0.6rem; margin-top:0.6rem;">
+                                    <div class="summary-item"><div>General</div><strong><?php echo number_format($category_counts['GEN']); ?></strong></div>
+                                    <div class="summary-item"><div>OBC</div><strong><?php echo number_format($category_counts['OBC']); ?></strong></div>
+                                    <div class="summary-item"><div>SC</div><strong><?php echo number_format($category_counts['SC']); ?></strong></div>
+                                    <div class="summary-item"><div>ST</div><strong><?php echo number_format($category_counts['ST']); ?></strong></div>
+                                    <div class="summary-item"><div>Other</div><strong><?php echo number_format($category_counts['OTHER']); ?></strong></div>
+                                </div>
+                            </div>
+                            <div style="height:8px"></div>
+                            <div class="summary-item"><div>PWD</div><strong><?php echo number_format($pwd_count); ?></strong></div>
                         </div>
                     </div>
                 </section>
