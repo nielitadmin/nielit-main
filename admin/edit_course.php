@@ -6,6 +6,10 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
+// Check if payment_details_required column exists (needed throughout the script)
+$column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
+$payment_column_exists = $column_check && $column_check->num_rows > 0;
+
 $course = [];
 
 if (isset($_GET['id'])) {
@@ -189,10 +193,6 @@ if (isset($_POST['update_course'])) {
     // Auto-add course_description column if missing
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
 
-    // Check if payment_details_required column exists
-    $column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
-    $payment_column_exists = $column_check && $column_check->num_rows > 0;
-    
     if ($payment_column_exists) {
         $update_sql = "UPDATE courses SET 
             course_name = ?, 
@@ -218,7 +218,7 @@ if (isset($_POST['update_course'])) {
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("ssssssssssssssssiissi",
+        $stmt->bind_param("sssssssssssssssiissi",
             $course_name,
             $course_code,
             $course_abbreviation,
@@ -266,7 +266,7 @@ if (isset($_POST['update_course'])) {
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("sssssssssssssssiissi",
+        $stmt->bind_param("ssssssssssssssssiisi",
             $course_name,
             $course_code,
             $course_abbreviation,
