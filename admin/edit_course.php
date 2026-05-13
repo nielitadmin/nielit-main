@@ -73,26 +73,26 @@ if (isset($_GET['remove_flyer']) && $_GET['remove_flyer'] == $course_id) {
 }
 
 if (isset($_POST['update_course'])) {
-    $course_name = $_POST['course_name'];
-    $course_code = strtoupper(trim($_POST['course_code'] ?? ''));
+    $course_name        = $_POST['course_name'];
+    $course_code        = strtoupper(trim($_POST['course_code'] ?? ''));
     $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
-    $eligibility = $_POST['eligibility'];
-    $duration = $_POST['duration'];
-    $training_fees = $_POST['training_fees'];
-    $category = $_POST['category'];
-    $start_date = $_POST['start_date'];
-    $end_date = $_POST['end_date'];
-    $description_url = $_POST['description_url'];
+    $eligibility        = $_POST['eligibility'];
+    $duration           = $_POST['duration'];
+    $training_fees      = $_POST['training_fees'];
+    $category           = $_POST['category'];
+    $start_date         = $_POST['start_date'];
+    $end_date           = $_POST['end_date'];
+    $description_url    = $_POST['description_url'];
     $course_description = trim($_POST['course_description'] ?? '');
-    $apply_link = $_POST['apply_link'];
+    $apply_link         = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
-    $training_center = $_POST['training_center'];
-    $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
-    $link_published = isset($_POST['link_published']) ? 1 : 0;
-    $enrollment_status = $_POST['enrollment_status'] ?? 'ongoing';
+    $training_center    = $_POST['training_center'];
+    $centre_id          = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
+    $link_published     = isset($_POST['link_published']) ? 1 : 0;
+    $enrollment_status  = $_POST['enrollment_status'] ?? 'ongoing';
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
-    $description_pdf = $course['description_pdf'];
-    $course_flyer = $course['course_flyer'] ?? '';
+    $description_pdf    = $course['description_pdf'];
+    $course_flyer       = $course['course_flyer'] ?? '';
 
     // Enforce unique course code and student ID code across other courses
     $dup_stmt = $conn->prepare("SELECT course_name, course_code, course_abbreviation
@@ -129,24 +129,23 @@ if (isset($_POST['update_course'])) {
         }
     }
 
+    // Handle PDF upload
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
-        $pdf_file = $_FILES['description_pdf'];
+        $pdf_file  = $_FILES['description_pdf'];
         $extension = pathinfo($pdf_file['name'], PATHINFO_EXTENSION);
 
         if (strtolower($extension) == 'pdf' && $pdf_file['type'] == 'application/pdf') {
-            $random_name = uniqid('course_', true) . '.' . $extension;
-            $upload_dir = __DIR__ . '/../course_pdf/';
-            
-            // Create directory if it doesn't exist
+            $random_name    = uniqid('course_', true) . '.' . $extension;
+            $upload_dir     = __DIR__ . '/../course_pdf/';
+
             if (!file_exists($upload_dir)) {
                 mkdir($upload_dir, 0755, true);
             }
-            
-            $pdf_full_path = $upload_dir . $random_name;
+
+            $pdf_full_path     = $upload_dir . $random_name;
             $pdf_relative_path = 'course_pdf/' . $random_name;
 
             if (move_uploaded_file($pdf_file['tmp_name'], $pdf_full_path)) {
-                // Delete old PDF if exists
                 if (!empty($course['description_pdf']) && file_exists(__DIR__ . '/../' . $course['description_pdf'])) {
                     unlink(__DIR__ . '/../' . $course['description_pdf']);
                 }
@@ -162,22 +161,20 @@ if (isset($_POST['update_course'])) {
     // Handle course flyer upload (JPG/PNG)
     if (isset($_FILES['course_flyer']) && $_FILES['course_flyer']['error'] == 0) {
         $flyer_file = $_FILES['course_flyer'];
-        $extension = strtolower(pathinfo($flyer_file['name'], PATHINFO_EXTENSION));
+        $extension  = strtolower(pathinfo($flyer_file['name'], PATHINFO_EXTENSION));
 
         if (in_array($extension, ['jpg', 'jpeg', 'png']) && in_array($flyer_file['type'], ['image/jpeg', 'image/png'])) {
-            $random_name = uniqid('flyer_', true) . '.' . $extension;
-            $upload_dir = __DIR__ . '/../course_flyers/';
-            
-            // Create directory if it doesn't exist
+            $random_name       = uniqid('flyer_', true) . '.' . $extension;
+            $upload_dir        = __DIR__ . '/../course_flyers/';
+
             if (!file_exists($upload_dir)) {
                 mkdir($upload_dir, 0755, true);
             }
-            
-            $flyer_full_path = $upload_dir . $random_name;
+
+            $flyer_full_path     = $upload_dir . $random_name;
             $flyer_relative_path = 'course_flyers/' . $random_name;
 
             if (move_uploaded_file($flyer_file['tmp_name'], $flyer_full_path)) {
-                // Delete old flyer if exists
                 if (!empty($course['course_flyer']) && file_exists(__DIR__ . '/../' . $course['course_flyer'])) {
                     unlink(__DIR__ . '/../' . $course['course_flyer']);
                 }
@@ -194,6 +191,9 @@ if (isset($_POST['update_course'])) {
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
 
     if ($payment_column_exists) {
+        // 21 parameters:
+        // s  s  s  s  s  s  s  s  s  s   s   s   s   s   s   i   i   s   s   s   i
+        // 1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20  21
         $update_sql = "UPDATE courses SET 
             course_name = ?, 
             course_code = ?,
@@ -219,35 +219,39 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("sssssssssssssssiissi",
-                $course_name,
-                $course_code,
-                $course_abbreviation,
-                $eligibility,
-                $duration,
-                $training_fees,
-                $category,
-                $start_date,
-                $end_date,
-                $description_url,
-                $description_pdf,
-                $course_flyer,
-                $apply_link,
-                $course_coordinator,
-                $training_center,
-                $centre_id,
-                $link_published,
-                $enrollment_status,
-                $payment_details_required,
-                $course_description,
-                $course_id
+            // 15 strings, then i, i, 3 strings, then i = 21 total
+            $stmt->bind_param("sssssssssssssssiisssi",
+                $course_name,              // 1  s
+                $course_code,              // 2  s
+                $course_abbreviation,      // 3  s
+                $eligibility,              // 4  s
+                $duration,                 // 5  s
+                $training_fees,            // 6  s
+                $category,                 // 7  s
+                $start_date,               // 8  s
+                $end_date,                 // 9  s
+                $description_url,          // 10 s
+                $description_pdf,          // 11 s
+                $course_flyer,             // 12 s
+                $apply_link,               // 13 s
+                $course_coordinator,       // 14 s
+                $training_center,          // 15 s
+                $centre_id,                // 16 i
+                $link_published,           // 17 i
+                $enrollment_status,        // 18 s
+                $payment_details_required, // 19 s
+                $course_description,       // 20 s
+                $course_id                 // 21 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
             exit();
         }
     } else {
-        // Fallback for databases without payment_details_required column
+        // Fallback — no payment_details_required column
+        // 20 parameters:
+        // s  s  s  s  s  s  s  s  s  s   s   s   s   s   s   i   i   s   s   i
+        // 1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20
         $update_sql = "UPDATE courses SET 
             course_name = ?, 
             course_code = ?,
@@ -272,27 +276,28 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("ssssssssssssssssiisi",
-                $course_name,
-                $course_code,
-                $course_abbreviation,
-                $eligibility,
-                $duration,
-                $training_fees,
-                $category,
-                $start_date,
-                $end_date,
-                $description_url,
-                $description_pdf,
-                $course_flyer,
-                $apply_link,
-                $course_coordinator,
-                $training_center,
-                $centre_id,
-                $link_published,
-                $enrollment_status,
-                $course_description,
-                $course_id
+            // 15 strings, then i, i, 2 strings, then i = 20 total
+            $stmt->bind_param("sssssssssssssssiiissi",
+                $course_name,          // 1  s
+                $course_code,          // 2  s
+                $course_abbreviation,  // 3  s
+                $eligibility,          // 4  s
+                $duration,             // 5  s
+                $training_fees,        // 6  s
+                $category,             // 7  s
+                $start_date,           // 8  s
+                $end_date,             // 9  s
+                $description_url,      // 10 s
+                $description_pdf,      // 11 s
+                $course_flyer,         // 12 s
+                $apply_link,           // 13 s
+                $course_coordinator,   // 14 s
+                $training_center,      // 15 s
+                $centre_id,            // 16 i
+                $link_published,       // 17 i
+                $enrollment_status,    // 18 s  <-- THIS WAS THE BUG (was treated as i before)
+                $course_description,   // 19 s
+                $course_id             // 20 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -302,7 +307,6 @@ if (isset($_POST['update_course'])) {
 
     if ($stmt->execute()) {
         // Handle scheme associations (only if table exists)
-        // First, delete existing associations
         $delete_schemes_sql = "DELETE FROM course_schemes WHERE course_id = ?";
         $stmt_delete = $conn->prepare($delete_schemes_sql);
         
@@ -311,7 +315,6 @@ if (isset($_POST['update_course'])) {
             $stmt_delete->execute();
             $stmt_delete->close();
             
-            // Then, insert new associations if any schemes are selected
             if (isset($_POST['schemes']) && !empty($_POST['schemes'])) {
                 $insert_scheme_sql = "INSERT INTO course_schemes (course_id, scheme_id) VALUES (?, ?)";
                 $stmt_insert = $conn->prepare($insert_scheme_sql);
@@ -325,7 +328,6 @@ if (isset($_POST['update_course'])) {
                 }
             }
         } else {
-            // course_schemes table doesn't exist - schemes module not installed
             error_log("course_schemes table not found during update: " . $conn->error);
         }
         
@@ -335,11 +337,9 @@ if (isset($_POST['update_course'])) {
             $qr_result = generateCourseQRCode($course_id, $course_code);
             
             if ($qr_result['success']) {
-                // Update course with QR path
                 $stmt_update = $conn->prepare("UPDATE courses SET qr_code_path = ?, qr_generated_at = NOW() WHERE id = ?");
                 $stmt_update->bind_param("si", $qr_result['path'], $course_id);
                 $stmt_update->execute();
-                
                 $_SESSION['message'] = "Course updated successfully! QR code generated.";
             } else {
                 $_SESSION['message'] = "Course updated successfully! But QR code generation failed.";
@@ -485,10 +485,8 @@ if (isset($_POST['update_course'])) {
                             <select class="form-select" name="centre_id" required>
                                 <option value="">--Select Training Centre--</option>
                                 <?php
-                                // Fetch all active centres
                                 $centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name";
                                 $centres_result = $conn->query($centres_query);
-                                
                                 if ($centres_result && $centres_result->num_rows > 0) {
                                     while ($centre = $centres_result->fetch_assoc()) {
                                         $selected = ($course['centre_id'] == $centre['id']) ? 'selected' : '';
@@ -526,11 +524,9 @@ if (isset($_POST['update_course'])) {
                             <i class="fas fa-project-diagram"></i> Schemes/Projects
                         </label>
                         <?php
-                        // Fetch all active schemes
                         $schemes_query = "SELECT * FROM schemes WHERE status = 'Active' ORDER BY scheme_name";
                         $schemes_result = $conn->query($schemes_query);
                         
-                        // Get currently selected schemes for this course
                         $selected_schemes_query = "SELECT scheme_id FROM course_schemes WHERE course_id = ?";
                         $stmt_schemes = $conn->prepare($selected_schemes_query);
                         
@@ -544,7 +540,6 @@ if (isset($_POST['update_course'])) {
                             }
                             $stmt_schemes->close();
                         } else {
-                            // Table doesn't exist yet - schemes module not installed
                             error_log("course_schemes table not found: " . $conn->error);
                         }
                         ?>
@@ -613,10 +608,10 @@ if (isset($_POST['update_course'])) {
                             </label>
                             <select class="form-select" name="enrollment_status" id="enrollment_status" required>
                                 <option value="ongoing" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'ongoing' ? 'selected' : ''; ?>>
-                                    <i class="fas fa-check-circle"></i> Enrollment Ongoing
+                                    Enrollment Ongoing
                                 </option>
                                 <option value="closed" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'closed' ? 'selected' : ''; ?>>
-                                    <i class="fas fa-times-circle"></i> Enrollment Closed
+                                    Enrollment Closed
                                 </option>
                             </select>
                             <small class="text-muted">
@@ -639,13 +634,9 @@ if (isset($_POST['update_course'])) {
                                     font-weight: 600;
                                     display: inline-block;
                                     <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
-                                        background: #d4edda; 
-                                        color: #155724; 
-                                        border: 1px solid #c3e6cb;
+                                        background: #d4edda; color: #155724; border: 1px solid #c3e6cb;
                                     <?php else: ?>
-                                        background: #f8d7da; 
-                                        color: #721c24; 
-                                        border: 1px solid #f5c6cb;
+                                        background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
                                     <?php endif; ?>
                                 ">
                                     <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
@@ -660,7 +651,6 @@ if (isset($_POST['update_course'])) {
                     </div>
                     
                     <?php if ($payment_column_exists): ?>
-                    <!-- Payment Details Control Section -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px;">
                         <div class="form-group">
                             <label class="form-label">
@@ -668,10 +658,10 @@ if (isset($_POST['update_course'])) {
                             </label>
                             <select class="form-select" name="payment_details_required" id="payment_details_required" required>
                                 <option value="optional" <?php echo ($course['payment_details_required'] ?? 'optional') == 'optional' ? 'selected' : ''; ?>>
-                                    <i class="fas fa-check-circle"></i> Optional (Students can skip)
+                                    Optional (Students can skip)
                                 </option>
                                 <option value="required" <?php echo ($course['payment_details_required'] ?? 'optional') == 'required' ? 'selected' : ''; ?>>
-                                    <i class="fas fa-exclamation-circle"></i> Required (Must fill payment details)
+                                    Required (Must fill payment details)
                                 </option>
                             </select>
                             <small class="text-muted">
@@ -694,13 +684,9 @@ if (isset($_POST['update_course'])) {
                                     font-weight: 600;
                                     display: inline-block;
                                     <?php if (($course['payment_details_required'] ?? 'optional') == 'optional'): ?>
-                                        background: #d1ecf1; 
-                                        color: #0c5460; 
-                                        border: 1px solid #bee5eb;
+                                        background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb;
                                     <?php else: ?>
-                                        background: #fff3cd; 
-                                        color: #856404; 
-                                        border: 1px solid #ffeaa7;
+                                        background: #fff3cd; color: #856404; border: 1px solid #ffeaa7;
                                     <?php endif; ?>
                                 ">
                                     <?php if (($course['payment_details_required'] ?? 'optional') == 'optional'): ?>
@@ -761,7 +747,7 @@ if (isset($_POST['update_course'])) {
                     <?php endif; ?>
                     
                     <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 12px; border-left: 4px solid #ffc107;">
-                        <i class="fas fa-lightbulb"></i> <strong>Note:</strong> QR code will be automatically generated only if it doesn't exist. To regenerate, use the "Generate Link" button above.
+                        <i class="fas fa-lightbulb"></i> <strong>Note:</strong> QR code will be automatically generated only if it doesn't exist. To regenerate, use the "Regenerate QR" button above.
                     </div>
                     
                     <div class="form-group" style="margin-top: 16px;">
@@ -858,477 +844,341 @@ if (isset($_POST['update_course'])) {
 
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js?v=<?php echo time(); ?>"></script>
 <script>
-// Modern Confirm Dialog Function (Styled like Delete Course modal)
+// Modern Confirm Dialog
 function showModernConfirm(options) {
     return new Promise((resolve) => {
-        // Create modal overlay
         const overlay = document.createElement('div');
         overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            animation: fadeIn 0.2s ease;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: flex; justify-content: center;
+            align-items: center; z-index: 10000; animation: fadeIn 0.2s ease;
         `;
-        
-        // Create modal content
         const modal = document.createElement('div');
         modal.style.cssText = `
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            max-width: 440px;
-            width: 90%;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-            animation: slideUp 0.3s ease;
-            text-align: center;
+            background: white; border-radius: 12px; padding: 32px;
+            max-width: 440px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease; text-align: center;
         `;
-        
-        // Icon based on type
         const iconColor = options.type === 'warning' ? '#ff9800' : '#f44336';
-        const iconHtml = `
-            <div style="
-                width: 64px;
-                height: 64px;
-                background: ${iconColor}22;
-                border-radius: 50%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin: 0 auto 20px;
-            ">
-                <i class="fas fa-exclamation-triangle" style="font-size: 32px; color: ${iconColor};"></i>
+        modal.innerHTML = `
+            <div style="width:64px;height:64px;background:${iconColor}22;border-radius:50%;
+                display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                <i class="fas fa-exclamation-triangle" style="font-size:32px;color:${iconColor};"></i>
             </div>
-        `;
-        
-        // Title
-        const titleHtml = `
-            <h3 style="
-                margin: 0 0 12px;
-                font-size: 22px;
-                font-weight: 600;
-                color: #2c3e50;
-            ">${options.title || 'Confirm Action'}</h3>
-        `;
-        
-        // Message
-        const messageHtml = `
-            <p style="
-                margin: 0 0 28px;
-                font-size: 15px;
-                color: #6c757d;
-                line-height: 1.6;
-            ">${options.message || 'Are you sure?'}</p>
-        `;
-        
-        // Buttons
-        const buttonsHtml = `
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button id="cancelBtn" style="
-                    padding: 12px 28px;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 15px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    background: #6c757d;
-                    color: white;
-                    transition: all 0.2s;
-                ">
+            <h3 style="margin:0 0 12px;font-size:22px;font-weight:600;color:#2c3e50;">
+                ${options.title || 'Confirm Action'}
+            </h3>
+            <p style="margin:0 0 28px;font-size:15px;color:#6c757d;line-height:1.6;">
+                ${options.message || 'Are you sure?'}
+            </p>
+            <div style="display:flex;gap:12px;justify-content:center;">
+                <button id="cancelBtn" style="padding:12px 28px;border:none;border-radius:6px;
+                    font-size:15px;font-weight:500;cursor:pointer;background:#6c757d;color:white;">
                     <i class="fas fa-times"></i> ${options.cancelText || 'Cancel'}
                 </button>
-                <button id="confirmBtn" style="
-                    padding: 12px 28px;
-                    border: none;
-                    border-radius: 6px;
-                    font-size: 15px;
-                    font-weight: 500;
-                    cursor: pointer;
-                    background: #f44336;
-                    color: white;
-                    transition: all 0.2s;
-                ">
+                <button id="confirmBtn" style="padding:12px 28px;border:none;border-radius:6px;
+                    font-size:15px;font-weight:500;cursor:pointer;background:#f44336;color:white;">
                     <i class="fas fa-check"></i> ${options.confirmText || 'OK'}
                 </button>
             </div>
         `;
-        
-        modal.innerHTML = iconHtml + titleHtml + messageHtml + buttonsHtml;
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
-        
-        // Add animations
         const style = document.createElement('style');
         style.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes slideUp {
-                from { transform: translateY(20px); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-            }
-            #cancelBtn:hover { background: #5a6268; transform: translateY(-1px); }
-            #confirmBtn:hover { background: #d32f2f; transform: translateY(-1px); }
+            @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+            @keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+            #cancelBtn:hover{background:#5a6268;}
+            #confirmBtn:hover{background:#d32f2f;}
         `;
         document.head.appendChild(style);
-        
-        // Event listeners
-        const confirmBtn = document.getElementById('confirmBtn');
-        const cancelBtn = document.getElementById('cancelBtn');
-        
         const cleanup = (result) => {
-            overlay.style.animation = 'fadeOut 0.2s ease';
-            setTimeout(() => {
-                document.body.removeChild(overlay);
-                document.head.removeChild(style);
-                resolve(result);
-            }, 200);
+            document.body.removeChild(overlay);
+            document.head.removeChild(style);
+            resolve(result);
         };
-        
-        confirmBtn.onclick = () => cleanup(true);
-        cancelBtn.onclick = () => cleanup(false);
-        overlay.onclick = (e) => {
-            if (e.target === overlay) cleanup(false);
-        };
+        document.getElementById('confirmBtn').onclick = () => cleanup(true);
+        document.getElementById('cancelBtn').onclick  = () => cleanup(false);
+        overlay.onclick = (e) => { if (e.target === overlay) cleanup(false); };
     });
 }
 
-// Regenerate QR Code Function with Modern Confirmation
+// Regenerate QR Code
 window.regenerateQRCode = async function() {
     const courseCodeInput = document.querySelector('input[name="course_code"]');
-    const courseCode = courseCodeInput.value.trim();
-    const courseId = <?php echo $course['id']; ?>;
-    const regenerateBtn = document.getElementById('regenerate_qr_btn');
-    
+    const courseCode      = courseCodeInput.value.trim();
+    const courseId        = <?php echo intval($course['id']); ?>;
+    const regenerateBtn   = document.getElementById('regenerate_qr_btn');
+
     if (!courseCode) {
         toast.warning('Please enter course code first!');
         courseCodeInput.focus();
         return;
     }
-    
-    // Modern confirm regeneration with styled modal
+
     const confirmed = await showModernConfirm({
         title: 'Regenerate QR Code?',
-        message: 'Are you sure you want to regenerate the QR code? The old QR code will be replaced with a new one.',
-        confirmText: 'OK',
-        cancelText: 'Cancel',
-        type: 'warning'
+        message: 'Are you sure you want to regenerate the QR code? The old QR code will be replaced.',
+        confirmText: 'OK', cancelText: 'Cancel', type: 'warning'
     });
-    
-    if (!confirmed) {
-        return;
-    }
-    
-    // Disable button and show loading
+    if (!confirmed) return;
+
     regenerateBtn.disabled = true;
     regenerateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Regenerating...';
-    
-    // Show loading toast
     const loadingToast = toast.loading('Regenerating QR code...');
-    
-    // Send AJAX request
+
     const formData = new FormData();
     formData.append('course_id', courseId);
     formData.append('course_name', '');
     formData.append('course_code', courseCode);
     formData.append('force_regenerate', '1');
-    
-    fetch('generate_link_qr.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        toast.remove(loadingToast);
-        
-        if (data.success) {
-            toast.success('QR code regenerated successfully!');
-            
-            const qrImage = document.getElementById('qr_code_image');
-            if (qrImage && data.qr_code_url) {
-                qrImage.src = data.qr_code_url + '?t=' + new Date().getTime();
-            }
-            
-            const timeSpan = document.getElementById('qr_generated_time');
-            if (timeSpan) {
-                const now = new Date();
-                timeSpan.textContent = now.toLocaleString('en-US', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
+
+    fetch('generate_link_qr.php', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            toast.remove(loadingToast);
+            if (data.success) {
+                toast.success('QR code regenerated successfully!');
+                const qrImage = document.getElementById('qr_code_image');
+                if (qrImage && data.qr_code_url) qrImage.src = data.qr_code_url + '?t=' + Date.now();
+                const timeSpan = document.getElementById('qr_generated_time');
+                if (timeSpan) timeSpan.textContent = new Date().toLocaleString('en-US', {
+                    day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true
                 });
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                toast.error('Error: ' + data.message);
             }
-            
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            toast.error('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        toast.remove(loadingToast);
-        toast.error('Error regenerating QR code: ' + error);
-    })
-    .finally(() => {
-        regenerateBtn.disabled = false;
-        regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Regenerate QR';
-    });
+        })
+        .catch(err => { toast.remove(loadingToast); toast.error('Error: ' + err); })
+        .finally(() => {
+            regenerateBtn.disabled = false;
+            regenerateBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Regenerate QR';
+        });
 };
 
-// PDF Upload Validation
-document.addEventListener('DOMContentLoaded', function() {
-    const pdfUpload = document.getElementById('pdf_upload');
-    if (pdfUpload) {
-        pdfUpload.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                // Check file size (max 10MB)
-                const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-                if (file.size > maxSize) {
-                    toast.error('PDF file is too large! Maximum size is 10MB.');
-                    this.value = '';
-                    return;
-                }
-                
-                // Check file type
-                if (file.type !== 'application/pdf') {
-                    toast.error('Please select a valid PDF file!');
-                    this.value = '';
-                    return;
-                }
-                
-                toast.success('PDF file selected: ' + file.name);
-            }
-        });
-    }
-});
-
-// Generate Apply Link and QR Code for Edit Page (AJAX)
+// Generate Apply Link (new)
 function generateApplyLinkEdit() {
     const courseNameInput = document.querySelector('input[name="course_name"]');
     const courseCodeInput = document.querySelector('input[name="course_code"]');
-    const linkInput = document.getElementById('edit_apply_link');
-    const previewSpan = document.getElementById('link_preview_edit');
-    const generateBtn = event.target;
-    
-    const courseName = courseNameInput.value.trim();
-    const courseCode = courseCodeInput.value.trim();
-    const courseId = <?php echo $course['id']; ?>;
-    
-    if (!courseName) {
-        toast.warning('Please enter course name first!');
-        courseNameInput.focus();
-        return;
-    }
-    
-    if (!courseCode) {
-        toast.warning('Please enter course code first!');
-        courseCodeInput.focus();
-        return;
-    }
-    
-    // Disable button and show loading
+    const linkInput       = document.getElementById('edit_apply_link');
+    const previewSpan     = document.getElementById('link_preview_edit');
+    const generateBtn     = event.target;
+    const courseName      = courseNameInput.value.trim();
+    const courseCode      = courseCodeInput.value.trim();
+    const courseId        = <?php echo intval($course['id']); ?>;
+
+    if (!courseName) { toast.warning('Please enter course name first!'); courseNameInput.focus(); return; }
+    if (!courseCode) { toast.warning('Please enter course code first!'); courseCodeInput.focus(); return; }
+
     generateBtn.disabled = true;
     generateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
-    
-    // Show loading toast
     const loadingToast = toast.loading('Generating registration link and QR code...');
-    
-    // Send AJAX request
+
     const formData = new FormData();
     formData.append('course_id', courseId);
     formData.append('course_name', courseName);
     formData.append('course_code', courseCode);
-    
-    fetch('generate_link_qr.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        // Remove loading toast
-        toast.remove(loadingToast);
-        
-        if (data.success) {
-            // Update link field and preview
-            linkInput.value = data.apply_link;
-            previewSpan.textContent = data.apply_link;
-            
-            // If QR code was generated, reload the page to show it
-            if (data.qr_code_path) {
-                toast.success(data.message);
-                setTimeout(() => location.reload(), 1500);
+
+    fetch('generate_link_qr.php', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            toast.remove(loadingToast);
+            if (data.success) {
+                linkInput.value    = data.apply_link;
+                previewSpan.textContent = data.apply_link;
+                if (data.qr_code_path) {
+                    toast.success(data.message);
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    toast.info(data.message);
+                }
             } else {
-                toast.info(data.message);
+                toast.error('Error: ' + data.message);
             }
-        } else {
-            toast.error('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        toast.remove(loadingToast);
-        toast.error('Error generating link: ' + error);
-    })
-    .finally(() => {
-        // Re-enable button
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Link';
-    });
+        })
+        .catch(err => { toast.remove(loadingToast); toast.error('Error: ' + err); })
+        .finally(() => {
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="fas fa-magic"></i> Generate Link';
+        });
 }
 
-// Toggle link status label
+// Regenerate Apply Link (existing)
+async function regenerateApplyLink() {
+    const confirmed = await showModernConfirm({
+        title: 'Regenerate Registration Link?',
+        message: 'This will create a new registration link and QR code. The old link will stop working. Are you sure?',
+        confirmText: 'Yes, Regenerate', cancelText: 'Cancel', type: 'warning'
+    });
+    if (confirmed) generateApplyLinkEdit();
+}
+
+// Confirm Remove PDF
+async function confirmRemovePDF(courseId) {
+    const confirmed = await showModernConfirm({
+        title: 'Remove PDF?',
+        message: 'Are you sure you want to remove the course description PDF? This cannot be undone.',
+        confirmText: 'Yes, Remove', cancelText: 'Cancel', type: 'warning'
+    });
+    if (confirmed) window.location.href = 'edit_course.php?id=' + courseId + '&remove_pdf=' + courseId;
+}
+
+// Confirm Remove Flyer
+async function confirmRemoveFlyer(courseId) {
+    const confirmed = await showModernConfirm({
+        title: 'Remove Flyer?',
+        message: 'Are you sure you want to remove the course flyer image? This cannot be undone.',
+        confirmText: 'Yes, Remove', cancelText: 'Cancel', type: 'warning'
+    });
+    if (confirmed) window.location.href = 'edit_course.php?id=' + courseId + '&remove_flyer=' + courseId;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    // PDF upload validation
+    const pdfUpload = document.getElementById('pdf_upload');
+    if (pdfUpload) {
+        pdfUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('PDF file is too large! Maximum size is 10MB.');
+                this.value = ''; return;
+            }
+            if (file.type !== 'application/pdf') {
+                toast.error('Please select a valid PDF file!');
+                this.value = ''; return;
+            }
+            toast.success('PDF file selected: ' + file.name);
+        });
+    }
+
+    // Link published toggle
     const publishCheckbox = document.getElementById('edit_link_published');
     if (publishCheckbox) {
         publishCheckbox.addEventListener('change', function() {
             const statusSpan = document.getElementById('edit_publish_status');
-            const smallText = statusSpan.parentElement.parentElement.nextElementSibling;
-            
+            const smallText  = statusSpan.parentElement.parentElement.nextElementSibling;
             if (this.checked) {
                 statusSpan.textContent = '✓ Active';
                 statusSpan.style.color = '#28a745';
-                statusSpan.style.fontWeight = 'bold';
-                smallText.textContent = 'Students can register';
+                smallText.textContent  = 'Students can register';
                 toast.success('Registration link activated!');
             } else {
                 statusSpan.textContent = '✗ Inactive';
                 statusSpan.style.color = '#dc3545';
-                statusSpan.style.fontWeight = 'bold';
-                smallText.textContent = 'Registration disabled';
+                smallText.textContent  = 'Registration disabled';
                 toast.warning('Registration link deactivated!');
             }
         });
     }
-    
-    // Handle enrollment status changes
+
+    // Enrollment status change
     const enrollmentSelect = document.getElementById('enrollment_status');
     if (enrollmentSelect) {
         enrollmentSelect.addEventListener('change', function() {
-            const preview = document.getElementById('enrollment_preview');
+            const preview  = document.getElementById('enrollment_preview');
             const helpText = document.getElementById('enrollment_help_text');
-            
             if (this.value === 'ongoing') {
-                preview.innerHTML = '<i class="fas fa-check-circle"></i> Enrollment Open';
+                preview.innerHTML    = '<i class="fas fa-check-circle"></i> Enrollment Open';
                 preview.style.background = '#d4edda';
-                preview.style.color = '#155724';
-                preview.style.border = '1px solid #c3e6cb';
+                preview.style.color      = '#155724';
+                preview.style.border     = '1px solid #c3e6cb';
                 helpText.textContent = 'Course is accepting new enrollments';
                 toast.success('Enrollment status set to ONGOING');
             } else {
-                preview.innerHTML = '<i class="fas fa-times-circle"></i> Enrollment Closed';
+                preview.innerHTML    = '<i class="fas fa-times-circle"></i> Enrollment Closed';
                 preview.style.background = '#f8d7da';
-                preview.style.color = '#721c24';
-                preview.style.border = '1px solid #f5c6cb';
+                preview.style.color      = '#721c24';
+                preview.style.border     = '1px solid #f5c6cb';
                 helpText.textContent = 'Course is not accepting new enrollments';
                 toast.warning('Enrollment status set to CLOSED');
             }
         });
     }
-    
+
     <?php if ($payment_column_exists): ?>
-    // Handle payment details requirement changes
+    // Payment details requirement change
     const paymentSelect = document.getElementById('payment_details_required');
     if (paymentSelect) {
         paymentSelect.addEventListener('change', function() {
-            const preview = document.getElementById('payment_preview');
+            const preview  = document.getElementById('payment_preview');
             const helpText = document.getElementById('payment_help_text');
-            
             if (this.value === 'optional') {
-                preview.innerHTML = '<i class="fas fa-info-circle"></i> Payment Optional';
+                preview.innerHTML    = '<i class="fas fa-info-circle"></i> Payment Optional';
                 preview.style.background = '#d1ecf1';
-                preview.style.color = '#0c5460';
-                preview.style.border = '1px solid #bee5eb';
+                preview.style.color      = '#0c5460';
+                preview.style.border     = '1px solid #bee5eb';
                 helpText.textContent = 'Students can register without payment details';
                 toast.info('Payment details set to OPTIONAL');
             } else {
-                preview.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Payment Required';
+                preview.innerHTML    = '<i class="fas fa-exclamation-triangle"></i> Payment Required';
                 preview.style.background = '#fff3cd';
-                preview.style.color = '#856404';
-                preview.style.border = '1px solid #ffeaa7';
+                preview.style.color      = '#856404';
+                preview.style.border     = '1px solid #ffeaa7';
                 helpText.textContent = 'Students must provide payment information to register';
                 toast.warning('Payment details set to REQUIRED');
             }
         });
     }
     <?php endif; ?>
+
+    // NSQF category init
+    const currentCategory = '<?php echo addslashes($course['category']); ?>';
+    if (currentCategory === 'Long Term NSQF' || currentCategory === 'Short Term NSQF') {
+        handleCategoryChange(currentCategory);
+    }
 });
 
-// NSQF Template Integration Functions
+// NSQF Template functions
 function handleCategoryChange(currentCategory) {
-    const categorySelect = document.getElementById('edit_category');
-    const templateGroup = document.getElementById('template_selection_group');
+    const categorySelect  = document.getElementById('edit_category');
+    const templateGroup   = document.getElementById('template_selection_group');
     const courseNameInput = document.querySelector('input[name="course_name"]');
     const eligibilityField = document.getElementById('edit_eligibility');
-    
     const selectedCategory = categorySelect.value;
-    
-    // Check if user is NSQF Course Manager
     const isNSQFManager = <?php echo (isset($_SESSION['role']) && $_SESSION['role'] === 'nsqf_course_manager') ? 'true' : 'false'; ?>;
-    
+
     if (selectedCategory === 'Long Term NSQF' || selectedCategory === 'Short Term NSQF') {
         if (!isNSQFManager) {
-            // Course Coordinators must select from templates
-            templateGroup.style.display = 'block';
-            courseNameInput.readOnly = true;
-            courseNameInput.placeholder = 'Will be filled from template selection';
-            eligibilityField.readOnly = true;
-            eligibilityField.placeholder = 'Will auto-populate from template';
-            
-            // Fetch NSQF templates
+            templateGroup.style.display    = 'block';
+            courseNameInput.readOnly       = true;
+            courseNameInput.placeholder    = 'Will be filled from template selection';
+            eligibilityField.readOnly      = true;
+            eligibilityField.placeholder   = 'Will auto-populate from template';
             fetchNSQFTemplates(selectedCategory);
         } else {
-            // NSQF managers can create new courses directly
-            templateGroup.style.display = 'none';
-            courseNameInput.readOnly = false;
-            courseNameInput.placeholder = 'Enter course name';
-            eligibilityField.readOnly = false;
-            eligibilityField.placeholder = 'Enter eligibility criteria';
+            templateGroup.style.display    = 'none';
+            courseNameInput.readOnly       = false;
+            courseNameInput.placeholder    = 'Enter course name';
+            eligibilityField.readOnly      = false;
+            eligibilityField.placeholder   = 'Enter eligibility criteria';
         }
     } else {
-        // Non-NSQF courses - normal input
-        templateGroup.style.display = 'none';
-        courseNameInput.readOnly = false;
-        courseNameInput.placeholder = 'Enter course name';
-        eligibilityField.readOnly = false;
-        eligibilityField.placeholder = 'Enter eligibility criteria';
+        templateGroup.style.display    = 'none';
+        courseNameInput.readOnly       = false;
+        courseNameInput.placeholder    = 'Enter course name';
+        eligibilityField.readOnly      = false;
+        eligibilityField.placeholder   = 'Enter eligibility criteria';
     }
 }
 
-// Function to fetch NSQF templates via AJAX
 function fetchNSQFTemplates(category) {
     fetch('get_nsqf_templates.php?category=' + encodeURIComponent(category))
-        .then(response => response.json())
+        .then(r => r.json())
         .then(data => {
             if (data.success) {
                 populateTemplateDropdown(data.templates);
             } else {
-                console.error('Error fetching templates:', data.message);
                 toast.error('Error loading course templates. Please try again.');
             }
         })
-        .catch(error => {
-            console.error('Error:', error);
-            toast.error('Error loading course templates. Please check your connection.');
-        });
+        .catch(() => toast.error('Error loading course templates. Please check your connection.'));
 }
 
-// Function to populate template dropdown
 function populateTemplateDropdown(templates) {
     const templateSelect = document.getElementById('course_name_template');
-    
-    // Clear existing options except first
     templateSelect.innerHTML = '<option value="">-- Select Course Template --</option>';
-    
-    // Add template options
     templates.forEach(template => {
         const option = document.createElement('option');
         option.value = template.id;
@@ -1338,79 +1188,19 @@ function populateTemplateDropdown(templates) {
     });
 }
 
-// Function to handle template selection
 function handleTemplateSelection() {
-    const templateSelect = document.getElementById('course_name_template');
-    const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+    const templateSelect   = document.getElementById('course_name_template');
+    const selectedOption   = templateSelect.options[templateSelect.selectedIndex];
     const eligibilityField = document.getElementById('edit_eligibility');
-    const courseNameInput = document.querySelector('input[name="course_name"]');
-    
+    const courseNameInput  = document.querySelector('input[name="course_name"]');
+
     if (selectedOption.value && selectedOption.dataset.eligibility) {
-        // Auto-populate eligibility from template
         eligibilityField.value = selectedOption.dataset.eligibility;
-        
-        // Set the actual course name for form submission
-        courseNameInput.value = selectedOption.textContent;
-        
+        courseNameInput.value  = selectedOption.textContent;
         toast.success('Template selected: ' + selectedOption.textContent);
     } else {
-        // Clear fields if no template selected
         eligibilityField.value = '';
-        courseNameInput.value = '';
-    }
-}
-
-// Initialize template system on page load
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if current course is NSQF and initialize template system
-    const currentCategory = '<?php echo $course['category']; ?>';
-    if (currentCategory === 'Long Term NSQF' || currentCategory === 'Short Term NSQF') {
-        handleCategoryChange(currentCategory);
-    }
-});
-
-// Regenerate Apply Link (with confirmation)
-async function regenerateApplyLink() {
-    const confirmed = await showModernConfirm({
-        title: 'Regenerate Registration Link?',
-        message: 'This will create a new registration link and QR code. The old link will stop working. Are you sure?',
-        confirmText: 'Yes, Regenerate',
-        cancelText: 'Cancel',
-        type: 'warning'
-    });
-    
-    if (confirmed) {
-        generateApplyLinkEdit();
-    }
-}
-
-// Confirm Remove PDF
-async function confirmRemovePDF(courseId) {
-    const confirmed = await showModernConfirm({
-        title: 'Remove PDF?',
-        message: 'Are you sure you want to remove the course description PDF? This action cannot be undone.',
-        confirmText: 'Yes, Remove',
-        cancelText: 'Cancel',
-        type: 'warning'
-    });
-    
-    if (confirmed) {
-        window.location.href = 'edit_course.php?id=' + courseId + '&remove_pdf=' + courseId;
-    }
-}
-
-// Confirm Remove Flyer
-async function confirmRemoveFlyer(courseId) {
-    const confirmed = await showModernConfirm({
-        title: 'Remove Flyer?',
-        message: 'Are you sure you want to remove the course flyer image? This action cannot be undone.',
-        confirmText: 'Yes, Remove',
-        cancelText: 'Cancel',
-        type: 'warning'
-    });
-    
-    if (confirmed) {
-        window.location.href = 'edit_course.php?id=' + courseId + '&remove_flyer=' + courseId;
+        courseNameInput.value  = '';
     }
 }
 </script>
