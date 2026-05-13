@@ -1893,7 +1893,7 @@ if (isset($_SESSION['info'])) {
 
             <!-- Payment Details Section (Conditional) -->
             <?php 
-            $payment_required = ($course_data['payment_details_required'] ?? 'optional') === 'required';
+            $payment_required = ($course_details['payment_details_required'] ?? 'optional') === 'required';
             $payment_badge_class = $payment_required ? 'bg-warning' : 'bg-secondary';
             $payment_badge_text = $payment_required ? 'Required' : 'Optional';
             ?>
