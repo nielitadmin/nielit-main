@@ -86,6 +86,7 @@ if (isset($_POST['update_course'])) {
     $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
     $link_published = isset($_POST['link_published']) ? 1 : 0;
     $enrollment_status = $_POST['enrollment_status'] ?? 'ongoing';
+    $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
     $description_pdf = $course['description_pdf'];
     $course_flyer = $course['course_flyer'] ?? '';
 
@@ -207,11 +208,12 @@ if (isset($_POST['update_course'])) {
         centre_id = ?,
         link_published = ?,
         enrollment_status = ?,
+        payment_details_required = ?,
         course_description = ?
         WHERE id = ?";
 
     $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("sssssssssssssssiissi",
+    $stmt->bind_param("ssssssssssssssssiissis",
         $course_name,
         $course_code,
         $course_abbreviation,
@@ -230,6 +232,7 @@ if (isset($_POST['update_course'])) {
         $centre_id,
         $link_published,
         $enrollment_status,
+        $payment_details_required,
         $course_description,
         $course_id
     );
@@ -590,6 +593,60 @@ if (isset($_POST['update_course'])) {
                                 </span>
                             </div>
                             <small class="text-muted">How it appears to students</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Details Control Section -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fas fa-credit-card"></i> Payment Details Requirement *
+                            </label>
+                            <select class="form-select" name="payment_details_required" id="payment_details_required" required>
+                                <option value="optional" <?php echo ($course['payment_details_required'] ?? 'optional') == 'optional' ? 'selected' : ''; ?>>
+                                    <i class="fas fa-check-circle"></i> Optional (Students can skip)
+                                </option>
+                                <option value="required" <?php echo ($course['payment_details_required'] ?? 'optional') == 'required' ? 'selected' : ''; ?>>
+                                    <i class="fas fa-exclamation-circle"></i> Required (Must fill payment details)
+                                </option>
+                            </select>
+                            <small class="text-muted">
+                                <span id="payment_help_text">
+                                    <?php if (($course['payment_details_required'] ?? 'optional') == 'optional'): ?>
+                                        Students can register without payment details
+                                    <?php else: ?>
+                                        Students must provide payment information to register
+                                    <?php endif; ?>
+                                </span>
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Payment Preview</label>
+                            <div style="padding-top: 8px;">
+                                <span id="payment_preview" style="
+                                    padding: 8px 16px; 
+                                    border-radius: 20px; 
+                                    font-size: 14px; 
+                                    font-weight: 600;
+                                    display: inline-block;
+                                    <?php if (($course['payment_details_required'] ?? 'optional') == 'optional'): ?>
+                                        background: #d1ecf1; 
+                                        color: #0c5460; 
+                                        border: 1px solid #bee5eb;
+                                    <?php else: ?>
+                                        background: #fff3cd; 
+                                        color: #856404; 
+                                        border: 1px solid #ffeaa7;
+                                    <?php endif; ?>
+                                ">
+                                    <?php if (($course['payment_details_required'] ?? 'optional') == 'optional'): ?>
+                                        <i class="fas fa-info-circle"></i> Payment Optional
+                                    <?php else: ?>
+                                        <i class="fas fa-exclamation-triangle"></i> Payment Required
+                                    <?php endif; ?>
+                                </span>
+                            </div>
+                            <small class="text-muted">How payment section appears</small>
                         </div>
                     </div>
                     
@@ -1108,6 +1165,31 @@ document.addEventListener('DOMContentLoaded', function() {
                 preview.style.border = '1px solid #f5c6cb';
                 helpText.textContent = 'Course is not accepting new enrollments';
                 toast.warning('Enrollment status set to CLOSED');
+            }
+        });
+    }
+    
+    // Handle payment details requirement changes
+    const paymentSelect = document.getElementById('payment_details_required');
+    if (paymentSelect) {
+        paymentSelect.addEventListener('change', function() {
+            const preview = document.getElementById('payment_preview');
+            const helpText = document.getElementById('payment_help_text');
+            
+            if (this.value === 'optional') {
+                preview.innerHTML = '<i class="fas fa-info-circle"></i> Payment Optional';
+                preview.style.background = '#d1ecf1';
+                preview.style.color = '#0c5460';
+                preview.style.border = '1px solid #bee5eb';
+                helpText.textContent = 'Students can register without payment details';
+                toast.info('Payment details set to OPTIONAL');
+            } else {
+                preview.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Payment Required';
+                preview.style.background = '#fff3cd';
+                preview.style.color = '#856404';
+                preview.style.border = '1px solid #ffeaa7';
+                helpText.textContent = 'Students must provide payment information to register';
+                toast.warning('Payment details set to REQUIRED');
             }
         });
     }

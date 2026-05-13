@@ -1891,40 +1891,54 @@ if (isset($_SESSION['info'])) {
                 </div>
             </div>
 
-            <!-- Payment Details Section (Optional) -->
+            <!-- Payment Details Section (Conditional) -->
+            <?php 
+            $payment_required = ($course_data['payment_details_required'] ?? 'optional') === 'required';
+            $payment_badge_class = $payment_required ? 'bg-warning' : 'bg-secondary';
+            $payment_badge_text = $payment_required ? 'Required' : 'Optional';
+            ?>
             <div class="form-section">
                 <div class="section-header">
                     <div class="section-icon">
                         <i class="fas fa-credit-card"></i>
                     </div>
                     <div>
-                        <h3 class="section-title">Payment Details <span class="badge bg-secondary ms-2" style="font-size: 0.7rem;">Optional</span></h3>
-                        <p class="section-subtitle">Transaction information (if payment already made)</p>
+                        <h3 class="section-title">Payment Details <span class="badge <?php echo $payment_badge_class; ?> ms-2" style="font-size: 0.7rem;"><?php echo $payment_badge_text; ?></span></h3>
+                        <p class="section-subtitle">Transaction information <?php echo $payment_required ? '(required for registration)' : '(if payment already made)'; ?></p>
                     </div>
                 </div>
                 
-                <div class="alert alert-info mb-3" style="font-size: 0.9rem;">
-                    <i class="fas fa-info-circle me-2"></i>
-                    <strong>Note:</strong> This section is optional. Fill only if you have already made the payment.
+                <div class="alert <?php echo $payment_required ? 'alert-warning' : 'alert-info'; ?> mb-3" style="font-size: 0.9rem;">
+                    <i class="fas fa-<?php echo $payment_required ? 'exclamation-triangle' : 'info-circle'; ?> me-2"></i>
+                    <strong><?php echo $payment_required ? 'Required:' : 'Note:'; ?></strong> 
+                    <?php if ($payment_required): ?>
+                        You must provide payment details to complete registration for this course.
+                    <?php else: ?>
+                        This section is optional. Fill only if you have already made the payment.
+                    <?php endif; ?>
                 </div>
                 
                 <div class="row">
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">UTR/Transaction ID</label>
-                        <input type="text" class="form-control" name="utr_number" placeholder="Enter UTR or Transaction ID (Optional)">
-                        <small class="text-muted">Leave blank if payment not yet made</small>
+                        <label class="form-label">UTR/Transaction ID <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
+                        <input type="text" class="form-control" name="utr_number" 
+                               placeholder="Enter UTR or Transaction ID<?php echo $payment_required ? '' : ' (Optional)'; ?>"
+                               <?php echo $payment_required ? 'required' : ''; ?>>
+                        <small class="text-muted"><?php echo $payment_required ? 'Transaction ID is required' : 'Leave blank if payment not yet made'; ?></small>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Payment Receipt</label>
-                        <input type="file" class="form-control" name="payment_receipt" accept="image/*,.pdf">
-                        <small class="text-muted">Upload receipt if available</small>
+                        <label class="form-label">Payment Receipt <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
+                        <input type="file" class="form-control" name="payment_receipt" accept="image/*,.pdf"
+                               <?php echo $payment_required ? 'required' : ''; ?>>
+                        <small class="text-muted"><?php echo $payment_required ? 'Receipt is required' : 'Upload receipt if available'; ?></small>
                     </div>
 
                     <div class="col-md-4 mb-3">
-                        <label class="form-label">Payment Date</label>
-                        <input type="date" class="form-control" name="payment_date" placeholder="YYYY-MM-DD">
-                        <small class="text-muted">Select payment date (if paid)</small>
+                        <label class="form-label">Payment Date <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
+                        <input type="date" class="form-control" name="payment_date" placeholder="YYYY-MM-DD"
+                               <?php echo $payment_required ? 'required' : ''; ?>>
+                        <small class="text-muted"><?php echo $payment_required ? 'Payment date is required' : 'Select payment date (if paid)'; ?></small>
                     </div>
                 </div>
 
