@@ -189,53 +189,106 @@ if (isset($_POST['update_course'])) {
     // Auto-add course_description column if missing
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
 
-    $update_sql = "UPDATE courses SET 
-        course_name = ?, 
-        course_code = ?,
-        course_abbreviation = ?,
-        eligibility = ?, 
-        duration = ?, 
-        training_fees = ?, 
-        category = ?, 
-        start_date = ?, 
-        end_date = ?, 
-        description_url = ?, 
-        description_pdf = ?, 
-        course_flyer = ?,
-        apply_link = ?,
-        course_coordinator = ?,
-        training_center = ?,
-        centre_id = ?,
-        link_published = ?,
-        enrollment_status = ?,
-        payment_details_required = ?,
-        course_description = ?
-        WHERE id = ?";
+    // Check if payment_details_required column exists
+    $column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
+    $payment_column_exists = $column_check && $column_check->num_rows > 0;
+    
+    if ($payment_column_exists) {
+        $update_sql = "UPDATE courses SET 
+            course_name = ?, 
+            course_code = ?,
+            course_abbreviation = ?,
+            eligibility = ?, 
+            duration = ?, 
+            training_fees = ?, 
+            category = ?, 
+            start_date = ?, 
+            end_date = ?, 
+            description_url = ?, 
+            description_pdf = ?, 
+            course_flyer = ?,
+            apply_link = ?,
+            course_coordinator = ?,
+            training_center = ?,
+            centre_id = ?,
+            link_published = ?,
+            enrollment_status = ?,
+            payment_details_required = ?,
+            course_description = ?
+            WHERE id = ?";
 
-    $stmt = $conn->prepare($update_sql);
-    $stmt->bind_param("ssssssssssssssssiissis",
-        $course_name,
-        $course_code,
-        $course_abbreviation,
-        $eligibility,
-        $duration,
-        $training_fees,
-        $category,
-        $start_date,
-        $end_date,
-        $description_url,
-        $description_pdf,
-        $course_flyer,
-        $apply_link,
-        $course_coordinator,
-        $training_center,
-        $centre_id,
-        $link_published,
-        $enrollment_status,
-        $payment_details_required,
-        $course_description,
-        $course_id
-    );
+        $stmt = $conn->prepare($update_sql);
+        $stmt->bind_param("ssssssssssssssssiissis",
+            $course_name,
+            $course_code,
+            $course_abbreviation,
+            $eligibility,
+            $duration,
+            $training_fees,
+            $category,
+            $start_date,
+            $end_date,
+            $description_url,
+            $description_pdf,
+            $course_flyer,
+            $apply_link,
+            $course_coordinator,
+            $training_center,
+            $centre_id,
+            $link_published,
+            $enrollment_status,
+            $payment_details_required,
+            $course_description,
+            $course_id
+        );
+    } else {
+        // Fallback for databases without payment_details_required column
+        $update_sql = "UPDATE courses SET 
+            course_name = ?, 
+            course_code = ?,
+            course_abbreviation = ?,
+            eligibility = ?, 
+            duration = ?, 
+            training_fees = ?, 
+            category = ?, 
+            start_date = ?, 
+            end_date = ?, 
+            description_url = ?, 
+            description_pdf = ?, 
+            course_flyer = ?,
+            apply_link = ?,
+            course_coordinator = ?,
+            training_center = ?,
+            centre_id = ?,
+            link_published = ?,
+            enrollment_status = ?,
+            course_description = ?
+            WHERE id = ?";
+
+        $stmt = $conn->prepare($update_sql);
+        $stmt->bind_param("sssssssssssssssiissi",
+            $course_name,
+            $course_code,
+            $course_abbreviation,
+            $eligibility,
+            $duration,
+            $training_fees,
+            $category,
+            $start_date,
+            $end_date,
+            $description_url,
+            $description_pdf,
+            $course_flyer,
+            $apply_link,
+            $course_coordinator,
+            $training_center,
+            $centre_id,
+            $link_published,
+            $enrollment_status,
+            $course_description,
+            $course_id
+        );
+    }
 
     if ($stmt->execute()) {
         // Handle scheme associations (only if table exists)
@@ -596,6 +649,7 @@ if (isset($_POST['update_course'])) {
                         </div>
                     </div>
                     
+                    <?php if ($payment_column_exists): ?>
                     <!-- Payment Details Control Section -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px;">
                         <div class="form-group">
@@ -649,6 +703,7 @@ if (isset($_POST['update_course'])) {
                             <small class="text-muted">How payment section appears</small>
                         </div>
                     </div>
+                    <?php endif; ?>
                     
                     <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-top: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -1169,6 +1224,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    <?php if ($payment_column_exists): ?>
     // Handle payment details requirement changes
     const paymentSelect = document.getElementById('payment_details_required');
     if (paymentSelect) {
@@ -1193,6 +1249,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    <?php endif; ?>
 });
 
 // NSQF Template Integration Functions
