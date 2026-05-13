@@ -218,29 +218,34 @@ if (isset($_POST['update_course'])) {
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("sssssssssssssssiissi",
-            $course_name,
-            $course_code,
-            $course_abbreviation,
-            $eligibility,
-            $duration,
-            $training_fees,
-            $category,
-            $start_date,
-            $end_date,
-            $description_url,
-            $description_pdf,
-            $course_flyer,
-            $apply_link,
-            $course_coordinator,
-            $training_center,
-            $centre_id,
-            $link_published,
-            $enrollment_status,
-            $payment_details_required,
-            $course_description,
-            $course_id
-        );
+        if ($stmt) {
+            $stmt->bind_param("sssssssssssssssiissi",
+                $course_name,
+                $course_code,
+                $course_abbreviation,
+                $eligibility,
+                $duration,
+                $training_fees,
+                $category,
+                $start_date,
+                $end_date,
+                $description_url,
+                $description_pdf,
+                $course_flyer,
+                $apply_link,
+                $course_coordinator,
+                $training_center,
+                $centre_id,
+                $link_published,
+                $enrollment_status,
+                $payment_details_required,
+                $course_description,
+                $course_id
+            );
+        } else {
+            echo "Prepare failed: " . $conn->error;
+            exit();
+        }
     } else {
         // Fallback for databases without payment_details_required column
         $update_sql = "UPDATE courses SET 
@@ -266,28 +271,33 @@ if (isset($_POST['update_course'])) {
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
-        $stmt->bind_param("ssssssssssssssssiisi",
-            $course_name,
-            $course_code,
-            $course_abbreviation,
-            $eligibility,
-            $duration,
-            $training_fees,
-            $category,
-            $start_date,
-            $end_date,
-            $description_url,
-            $description_pdf,
-            $course_flyer,
-            $apply_link,
-            $course_coordinator,
-            $training_center,
-            $centre_id,
-            $link_published,
-            $enrollment_status,
-            $course_description,
-            $course_id
-        );
+        if ($stmt) {
+            $stmt->bind_param("ssssssssssssssssiisi",
+                $course_name,
+                $course_code,
+                $course_abbreviation,
+                $eligibility,
+                $duration,
+                $training_fees,
+                $category,
+                $start_date,
+                $end_date,
+                $description_url,
+                $description_pdf,
+                $course_flyer,
+                $apply_link,
+                $course_coordinator,
+                $training_center,
+                $centre_id,
+                $link_published,
+                $enrollment_status,
+                $course_description,
+                $course_id
+            );
+        } else {
+            echo "Prepare failed: " . $conn->error;
+            exit();
+        }
     }
 
     if ($stmt->execute()) {
