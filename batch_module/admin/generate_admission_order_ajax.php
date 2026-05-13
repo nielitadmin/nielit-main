@@ -154,9 +154,9 @@ $extension_centre = ($location == 'NIELIT Balasore') ? 'Balasore' : 'Bhubaneswar
 
 // Get copy to list
 $default_copy_to = [
-    'Director Incharge, NIELIT Bhubaneswar, for Kind Information',
-    'Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
-    'Examination Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
+    'Director Project Incharge, NIELIT Bhubaneswar, for Kind Information',
+    'Project Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
+    'Examination Project Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
     'Ms. SukanyaPalli, Assistant Accounts& DDO, Account Section, NIELIT Bhubaneswar, For Kind Information and necessary action'
 ];
 
@@ -609,7 +609,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             if (strtolower($scheme_code) === 'regular') {
                 echo 'Project Incharge,';
             } else {
-                echo '(' . htmlspecialchars($scheme_code) . ') Incharge,';
+                echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
             }
         ?></strong></p>
         <p style="margin: 3px 0;"><strong>NIELIT Bhubaneswar.</strong></p>

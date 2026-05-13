@@ -152,9 +152,9 @@ $extension_centre = ($location == 'NIELIT Balasore') ? 'Balasore' : 'Bhubaneswar
 
 // Get copy to list
 $default_copy_to = [
-    'Director Incharge, NIELIT Bhubaneswar, for Kind Information',
-    'Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
-    'Examination Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
+    'Director Project Incharge, NIELIT Bhubaneswar, for Kind Information',
+    'Project Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
+    'Examination Project Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
     'Ms. SukanyaPalli, Assistant Accounts& DDO, Account Section, NIELIT Bhubaneswar, For Kind Information and necessary action'
 ];
 

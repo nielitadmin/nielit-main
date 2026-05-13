@@ -289,7 +289,7 @@ $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
 if (strtolower($scheme_code) === 'regular') {
     $signatureCell->addText('Project Incharge,', ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
 } else {
-    $signatureCell->addText("($scheme_code) Incharge,", ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
+    $signatureCell->addText("($scheme_code) Project Incharge,", ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
 }
 
 $signatureCell->addText('NIELIT Bhubaneswar.', ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
@@ -298,9 +298,9 @@ $section->addTextBreak();
 
 // Copy to section
 $default_copy_to = [
-    'Director Incharge, NIELIT Bhubaneswar, for Kind Information',
-    'Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
-    'Examination Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
+    'Director Project Incharge, NIELIT Bhubaneswar, for Kind Information',
+    'Project Incharge MIS, NIELIT Bhubaneswar, for Kind Information and necessary action for institute monthly MIS data',
+    'Examination Project Incharge, NIELIT Bhubaneswar, For Kind Information and necessary action',
     'Ms. SukanyaPalli, Assistant Accounts& DDO, Account Section, NIELIT Bhubaneswar, For Kind Information and necessary action'
 ];
 
