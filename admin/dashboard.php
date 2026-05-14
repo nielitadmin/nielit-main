@@ -1756,6 +1756,41 @@ $dashboard_payload = [
                 </div>
             </div>
 
+            <!-- Compact All Courses Summary (Top) -->
+            <?php if ($is_course_coordinator && empty($admin_course_ids)): ?>
+                <div class="content-card" style="margin-bottom: 2rem; padding: 1.25rem; display:flex; align-items:center; gap:1rem; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <div style="width:56px; height:56px; background:linear-gradient(135deg,#f3f4f6,#e5e7eb); border-radius:12px; display:grid; place-items:center;">
+                            <i class="fas fa-book" style="font-size:1.25rem; color:#9ca3af;"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:800; font-size:1.05rem; color:#0f172a;">No Course Assignments</div>
+                            <div style="color:#64748b; font-size:0.9rem;">You have no assigned courses. Create one or ask Master Admin to assign.</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-primary" onclick="openModal('addCourseModal')"><i class="fas fa-plus"></i> Add Course</button>
+                        <a href="manage_courses.php" class="btn btn-outline-primary">Manage</a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="content-card" style="margin-bottom: 2rem; padding: 1.25rem; display:flex; align-items:center; gap:1rem; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <div style="width:56px; height:56px; background:linear-gradient(135deg,#2563eb,#7c3aed); border-radius:12px; display:grid; place-items:center; color:#fff;">
+                            <i class="fas fa-book" style="font-size:1.25rem;"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight:800; font-size:1.05rem; color:#0f172a;">All Courses</div>
+                            <div style="color:#64748b; font-size:0.9rem;">Total: <strong><?php echo $total_courses; ?></strong></div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem;">
+                        <a href="#courses-section" class="btn btn-primary" onclick="document.getElementById('courses-section')?.scrollIntoView({behavior:'smooth'});"><i class="fas fa-list"></i> View All Courses</a>
+                        <a href="manage_courses.php" class="btn btn-outline-primary">Manage</a>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="dashboard-hero glass-panel">
                 <div class="hero-copy">
                     <div class="eyebrow">Live operations</div>
@@ -2075,7 +2110,7 @@ $dashboard_payload = [
                     </div>
                 </div>
             <?php else: ?>
-            <div class="content-card">
+            <div class="content-card" id="courses-section">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-book"></i> 
