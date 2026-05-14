@@ -79,6 +79,8 @@ if ($is_course_coordinator) {
 
 // Get filter parameter
 $filter_category = $_GET['category'] ?? 'all';
+// NSQF filter: all | nsqf | non-nsqf
+$nsqf_filter = $_GET['nsqf_filter'] ?? 'all';
 // Get courses tab (all, ongoing, upcoming, past)
 $courses_tab = $_GET['courses_tab'] ?? 'all';
 $valid_tabs = ['all','ongoing','upcoming','past'];
@@ -107,6 +109,13 @@ if ($is_course_coordinator) {
 // Add category filter
 if ($filter_category !== 'all') {
     $sql .= " AND category = ?";
+}
+
+// Add NSQF filter (non-role-specific)
+if ($nsqf_filter === 'nsqf') {
+    $sql .= " AND (courses.category IN ('Long Term NSQF', 'Short Term NSQF') OR courses.course_type IN ('Long Term NSQF', 'Short Term NSQF'))";
+} elseif ($nsqf_filter === 'non-nsqf') {
+    $sql .= " AND (courses.category NOT IN ('Long Term NSQF', 'Short Term NSQF') AND (courses.course_type IS NULL OR courses.course_type NOT IN ('Long Term NSQF', 'Short Term NSQF')))";
 }
 
 // Add courses tab filter (date based)
@@ -1893,45 +1902,67 @@ $dashboard_payload = [
                     </h5>
                 </div>
                 <div style="padding: 20px;">
+                    <?php
+                    // Fetch distinct categories from DB to populate select
+                    $db_categories = [];
+                    $cat_q = $conn->query("SELECT DISTINCT category FROM courses ORDER BY category ASC");
+                    if ($cat_q) {
+                        while ($cr = $cat_q->fetch_assoc()) {
+                            if (!empty($cr['category'])) $db_categories[] = $cr['category'];
+                        }
+                    }
+
+                    // Preferred order (display first if present)
+                    $preferred = [
+                        'Degree / Diploma Courses/PG',
+                        'Skill Based (Long Term) Courses > 500 hrs',
+                        'Skill Based (Short Term) Courses >90 hrs to <=500 hrs',
+                        'Short Term Courses / Digital Competency Courses / <= 90 hours',
+                        "NIELIT HQ\'s Digital Literacy Courses (CCC/ECC/CCCP/ BCC/ACC)"
+                    ];
+
+                    // Merge preserving DB categories as fallback
+                    $ordered = [];
+                    foreach ($preferred as $p) {
+                        if (in_array($p, $db_categories) && !in_array($p, $ordered)) $ordered[] = $p;
+                    }
+                    foreach ($db_categories as $c) {
+                        if (!in_array($c, $ordered)) $ordered[] = $c;
+                    }
+                    ?>
+
                     <form method="GET" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end;">
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label"><i class="fas fa-tag"></i> Filter by Category</label>
                             <select name="category" class="form-select" onchange="this.form.submit()" style="width: 100%;">
                                 <option value="all" <?= $filter_category === 'all' ? 'selected' : '' ?>>All Categories</option>
-                                <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
-                                <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
-                                <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
-                                <option value="Short-Term Non-NSQF" <?= $filter_category === 'Short-Term Non-NSQF' ? 'selected' : '' ?>>Short-Term Non-NSQF</option>
-                                <option value="Internship Program" <?= $filter_category === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
-                                <?php else: ?>
-                                <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
-                                <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
-                                <?php endif; ?>
+                                <?php foreach ($ordered as $opt): ?>
+                                    <option value="<?= htmlspecialchars($opt) ?>" <?= $filter_category === $opt ? 'selected' : '' ?>><?= htmlspecialchars($opt) ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
+
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label"><i class="fas fa-layer-group"></i> NSQF Filter</label>
+                            <select name="nsqf_filter" class="form-select" onchange="this.form.submit()" style="width: 100%;">
+                                <option value="all" <?= $nsqf_filter === 'all' ? 'selected' : '' ?>>All (NSQF + Non-NSQF)</option>
+                                <option value="nsqf" <?= $nsqf_filter === 'nsqf' ? 'selected' : '' ?>>Only NSQF Courses</option>
+                                <option value="non-nsqf" <?= $nsqf_filter === 'non-nsqf' ? 'selected' : '' ?>>Only Non-NSQF Courses</option>
+                            </select>
+                        </div>
+
                         <div style="display: flex; align-items: center; gap: 8px; color: #64748b;">
                             <i class="fas fa-info-circle"></i>
                             <span>
                                 <?php 
-                                $total_filtered = $result->num_rows;
-                                if ($filter_category !== 'all') {
+                                $total_filtered = $result->num_rows ?? 0;
+                                if ($filter_category !== 'all' || $nsqf_filter !== 'all') {
                                     echo '<strong style="color: #0d47a1;">' . $total_filtered . ' results</strong> found';
                                 } else {
                                     echo '<strong style="color: #64748b;">' . $total_filtered . ' total</strong> courses';
                                 }
                                 ?>
                             </span>
-                        </div>
-                        <div>
-                            <?php if ($filter_category !== 'all'): ?>
-                                <a href="dashboard.php" class="btn btn-secondary" style="width: 100%;">
-                                    <i class="fas fa-redo"></i> Clear Filter
-                                </a>
-                            <?php else: ?>
-                                <button type="button" class="btn btn-secondary" disabled style="width: 100%; opacity: 0.5;">
-                                    <i class="fas fa-filter"></i> No Filter
-                                </button>
-                            <?php endif; ?>
                         </div>
                     </form>
                 </div>
