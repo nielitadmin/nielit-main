@@ -784,8 +784,13 @@ if ($other_gender_count > 0) {
 
             <!-- Filter Section -->
             <div class="content-card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex; align-items:center; gap:1rem; justify-content:space-between;">
                     <h5 class="card-title"><i class="fas fa-filter"></i> Filter Students</h5>
+                    <div>
+                        <a href="dashboard.php#courses-section" class="btn btn-outline-primary" title="View Courses">
+                            <i class="fas fa-book"></i> Go to Courses
+                        </a>
+                    </div>
                 </div>
 
                 <form method="GET" action="students.php">
