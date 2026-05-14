@@ -2187,7 +2187,7 @@ $dashboard_payload = [
                                         $student_count = $row['student_count'] ?? 0;
                                         $badge_class = $student_count > 0 ? 'badge-success' : 'badge-secondary';
                                         ?>
-                                                     <a href="students.php?filter_course_id=<?php echo urlencode($row['id']); ?>" 
+                                                     <a href="students.php?filter_course=<?php echo urlencode($row['id']); ?>" 
                                            class="badge <?php echo $badge_class; ?>" 
                                            style="text-decoration: none; font-size: 14px; padding: 6px 12px;">
                                             <i class="fas fa-users"></i> <?php echo $student_count; ?>
