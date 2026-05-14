@@ -79,6 +79,10 @@ if ($is_course_coordinator) {
 
 // Get filter parameter
 $filter_category = $_GET['category'] ?? 'all';
+// Get courses tab (all, ongoing, upcoming, past)
+$courses_tab = $_GET['courses_tab'] ?? 'all';
+$valid_tabs = ['all','ongoing','upcoming','past'];
+if (!in_array($courses_tab, $valid_tabs)) $courses_tab = 'all';
 
 // Build query with filter and student count
 $sql = "SELECT courses.*, 
@@ -105,6 +109,17 @@ if ($filter_category !== 'all') {
     $sql .= " AND category = ?";
 }
 
+// Add courses tab filter (date based)
+if ($courses_tab !== 'all') {
+    if ($courses_tab === 'ongoing') {
+        $sql .= " AND start_date <= ? AND (end_date IS NULL OR end_date >= ?)";
+    } elseif ($courses_tab === 'upcoming') {
+        $sql .= " AND start_date > ?";
+    } elseif ($courses_tab === 'past') {
+        $sql .= " AND end_date < ?";
+    }
+}
+
 $sql .= " ORDER BY id DESC";
 
 // Execute query with filters
@@ -121,6 +136,22 @@ if ($is_course_coordinator && !empty($admin_course_ids)) {
 if ($filter_category !== 'all') {
     $bind_types .= 's';
     $bind_values[] = $filter_category;
+}
+
+// Add courses tab bind values (date based)
+if ($courses_tab !== 'all') {
+    $today = date('Y-m-d');
+    if ($courses_tab === 'ongoing') {
+        $bind_types .= 'ss';
+        $bind_values[] = $today;
+        $bind_values[] = $today;
+    } elseif ($courses_tab === 'upcoming') {
+        $bind_types .= 's';
+        $bind_values[] = $today;
+    } elseif ($courses_tab === 'past') {
+        $bind_types .= 's';
+        $bind_values[] = $today;
+    }
 }
 
 // Bind parameters if any
@@ -292,6 +323,50 @@ if ($is_course_coordinator) {
 } else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
     $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
+}
+
+// Compute course counts per tab (ongoing / upcoming / past)
+$count_all = $total_courses;
+$count_ongoing = $count_upcoming = $count_past = 0;
+$today = date('Y-m-d');
+
+if ($is_course_coordinator) {
+    if (!empty($admin_course_ids)) {
+        $placeholders = implode(',', array_fill(0, count($admin_course_ids), '?'));
+        // Ongoing
+        $sql_o = "SELECT COUNT(*) as c FROM courses WHERE id IN ($placeholders) AND start_date <= ? AND (end_date IS NULL OR end_date >= ? )";
+        $stmt_o = $conn->prepare($sql_o);
+        $types = str_repeat('i', count($admin_course_ids)) . 'ss';
+        $stmt_o->bind_param($types, ...array_merge($admin_course_ids, [$today, $today]));
+        $stmt_o->execute(); $res_o = $stmt_o->get_result(); $count_ongoing = $res_o ? (int)$res_o->fetch_assoc()['c'] : 0; $stmt_o->close();
+
+        // Upcoming
+        $sql_u = "SELECT COUNT(*) as c FROM courses WHERE id IN ($placeholders) AND start_date > ?";
+        $stmt_u = $conn->prepare($sql_u);
+        $types = str_repeat('i', count($admin_course_ids)) . 's';
+        $stmt_u->bind_param($types, ...array_merge($admin_course_ids, [$today]));
+        $stmt_u->execute(); $res_u = $stmt_u->get_result(); $count_upcoming = $res_u ? (int)$res_u->fetch_assoc()['c'] : 0; $stmt_u->close();
+
+        // Past
+        $sql_p = "SELECT COUNT(*) as c FROM courses WHERE id IN ($placeholders) AND end_date < ?";
+        $stmt_p = $conn->prepare($sql_p);
+        $types = str_repeat('i', count($admin_course_ids)) . 's';
+        $stmt_p->bind_param($types, ...array_merge($admin_course_ids, [$today]));
+        $stmt_p->execute(); $res_p = $stmt_p->get_result(); $count_past = $res_p ? (int)$res_p->fetch_assoc()['c'] : 0; $stmt_p->close();
+    }
+} elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
+    // NSQF manager - include NSQF filter
+    $base_where = " WHERE (category IN ('Long Term NSQF','Short Term NSQF') OR course_type IN ('Long Term NSQF','Short Term NSQF'))";
+    $r = $conn->query("SELECT COUNT(*) as c FROM courses $base_where"); $count_all = $r ? (int)$r->fetch_assoc()['c'] : 0;
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses $base_where AND start_date <= ? AND (end_date IS NULL OR end_date >= ?) "); $r->bind_param('ss',$today,$today); $r->execute(); $res=$r->get_result(); $count_ongoing = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses $base_where AND start_date > ?"); $r->bind_param('s',$today); $r->execute(); $res=$r->get_result(); $count_upcoming = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses $base_where AND end_date < ?"); $r->bind_param('s',$today); $r->execute(); $res=$r->get_result(); $count_past = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
+} else {
+    // Public / master admin
+    $r = $conn->query("SELECT COUNT(*) as c FROM courses"); $count_all = $r ? (int)$r->fetch_assoc()['c'] : 0;
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses WHERE start_date <= ? AND (end_date IS NULL OR end_date >= ?) "); $r->bind_param('ss',$today,$today); $r->execute(); $res=$r->get_result(); $count_ongoing = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses WHERE start_date > ?"); $r->bind_param('s',$today); $r->execute(); $res=$r->get_result(); $count_upcoming = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
+    $r = $conn->prepare("SELECT COUNT(*) as c FROM courses WHERE end_date < ?"); $r->bind_param('s',$today); $r->execute(); $res=$r->get_result(); $count_past = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
 }
 
 // Total students (filtered for coordinators)
@@ -1774,19 +1849,38 @@ $dashboard_payload = [
                     </div>
                 </div>
             <?php else: ?>
-                <div class="content-card" style="margin-bottom: 2rem; padding: 1.25rem; display:flex; align-items:center; gap:1rem; justify-content:space-between;">
-                    <div style="display:flex; align-items:center; gap:1rem;">
-                        <div style="width:56px; height:56px; background:linear-gradient(135deg,#2563eb,#7c3aed); border-radius:12px; display:grid; place-items:center; color:#fff;">
-                            <i class="fas fa-book" style="font-size:1.25rem;"></i>
+                <div class="content-card" style="margin-bottom: 2rem; padding: 1rem;">
+                    <div style="display:flex; align-items:center; gap:1rem; justify-content:space-between;">
+                        <div style="display:flex; align-items:center; gap:1rem;">
+                            <div style="width:56px; height:56px; background:linear-gradient(135deg,#2563eb,#7c3aed); border-radius:12px; display:grid; place-items:center; color:#fff;">
+                                <i class="fas fa-book" style="font-size:1.25rem;"></i>
+                            </div>
+                            <div>
+                                <div style="font-weight:800; font-size:1.05rem; color:#0f172a;">All Courses</div>
+                                <div style="color:#64748b; font-size:0.9rem;">Total: <strong><?php echo $total_courses; ?></strong></div>
+                            </div>
                         </div>
-                        <div>
-                            <div style="font-weight:800; font-size:1.05rem; color:#0f172a;">All Courses</div>
-                            <div style="color:#64748b; font-size:0.9rem;">Total: <strong><?php echo $total_courses; ?></strong></div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <a href="manage_courses.php" class="btn btn-outline-primary">Manage</a>
+                            <a href="#courses-section" class="btn btn-primary" onclick="document.getElementById('courses-section')?.scrollIntoView({behavior:'smooth'});"><i class="fas fa-list"></i> View All Courses</a>
                         </div>
                     </div>
-                    <div style="display:flex; gap:0.5rem;">
-                        <a href="#courses-section" class="btn btn-primary" onclick="document.getElementById('courses-section')?.scrollIntoView({behavior:'smooth'});"><i class="fas fa-list"></i> View All Courses</a>
-                        <a href="manage_courses.php" class="btn btn-outline-primary">Manage</a>
+
+                    <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+                        <?php
+                            $tab = $courses_tab;
+                            $tabs = [
+                                'all' => ['label' => 'All', 'count' => $count_all],
+                                'ongoing' => ['label' => 'Ongoing', 'count' => $count_ongoing],
+                                'upcoming' => ['label' => 'Upcoming', 'count' => $count_upcoming],
+                                'past' => ['label' => 'Past', 'count' => $count_past]
+                            ];
+                            foreach ($tabs as $key => $info) {
+                                $active = $tab === $key ? 'background: linear-gradient(135deg,#2563eb,#7c3aed); color: #fff;' : 'background: #f3f4f6; color: #374151;';
+                                $url = 'dashboard.php?courses_tab=' . $key;
+                                echo "<a href=\"$url\" class=\"btn\" style=\"padding:8px 12px; border-radius:12px; $active\">{$info['label']} <span style='margin-left:8px; font-weight:700;'>({$info['count']})</span></a> ";
+                            }
+                        ?>
                     </div>
                 </div>
             <?php endif; ?>
