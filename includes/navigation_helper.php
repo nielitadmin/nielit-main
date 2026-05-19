@@ -133,7 +133,7 @@ function getFallbackNavigationMenu() {
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="admin/login.php">Admin Login</a></li>
                 <li><a class="dropdown-item" href="/Salary_Slip/login.php">Finance Login</a></li>
-                <li><a class="dropdown-item" href="/Nielit_Project/index.php">Certificate</a></li>
+                <li><a class="dropdown-item" href="/Certificate/index.php">Certificate</a></li>
             </ul>
         </li>
         <li class="nav-item"><a class="nav-link" href="public/contact.php">Contact</a></li>
