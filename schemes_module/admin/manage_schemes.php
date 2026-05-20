@@ -111,7 +111,11 @@ if (isset($_GET['delete_id'])) {
 
 // Fetch all schemes
 $schemes_query = "SELECT s.*, 
-                  (SELECT COUNT(*) FROM course_schemes WHERE scheme_id = s.id) as course_count
+                        (SELECT COUNT(*) FROM course_schemes WHERE scheme_id = s.id) as course_count,
+                        (SELECT COUNT(*) FROM batches WHERE scheme_id = s.id) as batch_count,
+                        (SELECT COUNT(*) FROM students st 
+                            INNER JOIN batches b ON st.batch_id = b.id 
+                          WHERE b.scheme_id = s.id) as registered_student_count
                   FROM schemes s 
                   ORDER BY s.created_at DESC";
 $schemes_result = $conn->query($schemes_query);
@@ -184,6 +188,8 @@ $active_theme = loadActiveTheme($conn);
                                 <th>Sponsor Agency</th>
                                 <th>Duration</th>
                                 <th>Physical Target</th>
+                                <th>Batches</th>
+                                <th>Registered Students</th>
                                 <th>Project Incharge</th>
                                 <th>Target Beneficiary</th>
                                 <th>Status</th>
@@ -225,6 +231,12 @@ $active_theme = loadActiveTheme($conn);
                                         <?php else: ?>
                                             <span style="color: #64748b; font-size: 12px;">Not set</span>
                                         <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-info"><?php echo number_format((int)($scheme['batch_count'] ?? 0)); ?></span>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-success"><?php echo number_format((int)($scheme['registered_student_count'] ?? 0)); ?></span>
                                     </td>
                                     <td><?php echo htmlspecialchars($scheme['project_incharge_name'] ?? 'Not assigned'); ?></td>
                                     <td>
