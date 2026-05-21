@@ -53,10 +53,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php endif; ?>
         
         <?php if ($is_nsqf_manager): ?>
-        <!-- NSQF Manager - Only Template Management -->
+        <!-- NSQF Manager - Manage NSQF Course -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_nsqf_templates.php" class="nav-link <?php echo ($current_page === 'manage_nsqf_templates.php') ? 'active' : ''; ?>">
-                <i class="fas fa-graduation-cap"></i> Course Templates
+                <i class="fas fa-graduation-cap"></i> Manage NSQF Course
             </a>
         </div>
         <?php elseif (!$is_front_office): ?>

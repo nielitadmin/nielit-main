@@ -467,7 +467,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                         </select>
                         <small class="text-muted">
                             <strong>Course Coordinator:</strong> Access to Dashboard, Students, Courses, Batches, Approve Students, Reset Password<br>
-                            <strong>NSQF Course Manager:</strong> Can only manage Long Term NSQF and Short Term NSQF courses<br>
+                            <strong>NSQF Course Manager:</strong> Can only manage NSQF courses<br>
                             <strong>Front Office Desk:</strong> View all students, edit student info, download forms — no access to courses, batches, or admin settings<br>
                             <strong>Master Admin:</strong> Full access including admin management
                         </small>

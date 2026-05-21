@@ -90,6 +90,8 @@ if (isset($_POST['update_course'])) {
     $centre_id          = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
     $link_published     = isset($_POST['link_published']) ? 1 : 0;
     $enrollment_status  = $_POST['enrollment_status'] ?? 'ongoing';
+    $nsqf_type          = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
+    $is_nsqf            = ($nsqf_type === 'NSQF Course') ? 1 : 0;
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
     $description_pdf    = $course['description_pdf'];
     $course_flyer       = $course['course_flyer'] ?? '';
@@ -214,13 +216,14 @@ if (isset($_POST['update_course'])) {
             link_published = ?,
             enrollment_status = ?,
             payment_details_required = ?,
+            is_nsqf = ?,
             course_description = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 15 strings, then i, i, 3 strings, then i = 21 total
-            $stmt->bind_param("sssssssssssssssiisssi",
+            // 15 strings, then i, i, 3 strings, then i, s, i = 22 total
+            $stmt->bind_param("sssssssssssssssiissisi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -240,8 +243,9 @@ if (isset($_POST['update_course'])) {
                 $link_published,           // 17 i
                 $enrollment_status,        // 18 s
                 $payment_details_required, // 19 s
-                $course_description,       // 20 s
-                $course_id                 // 21 i
+                $is_nsqf,                  // 20 i
+                $course_description,       // 21 s
+                $course_id                 // 22 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -271,12 +275,13 @@ if (isset($_POST['update_course'])) {
             centre_id = ?,
             link_published = ?,
             enrollment_status = ?,
+            is_nsqf = ?,
             course_description = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 15 strings, then i, i, 2 strings, then i = 20 total
+            // 15 strings, then i, i, s, i, s, i = 21 total
             $stmt->bind_param("sssssssssssssssiiissi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
@@ -295,9 +300,10 @@ if (isset($_POST['update_course'])) {
                 $training_center,      // 15 s
                 $centre_id,            // 16 i
                 $link_published,       // 17 i
-                $enrollment_status,    // 18 s  <-- THIS WAS THE BUG (was treated as i before)
-                $course_description,   // 19 s
-                $course_id             // 20 i
+                $enrollment_status,    // 18 s
+                $is_nsqf,              // 19 i
+                $course_description,   // 20 s
+                $course_id             // 21 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -447,20 +453,33 @@ if (isset($_POST['update_course'])) {
                             <label class="form-label">Category *</label>
                             <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
                                 <option value="">--Select Category--</option>
-                                <option value="Long Term NSQF" <?php if ($course['category'] == 'Long Term NSQF') echo 'selected'; ?>>Long Term NSQF</option>
-                                <option value="Short Term NSQF" <?php if ($course['category'] == 'Short Term NSQF') echo 'selected'; ?>>Short Term NSQF</option>
-                                <option value="Short-Term Non-NSQF" <?php if ($course['category'] == 'Short-Term Non-NSQF') echo 'selected'; ?>>Short-Term Non-NSQF</option>
+                                <option value="Degree / Diploma / PG" <?php if ($course['category'] == 'Degree / Diploma / PG') echo 'selected'; ?>>Degree / Diploma Courses / PG</option>
+                                <option value="Skill Based (Long Term) >500 hrs" <?php if ($course['category'] == 'Skill Based (Long Term) >500 hrs') echo 'selected'; ?>>Skill Based (Long Term) Courses > 500 hrs</option>
+                                <option value="Skill Based (Short Term) 90-500 hrs" <?php if ($course['category'] == 'Skill Based (Short Term) 90-500 hrs') echo 'selected'; ?>>Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
+                                <option value="Short Term / Digital Competency <=90 hrs" <?php if ($course['category'] == 'Short Term / Digital Competency <=90 hrs') echo 'selected'; ?>>Short Term Courses / Digital Competency Courses <= 90 hours</option>
+                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?php if ($course['category'] == "NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)") echo 'selected'; ?>>NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
                                 <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
                             </select>
                         </div>
                         
-                        <!-- NSQF Template Selection (hidden by default) -->
-                        <div class="form-group" id="template_selection_group" style="display: none;">
-                            <label class="form-label">Course Template *</label>
-                            <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
-                                <option value="">-- Select Course Template --</option>
+                        <div class="form-group">
+                            <label class="form-label">Sub-Category *</label>
+                            <select class="form-select" name="nsqf_type" id="edit_nsqf_type" required>
+                                <option value="">--Select Sub-Category--</option>
+                                <option value="NSQF Course" <?php if (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) echo 'selected'; ?>>NSQF Course</option>
+                                <option value="NON-NSQF Course" <?php if (empty($course['is_nsqf']) || $course['is_nsqf'] == 0) echo 'selected'; ?>>NON-NSQF Course</option>
                             </select>
-                            <small class="text-muted">Select from pre-defined NSQF course templates</small>
+                            <small class="text-muted">Select whether this course follows NSQF framework</small>
+                        </div>
+                        </div>
+                        
+                        <!-- NSQF template selection (driven by Sub-Category) -->
+                        <div class="form-group" id="template_selection_group" style="display: none;">
+                            <label class="form-label">NSQF Course Name *</label>
+                            <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
+                                <option value="">-- Select NSQF Course Name --</option>
+                            </select>
+                            <small class="text-muted">Select a course name from NSQF templates</small>
                         </div>
                         
                         <div class="form-group">
@@ -1125,7 +1144,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // NSQF category init
     const currentCategory = '<?php echo addslashes($course['category']); ?>';
-    if (currentCategory === 'Long Term NSQF' || currentCategory === 'Short Term NSQF') {
+    const currentNsqfType = '<?php echo !empty($course['is_nsqf']) && $course['is_nsqf'] == 1 ? 'NSQF Course' : 'NON-NSQF Course'; ?>';
+    if (currentNsqfType === 'NSQF Course') {
         handleCategoryChange(currentCategory);
     }
 });
@@ -1133,20 +1153,22 @@ document.addEventListener('DOMContentLoaded', function() {
 // NSQF Template functions
 function handleCategoryChange(currentCategory) {
     const categorySelect  = document.getElementById('edit_category');
+    const nsqfTypeSelect  = document.getElementById('edit_nsqf_type');
     const templateGroup   = document.getElementById('template_selection_group');
     const courseNameInput = document.querySelector('input[name="course_name"]');
     const eligibilityField = document.getElementById('edit_eligibility');
-    const selectedCategory = categorySelect.value;
+    const selectedNsqfType = nsqfTypeSelect.value;
     const isNSQFManager = <?php echo (isset($_SESSION['role']) && $_SESSION['role'] === 'nsqf_course_manager') ? 'true' : 'false'; ?>;
 
-    if (selectedCategory === 'Long Term NSQF' || selectedCategory === 'Short Term NSQF') {
+    if (selectedNsqfType === 'NSQF Course') {
         if (!isNSQFManager) {
             templateGroup.style.display    = 'block';
             courseNameInput.readOnly       = true;
             courseNameInput.placeholder    = 'Will be filled from template selection';
             eligibilityField.readOnly      = true;
             eligibilityField.placeholder   = 'Will auto-populate from template';
-            fetchNSQFTemplates(selectedCategory);
+            // request templates for NSQF courses
+            fetchNSQFTemplates('');
         } else {
             templateGroup.style.display    = 'none';
             courseNameInput.readOnly       = false;
@@ -1178,7 +1200,7 @@ function fetchNSQFTemplates(category) {
 
 function populateTemplateDropdown(templates) {
     const templateSelect = document.getElementById('course_name_template');
-    templateSelect.innerHTML = '<option value="">-- Select Course Template --</option>';
+    templateSelect.innerHTML = '<option value="">-- Select NSQF Course Name --</option>';
     templates.forEach(template => {
         const option = document.createElement('option');
         option.value = template.id;
@@ -1203,6 +1225,16 @@ function handleTemplateSelection() {
         courseNameInput.value  = '';
     }
 }
+
+// Add event listener for sub-category field changes
+document.addEventListener('DOMContentLoaded', function() {
+    const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
+    if (nsqfTypeSelect) {
+        nsqfTypeSelect.addEventListener('change', function() {
+            handleCategoryChange(document.getElementById('edit_category').value);
+        });
+    }
+});
 </script>
 
 </body>

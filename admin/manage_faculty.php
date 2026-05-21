@@ -30,58 +30,64 @@ if (!in_array($admin_role, ['master_admin'], true)) {
     exit();
 }
 
+// Get filter parameters
+$filter_category = $_GET['category'] ?? 'all';
+$filter_status = $_GET['status'] ?? 'all';
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
-            case 'add_faculty':
+            case 'add_staff':
                 $name = trim($_POST['name']);
                 $email = trim($_POST['email']);
                 $phone = trim($_POST['phone']);
                 $designation = trim($_POST['designation']);
                 $department = trim($_POST['department']);
+                $staff_category = $_POST['staff_category'];
                 
                 if (!empty($name)) {
-                    $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("sssssi", $name, $email, $phone, $designation, $department, $admin_id);
+                    $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, staff_category, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("ssssssi", $name, $email, $phone, $designation, $department, $staff_category, $admin_id);
                     if ($stmt->execute()) {
                         // Auto-send confirmation email if email is provided
                         if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
                             $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
                             $success_message = $email_sent
-                                ? "Faculty member added successfully! Confirmation email sent to <strong>$email</strong>."
-                                : "Faculty member added successfully! (Email could not be sent — check SMTP settings.)";
+                                ? "Staff member added successfully! Confirmation email sent to <strong>$email</strong>."
+                                : "Staff member added successfully! (Email could not be sent — check SMTP settings.)";
                         } else {
-                            $success_message = "Faculty member added successfully!";
+                            $success_message = "Staff member added successfully!";
                         }
                     } else {
-                        $error_message = "Error adding faculty member.";
+                        $error_message = "Error adding staff member.";
                     }
                 }
                 break;
                 
-            case 'update_faculty':
+            case 'update_staff':
                 $faculty_id = $_POST['faculty_id'];
                 $name = trim($_POST['name']);
                 $email = trim($_POST['email']);
                 $phone = trim($_POST['phone']);
                 $designation = trim($_POST['designation']);
                 $department = trim($_POST['department']);
+                $staff_category = $_POST['staff_category'];
                 $is_active = isset($_POST['is_active']) ? 1 : 0;
                 
-                $stmt = $conn->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, is_active = ? WHERE id = ?");
-                $stmt->bind_param("sssssii", $name, $email, $phone, $designation, $department, $is_active, $faculty_id);
+                $stmt = $conn->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, staff_category = ?, is_active = ? WHERE id = ?");
+                $stmt->bind_param("ssssssii", $name, $email, $phone, $designation, $department, $staff_category, $is_active, $faculty_id);
                 if ($stmt->execute()) {
-                    $success_message = "Faculty member updated successfully!";
+                    $success_message = "Staff member updated successfully!";
                 } else {
-                    $error_message = "Error updating faculty member.";
+                    $error_message = "Error updating staff member.";
                 }
                 break;
                 
-            case 'delete_faculty':
+            case 'delete_staff':
                 $faculty_id = $_POST['faculty_id'];
                 
-                // Check if current admin can delete this faculty
+                // Check if current admin can delete this staff member
                 $check_stmt = $conn->prepare("SELECT created_by FROM faculty WHERE id = ?");
                 $check_stmt->bind_param("i", $faculty_id);
                 $check_stmt->execute();
@@ -90,51 +96,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $check_stmt->close();
                 
                 if (!$faculty_data) {
-                    $error_message = "Faculty member not found.";
+                    $error_message = "Staff member not found.";
                     break;
                 }
                 
                 // Check permissions - only allow deletion if:
-                // 1. Master admin can delete any faculty
-                // 2. Course coordinator can only delete faculty they created
+                // 1. Master admin can delete any staff member
+                // 2. Course coordinator can only delete staff they created
                 if ($admin_role !== 'master_admin' && $faculty_data['created_by'] != $admin_id) {
-                    $error_message = "You can only delete faculty members you have added.";
+                    $error_message = "You can only delete staff members you have added.";
                     break;
                 }
                 
                 $stmt = $conn->prepare("UPDATE faculty SET is_active = 0 WHERE id = ?");
                 $stmt->bind_param("i", $faculty_id);
                 if ($stmt->execute()) {
-                    $success_message = "Faculty member deactivated successfully!";
+                    $success_message = "Staff member deactivated successfully!";
                 } else {
-                    $error_message = "Error deactivating faculty member.";
+                    $error_message = "Error deactivating staff member.";
                 }
                 break;
         }
     }
 }
 
-// Fetch all faculty members - filter based on role
-$admin_id = $_SESSION['admin_id'];
-$admin_role = $_SESSION['admin_role'] ?? ($_SESSION['role'] ?? '');
+// Build query with filters
+$where_conditions = [];
+$bind_params = [];
+$bind_types = '';
 
+// Filter by category
+if ($filter_category !== 'all') {
+    $where_conditions[] = "staff_category = ?";
+    $bind_params[] = $filter_category;
+    $bind_types .= 's';
+}
+
+// Filter by status
+if ($filter_status !== 'all') {
+    $where_conditions[] = "is_active = ?";
+    $bind_params[] = ($filter_status === 'active') ? 1 : 0;
+    $bind_types .= 'i';
+}
+
+// Role-based filtering
 if ($admin_role === 'master_admin') {
-    // Master admins can see all faculty
-    $result = $conn->query("SELECT * FROM faculty ORDER BY is_active DESC, name ASC");
+    // Master admins can see all staff
+    $base_query = "SELECT * FROM faculty";
 } else {
-    // Course coordinators see only faculty they created + global faculty (created_by = 0 or NULL)
-    $stmt = $conn->prepare("SELECT * FROM faculty 
-                           WHERE (created_by = ? OR created_by = 0 OR created_by IS NULL)
-                           ORDER BY is_active DESC, name ASC");
-    $stmt->bind_param("i", $admin_id);
+    // Course coordinators see only staff they created + global staff (created_by = 0 or NULL)
+    $where_conditions[] = "(created_by = ? OR created_by = 0 OR created_by IS NULL)";
+    $bind_params[] = $admin_id;
+    $bind_types .= 'i';
+    $base_query = "SELECT * FROM faculty";
+}
+
+// Combine conditions
+if (!empty($where_conditions)) {
+    $base_query .= " WHERE " . implode(" AND ", $where_conditions);
+}
+
+$base_query .= " ORDER BY is_active DESC, staff_category ASC, name ASC";
+
+// Execute query
+if (!empty($bind_params)) {
+    $stmt = $conn->prepare($base_query);
+    $stmt->bind_param($bind_types, ...$bind_params);
     $stmt->execute();
     $result = $stmt->get_result();
+} else {
+    $result = $conn->query($base_query);
 }
 
 $faculty_members = [];
 if ($result) {
     while ($row = $result->fetch_assoc()) {
         $faculty_members[] = $row;
+    }
+}
+
+// Get category counts for filter badges
+$category_counts = [];
+$count_query = "SELECT staff_category, COUNT(*) as count FROM faculty WHERE is_active = 1 GROUP BY staff_category";
+$count_result = $conn->query($count_query);
+if ($count_result) {
+    while ($row = $count_result->fetch_assoc()) {
+        $category_counts[$row['staff_category']] = $row['count'];
     }
 }
 
@@ -145,7 +192,7 @@ if ($result) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Faculty - NIELIT Admin</title>
+    <title>Manage Staff - NIELIT Admin</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
@@ -161,8 +208,8 @@ if ($result) {
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-chalkboard-teacher"></i> Faculty Management</h4>
-                <small>Add, edit, and deactivate faculty records</small>
+                <h4><i class="fas fa-users-cog"></i> Staff Management</h4>
+                <small>Manage faculty, scientists, and technical staff across all categories</small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -176,9 +223,55 @@ if ($result) {
         </div>
 
         <div class="admin-main">
+            <!-- Filter Section -->
+            <div class="content-card" style="margin-bottom: 20px;">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="fas fa-filter"></i> Filter Staff</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Staff Category</label>
+                            <select name="category" class="form-select">
+                                <option value="all" <?php echo $filter_category === 'all' ? 'selected' : ''; ?>>All Categories</option>
+                                <option value="Faculty Staff" <?php echo $filter_category === 'Faculty Staff' ? 'selected' : ''; ?>>
+                                    Faculty Staff <?php echo isset($category_counts['Faculty Staff']) ? '(' . $category_counts['Faculty Staff'] . ')' : ''; ?>
+                                </option>
+                                <option value="Scientists" <?php echo $filter_category === 'Scientists' ? 'selected' : ''; ?>>
+                                    Scientists <?php echo isset($category_counts['Scientists']) ? '(' . $category_counts['Scientists'] . ')' : ''; ?>
+                                </option>
+                                <option value="Non S&T" <?php echo $filter_category === 'Non S&T' ? 'selected' : ''; ?>>
+                                    Non S&T <?php echo isset($category_counts['Non S&T']) ? '(' . $category_counts['Non S&T'] . ')' : ''; ?>
+                                </option>
+                                <option value="Scientific and Technical Staff" <?php echo $filter_category === 'Scientific and Technical Staff' ? 'selected' : ''; ?>>
+                                    Scientific & Technical Staff <?php echo isset($category_counts['Scientific and Technical Staff']) ? '(' . $category_counts['Scientific and Technical Staff'] . ')' : ''; ?>
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="all" <?php echo $filter_status === 'all' ? 'selected' : ''; ?>>All Status</option>
+                                <option value="active" <?php echo $filter_status === 'active' ? 'selected' : ''; ?>>Active Only</option>
+                                <option value="inactive" <?php echo $filter_status === 'inactive' ? 'selected' : ''; ?>>Inactive Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search"></i> Filter
+                            </button>
+                            <a href="manage_faculty.php" class="btn btn-outline-secondary">
+                                <i class="fas fa-refresh"></i> Reset
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Add Staff Button -->
             <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addFacultyModal">
-                    <i class="fas fa-plus"></i> Add Faculty
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffModal">
+                    <i class="fas fa-plus"></i> Add Staff Member
                 </button>
             </div>
 
@@ -192,7 +285,15 @@ if ($result) {
 
             <div class="content-card">
                 <div class="card-header">
-                    <h5 class="card-title"><i class="fas fa-users"></i> Faculty Members</h5>
+                    <h5 class="card-title">
+                        <i class="fas fa-users"></i> Staff Members
+                        <?php if ($filter_category !== 'all'): ?>
+                            <span class="badge bg-primary ms-2"><?php echo htmlspecialchars($filter_category); ?></span>
+                        <?php endif; ?>
+                        <?php if ($filter_status !== 'all'): ?>
+                            <span class="badge bg-secondary ms-2"><?php echo ucfirst($filter_status); ?></span>
+                        <?php endif; ?>
+                    </h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -200,6 +301,7 @@ if ($result) {
                             <thead>
                                 <tr>
                                     <th>Name</th>
+                                    <th>Category</th>
                                     <th>Email</th>
                                     <th>Phone</th>
                                     <th>Designation</th>
@@ -212,7 +314,32 @@ if ($result) {
                             <tbody>
                                 <?php foreach ($faculty_members as $faculty): ?>
                                 <tr data-faculty-id="<?php echo (int)$faculty['id']; ?>">
-                                    <td><?php echo htmlspecialchars($faculty['name']); ?></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($faculty['name']); ?></strong>
+                                        <?php if ($faculty['created_by'] == $admin_id): ?>
+                                        <small class="text-muted d-block" style="font-size: 10px;">
+                                            <i class="fas fa-user-plus"></i> Added by me
+                                        </small>
+                                        <?php elseif (empty($faculty['created_by']) || $faculty['created_by'] == 0): ?>
+                                        <small class="text-muted d-block" style="font-size: 10px;">
+                                            <i class="fas fa-globe"></i> Global staff
+                                        </small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                        $category_colors = [
+                                            'Faculty Staff' => 'bg-primary',
+                                            'Scientists' => 'bg-success', 
+                                            'Non S&T' => 'bg-warning',
+                                            'Scientific and Technical Staff' => 'bg-info'
+                                        ];
+                                        $badge_color = $category_colors[$faculty['staff_category']] ?? 'bg-secondary';
+                                        ?>
+                                        <span class="badge <?php echo $badge_color; ?>">
+                                            <?php echo htmlspecialchars($faculty['staff_category']); ?>
+                                        </span>
+                                    </td>
                                     <td><?php echo htmlspecialchars($faculty['email']); ?></td>
                                     <td><?php echo htmlspecialchars($faculty['phone']); ?></td>
                                     <td><?php echo htmlspecialchars($faculty['designation']); ?></td>
@@ -225,7 +352,7 @@ if ($result) {
                                     <td>
                                         <?php if (!empty($faculty['email'])): ?>
                                             <button class="btn btn-sm btn-warning"
-                                                    onclick="resendFacultyEmail(<?php echo (int)$faculty['id']; ?>, '<?php echo addslashes($faculty['name']); ?>', this)"
+                                                    onclick="resendStaffEmail(<?php echo (int)$faculty['id']; ?>, '<?php echo addslashes($faculty['name']); ?>', this)"
                                                     title="Resend confirmation email to <?php echo htmlspecialchars($faculty['name']); ?>">
                                                 <i class="fas fa-paper-plane"></i> Resend Email
                                             </button>
@@ -235,7 +362,7 @@ if ($result) {
                                     </td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary" 
-                                                onclick='editFaculty(<?php echo json_encode($faculty); ?>)'>
+                                                onclick='editStaff(<?php echo json_encode($faculty); ?>)'>
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <?php
@@ -243,20 +370,28 @@ if ($result) {
                                         ?>
                                         <?php if ($can_delete): ?>
                                         <button class="btn btn-sm btn-outline-danger" 
-                                                onclick="deactivateFaculty(<?php echo $faculty['id']; ?>, '<?php echo addslashes(htmlspecialchars($faculty['name'], ENT_QUOTES)); ?>')"
+                                                onclick="deactivateStaff(<?php echo $faculty['id']; ?>, '<?php echo addslashes(htmlspecialchars($faculty['name'], ENT_QUOTES)); ?>')"
                                                 title="Deactivate <?php echo htmlspecialchars($faculty['name']); ?>">
                                             <i class="fas fa-ban"></i> Deactivate
                                         </button>
                                         <?php endif; ?>
-
-                                        <?php if ($faculty['created_by'] == $admin_id): ?>
-                                        <small class="text-muted d-block" style="font-size: 10px;">My Faculty</small>
-                                        <?php elseif (empty($faculty['created_by']) || $faculty['created_by'] == 0): ?>
-                                        <small class="text-muted d-block" style="font-size: 10px;">Global</small>
-                                        <?php endif; ?>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
+                                
+                                <?php if (empty($faculty_members)): ?>
+                                <tr>
+                                    <td colspan="9" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="fas fa-users" style="font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; display: block;"></i>
+                                            <p>No staff members found matching your criteria.</p>
+                                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffModal">
+                                                <i class="fas fa-plus"></i> Add First Staff Member
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -266,17 +401,28 @@ if ($result) {
     </main>
 </div>
 
-<!-- Add Faculty Modal -->
-<div class="modal fade" id="addFacultyModal" tabindex="-1">
+<!-- Add Staff Modal -->
+<div class="modal fade" id="addStaffModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Faculty Member</h5>
+                <h5 class="modal-title">Add Staff Member</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
                 <div class="modal-body">
-                    <input type="hidden" name="action" value="add_faculty">
+                    <input type="hidden" name="action" value="add_staff">
+                    
+                    <div class="mb-3">
+                        <label for="staff_category" class="form-label">Staff Category *</label>
+                        <select class="form-select" id="staff_category" name="staff_category" required>
+                            <option value="">Select Category</option>
+                            <option value="Faculty Staff">Faculty Staff</option>
+                            <option value="Scientists">Scientists</option>
+                            <option value="Non S&T">Non S&T</option>
+                            <option value="Scientific and Technical Staff">Scientific and Technical Staff</option>
+                        </select>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="name" class="form-label">Name *</label>
@@ -295,35 +441,46 @@ if ($result) {
                     
                     <div class="mb-3">
                         <label for="designation" class="form-label">Designation</label>
-                        <input type="text" class="form-control" id="designation" name="designation" placeholder="e.g., Professor, Assistant Professor">
+                        <input type="text" class="form-control" id="designation" name="designation" placeholder="e.g., Professor, Assistant Professor, Scientist">
                     </div>
                     
                     <div class="mb-3">
                         <label for="department" class="form-label">Department</label>
-                        <input type="text" class="form-control" id="department" name="department" placeholder="e.g., Computer Science, IT">
+                        <input type="text" class="form-control" id="department" name="department" placeholder="e.g., Computer Science, IT, Research">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Faculty</button>
+                    <button type="submit" class="btn btn-primary">Add Staff Member</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
 
-<!-- Edit Faculty Modal -->
-<div class="modal fade" id="editFacultyModal" tabindex="-1">
+<!-- Edit Staff Modal -->
+<div class="modal fade" id="editStaffModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Edit Faculty Member</h5>
+                <h5 class="modal-title">Edit Staff Member</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" id="editFacultyForm">
+            <form method="POST" id="editStaffForm">
                 <div class="modal-body">
-                    <input type="hidden" name="action" value="update_faculty">
-                    <input type="hidden" name="faculty_id" id="edit_faculty_id">
+                    <input type="hidden" name="action" value="update_staff">
+                    <input type="hidden" name="faculty_id" id="edit_staff_id">
+                    
+                    <div class="mb-3">
+                        <label for="edit_staff_category" class="form-label">Staff Category *</label>
+                        <select class="form-select" id="edit_staff_category" name="staff_category" required>
+                            <option value="">Select Category</option>
+                            <option value="Faculty Staff">Faculty Staff</option>
+                            <option value="Scientists">Scientists</option>
+                            <option value="Non S&T">Non S&T</option>
+                            <option value="Scientific and Technical Staff">Scientific and Technical Staff</option>
+                        </select>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="edit_name" class="form-label">Name *</label>
@@ -357,7 +514,7 @@ if ($result) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Update Faculty</button>
+                    <button type="submit" class="btn btn-primary">Update Staff Member</button>
                 </div>
             </form>
         </div>
@@ -367,21 +524,22 @@ if ($result) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
-function editFaculty(faculty) {
-    document.getElementById('edit_faculty_id').value = faculty.id;
-    document.getElementById('edit_name').value = faculty.name;
-    document.getElementById('edit_email').value = faculty.email || '';
-    document.getElementById('edit_phone').value = faculty.phone || '';
-    document.getElementById('edit_designation').value = faculty.designation || '';
-    document.getElementById('edit_department').value = faculty.department || '';
-    document.getElementById('edit_is_active').checked = faculty.is_active == 1;
-    new bootstrap.Modal(document.getElementById('editFacultyModal')).show();
+function editStaff(staff) {
+    document.getElementById('edit_staff_id').value = staff.id;
+    document.getElementById('edit_name').value = staff.name;
+    document.getElementById('edit_email').value = staff.email || '';
+    document.getElementById('edit_phone').value = staff.phone || '';
+    document.getElementById('edit_designation').value = staff.designation || '';
+    document.getElementById('edit_department').value = staff.department || '';
+    document.getElementById('edit_staff_category').value = staff.staff_category || '';
+    document.getElementById('edit_is_active').checked = staff.is_active == 1;
+    new bootstrap.Modal(document.getElementById('editStaffModal')).show();
 }
 
-function deactivateFaculty(facultyId, facultyName) {
+function deactivateStaff(staffId, staffName) {
     showConfirm({
-        title: 'Deactivate Faculty',
-        message: `Deactivate <strong>${facultyName}</strong>? They will no longer appear in active faculty lists.`,
+        title: 'Deactivate Staff Member',
+        message: `Deactivate <strong>${staffName}</strong>? They will no longer appear in active staff lists.`,
         type: 'warning',
         confirmText: 'Deactivate',
         cancelText: 'Cancel'
@@ -389,12 +547,12 @@ function deactivateFaculty(facultyId, facultyName) {
         if (!confirmed) return;
 
         // Show loading toast
-        const loadingToast = toast.loading(`Deactivating ${facultyName}...`);
+        const loadingToast = toast.loading(`Deactivating ${staffName}...`);
 
         fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'deactivate', faculty_id: facultyId })
+            body: JSON.stringify({ action: 'deactivate', faculty_id: staffId })
         })
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(result => {
@@ -402,8 +560,8 @@ function deactivateFaculty(facultyId, facultyName) {
             toast.remove(loadingToast);
             
             if (result.success) {
-                toast.deleted(`${facultyName} has been deactivated.`);
-                const row = document.querySelector('tr[data-faculty-id="' + facultyId + '"]');
+                toast.deleted(`${staffName} has been deactivated.`);
+                const row = document.querySelector('tr[data-faculty-id="' + staffId + '"]');
                 if (row) {
                     row.style.transition = 'opacity 0.4s';
                     row.style.opacity = '0';
@@ -412,7 +570,7 @@ function deactivateFaculty(facultyId, facultyName) {
                     setTimeout(() => location.reload(), 1200);
                 }
             } else {
-                toast.error('Error: ' + (result.message || 'Could not deactivate faculty'));
+                toast.error('Error: ' + (result.message || 'Could not deactivate staff member'));
             }
         })
         .catch(err => {
@@ -422,10 +580,10 @@ function deactivateFaculty(facultyId, facultyName) {
     });
 }
 
-function deleteFacultyPermanent(facultyId, facultyName) {
+function deleteStaffPermanent(staffId, staffName) {
     showConfirm({
-        title: 'Delete Faculty',
-        message: `Permanently delete <strong>${facultyName}</strong>? This cannot be undone.`,
+        title: 'Delete Staff Member',
+        message: `Permanently delete <strong>${staffName}</strong>? This cannot be undone.`,
         type: 'danger',
         confirmText: 'Delete',
         cancelText: 'Cancel'
@@ -435,13 +593,13 @@ function deleteFacultyPermanent(facultyId, facultyName) {
         fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'delete', faculty_id: facultyId })
+            body: JSON.stringify({ action: 'delete', faculty_id: staffId })
         })
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(result => {
             if (result.success) {
-                toast.deleted(`${facultyName} has been permanently deleted.`);
-                const row = document.querySelector(`tr[data-faculty-id="${facultyId}"]`);
+                toast.deleted(`${staffName} has been permanently deleted.`);
+                const row = document.querySelector(`tr[data-faculty-id="${staffId}"]`);
                 if (row) {
                     row.style.transition = 'opacity 0.4s';
                     row.style.opacity = '0';
@@ -450,17 +608,17 @@ function deleteFacultyPermanent(facultyId, facultyName) {
                     setTimeout(() => location.reload(), 1200);
                 }
             } else {
-                showToast('Error: ' + (result.message || 'Could not delete faculty'), 'error');
+                toast.error('Error: ' + (result.message || 'Could not delete staff member'));
             }
         })
-        .catch(err => showToast('Request failed: ' + err.message, 'error'));
+        .catch(err => toast.error('Request failed: ' + err.message));
     });
 }
 
-function resendFacultyEmail(facultyId, facultyName, btn) {
+function resendStaffEmail(staffId, staffName, btn) {
     showConfirm({
         title: 'Send Email',
-        message: `Send confirmation email to <strong>${facultyName}</strong>?`,
+        message: `Send confirmation email to <strong>${staffName}</strong>?`,
         type: 'info',
         confirmText: 'Send Email',
         cancelText: 'Cancel'
@@ -472,12 +630,12 @@ function resendFacultyEmail(facultyId, facultyName, btn) {
         btn.disabled = true;
 
         // Show loading toast
-        const loadingToast = toast.loading(`Sending email to ${facultyName}...`);
+        const loadingToast = toast.loading(`Sending email to ${staffName}...`);
 
         fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'resend_email', faculty_id: facultyId })
+            body: JSON.stringify({ action: 'resend_email', faculty_id: staffId })
         })
         .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(result => {
@@ -488,7 +646,7 @@ function resendFacultyEmail(facultyId, facultyName, btn) {
                 btn.innerHTML = '<i class="fas fa-check"></i> Sent!';
                 btn.classList.remove('btn-warning');
                 btn.classList.add('btn-success');
-                toast.success(`Email sent to ${facultyName} successfully!`);
+                toast.success(`Email sent to ${staffName} successfully!`);
                 setTimeout(() => {
                     btn.innerHTML = originalText;
                     btn.classList.remove('btn-success');
@@ -520,18 +678,18 @@ document.addEventListener('DOMContentLoaded', () => toast.error(<?php echo json_
 
 // Enhanced form submission with loading states
 document.addEventListener('DOMContentLoaded', function() {
-    // Add Faculty Form
-    const addForm = document.querySelector('#addFacultyModal form');
+    // Add Staff Form
+    const addForm = document.querySelector('#addStaffModal form');
     if (addForm) {
         addForm.addEventListener('submit', function(e) {
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Faculty...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding Staff Member...';
             submitBtn.disabled = true;
             
             // Show loading toast
-            const loadingToast = toast.loading('Adding faculty member...');
+            const loadingToast = toast.loading('Adding staff member...');
             
             // The form will submit normally, but we show the loading state
             setTimeout(() => {
@@ -543,8 +701,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Edit Faculty Form
-    const editForm = document.querySelector('#editFacultyModal form');
+    // Edit Staff Form
+    const editForm = document.querySelector('#editStaffModal form');
     if (editForm) {
         editForm.addEventListener('submit', function(e) {
             const submitBtn = this.querySelector('button[type="submit"]');
@@ -554,7 +712,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.disabled = true;
             
             // Show loading toast
-            const loadingToast = toast.loading('Updating faculty member...');
+            const loadingToast = toast.loading('Updating staff member...');
             
             // The form will submit normally, but we show the loading state
             setTimeout(() => {

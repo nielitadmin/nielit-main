@@ -101,7 +101,7 @@ if ($is_course_coordinator) {
     }
 } elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
 # NSQF Course Manager sees only NSQF courses
-    $sql .= " AND (courses.category IN ('Long Term NSQF', 'Short Term NSQF') OR courses.course_type IN ('Long Term NSQF', 'Short Term NSQF'))";
+    $sql .= " AND courses.is_nsqf = 1";
 }
 
 // Add category filter
@@ -219,6 +219,8 @@ if (isset($_POST['add_course'])) {
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'] ?? (!empty($centres) ? $centres[0]['name'] : 'NIELIT BHUBANESWAR');
     $link_published = isset($_POST['link_published']) ? 1 : 0;
+    $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
+    $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
     $description_pdf = '';
 
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
@@ -237,15 +239,15 @@ if (isset($_POST['add_course'])) {
     $insert_sql = "INSERT INTO courses (
         course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
-        training_center, link_published, course_description
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        training_center, is_nsqf, link_published, course_description
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    // FIX: 16 variables = 15 's' + 1 'i' (link_published) + 1 's' (course_description) = "ssssssssssssssis"
-    $stmt->bind_param("ssssssssssssssis", 
+    // 17 variables: 14 strings, then i (is_nsqf), i (link_published), s (course_description)
+    $stmt->bind_param("ssssssssssssssiis", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
-        $training_center, $link_published, $course_description
+        $training_center, $is_nsqf, $link_published, $course_description
     );
 
     if ($stmt->execute()) {
@@ -318,7 +320,7 @@ if ($is_course_coordinator) {
     }
 } elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
     // NSQF Course Manager sees only NSQF courses count
-    $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses WHERE category IN ('Long Term NSQF', 'Short Term NSQF') OR course_type IN ('Long Term NSQF', 'Short Term NSQF')");
+    $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses WHERE is_nsqf = 1");
     $total_courses = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
 } else {
     $stats_query = $conn->query("SELECT COUNT(*) as count FROM courses");
@@ -356,7 +358,7 @@ if ($is_course_coordinator) {
     }
 } elseif (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
     // NSQF manager - include NSQF filter
-    $base_where = " WHERE (category IN ('Long Term NSQF','Short Term NSQF') OR course_type IN ('Long Term NSQF','Short Term NSQF'))";
+    $base_where = " WHERE is_nsqf = 1";
     $r = $conn->query("SELECT COUNT(*) as c FROM courses $base_where"); $count_all = $r ? (int)$r->fetch_assoc()['c'] : 0;
     $r = $conn->prepare("SELECT COUNT(*) as c FROM courses $base_where AND start_date <= ? AND (end_date IS NULL OR end_date >= ?) "); $r->bind_param('ss',$today,$today); $r->execute(); $res=$r->get_result(); $count_ongoing = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
     $r = $conn->prepare("SELECT COUNT(*) as c FROM courses $base_where AND start_date > ?"); $r->bind_param('s',$today); $r->execute(); $res=$r->get_result(); $count_upcoming = $res ? (int)$res->fetch_assoc()['c'] : 0; $r->close();
@@ -1899,13 +1901,11 @@ $dashboard_payload = [
                             <select name="category" class="form-select" onchange="this.form.submit()" style="width: 100%;">
                                 <option value="all" <?= $filter_category === 'all' ? 'selected' : '' ?>>All Categories</option>
                                 <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
-                                <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
-                                <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
-                                <option value="Short-Term Non-NSQF" <?= $filter_category === 'Short-Term Non-NSQF' ? 'selected' : '' ?>>Short-Term Non-NSQF</option>
+                                <option value="NSQF" <?= $filter_category === 'NSQF' ? 'selected' : '' ?>>NSQF</option>
+                                <option value="NON-NSQF" <?= $filter_category === 'NON-NSQF' ? 'selected' : '' ?>>NON-NSQF</option>
                                 <option value="Internship Program" <?= $filter_category === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
                                 <?php else: ?>
-                                <option value="Long Term NSQF" <?= $filter_category === 'Long Term NSQF' ? 'selected' : '' ?>>Long Term NSQF</option>
-                                <option value="Short Term NSQF" <?= $filter_category === 'Short Term NSQF' ? 'selected' : '' ?>>Short Term NSQF</option>
+                                <option value="NSQF" <?= $filter_category === 'NSQF' ? 'selected' : '' ?>>NSQF</option>
                                 <?php endif; ?>
                             </select>
                         </div>
@@ -1992,7 +1992,7 @@ $dashboard_payload = [
                     </button>
                     <?php else: ?>
                     <div class="alert alert-warning" style="margin: 0; padding: 8px 12px; font-size: 14px;">
-                        <i class="fas fa-eye"></i> View Only - Use Course Templates to create templates for coordinators
+                        <i class="fas fa-eye"></i> View Only - Use Manage NSQF Course to add NSQF courses
                     </div>
                     <?php endif; ?>
                 </div>
@@ -2302,17 +2302,17 @@ $dashboard_payload = [
             <div class="content-card" style="margin-bottom: 2rem;">
                 <div class="card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-graduation-cap"></i> NSQF Template Management
+                        <i class="fas fa-graduation-cap"></i> Manage NSQF Course
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="d-flex gap-3 flex-wrap">
                         <a href="manage_nsqf_templates.php" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Manage Course Templates
+                            <i class="fas fa-plus"></i> Manage NSQF Course
                         </a>
                         <div class="alert alert-info" style="margin: 0; flex: 1;">
                             <i class="fas fa-info-circle"></i> 
-                            <strong>Note:</strong> As an NSQF Course Manager, you can create and manage course templates. Course Coordinators will use your templates to create actual courses.
+                            <strong>Note:</strong> As an NSQF Course Manager, you can create and manage NSQF course entries. Course Coordinators will use these to create actual courses.
                         </div>
                     </div>
                 </div>
@@ -2390,10 +2390,21 @@ $dashboard_payload = [
                             <label class="form-label">Category <span class="required">*</span></label>
                             <select class="form-select" name="category" id="add_category_dash" required>
                                 <option value="">Select Category</option>
-                                <option value="Long Term NSQF">Long Term NSQF</option>
-                                <option value="Short Term NSQF">Short Term NSQF</option>
-                                <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
+                                <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                                <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses &gt; 500 hrs</option>
+                                <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses &gt;90 hrs to &lt;=500 hrs</option>
+                                <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses &lt;= 90 hours</option>
+                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
                                 <option value="Internship Program">Internship Program</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Sub-Category <span class="required">*</span></label>
+                            <select class="form-select" name="nsqf_type" id="add_nsqf_type_dash" required>
+                                <option value="">--Select Sub-Category--</option>
+                                <option value="NSQF Course">NSQF Course</option>
+                                <option value="NON-NSQF Course">NON-NSQF Course</option>
                             </select>
                         </div>
                         
@@ -2693,27 +2704,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
     const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
     
-    const categorySelect = document.getElementById('add_category_dash');
-    if (categorySelect) {
-        // Restrict categories for NSQF managers
-        if (isNSQFManager) {
-            const options = categorySelect.querySelectorAll('option');
-            options.forEach(option => {
-                if (option.value && !['Long Term NSQF', 'Short Term NSQF'].includes(option.value)) {
-                    option.style.display = 'none';
-                }
-            });
-        }
-        
-        // Add change event for template integration
-        categorySelect.addEventListener('change', function() {
-            handleCategoryChangeDash(this.value);
+    const nsqfTypeSelect = document.getElementById('add_nsqf_type_dash');
+    if (nsqfTypeSelect) {
+        // Add change event for template integration based on sub-category
+        nsqfTypeSelect.addEventListener('change', function() {
+            handleNsqfTypeChangeDash(this.value);
         });
     }
 });
 
-// Handle category change for template integration
-function handleCategoryChangeDash(category) {
+// Handle sub-category (nsqf_type) change for template integration
+function handleNsqfTypeChangeDash(nsqfType) {
     const courseNameInput = document.getElementById('add_course_name_dash');
     const courseNameTemplate = document.getElementById('add_course_name_template_dash');
     const eligibilityField = document.getElementById('add_eligibility_dash');
@@ -2721,7 +2722,7 @@ function handleCategoryChangeDash(category) {
     const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
     
-    if (['Long Term NSQF', 'Short Term NSQF'].includes(category)) {
+    if (nsqfType === 'NSQF Course') {
         // Show template dropdown for Course Coordinators
         if (isCourseCoordinator) {
             courseNameInput.style.display = 'none';

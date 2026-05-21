@@ -45,6 +45,8 @@ if (isset($_POST['add_course'])) {
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $description_pdf = '';
+    $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
+    $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
 
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
         $pdf_file = $_FILES['description_pdf'];
@@ -56,16 +58,16 @@ if (isset($_POST['add_course'])) {
         }
     }
 
-    $insert_sql = "INSERT INTO courses (
-        course_name, eligibility, duration, training_fees, category,
-        start_date, end_date, description_url, description_pdf, apply_link, course_coordinator
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $insert_sql = "INSERT INTO courses (
+            course_name, eligibility, duration, training_fees, category,
+            start_date, end_date, description_url, description_pdf, apply_link, course_coordinator, is_nsqf
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
-    $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("sssssssssss", 
-        $course_name, $eligibility, $duration, $training_fees, $category,
-        $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator
-    );
+        $stmt = $conn->prepare($insert_sql);
+        $stmt->bind_param("ssssssssssssi", 
+            $course_name, $eligibility, $duration, $training_fees, $category,
+            $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator, $is_nsqf
+        );
 
     if ($stmt->execute()) {
         $_SESSION['message'] = "Course added successfully!";
@@ -282,10 +284,20 @@ $total_students = $conn->query("SELECT COUNT(*) as count FROM students")->fetch_
                         <label class="form-label">Category *</label>
                         <select class="form-select" name="category" required>
                             <option value="">Select Category</option>
-                            <option value="Long Term NSQF">Long Term NSQF</option>
-                            <option value="Short Term NSQF">Short Term NSQF</option>
-                            <option value="Short-Term Non-NSQF">Short-Term Non-NSQF</option>
+                            <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                            <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses &gt; 500 hrs</option>
+                            <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses &gt;90 hrs to &lt;=500 hrs</option>
+                            <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses &lt;= 90 hours</option>
+                            <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
                             <option value="Internship Program">Internship Program</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sub-Category *</label>
+                        <select class="form-select" name="nsqf_type" required>
+                            <option value="">--Select Sub-Category--</option>
+                            <option value="NSQF Course">NSQF Course</option>
+                            <option value="NON-NSQF Course">NON-NSQF Course</option>
                         </select>
                     </div>
                     <div class="form-group">

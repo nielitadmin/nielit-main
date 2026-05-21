@@ -112,7 +112,7 @@ $templates = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage NSQF Templates - NIELIT Admin</title>
+    <title>Manage NSQF Course - NIELIT Admin</title>
     <?php injectThemeCSS($active_theme); ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -126,11 +126,11 @@ $templates = $stmt->get_result();
         <div class="container-fluid">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <div>
-                    <h1 class="h2"><i class="fas fa-graduation-cap"></i> Manage NSQF Course Templates</h1>
-                    <small class="text-muted">Create course templates that Course Coordinators can use</small>
+                    <h1 class="h2"><i class="fas fa-graduation-cap"></i> Manage NSQF Course</h1>
+                    <small class="text-muted">Create NSQF course entries that Course Coordinators can use</small>
                 </div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addTemplateModal">
-                    <i class="fas fa-plus"></i> Add New Template
+                    <i class="fas fa-plus"></i> Add New NSQF Course
                 </button>
             </div>
 
@@ -150,7 +150,7 @@ $templates = $stmt->get_result();
 
             <div class="card">
                 <div class="card-header">
-                    <span><i class="fas fa-list"></i> Your NSQF Course Templates</span>
+                    <span><i class="fas fa-list"></i> Your NSQF Courses</span>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
@@ -197,8 +197,8 @@ $templates = $stmt->get_result();
                                     <td colspan="6" class="text-center py-5">
                                         <div class="text-muted">
                                             <i class="fas fa-graduation-cap fa-3x mb-3"></i>
-                                            <h5>No NSQF templates created yet</h5>
-                                            <p>Create your first NSQF course template using the "Add New Template" button.</p>
+                                            <h5>No NSQF courses created yet</h5>
+                                            <p>Create your first NSQF course using the "Add New NSQF Course" button.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -212,13 +212,13 @@ $templates = $stmt->get_result();
     </main>
 </div>
 
-<!-- Add Template Modal -->
+<!-- Add NSQF Course Modal -->
 <div class="modal fade" id="addTemplateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <form method="POST">
                 <div class="modal-header">
-                    <h5 class="modal-title">Add NSQF Course Template</h5>
+                    <h5 class="modal-title">Add NSQF Course</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -245,7 +245,7 @@ $templates = $stmt->get_result();
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Add Template</button>
+                    <button type="submit" class="btn btn-primary">Add NSQF Course</button>
                 </div>
             </form>
         </div>

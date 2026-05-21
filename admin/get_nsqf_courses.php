@@ -17,18 +17,25 @@ header('Content-Type: application/json');
 
 $category = $_GET['category'] ?? '';
 
-if (!in_array($category, ['Long Term NSQF', 'Short Term NSQF'])) {
+if ($category !== '' && !in_array($category, ['NSQF', 'Long Term NSQF', 'Short Term NSQF'])) {
     echo json_encode(['success' => false, 'message' => 'Invalid category']);
     exit();
 }
 
 try {
     // Fetch existing courses for the selected NSQF category
-    $stmt = $conn->prepare("SELECT id, course_name, course_code, duration, fees 
+    if ($category === 'NSQF' || $category === '') {
+        $stmt = $conn->prepare("SELECT id, course_name, course_code, duration, fees 
+                           FROM courses 
+                           WHERE ((category = 'NSQF') OR (course_type IN ('Long Term NSQF','Short Term NSQF')) OR is_nsqf = 1) AND status = 'active' 
+                           ORDER BY course_name ASC");
+    } else {
+        $stmt = $conn->prepare("SELECT id, course_name, course_code, duration, fees 
                            FROM courses 
                            WHERE course_type = ? AND status = 'active' 
                            ORDER BY course_name ASC");
-    $stmt->bind_param("s", $category);
+        $stmt->bind_param("s", $category);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     

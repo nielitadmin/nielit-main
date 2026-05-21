@@ -17,17 +17,25 @@ header('Content-Type: application/json');
 
 $category = $_GET['category'] ?? '';
 
-if (!in_array($category, ['Long Term NSQF', 'Short Term NSQF'])) {
+// Accept unified 'NSQF' category (or empty legacy requests) and map to both template types
+if ($category !== '' && !in_array($category, ['NSQF', 'Long Term NSQF', 'Short Term NSQF'])) {
     echo json_encode(['success' => false, 'message' => 'Invalid category']);
     exit();
 }
 
 try {
-    // Fetch active NSQF templates for the selected category
-    $stmt = $conn->prepare("SELECT id, course_name, eligibility 
+    // Fetch active NSQF templates for the selected category (map 'NSQF' to both long & short)
+    if ($category === 'NSQF' || $category === '') {
+        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
+                           FROM nsqf_course_templates 
+                           WHERE category IN ('Long Term NSQF','Short Term NSQF') AND is_active = 1 
+                           ORDER BY course_name ASC");
+    } else {
+        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
                            FROM nsqf_course_templates 
                            WHERE category = ? AND is_active = 1 
                            ORDER BY course_name ASC");
+    }
     
     if ($stmt === false) {
         // Table might not exist - run migration
@@ -44,7 +52,11 @@ try {
         }
     }
     
-    $stmt->bind_param("s", $category);
+    if ($category === 'NSQF' || $category === '') {
+        // no params
+    } else {
+        $stmt->bind_param("s", $category);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     

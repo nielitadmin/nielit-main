@@ -41,11 +41,38 @@ $sql_internship = "SELECT courses.*, centres.name as centre_name, centres.city a
                    LEFT JOIN centres ON courses.centre_id = centres.id 
                    WHERE courses.category = 'Internship Program' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
+// Additional categories from course catalogue
+$sql_degree_pg = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
+                  FROM courses 
+                  LEFT JOIN centres ON courses.centre_id = centres.id 
+                  WHERE courses.category = 'Degree / Diploma / PG' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+$sql_skill_long = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
+                   FROM courses 
+                   LEFT JOIN centres ON courses.centre_id = centres.id 
+                   WHERE courses.category = 'Skill Based (Long Term) >500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+$sql_skill_short = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
+                    FROM courses 
+                    LEFT JOIN centres ON courses.centre_id = centres.id 
+                    WHERE courses.category = 'Skill Based (Short Term) 90-500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+$sql_short_digital = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
+                      FROM courses 
+                      LEFT JOIN centres ON courses.centre_id = centres.id 
+                      WHERE courses.category = 'Short Term / Digital Competency <=90 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+$sql_digital_lit = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
+                    FROM courses 
+                    LEFT JOIN centres ON courses.centre_id = centres.id 
+                    WHERE courses.category = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+
 // Execute the queries
 $result_long_term = $conn->query($sql_long_term);
 $result_short_term = $conn->query($sql_short_term);
 $result_non_nsqf = $conn->query($sql_non_nsqf);
 $result_internship = $conn->query($sql_internship);
+$result_degree_pg = $conn->query($sql_degree_pg);
+$result_skill_long = $conn->query($sql_skill_long);
+$result_skill_short = $conn->query($sql_skill_short);
+$result_short_digital = $conn->query($sql_short_digital);
+$result_digital_lit = $conn->query($sql_digital_lit);
 ?>
 
 <!DOCTYPE html>
@@ -217,6 +244,171 @@ $result_internship = $conn->query($sql_internship);
                 Explore our NSQF-aligned courses, internship programs, and boot camps.
             </p>
         </div>
+    </div>
+</section>
+
+<!-- Additional Course Categories -->
+<section class="py-5">
+    <div class="container">
+
+        <!-- Degree / Diploma / PG -->
+        <div class="course-section" id="degree-pg-section">
+            <div class="section-header">
+                <h3>
+                    <i class="fas fa-graduation-cap"></i>
+                    Degree / Diploma / Postgraduate Courses
+                </h3>
+            </div>
+            <?php if ($result_degree_pg && $result_degree_pg->num_rows > 0): ?>
+                <div class="row">
+                    <?php while ($row = $result_degree_pg->fetch_assoc()): ?>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="course-card">
+                                <div class="course-card-header">
+                                    <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
+                                </div>
+                                <div class="course-card-body">
+                                    <div class="course-info-grid">
+                                        <div class="info-item">
+                                            <i class="fas fa-user-graduate"></i>
+                                            <div>
+                                                <span class="info-label">Eligibility</span>
+                                                <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
+                                            <i class="fas fa-clock"></i>
+                                            <div>
+                                                <span class="info-label">Duration</span>
+                                                <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="info-item">
+                                            <i class="fas fa-rupee-sign"></i>
+                                            <div>
+                                                <span class="info-label">Training Fees</span>
+                                                <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="course-card-footer">
+                                    <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
+                                            <i class="fas fa-paper-plane"></i> Apply Now
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div class="empty-state">
+                    <i class="fas fa-inbox"></i>
+                    <h4>No Degree / Diploma / PG Courses Available</h4>
+                    <p>Please check back later for upcoming programs.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Skill Based (Long Term) -->
+        <div class="course-section" id="skill-long-section">
+            <div class="section-header">
+                <h3>
+                    <i class="fas fa-tools"></i>
+                    Skill Based (Long Term) Courses (> 500 hrs)
+                </h3>
+            </div>
+            <?php if ($result_skill_long && $result_skill_long->num_rows > 0): ?>
+                <div class="row">
+                    <?php while ($row = $result_skill_long->fetch_assoc()): ?>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="course-card">
+                                <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                <div class="course-card-body">
+                                    <div class="course-info-grid">
+                                        <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
+                                        <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
+                                    </div>
+                                </div>
+                                <div class="course-card-footer">
+                                    <?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Skill Based (Long) Courses Available</h4><p>Check back later.</p></div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Skill Based (Short Term) -->
+        <div class="course-section" id="skill-short-section">
+            <div class="section-header"><h3><i class="fas fa-tools"></i>Skill Based (Short Term) Courses (90-500 hrs)</h3></div>
+            <?php if ($result_skill_short && $result_skill_short->num_rows > 0): ?>
+                <div class="row">
+                    <?php while ($row = $result_skill_short->fetch_assoc()): ?>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="course-card">
+                                <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                <div class="course-card-body">
+                                    <div class="course-info-grid">
+                                        <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
+                                        <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
+                                    </div>
+                                </div>
+                                <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Skill Based (Short) Courses Available</h4><p>Check back later.</p></div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Short Term / Digital Competency -->
+        <div class="course-section" id="short-digital-section">
+            <div class="section-header"><h3><i class="fas fa-laptop-code"></i>Short Term / Digital Competency Courses (<= 90 hrs)</h3></div>
+            <?php if ($result_short_digital && $result_short_digital->num_rows > 0): ?>
+                <div class="row">
+                    <?php while ($row = $result_short_digital->fetch_assoc()): ?>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="course-card">
+                                <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                <div class="course-card-body"><div class="course-info-grid"><div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div></div></div>
+                                <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Short Term / Digital Competency Courses Available</h4><p>Check back later.</p></div>
+            <?php endif; ?>
+        </div>
+
+        <!-- NIELIT HQ Digital Literacy Courses -->
+        <div class="course-section" id="digital-lit-section">
+            <div class="section-header"><h3><i class="fas fa-keyboard"></i>NIELIT HQ Digital Literacy Courses (CCC / ECC / BCC / ACC)</h3></div>
+            <?php if ($result_digital_lit && $result_digital_lit->num_rows > 0): ?>
+                <div class="row">
+                    <?php while ($row = $result_digital_lit->fetch_assoc()): ?>
+                        <div class="col-md-6 col-lg-4">
+                            <div class="course-card">
+                                <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                <div class="course-card-body"><div class="course-info-grid"><div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div></div></div>
+                                <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                            </div>
+                        </div>
+                    <?php endwhile; ?>
+                </div>
+            <?php else: ?>
+                <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Digital Literacy Courses Available</h4><p>Check back later.</p></div>
+            <?php endif; ?>
+        </div>
+
     </div>
 </section>
 
@@ -572,6 +764,71 @@ $result_internship = $conn->query($sql_internship);
                     ">
                         <i class="fas fa-rocket me-2"></i> Internships
                     </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('degree-pg')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-graduation-cap me-2"></i> Degree / Diploma / PG
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('skill-long')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-tools me-2"></i> Skill Based (Long)
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('skill-short')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-tools me-2"></i> Skill Based (Short)
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('short-digital')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-laptop-code me-2"></i> Short Term / Digital
+                    </button>
+                    <button class="quick-nav-btn" onclick="scrollToSection('digital-lit')" style="
+                        padding: 0.75rem 1.5rem;
+                        background: rgba(255, 255, 255, 0.2);
+                        color: white;
+                        border: 1px solid rgba(255, 255, 255, 0.3);
+                        border-radius: 25px;
+                        font-size: 0.9rem;
+                        font-weight: 500;
+                        transition: all 0.3s ease;
+                        backdrop-filter: blur(10px);
+                    ">
+                        <i class="fas fa-keyboard me-2"></i> Digital Literacy
+                    </button>
                 </div>
             </div>
         </div>
@@ -765,6 +1022,21 @@ function scrollToSection(sectionType) {
         case 'internship':
             targetId = 'internship-section';
             break;
+        case 'degree-pg':
+            targetId = 'degree-pg-section';
+            break;
+        case 'skill-long':
+            targetId = 'skill-long-section';
+            break;
+        case 'skill-short':
+            targetId = 'skill-short-section';
+            break;
+        case 'short-digital':
+            targetId = 'short-digital-section';
+            break;
+        case 'digital-lit':
+            targetId = 'digital-lit-section';
+            break;
     }
     
     const element = document.getElementById(targetId);
@@ -839,7 +1111,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="col-md-6 col-lg-4">
                         <div class="course-card">
                             <div class="course-card-header">
-                                <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
                                 <!-- Enrollment Status Badge -->
                                 <div class="enrollment-status-badge" style="margin-top: 8px;">
                                     <?php 
