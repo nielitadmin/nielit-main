@@ -29,37 +29,37 @@ if ($centre_filter > 0) {
 $sql_degree_pg = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                   FROM courses 
                   LEFT JOIN centres ON courses.centre_id = centres.id 
-                  WHERE (courses.category = 'Degree / Diploma / PG' OR courses.course_type = 'Degree / Diploma / PG') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                  WHERE courses.category = 'Degree / Diploma / PG' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // 2. Skill Based (Long Term) Courses > 500 hrs
 $sql_skill_long = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE (courses.category = 'Skill Based (Long Term) >500 hrs' OR courses.course_type = 'Skill Based (Long Term) >500 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                   WHERE courses.category = 'Skill Based (Long Term) >500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // 3. Skill Based (Short Term) Courses >90 hrs to <=500 hrs
 $sql_skill_short = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                     FROM courses 
                     LEFT JOIN centres ON courses.centre_id = centres.id 
-                    WHERE (courses.category = 'Skill Based (Short Term) 90-500 hrs' OR courses.course_type = 'Skill Based (Short Term) 90-500 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                    WHERE courses.category = 'Skill Based (Short Term) 90-500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // 4. Short Term Courses / Digital Competency Courses <= 90 hours
 $sql_short_digital = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                       FROM courses 
                       LEFT JOIN centres ON courses.centre_id = centres.id 
-                      WHERE (courses.category = 'Short Term / Digital Competency <=90 hrs' OR courses.course_type = 'Short Term / Digital Competency <=90 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                      WHERE courses.category = 'Short Term / Digital Competency <=90 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // 5. NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)
 $sql_digital_lit = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                     FROM courses 
                     LEFT JOIN centres ON courses.centre_id = centres.id 
-                    WHERE (courses.category = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' OR courses.course_type = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                    WHERE courses.category = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // 6. Internship Program
 $sql_internship = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE (courses.category = 'Internship Program' OR courses.course_type = 'Internship Program') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                   WHERE courses.category = 'Internship Program' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // Execute only the 6 required queries
 $result_degree_pg = $conn->query($sql_degree_pg);
