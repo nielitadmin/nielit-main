@@ -26,10 +26,11 @@ if ($category !== '' && !in_array($category, ['NSQF', 'Long Term NSQF', 'Short T
 try {
     // Fetch active NSQF templates for the selected category (map 'NSQF' to both long & short)
     if ($category === 'NSQF' || $category === '') {
-        // For production compatibility - also include blank categories until migration is run
+        // For production compatibility - include all NSQF-related categories
         $stmt = $conn->prepare("SELECT id, course_name, eligibility 
                            FROM nsqf_course_templates 
-                           WHERE (category IN ('Long Term NSQF','Short Term NSQF') OR category = '' OR category IS NULL) 
+                           WHERE (category IN ('Long Term NSQF','Short Term NSQF','Skill Based (Long Term) >500 hrs','Skill Based (Short Term) Courses (90-500 hrs)') 
+                                  OR category = '' OR category IS NULL) 
                            AND is_active = 1 
                            ORDER BY course_name ASC");
     } else {
