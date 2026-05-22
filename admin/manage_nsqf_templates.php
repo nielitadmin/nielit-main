@@ -17,24 +17,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
         $course_name = trim($_POST['course_name']);
         $category = $_POST['category'];
+        $nsqf_type = $_POST['nsqf_type'];
         $eligibility = trim($_POST['eligibility']);
         $created_by = $_SESSION['admin_id'];
         
-        $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, eligibility, created_by) VALUES (?, ?, ?, ?)");
+        $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, nsqf_type, eligibility, created_by) VALUES (?, ?, ?, ?, ?)");
         
         if ($stmt === false) {
             // Table might not exist - run migration
             include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
             
             // Try again after migration
-            $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, eligibility, created_by) VALUES (?, ?, ?, ?)");
+            $stmt = $conn->prepare("INSERT INTO nsqf_course_templates (course_name, category, nsqf_type, eligibility, created_by) VALUES (?, ?, ?, ?, ?)");
             if ($stmt === false) {
                 $error = "Error: Could not prepare statement. " . $conn->error;
             }
         }
         
         if ($stmt !== false) {
-            $stmt->bind_param("sssi", $course_name, $category, $eligibility, $created_by);
+            $stmt->bind_param("ssssi", $course_name, $category, $nsqf_type, $eligibility, $created_by);
             
             if ($stmt->execute()) {
                 $success = "NSQF course template added successfully!";
@@ -49,14 +50,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = intval($_POST['template_id']);
         $course_name = trim($_POST['course_name']);
         $category = $_POST['category'];
+        $nsqf_type = $_POST['nsqf_type'];
         $eligibility = trim($_POST['eligibility']);
         
-        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, eligibility=? WHERE id=? AND created_by=?");
+        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, nsqf_type=?, eligibility=? WHERE id=? AND created_by=?");
         
         if ($stmt === false) {
             $error = "Error: Could not prepare statement. " . $conn->error;
         } else {
-            $stmt->bind_param("sssii", $course_name, $category, $eligibility, $id, $_SESSION['admin_id']);
+            $stmt->bind_param("ssssii", $course_name, $category, $nsqf_type, $eligibility, $id, $_SESSION['admin_id']);
             
             if ($stmt->execute()) {
                 $success = "Template updated successfully!";
@@ -160,6 +162,7 @@ $templates = $stmt->get_result();
                                     <th>ID</th>
                                     <th>Course Name</th>
                                     <th>Category</th>
+                                    <th>Sub-Category</th>
                                     <th>Eligibility</th>
                                     <th>Created</th>
                                     <th>Actions</th>
@@ -171,8 +174,13 @@ $templates = $stmt->get_result();
                                     <td><?= $template['id'] ?></td>
                                     <td><strong><?= htmlspecialchars($template['course_name']) ?></strong></td>
                                     <td>
-                                        <span class="badge <?= $template['category'] === 'Long Term NSQF' ? 'bg-primary' : 'bg-warning' ?>">
+                                        <span class="badge bg-info">
                                             <?= htmlspecialchars($template['category']) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge <?= ($template['nsqf_type'] ?? '') === 'NSQF Course' ? 'bg-success' : 'bg-warning' ?>">
+                                            <?= htmlspecialchars($template['nsqf_type'] ?? 'NON-NSQF Course') ?>
                                         </span>
                                     </td>
                                     <td><?= htmlspecialchars($template['eligibility']) ?></td>
@@ -194,7 +202,7 @@ $templates = $stmt->get_result();
                                 
                                 <?php if ($templates->num_rows == 0): ?>
                                 <tr>
-                                    <td colspan="6" class="text-center py-5">
+                                    <td colspan="7" class="text-center py-5">
                                         <div class="text-muted">
                                             <i class="fas fa-graduation-cap fa-3x mb-3"></i>
                                             <h5>No NSQF courses created yet</h5>
@@ -232,10 +240,24 @@ $templates = $stmt->get_result();
                     <div class="mb-3">
                         <label class="form-label">Category *</label>
                         <select name="category" class="form-control" required>
-                            <option value="">Select Category</option>
-                            <option value="Long Term NSQF">Long Term NSQF</option>
-                            <option value="Short Term NSQF">Short Term NSQF</option>
+                            <option value="">--Select Category--</option>
+                            <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                            <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
+                            <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
+                            <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
+                            <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                            <option value="Internship Program">Internship Program</option>
                         </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Sub-Category *</label>
+                        <select name="nsqf_type" class="form-control" required>
+                            <option value="">--Select Sub-Category--</option>
+                            <option value="NSQF Course">NSQF Course</option>
+                            <option value="NON-NSQF Course">NON-NSQF Course</option>
+                        </select>
+                        <small class="text-muted">Select whether this course follows NSQF framework</small>
                     </div>
                     
                     <div class="mb-3">
@@ -273,9 +295,24 @@ $templates = $stmt->get_result();
                     <div class="mb-3">
                         <label class="form-label">Category *</label>
                         <select name="category" id="edit_category" class="form-control" required>
-                            <option value="Long Term NSQF">Long Term NSQF</option>
-                            <option value="Short Term NSQF">Short Term NSQF</option>
+                            <option value="">--Select Category--</option>
+                            <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                            <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
+                            <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
+                            <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
+                            <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                            <option value="Internship Program">Internship Program</option>
                         </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Sub-Category *</label>
+                        <select name="nsqf_type" id="edit_nsqf_type" class="form-control" required>
+                            <option value="">--Select Sub-Category--</option>
+                            <option value="NSQF Course">NSQF Course</option>
+                            <option value="NON-NSQF Course">NON-NSQF Course</option>
+                        </select>
+                        <small class="text-muted">Select whether this course follows NSQF framework</small>
                     </div>
                     
                     <div class="mb-3">
@@ -298,6 +335,7 @@ function editTemplate(template) {
     document.getElementById('edit_template_id').value = template.id;
     document.getElementById('edit_course_name').value = template.course_name;
     document.getElementById('edit_category').value = template.category;
+    document.getElementById('edit_nsqf_type').value = template.nsqf_type || 'NON-NSQF Course';
     document.getElementById('edit_eligibility').value = template.eligibility;
     
     new bootstrap.Modal(document.getElementById('editTemplateModal')).show();

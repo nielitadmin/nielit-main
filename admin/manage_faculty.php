@@ -192,7 +192,7 @@ if ($count_result) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Staff - NIELIT Admin</title>
+    <title>Non - Scientific and Technical staffs - NIELIT Admin</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
@@ -208,7 +208,7 @@ if ($count_result) {
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-users-cog"></i> Staff Management</h4>
+                <h4><i class="fas fa-users-cog"></i> Non - Scientific and Technical staffs</h4>
                 <small>Manage faculty, scientists, and technical staff across all categories</small>
             </div>
             <div class="topbar-right">
