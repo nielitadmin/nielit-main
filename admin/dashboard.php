@@ -2723,8 +2723,8 @@ function handleNsqfTypeChangeDash(nsqfType) {
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
     
     if (nsqfType === 'NSQF Course') {
-        // Show template dropdown for Course Coordinators
-        if (isCourseCoordinator) {
+        // Show template dropdown for Course Coordinators and Master Admins
+        if (isCourseCoordinator || <?php echo json_encode(isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['master_admin', 'admin'])); ?>) {
             courseNameInput.style.display = 'none';
             courseNameTemplate.style.display = 'block';
             courseNameTemplate.required = true;
@@ -2740,8 +2740,8 @@ function handleNsqfTypeChangeDash(nsqfType) {
             courseNameTemplate.required = false;
         }
         
-        // Make eligibility read-only for coordinators
-        if (isCourseCoordinator && eligibilityField) {
+        // Make eligibility read-only for coordinators and admins using templates
+        if ((isCourseCoordinator || <?php echo json_encode(isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['master_admin', 'admin'])); ?>) && eligibilityField) {
             eligibilityField.readOnly = true;
             eligibilityField.placeholder = 'Will be filled from selected template';
         }

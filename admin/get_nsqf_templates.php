@@ -71,7 +71,12 @@ try {
         'success' => true,
         'category' => $category,
         'templates' => $templates,
-        'count' => count($templates)
+        'count' => count($templates),
+        'debug' => [
+            'query_executed' => true,
+            'user_role' => $_SESSION['admin_role'] ?? 'not_set',
+            'sql_used' => ($category === 'NSQF' || $category === '') ? 'blank_category_compatible' : 'specific_category'
+        ]
     ]);
     
 } catch (Exception $e) {
