@@ -100,6 +100,38 @@ h1, h2, h3, h4, h5, h6 {
     background-color: var(--navy) !important;
 }
 
+/* ============================================
+   CENTRE CARDS SPACING FIX
+   ============================================ */
+.centre-card .stat-item {
+    margin-right: 0.5rem;
+}
+
+.centre-card .stat-item:last-child {
+    margin-right: 0;
+}
+
+.centre-card .stat-item div {
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+}
+
+.centre-card .stat-item div:last-child {
+    margin-bottom: 0;
+}
+
+.centre-stats {
+    display: flex !important;
+    justify-content: space-around !important;
+    align-items: flex-start !important;
+    gap: 0.5rem;
+}
+
+.text-center {
+    text-align: center !important;
+}
+}
+
 .navbar-brand {
     font-weight: 700;
     font-size: 1.2rem;

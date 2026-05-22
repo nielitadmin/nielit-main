@@ -285,8 +285,8 @@ $result_internship = $conn->query($sql_internship);
                         
                         <!-- Stats -->
                         <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-                            <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #0a1628;">
+                            <div class="stat-item text-center" style="margin-right: 1rem;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #0a1628; margin-bottom: 0.25rem;">
                                     <?php 
                                     $total_courses = 0;
                                     if ($result_degree_pg) $total_courses += $result_degree_pg->num_rows;
@@ -298,17 +298,17 @@ $result_internship = $conn->query($sql_internship);
                                     echo $total_courses;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #64748b;">Courses</div>
+                                <div style="font-size: 0.75rem; color: #64748b; line-height: 1.2;">Courses</div>
                             </div>
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #10b981;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #10b981; margin-bottom: 0.25rem;">
                                     <?php 
                                     $centres_result = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
                                     $centres_count = $centres_result ? $centres_result->fetch_assoc()['count'] : 0;
                                     echo $centres_count;
                                     ?>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #64748b;">Centres</div>
+                                <div style="font-size: 0.75rem; color: #64748b; line-height: 1.2;">Centres</div>
                             </div>
                         </div>
                     </div>
@@ -388,21 +388,21 @@ $result_internship = $conn->query($sql_internship);
                     </div>
                     
                     <div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid rgba(72, 187, 120, 0.1);">
-                        <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981;">' . $course_count . '</div>
-                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Available Courses</div>
+                        <div class="stat-item text-center" style="margin-right: 1rem;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #10b981; margin-bottom: 0.25rem;">' . $course_count . '</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500; line-height: 1.2;">Available Courses</div>
                         </div>
-                        <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b;">
+                        <div class="stat-item text-center" style="margin-right: 1rem;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #f59e0b; margin-bottom: 0.25rem;">
                                 <i class="fas fa-award"></i>
                             </div>
-                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Premium Quality</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500; line-height: 1.2;">Premium Quality</div>
                         </div>
                         <div class="stat-item text-center">
-                            <div style="font-size: 1.5rem; font-weight: 700; color: #1a56db;">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1a56db; margin-bottom: 0.25rem;">
                                 <i class="fas fa-users"></i>
                             </div>
-                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Expert Faculty</div>
+                            <div style="font-size: 0.8rem; color: #64748b; font-weight: 500; line-height: 1.2;">Expert Faculty</div>
                         </div>
                     </div>
                 </div>
@@ -456,15 +456,15 @@ $result_internship = $conn->query($sql_internship);
                 }
                 
                 echo '<div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-                        <div class="stat-item text-center">
-                            <div style="font-size: 1.2rem; font-weight: 700; color: #9f7aea;">' . $course_count . '</div>
-                            <div style="font-size: 0.75rem; color: #718096;">Courses</div>
+                        <div class="stat-item text-center" style="margin-right: 1rem;">
+                            <div style="font-size: 1.2rem; font-weight: 700; color: #9f7aea; margin-bottom: 0.25rem;">' . $course_count . '</div>
+                            <div style="font-size: 0.75rem; color: #718096; line-height: 1.2;">Courses</div>
                         </div>
                         <div class="stat-item text-center">
-                            <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">
+                            <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936; margin-bottom: 0.25rem;">
                                 <i class="fas fa-star"></i>
                             </div>
-                            <div style="font-size: 0.75rem; color: #718096;">Quality</div>
+                            <div style="font-size: 0.75rem; color: #718096; line-height: 1.2;">Quality</div>
                         </div>
                     </div>
                 </div>
@@ -520,15 +520,15 @@ $result_internship = $conn->query($sql_internship);
                     }
                     
                     echo '<div class="centre-stats" style="display: flex; justify-content: space-around; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0;">
-                            <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936;">' . $course_count . '</div>
-                                <div style="font-size: 0.75rem; color: #718096;">Courses</div>
+                            <div class="stat-item text-center" style="margin-right: 1rem;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #ed8936; margin-bottom: 0.25rem;">' . $course_count . '</div>
+                                <div style="font-size: 0.75rem; color: #718096; line-height: 1.2;">Courses</div>
                             </div>
                             <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78;">
+                                <div style="font-size: 1.2rem; font-weight: 700; color: #48bb78; margin-bottom: 0.25rem;">
                                     <i class="fas fa-star"></i>
                                 </div>
-                                <div style="font-size: 0.75rem; color: #718096;">Quality</div>
+                                <div style="font-size: 0.75rem; color: #718096; line-height: 1.2;">Quality</div>
                             </div>
                         </div>
                     </div>
