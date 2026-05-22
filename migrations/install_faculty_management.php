@@ -21,12 +21,14 @@ try {
         phone VARCHAR(20),
         designation VARCHAR(100),
         department VARCHAR(100),
+        staff_category VARCHAR(50) DEFAULT 'Teaching',
         is_active TINYINT(1) DEFAULT 1,
         created_by INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_name (name),
-        INDEX idx_active (is_active)
+        INDEX idx_active (is_active),
+        INDEX idx_category (staff_category)
     )";
     
     $result = $conn->query($sql_faculty);
@@ -56,20 +58,20 @@ try {
     
     // Insert sample faculty data
     $sample_faculty = [
-        ['Dr. Rajesh Kumar', 'rajesh.kumar@nielit.gov.in', '9876543210', 'Senior Faculty', 'Computer Science'],
-        ['Prof. Priya Sharma', 'priya.sharma@nielit.gov.in', '9876543211', 'Associate Professor', 'Information Technology'],
-        ['Mr. Amit Singh', 'amit.singh@nielit.gov.in', '9876543212', 'Assistant Professor', 'Electronics'],
-        ['Dr. Sunita Patel', 'sunita.patel@nielit.gov.in', '9876543213', 'Professor', 'Data Science'],
-        ['Ms. Kavita Joshi', 'kavita.joshi@nielit.gov.in', '9876543214', 'Lecturer', 'Web Development']
+        ['Dr. Rajesh Kumar', 'rajesh.kumar@nielit.gov.in', '9876543210', 'Senior Faculty', 'Computer Science', 'Teaching'],
+        ['Prof. Priya Sharma', 'priya.sharma@nielit.gov.in', '9876543211', 'Associate Professor', 'Information Technology', 'Teaching'],
+        ['Mr. Amit Singh', 'amit.singh@nielit.gov.in', '9876543212', 'Assistant Professor', 'Electronics', 'Teaching'],
+        ['Dr. Sunita Patel', 'sunita.patel@nielit.gov.in', '9876543213', 'Professor', 'Data Science', 'Teaching'],
+        ['Ms. Kavita Joshi', 'kavita.joshi@nielit.gov.in', '9876543214', 'Lecturer', 'Web Development', 'Teaching']
     ];
     
-    $stmt = $conn->prepare("INSERT IGNORE INTO faculty (name, email, phone, designation, department, is_active) VALUES (?, ?, ?, ?, ?, 1)");
+    $stmt = $conn->prepare("INSERT IGNORE INTO faculty (name, email, phone, designation, department, staff_category, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
     if (!$stmt) {
         throw new Exception("Error preparing faculty insert statement: " . $conn->error);
     }
     
     foreach ($sample_faculty as $faculty) {
-        $stmt->bind_param("sssss", $faculty[0], $faculty[1], $faculty[2], $faculty[3], $faculty[4]);
+        $stmt->bind_param("ssssss", $faculty[0], $faculty[1], $faculty[2], $faculty[3], $faculty[4], $faculty[5]);
         if (!$stmt->execute()) {
             throw new Exception("Error inserting faculty data: " . $stmt->error);
         }

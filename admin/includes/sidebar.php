@@ -83,10 +83,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-project-diagram"></i> Schemes/Projects
             </a>
         </div>
-        <!-- Manage Faculty - Master Admin Only -->
+        <!-- Staff Management - Master Admin Only -->
         <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Manage Faculty
+                <i class="fas fa-chalkboard-teacher"></i> Staff Management
             </a>
         </div>
         <?php endif; ?>
