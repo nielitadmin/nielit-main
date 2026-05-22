@@ -27,41 +27,41 @@ if ($centre_filter > 0) {
 $sql_long_term = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                   FROM courses 
                   LEFT JOIN centres ON courses.centre_id = centres.id 
-                  WHERE courses.category = 'Long Term NSQF' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                  WHERE (courses.category = 'Long Term NSQF' OR courses.course_type = 'Long Term NSQF') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_short_term = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE courses.category = 'Short Term NSQF' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                   WHERE (courses.category = 'Short Term NSQF' OR courses.course_type = 'Short Term NSQF') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_non_nsqf = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                  FROM courses 
                  LEFT JOIN centres ON courses.centre_id = centres.id 
-                 WHERE courses.category = 'Short-Term Non-NSQF' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                 WHERE (courses.category = 'Short-Term Non-NSQF' OR courses.course_type = 'Short-Term Non-NSQF') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_internship = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE courses.category = 'Internship Program' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                   WHERE (courses.category = 'Internship Program' OR courses.course_type = 'Internship Program') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // Additional categories from course catalogue
 $sql_degree_pg = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                   FROM courses 
                   LEFT JOIN centres ON courses.centre_id = centres.id 
-                  WHERE courses.category = 'Degree / Diploma / PG' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                  WHERE (courses.category = 'Degree / Diploma / PG' OR courses.course_type = 'Degree / Diploma / PG') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_skill_long = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE courses.category = 'Skill Based (Long Term) >500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                   WHERE (courses.category = 'Skill Based (Long Term) >500 hrs' OR courses.course_type = 'Skill Based (Long Term) >500 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_skill_short = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                     FROM courses 
                     LEFT JOIN centres ON courses.centre_id = centres.id 
-                    WHERE courses.category = 'Skill Based (Short Term) 90-500 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                    WHERE (courses.category = 'Skill Based (Short Term) 90-500 hrs' OR courses.course_type = 'Skill Based (Short Term) 90-500 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_short_digital = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                       FROM courses 
                       LEFT JOIN centres ON courses.centre_id = centres.id 
-                      WHERE courses.category = 'Short Term / Digital Competency <=90 hrs' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                      WHERE (courses.category = 'Short Term / Digital Competency <=90 hrs' OR courses.course_type = 'Short Term / Digital Competency <=90 hrs') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 $sql_digital_lit = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                     FROM courses 
                     LEFT JOIN centres ON courses.centre_id = centres.id 
-                    WHERE courses.category = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
+                    WHERE (courses.category = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' OR courses.course_type = 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)') AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // Execute the queries
 $result_long_term = $conn->query($sql_long_term);
