@@ -297,8 +297,6 @@ $result_internship = $conn->query($sql_internship);
                                     if ($result_internship) $total_courses += $result_internship->num_rows;
                                     echo $total_courses;
                                     ?>
-                                    echo $total_courses;
-                                    ?>
                                 </div>
                                 <div style="font-size: 0.75rem; color: #64748b;">Courses</div>
                             </div>
