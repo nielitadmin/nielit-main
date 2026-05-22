@@ -132,169 +132,6 @@ $result_digital_lit = $conn->query($sql_digital_lit);
             border-left-color: var(--gold) !important;
         }
 
-        .section-header i {
-            color: var(--gold) !important;
-        }
-
-        .notice-bar {
-            background: var(--gold);
-            color: var(--navy);
-            padding: 9px 0;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-        
-        .notice-label {
-            background: var(--navy);
-            color: var(--gold);
-            font-size: 0.72rem;
-            font-weight: 700;
-            padding: 3px 12px;
-            border-radius: 20px;
-            margin-right: 12px;
-            font-family: 'Sora', sans-serif;
-            letter-spacing: 0.5px;
-        }
-        
-        .notice-content {
-            display: inline-block;
-            padding-left: 100%;
-            animation: ticker 28s linear infinite;
-            font-weight: 500;
-            font-size: 0.88rem;
-        }
-        
-        @keyframes ticker {
-            0% { transform: translate3d(0,0,0); }
-            100% { transform: translate3d(-100%,0,0); }
-        }
-    </style>
-</head>
-<body>
-
-<!-- Top Bar (Government Header) -->
-<div class="top-bar">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
-                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-3" style="height: 50px;">
-                <div>
-                    <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                    <div class="fw-bold" style="color: var(--navy); font-size: 0.95rem; font-family: 'Sora', sans-serif;">National Institute of Electronics & Information Technology, Bhubaneswar</div>
-                </div>
-            </div>
-            <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
-                <div class="text-end me-3 d-none d-lg-block">
-                    <small class="d-block fw-bold" style="color: var(--navy);">Ministry of Electronics & IT</small>
-                    <small class="d-block" style="color: var(--muted);">Government of India</small>
-                </div>
-                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Main Navbar -->
-<nav class="navbar navbar-expand-lg navbar-dark sticky-top">
-    <div class="container">
-        <a class="navbar-brand" href="<?php echo APP_URL; ?>/index.php">
-            <i class="fas fa-university me-2"></i> NIELIT
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="mainNav">
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/index.php">Home</a></li>
-                <li class="nav-item"><a class="nav-link active" href="<?php echo APP_URL; ?>/public/courses.php">Courses Offered</a></li>
-                
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/student/login.php">Student Portal</a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/management.php">Management</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/news.php">News</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/contact.php">Contact</a></li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<!-- Notice Ticker -->
-<div class="notice-bar">
-    <div class="notice-content">
-        <span class="notice-label">NEW</span>
-        Admissions Open! Explore our NSQF-aligned courses and internship programs. Apply now for upcoming batches.
-    </div>
-</div>
-
-<!-- Page Header -->
-<section class="py-5" style="background: linear-gradient(135deg, #0a1628 0%, #112240 100%); position: relative; overflow: hidden;">
-    <div style="position: absolute; inset: 0; opacity: 0.08; background-image: url('data:image/svg+xml,<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" fill-rule="evenodd"><g fill="%23ffffff" fill-opacity="0.3"><circle cx="30" cy="30" r="2"/></g></svg>'); background-size: 60px 60px;"></div>
-    <div class="container position-relative py-4 py-lg-5">
-        <div class="text-center mx-auto" style="max-width: 760px;">
-            <span class="section-eyebrow" style="color: var(--gold-light);">Academic Programs</span>
-            <h1 style="color: #fff; font-family: 'Sora', sans-serif; font-size: clamp(2.4rem, 4vw, 4rem); font-weight: 800; line-height: 1.1; letter-spacing: -1px; margin-bottom: 18px;">Courses Offered</h1>
-            <p style="color: rgba(255,255,255,0.78); font-size: 1.05rem; line-height: 1.8; margin: 0;">
-                NIELIT Bhubaneswar offers long-term and short-term courses designed to build industry-ready skills.
-                Explore our NSQF-aligned courses, internship programs, and boot camps.
-            </p>
-        </div>
-    </div>
-</section>
-
-<!-- Additional Course Categories -->
-<section class="py-5">
-    <div class="container">
-
-        <!-- Degree / Diploma / PG -->
-        <div class="course-section" id="degree-pg-section">
-            <div class="section-header">
-                <h3>
-                    <i class="fas fa-graduation-cap"></i>
-                    Degree / Diploma / Postgraduate Courses
-                </h3>
-            </div>
-            <?php if ($result_degree_pg && $result_degree_pg->num_rows > 0): ?>
-                <div class="row">
-                    <?php while ($row = $result_degree_pg->fetch_assoc()): ?>
-                        <div class="col-md-6 col-lg-4">
-                            <div class="course-card">
-                                <div class="course-card-header">
-                                    <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
-                                </div>
-                                <div class="course-card-body">
-                                    <div class="course-info-grid">
-                                        <div class="info-item">
-                                            <i class="fas fa-user-graduate"></i>
-                                            <div>
-                                                <span class="info-label">Eligibility</span>
-                                                <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="info-item">
-                                            <i class="fas fa-clock"></i>
-                                            <div>
-                                                <span class="info-label">Duration</span>
-                                                <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
-                                            </div>
-                                        </div>
-                                        <div class="info-item">
-                                            <i class="fas fa-rupee-sign"></i>
-                                            <div>
-                                                <span class="info-label">Training Fees</span>
-                                                <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="course-card-footer">
-                                    <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
                                             <i class="fas fa-paper-plane"></i> Apply Now
                                         </a>
                                     <?php endif; ?>
@@ -459,7 +296,6 @@ $result_digital_lit = $conn->query($sql_digital_lit);
                                 <div style="font-size: 1.2rem; font-weight: 700; color: #0a1628;">
                                     <?php 
                                     $total_courses = 0;
-                                    if ($result_long_term) $total_courses += $result_long_term->num_rows;
                                     if ($result_short_term) $total_courses += $result_short_term->num_rows;
                                     if ($result_non_nsqf) $total_courses += $result_non_nsqf->num_rows;
                                     if ($result_internship) $total_courses += $result_internship->num_rows;
@@ -577,6 +413,169 @@ $result_digital_lit = $conn->query($sql_digital_lit);
             </div>
         </div>';
             }
+
+    <!-- Additional Course Categories -->
+    <section class="py-5">
+        <div class="container">
+
+            <!-- Degree / Diploma / PG -->
+            <div class="course-section" id="degree-pg-section">
+                <div class="section-header">
+                    <h3>
+                        <i class="fas fa-graduation-cap"></i>
+                        Degree / Diploma / Postgraduate Courses
+                    </h3>
+                </div>
+                <?php if ($result_degree_pg && $result_degree_pg->num_rows > 0): ?>
+                    <div class="row">
+                        <?php while ($row = $result_degree_pg->fetch_assoc()): ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="course-card">
+                                    <div class="course-card-header">
+                                        <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
+                                    </div>
+                                    <div class="course-card-body">
+                                        <div class="course-info-grid">
+                                            <div class="info-item">
+                                                <i class="fas fa-user-graduate"></i>
+                                                <div>
+                                                    <span class="info-label">Eligibility</span>
+                                                    <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
+                                                </div>
+                                            </div>
+                                            <div class="info-item">
+                                                <i class="fas fa-clock"></i>
+                                                <div>
+                                                    <span class="info-label">Duration</span>
+                                                    <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
+                                                </div>
+                                            </div>
+                                            <div class="info-item">
+                                                <i class="fas fa-rupee-sign"></i>
+                                                <div>
+                                                    <span class="info-label">Training Fees</span>
+                                                    <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="course-card-footer">
+                                        <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                            <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
+                                                <i class="fas fa-paper-plane"></i> Apply Now
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <h4>No Degree / Diploma / PG Courses Available</h4>
+                        <p>Please check back later for upcoming programs.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Skill Based (Long Term) -->
+            <div class="course-section" id="skill-long-section">
+                <div class="section-header">
+                    <h3>
+                        <i class="fas fa-tools"></i>
+                        Skill Based (Long Term) Courses (> 500 hrs)
+                    </h3>
+                </div>
+                <?php if ($result_skill_long && $result_skill_long->num_rows > 0): ?>
+                    <div class="row">
+                        <?php while ($row = $result_skill_long->fetch_assoc()): ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="course-card">
+                                    <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                    <div class="course-card-body">
+                                        <div class="course-info-grid">
+                                            <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
+                                            <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Skill Based (Long) Courses Available</h4><p>Check back later.</p></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Skill Based (Short Term) -->
+            <div class="course-section" id="skill-short-section">
+                <div class="section-header"><h3><i class="fas fa-tools"></i>Skill Based (Short Term) Courses (90-500 hrs)</h3></div>
+                <?php if ($result_skill_short && $result_skill_short->num_rows > 0): ?>
+                    <div class="row">
+                        <?php while ($row = $result_skill_short->fetch_assoc()): ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="course-card">
+                                    <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                    <div class="course-card-body">
+                                        <div class="course-info-grid">
+                                            <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
+                                            <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
+                                        </div>
+                                    </div>
+                                    <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Skill Based (Short) Courses Available</h4><p>Check back later.</p></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Short Term / Digital Competency -->
+            <div class="course-section" id="short-digital-section">
+                <div class="section-header"><h3><i class="fas fa-laptop-code"></i>Short Term / Digital Competency Courses (<= 90 hrs)</h3></div>
+                <?php if ($result_short_digital && $result_short_digital->num_rows > 0): ?>
+                    <div class="row">
+                        <?php while ($row = $result_short_digital->fetch_assoc()): ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="course-card">
+                                    <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                    <div class="course-card-body"><div class="course-info-grid"><div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div></div></div>
+                                    <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Short Term / Digital Competency Courses Available</h4><p>Check back later.</p></div>
+                <?php endif; ?>
+            </div>
+
+            <!-- NIELIT HQ Digital Literacy Courses -->
+            <div class="course-section" id="digital-lit-section">
+                <div class="section-header"><h3><i class="fas fa-keyboard"></i>NIELIT HQ Digital Literacy Courses (CCC / ECC / BCC / ACC)</h3></div>
+                <?php if ($result_digital_lit && $result_digital_lit->num_rows > 0): ?>
+                    <div class="row">
+                        <?php while ($row = $result_digital_lit->fetch_assoc()): ?>
+                            <div class="col-md-6 col-lg-4">
+                                <div class="course-card">
+                                    <div class="course-card-header"><h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4></div>
+                                    <div class="course-card-body"><div class="course-info-grid"><div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div></div></div>
+                                    <div class="course-card-footer"><?php if (!empty($row["apply_link"])): ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?></div>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Digital Literacy Courses Available</h4><p>Check back later.</p></div>
+                <?php endif; ?>
+            </div>
+
+        </div>
+    </section>
             
             // Display other centres on the right
             if (!empty($other_centres)) {
@@ -712,45 +711,6 @@ $result_digital_lit = $conn->query($sql_digital_lit);
             <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(20px); border-radius: 15px; padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.2);">
                 <h5 style="color: white; margin-bottom: 1rem; font-weight: 600;">Quick Navigation</h5>
                 <div class="d-flex flex-wrap justify-content-center gap-3">
-                    <button class="quick-nav-btn" onclick="scrollToSection('long-term')" style="
-                        padding: 0.75rem 1.5rem;
-                        background: rgba(255, 255, 255, 0.2);
-                        color: white;
-                        border: 1px solid rgba(255, 255, 255, 0.3);
-                        border-radius: 25px;
-                        font-size: 0.9rem;
-                        font-weight: 500;
-                        transition: all 0.3s ease;
-                        backdrop-filter: blur(10px);
-                    ">
-                        <i class="fas fa-certificate me-2"></i> Long Term NSQF
-                    </button>
-                    <button class="quick-nav-btn" onclick="scrollToSection('short-term')" style="
-                        padding: 0.75rem 1.5rem;
-                        background: rgba(255, 255, 255, 0.2);
-                        color: white;
-                        border: 1px solid rgba(255, 255, 255, 0.3);
-                        border-radius: 25px;
-                        font-size: 0.9rem;
-                        font-weight: 500;
-                        transition: all 0.3s ease;
-                        backdrop-filter: blur(10px);
-                    ">
-                        <i class="fas fa-award me-2"></i> Short Term NSQF
-                    </button>
-                    <button class="quick-nav-btn" onclick="scrollToSection('non-nsqf')" style="
-                        padding: 0.75rem 1.5rem;
-                        background: rgba(255, 255, 255, 0.2);
-                        color: white;
-                        border: 1px solid rgba(255, 255, 255, 0.3);
-                        border-radius: 25px;
-                        font-size: 0.9rem;
-                        font-weight: 500;
-                        transition: all 0.3s ease;
-                        backdrop-filter: blur(10px);
-                    ">
-                        <i class="fas fa-laptop-code me-2"></i> Non-NSQF
-                    </button>
                     <button class="quick-nav-btn" onclick="scrollToSection('internship')" style="
                         padding: 0.75rem 1.5rem;
                         background: rgba(255, 255, 255, 0.2);
@@ -1010,15 +970,6 @@ function filterByCentre(centreId) {
 function scrollToSection(sectionType) {
     let targetId = '';
     switch(sectionType) {
-        case 'long-term':
-            targetId = 'long-term-section';
-            break;
-        case 'short-term':
-            targetId = 'short-term-section';
-            break;
-        case 'non-nsqf':
-            targetId = 'non-nsqf-section';
-            break;
         case 'internship':
             targetId = 'internship-section';
             break;
@@ -1095,442 +1046,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Courses Offered Section -->
 <section class="py-5">
     <div class="container">
-        
-        <!-- Long-Term NSQF Courses -->
-        <div class="course-section" id="long-term-section">
-            <div class="section-header">
-                <h3>
-                    <i class="fas fa-certificate"></i>
-                    Long Term NSQF Courses
-                </h3>
-            </div>
-            
-            <?php if ($result_long_term && $result_long_term->num_rows > 0): ?>
-                <div class="row">
-                    <?php while ($row = $result_long_term->fetch_assoc()): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="course-card">
-                            <div class="course-card-header">
-                                <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
-                                <!-- Enrollment Status Badge -->
-                                <div class="enrollment-status-badge" style="margin-top: 8px;">
-                                    <?php 
-                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
-                                    if ($enrollment_status == 'closed'): 
-                                    ?>
-                                        <span class="status-badge status-closed">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="status-badge status-ongoing">
-                                            <i class="fas fa-check-circle"></i> Enrollment Open
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
-                                <div class="course-info-grid">
-                                    <div class="info-item">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <div>
-                                            <span class="info-label">Eligibility</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-clock"></i>
-                                        <div>
-                                            <span class="info-label">Duration</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-rupee-sign"></i>
-                                        <div>
-                                            <span class="info-label">Training Fees</span>
-                                            <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <div>
-                                            <span class="info-label">Start Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-check"></i>
-                                        <div>
-                                            <span class="info-label">End Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["end_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_coordinator"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-user-tie"></i>
-                                        <div>
-                                            <span class="info-label">Coordinator</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_description"])): ?>
-                                    <div class="info-item" style="grid-column: 1 / -1;">
-                                        <i class="fas fa-info-circle"></i>
-                                        <div>
-                                            <span class="info-label">Description</span>
-                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        <div>
-                                            <span class="info-label">Training Centre</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-location-dot"></i>
-                                        <div>
-                                            <span class="info-label">Location</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-footer">
-                                <?php if (!empty($row["description_url"])): ?>
-                                    <a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-info-circle"></i> View Details
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["description_pdf"])): ?>
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-file-pdf"></i> Download PDF
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <?php if ($enrollment_status == 'closed'): ?>
-                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </button>
-                                    <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                            <i class="fas fa-paper-plane"></i> Apply Now
-                                        </a>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
-            <?php else: ?>
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <h4>No Long Term NSQF Courses Available</h4>
-                    <p>Please check back later for upcoming courses.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Short-Term NSQF Courses -->
-        <div class="course-section" id="short-term-section">
-            <div class="section-header">
-                <h3>
-                    <i class="fas fa-award"></i>
-                    Short Term NSQF Courses
-                </h3>
-            </div>
-            
-            <?php if ($result_short_term && $result_short_term->num_rows > 0): ?>
-                <div class="row">
-                    <?php while ($row = $result_short_term->fetch_assoc()): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="course-card">
-                            <div class="course-card-header">
-                                <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
-                                <!-- Enrollment Status Badge -->
-                                <div class="enrollment-status-badge" style="margin-top: 8px;">
-                                    <?php 
-                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
-                                    if ($enrollment_status == 'closed'): 
-                                    ?>
-                                        <span class="status-badge status-closed">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="status-badge status-ongoing">
-                                            <i class="fas fa-check-circle"></i> Enrollment Open
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
-                                <div class="course-info-grid">
-                                    <div class="info-item">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <div>
-                                            <span class="info-label">Eligibility</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-clock"></i>
-                                        <div>
-                                            <span class="info-label">Duration</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-rupee-sign"></i>
-                                        <div>
-                                            <span class="info-label">Training Fees</span>
-                                            <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <div>
-                                            <span class="info-label">Start Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-check"></i>
-                                        <div>
-                                            <span class="info-label">End Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["end_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_coordinator"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-user-tie"></i>
-                                        <div>
-                                            <span class="info-label">Coordinator</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_description"])): ?>
-                                    <div class="info-item" style="grid-column: 1 / -1;">
-                                        <i class="fas fa-info-circle"></i>
-                                        <div>
-                                            <span class="info-label">Description</span>
-                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        <div>
-                                            <span class="info-label">Training Centre</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-location-dot"></i>
-                                        <div>
-                                            <span class="info-label">Location</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-footer">
-                                <?php if (!empty($row["description_url"])): ?>
-                                    <a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-info-circle"></i> View Details
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["description_pdf"])): ?>
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-file-pdf"></i> Download PDF
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <?php if ($enrollment_status == 'closed'): ?>
-                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </button>
-                                    <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                            <i class="fas fa-paper-plane"></i> Apply Now
-                                        </a>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
-            <?php else: ?>
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <h4>No Short Term NSQF Courses Available</h4>
-                    <p>Please check back later for upcoming courses.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-
-        <!-- Short-Term Non-NSQF Courses -->
-        <div class="course-section" id="non-nsqf-section">
-            <div class="section-header">
-                <h3>
-                    <i class="fas fa-laptop-code"></i>
-                    Short-Term Non-NSQF Courses
-                </h3>
-            </div>
-            
-            <?php if ($result_non_nsqf && $result_non_nsqf->num_rows > 0): ?>
-                <div class="row">
-                    <?php while ($row = $result_non_nsqf->fetch_assoc()): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="course-card">
-                            <div class="course-card-header">
-                                <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
-                                <!-- Enrollment Status Badge -->
-                                <div class="enrollment-status-badge" style="margin-top: 8px;">
-                                    <?php 
-                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
-                                    if ($enrollment_status == 'closed'): 
-                                    ?>
-                                        <span class="status-badge status-closed">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="status-badge status-ongoing">
-                                            <i class="fas fa-check-circle"></i> Enrollment Open
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-body <?php echo ($enrollment_status == 'closed') ? 'course-disabled' : ''; ?>">
-                                <div class="course-info-grid">
-                                    <div class="info-item">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <div>
-                                            <span class="info-label">Eligibility</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-clock"></i>
-                                        <div>
-                                            <span class="info-label">Duration</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-rupee-sign"></i>
-                                        <div>
-                                            <span class="info-label">Training Fees</span>
-                                            <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <div>
-                                            <span class="info-label">Start Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-check"></i>
-                                        <div>
-                                            <span class="info-label">End Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["end_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_coordinator"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-user-tie"></i>
-                                        <div>
-                                            <span class="info-label">Coordinator</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_description"])): ?>
-                                    <div class="info-item" style="grid-column: 1 / -1;">
-                                        <i class="fas fa-info-circle"></i>
-                                        <div>
-                                            <span class="info-label">Description</span>
-                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        <div>
-                                            <span class="info-label">Training Centre</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-location-dot"></i>
-                                        <div>
-                                            <span class="info-label">Location</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-footer">
-                                <?php if (!empty($row["description_url"])): ?>
-                                    <a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-info-circle"></i> View Details
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["description_pdf"])): ?>
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-file-pdf"></i> Download PDF
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <?php if ($enrollment_status == 'closed'): ?>
-                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </button>
-                                    <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern">
-                                            <i class="fas fa-paper-plane"></i> Apply Now
-                                        </a>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
-            <?php else: ?>
-                <div class="empty-state">
-                    <i class="fas fa-inbox"></i>
-                    <h4>No Short-Term Non-NSQF Courses Available</h4>
-                    <p>Please check back later for upcoming courses.</p>
-                </div>
-            <?php endif; ?>
-        </div>
-
         <!-- Internship Programs & Boot Camps -->
         <div class="course-section" id="internship-section">
             <div class="section-header">
