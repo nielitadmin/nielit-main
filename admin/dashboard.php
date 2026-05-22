@@ -2731,7 +2731,7 @@ function handleNsqfTypeChangeDash(nsqfType) {
             courseNameInput.required = false;
             
             // Fetch NSQF templates
-            fetchNSQFTemplatesDash(category);
+            fetchNSQFTemplatesDash('NSQF');
         } else if (isNSQFManager) {
             // NSQF managers can create new courses directly
             courseNameInput.style.display = 'block';
