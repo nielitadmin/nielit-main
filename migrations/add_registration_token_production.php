@@ -126,7 +126,7 @@ if ($result && $result->num_rows > 0) {
     // Add column
     echo '<div class="step">➕ <strong>Step 3:</strong> Adding registration_token column...</div>';
     
-    $alter_sql = "ALTER TABLE courses ADD COLUMN registration_token VARCHAR(255) DEFAULT NULL AFTER registration_open";
+    $alter_sql = "ALTER TABLE courses ADD COLUMN registration_token VARCHAR(255) DEFAULT NULL";
     
     if ($conn->query($alter_sql)) {
         echo '<div class="step success">✅ <strong>Column added successfully!</strong> Added <code>registration_token VARCHAR(255)</code></div>';
