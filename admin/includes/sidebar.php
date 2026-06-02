@@ -107,6 +107,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo APP_URL; ?>/admin/manage_maintenance.php" class="nav-link <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
+                <i class="fas fa-tools"></i> Maintenance Mode
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo APP_URL; ?>/admin/manage_homepage.php" class="nav-link <?php echo ($current_page === 'manage_homepage.php') ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> Homepage Content
             </a>

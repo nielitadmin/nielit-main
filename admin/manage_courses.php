@@ -96,16 +96,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
-        
+        $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
         // Generate registration link if provided
         if (!empty($custom_link)) {
             $registration_link = $custom_link;
         } else {
             $registration_link = '';
         }
-        
-        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("issssssdsssii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published);
+        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("issssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
@@ -200,12 +199,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
-        
+        $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
         // Use provided link or keep existing
         $registration_link = !empty($custom_link) ? $custom_link : '';
-        
-        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=? WHERE id=?");
-        $stmt->bind_param("issssssdsssiii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $id);
+        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
+        $stmt->bind_param("issssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
         
         if ($stmt->execute()) {
             // Regenerate QR code if registration link exists
@@ -668,54 +666,94 @@ if (!empty($params)) {
                     <div class="modal-body">
                         <input type="hidden" name="action" value="add">
                         
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Course Name *</label>
-                                <input type="text" name="course_name" id="add_course_name" class="form-control" required>
-                                <select name="course_name_template" id="add_course_name_template" class="form-control" style="display:none;">
-                                    <option value="">-- Select NSQF Course Name --</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Course Code * <small>(e.g., PPI, DBC15)</small></label>
-                                <input type="text" name="course_code" id="add_course_code" class="form-control" maxlength="20" required style="text-transform: uppercase;">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Student ID Code * <small>(e.g., PPI)</small></label>
-                                <input type="text" name="course_abbreviation" id="add_course_abbreviation" class="form-control" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
-                                <small class="text-muted">For ID: NIELIT/2026/<strong>PPI</strong>/0001</small>
-                            </div>
-                        </div>
-
+                        <!-- Course Details Section -->
+                        <h6 class="mb-3"><i class="fas fa-info-circle"></i> Course Details</h6>
+                        
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Category *</label>
-                                <select name="course_type" class="form-control" required id="add_course_category">
+                                <select name="course_type" class="form-control" required id="add_course_category" onchange="handleAddCategoryChange()">
                                     <option value="">--Select Category--</option>
                                     <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
                                     <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
                                     <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
                                     <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
                                     <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                                    <option value="Internship Program">Internship Program</option>
-                                    <option value="Regular">Regular</option>
-                                    <option value="Bootcamp">Bootcamp</option>
-                                    <option value="Workshop">Workshop</option>
                                 </select>
-                                <div style="margin-top:8px;">
-                                    <label class="form-label">Sub-Category *</label>
-                                    <select name="nsqf_type" id="add_nsqf_type" class="form-select" required>
-                                        <option value="">--Select Sub-Category--</option>
-                                        <option value="NSQF Course">NSQF Course</option>
-                                        <option value="NON-NSQF Course">NON-NSQF Course</option>
-                                    </select>
-                                    <small class="text-muted ms-2">Select whether this course follows NSQF framework</small>
-                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Eligibility</label>
-                                <textarea name="eligibility" id="add_eligibility" class="form-control" rows="2" placeholder="Will auto-populate from template for NSQF courses"></textarea>
-                                <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                                <label class="form-label">Sub-Category *</label>
+                                <select name="nsqf_type" id="add_nsqf_type" class="form-select" required onchange="handleAddSubCategoryChange()">
+                                    <option value="">--Select Sub-Category--</option>
+                                    <option value="NSQF Course">NSQF Course</option>
+                                    <option value="NON-NSQF Course">NON-NSQF Course</option>
+                                    <option value="Internship Program">Internship Program</option>
+                                    <option value="Awareness Program">Awareness Program</option>
+                                    <option value="FDP Program">FDP Program</option>
+                                    <option value="Workshop">Workshop</option>
+                                    <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                                </select>
+                                <small class="text-muted">Select whether this course follows NSQF framework or is a special program</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Eligibility *</label>
+                            <textarea name="eligibility" id="add_eligibility" class="form-control" rows="2" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Duration *</label>
+                                <input type="text" name="duration" id="add_duration" class="form-control" required placeholder="e.g., 6 months">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Training Fees (₹) *</label>
+                                <input type="number" name="fees" id="add_fees" class="form-control" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <hr>
+                        
+                        <!-- NSQF Template Selection (shown only for NSQF courses) -->
+                        <div id="add_template_selection_group" style="display: none; margin-bottom: 16px;">
+                            <div class="mb-3">
+                                <label class="form-label">NSQF Course Name *</label>
+                                <select name="course_name_template" id="add_course_name_template" class="form-control" onchange="handleAddTemplateSelection()">
+                                    <option value="">-- Select NSQF Course Name --</option>
+                                </select>
+                                <small class="text-muted">Select a course name from NSQF templates</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Course Name *</label>
+                                <input type="text" name="course_name" id="add_course_name" class="form-control" required onkeyup="autoGenerateAddCourseCode()" placeholder="Enter the full course name as it will appear on certificates">
+                                <small class="text-muted">This will appear on certificates and documents</small>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">
+                                    Course Code * 
+                                    <small>(Auto-generated)</small>
+                                    <button type="button" class="btn btn-sm btn-link" onclick="regenerateAddCourseCode()" title="Regenerate code">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                </label>
+                                <input type="text" name="course_code" id="add_course_code" class="form-control" maxlength="20" required style="text-transform: uppercase;" readonly>
+                                <small class="text-muted">
+                                    <input type="checkbox" id="add_manual_code" onchange="toggleAddManualCode()"> 
+                                    <label for="add_manual_code">Edit manually</label>
+                                </small>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">
+                                    Student ID Code * 
+                                    <small>(Auto-generated)</small>
+                                </label>
+                                <input type="text" name="course_abbreviation" id="add_course_abbreviation" class="form-control" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
+                                <small class="text-muted">For ID: NIELIT/2026/<strong id="add_abbr_preview">XXX</strong>/0001</small>
                             </div>
                         </div>
 
@@ -730,10 +768,7 @@ if (!empty($params)) {
                                 </select>
                                 <small class="text-muted">Optional: Associate course with a training centre</small>
                             </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Centre *</label>
                                 <select name="training_center" class="form-control" required>
                                     <option value="">-- Select Training Centre --</option>
@@ -741,17 +776,6 @@ if (!empty($params)) {
                                         <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Duration</label>
-                                <input type="text" name="duration" class="form-control" placeholder="e.g., 6 months">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fees (₹)</label>
-                                <input type="number" name="fees" class="form-control" step="0.01">
                             </div>
                         </div>
 
@@ -781,19 +805,6 @@ if (!empty($params)) {
                                     <label class="form-check-label" for="add_link_published">
                                         <span id="add_publish_status">Unpublished</span>
                                     </label>
-                                </div>
-                                <small class="text-muted">Toggle to show/hide on website</small>
-                            </div>
-                        </div>
-
-                        <div class="alert alert-info" id="add_link_preview">
-                            <strong><i class="fas fa-info-circle"></i> Preview:</strong> 
-                            <span id="link_preview_add">Enter course name and click "Generate Link"</span>
-                        </div>
-
-                        <div class="alert alert-warning">
-                            <i class="fas fa-lightbulb"></i> <strong>Note:</strong> QR code will be generated automatically when you save the course with a registration link.
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -817,13 +828,61 @@ if (!empty($params)) {
                         <input type="hidden" name="action" value="edit">
                         <input type="hidden" name="course_id" id="edit_course_id">
                         
+                        <!-- Course Details Section -->
+                        <h6 class="mb-3"><i class="fas fa-info-circle"></i> Course Details</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Category *</label>
+                                <select name="course_type" id="edit_course_type" class="form-control" required onchange="handleEditCategoryChange()">
+                                    <option value="">--Select Category--</option>
+                                    <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                                    <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
+                                    <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
+                                    <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
+                                    <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Sub-Category *</label>
+                                <select name="nsqf_type" id="edit_nsqf_type" class="form-select" required onchange="handleEditSubCategoryChange()">
+                                    <option value="">--Select Sub-Category--</option>
+                                    <option value="NSQF Course">NSQF Course</option>
+                                    <option value="NON-NSQF Course">NON-NSQF Course</option>
+                                    <option value="Internship Program">Internship Program</option>
+                                    <option value="Awareness Program">Awareness Program</option>
+                                    <option value="FDP Program">FDP Program</option>
+                                    <option value="Workshop">Workshop</option>
+                                    <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                                </select>
+                                <small class="text-muted">Select whether this course follows NSQF framework or is a special program</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Eligibility *</label>
+                            <textarea name="eligibility" id="edit_eligibility" class="form-control" rows="2" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Duration *</label>
+                                <input type="text" name="duration" id="edit_duration" class="form-control" required placeholder="e.g., 6 months">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Training Fees (₹) *</label>
+                                <input type="number" name="fees" id="edit_fees" class="form-control" step="0.01" required>
+                            </div>
+                        </div>
+
+                        <hr>
+                        
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Course Name *</label>
-                                <input type="text" name="course_name" id="edit_course_name" class="form-control" required>
-                                <select name="course_name_template" id="edit_course_name_template" class="form-control" style="display:none;">
-                                    <option value="">-- Select NSQF Course Name --</option>
-                                </select>
+                                <input type="text" name="course_name" id="edit_course_name" class="form-control" required placeholder="Enter the full course name as it will appear on certificates">
+                                <small class="text-muted">This will appear on certificates and documents</small>
                             </div>
                             <div class="col-md-3 mb-3">
                                 <label class="form-label">Course Code *</label>
@@ -836,35 +895,14 @@ if (!empty($params)) {
                             </div>
                         </div>
 
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Category *</label>
-                                <select name="course_type" id="edit_course_type" class="form-control" required>
-                                    <option value="">--Select Category--</option>
-                                    <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                                    <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
-                                    <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                                    <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                                    <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                                    <option value="Internship Program">Internship Program</option>
-                                    <option value="Regular">Regular</option>
-                                    <option value="Bootcamp">Bootcamp</option>
-                                    <option value="Workshop">Workshop</option>
+                        <!-- NSQF Template Selection (shown only for NSQF courses) -->
+                        <div id="edit_template_selection_group" style="display: none; margin-top: 16px;">
+                            <div class="mb-3">
+                                <label class="form-label">NSQF Course Name *</label>
+                                <select name="course_name_template" id="edit_course_name_template" class="form-control" onchange="handleEditTemplateSelection()">
+                                    <option value="">-- Select NSQF Course Name --</option>
                                 </select>
-                                <div style="margin-top:8px;">
-                                    <label class="form-label">Sub-Category *</label>
-                                    <select name="nsqf_type" id="edit_nsqf_type" class="form-select" required>
-                                        <option value="">--Select Sub-Category--</option>
-                                        <option value="NSQF Course">NSQF Course</option>
-                                        <option value="NON-NSQF Course">NON-NSQF Course</option>
-                                    </select>
-                                    <small class="text-muted ms-2">Select whether this course follows NSQF framework</small>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Eligibility</label>
-                                <textarea name="eligibility" id="edit_eligibility" class="form-control" rows="2" placeholder="Will auto-populate from template for NSQF courses"></textarea>
-                                <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                                <small class="text-muted">Select a course name from NSQF templates</small>
                             </div>
                         </div>
 
@@ -879,10 +917,7 @@ if (!empty($params)) {
                                 </select>
                                 <small class="text-muted">Optional: Associate course with a training centre</small>
                             </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-12 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Centre *</label>
                                 <select name="training_center" id="edit_training_center" class="form-control" required>
                                     <option value="">-- Select Training Centre --</option>
@@ -890,17 +925,6 @@ if (!empty($params)) {
                                         <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Duration</label>
-                                <input type="text" name="duration" id="edit_duration" class="form-control">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Fees (₹)</label>
-                                <input type="number" name="fees" id="edit_fees" class="form-control" step="0.01">
                             </div>
                         </div>
 
@@ -1265,6 +1289,439 @@ if (!empty($params)) {
             
             new bootstrap.Modal(document.getElementById('editCourseModal')).show();
         }
+    </script>
+
+    <script>
+    /**
+     * AUTO-GENERATE COURSE CODE FEATURE - ADD COURSE MODAL
+     * Generates meaningful course codes based on course name
+     * Automatically handles duplicates by adding sequential numbers
+     */
+
+    // Function to generate course code from course name
+    function generateCodeFromName(courseName) {
+        if (!courseName || courseName.trim() === '') {
+            return { code: '', abbreviation: '' };
+        }
+        
+        // Remove special characters and extra spaces
+        courseName = courseName.trim().toUpperCase();
+        
+        // Common words to ignore
+        const ignoreWords = ['THE', 'OF', 'IN', 'ON', 'AT', 'TO', 'FOR', 'AND', 'OR', 'A', 'AN'];
+        
+        // Split into words
+        const words = courseName.split(/\s+/).filter(word => word.length > 0);
+        
+        let code = '';
+        let abbreviation = '';
+        
+        // Strategy 1: Try to extract acronym from significant words
+        const significantWords = words.filter(word => !ignoreWords.includes(word));
+        
+        if (significantWords.length > 0) {
+            // Take first letter of each significant word (up to 5 letters)
+            abbreviation = significantWords
+                .slice(0, 5)
+                .map(word => word[0])
+                .join('');
+            
+            // If abbreviation is too short, add more letters from first word
+            if (abbreviation.length < 3 && significantWords[0].length >= 3) {
+                abbreviation = significantWords[0].substring(0, 3).toUpperCase();
+            }
+        } else {
+            // Fallback: use first 3-4 letters of first word
+            abbreviation = words[0].substring(0, Math.min(4, words[0].length)).toUpperCase();
+        }
+        
+        // Add current year
+        const currentYear = new Date().getFullYear();
+        code = abbreviation + '-' + currentYear;
+        
+        return {
+            code: code,
+            abbreviation: abbreviation
+        };
+    }
+
+    // Function to check if code exists and get next available number
+    async function getUniqueCode(baseCode, baseAbbreviation, currentCourseId = null) {
+        try {
+            // Check if base code exists
+            const response = await fetch('check_course_code.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    code: baseCode,
+                    abbreviation: baseAbbreviation,
+                    exclude_id: currentCourseId
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (!result.exists) {
+                // Code is unique, return as is
+                return {
+                    code: baseCode,
+                    abbreviation: baseAbbreviation
+                };
+            }
+            
+            // Code exists, find next available number
+            let counter = 1;
+            let uniqueCode = '';
+            let uniqueAbbr = '';
+            let found = false;
+            
+            while (!found && counter <= 99) {
+                const paddedNumber = counter.toString().padStart(2, '0');
+                uniqueCode = baseAbbreviation + paddedNumber + '-' + new Date().getFullYear();
+                uniqueAbbr = baseAbbreviation + paddedNumber;
+                
+                const checkResponse = await fetch('check_course_code.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: uniqueCode,
+                        abbreviation: uniqueAbbr,
+                        exclude_id: currentCourseId
+                    })
+                });
+                
+                const checkResult = await checkResponse.json();
+                
+                if (!checkResult.exists) {
+                    found = true;
+                    return {
+                        code: uniqueCode,
+                        abbreviation: uniqueAbbr
+                    };
+                }
+                
+                counter++;
+            }
+            
+            // If we reach here, return with high number
+            return {
+                code: baseAbbreviation + '99-' + new Date().getFullYear(),
+                abbreviation: baseAbbreviation + '99'
+            };
+            
+        } catch (error) {
+            console.error('Error checking code uniqueness:', error);
+            // Return base code if check fails
+            return {
+                code: baseCode,
+                abbreviation: baseAbbreviation
+            };
+        }
+    }
+
+    // Auto-generate as user types (with debounce) - ADD MODAL
+    let addTypingTimer;
+    const addTypingDelay = 500; // milliseconds
+
+    async function autoGenerateAddCourseCode() {
+        clearTimeout(addTypingTimer);
+        addTypingTimer = setTimeout(async function() {
+            const courseNameInput = document.getElementById('add_course_name');
+            const courseCodeInput = document.getElementById('add_course_code');
+            const abbreviationInput = document.getElementById('add_course_abbreviation');
+            const manualCheckbox = document.getElementById('add_manual_code');
+            
+            // Only auto-generate if not in manual mode
+            if (!manualCheckbox.checked && courseNameInput && courseCodeInput) {
+                const courseName = courseNameInput.value;
+                const generated = generateCodeFromName(courseName);
+                
+                if (generated.code) {
+                    // Get unique code (handles duplicates automatically)
+                    const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, null);
+                    
+                    courseCodeInput.value = uniqueCode.code;
+                    abbreviationInput.value = uniqueCode.abbreviation;
+                    
+                    // Update preview
+                    const preview = document.getElementById('add_abbr_preview');
+                    if (preview) {
+                        preview.textContent = uniqueCode.abbreviation;
+                    }
+                }
+            }
+        }, addTypingDelay);
+    }
+
+    // Regenerate button click - ADD MODAL
+    async function regenerateAddCourseCode() {
+        const courseNameInput = document.getElementById('add_course_name');
+        const courseCodeInput = document.getElementById('add_course_code');
+        const abbreviationInput = document.getElementById('add_course_abbreviation');
+        
+        if (courseNameInput && courseCodeInput) {
+            const courseName = courseNameInput.value;
+            const generated = generateCodeFromName(courseName);
+            
+            if (generated.code) {
+                // Get unique code (handles duplicates automatically)
+                const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, null);
+                
+                courseCodeInput.value = uniqueCode.code;
+                abbreviationInput.value = uniqueCode.abbreviation;
+                
+                // Update preview
+                const preview = document.getElementById('add_abbr_preview');
+                if (preview) {
+                    preview.textContent = uniqueCode.abbreviation;
+                }
+                
+                toast.success('Course code generated: ' + uniqueCode.code, 3000);
+            } else {
+                toast.error('Please enter a course name first', 3000);
+            }
+        }
+    }
+
+    // Toggle manual editing mode - ADD MODAL
+    function toggleAddManualCode() {
+        const manualCheckbox = document.getElementById('add_manual_code');
+        const courseCodeInput = document.getElementById('add_course_code');
+        const abbreviationInput = document.getElementById('add_course_abbreviation');
+        
+        if (manualCheckbox && courseCodeInput) {
+            if (manualCheckbox.checked) {
+                // Enable manual editing
+                courseCodeInput.removeAttribute('readonly');
+                abbreviationInput.removeAttribute('readonly');
+                courseCodeInput.focus();
+                toast.info('Manual editing enabled', 3000);
+            } else {
+                // Disable manual editing and regenerate
+                courseCodeInput.setAttribute('readonly', 'readonly');
+                abbreviationInput.setAttribute('readonly', 'readonly');
+                regenerateAddCourseCode();
+            }
+        }
+    }
+
+    /**
+     * CATEGORY AND SUB-CATEGORY HANDLERS
+     * Handle changes to category and sub-category dropdowns
+     */
+    
+    // Handle Add Category Change
+    function handleAddCategoryChange() {
+        const categorySelect = document.getElementById('add_course_category');
+        const subCategorySelect = document.getElementById('add_nsqf_type');
+        const eligibilityField = document.getElementById('add_eligibility');
+        const durationField = document.getElementById('add_duration');
+        
+        // Set appropriate placeholders based on category
+        if (categorySelect && eligibilityField && durationField) {
+            const category = categorySelect.value;
+            
+            // Set placeholder for eligibility based on category
+            switch(category) {
+                case 'Degree / Diploma / PG':
+                    eligibilityField.placeholder = 'e.g., 10+2 or equivalent';
+                    durationField.placeholder = 'e.g., 3 Years';
+                    break;
+                case 'Skill Based (Long Term) >500 hrs':
+                    eligibilityField.placeholder = 'e.g., 10th Pass or equivalent';
+                    durationField.placeholder = 'e.g., 600 Hours';
+                    break;
+                case 'Skill Based (Short Term) 90-500 hrs':
+                    eligibilityField.placeholder = 'e.g., 8th Pass or equivalent';
+                    durationField.placeholder = 'e.g., 120 Hours';
+                    break;
+                case 'Short Term / Digital Competency <=90 hrs':
+                    eligibilityField.placeholder = 'e.g., Basic Computer Knowledge';
+                    durationField.placeholder = 'e.g., 60 Hours';
+                    break;
+                case 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)':
+                    eligibilityField.placeholder = 'e.g., 8th Pass';
+                    durationField.placeholder = 'e.g., 80 Hours';
+                    break;
+                default:
+                    eligibilityField.placeholder = 'Enter eligibility criteria';
+                    durationField.placeholder = 'e.g., 6 Months';
+            }
+        }
+    }
+    
+    // Handle Add Sub-Category Change
+    function handleAddSubCategoryChange() {
+        const subCategorySelect = document.getElementById('add_nsqf_type');
+        const templateGroup = document.getElementById('add_template_selection_group');
+        const courseNameInput = document.getElementById('add_course_name');
+        const eligibilityField = document.getElementById('add_eligibility');
+        
+        if (subCategorySelect && templateGroup) {
+            const subCategory = subCategorySelect.value;
+            
+            // Show template selection only for NSQF courses
+            if (subCategory === 'NSQF Course') {
+                templateGroup.style.display = 'block';
+                courseNameInput.style.display = 'none';
+                eligibilityField.setAttribute('readonly', 'readonly');
+                eligibilityField.placeholder = 'Will be filled from NSQF template';
+            } else {
+                templateGroup.style.display = 'none';
+                courseNameInput.style.display = 'block';
+                eligibilityField.removeAttribute('readonly');
+                
+                // Set placeholder based on sub-category
+                switch(subCategory) {
+                    case 'Internship Program':
+                        eligibilityField.placeholder = 'e.g., Currently enrolled in relevant course';
+                        break;
+                    case 'Awareness Program':
+                        eligibilityField.placeholder = 'e.g., Open to all';
+                        break;
+                    case 'FDP Program':
+                        eligibilityField.placeholder = 'e.g., Faculty members from recognized institutions';
+                        break;
+                    case 'Workshop':
+                        eligibilityField.placeholder = 'e.g., Basic knowledge of the subject';
+                        break;
+                    case 'GOVT/CORPORATE Training':
+                        eligibilityField.placeholder = 'e.g., As per organization requirements';
+                        break;
+                    default:
+                        eligibilityField.placeholder = 'Enter eligibility criteria';
+                }
+            }
+        }
+    }
+    
+    // Handle Edit Category Change
+    function handleEditCategoryChange() {
+        const categorySelect = document.getElementById('edit_course_type');
+        const subCategorySelect = document.getElementById('edit_nsqf_type');
+        const eligibilityField = document.getElementById('edit_eligibility');
+        const durationField = document.getElementById('edit_duration');
+        
+        // Set appropriate placeholders based on category
+        if (categorySelect && eligibilityField && durationField) {
+            const category = categorySelect.value;
+            
+            // Set placeholder for eligibility based on category
+            switch(category) {
+                case 'Degree / Diploma / PG':
+                    eligibilityField.placeholder = 'e.g., 10+2 or equivalent';
+                    durationField.placeholder = 'e.g., 3 Years';
+                    break;
+                case 'Skill Based (Long Term) >500 hrs':
+                    eligibilityField.placeholder = 'e.g., 10th Pass or equivalent';
+                    durationField.placeholder = 'e.g., 600 Hours';
+                    break;
+                case 'Skill Based (Short Term) 90-500 hrs':
+                    eligibilityField.placeholder = 'e.g., 8th Pass or equivalent';
+                    durationField.placeholder = 'e.g., 120 Hours';
+                    break;
+                case 'Short Term / Digital Competency <=90 hrs':
+                    eligibilityField.placeholder = 'e.g., Basic Computer Knowledge';
+                    durationField.placeholder = 'e.g., 60 Hours';
+                    break;
+                case 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)':
+                    eligibilityField.placeholder = 'e.g., 8th Pass';
+                    durationField.placeholder = 'e.g., 80 Hours';
+                    break;
+                default:
+                    eligibilityField.placeholder = 'Enter eligibility criteria';
+                    durationField.placeholder = 'e.g., 6 Months';
+            }
+        }
+    }
+    
+    // Handle Edit Sub-Category Change
+    function handleEditSubCategoryChange() {
+        const subCategorySelect = document.getElementById('edit_nsqf_type');
+        const templateGroup = document.getElementById('edit_template_selection_group');
+        const courseNameInput = document.getElementById('edit_course_name');
+        const eligibilityField = document.getElementById('edit_eligibility');
+        
+        if (subCategorySelect && templateGroup) {
+            const subCategory = subCategorySelect.value;
+            
+            // Show template selection only for NSQF courses
+            if (subCategory === 'NSQF Course') {
+                templateGroup.style.display = 'block';
+                courseNameInput.style.display = 'none';
+                eligibilityField.setAttribute('readonly', 'readonly');
+                eligibilityField.placeholder = 'Will be filled from NSQF template';
+            } else {
+                templateGroup.style.display = 'none';
+                courseNameInput.style.display = 'block';
+                eligibilityField.removeAttribute('readonly');
+                
+                // Set placeholder based on sub-category
+                switch(subCategory) {
+                    case 'Internship Program':
+                        eligibilityField.placeholder = 'e.g., Currently enrolled in relevant course';
+                        break;
+                    case 'Awareness Program':
+                        eligibilityField.placeholder = 'e.g., Open to all';
+                        break;
+                    case 'FDP Program':
+                        eligibilityField.placeholder = 'e.g., Faculty members from recognized institutions';
+                        break;
+                    case 'Workshop':
+                        eligibilityField.placeholder = 'e.g., Basic knowledge of the subject';
+                        break;
+                    case 'GOVT/CORPORATE Training':
+                        eligibilityField.placeholder = 'e.g., As per organization requirements';
+                        break;
+                    default:
+                        eligibilityField.placeholder = 'Enter eligibility criteria';
+                }
+            }
+        }
+    }
+    
+    // Handle Add Template Selection
+    function handleAddTemplateSelection() {
+        const templateSelect = document.getElementById('add_course_name_template');
+        const courseNameInput = document.getElementById('add_course_name');
+        const eligibilityField = document.getElementById('add_eligibility');
+        
+        if (templateSelect && courseNameInput && eligibilityField) {
+            const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                courseNameInput.value = selectedOption.textContent;
+                if (selectedOption.dataset.eligibility) {
+                    eligibilityField.value = selectedOption.dataset.eligibility;
+                }
+                
+                // Auto-generate course code
+                autoGenerateAddCourseCode();
+            }
+        }
+    }
+    
+    // Handle Edit Template Selection
+    function handleEditTemplateSelection() {
+        const templateSelect = document.getElementById('edit_course_name_template');
+        const courseNameInput = document.getElementById('edit_course_name');
+        const eligibilityField = document.getElementById('edit_eligibility');
+        
+        if (templateSelect && courseNameInput && eligibilityField) {
+            const selectedOption = templateSelect.options[templateSelect.selectedIndex];
+            
+            if (selectedOption.value) {
+                courseNameInput.value = selectedOption.textContent;
+                if (selectedOption.dataset.eligibility) {
+                    eligibilityField.value = selectedOption.dataset.eligibility;
+                }
+            }
+        }
+    }
     </script>
 </body>
 </html>

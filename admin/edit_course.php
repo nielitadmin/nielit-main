@@ -6,6 +6,44 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
+// Function to generate short token
+function generateShortToken($length = 8) {
+    $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    $token = '';
+    for ($i = 0; $i < $length; $i++) {
+        $token .= $chars[random_int(0, strlen($chars) - 1)];
+    }
+    return $token;
+}
+
+// Handle Regenerate Link button (must be before any HTML output)
+if (isset($_POST['regenerate_token']) && isset($_GET['id'])) {
+    $course_id = $_GET['id'];
+    
+    // Ensure uniqueness
+    do {
+        $token = generateShortToken(8);
+        $check = $conn->prepare("SELECT id FROM courses WHERE registration_token = ?");
+        $check->bind_param("s", $token);
+        $check->execute();
+        $check->store_result();
+    } while ($check->num_rows > 0);
+    
+    $stmt_token = $conn->prepare("UPDATE courses SET registration_token = ? WHERE id = ?");
+    $stmt_token->bind_param("si", $token, $course_id);
+    
+    if ($stmt_token->execute()) {
+        $_SESSION['message'] = "Registration link regenerated successfully!";
+        $_SESSION['message_type'] = "success";
+    } else {
+        $_SESSION['message'] = "Error regenerating registration link.";
+        $_SESSION['message_type'] = "danger";
+    }
+    
+    header("Location: edit_course.php?id=$course_id");
+    exit();
+}
+
 // Check if payment_details_required column exists (needed throughout the script)
 $column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
 $payment_column_exists = $column_check && $column_check->num_rows > 0;
@@ -21,6 +59,23 @@ if (isset($_GET['id'])) {
 
     if ($result->num_rows > 0) {
         $course = $result->fetch_assoc();
+        
+        // Generate a short registration_token if missing
+        if (empty($course['registration_token'])) {
+            // Ensure uniqueness
+            do {
+                $token = generateShortToken(8);
+                $check = $conn->prepare("SELECT id FROM courses WHERE registration_token = ?");
+                $check->bind_param("s", $token);
+                $check->execute();
+                $check->store_result();
+            } while ($check->num_rows > 0);
+            
+            $stmt_token = $conn->prepare("UPDATE courses SET registration_token = ? WHERE id = ?");
+            $stmt_token->bind_param("si", $token, $course_id);
+            $stmt_token->execute();
+            $course['registration_token'] = $token;
+        }
     } else {
         echo "Course not found!";
         exit();
@@ -73,6 +128,13 @@ if (isset($_GET['remove_flyer']) && $_GET['remove_flyer'] == $course_id) {
 }
 
 if (isset($_POST['update_course'])) {
+        // DEBUG: Show what is received from the form
+        file_put_contents(__DIR__ . '/../debug_edit_course.log',
+            date('Y-m-d H:i:s') . "\n" .
+            'POST enrollment_closing_date: ' . ($_POST['enrollment_closing_date'] ?? 'NOT SET') . "\n" .
+            'Parsed enrollment_closing_date: ' . ($enrollment_closing_date ?? 'NULL') . "\n",
+            FILE_APPEND
+        );
     $course_name        = $_POST['course_name'];
     $course_code        = strtoupper(trim($_POST['course_code'] ?? ''));
     $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
@@ -82,6 +144,7 @@ if (isset($_POST['update_course'])) {
     $category           = $_POST['category'];
     $start_date         = $_POST['start_date'];
     $end_date           = $_POST['end_date'];
+    $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
     $description_url    = $_POST['description_url'];
     $course_description = trim($_POST['course_description'] ?? '');
     $apply_link         = $_POST['apply_link'];
@@ -89,9 +152,22 @@ if (isset($_POST['update_course'])) {
     $training_center    = $_POST['training_center'];
     $centre_id          = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
     $link_published     = isset($_POST['link_published']) ? 1 : 0;
-    $enrollment_status  = $_POST['enrollment_status'] ?? 'ongoing';
+    // Automatically set enrollment_status based on closing date
+    $today = date('Y-m-d');
+    if (!empty($enrollment_closing_date) && $enrollment_closing_date < $today) {
+        $enrollment_status = 'closed';
+    } else {
+        $enrollment_status = 'ongoing';
+    }
     $nsqf_type          = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
     $is_nsqf            = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+    
+    // Handle special sub-categories that should be stored as categories
+    $special_subcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    if (in_array($nsqf_type, $special_subcategories)) {
+        $category = $nsqf_type;
+        $is_nsqf = 0; // These programs are typically non-NSQF
+    }
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
     $description_pdf    = $course['description_pdf'];
     $course_flyer       = $course['course_flyer'] ?? '';
@@ -197,7 +273,7 @@ if (isset($_POST['update_course'])) {
         // s  s  s  s  s  s  s  s  s  s   s   s   s   s   s   i   i   s   s   s   i
         // 1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20  21
         $update_sql = "UPDATE courses SET 
-            course_name = ?, 
+            course_name = ?,
             course_code = ?,
             course_abbreviation = ?,
             eligibility = ?, 
@@ -206,6 +282,7 @@ if (isset($_POST['update_course'])) {
             category = ?, 
             start_date = ?, 
             end_date = ?, 
+            enrollment_closing_date = ?,
             description_url = ?, 
             description_pdf = ?, 
             course_flyer = ?,
@@ -222,8 +299,8 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 15 strings, then i, i, 3 strings, then i, s, i = 22 total
-            $stmt->bind_param("sssssssssssssssiissisi",
+            // 17 strings, 2 ints, 2 strings, 1 int, 1 string, 1 int = 23 total
+            $stmt->bind_param("ssssssssssssssssiissisi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -233,19 +310,20 @@ if (isset($_POST['update_course'])) {
                 $category,                 // 7  s
                 $start_date,               // 8  s
                 $end_date,                 // 9  s
-                $description_url,          // 10 s
-                $description_pdf,          // 11 s
-                $course_flyer,             // 12 s
-                $apply_link,               // 13 s
-                $course_coordinator,       // 14 s
-                $training_center,          // 15 s
-                $centre_id,                // 16 i
-                $link_published,           // 17 i
-                $enrollment_status,        // 18 s
-                $payment_details_required, // 19 s
-                $is_nsqf,                  // 20 i
-                $course_description,       // 21 s
-                $course_id                 // 22 i
+                $enrollment_closing_date,  // 10 s
+                $description_url,          // 11 s
+                $description_pdf,          // 12 s
+                $course_flyer,             // 13 s
+                $apply_link,               // 14 s
+                $course_coordinator,       // 15 s
+                $training_center,          // 16 s
+                $centre_id,                // 17 i
+                $link_published,           // 18 i
+                $enrollment_status,        // 19 s
+                $payment_details_required, // 20 s
+                $is_nsqf,                  // 21 i
+                $course_description,       // 22 s
+                $course_id                 // 23 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -253,9 +331,9 @@ if (isset($_POST['update_course'])) {
         }
     } else {
         // Fallback — no payment_details_required column
-        // 20 parameters:
-        // s  s  s  s  s  s  s  s  s  s   s   s   s   s   s   i   i   s   s   i
-        // 1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20
+        // 21 parameters:
+        // s  s  s  s  s  s  s  s  s  s   s   s   s   s   s   s   i   i   s   i   s   i
+        // 1  2  3  4  5  6  7  8  9  10  11  12  13  14  15  16  17  18  19  20  21  22
         $update_sql = "UPDATE courses SET 
             course_name = ?, 
             course_code = ?,
@@ -266,6 +344,7 @@ if (isset($_POST['update_course'])) {
             category = ?, 
             start_date = ?, 
             end_date = ?, 
+            enrollment_closing_date = ?,
             description_url = ?, 
             description_pdf = ?, 
             course_flyer = ?,
@@ -281,8 +360,8 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 15 strings, then i, i, s, i, s, i = 21 total
-            $stmt->bind_param("sssssssssssssssiiissi",
+            // 16 strings, 2 ints, 1 string, 1 int, 1 string, 1 int = 22 total
+            $stmt->bind_param("ssssssssssssssssiisii",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
@@ -292,18 +371,19 @@ if (isset($_POST['update_course'])) {
                 $category,             // 7  s
                 $start_date,           // 8  s
                 $end_date,             // 9  s
-                $description_url,      // 10 s
-                $description_pdf,      // 11 s
-                $course_flyer,         // 12 s
-                $apply_link,           // 13 s
-                $course_coordinator,   // 14 s
-                $training_center,      // 15 s
-                $centre_id,            // 16 i
-                $link_published,       // 17 i
-                $enrollment_status,    // 18 s
-                $is_nsqf,              // 19 i
-                $course_description,   // 20 s
-                $course_id             // 21 i
+                $enrollment_closing_date, // 10 s
+                $description_url,      // 11 s
+                $description_pdf,      // 12 s
+                $course_flyer,         // 13 s
+                $apply_link,           // 14 s
+                $course_coordinator,   // 15 s
+                $training_center,      // 16 s
+                $centre_id,            // 17 i
+                $link_published,       // 18 i
+                $enrollment_status,    // 19 s
+                $is_nsqf,              // 20 i
+                $course_description,   // 21 s
+                $course_id             // 22 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -431,23 +511,45 @@ if (isset($_POST['update_course'])) {
                 </div>
                 
                 <form action="edit_course.php?id=<?php echo $course['id']; ?>" method="POST" enctype="multipart/form-data">
+                    <!-- NSQF template selection (driven by Sub-Category) -->
+                    <div class="form-group" id="template_selection_group" style="display: none; margin-bottom: 16px;">
+                        <label class="form-label">NSQF Course Name *</label>
+                        <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
+                            <option value="">-- Select NSQF Course Name --</option>
+                        </select>
+                        <small class="text-muted">Select a course name from NSQF templates</small>
+                    </div>
+
                     <!-- Course Name and Codes Row -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                         <div class="form-group">
                             <label class="form-label">Course Name *</label>
-                            <input type="text" class="form-control" name="course_name" value="<?php echo htmlspecialchars($course['course_name']); ?>" required>
+                            <input type="text" class="form-control" name="course_name" id="edit_course_name" value="<?php echo htmlspecialchars($course['course_name']); ?>" required onkeyup="autoGenerateCourseCode()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Course Code * <small>(e.g., PPI-2026)</small></label>
-                            <input type="text" class="form-control" name="course_code" value="<?php echo htmlspecialchars($course['course_code'] ?? ''); ?>" maxlength="20" required style="text-transform: uppercase;">
+                            <label class="form-label">
+                                Course Code * 
+                                <small>(Auto-generated)</small>
+                                <button type="button" class="btn btn-sm btn-link" onclick="regenerateCourseCode()" title="Regenerate code from course name">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </label>
+                            <input type="text" class="form-control" name="course_code" id="edit_course_code" value="<?php echo htmlspecialchars($course['course_code'] ?? ''); ?>" maxlength="20" required style="text-transform: uppercase;" readonly>
+                            <small class="text-muted">
+                                <input type="checkbox" id="edit_manual_code" onchange="toggleManualCode()"> 
+                                <label for="edit_manual_code">Edit manually</label>
+                            </small>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Student ID Code * <small>(e.g., PPI)</small></label>
-                            <input type="text" class="form-control" name="course_abbreviation" value="<?php echo htmlspecialchars($course['course_abbreviation'] ?? ''); ?>" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
-                            <small class="text-muted">For ID: NIELIT/2026/<strong><?php echo htmlspecialchars($course['course_abbreviation'] ?? 'XXX'); ?></strong>/0001</small>
+                            <label class="form-label">
+                                Student ID Code * 
+                                <small>(Auto-generated)</small>
+                            </label>
+                            <input type="text" class="form-control" name="course_abbreviation" id="edit_course_abbreviation" value="<?php echo htmlspecialchars($course['course_abbreviation'] ?? ''); ?>" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
+                            <small class="text-muted">For ID: NIELIT/2026/<strong id="edit_abbr_preview"><?php echo htmlspecialchars($course['course_abbreviation'] ?? 'XXX'); ?></strong>/0001</small>
                         </div>
                     </div>
-                    
+
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div class="form-group">
                             <label class="form-label">Category *</label>
@@ -458,7 +560,6 @@ if (isset($_POST['update_course'])) {
                                 <option value="Skill Based (Short Term) 90-500 hrs" <?php if ($course['category'] == 'Skill Based (Short Term) 90-500 hrs') echo 'selected'; ?>>Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
                                 <option value="Short Term / Digital Competency <=90 hrs" <?php if ($course['category'] == 'Short Term / Digital Competency <=90 hrs') echo 'selected'; ?>>Short Term Courses / Digital Competency Courses <= 90 hours</option>
                                 <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?php if ($course['category'] == "NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)") echo 'selected'; ?>>NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                                <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
                             </select>
                         </div>
                         
@@ -468,18 +569,14 @@ if (isset($_POST['update_course'])) {
                                 <option value="">--Select Sub-Category--</option>
                                 <option value="NSQF Course" <?php if (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) echo 'selected'; ?>>NSQF Course</option>
                                 <option value="NON-NSQF Course" <?php if (empty($course['is_nsqf']) || $course['is_nsqf'] == 0) echo 'selected'; ?>>NON-NSQF Course</option>
+                                <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
+                                <option value="Awareness Program" <?php if ($course['category'] == 'Awareness Program') echo 'selected'; ?>>Awareness Program</option>
+                                <option value="FDP Program" <?php if ($course['category'] == 'FDP Program') echo 'selected'; ?>>FDP Program</option>
+                                <option value="Workshop" <?php if ($course['category'] == 'Workshop') echo 'selected'; ?>>Workshop</option>
+                                <option value="GOVT/CORPORATE Training" <?php if ($course['category'] == 'GOVT/CORPORATE Training') echo 'selected'; ?>>GOVT/CORPORATE Training</option>
                             </select>
                             <small class="text-muted">Select whether this course follows NSQF framework</small>
                         </div>
-                        </div>
-                        
-                        <!-- NSQF template selection (driven by Sub-Category) -->
-                        <div class="form-group" id="template_selection_group" style="display: none;">
-                            <label class="form-label">NSQF Course Name *</label>
-                            <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
-                                <option value="">-- Select NSQF Course Name --</option>
-                            </select>
-                            <small class="text-muted">Select a course name from NSQF templates</small>
                         </div>
                         
                         <div class="form-group">
@@ -523,6 +620,11 @@ if (isset($_POST['update_course'])) {
                         <div class="form-group">
                             <label class="form-label">End Date *</label>
                             <input type="date" class="form-control" name="end_date" value="<?php echo htmlspecialchars($course['end_date']); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Enrollment Closing Date</label>
+                            <input type="date" class="form-control" name="enrollment_closing_date" value="<?php echo htmlspecialchars($course['enrollment_closing_date'] ?? ''); ?>">
+                            <small class="text-muted">Leave blank for no automatic closing. If set, enrollment will close after this date.</small>
                         </div>
                     </div>
                     
@@ -593,18 +695,12 @@ if (isset($_POST['update_course'])) {
                         <div class="form-group">
                             <label class="form-label">Apply Link</label>
                             <div style="display: flex; gap: 8px;">
-                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo htmlspecialchars($course['apply_link'] ?? ''); ?>" placeholder="https://..." readonly>
-                                <?php if (empty($course['apply_link'])): ?>
-                                <button type="button" class="btn btn-success" onclick="generateApplyLinkEdit()" style="white-space: nowrap;">
-                                    <i class="fas fa-magic"></i> Generate Link
+                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo APP_URL . '/student/register.php?token=' . htmlspecialchars($course['registration_token'] ?? ''); ?>" placeholder="https://..." readonly>
+                                <button type="button" class="btn btn-warning" style="white-space: nowrap;" onclick="regenerateTokenLink()">
+                                    <i class="fas fa-sync-alt"></i> Regenerate Link
                                 </button>
-                                <?php else: ?>
-                                <button type="button" class="btn btn-warning" onclick="regenerateApplyLink()" style="white-space: nowrap;">
-                                    <i class="fas fa-sync-alt"></i> Regenerate
-                                </button>
-                                <?php endif; ?>
                             </div>
-                            <small class="text-muted">Registration link for students</small>
+                            <small class="text-muted">Registration link for students (now uses a unique token)</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Link Status</label>
@@ -620,48 +716,66 @@ if (isset($_POST['update_course'])) {
                         </div>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-top: 16px;">
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-users"></i> Enrollment Status *
-                            </label>
-                            <select class="form-select" name="enrollment_status" id="enrollment_status" required>
-                                <option value="ongoing" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'ongoing' ? 'selected' : ''; ?>>
-                                    Enrollment Ongoing
-                                </option>
-                                <option value="closed" <?php echo ($course['enrollment_status'] ?? 'ongoing') == 'closed' ? 'selected' : ''; ?>>
-                                    Enrollment Closed
-                                </option>
-                            </select>
-                            <small class="text-muted">
-                                <span id="enrollment_help_text">
-                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
-                                        Course is accepting new enrollments
-                                    <?php else: ?>
-                                        Course is not accepting new enrollments
-                                    <?php endif; ?>
-                                </span>
-                            </small>
-                        </div>
+                    <!-- Enrollment Status is now automatic based on closing date -->
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-users"></i> Enrollment Status
+                        </label>
+                        <input type="text" class="form-control" value="<?php 
+                            $enrollment_closing_date = $course['enrollment_closing_date'] ?? '';
+                            $today = date('Y-m-d');
+                            if (!empty($enrollment_closing_date) && $enrollment_closing_date < $today) {
+                                echo 'Enrollment Closed';
+                            } else {
+                                echo 'Enrollment Ongoing';
+                            }
+                        ?>" readonly>
+                        <small class="text-muted">
+                            <?php 
+                                if (!empty($enrollment_closing_date) && $enrollment_closing_date < $today) {
+                                    echo 'Course is not accepting new enrollments';
+                                } else {
+                                    echo 'Course is accepting new enrollments';
+                                }
+                            ?>
+                        </small>
+                    </div>
                         <div class="form-group">
                             <label class="form-label">Status Preview</label>
                             <div style="padding-top: 8px;">
+                                <?php
+                                    $enrollment_status = $course['enrollment_status'] ?? 'ongoing';
+                                    $enrollment_closing_date = $course['enrollment_closing_date'] ?? '';
+                                    $today = date('Y-m-d');
+                                    $is_closed = false;
+                                    if ($enrollment_status === 'closed') {
+                                        $is_closed = true;
+                                    } elseif (!empty($enrollment_closing_date) && $today > $enrollment_closing_date) {
+                                        $is_closed = true;
+                                    }
+                                ?>
                                 <span id="enrollment_preview" style="
-                                    padding: 8px 16px; 
-                                    border-radius: 20px; 
-                                    font-size: 14px; 
+                                    padding: 8px 16px;
+                                    border-radius: 20px;
+                                    font-size: 14px;
                                     font-weight: 600;
                                     display: inline-block;
-                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
+                                    <?php if (!$is_closed): ?>
                                         background: #d4edda; color: #155724; border: 1px solid #c3e6cb;
                                     <?php else: ?>
                                         background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
                                     <?php endif; ?>
                                 ">
-                                    <?php if (($course['enrollment_status'] ?? 'ongoing') == 'ongoing'): ?>
+                                    <?php if (!$is_closed): ?>
                                         <i class="fas fa-check-circle"></i> Enrollment Open
+                                        <?php if (!empty($enrollment_closing_date)): ?>
+                                            <br><small style="color:#388e3c;">Closes on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <i class="fas fa-times-circle"></i> Enrollment Closed
+                                        <?php if (!empty($enrollment_closing_date)): ?>
+                                            <br><small style="color:#b58900;">Closed on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </span>
                             </div>
@@ -922,6 +1036,41 @@ function showModernConfirm(options) {
     });
 }
 
+// Regenerate Token Link
+async function regenerateTokenLink() {
+    const confirmed = await showModernConfirm({
+        title: 'Regenerate Registration Link?',
+        message: 'Are you sure you want to regenerate the registration link? This will invalidate the old link.',
+        confirmText: 'Yes, Regenerate', cancelText: 'Cancel', type: 'warning'
+    });
+    
+    if (confirmed) {
+        const courseId = <?php echo intval($course['id']); ?>;
+        const loadingToast = toast.loading('Regenerating registration link...');
+        
+        const formData = new FormData();
+        formData.append('regenerate_token', '1');
+        
+        fetch('edit_course.php?id=' + courseId, { 
+            method: 'POST', 
+            body: formData 
+        })
+        .then(response => {
+            toast.remove(loadingToast);
+            if (response.ok) {
+                toast.success('Registration link regenerated successfully!');
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                toast.error('Error regenerating link. Please try again.');
+            }
+        })
+        .catch(err => {
+            toast.remove(loadingToast);
+            toast.error('Error: ' + err.message);
+        });
+    }
+}
+
 // Regenerate QR Code
 window.regenerateQRCode = async function() {
     const courseCodeInput = document.querySelector('input[name="course_code"]');
@@ -1144,7 +1293,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // NSQF category init
     const currentCategory = '<?php echo addslashes($course['category']); ?>';
-    const currentNsqfType = '<?php echo !empty($course['is_nsqf']) && $course['is_nsqf'] == 1 ? 'NSQF Course' : 'NON-NSQF Course'; ?>';
+    const currentNsqfType = '<?php 
+        if ($course['category'] == 'Internship Program') {
+            echo 'Internship Program';
+        } elseif (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) {
+            echo 'NSQF Course';
+        } else {
+            echo 'NON-NSQF Course';
+        }
+    ?>';
     if (currentNsqfType === 'NSQF Course') {
         handleCategoryChange(currentCategory);
     }
@@ -1175,6 +1332,29 @@ function handleCategoryChange(currentCategory) {
             courseNameInput.placeholder    = 'Enter course name';
             eligibilityField.readOnly      = false;
             eligibilityField.placeholder   = 'Enter eligibility criteria';
+        }
+    } else if (['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'].includes(selectedNsqfType)) {
+        // Handle special sub-categories
+        templateGroup.style.display    = 'none';
+        courseNameInput.readOnly       = false;
+        eligibilityField.readOnly      = false;
+        
+        // Set appropriate placeholders based on sub-category
+        if (selectedNsqfType === 'Internship Program') {
+            courseNameInput.placeholder    = 'Enter internship program name';
+            eligibilityField.placeholder   = 'Enter eligibility criteria for internship';
+        } else if (selectedNsqfType === 'Awareness Program') {
+            courseNameInput.placeholder    = 'Enter awareness program name';
+            eligibilityField.placeholder   = 'Enter eligibility criteria for awareness program';
+        } else if (selectedNsqfType === 'FDP Program') {
+            courseNameInput.placeholder    = 'Enter FDP program name';
+            eligibilityField.placeholder   = 'Enter eligibility criteria for FDP';
+        } else if (selectedNsqfType === 'Workshop') {
+            courseNameInput.placeholder    = 'Enter workshop name';
+            eligibilityField.placeholder   = 'Enter eligibility criteria for workshop';
+        } else if (selectedNsqfType === 'GOVT/CORPORATE Training') {
+            courseNameInput.placeholder    = 'Enter training program name';
+            eligibilityField.placeholder   = 'Enter eligibility criteria for training';
         }
     } else {
         templateGroup.style.display    = 'none';
@@ -1233,6 +1413,249 @@ document.addEventListener('DOMContentLoaded', function() {
         nsqfTypeSelect.addEventListener('change', function() {
             handleCategoryChange(document.getElementById('edit_category').value);
         });
+    }
+});
+</script>
+
+<script>
+/**
+ * AUTO-GENERATE COURSE CODE FEATURE WITH SMART DUPLICATE HANDLING
+ * Generates meaningful course codes based on course name
+ * Automatically adds sequential numbers if duplicate found (PP01-2026, PP02-2026, etc.)
+ */
+
+// Function to generate course code from course name
+function generateCodeFromName(courseName) {
+    if (!courseName || courseName.trim() === '') {
+        return '';
+    }
+    
+    // Remove special characters and extra spaces
+    courseName = courseName.trim().toUpperCase();
+    
+    // Common words to ignore
+    const ignoreWords = ['THE', 'OF', 'IN', 'ON', 'AT', 'TO', 'FOR', 'AND', 'OR', 'A', 'AN'];
+    
+    // Split into words
+    const words = courseName.split(/\s+/).filter(word => word.length > 0);
+    
+    let code = '';
+    let abbreviation = '';
+    
+    // Strategy 1: Try to extract acronym from significant words
+    const significantWords = words.filter(word => !ignoreWords.includes(word));
+    
+    if (significantWords.length > 0) {
+        // Take first letter of each significant word (up to 5 letters)
+        abbreviation = significantWords
+            .slice(0, 5)
+            .map(word => word[0])
+            .join('');
+        
+        // If abbreviation is too short, add more letters from first word
+        if (abbreviation.length < 3 && significantWords[0].length >= 3) {
+            abbreviation = significantWords[0].substring(0, 3).toUpperCase();
+        }
+    } else {
+        // Fallback: use first 3-4 letters of first word
+        abbreviation = words[0].substring(0, Math.min(4, words[0].length)).toUpperCase();
+    }
+    
+    // Add current year
+    const currentYear = new Date().getFullYear();
+    code = abbreviation + '-' + currentYear;
+    
+    return {
+        code: code,
+        abbreviation: abbreviation
+    };
+}
+
+// Function to check if code exists and get next available number
+async function getUniqueCode(baseCode, baseAbbreviation, currentCourseId = null) {
+    try {
+        // Check if base code exists
+        const response = await fetch('check_course_code.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                code: baseCode,
+                abbreviation: baseAbbreviation,
+                exclude_id: currentCourseId
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (!result.exists) {
+            // Code is unique, return as is
+            return {
+                code: baseCode,
+                abbreviation: baseAbbreviation
+            };
+        }
+        
+        // Code exists, find next available number
+        let counter = 1;
+        let uniqueCode = '';
+        let uniqueAbbr = '';
+        let found = false;
+        
+        while (!found && counter <= 99) {
+            const paddedNumber = counter.toString().padStart(2, '0');
+            uniqueCode = baseAbbreviation + paddedNumber + '-' + new Date().getFullYear();
+            uniqueAbbr = baseAbbreviation + paddedNumber;
+            
+            const checkResponse = await fetch('check_course_code.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    code: uniqueCode,
+                    abbreviation: uniqueAbbr,
+                    exclude_id: currentCourseId
+                })
+            });
+            
+            const checkResult = await checkResponse.json();
+            
+            if (!checkResult.exists) {
+                found = true;
+                return {
+                    code: uniqueCode,
+                    abbreviation: uniqueAbbr
+                };
+            }
+            
+            counter++;
+        }
+        
+        // If we reach here, return with high number
+        return {
+            code: baseAbbreviation + '99-' + new Date().getFullYear(),
+            abbreviation: baseAbbreviation + '99'
+        };
+        
+    } catch (error) {
+        console.error('Error checking code uniqueness:', error);
+        // Return base code if check fails
+        return {
+            code: baseCode,
+            abbreviation: baseAbbreviation
+        };
+    }
+}
+
+// Auto-generate as user types (with debounce)
+let typingTimer;
+const typingDelay = 500; // milliseconds
+
+function autoGenerateCourseCode() {
+    clearTimeout(typingTimer);
+    typingTimer = setTimeout(async function() {
+        const courseNameInput = document.getElementById('edit_course_name');
+        const courseCodeInput = document.getElementById('edit_course_code');
+        const abbreviationInput = document.getElementById('edit_course_abbreviation');
+        const manualCheckbox = document.getElementById('edit_manual_code');
+        
+        // Only auto-generate if not in manual mode
+        if (!manualCheckbox.checked && courseNameInput && courseCodeInput) {
+            const courseName = courseNameInput.value;
+            const generated = generateCodeFromName(courseName);
+            
+            if (generated.code) {
+                // Get unique code (handles duplicates automatically)
+                const courseId = new URLSearchParams(window.location.search).get('id');
+                const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, courseId);
+                
+                courseCodeInput.value = uniqueCode.code;
+                abbreviationInput.value = uniqueCode.abbreviation;
+                
+                // Update preview
+                const preview = document.getElementById('edit_abbr_preview');
+                if (preview) {
+                    preview.textContent = uniqueCode.abbreviation;
+                }
+            }
+        }
+    }, typingDelay);
+}
+
+// Regenerate button click
+async function regenerateCourseCode() {
+    const courseNameInput = document.getElementById('edit_course_name');
+    const courseCodeInput = document.getElementById('edit_course_code');
+    const abbreviationInput = document.getElementById('edit_course_abbreviation');
+    
+    if (courseNameInput && courseCodeInput) {
+        const courseName = courseNameInput.value;
+        const generated = generateCodeFromName(courseName);
+        
+        if (generated.code) {
+            // Get unique code (handles duplicates automatically)
+            const courseId = new URLSearchParams(window.location.search).get('id');
+            const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, courseId);
+            
+            courseCodeInput.value = uniqueCode.code;
+            abbreviationInput.value = uniqueCode.abbreviation;
+            
+            // Update preview
+            const preview = document.getElementById('edit_abbr_preview');
+            if (preview) {
+                preview.textContent = uniqueCode.abbreviation;
+            }
+            
+            toast.success('Course code regenerated: ' + uniqueCode.code, 3000);
+        } else {
+            toast.error('Please enter a course name first', 3000);
+        }
+    }
+}
+
+// Toggle manual editing mode
+function toggleManualCode() {
+    const manualCheckbox = document.getElementById('edit_manual_code');
+    const courseCodeInput = document.getElementById('edit_course_code');
+    const abbreviationInput = document.getElementById('edit_course_abbreviation');
+    
+    if (manualCheckbox && courseCodeInput) {
+        if (manualCheckbox.checked) {
+            // Enable manual editing
+            courseCodeInput.removeAttribute('readonly');
+            abbreviationInput.removeAttribute('readonly');
+            courseCodeInput.focus();
+            toast.info('Manual editing enabled. You can now edit the course code.', 3000);
+        } else {
+            // Disable manual editing and regenerate
+            courseCodeInput.setAttribute('readonly', 'readonly');
+            abbreviationInput.setAttribute('readonly', 'readonly');
+            regenerateCourseCode();
+        }
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // If course code is empty, generate it from course name
+    const courseCodeInput = document.getElementById('edit_course_code');
+    const courseNameInput = document.getElementById('edit_course_name');
+    
+    if (courseCodeInput && courseNameInput) {
+        // If code is empty or looks auto-generated, enable auto-generation
+        if (!courseCodeInput.value || courseCodeInput.value.includes('-')) {
+            // Auto-generate on load if empty
+            if (!courseCodeInput.value) {
+                autoGenerateCourseCode();
+            }
+        } else {
+            // If code exists and doesn't look auto-generated, assume it's manual
+            document.getElementById('edit_manual_code').checked = true;
+            courseCodeInput.removeAttribute('readonly');
+            document.getElementById('edit_course_abbreviation').removeAttribute('readonly');
+        }
     }
 });
 </script>

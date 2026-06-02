@@ -4,39 +4,36 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// Include maintenance check FIRST
+require_once __DIR__ . '/../includes/maintenance_check.php';
+
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
-// LINK-ONLY ACCESS: Require course_id parameter
-// Support both 'course_id' and 'course' parameters for backward compatibility
-$selected_course_id = $_GET['course_id'] ?? $_GET['course'] ?? '';
-/*  */
-// If no course_id provided, show error and redirect
-if (empty($selected_course_id)) {
-    $_SESSION['error'] = 'Invalid access! Registration is only available through course registration links. Please select a course from the courses page first.';
+// Require registration_token parameter for secure registration links
+$registration_token = $_GET['token'] ?? '';
+if (empty($registration_token)) {
+    $_SESSION['error'] = 'Invalid access! Registration is only available through secure registration links. Please use the link provided by the course administrator.';
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 
-// Fetch course details - REQUIRED for link-based registration
-// Support both numeric ID and course code
-$course_details = null;
-$stmt = false;
-
-// Check if it's a numeric ID or course code
-if (is_numeric($selected_course_id)) {
-    // Numeric ID
-    $stmt = $conn->prepare("SELECT * FROM courses WHERE id = ?");
-    if ($stmt) {
-        $stmt->bind_param("i", $selected_course_id);
-    }
-} else {
-    // Course code (e.g., 'sas', 'WD101')
-    $stmt = $conn->prepare("SELECT * FROM courses WHERE (course_code = ? OR course_abbreviation = ?)");
-    if ($stmt) {
-        $stmt->bind_param("ss", $selected_course_id, $selected_course_id);
-    }
+// Fetch course details by registration_token
+$stmt = $conn->prepare("SELECT * FROM courses WHERE registration_token = ?");
+if (!$stmt) {
+    $_SESSION['error'] = 'Database error: ' . $conn->error;
+    header('Location: ' . APP_URL . '/public/courses.php');
+    exit();
 }
+$stmt->bind_param("s", $registration_token);
+$stmt->execute();
+$result = $stmt->get_result();
+if ($result->num_rows === 0) {
+    $_SESSION['error'] = 'Invalid or expired registration link. Please use the link provided by the course administrator.';
+    header('Location: ' . APP_URL . '/public/courses.php');
+    exit();
+}
+$course_details = $result->fetch_assoc();
 
 // Check if prepare was successful
 if (!$stmt) {
@@ -57,8 +54,23 @@ if ($result->num_rows === 0) {
 $course_details = $result->fetch_assoc();
 
 // Check if the registration link is active
+
 if (!isset($course_details['link_published']) || $course_details['link_published'] != 1) {
     $_SESSION['error'] = 'Registration for this course is currently closed. Please contact the administration for more information.';
+    header('Location: ' . APP_URL . '/public/courses.php');
+    exit();
+}
+
+
+// Block registration if enrollment is closed by status or closing date (robust check)
+$today = date('Y-m-d');
+$closing_date = $course_details['enrollment_closing_date'] ?? '';
+$status = $course_details['enrollment_status'] ?? 'ongoing';
+if (
+    ($status === 'closed') ||
+    (!empty($closing_date) && $today > $closing_date)
+) {
+    $_SESSION['error'] = 'Enrollment is closed for this course. Registration is not allowed.';
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }

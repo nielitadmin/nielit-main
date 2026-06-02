@@ -1901,9 +1901,22 @@ $dashboard_payload = [
                             <select name="category" class="form-select" onchange="this.form.submit()" style="width: 100%;">
                                 <option value="all" <?= $filter_category === 'all' ? 'selected' : '' ?>>All Categories</option>
                                 <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
-                                <option value="NSQF" <?= $filter_category === 'NSQF' ? 'selected' : '' ?>>NSQF</option>
-                                <option value="NON-NSQF" <?= $filter_category === 'NON-NSQF' ? 'selected' : '' ?>>NON-NSQF</option>
-                                <option value="Internship Program" <?= $filter_category === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
+                                <!-- Main Categories -->
+                                <optgroup label="Main Categories">
+                                    <option value="Degree / Diploma / PG" <?= $filter_category === 'Degree / Diploma / PG' ? 'selected' : '' ?>>Degree / Diploma / PG</option>
+                                    <option value="Skill Based (Long Term) >500 hrs" <?= $filter_category === 'Skill Based (Long Term) >500 hrs' ? 'selected' : '' ?>>Skill Based (Long Term) >500 hrs</option>
+                                    <option value="Skill Based (Short Term) 90-500 hrs" <?= $filter_category === 'Skill Based (Short Term) 90-500 hrs' ? 'selected' : '' ?>>Skill Based (Short Term) 90-500 hrs</option>
+                                    <option value="Short Term / Digital Competency <=90 hrs" <?= $filter_category === 'Short Term / Digital Competency <=90 hrs' ? 'selected' : '' ?>>Short Term / Digital Competency <=90 hrs</option>
+                                    <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?= $filter_category === 'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' ? 'selected' : '' ?>>NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)</option>
+                                </optgroup>
+                                <!-- Special Programs -->
+                                <optgroup label="Special Programs">
+                                    <option value="Internship Program" <?= $filter_category === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
+                                    <option value="Awareness Program" <?= $filter_category === 'Awareness Program' ? 'selected' : '' ?>>Awareness Program</option>
+                                    <option value="FDP Program" <?= $filter_category === 'FDP Program' ? 'selected' : '' ?>>FDP Program</option>
+                                    <option value="Workshop" <?= $filter_category === 'Workshop' ? 'selected' : '' ?>>Workshop</option>
+                                    <option value="GOVT/CORPORATE Training" <?= $filter_category === 'GOVT/CORPORATE Training' ? 'selected' : '' ?>>GOVT/CORPORATE Training</option>
+                                </optgroup>
                                 <?php else: ?>
                                 <option value="NSQF" <?= $filter_category === 'NSQF' ? 'selected' : '' ?>>NSQF</option>
                                 <?php endif; ?>
@@ -2344,14 +2357,18 @@ $dashboard_payload = [
                         <i class="fas fa-info-circle"></i>
                         Basic Course Information
                     </div>
+
+                    <div class="form-group mb-3" id="add_template_selection_group_dash" style="display:none;">
+                        <label class="form-label">NSQF Course Name <span class="required">*</span></label>
+                        <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
+                            <option value="">-- Select Course Template --</option>
+                        </select>
+                    </div>
                     
                     <div class="form-grid form-grid-3">
                         <div class="form-group">
                             <label class="form-label">Course Name <span class="required">*</span></label>
                             <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required placeholder="e.g., Post Graduate Programme in Artificial Intelligence">
-                            <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
-                                <option value="">-- Select Course Template --</option>
-                            </select>
                             <div class="form-help">
                                 <i class="fas fa-lightbulb"></i>
                                 Enter the full course name as it will appear on certificates
@@ -2716,6 +2733,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Handle sub-category (nsqf_type) change for template integration
 function handleNsqfTypeChangeDash(nsqfType) {
     const courseNameInput = document.getElementById('add_course_name_dash');
+    const courseNameTemplateGroup = document.getElementById('add_template_selection_group_dash');
     const courseNameTemplate = document.getElementById('add_course_name_template_dash');
     const eligibilityField = document.getElementById('add_eligibility_dash');
     
@@ -2726,6 +2744,9 @@ function handleNsqfTypeChangeDash(nsqfType) {
         // Show template dropdown for Course Coordinators and Master Admins
         if (isCourseCoordinator || <?php echo json_encode(isset($_SESSION['admin_role']) && in_array($_SESSION['admin_role'], ['master_admin', 'admin'])); ?>) {
             courseNameInput.style.display = 'none';
+            if (courseNameTemplateGroup) {
+                courseNameTemplateGroup.style.display = 'block';
+            }
             courseNameTemplate.style.display = 'block';
             courseNameTemplate.required = true;
             courseNameInput.required = false;
@@ -2735,6 +2756,9 @@ function handleNsqfTypeChangeDash(nsqfType) {
         } else if (isNSQFManager) {
             // NSQF managers can create new courses directly
             courseNameInput.style.display = 'block';
+            if (courseNameTemplateGroup) {
+                courseNameTemplateGroup.style.display = 'none';
+            }
             courseNameTemplate.style.display = 'none';
             courseNameInput.required = true;
             courseNameTemplate.required = false;
@@ -2748,6 +2772,9 @@ function handleNsqfTypeChangeDash(nsqfType) {
     } else {
         // Non-NSQF courses - show regular input
         courseNameInput.style.display = 'block';
+        if (courseNameTemplateGroup) {
+            courseNameTemplateGroup.style.display = 'none';
+        }
         courseNameTemplate.style.display = 'none';
         courseNameInput.required = true;
         courseNameTemplate.required = false;

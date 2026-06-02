@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <?php 
+    require_once __DIR__ . '/includes/maintenance_check.php';
     require_once __DIR__ . '/config/config.php';
     require_once __DIR__ . '/includes/theme_loader.php';
     require_once __DIR__ . '/includes/navigation_helper.php';

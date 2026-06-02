@@ -4,6 +4,11 @@
  * Export all student details to Excel format
  */
 
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
@@ -93,6 +98,10 @@ $query .= " GROUP BY s.student_id ORDER BY s.created_at DESC";
 // Prepare and execute query
 $stmt = $conn->prepare($query);
 
+if (!$stmt) {
+    die("Error preparing statement: " . $conn->error);
+}
+
 // Bind parameters dynamically (same logic as students.php)
 $bind_types = '';
 $bind_values = [];
@@ -121,8 +130,15 @@ if (!empty($bind_values)) {
     $stmt->bind_param($bind_types, ...$bind_values);
 }
 
-$stmt->execute();
+if (!$stmt->execute()) {
+    die("Error executing statement: " . $stmt->error);
+}
+
 $result = $stmt->get_result();
+
+if (!$result) {
+    die("Error getting result: " . $stmt->error);
+}
 
 // Generate filename with timestamp and filters
 $filename = 'NIELIT_Students_Export_' . date('Y-m-d_H-i-s');
