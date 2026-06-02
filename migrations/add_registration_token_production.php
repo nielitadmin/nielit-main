@@ -149,6 +149,26 @@ if ($result && $result->num_rows > 0) {
     }
 }
 
+// Check and add enrollment_closing_date column if missing
+echo '<div class="step">🔍 <strong>Step 4.5:</strong> Checking enrollment_closing_date column...</div>';
+
+$check_enrollment_sql = "SHOW COLUMNS FROM courses LIKE 'enrollment_closing_date'";
+$enrollment_result = $conn->query($check_enrollment_sql);
+
+if ($enrollment_result && $enrollment_result->num_rows > 0) {
+    echo '<div class="step info">ℹ️ <strong>Column exists:</strong> <code>enrollment_closing_date</code> already in table</div>';
+} else {
+    echo '<div class="step">➕ <strong>Step 4.6:</strong> Adding enrollment_closing_date column...</div>';
+    
+    $add_enrollment_sql = "ALTER TABLE courses ADD COLUMN enrollment_closing_date DATE DEFAULT NULL";
+    
+    if ($conn->query($add_enrollment_sql)) {
+        echo '<div class="step success">✅ <strong>Column added successfully!</strong> Added <code>enrollment_closing_date DATE</code></div>';
+    } else {
+        echo '<div class="step error">❌ <strong>Error adding enrollment_closing_date:</strong> ' . htmlspecialchars($conn->error) . '</div>';
+    }
+}
+
 // Generate tokens for existing courses
 echo '<div class="step">🎲 <strong>Step 5:</strong> Generating tokens for existing courses...</div>';
 
