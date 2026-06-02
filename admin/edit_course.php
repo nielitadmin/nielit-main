@@ -511,7 +511,37 @@ if (isset($_POST['update_course'])) {
                 </div>
                 
                 <form action="edit_course.php?id=<?php echo $course['id']; ?>" method="POST" enctype="multipart/form-data">
-                    <!-- NSQF template selection (driven by Sub-Category) -->
+                    <!-- Category and Sub-Category First -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div class="form-group">
+                            <label class="form-label">Category *</label>
+                            <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
+                                <option value="">--Select Category--</option>
+                                <option value="Degree / Diploma / PG" <?php if ($course['category'] == 'Degree / Diploma / PG') echo 'selected'; ?>>Degree / Diploma Courses / PG</option>
+                                <option value="Skill Based (Long Term) >500 hrs" <?php if ($course['category'] == 'Skill Based (Long Term) >500 hrs') echo 'selected'; ?>>Skill Based (Long Term) Courses > 500 hrs</option>
+                                <option value="Skill Based (Short Term) 90-500 hrs" <?php if ($course['category'] == 'Skill Based (Short Term) 90-500 hrs') echo 'selected'; ?>>Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
+                                <option value="Short Term / Digital Competency <=90 hrs" <?php if ($course['category'] == 'Short Term / Digital Competency <=90 hrs') echo 'selected'; ?>>Short Term Courses / Digital Competency Courses <= 90 hours</option>
+                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?php if ($course['category'] == "NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)") echo 'selected'; ?>>NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Sub-Category *</label>
+                            <select class="form-select" name="nsqf_type" id="edit_nsqf_type" required>
+                                <option value="">--Select Sub-Category--</option>
+                                <option value="NSQF Course" <?php if (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) echo 'selected'; ?>>NSQF Course</option>
+                                <option value="NON-NSQF Course" <?php if (empty($course['is_nsqf']) || $course['is_nsqf'] == 0) echo 'selected'; ?>>NON-NSQF Course</option>
+                                <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
+                                <option value="Awareness Program" <?php if ($course['category'] == 'Awareness Program') echo 'selected'; ?>>Awareness Program</option>
+                                <option value="FDP Program" <?php if ($course['category'] == 'FDP Program') echo 'selected'; ?>>FDP Program</option>
+                                <option value="Workshop" <?php if ($course['category'] == 'Workshop') echo 'selected'; ?>>Workshop</option>
+                                <option value="GOVT/CORPORATE Training" <?php if ($course['category'] == 'GOVT/CORPORATE Training') echo 'selected'; ?>>GOVT/CORPORATE Training</option>
+                            </select>
+                            <small class="text-muted">Select whether this course follows NSQF framework</small>
+                        </div>
+                    </div>
+
+                    <!-- NSQF template selection (appears when NSQF Course is selected) -->
                     <div class="form-group" id="template_selection_group" style="display: none; margin-bottom: 16px;">
                         <label class="form-label">NSQF Course Name *</label>
                         <select class="form-select" id="course_name_template" onchange="handleTemplateSelection()">
@@ -520,7 +550,7 @@ if (isset($_POST['update_course'])) {
                         <small class="text-muted">Select a course name from NSQF templates</small>
                     </div>
 
-                    <!-- Course Name and Codes Row -->
+                    <!-- Course Name, Code, and Student ID Code -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                         <div class="form-group">
                             <label class="form-label">Course Name *</label>
@@ -549,35 +579,6 @@ if (isset($_POST['update_course'])) {
                             <small class="text-muted">For ID: NIELIT/2026/<strong id="edit_abbr_preview"><?php echo htmlspecialchars($course['course_abbreviation'] ?? 'XXX'); ?></strong>/0001</small>
                         </div>
                     </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="form-group">
-                            <label class="form-label">Category *</label>
-                            <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
-                                <option value="">--Select Category--</option>
-                                <option value="Degree / Diploma / PG" <?php if ($course['category'] == 'Degree / Diploma / PG') echo 'selected'; ?>>Degree / Diploma Courses / PG</option>
-                                <option value="Skill Based (Long Term) >500 hrs" <?php if ($course['category'] == 'Skill Based (Long Term) >500 hrs') echo 'selected'; ?>>Skill Based (Long Term) Courses > 500 hrs</option>
-                                <option value="Skill Based (Short Term) 90-500 hrs" <?php if ($course['category'] == 'Skill Based (Short Term) 90-500 hrs') echo 'selected'; ?>>Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                                <option value="Short Term / Digital Competency <=90 hrs" <?php if ($course['category'] == 'Short Term / Digital Competency <=90 hrs') echo 'selected'; ?>>Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?php if ($course['category'] == "NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)") echo 'selected'; ?>>NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Sub-Category *</label>
-                            <select class="form-select" name="nsqf_type" id="edit_nsqf_type" required>
-                                <option value="">--Select Sub-Category--</option>
-                                <option value="NSQF Course" <?php if (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) echo 'selected'; ?>>NSQF Course</option>
-                                <option value="NON-NSQF Course" <?php if (empty($course['is_nsqf']) || $course['is_nsqf'] == 0) echo 'selected'; ?>>NON-NSQF Course</option>
-                                <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
-                                <option value="Awareness Program" <?php if ($course['category'] == 'Awareness Program') echo 'selected'; ?>>Awareness Program</option>
-                                <option value="FDP Program" <?php if ($course['category'] == 'FDP Program') echo 'selected'; ?>>FDP Program</option>
-                                <option value="Workshop" <?php if ($course['category'] == 'Workshop') echo 'selected'; ?>>Workshop</option>
-                                <option value="GOVT/CORPORATE Training" <?php if ($course['category'] == 'GOVT/CORPORATE Training') echo 'selected'; ?>>GOVT/CORPORATE Training</option>
-                            </select>
-                            <small class="text-muted">Select whether this course follows NSQF framework</small>
-                        </div>
-                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">Eligibility *</label>

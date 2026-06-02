@@ -2339,32 +2339,68 @@ $dashboard_payload = [
 <?php if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'nsqf_course_manager'): ?>
 <div class="modal" id="addCourseModal">
     <div class="modal-dialog">
-        <div class="modal-header">
-            <h5 class="modal-title">
-                <i class="fas fa-graduation-cap"></i>
-                Add New Course
-            </h5>
-            <button type="button" class="modal-close" onclick="closeModal('addCourseModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <form action="dashboard.php" method="POST" enctype="multipart/form-data">
-            <div class="modal-body">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-graduation-cap"></i>
+                    Add New Course
+                </h5>
+                <button type="button" class="modal-close" onclick="closeModal('addCourseModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form action="dashboard.php" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+                <div class="modal-body">
                 <!-- Basic Course Information -->
                 <div class="form-section">
                     <div class="form-section-title">
                         <i class="fas fa-info-circle"></i>
                         Basic Course Information
                     </div>
+                    
+                    <!-- Category and Sub-Category First -->
+                    <div class="form-grid form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label">Category <span class="required">*</span></label>
+                            <select class="form-select" name="category" id="add_category_dash" required>
+                                <option value="">Select Category</option>
+                                <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
+                                <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses &gt; 500 hrs</option>
+                                <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses &gt;90 hrs to &lt;=500 hrs</option>
+                                <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses &lt;= 90 hours</option>
+                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Sub-Category <span class="required">*</span></label>
+                            <select class="form-select" name="nsqf_type" id="add_nsqf_type_dash" required>
+                                <option value="">--Select Sub-Category--</option>
+                                <option value="NSQF Course">NSQF Course</option>
+                                <option value="NON-NSQF Course">NON-NSQF Course</option>
+                                <option value="Internship Program">Internship Program</option>
+                                <option value="Awareness Program">Awareness Program</option>
+                                <option value="FDP Program">FDP Program</option>
+                                <option value="Workshop">Workshop</option>
+                                <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                            </select>
+                        </div>
+                    </div>
 
+                    <!-- NSQF Template Selection (appears when NSQF Course is selected) -->
                     <div class="form-group mb-3" id="add_template_selection_group_dash" style="display:none;">
                         <label class="form-label">NSQF Course Name <span class="required">*</span></label>
-                        <select name="course_name_template" id="add_course_name_template_dash" class="form-control" style="display:none;">
+                        <select name="course_name_template" id="add_course_name_template_dash" class="form-control">
                             <option value="">-- Select Course Template --</option>
                         </select>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            Select from pre-defined NSQF course templates
+                        </small>
                     </div>
                     
+                    <!-- Course Name, Code, and Student ID Code -->
                     <div class="form-grid form-grid-3">
                         <div class="form-group">
                             <label class="form-label">Course Name <span class="required">*</span></label>
@@ -2403,28 +2439,6 @@ $dashboard_payload = [
                     </div>
                     
                     <div class="form-grid form-grid-2">
-                        <div class="form-group">
-                            <label class="form-label">Category <span class="required">*</span></label>
-                            <select class="form-select" name="category" id="add_category_dash" required>
-                                <option value="">Select Category</option>
-                                <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                                <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses &gt; 500 hrs</option>
-                                <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses &gt;90 hrs to &lt;=500 hrs</option>
-                                <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses &lt;= 90 hours</option>
-                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                                <option value="Internship Program">Internship Program</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Sub-Category <span class="required">*</span></label>
-                            <select class="form-select" name="nsqf_type" id="add_nsqf_type_dash" required>
-                                <option value="">--Select Sub-Category--</option>
-                                <option value="NSQF Course">NSQF Course</option>
-                                <option value="NON-NSQF Course">NON-NSQF Course</option>
-                            </select>
-                        </div>
-                        
                         <div class="form-group">
                             <label class="form-label">Eligibility <span class="required">*</span></label>
                             <input type="text" class="form-control" name="eligibility" id="add_eligibility_dash" required placeholder="Graduate in any discipline">
@@ -2631,6 +2645,7 @@ $dashboard_payload = [
                 </button>
             </div>
         </form>
+        </div>
     </div>
 </div>
 <?php endif; ?>
@@ -2641,7 +2656,13 @@ $dashboard_payload = [
 const dashboardPayload = <?php echo json_encode($dashboard_payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE); ?>;
 
 function openModal(modalId) {
-    document.getElementById(modalId).classList.add('show');
+    const modal = document.getElementById(modalId);
+    modal.classList.add('show');
+    // Reset scroll position to top when modal opens
+    const modalBody = modal.querySelector('.modal-body');
+    if (modalBody) {
+        modalBody.scrollTop = 0;
+    }
 }
 
 function closeModal(modalId) {
