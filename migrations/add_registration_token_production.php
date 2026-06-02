@@ -13,11 +13,8 @@
  * - Generates tokens for existing courses
  */
 
-// Production database credentials
-define('DB_HOST', 'localhost');
-define('DB_USERNAME', 'u664913565_nielitbbsr');
-define('DB_PASSWORD', 'Nielitbbsr@2025');
-define('DB_NAME', 'u664913565_nielitbbsr');
+// Use existing database configuration
+require_once __DIR__ . '/../config/database.php';
 
 // Enable error reporting
 error_reporting(E_ALL);
@@ -106,10 +103,8 @@ function generateToken($length = 8) {
     return $token;
 }
 
-// Connect to database
+// Connect to database (using $conn from config/database.php)
 echo '<div class="step">📡 <strong>Step 1:</strong> Connecting to production database...</div>';
-
-$conn = new mysqli(DB_HOST, DB_USERNAME, DB_PASSWORD, DB_NAME);
 
 if ($conn->connect_error) {
     echo '<div class="step error">❌ <strong>Connection Failed:</strong> ' . htmlspecialchars($conn->connect_error) . '</div>';
