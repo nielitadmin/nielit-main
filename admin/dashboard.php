@@ -221,6 +221,7 @@ if (isset($_POST['add_course'])) {
     $link_published = isset($_POST['link_published']) ? 1 : 0;
     $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
     $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+    $registration_token = $_POST['registration_token'] ?? ''; // Get token from hidden field
     $description_pdf = '';
 
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
@@ -239,15 +240,15 @@ if (isset($_POST['add_course'])) {
     $insert_sql = "INSERT INTO courses (
         course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
-        training_center, is_nsqf, link_published, course_description
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        training_center, is_nsqf, link_published, course_description, registration_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    // 17 variables: 14 strings, then i (is_nsqf), i (link_published), s (course_description)
-    $stmt->bind_param("ssssssssssssssiis", 
+    // 18 variables: 14 strings, then i (is_nsqf), i (link_published), s (course_description), s (registration_token)
+    $stmt->bind_param("ssssssssssssssiiss", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
-        $training_center, $is_nsqf, $link_published, $course_description
+        $training_center, $is_nsqf, $link_published, $course_description, $registration_token
     );
 
     if ($stmt->execute()) {
@@ -2404,7 +2405,7 @@ $dashboard_payload = [
                     <div class="form-grid form-grid-3">
                         <div class="form-group">
                             <label class="form-label">Course Name <span class="required">*</span></label>
-                            <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required placeholder="e.g., Post Graduate Programme in Artificial Intelligence">
+                            <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required placeholder="e.g., Post Graduate Programme in Artificial Intelligence" onkeyup="autoGenerateCourseCodeDash()">
                             <div class="form-help">
                                 <i class="fas fa-lightbulb"></i>
                                 Enter the full course name as it will appear on certificates
@@ -2412,20 +2413,30 @@ $dashboard_payload = [
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Course Code <span class="required">*</span></label>
-                            <input type="text" class="form-control" name="course_code" maxlength="20" required style="text-transform: uppercase;" placeholder="PPI-2026">
+                            <label class="form-label">
+                                Course Code <span class="required">*</span>
+                                <small>(Auto-generated)</small>
+                                <button type="button" class="btn btn-sm btn-link" onclick="regenerateCourseCodeDash()" title="Regenerate code from course name">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </label>
+                            <input type="text" class="form-control" name="course_code" id="add_course_code_dash" maxlength="20" required style="text-transform: uppercase;" placeholder="PPI-2026" readonly>
                             <div class="form-help">
                                 <i class="fas fa-tag"></i>
-                                Unique identifier (e.g., PPI-2026)
+                                <input type="checkbox" id="add_manual_code_dash" onchange="toggleManualCodeDash()"> 
+                                <label for="add_manual_code_dash" style="cursor: pointer;">Edit manually</label>
                             </div>
                         </div>
                         
                         <div class="form-group">
-                            <label class="form-label">Student ID Code <span class="required">*</span></label>
-                            <input type="text" class="form-control" name="course_abbreviation" id="add_abbr_dash" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
+                            <label class="form-label">
+                                Student ID Code <span class="required">*</span>
+                                <small>(Auto-generated)</small>
+                            </label>
+                            <input type="text" class="form-control" name="course_abbreviation" id="add_abbr_dash" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
                             <div class="form-help">
                                 <i class="fas fa-id-card"></i>
-                                For ID: NIELIT/2026/<strong>PPI</strong>/0001
+                                For ID: NIELIT/2026/<strong id="add_abbr_preview_dash">XXX</strong>/0001
                             </div>
                         </div>
                     </div>
@@ -2693,15 +2704,23 @@ async function confirmDelete(event, courseName) {
     return false;
 }
 
-// Generate Apply Link for Dashboard (Simple - no AJAX for new courses)
+// Generate unique token (8 characters)
+function generateShortToken(length = 8) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < length; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+}
+
+// Generate Apply Link for Dashboard (Token-based like edit_course.php)
 function generateApplyLinkDash() {
     const courseNameInput = document.getElementById('add_course_name_dash');
-    const courseCodeInput = document.querySelector('input[name="course_code"]');
     const linkInput = document.getElementById('add_apply_link_dash');
     const previewSpan = document.getElementById('link_preview_dash');
     
     const courseName = courseNameInput.value.trim();
-    const courseCode = courseCodeInput.value.trim();
     
     if (!courseName) {
         toast.warning('Please enter course name first!');
@@ -2709,21 +2728,29 @@ function generateApplyLinkDash() {
         return;
     }
     
-    if (!courseCode) {
-        toast.warning('Please enter course code first!');
-        courseCodeInput.focus();
-        return;
-    }
+    // Generate unique token (8 characters)
+    const token = generateShortToken(8);
     
-    // Generate link based on course CODE (not course name)
-    const baseUrl = window.location.origin + window.location.pathname.replace('dashboard.php', '');
-    const registrationLink = baseUrl + '../student/register.php?course=' + encodeURIComponent(courseCode);
+    // Generate link based on TOKEN (not course code)
+    const baseUrl = '<?php echo APP_URL; ?>';
+    const registrationLink = baseUrl + '/student/register.php?token=' + token;
     
     linkInput.value = registrationLink;
     previewSpan.textContent = registrationLink;
     
+    // Store token in a hidden field so it can be saved with the course
+    let tokenField = document.getElementById('registration_token_hidden');
+    if (!tokenField) {
+        tokenField = document.createElement('input');
+        tokenField.type = 'hidden';
+        tokenField.name = 'registration_token';
+        tokenField.id = 'registration_token_hidden';
+        linkInput.closest('form').appendChild(tokenField);
+    }
+    tokenField.value = token;
+    
     // Show success message
-    toast.success('Registration link generated! QR code will be created automatically when you save the course.');
+    toast.success('Registration link generated with unique token! QR code will be created automatically when you save the course.');
 }
 
 // Toggle publish status label
@@ -3012,6 +3039,156 @@ function initDashboardCharts() {
 }
 
 document.addEventListener('DOMContentLoaded', initDashboardCharts);
+
+// ===== AUTO-GENERATE COURSE CODE AND ABBREVIATION =====
+
+// Generate code from course name
+function generateCodeFromNameDash(courseName) {
+    if (!courseName) return { code: '', abbreviation: '' };
+    
+    const stopWords = ['the', 'of', 'in', 'on', 'and', 'or', 'for', 'to', 'a', 'an'];
+    let words = courseName.toUpperCase()
+        .replace(/[^A-Z0-9\s]/g, '')
+        .split(/\s+/)
+        .filter(word => word.length > 0 && !stopWords.includes(word.toLowerCase()));
+    
+    let code = '';
+    let abbreviation = '';
+    
+    if (words.length === 0) return { code: '', abbreviation: '' };
+    
+    // Generate abbreviation from first letters of significant words
+    if (words.length >= 2) {
+        let significantWords = words.filter(word => word.length >= 3);
+        if (significantWords.length < 2) significantWords = words;
+        
+        abbreviation = significantWords
+            .slice(0, 5)
+            .map(word => word[0])
+            .join('');
+        
+        if (abbreviation.length < 3 && significantWords[0].length >= 3) {
+            abbreviation = significantWords[0].substring(0, 3).toUpperCase();
+        }
+    } else {
+        abbreviation = words[0].substring(0, Math.min(4, words[0].length)).toUpperCase();
+    }
+    
+    // Add current year
+    const currentYear = new Date().getFullYear();
+    code = abbreviation + '-' + currentYear;
+    
+    return {
+        code: code,
+        abbreviation: abbreviation
+    };
+}
+
+// Check if code exists (simpler version for dashboard - no async check)
+function getUniqueCodeDash(baseCode, baseAbbreviation) {
+    // For dashboard add form, we just return the base code
+    // Uniqueness will be checked server-side when saving
+    return {
+        code: baseCode,
+        abbreviation: baseAbbreviation
+    };
+}
+
+// Auto-generate as user types (with debounce)
+let typingTimerDash;
+const typingDelayDash = 500; // milliseconds
+
+function autoGenerateCourseCodeDash() {
+    clearTimeout(typingTimerDash);
+    typingTimerDash = setTimeout(function() {
+        const courseNameInput = document.getElementById('add_course_name_dash');
+        const courseCodeInput = document.getElementById('add_course_code_dash');
+        const abbreviationInput = document.getElementById('add_abbr_dash');
+        const abbrPreview = document.getElementById('add_abbr_preview_dash');
+        const manualCheckbox = document.getElementById('add_manual_code_dash');
+        
+        // Only auto-generate if not in manual mode
+        if (!manualCheckbox.checked && courseNameInput && courseCodeInput) {
+            const courseName = courseNameInput.value;
+            const generated = generateCodeFromNameDash(courseName);
+            
+            if (generated.code) {
+                const uniqueCode = getUniqueCodeDash(generated.code, generated.abbreviation);
+                
+                courseCodeInput.value = uniqueCode.code;
+                abbreviationInput.value = uniqueCode.abbreviation;
+                
+                // Update preview
+                if (abbrPreview) {
+                    abbrPreview.textContent = uniqueCode.abbreviation;
+                }
+            }
+        }
+    }, typingDelayDash);
+}
+
+// Regenerate button click
+function regenerateCourseCodeDash() {
+    const courseNameInput = document.getElementById('add_course_name_dash');
+    const courseCodeInput = document.getElementById('add_course_code_dash');
+    const abbreviationInput = document.getElementById('add_abbr_dash');
+    const abbrPreview = document.getElementById('add_abbr_preview_dash');
+    
+    if (courseNameInput && courseCodeInput) {
+        const courseName = courseNameInput.value;
+        const generated = generateCodeFromNameDash(courseName);
+        
+        if (generated.code) {
+            const uniqueCode = getUniqueCodeDash(generated.code, generated.abbreviation);
+            
+            courseCodeInput.value = uniqueCode.code;
+            abbreviationInput.value = uniqueCode.abbreviation;
+            
+            // Update preview
+            if (abbrPreview) {
+                abbrPreview.textContent = uniqueCode.abbreviation;
+            }
+            
+            toast.success('Course code regenerated: ' + uniqueCode.code, 3000);
+        } else {
+            toast.error('Please enter a course name first', 3000);
+        }
+    }
+}
+
+// Toggle manual editing mode
+function toggleManualCodeDash() {
+    const manualCheckbox = document.getElementById('add_manual_code_dash');
+    const courseCodeInput = document.getElementById('add_course_code_dash');
+    const abbreviationInput = document.getElementById('add_abbr_dash');
+    
+    if (manualCheckbox && courseCodeInput) {
+        if (manualCheckbox.checked) {
+            // Enable manual editing
+            courseCodeInput.removeAttribute('readonly');
+            abbreviationInput.removeAttribute('readonly');
+            courseCodeInput.focus();
+            toast.info('Manual editing enabled. You can now edit the course code and student ID code.', 3000);
+        } else {
+            // Disable manual editing and regenerate
+            courseCodeInput.setAttribute('readonly', 'readonly');
+            abbreviationInput.setAttribute('readonly', 'readonly');
+            regenerateCourseCodeDash();
+        }
+    }
+}
+
+// Update abbreviation preview when manually editing
+document.addEventListener('DOMContentLoaded', function() {
+    const abbreviationInput = document.getElementById('add_abbr_dash');
+    const abbrPreview = document.getElementById('add_abbr_preview_dash');
+    
+    if (abbreviationInput && abbrPreview) {
+        abbreviationInput.addEventListener('input', function() {
+            abbrPreview.textContent = this.value || 'XXX';
+        });
+    }
+});
 </script>
 
 </body>

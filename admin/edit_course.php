@@ -172,40 +172,8 @@ if (isset($_POST['update_course'])) {
     $description_pdf    = $course['description_pdf'];
     $course_flyer       = $course['course_flyer'] ?? '';
 
-    // Enforce unique course code and student ID code across other courses
-    $dup_stmt = $conn->prepare("SELECT course_name, course_code, course_abbreviation
-                               FROM courses
-                               WHERE id != ? AND (UPPER(course_code) = ? OR UPPER(course_abbreviation) = ?)");
-    if ($dup_stmt) {
-        $dup_stmt->bind_param("iss", $course_id, $course_code, $course_abbreviation);
-        $dup_stmt->execute();
-        $dup_result = $dup_stmt->get_result();
-
-        $dup_code = null;
-        $dup_abbr = null;
-        while ($dup = $dup_result->fetch_assoc()) {
-            if ($dup_code === null && strtoupper($dup['course_code']) === $course_code) {
-                $dup_code = $dup;
-            }
-            if ($dup_abbr === null && strtoupper($dup['course_abbreviation']) === $course_abbreviation) {
-                $dup_abbr = $dup;
-            }
-        }
-        $dup_stmt->close();
-
-        if ($dup_code || $dup_abbr) {
-            $messages = [];
-            if ($dup_code) {
-                $messages[] = "Course Code '{$course_code}' is already used by '{$dup_code['course_name']}'.";
-            }
-            if ($dup_abbr) {
-                $messages[] = "Student ID Code '{$course_abbreviation}' is already used by '{$dup_abbr['course_name']}'.";
-            }
-            $_SESSION['error'] = implode(' ', $messages) . " Please make a different one.";
-            header("Location: edit_course.php?id=$course_id");
-            exit();
-        }
-    }
+    // Note: Duplicate course codes and student ID codes are now allowed
+    // The system will ensure student IDs remain unique through sequential numbering per course
 
     // Handle PDF upload
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
