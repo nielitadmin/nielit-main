@@ -14,7 +14,9 @@ if ($current_dir === 'admin' || $current_file === 'maintenance.php') {
 }
 
 // Skip check if user is logged in as admin
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
     return;
 }

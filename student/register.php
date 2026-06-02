@@ -7,7 +7,9 @@ error_reporting(E_ALL);
 // Include maintenance check FIRST
 require_once __DIR__ . '/../includes/maintenance_check.php';
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 require_once __DIR__ . '/../config/config.php';
 
 // Require registration_token parameter for secure registration links
