@@ -469,9 +469,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_skill_long && $result_skill_long->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_skill_long->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -554,9 +554,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_skill_short && $result_skill_short->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_skill_short->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -639,9 +639,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_short_digital && $result_short_digital->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_short_digital->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -724,9 +724,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_internship && $result_internship->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_internship->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -881,9 +881,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_degree_pg && $result_degree_pg->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_degree_pg->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -966,9 +966,9 @@ $result_internship = $conn->query($sql_internship);
                 </h3>
             </div>
             <?php if ($result_digital_lit && $result_digital_lit->num_rows > 0): ?>
-                <div class="row">
+                <div class="row g-4">
                     <?php while ($row = $result_digital_lit->fetch_assoc()): ?>
-                    <div class="col-md-12">
+                    <div class="col-lg-4 col-md-6">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
