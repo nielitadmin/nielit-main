@@ -753,11 +753,11 @@ $result_internship = $conn->query($sql_internship);
                                     if ($is_closed): 
                                     ?>
                                         <span class="status-badge status-closed">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
+                                            <i class="fas fa-times-circle"></i> Enrollment Closed<?php if (!empty($enrollment_closing_date)): ?><br><small style="color:#92400e;">Closed on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small><?php endif; ?>
                                         </span>
                                     <?php else: ?>
                                         <span class="status-badge status-ongoing">
-                                            <i class="fas fa-check-circle"></i> Enrollment Open
+                                            <i class="fas fa-check-circle"></i> Enrollment Open<?php if (!empty($enrollment_closing_date)): ?><br><small style="color:#065f46;">Closes on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small><?php endif; ?>
                                         </span>
                                     <?php endif; ?>
                                 </div>
