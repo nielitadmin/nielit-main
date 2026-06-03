@@ -481,6 +481,9 @@ $result_internship = $conn->query($sql_internship);
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
                                         <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="enrollment-status-badge">
@@ -565,6 +568,9 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -651,6 +657,9 @@ $result_internship = $conn->query($sql_internship);
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
                                         <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="enrollment-status-badge">
@@ -735,6 +744,9 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -893,6 +905,9 @@ $result_internship = $conn->query($sql_internship);
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
                                         <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <div class="enrollment-status-badge">
@@ -977,6 +992,9 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
                                         <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($row["centre_name"])): ?>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
