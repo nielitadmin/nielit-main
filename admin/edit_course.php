@@ -388,7 +388,7 @@ if (isset($_POST['update_course'])) {
         // Auto-generate QR code ONLY if it doesn't exist yet
         if (!empty($apply_link) && !empty($course_code) && empty($course['qr_code_path'])) {
             require_once __DIR__ . '/../includes/qr_helper.php';
-            $qr_result = generateCourseQRCode($course_id, $course_code);
+            $qr_result = generateCourseQRCode($course_id, $course_code, $course['registration_token']);
             
             if ($qr_result['success']) {
                 $stmt_update = $conn->prepare("UPDATE courses SET qr_code_path = ?, qr_generated_at = NOW() WHERE id = ?");
@@ -481,7 +481,7 @@ if (isset($_POST['update_course'])) {
                 <form action="edit_course.php?id=<?php echo $course['id']; ?>" method="POST" enctype="multipart/form-data">
                     <!-- Category and Sub-Category First -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-                        <div class="form-group">
+                        <div class="form-group" id="category_field_group">
                             <label class="form-label">Category *</label>
                             <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
                                 <option value="">--Select Category--</option>
@@ -1375,12 +1375,59 @@ function handleTemplateSelection() {
     }
 }
 
+// Handle special subcategories and category field visibility
+function handleSubcategoryChange() {
+    const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
+    const categoryFieldGroup = document.getElementById('category_field_group');
+    const categorySelect = document.getElementById('edit_category');
+    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    
+    const selectedValue = nsqfTypeSelect.value;
+    
+    if (specialSubcategories.includes(selectedValue)) {
+        // Hide category field and set it to match the subcategory
+        categoryFieldGroup.style.display = 'none';
+        categorySelect.required = false;
+        categorySelect.value = selectedValue;
+    } else {
+        // Show category field
+        categoryFieldGroup.style.display = 'block';
+        categorySelect.required = true;
+    }
+    
+    // Call the original handler to update template options if needed
+    handleCategoryChange(categorySelect.value);
+}
+
+// Add form submission handler to ensure category is set correctly
+function prepareFormSubmission() {
+    const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
+    const categorySelect = document.getElementById('edit_category');
+    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    
+    const selectedValue = nsqfTypeSelect.value;
+    
+    if (specialSubcategories.includes(selectedValue)) {
+        categorySelect.value = selectedValue;
+    }
+    
+    return true;
+}
+
 // Add event listener for sub-category field changes
 document.addEventListener('DOMContentLoaded', function() {
     const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
     if (nsqfTypeSelect) {
-        nsqfTypeSelect.addEventListener('change', function() {
-            handleCategoryChange(document.getElementById('edit_category').value);
+        nsqfTypeSelect.addEventListener('change', handleSubcategoryChange);
+        // Call it once on page load to set the initial state
+        handleSubcategoryChange();
+    }
+    
+    // Add form submission handler
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            prepareFormSubmission();
         });
     }
 });

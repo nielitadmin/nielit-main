@@ -25,7 +25,7 @@ if (empty($course_id) || !is_numeric($course_id)) {
 }
 
 // Fetch course details
-$stmt = $conn->prepare("SELECT id, course_name, course_code, qr_code_path FROM courses WHERE id = ?");
+$stmt = $conn->prepare("SELECT id, course_name, course_code, registration_token, qr_code_path FROM courses WHERE id = ?");
 $stmt->bind_param("i", $course_id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -42,8 +42,8 @@ if (!empty($course['qr_code_path'])) {
     deleteQRCode($course['qr_code_path']);
 }
 
-// Generate new QR code
-$qr_result = generateCourseQRCode($course_id, $course['course_code']);
+// Generate new QR code with token
+$qr_result = generateCourseQRCode($course_id, $course['course_code'], $course['registration_token']);
 
 if ($qr_result['success']) {
     // Update database with QR path and registration link

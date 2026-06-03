@@ -11,10 +11,11 @@ require_once __DIR__ . '/../phpqrcode/qrlib.php';
  * Generate QR Code for Course Registration Link
  * 
  * @param int $course_id - Course ID from database
- * @param string $course_code - Course code for URL (e.g., 'DBC', 'PPI')
+ * @param string $course_code - Course code for filename (e.g., 'DBC', 'PPI')
+ * @param string $registration_token - Registration token for URL (e.g., 'mmRWCOtf')
  * @return array - ['success' => bool, 'path' => string, 'url' => string, 'message' => string]
  */
-function generateCourseQRCode($course_id, $course_code = '') {
+function generateCourseQRCode($course_id, $course_code = '', $registration_token = '') {
     try {
         // Create QR codes directory if it doesn't exist
         $qr_dir = __DIR__ . '/../assets/qr_codes/';
@@ -22,9 +23,25 @@ function generateCourseQRCode($course_id, $course_code = '') {
             mkdir($qr_dir, 0777, true);
         }
 
-        // Generate registration URL using course CODE (not course ID)
+        // If no token is provided, fetch it from database
+        if (empty($registration_token)) {
+            global $conn;
+            if ($conn) {
+                $token_query = $conn->prepare("SELECT registration_token FROM courses WHERE id = ?");
+                if ($token_query) {
+                    $token_query->bind_param("i", $course_id);
+                    $token_query->execute();
+                    $token_result = $token_query->get_result();
+                    if ($token_result && $token_row = $token_result->fetch_assoc()) {
+                        $registration_token = $token_row['registration_token'];
+                    }
+                }
+            }
+        }
+
+        // Generate registration URL using token format (NEW FORMAT)
         $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
-        $registration_url = $base_url . "/student/register.php?course=" . urlencode($course_code);
+        $registration_url = $base_url . "/student/register.php?token=" . urlencode($registration_token);
 
         // Create filename
         $safe_name = !empty($course_code) ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $course_code) : 'course_' . $course_id;
@@ -137,16 +154,17 @@ function getQRCodeSize($qr_path) {
  * @param int $course_id - Course ID
  * @param string $old_qr_path - Old QR code path to delete
  * @param string $course_code - Course code (e.g., 'DBC', 'PPI')
+ * @param string $registration_token - Registration token for URL
  * @return array - Result array
  */
-function regenerateQRCode($course_id, $old_qr_path = '', $course_code = '') {
+function regenerateQRCode($course_id, $old_qr_path = '', $course_code = '', $registration_token = '') {
     // Delete old QR code if exists
     if (!empty($old_qr_path)) {
         deleteQRCode($old_qr_path);
     }
 
     // Generate new QR code
-    return generateCourseQRCode($course_id, $course_code);
+    return generateCourseQRCode($course_id, $course_code, $registration_token);
 }
 
 /**
@@ -203,12 +221,12 @@ function generateCustomQRCode($url, $filename) {
 function batchGenerateQRCodes($conn) {
     $results = [];
     
-    $query = "SELECT id, course_name, course_code FROM courses WHERE status = 'active'";
+    $query = "SELECT id, course_name, course_code, registration_token FROM courses WHERE status = 'active'";
     $result = $conn->query($query);
     
     if ($result && $result->num_rows > 0) {
         while ($course = $result->fetch_assoc()) {
-            $qr_result = generateCourseQRCode($course['id'], $course['course_code']);
+            $qr_result = generateCourseQRCode($course['id'], $course['course_code'], $course['registration_token']);
             
             if ($qr_result['success']) {
                 // Update database with QR path and registration link

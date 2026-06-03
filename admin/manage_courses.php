@@ -123,7 +123,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Auto-generate QR code if registration link exists
             if (!empty($registration_link)) {
                 require_once '../includes/qr_helper.php';
-                $qr_result = generateCourseQRCode($course_id, $course_code);
+                
+                // Fetch registration token for this course
+                $stmt_token = $conn->prepare("SELECT registration_token FROM courses WHERE id = ?");
+                $stmt_token->bind_param("i", $course_id);
+                $stmt_token->execute();
+                $token_result = $stmt_token->get_result();
+                $token_row = $token_result->fetch_assoc();
+                $registration_token = $token_row['registration_token'] ?? '';
+                
+                $qr_result = generateCourseQRCode($course_id, $course_code, $registration_token);
                 
                 if ($qr_result['success']) {
                     // Update course with QR path
@@ -210,8 +219,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($registration_link)) {
                 require_once '../includes/qr_helper.php';
                 
-                // Get old QR path
-                $stmt_get = $conn->prepare("SELECT qr_code_path FROM courses WHERE id = ?");
+                // Get old QR path and fetch registration token
+                $stmt_get = $conn->prepare("SELECT qr_code_path, registration_token FROM courses WHERE id = ?");
                 $stmt_get->bind_param("i", $id);
                 $stmt_get->execute();
                 $result_get = $stmt_get->get_result();
@@ -222,8 +231,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     deleteQRCode($old_course['qr_code_path']);
                 }
                 
-                // Generate new QR
-                $qr_result = generateCourseQRCode($id, $course_code);
+                // Generate new QR with token
+                $qr_result = generateCourseQRCode($id, $course_code, $old_course['registration_token']);
                 
                 if ($qr_result['success']) {
                     $stmt_update = $conn->prepare("UPDATE courses SET qr_code_path = ?, qr_generated_at = NOW() WHERE id = ?");

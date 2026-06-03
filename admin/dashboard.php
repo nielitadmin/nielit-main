@@ -279,7 +279,7 @@ if (isset($_POST['add_course'])) {
         // Auto-generate QR code if registration link exists
         if (!empty($apply_link)) {
             require_once __DIR__ . '/../includes/qr_helper.php';
-            $qr_result = generateCourseQRCode($course_id, $course_code);
+            $qr_result = generateCourseQRCode($course_id, $course_code, $registration_token);
             
             if ($qr_result['success']) {
                 // Update course with QR path
@@ -2351,7 +2351,7 @@ $dashboard_payload = [
                 </button>
             </div>
             
-            <form action="dashboard.php" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;">
+            <form action="dashboard.php" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; flex: 1; overflow: hidden;" onsubmit="prepareFormSubmissionDash()">
                 <div class="modal-body">
                 <!-- Basic Course Information -->
                 <div class="form-section">
@@ -2362,7 +2362,7 @@ $dashboard_payload = [
                     
                     <!-- Category and Sub-Category First -->
                     <div class="form-grid form-grid-2">
-                        <div class="form-group">
+                        <div class="form-group" id="add_category_group_dash">
                             <label class="form-label">Category <span class="required">*</span></label>
                             <select class="form-select" name="category" id="add_category_dash" required>
                                 <option value="">Select Category</option>
@@ -2784,9 +2784,31 @@ function handleNsqfTypeChangeDash(nsqfType) {
     const courseNameTemplateGroup = document.getElementById('add_template_selection_group_dash');
     const courseNameTemplate = document.getElementById('add_course_name_template_dash');
     const eligibilityField = document.getElementById('add_eligibility_dash');
+    const categoryFieldGroup = document.getElementById('add_category_group_dash');
+    const categorySelect = document.getElementById('add_category_dash');
+    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
     
     const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
+    
+    // Handle category field visibility for special subcategories
+    if (specialSubcategories.includes(nsqfType)) {
+        if (categoryFieldGroup) {
+            categoryFieldGroup.style.display = 'none';
+        }
+        if (categorySelect) {
+            categorySelect.required = false;
+            categorySelect.value = nsqfType;
+        }
+    } else {
+        if (categoryFieldGroup) {
+            categoryFieldGroup.style.display = 'block';
+        }
+        if (categorySelect) {
+            categorySelect.required = true;
+            categorySelect.value = '';
+        }
+    }
     
     if (nsqfType === 'NSQF Course') {
         // Show template dropdown for Course Coordinators and Master Admins
@@ -2832,6 +2854,22 @@ function handleNsqfTypeChangeDash(nsqfType) {
             eligibilityField.placeholder = 'Enter eligibility criteria';
         }
     }
+}
+
+// Prepare form submission by setting category correctly
+function prepareFormSubmissionDash() {
+    const nsqfTypeSelect = document.getElementById('add_nsqf_type_dash');
+    const categorySelect = document.getElementById('add_category_dash');
+    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    
+    if (nsqfTypeSelect && categorySelect) {
+        const selectedValue = nsqfTypeSelect.value;
+        if (specialSubcategories.includes(selectedValue)) {
+            categorySelect.value = selectedValue;
+        }
+    }
+    
+    return true;
 }
 
 // Fetch NSQF templates for dashboard

@@ -20,13 +20,23 @@ if (empty($course_code)) {
     exit();
 }
 
-// Generate registration link using course_code (not course_name)
+// Build base URL
 $baseUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
 $baseUrl .= str_replace('admin/generate_link_qr.php', '', $_SERVER['REQUEST_URI']);
-$apply_link = $baseUrl . 'student/register.php?course=' . urlencode($course_code);
 
 // If course_id exists, update the database and generate QR
 if ($course_id) {
+    // Fetch registration token first
+    $stmt_token_fetch = $conn->prepare("SELECT registration_token FROM courses WHERE id = ?");
+    $stmt_token_fetch->bind_param("i", $course_id);
+    $stmt_token_fetch->execute();
+    $token_result = $stmt_token_fetch->get_result();
+    $token_row = $token_result->fetch_assoc();
+    $registration_token = $token_row['registration_token'] ?? '';
+    
+    // Generate registration link using token format (NEW FORMAT)
+    $apply_link = $baseUrl . 'student/register.php?token=' . urlencode($registration_token);
+    
     // Update the apply_link in database
     $stmt = $conn->prepare("UPDATE courses SET apply_link = ? WHERE id = ?");
     $stmt->bind_param("si", $apply_link, $course_id);
@@ -62,8 +72,8 @@ if ($course_id) {
         }
         
         if ($should_generate_qr) {
-            // Generate QR code
-            $qr_result = generateCourseQRCode($course_id, $course_code);
+            // Generate QR code with token
+            $qr_result = generateCourseQRCode($course_id, $course_code, $registration_token);
             
             if ($qr_result['success']) {
                 // Update QR code path in database
@@ -81,7 +91,7 @@ if ($course_id) {
             } else {
                 echo json_encode([
                     'success' => true,
-                    'message' => 'Link generated but QR code failed: ' . $qr_result['error'],
+                    'message' => 'Link generated but QR code failed: ' . $qr_result['message'],
                     'apply_link' => $apply_link,
                     'qr_code_path' => null
                 ]);

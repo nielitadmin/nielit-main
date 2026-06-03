@@ -62,8 +62,7 @@ $sql_digital_lit = "SELECT courses.*, centres.name as centre_name, centres.city 
 $sql_internship = "SELECT courses.*, centres.name as centre_name, centres.city as centre_city, centres.state as centre_state 
                    FROM courses 
                    LEFT JOIN centres ON courses.centre_id = centres.id 
-                   WHERE courses.category = 'Skill Based (Short Term) 90-500 hrs' 
-                   AND courses.is_nsqf = 0 
+                   WHERE courses.category = 'Internship Program' 
                    AND (courses.link_published = 1 OR courses.link_published IS NULL)" . $centre_condition;
 
 // Execute only the 6 required queries
