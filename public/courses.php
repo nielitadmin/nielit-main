@@ -243,17 +243,34 @@ $result_internship = $conn->query($sql_internship);
         /* Compact header info */
         .course-header-info {
             display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 0.5rem;
+            flex: 1;
         }
 
         .course-quick-info {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.8);
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.85);
+            flex-wrap: wrap;
+        }
+
+        .course-quick-info span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            white-space: nowrap;
+        }
+
+        .course-quick-info span:has(i.fa-building) {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            padding: 0.3rem 0.75rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.78rem;
         }
 
         .course-quick-info i {
