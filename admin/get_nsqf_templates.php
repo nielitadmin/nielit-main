@@ -19,6 +19,8 @@ if (file_exists($category_options_file)) {
 }
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 $category = trim($_GET['category'] ?? '');
 
@@ -124,7 +126,7 @@ try {
         'category' => $category,
         'templates' => $templates,
         'count' => count($templates),
-        'api_version' => '2026-06-05',
+        'api_version' => '2026-06-05-v2',
     ]);
 
 } catch (Exception $e) {
