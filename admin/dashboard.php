@@ -7,6 +7,7 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");
@@ -2365,26 +2366,14 @@ $dashboard_payload = [
                         <div class="form-group" id="add_category_group_dash">
                             <label class="form-label">Category <span class="required">*</span></label>
                             <select class="form-select" name="category" id="add_category_dash" required>
-                                <option value="">Select Category</option>
-                                <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                                <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses &gt; 500 hrs</option>
-                                <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses &gt;90 hrs to &lt;=500 hrs</option>
-                                <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses &lt;= 90 hours</option>
-                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                                <?php echo render_course_category_options('', 'Select Category'); ?>
                             </select>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Sub-Category <span class="required">*</span></label>
                             <select class="form-select" name="nsqf_type" id="add_nsqf_type_dash" required>
-                                <option value="">--Select Sub-Category--</option>
-                                <option value="NSQF Course">NSQF Course</option>
-                                <option value="NON-NSQF Course">NON-NSQF Course</option>
-                                <option value="Internship Program">Internship Program</option>
-                                <option value="Awareness Program">Awareness Program</option>
-                                <option value="FDP Program">FDP Program</option>
-                                <option value="Workshop">Workshop</option>
-                                <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                                <?php echo render_course_sub_category_options(); ?>
                             </select>
                         </div>
                     </div>
@@ -2776,7 +2765,21 @@ document.addEventListener('DOMContentLoaded', function() {
             handleNsqfTypeChangeDash(this.value);
         });
     }
+
+    const categorySelectDash = document.getElementById('add_category_dash');
+    if (categorySelectDash) {
+        categorySelectDash.addEventListener('change', handleDashboardCategoryChange);
+    }
 });
+
+function handleDashboardCategoryChange() {
+    const nsqfTypeSelect = document.getElementById('add_nsqf_type_dash');
+    if (nsqfTypeSelect && nsqfTypeSelect.value === 'NSQF Course') {
+        const categorySelect = document.getElementById('add_category_dash');
+        const category = categorySelect && categorySelect.value ? categorySelect.value : 'NSQF';
+        fetchNSQFTemplatesDash(category);
+    }
+}
 
 // Handle sub-category (nsqf_type) change for template integration
 function handleNsqfTypeChangeDash(nsqfType) {
@@ -2786,7 +2789,7 @@ function handleNsqfTypeChangeDash(nsqfType) {
     const eligibilityField = document.getElementById('add_eligibility_dash');
     const categoryFieldGroup = document.getElementById('add_category_group_dash');
     const categorySelect = document.getElementById('add_category_dash');
-    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
     
     const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
@@ -2821,8 +2824,9 @@ function handleNsqfTypeChangeDash(nsqfType) {
             courseNameTemplate.required = true;
             courseNameInput.required = false;
             
-            // Fetch NSQF templates
-            fetchNSQFTemplatesDash('NSQF');
+            // Fetch NSQF templates (filtered by selected category when set)
+            const categorySelectDash = document.getElementById('add_category_dash');
+            fetchNSQFTemplatesDash(categorySelectDash && categorySelectDash.value ? categorySelectDash.value : 'NSQF');
         } else if (isNSQFManager) {
             // NSQF managers can create new courses directly
             courseNameInput.style.display = 'block';
@@ -2860,7 +2864,7 @@ function handleNsqfTypeChangeDash(nsqfType) {
 function prepareFormSubmissionDash() {
     const nsqfTypeSelect = document.getElementById('add_nsqf_type_dash');
     const categorySelect = document.getElementById('add_category_dash');
-    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
     
     if (nsqfTypeSelect && categorySelect) {
         const selectedValue = nsqfTypeSelect.value;

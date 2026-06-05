@@ -12,74 +12,69 @@ if (!isset($_SESSION['admin'])) {
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 header('Content-Type: application/json');
 
-$category = $_GET['category'] ?? '';
+$category = trim($_GET['category'] ?? '');
+$valid_categories = get_all_valid_nsqf_template_categories();
 
-// Accept unified 'NSQF' category (or empty legacy requests) and map to both template types
-if ($category !== '' && !in_array($category, ['NSQF', 'Long Term NSQF', 'Short Term NSQF'])) {
+if ($category !== '' && !in_array($category, $valid_categories, true)) {
     echo json_encode(['success' => false, 'message' => 'Invalid category']);
     exit();
 }
 
 try {
-    // Fetch active NSQF templates for the selected category (map 'NSQF' to both long & short)
-    if ($category === 'NSQF' || $category === '') {
-        // For production compatibility - include all NSQF-related categories
-        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
-                           FROM nsqf_course_templates 
-                           WHERE (category IN ('Long Term NSQF','Short Term NSQF','Skill Based (Long Term) >500 hrs','Skill Based (Short Term) Courses (90-500 hrs)') 
-                                  OR category = '' OR category IS NULL) 
-                           AND is_active = 1 
-                           ORDER BY course_name ASC");
+    // Only return templates marked as NSQF Course (legacy rows may have NULL nsqf_type)
+    $base_sql = "SELECT id, course_name, eligibility, category
+                 FROM nsqf_course_templates
+                 WHERE is_active = 1
+                 AND (nsqf_type = 'NSQF Course' OR nsqf_type IS NULL OR nsqf_type = '')";
+
+    if ($category === 'Long Term NSQF') {
+        $sql = $base_sql . " AND category IN ('Long Term NSQF', 'Skill Based (Long Term) >500 hrs', 'Skill Based (Long Term) Courses (> 500 hrs)')
+                 ORDER BY course_name ASC";
+        $stmt = $conn->prepare($sql);
+    } elseif ($category === 'Short Term NSQF') {
+        $sql = $base_sql . " AND category IN ('Short Term NSQF', 'Skill Based (Short Term) 90-500 hrs', 'Skill Based (Short Term) Courses (90-500 hrs)', 'Short Term / Digital Competency <=90 hrs', 'Short Term / Digital Competency Courses (<= 90 hrs)')
+                 ORDER BY course_name ASC";
+        $stmt = $conn->prepare($sql);
+    } elseif ($category !== '' && $category !== 'NSQF') {
+        $sql = $base_sql . " AND category = ? ORDER BY course_name ASC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt !== false) {
+            $stmt->bind_param('s', $category);
+        }
     } else {
-        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
-                           FROM nsqf_course_templates 
-                           WHERE category = ? AND is_active = 1 
-                           ORDER BY course_name ASC");
+        // Empty or 'NSQF' — return all active NSQF templates
+        $sql = $base_sql . " ORDER BY course_name ASC";
+        $stmt = $conn->prepare($sql);
     }
-    
+
     if ($stmt === false) {
-        // Table might not exist - run migration
         include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
-        
-        // Try again after migration
-        $stmt = $conn->prepare("SELECT id, course_name, eligibility 
-                               FROM nsqf_course_templates 
-                               WHERE category = ? AND is_active = 1 
-                               ORDER BY course_name ASC");
-        
+        $sql = $base_sql . " ORDER BY course_name ASC";
+        $stmt = $conn->prepare($sql);
         if ($stmt === false) {
-            throw new Exception("Could not prepare statement: " . $conn->error);
+            throw new Exception('Could not prepare statement: ' . $conn->error);
         }
     }
-    
-    if ($category === 'NSQF' || $category === '') {
-        // no params
-    } else {
-        $stmt->bind_param("s", $category);
-    }
+
     $stmt->execute();
     $result = $stmt->get_result();
-    
+
     $templates = [];
     while ($row = $result->fetch_assoc()) {
         $templates[] = $row;
     }
-    
+
     echo json_encode([
         'success' => true,
         'category' => $category,
         'templates' => $templates,
         'count' => count($templates),
-        'debug' => [
-            'query_executed' => true,
-            'user_role' => $_SESSION['admin_role'] ?? 'not_set',
-            'sql_used' => ($category === 'NSQF' || $category === '') ? 'blank_category_compatible' : 'specific_category'
-        ]
     ]);
-    
+
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
@@ -88,4 +83,3 @@ try {
 }
 
 $conn->close();
-?>

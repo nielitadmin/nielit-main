@@ -7,6 +7,7 @@ if (!isset($_SESSION['admin']) || $_SESSION['admin_role'] !== 'nsqf_course_manag
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 $active_theme = loadActiveTheme($conn);
 
@@ -240,24 +241,17 @@ $templates = $stmt->get_result();
                     <div class="mb-3">
                         <label class="form-label">Category *</label>
                         <select name="category" class="form-control" required>
-                            <option value="">--Select Category--</option>
-                            <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                            <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
-                            <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                            <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                            <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                            <option value="Internship Program">Internship Program</option>
+                            <?php echo render_course_category_options(); ?>
                         </select>
+                        <small class="text-muted">Must match the category used when Course Coordinators add courses</small>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Sub-Category *</label>
                         <select name="nsqf_type" class="form-control" required>
-                            <option value="">--Select Sub-Category--</option>
-                            <option value="NSQF Course">NSQF Course</option>
-                            <option value="NON-NSQF Course">NON-NSQF Course</option>
+                            <?php echo render_course_sub_category_options('', '--Select Sub-Category--', true); ?>
                         </select>
-                        <small class="text-muted">Select whether this course follows NSQF framework</small>
+                        <small class="text-muted">Use NSQF Course for templates that coordinators select from the dropdown</small>
                     </div>
                     
                     <div class="mb-3">
@@ -295,24 +289,16 @@ $templates = $stmt->get_result();
                     <div class="mb-3">
                         <label class="form-label">Category *</label>
                         <select name="category" id="edit_category" class="form-control" required>
-                            <option value="">--Select Category--</option>
-                            <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                            <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
-                            <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                            <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                            <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
-                            <option value="Internship Program">Internship Program</option>
+                            <?php echo render_course_category_options(); ?>
                         </select>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Sub-Category *</label>
                         <select name="nsqf_type" id="edit_nsqf_type" class="form-control" required>
-                            <option value="">--Select Sub-Category--</option>
-                            <option value="NSQF Course">NSQF Course</option>
-                            <option value="NON-NSQF Course">NON-NSQF Course</option>
+                            <?php echo render_course_sub_category_options('', '--Select Sub-Category--', true); ?>
                         </select>
-                        <small class="text-muted">Select whether this course follows NSQF framework</small>
+                        <small class="text-muted">Use NSQF Course for templates that coordinators select from the dropdown</small>
                     </div>
                     
                     <div class="mb-3">

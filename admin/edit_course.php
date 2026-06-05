@@ -5,6 +5,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 // Function to generate short token
 function generateShortToken($length = 8) {
@@ -163,7 +164,7 @@ if (isset($_POST['update_course'])) {
     $is_nsqf            = ($nsqf_type === 'NSQF Course') ? 1 : 0;
     
     // Handle special sub-categories that should be stored as categories
-    $special_subcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    $special_subcategories = get_special_subcategories();
     if (in_array($nsqf_type, $special_subcategories)) {
         $category = $nsqf_type;
         $is_nsqf = 0; // These programs are typically non-NSQF
@@ -407,6 +408,16 @@ if (isset($_POST['update_course'])) {
         echo "Update failed: " . $stmt->error;
     }
 }
+
+$selected_main_category = in_array($course['category'] ?? '', array_keys(get_course_main_categories()), true)
+    ? $course['category']
+    : '';
+$selected_sub_category = 'NON-NSQF Course';
+if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
+    $selected_sub_category = 'NSQF Course';
+} elseif (in_array($course['category'] ?? '', get_special_subcategories(), true)) {
+    $selected_sub_category = $course['category'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -483,27 +494,15 @@ if (isset($_POST['update_course'])) {
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                         <div class="form-group" id="category_field_group">
                             <label class="form-label">Category *</label>
-                            <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo $course['category']; ?>')">
-                                <option value="">--Select Category--</option>
-                                <option value="Degree / Diploma / PG" <?php if ($course['category'] == 'Degree / Diploma / PG') echo 'selected'; ?>>Degree / Diploma Courses / PG</option>
-                                <option value="Skill Based (Long Term) >500 hrs" <?php if ($course['category'] == 'Skill Based (Long Term) >500 hrs') echo 'selected'; ?>>Skill Based (Long Term) Courses > 500 hrs</option>
-                                <option value="Skill Based (Short Term) 90-500 hrs" <?php if ($course['category'] == 'Skill Based (Short Term) 90-500 hrs') echo 'selected'; ?>>Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                                <option value="Short Term / Digital Competency <=90 hrs" <?php if ($course['category'] == 'Short Term / Digital Competency <=90 hrs') echo 'selected'; ?>>Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                                <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)" <?php if ($course['category'] == "NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)") echo 'selected'; ?>>NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                            <select class="form-select" name="category" id="edit_category" required onchange="handleCategoryChange('<?php echo htmlspecialchars($course['category'] ?? '', ENT_QUOTES); ?>')">
+                                <?php echo render_course_category_options($selected_main_category); ?>
                             </select>
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label">Sub-Category *</label>
                             <select class="form-select" name="nsqf_type" id="edit_nsqf_type" required>
-                                <option value="">--Select Sub-Category--</option>
-                                <option value="NSQF Course" <?php if (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) echo 'selected'; ?>>NSQF Course</option>
-                                <option value="NON-NSQF Course" <?php if (empty($course['is_nsqf']) || $course['is_nsqf'] == 0) echo 'selected'; ?>>NON-NSQF Course</option>
-                                <option value="Internship Program" <?php if ($course['category'] == 'Internship Program') echo 'selected'; ?>>Internship Program</option>
-                                <option value="Awareness Program" <?php if ($course['category'] == 'Awareness Program') echo 'selected'; ?>>Awareness Program</option>
-                                <option value="FDP Program" <?php if ($course['category'] == 'FDP Program') echo 'selected'; ?>>FDP Program</option>
-                                <option value="Workshop" <?php if ($course['category'] == 'Workshop') echo 'selected'; ?>>Workshop</option>
-                                <option value="GOVT/CORPORATE Training" <?php if ($course['category'] == 'GOVT/CORPORATE Training') echo 'selected'; ?>>GOVT/CORPORATE Training</option>
+                                <?php echo render_course_sub_category_options($selected_sub_category); ?>
                             </select>
                             <small class="text-muted">Select whether this course follows NSQF framework</small>
                         </div>
@@ -1293,8 +1292,9 @@ function handleCategoryChange(currentCategory) {
             courseNameInput.placeholder    = 'Will be filled from template selection';
             eligibilityField.readOnly      = true;
             eligibilityField.placeholder   = 'Will auto-populate from template';
-            // request templates for NSQF courses
-            fetchNSQFTemplates('');
+            // request templates for NSQF courses (filtered by selected category)
+            const categorySelect = document.getElementById('edit_category');
+            fetchNSQFTemplates(categorySelect ? categorySelect.value : '');
         } else {
             templateGroup.style.display    = 'none';
             courseNameInput.readOnly       = false;
@@ -1302,7 +1302,7 @@ function handleCategoryChange(currentCategory) {
             eligibilityField.readOnly      = false;
             eligibilityField.placeholder   = 'Enter eligibility criteria';
         }
-    } else if (['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'].includes(selectedNsqfType)) {
+    } else if (<?php echo json_encode(get_special_subcategories()); ?>.includes(selectedNsqfType)) {
         // Handle special sub-categories
         templateGroup.style.display    = 'none';
         courseNameInput.readOnly       = false;
@@ -1380,7 +1380,7 @@ function handleSubcategoryChange() {
     const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
     const categoryFieldGroup = document.getElementById('category_field_group');
     const categorySelect = document.getElementById('edit_category');
-    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
     
     const selectedValue = nsqfTypeSelect.value;
     
@@ -1403,7 +1403,7 @@ function handleSubcategoryChange() {
 function prepareFormSubmission() {
     const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
     const categorySelect = document.getElementById('edit_category');
-    const specialSubcategories = ['Internship Program', 'Awareness Program', 'FDP Program', 'Workshop', 'GOVT/CORPORATE Training'];
+    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
     
     const selectedValue = nsqfTypeSelect.value;
     

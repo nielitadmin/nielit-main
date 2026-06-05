@@ -7,6 +7,7 @@ if (!isset($_SESSION['admin'])) {
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 function findDuplicateCourseFields($conn, $course_code, $course_abbreviation, $exclude_id = null) {
     $course_code = strtoupper(trim($course_code));
@@ -682,25 +683,13 @@ if (!empty($params)) {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Category *</label>
                                 <select name="course_type" class="form-control" required id="add_course_category" onchange="handleAddCategoryChange()">
-                                    <option value="">--Select Category--</option>
-                                    <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                                    <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
-                                    <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                                    <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                                    <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                                    <?php echo render_course_category_options(); ?>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Sub-Category *</label>
                                 <select name="nsqf_type" id="add_nsqf_type" class="form-select" required onchange="handleAddSubCategoryChange()">
-                                    <option value="">--Select Sub-Category--</option>
-                                    <option value="NSQF Course">NSQF Course</option>
-                                    <option value="NON-NSQF Course">NON-NSQF Course</option>
-                                    <option value="Internship Program">Internship Program</option>
-                                    <option value="Awareness Program">Awareness Program</option>
-                                    <option value="FDP Program">FDP Program</option>
-                                    <option value="Workshop">Workshop</option>
-                                    <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                                    <?php echo render_course_sub_category_options(); ?>
                                 </select>
                                 <small class="text-muted">Select whether this course follows NSQF framework or is a special program</small>
                             </div>
@@ -844,25 +833,13 @@ if (!empty($params)) {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Category *</label>
                                 <select name="course_type" id="edit_course_type" class="form-control" required onchange="handleEditCategoryChange()">
-                                    <option value="">--Select Category--</option>
-                                    <option value="Degree / Diploma / PG">Degree / Diploma Courses / PG</option>
-                                    <option value="Skill Based (Long Term) >500 hrs">Skill Based (Long Term) Courses > 500 hrs</option>
-                                    <option value="Skill Based (Short Term) 90-500 hrs">Skill Based (Short Term) Courses >90 hrs to <=500 hrs</option>
-                                    <option value="Short Term / Digital Competency <=90 hrs">Short Term Courses / Digital Competency Courses <= 90 hours</option>
-                                    <option value="NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)">NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)</option>
+                                    <?php echo render_course_category_options(); ?>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Sub-Category *</label>
                                 <select name="nsqf_type" id="edit_nsqf_type" class="form-select" required onchange="handleEditSubCategoryChange()">
-                                    <option value="">--Select Sub-Category--</option>
-                                    <option value="NSQF Course">NSQF Course</option>
-                                    <option value="NON-NSQF Course">NON-NSQF Course</option>
-                                    <option value="Internship Program">Internship Program</option>
-                                    <option value="Awareness Program">Awareness Program</option>
-                                    <option value="FDP Program">FDP Program</option>
-                                    <option value="Workshop">Workshop</option>
-                                    <option value="GOVT/CORPORATE Training">GOVT/CORPORATE Training</option>
+                                    <?php echo render_course_sub_category_options(); ?>
                                 </select>
                                 <small class="text-muted">Select whether this course follows NSQF framework or is a special program</small>
                             </div>
@@ -1048,7 +1025,7 @@ if (!empty($params)) {
                 courseNameTemplate.value = '';
                 courseNameInput.value = '';
 
-                fetchNSQFTemplates('', mode);
+                fetchNSQFTemplates(getSelectedTemplateCategory(mode), mode);
 
                 if (eligibilityField) {
                     eligibilityField.readOnly = true;
@@ -1523,6 +1500,11 @@ if (!empty($params)) {
      * Handle changes to category and sub-category dropdowns
      */
     
+    function getSelectedTemplateCategory(mode) {
+        const categorySelect = document.getElementById(mode === 'add' ? 'add_course_category' : 'edit_course_type');
+        return categorySelect ? categorySelect.value : '';
+    }
+
     // Handle Add Category Change
     function handleAddCategoryChange() {
         const categorySelect = document.getElementById('add_course_category');
@@ -1530,6 +1512,11 @@ if (!empty($params)) {
         const eligibilityField = document.getElementById('add_eligibility');
         const durationField = document.getElementById('add_duration');
         
+        // Re-fetch NSQF templates when category changes while NSQF sub-category is selected
+        if (subCategorySelect && subCategorySelect.value === 'NSQF Course') {
+            fetchNSQFTemplates(getSelectedTemplateCategory('add'), 'add');
+        }
+
         // Set appropriate placeholders based on category
         if (categorySelect && eligibilityField && durationField) {
             const category = categorySelect.value;
@@ -1579,6 +1566,7 @@ if (!empty($params)) {
                 courseNameInput.style.display = 'none';
                 eligibilityField.setAttribute('readonly', 'readonly');
                 eligibilityField.placeholder = 'Will be filled from NSQF template';
+                fetchNSQFTemplates(getSelectedTemplateCategory('add'), 'add');
             } else {
                 templateGroup.style.display = 'none';
                 courseNameInput.style.display = 'block';
@@ -1664,6 +1652,7 @@ if (!empty($params)) {
                 courseNameInput.style.display = 'none';
                 eligibilityField.setAttribute('readonly', 'readonly');
                 eligibilityField.placeholder = 'Will be filled from NSQF template';
+                fetchNSQFTemplates(getSelectedTemplateCategory('edit'), 'edit');
             } else {
                 templateGroup.style.display = 'none';
                 courseNameInput.style.display = 'block';
