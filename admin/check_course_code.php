@@ -1,6 +1,6 @@
 <?php
 /**
- * Check if course code or abbreviation already exists
+ * Check if course code already exists
  * Returns JSON response
  */
 
@@ -17,20 +17,18 @@ if (!isset($_SESSION['admin'])) {
 // Get JSON input
 $input = json_decode(file_get_contents('php://input'), true);
 
-if (!$input || !isset($input['code']) || !isset($input['abbreviation'])) {
+if (!$input || !isset($input['code'])) {
     http_response_code(400);
     echo json_encode(['error' => 'Invalid input']);
     exit();
 }
 
 $code = strtoupper(trim($input['code']));
-$abbreviation = strtoupper(trim($input['abbreviation']));
 $exclude_id = isset($input['exclude_id']) ? intval($input['exclude_id']) : null;
 
-// Check if code or abbreviation exists
 $query = "SELECT id, course_name, course_code, course_abbreviation 
           FROM courses 
-          WHERE (UPPER(TRIM(course_code)) = ? OR UPPER(TRIM(course_abbreviation)) = ?)";
+          WHERE UPPER(TRIM(course_code)) = ?";
 
 if ($exclude_id) {
     $query .= " AND id != ?";
@@ -41,9 +39,9 @@ $query .= " LIMIT 1";
 $stmt = $conn->prepare($query);
 
 if ($exclude_id) {
-    $stmt->bind_param("ssi", $code, $abbreviation, $exclude_id);
+    $stmt->bind_param("si", $code, $exclude_id);
 } else {
-    $stmt->bind_param("ss", $code, $abbreviation);
+    $stmt->bind_param("s", $code);
 }
 
 $stmt->execute();

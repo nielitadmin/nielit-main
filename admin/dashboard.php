@@ -207,7 +207,7 @@ if (isset($_POST['add_course'])) {
     
     $course_name = $_POST['course_name'];
     $course_code = strtoupper($_POST['course_code'] ?? '');
-    $course_abbreviation = strtoupper($_POST['course_abbreviation'] ?? '');
+    $course_abbreviation = '';
     $eligibility = $_POST['eligibility'];
     $duration = $_POST['duration'];
     $training_fees = $_POST['training_fees'];
@@ -2018,7 +2018,6 @@ $dashboard_payload = [
                             <tr>
                                 <th>Course Name</th>
                                 <th>Course Code</th>
-                                <th>Student ID Code</th>
                                 <th>Category</th>
                                 <th>Duration</th>
                                 <th>Fees</th>
@@ -2038,14 +2037,6 @@ $dashboard_payload = [
                                     <td>
                                         <?php if (!empty($row['course_code'])): ?>
                                             <span class="badge badge-primary"><?php echo htmlspecialchars($row['course_code']); ?></span>
-                                        <?php else: ?>
-                                            <span class="badge badge-secondary">Not Set</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if (!empty($row['course_abbreviation'])): ?>
-                                            <span class="badge badge-success"><?php echo htmlspecialchars($row['course_abbreviation']); ?></span>
-                                            <br><small class="text-muted">NIELIT/2026/<?php echo htmlspecialchars($row['course_abbreviation']); ?>/####</small>
                                         <?php else: ?>
                                             <span class="badge badge-secondary">Not Set</span>
                                         <?php endif; ?>
@@ -2390,8 +2381,8 @@ $dashboard_payload = [
                         </small>
                     </div>
                     
-                    <!-- Course Name, Code, and Student ID Code -->
-                    <div class="form-grid form-grid-3">
+                    <!-- Course Name and Code -->
+                    <div class="form-grid form-grid-2">
                         <div class="form-group">
                             <label class="form-label">Course Name <span class="required">*</span></label>
                             <input type="text" class="form-control" id="add_course_name_dash" name="course_name" required placeholder="e.g., Post Graduate Programme in Artificial Intelligence" onkeyup="autoGenerateCourseCodeDash()">
@@ -2414,18 +2405,6 @@ $dashboard_payload = [
                                 <i class="fas fa-tag"></i>
                                 <input type="checkbox" id="add_manual_code_dash" onchange="toggleManualCodeDash()"> 
                                 <label for="add_manual_code_dash" style="cursor: pointer;">Edit manually</label>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                Student ID Code <span class="required">*</span>
-                                <small>(Auto-generated)</small>
-                            </label>
-                            <input type="text" class="form-control" name="course_abbreviation" id="add_abbr_dash" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
-                            <div class="form-help">
-                                <i class="fas fa-id-card"></i>
-                                For ID: NIELIT/2026/<strong id="add_abbr_preview_dash">XXX</strong>/0001
                             </div>
                         </div>
                     </div>
@@ -3145,8 +3124,6 @@ function autoGenerateCourseCodeDash() {
     typingTimerDash = setTimeout(function() {
         const courseNameInput = document.getElementById('add_course_name_dash');
         const courseCodeInput = document.getElementById('add_course_code_dash');
-        const abbreviationInput = document.getElementById('add_abbr_dash');
-        const abbrPreview = document.getElementById('add_abbr_preview_dash');
         const manualCheckbox = document.getElementById('add_manual_code_dash');
         
         // Only auto-generate if not in manual mode
@@ -3156,14 +3133,7 @@ function autoGenerateCourseCodeDash() {
             
             if (generated.code) {
                 const uniqueCode = getUniqueCodeDash(generated.code, generated.abbreviation);
-                
                 courseCodeInput.value = uniqueCode.code;
-                abbreviationInput.value = uniqueCode.abbreviation;
-                
-                // Update preview
-                if (abbrPreview) {
-                    abbrPreview.textContent = uniqueCode.abbreviation;
-                }
             }
         }
     }, typingDelayDash);
@@ -3173,24 +3143,13 @@ function autoGenerateCourseCodeDash() {
 function regenerateCourseCodeDash() {
     const courseNameInput = document.getElementById('add_course_name_dash');
     const courseCodeInput = document.getElementById('add_course_code_dash');
-    const abbreviationInput = document.getElementById('add_abbr_dash');
-    const abbrPreview = document.getElementById('add_abbr_preview_dash');
-    
     if (courseNameInput && courseCodeInput) {
         const courseName = courseNameInput.value;
         const generated = generateCodeFromNameDash(courseName);
         
         if (generated.code) {
             const uniqueCode = getUniqueCodeDash(generated.code, generated.abbreviation);
-            
             courseCodeInput.value = uniqueCode.code;
-            abbreviationInput.value = uniqueCode.abbreviation;
-            
-            // Update preview
-            if (abbrPreview) {
-                abbrPreview.textContent = uniqueCode.abbreviation;
-            }
-            
             toast.success('Course code regenerated: ' + uniqueCode.code, 3000);
         } else {
             toast.error('Please enter a course name first', 3000);
@@ -3202,35 +3161,17 @@ function regenerateCourseCodeDash() {
 function toggleManualCodeDash() {
     const manualCheckbox = document.getElementById('add_manual_code_dash');
     const courseCodeInput = document.getElementById('add_course_code_dash');
-    const abbreviationInput = document.getElementById('add_abbr_dash');
-    
     if (manualCheckbox && courseCodeInput) {
         if (manualCheckbox.checked) {
-            // Enable manual editing
             courseCodeInput.removeAttribute('readonly');
-            abbreviationInput.removeAttribute('readonly');
             courseCodeInput.focus();
-            toast.info('Manual editing enabled. You can now edit the course code and student ID code.', 3000);
+            toast.info('Manual editing enabled. You can now edit the course code.', 3000);
         } else {
-            // Disable manual editing and regenerate
             courseCodeInput.setAttribute('readonly', 'readonly');
-            abbreviationInput.setAttribute('readonly', 'readonly');
             regenerateCourseCodeDash();
         }
     }
 }
-
-// Update abbreviation preview when manually editing
-document.addEventListener('DOMContentLoaded', function() {
-    const abbreviationInput = document.getElementById('add_abbr_dash');
-    const abbrPreview = document.getElementById('add_abbr_preview_dash');
-    
-    if (abbreviationInput && abbrPreview) {
-        abbreviationInput.addEventListener('input', function() {
-            abbrPreview.textContent = this.value || 'XXX';
-        });
-    }
-});
 </script>
 
 </body>

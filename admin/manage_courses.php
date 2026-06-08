@@ -9,46 +9,34 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 
-function findDuplicateCourseFields($conn, $course_code, $course_abbreviation, $exclude_id = null) {
+function findDuplicateCourseCode($conn, $course_code, $exclude_id = null) {
     $course_code = strtoupper(trim($course_code));
-    $course_abbreviation = strtoupper(trim($course_abbreviation));
 
     if ($exclude_id !== null) {
-        $sql = "SELECT id, course_name, course_code, course_abbreviation
+        $sql = "SELECT id, course_name, course_code
                 FROM courses
-                WHERE id != ? AND (UPPER(course_code) = ? OR UPPER(course_abbreviation) = ?)
-                LIMIT 5";
+                WHERE id != ? AND UPPER(course_code) = ?
+                LIMIT 1";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("iss", $exclude_id, $course_code, $course_abbreviation);
+        $stmt->bind_param("is", $exclude_id, $course_code);
     } else {
-        $sql = "SELECT id, course_name, course_code, course_abbreviation
+        $sql = "SELECT id, course_name, course_code
                 FROM courses
-                WHERE UPPER(course_code) = ? OR UPPER(course_abbreviation) = ?
-                LIMIT 5";
+                WHERE UPPER(course_code) = ?
+                LIMIT 1";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param("ss", $course_code, $course_abbreviation);
+        $stmt->bind_param("s", $course_code);
     }
 
-    $duplicates = [
-        'code' => null,
-        'abbreviation' => null
-    ];
-
+    $duplicate = null;
     if ($stmt) {
         $stmt->execute();
         $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            if (strtoupper($row['course_code']) === $course_code && $duplicates['code'] === null) {
-                $duplicates['code'] = $row;
-            }
-            if (strtoupper($row['course_abbreviation']) === $course_abbreviation && $duplicates['abbreviation'] === null) {
-                $duplicates['abbreviation'] = $row;
-            }
-        }
+        $duplicate = $result->fetch_assoc() ?: null;
         $stmt->close();
     }
 
-    return $duplicates;
+    return $duplicate;
 }
 
 // Load active theme
@@ -62,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
         $course_name = $_POST['course_name'];
         $course_code = strtoupper(trim($_POST['course_code']));
-        $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
+        $course_abbreviation = '';
         $course_type = $_POST['course_type'];
         $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
         
@@ -73,16 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             goto skip_add;
         }
 
-        $duplicates = findDuplicateCourseFields($conn, $course_code, $course_abbreviation);
-        if ($duplicates['code'] || $duplicates['abbreviation']) {
-            $messages = [];
-            if ($duplicates['code']) {
-                $messages[] = "Course Code '{$course_code}' is already used by '{$duplicates['code']['course_name']}'.";
-            }
-            if ($duplicates['abbreviation']) {
-                $messages[] = "Student ID Code '{$course_abbreviation}' is already used by '{$duplicates['abbreviation']['course_name']}'.";
-            }
-            $error = implode(' ', $messages) . " Please make a different one.";
+        $duplicate = findDuplicateCourseCode($conn, $course_code);
+        if ($duplicate) {
+            $error = "Course Code '{$course_code}' is already used by '{$duplicate['course_name']}'. Please make a different one.";
             $show_duplicate_popup = true;
             goto skip_add;
         }
@@ -174,7 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $course_name = $_POST['course_name'];
         $course_code = strtoupper(trim($_POST['course_code']));
-        $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
         $course_type = $_POST['course_type'];
         $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
         
@@ -185,18 +165,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             goto skip_edit;
         }
 
-        $duplicates = findDuplicateCourseFields($conn, $course_code, $course_abbreviation, $id);
-        if ($duplicates['code'] || $duplicates['abbreviation']) {
-            $messages = [];
-            if ($duplicates['code']) {
-                $messages[] = "Course Code '{$course_code}' is already used by '{$duplicates['code']['course_name']}'.";
-            }
-            if ($duplicates['abbreviation']) {
-                $messages[] = "Student ID Code '{$course_abbreviation}' is already used by '{$duplicates['abbreviation']['course_name']}'.";
-            }
-            $error = implode(' ', $messages) . " Please make a different one.";
+        $duplicate = findDuplicateCourseCode($conn, $course_code, $id);
+        if ($duplicate) {
+            $error = "Course Code '{$course_code}' is already used by '{$duplicate['course_name']}'. Please make a different one.";
             $show_duplicate_popup = true;
             goto skip_edit;
+        }
+
+        $abbr_stmt = $conn->prepare("SELECT course_abbreviation FROM courses WHERE id = ? LIMIT 1");
+        $course_abbreviation = '';
+        if ($abbr_stmt) {
+            $abbr_stmt->bind_param("i", $id);
+            $abbr_stmt->execute();
+            $abbr_row = $abbr_stmt->get_result()->fetch_assoc();
+            $course_abbreviation = $abbr_row['course_abbreviation'] ?? '';
+            $abbr_stmt->close();
         }
         
         $training_center = $_POST['training_center'];
@@ -537,7 +520,6 @@ if (!empty($params)) {
                                         <th>ID</th>
                                         <th>Course Name</th>
                                         <th>Course Code</th>
-                                        <th>Student ID Code</th>
                                         <th>Type</th>
                                         <th>Centre</th>
                                         <th>Training Centre</th>
@@ -555,14 +537,6 @@ if (!empty($params)) {
                                         <td><?= $course['id'] ?></td>
                                         <td><?= htmlspecialchars($course['course_name']) ?></td>
                                         <td><span class="badge bg-primary"><?= htmlspecialchars($course['course_code']) ?></span></td>
-                                        <td>
-                                            <?php if (!empty($course['course_abbreviation'])): ?>
-                                                <span class="badge bg-success"><?= htmlspecialchars($course['course_abbreviation']) ?></span>
-                                                <br><small class="text-muted">NIELIT/2026/<?= htmlspecialchars($course['course_abbreviation']) ?>/####</small>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">Not Set</span>
-                                            <?php endif; ?>
-                                        </td>
                                         <td><?= htmlspecialchars($course['course_type']) ?></td>
                                         <td>
                                             <?php if (!empty($course['centre_name'])): ?>
@@ -731,7 +705,7 @@ if (!empty($params)) {
                                 <input type="text" name="course_name" id="add_course_name" class="form-control" required onkeyup="autoGenerateAddCourseCode()" placeholder="Enter the full course name as it will appear on certificates">
                                 <small class="text-muted">This will appear on certificates and documents</small>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">
                                     Course Code * 
                                     <small>(Auto-generated)</small>
@@ -744,14 +718,6 @@ if (!empty($params)) {
                                     <input type="checkbox" id="add_manual_code" onchange="toggleAddManualCode()"> 
                                     <label for="add_manual_code">Edit manually</label>
                                 </small>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">
-                                    Student ID Code * 
-                                    <small>(Auto-generated)</small>
-                                </label>
-                                <input type="text" name="course_abbreviation" id="add_course_abbreviation" class="form-control" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
-                                <small class="text-muted">For ID: NIELIT/2026/<strong id="add_abbr_preview">XXX</strong>/0001</small>
                             </div>
                         </div>
 
@@ -870,14 +836,9 @@ if (!empty($params)) {
                                 <input type="text" name="course_name" id="edit_course_name" class="form-control" required placeholder="Enter the full course name as it will appear on certificates">
                                 <small class="text-muted">This will appear on certificates and documents</small>
                             </div>
-                            <div class="col-md-3 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Course Code *</label>
                                 <input type="text" name="course_code" id="edit_course_code" class="form-control" maxlength="20" required style="text-transform: uppercase;">
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <label class="form-label">Student ID Code *</label>
-                                <input type="text" name="course_abbreviation" id="edit_course_abbreviation" class="form-control" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI">
-                                <small class="text-muted">For ID: NIELIT/2026/<strong id="edit_abbr_preview">XXX</strong>/0001</small>
                             </div>
                         </div>
 
@@ -1147,12 +1108,6 @@ if (!empty($params)) {
             document.getElementById('edit_publish_status').className = this.checked ? 'text-success fw-bold' : '';
         });
 
-        // Update abbreviation preview as user types (Edit modal)
-        document.getElementById('edit_course_abbreviation').addEventListener('input', function() {
-            const abbr = this.value.toUpperCase() || 'XXX';
-            document.getElementById('edit_abbr_preview').textContent = abbr;
-        });
-
         // Generate QR Code via AJAX
         function generateQRCode(courseId) {
             const btn = document.getElementById('qr_btn_' + courseId);
@@ -1243,7 +1198,6 @@ if (!empty($params)) {
             document.getElementById('edit_course_id').value = course.id;
             document.getElementById('edit_course_name').value = course.course_name;
             document.getElementById('edit_course_code').value = course.course_code;
-            document.getElementById('edit_course_abbreviation').value = course.course_abbreviation || '';
             document.getElementById('edit_course_type').value = course.course_type;
             const editNsqfTypeSelect = document.getElementById('edit_nsqf_type');
             if (editNsqfTypeSelect) {
@@ -1257,11 +1211,6 @@ if (!empty($params)) {
             document.getElementById('edit_description').value = course.description || '';
             document.getElementById('edit_eligibility').value = course.eligibility || '';
             document.getElementById('edit_is_nsqf').checked = (course.is_nsqf == 1 || course.is_nsqf === '1');
-            
-            // Update abbreviation preview
-            if (course.course_abbreviation) {
-                document.getElementById('edit_abbr_preview').textContent = course.course_abbreviation.toUpperCase();
-            }
             
             // Set registration link
             document.getElementById('edit_apply_link').value = course.registration_link || '';
@@ -1418,7 +1367,6 @@ if (!empty($params)) {
         addTypingTimer = setTimeout(async function() {
             const courseNameInput = document.getElementById('add_course_name');
             const courseCodeInput = document.getElementById('add_course_code');
-            const abbreviationInput = document.getElementById('add_course_abbreviation');
             const manualCheckbox = document.getElementById('add_manual_code');
             
             // Only auto-generate if not in manual mode
@@ -1427,17 +1375,8 @@ if (!empty($params)) {
                 const generated = generateCodeFromName(courseName);
                 
                 if (generated.code) {
-                    // Get unique code (handles duplicates automatically)
                     const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, null);
-                    
                     courseCodeInput.value = uniqueCode.code;
-                    abbreviationInput.value = uniqueCode.abbreviation;
-                    
-                    // Update preview
-                    const preview = document.getElementById('add_abbr_preview');
-                    if (preview) {
-                        preview.textContent = uniqueCode.abbreviation;
-                    }
                 }
             }
         }, addTypingDelay);
@@ -1447,25 +1386,13 @@ if (!empty($params)) {
     async function regenerateAddCourseCode() {
         const courseNameInput = document.getElementById('add_course_name');
         const courseCodeInput = document.getElementById('add_course_code');
-        const abbreviationInput = document.getElementById('add_course_abbreviation');
-        
         if (courseNameInput && courseCodeInput) {
             const courseName = courseNameInput.value;
             const generated = generateCodeFromName(courseName);
             
             if (generated.code) {
-                // Get unique code (handles duplicates automatically)
                 const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, null);
-                
                 courseCodeInput.value = uniqueCode.code;
-                abbreviationInput.value = uniqueCode.abbreviation;
-                
-                // Update preview
-                const preview = document.getElementById('add_abbr_preview');
-                if (preview) {
-                    preview.textContent = uniqueCode.abbreviation;
-                }
-                
                 toast.success('Course code generated: ' + uniqueCode.code, 3000);
             } else {
                 toast.error('Please enter a course name first', 3000);
@@ -1477,19 +1404,13 @@ if (!empty($params)) {
     function toggleAddManualCode() {
         const manualCheckbox = document.getElementById('add_manual_code');
         const courseCodeInput = document.getElementById('add_course_code');
-        const abbreviationInput = document.getElementById('add_course_abbreviation');
-        
         if (manualCheckbox && courseCodeInput) {
             if (manualCheckbox.checked) {
-                // Enable manual editing
                 courseCodeInput.removeAttribute('readonly');
-                abbreviationInput.removeAttribute('readonly');
                 courseCodeInput.focus();
                 toast.info('Manual editing enabled', 3000);
             } else {
-                // Disable manual editing and regenerate
                 courseCodeInput.setAttribute('readonly', 'readonly');
-                abbreviationInput.setAttribute('readonly', 'readonly');
                 regenerateAddCourseCode();
             }
         }

@@ -138,7 +138,7 @@ if (isset($_POST['update_course'])) {
         );
     $course_name        = $_POST['course_name'];
     $course_code        = strtoupper(trim($_POST['course_code'] ?? ''));
-    $course_abbreviation = strtoupper(trim($_POST['course_abbreviation'] ?? ''));
+    $course_abbreviation = $course['course_abbreviation'] ?? '';
     $eligibility        = $_POST['eligibility'];
     $duration           = $_POST['duration'];
     $training_fees      = $_POST['training_fees'];
@@ -173,8 +173,7 @@ if (isset($_POST['update_course'])) {
     $description_pdf    = $course['description_pdf'];
     $course_flyer       = $course['course_flyer'] ?? '';
 
-    // Note: Duplicate course codes and student ID codes are now allowed
-    // The system will ensure student IDs remain unique through sequential numbering per course
+    // Student IDs are institute-wide (NIELIT/YYYY/BBSR/####), not per-course
 
     // Handle PDF upload
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
@@ -517,8 +516,8 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                         <small class="text-muted">Select a course name from NSQF templates</small>
                     </div>
 
-                    <!-- Course Name, Code, and Student ID Code -->
-                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <!-- Course Name and Code -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 16px;">
                         <div class="form-group">
                             <label class="form-label">Course Name *</label>
                             <input type="text" class="form-control" name="course_name" id="edit_course_name" value="<?php echo htmlspecialchars($course['course_name']); ?>" required onkeyup="autoGenerateCourseCode()">
@@ -536,14 +535,6 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                                 <input type="checkbox" id="edit_manual_code" onchange="toggleManualCode()"> 
                                 <label for="edit_manual_code">Edit manually</label>
                             </small>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">
-                                Student ID Code * 
-                                <small>(Auto-generated)</small>
-                            </label>
-                            <input type="text" class="form-control" name="course_abbreviation" id="edit_course_abbreviation" value="<?php echo htmlspecialchars($course['course_abbreviation'] ?? ''); ?>" maxlength="10" required style="text-transform: uppercase;" placeholder="PPI" readonly>
-                            <small class="text-muted">For ID: NIELIT/2026/<strong id="edit_abbr_preview"><?php echo htmlspecialchars($course['course_abbreviation'] ?? 'XXX'); ?></strong>/0001</small>
                         </div>
                     </div>
                         
@@ -1574,7 +1565,6 @@ function autoGenerateCourseCode() {
     typingTimer = setTimeout(async function() {
         const courseNameInput = document.getElementById('edit_course_name');
         const courseCodeInput = document.getElementById('edit_course_code');
-        const abbreviationInput = document.getElementById('edit_course_abbreviation');
         const manualCheckbox = document.getElementById('edit_manual_code');
         
         // Only auto-generate if not in manual mode
@@ -1583,18 +1573,9 @@ function autoGenerateCourseCode() {
             const generated = generateCodeFromName(courseName);
             
             if (generated.code) {
-                // Get unique code (handles duplicates automatically)
                 const courseId = new URLSearchParams(window.location.search).get('id');
                 const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, courseId);
-                
                 courseCodeInput.value = uniqueCode.code;
-                abbreviationInput.value = uniqueCode.abbreviation;
-                
-                // Update preview
-                const preview = document.getElementById('edit_abbr_preview');
-                if (preview) {
-                    preview.textContent = uniqueCode.abbreviation;
-                }
             }
         }
     }, typingDelay);
@@ -1604,26 +1585,14 @@ function autoGenerateCourseCode() {
 async function regenerateCourseCode() {
     const courseNameInput = document.getElementById('edit_course_name');
     const courseCodeInput = document.getElementById('edit_course_code');
-    const abbreviationInput = document.getElementById('edit_course_abbreviation');
-    
     if (courseNameInput && courseCodeInput) {
         const courseName = courseNameInput.value;
         const generated = generateCodeFromName(courseName);
         
         if (generated.code) {
-            // Get unique code (handles duplicates automatically)
             const courseId = new URLSearchParams(window.location.search).get('id');
             const uniqueCode = await getUniqueCode(generated.code, generated.abbreviation, courseId);
-            
             courseCodeInput.value = uniqueCode.code;
-            abbreviationInput.value = uniqueCode.abbreviation;
-            
-            // Update preview
-            const preview = document.getElementById('edit_abbr_preview');
-            if (preview) {
-                preview.textContent = uniqueCode.abbreviation;
-            }
-            
             toast.success('Course code regenerated: ' + uniqueCode.code, 3000);
         } else {
             toast.error('Please enter a course name first', 3000);
@@ -1635,19 +1604,13 @@ async function regenerateCourseCode() {
 function toggleManualCode() {
     const manualCheckbox = document.getElementById('edit_manual_code');
     const courseCodeInput = document.getElementById('edit_course_code');
-    const abbreviationInput = document.getElementById('edit_course_abbreviation');
-    
     if (manualCheckbox && courseCodeInput) {
         if (manualCheckbox.checked) {
-            // Enable manual editing
             courseCodeInput.removeAttribute('readonly');
-            abbreviationInput.removeAttribute('readonly');
             courseCodeInput.focus();
             toast.info('Manual editing enabled. You can now edit the course code.', 3000);
         } else {
-            // Disable manual editing and regenerate
             courseCodeInput.setAttribute('readonly', 'readonly');
-            abbreviationInput.setAttribute('readonly', 'readonly');
             regenerateCourseCode();
         }
     }
@@ -1670,7 +1633,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // If code exists and doesn't look auto-generated, assume it's manual
             document.getElementById('edit_manual_code').checked = true;
             courseCodeInput.removeAttribute('readonly');
-            document.getElementById('edit_course_abbreviation').removeAttribute('readonly');
         }
     }
 });
