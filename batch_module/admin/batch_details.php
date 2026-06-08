@@ -30,10 +30,50 @@ $is_locked = isBatchLocked($batch_id, $conn);
 $lock_info = getBatchLockInfo($batch_id, $conn);
 
 $students = getBatchStudents($batch_id, $conn);
+$eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
+$move_target_batches = getMoveTargetBatches($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
 
 $message = '';
 $message_type = 'success';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_students_to_batch']) && !$is_locked) {
+    $record_ids = $_POST['student_record_ids'] ?? [];
+    if (empty($record_ids)) {
+        $message = 'Please select at least one student to add.';
+        $message_type = 'warning';
+    } else {
+    $result = addStudentsToBatch($record_ids, $batch_id, $_SESSION['admin'] ?? 'Admin', $conn);
+    $message = $result['message'];
+    $message_type = $result['success'] ? 'success' : 'danger';
+    $students = getBatchStudents($batch_id, $conn);
+    $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
+    $stats = getBatchStats($batch_id, $conn);
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_students_to_batch']) && $is_locked) {
+    $message = 'Cannot add students: Batch is locked.';
+    $message_type = 'danger';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_students_to_batch']) && !$is_locked) {
+    $target_batch_id = (int)($_POST['target_batch_id'] ?? 0);
+    $move_record_ids = $_POST['move_student_record_ids'] ?? [];
+    if ($target_batch_id <= 0 || empty($move_record_ids)) {
+        $message = 'Please select student(s) and a destination batch.';
+        $message_type = 'warning';
+    } else {
+        $result = moveStudentsToBatch($move_record_ids, $batch_id, $target_batch_id, $_SESSION['admin'] ?? 'Admin', $conn);
+        $message = $result['message'];
+        $message_type = $result['success'] ? 'success' : 'danger';
+        $students = getBatchStudents($batch_id, $conn);
+        $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
+        $move_target_batches = getMoveTargetBatches($batch_id, $conn);
+        $stats = getBatchStats($batch_id, $conn);
+    }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_students_to_batch']) && $is_locked) {
+    $message = 'Cannot move students: Batch is locked.';
+    $message_type = 'danger';
+}
 
 // Handle remove student (only if batch is not locked)
 if (isset($_GET['remove_student']) && !$is_locked) {
@@ -1031,15 +1071,80 @@ function downloadScannedOrder(batchId) {
                 </div>
             </div>
 
+            <!-- Add Students to Batch -->
+            <?php if (!$is_locked && !empty($eligible_students)): ?>
+            <div class="content-card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-user-plus"></i> Add Students to Batch
+                    </h5>
+                    <span class="badge badge-primary"><?php echo count($eligible_students); ?> available</span>
+                </div>
+                <p style="color:#64748b;font-size:14px;margin-bottom:16px;">
+                    Select students registered for <strong><?php echo htmlspecialchars($batch['course_name']); ?></strong> who are not yet in this batch.
+                </p>
+                <form method="POST" action="">
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;"><input type="checkbox" id="select-all-eligible" title="Select All"></th>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Mobile</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($eligible_students as $estu): ?>
+                                <tr>
+                                    <td>
+                                        <input type="checkbox" class="eligible-student-checkbox" name="student_record_ids[]" value="<?php echo (int)$estu['id']; ?>">
+                                    </td>
+                                    <td><strong><?php echo htmlspecialchars($estu['student_id']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($estu['name']); ?></td>
+                                    <td><?php echo htmlspecialchars($estu['email']); ?></td>
+                                    <td><?php echo htmlspecialchars($estu['mobile']); ?></td>
+                                    <td><span class="badge badge-secondary"><?php echo htmlspecialchars(ucfirst($estu['status'])); ?></span></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:16px;display:flex;gap:10px;align-items:center;">
+                        <button type="submit" name="add_students_to_batch" value="1" class="btn btn-primary">
+                            <i class="fas fa-user-plus"></i> Add Selected to Batch
+                        </button>
+                        <span id="eligible-selected-count" style="color:#64748b;font-size:14px;display:none;">
+                            <span id="eligible-count-number">0</span> selected
+                        </span>
+                    </div>
+                </form>
+            </div>
+            <?php elseif (!$is_locked): ?>
+            <div class="content-card">
+                <div class="alert alert-info" style="margin:0;">
+                    <i class="fas fa-info-circle"></i>
+                    No unassigned students available for this course. Assign a course from <strong>Admin → Students → Assign Course</strong>, or wait for new registrations.
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Students List -->
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-users"></i> Enrolled Students
                     </h5>
-                    <div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <?php if (!empty($students) && !$is_locked && !empty($move_target_batches)): ?>
+                            <button type="button" id="bulk-move-btn" class="btn btn-warning btn-sm" style="display:none;" onclick="openMoveModal()">
+                                <i class="fas fa-exchange-alt"></i> Move Selected (<span id="enrolled-selected-count">0</span>)
+                            </button>
+                        <?php endif; ?>
                         <?php if (!empty($students)): ?>
-                            <a href="?id=<?php echo $batch_id; ?>&export=excel" class="btn btn-success">
+                            <a href="?id=<?php echo $batch_id; ?>&export=excel" class="btn btn-success btn-sm">
                                 <i class="fas fa-file-excel"></i> Export to Excel
                             </a>
                         <?php endif; ?>
@@ -1051,6 +1156,11 @@ function downloadScannedOrder(batchId) {
                         <table class="modern-table">
                             <thead>
                                 <tr>
+                                    <?php if (!$is_locked && !empty($move_target_batches)): ?>
+                                    <th style="width:40px;">
+                                        <input type="checkbox" id="select-all-enrolled" title="Select All">
+                                    </th>
+                                    <?php endif; ?>
                                     <th>Student ID</th>
                                     <th>NIELIT Portal Reg. No.</th>
                                     <th>Name</th>
@@ -1065,6 +1175,14 @@ function downloadScannedOrder(batchId) {
                             <tbody>
                                 <?php foreach ($students as $student): ?>
                                     <tr>
+                                        <?php if (!$is_locked && !empty($move_target_batches)): ?>
+                                        <td>
+                                            <input type="checkbox"
+                                                   class="enrolled-student-checkbox"
+                                                   value="<?php echo (int)$student['id']; ?>"
+                                                   data-name="<?php echo htmlspecialchars($student['name'], ENT_QUOTES); ?>">
+                                        </td>
+                                        <?php endif; ?>
                                         <td><strong><?php echo htmlspecialchars($student['student_id'] ?? 'N/A'); ?></strong></td>
                                         <td>
                                             <div style="display: flex; gap: 5px; align-items: center;">
@@ -1111,6 +1229,14 @@ function downloadScannedOrder(batchId) {
                                                     <i class="fas fa-lock"></i>
                                                 </button>
                                             <?php else: ?>
+                                                <?php if (!empty($move_target_batches)): ?>
+                                                <button type="button"
+                                                        class="btn btn-warning btn-sm"
+                                                        title="Move to Another Batch"
+                                                        onclick="openMoveModal([<?php echo (int)$student['id']; ?>], ['<?php echo htmlspecialchars(addslashes($student['name'])); ?>'])">
+                                                    <i class="fas fa-exchange-alt"></i>
+                                                </button>
+                                                <?php endif; ?>
                                                 <a href="javascript:void(0);" 
                                                    class="btn btn-danger btn-sm" 
                                                    onclick="confirmRemoveStudent(<?php echo $student['id']; ?>, '<?php echo htmlspecialchars(addslashes($student['name'])); ?>', <?php echo $batch_id; ?>);" 
@@ -1134,6 +1260,132 @@ function downloadScannedOrder(batchId) {
         </div>
     </main>
 </div>
+
+<?php if (!$is_locked && !empty($move_target_batches)): ?>
+<div id="moveBatchModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10001;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#fff;border-radius:12px;padding:24px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:18px;color:#1e293b;">
+                <i class="fas fa-exchange-alt" style="color:#f59e0b;"></i> Move to Another Batch
+            </h3>
+            <button type="button" onclick="closeMoveModal()" style="border:none;background:none;font-size:24px;cursor:pointer;color:#64748b;">&times;</button>
+        </div>
+        <p style="margin:0 0 12px;color:#64748b;font-size:14px;">
+            Course: <strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>
+        </p>
+        <p id="move-modal-students" style="margin:0 0 16px;color:#1e293b;font-size:14px;"></p>
+        <form method="POST" action="">
+            <div id="move-modal-record-ids"></div>
+            <div class="form-group" style="margin-bottom:16px;">
+                <label class="form-label" style="display:block;font-weight:600;margin-bottom:8px;">Destination Batch</label>
+                <select name="target_batch_id" class="form-control" required>
+                    <option value="">-- Select Batch --</option>
+                    <?php foreach ($move_target_batches as $tb): ?>
+                    <option value="<?php echo (int)$tb['id']; ?>">
+                        <?php echo htmlspecialchars($tb['batch_name'] . ' (' . $tb['batch_code'] . ') — ' . $tb['seats_filled'] . '/' . $tb['seats_total'] . ' seats'); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="submit" name="move_students_to_batch" value="1" class="btn btn-warning" style="flex:1;">
+                    <i class="fas fa-exchange-alt"></i> Move Students
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeMoveModal()" style="flex:1;">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+function openMoveModal(recordIds, names) {
+    const modal = document.getElementById('moveBatchModal');
+    if (!modal) return;
+
+    if (!recordIds || !recordIds.length) {
+        recordIds = [];
+        names = [];
+        document.querySelectorAll('.enrolled-student-checkbox:checked').forEach(function (cb) {
+            recordIds.push(cb.value);
+            names.push(cb.getAttribute('data-name') || 'Student');
+        });
+    }
+
+    if (!recordIds.length) {
+        showToast('Please select at least one student.', 'warning');
+        return;
+    }
+
+    const idsContainer = document.getElementById('move-modal-record-ids');
+    idsContainer.innerHTML = '';
+    recordIds.forEach(function (id) {
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'move_student_record_ids[]';
+        inp.value = id;
+        idsContainer.appendChild(inp);
+    });
+
+    const label = document.getElementById('move-modal-students');
+    if (recordIds.length === 1) {
+        label.textContent = 'Moving: ' + (names[0] || '1 student');
+    } else {
+        label.textContent = 'Moving ' + recordIds.length + ' students';
+    }
+
+    modal.style.display = 'flex';
+}
+
+function closeMoveModal() {
+    const modal = document.getElementById('moveBatchModal');
+    if (modal) modal.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const selectAll = document.getElementById('select-all-eligible');
+    if (!selectAll) return;
+
+    const checkboxes = document.querySelectorAll('.eligible-student-checkbox');
+    const countEl = document.getElementById('eligible-selected-count');
+    const countNum = document.getElementById('eligible-count-number');
+
+    function updateEligibleCount() {
+        const n = document.querySelectorAll('.eligible-student-checkbox:checked').length;
+        if (countEl) countEl.style.display = n ? 'inline' : 'none';
+        if (countNum) countNum.textContent = n;
+    }
+
+    selectAll.addEventListener('change', function () {
+        checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+        updateEligibleCount();
+    });
+
+    checkboxes.forEach(cb => cb.addEventListener('change', updateEligibleCount));
+
+    const selectAllEnrolled = document.getElementById('select-all-enrolled');
+    const enrolledCheckboxes = document.querySelectorAll('.enrolled-student-checkbox');
+    const bulkMoveBtn = document.getElementById('bulk-move-btn');
+    const enrolledCountEl = document.getElementById('enrolled-selected-count');
+
+    function updateEnrolledCount() {
+        const n = document.querySelectorAll('.enrolled-student-checkbox:checked').length;
+        if (bulkMoveBtn) bulkMoveBtn.style.display = n ? 'inline-flex' : 'none';
+        if (enrolledCountEl) enrolledCountEl.textContent = n;
+    }
+
+    if (selectAllEnrolled) {
+        selectAllEnrolled.addEventListener('change', function () {
+            enrolledCheckboxes.forEach(function (cb) { cb.checked = selectAllEnrolled.checked; });
+            updateEnrolledCount();
+        });
+    }
+
+    enrolledCheckboxes.forEach(function (cb) {
+        cb.addEventListener('change', updateEnrolledCount);
+    });
+});
+</script>
 
 </body>
 </html>

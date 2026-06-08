@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // Check if student is logged in
 if (!isset($_SESSION['student_id'])) {
@@ -9,19 +10,46 @@ if (!isset($_SESSION['student_id'])) {
 }
 
 $student_id = $_SESSION['student_id'];
+$selected_record_id = isset($_GET['record_id']) ? (int)$_GET['record_id'] : (int)($_SESSION['active_record_id'] ?? 0);
+$selected_course_id = isset($_GET['course_id']) ? (int)$_GET['course_id'] : (int)($_SESSION['active_course_id'] ?? 0);
 
-// Fetch student details
-$sql = "SELECT * FROM students WHERE student_id = ?";
+$enrollments = getEnrollmentsForStudentId($conn, $student_id);
+
+// Fetch student details (selected enrollment row, or latest)
+$sql = "SELECT s.*, sch.scheme_name, sch.scheme_code
+        FROM students s
+        LEFT JOIN schemes sch ON sch.id = s.scheme_id
+        WHERE s.student_id = ?";
+if ($selected_record_id > 0) {
+    $sql .= " AND s.id = ? LIMIT 1";
+} elseif ($selected_course_id > 0) {
+    $sql .= " AND s.course_id = ? ORDER BY s.id DESC LIMIT 1";
+} else {
+    $sql .= " ORDER BY s.id DESC LIMIT 1";
+}
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
     die("Database error: " . $conn->error);
 }
 
-$stmt->bind_param("s", $student_id);
+if ($selected_record_id > 0) {
+    $stmt->bind_param("si", $student_id, $selected_record_id);
+} elseif ($selected_course_id > 0) {
+    $stmt->bind_param("si", $student_id, $selected_course_id);
+} else {
+    $stmt->bind_param("s", $student_id);
+}
 $stmt->execute();
 $result = $stmt->get_result();
 $student = $result->fetch_assoc();
+
+if ($student) {
+    $selected_record_id = (int)$student['id'];
+    $selected_course_id = (int)($student['course_id'] ?? 0);
+    $_SESSION['active_record_id'] = $selected_record_id;
+    $_SESSION['active_course_id'] = $selected_course_id;
+}
 
 // Try to get course details if courses table exists
 $course_name = $student['course'];
@@ -107,6 +135,68 @@ include 'includes/header.php';
             </div>
         </div>
     </div>
+
+    <?php if (count($enrollments) > 0): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-layer-group"></i> My Courses</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Scheme / Project</th>
+                                    <th>Batch</th>
+                                    <th>Status</th>
+                                    <th>Registered</th>
+                                    <th>Form</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($enrollments as $enr):
+                                    $cid = (int)($enr['course_id'] ?? 0);
+                                    $recordId = (int)($enr['student_record_id'] ?? $enr['id'] ?? 0);
+                                    $cname = $enr['course_name'] ?? ($enr['course'] ?? 'N/A');
+                                    $sname = $enr['scheme_name'] ?? '';
+                                    $bname = $enr['batch_name'] ?? ($enr['batch_code'] ?? 'Not assigned');
+                                    $estatus = ucfirst($enr['status'] ?? 'pending');
+                                    $regDate = !empty($enr['registered_at']) ? $enr['registered_at'] : ($enr['registration_date'] ?? '');
+                                ?>
+                                <tr class="<?php echo ($recordId === $selected_record_id) ? 'table-primary' : ''; ?>">
+                                    <td><?php echo htmlspecialchars($cname); ?></td>
+                                    <td><?php echo $sname !== '' ? htmlspecialchars($sname) : '—'; ?></td>
+                                    <td><?php echo htmlspecialchars($bname); ?></td>
+                                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($estatus); ?></span></td>
+                                    <td><?php echo $regDate ? date('M d, Y', strtotime($regDate)) : '—'; ?></td>
+                                    <td>
+                                        <?php if ($recordId > 0): ?>
+                                        <a href="download_form.php?record_id=<?php echo $recordId; ?>" class="btn btn-sm btn-outline-success" title="Download form for this course">
+                                            <i class="fas fa-file-pdf"></i> Form
+                                        </a>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($recordId !== $selected_record_id && $recordId > 0): ?>
+                                        <a href="dashboard.php?record_id=<?php echo $recordId; ?>" class="btn btn-sm btn-outline-primary">View</a>
+                                        <?php else: ?>
+                                        <span class="text-muted small">Current</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Stats Cards -->
     <div class="row mb-4">

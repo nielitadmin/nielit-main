@@ -1423,7 +1423,7 @@ $courses_result = $conn->query($sql_courses);
                     ?>" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancel
                     </a>
-                    <a href="download_student_form.php?id=<?php echo urlencode($student_id); ?>" class="btn btn-success" target="_blank">
+                    <a href="download_student_form.php?record_id=<?php echo (int)($student['id'] ?? 0); ?>" class="btn btn-success" target="_blank">
                         <i class="fas fa-download"></i> Download Form
                     </a>
                     <button type="submit" name="update_student" class="btn btn-primary">

@@ -202,7 +202,7 @@ if ($stmt_education) {
                     ?>" class="btn btn-primary">
                         <i class="fas fa-edit"></i> Edit Student
                     </a>
-                    <a href="download_student_form.php?id=<?php echo $student_id; ?>" class="btn btn-success" target="_blank">
+                    <a href="download_student_form.php?record_id=<?php echo (int)($student['id'] ?? 0); ?>" class="btn btn-success" target="_blank">
                         <i class="fas fa-download"></i> Download Form
                     </a>
                 </div>

@@ -11,6 +11,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // Require registration_token parameter for secure registration links
 $registration_token = $_GET['token'] ?? '';
@@ -78,6 +79,7 @@ if (
 }
 
 $selected_course = $course_details['course_name'];
+$course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1505,6 +1507,28 @@ if (isset($_SESSION['info'])) {
                         <small class="text-muted"><i class="fas fa-lock"></i> Locked by registration link</small>
                     </div>
                 </div>
+
+                <?php if (!empty($course_schemes)): ?>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Scheme / Project <?php echo count($course_schemes) > 1 ? '<span class="required-mark">*</span>' : ''; ?></label>
+                        <?php if (count($course_schemes) === 1): ?>
+                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_schemes[0]['scheme_name'] . ' (' . $course_schemes[0]['scheme_code'] . ')'); ?>" readonly style="background-color:#f0f9ff;">
+                            <input type="hidden" name="scheme_id" value="<?php echo (int)$course_schemes[0]['id']; ?>">
+                        <?php else: ?>
+                            <select class="form-control" name="scheme_id" required>
+                                <option value="">-- Select Scheme / Project --</option>
+                                <?php foreach ($course_schemes as $sch): ?>
+                                <option value="<?php echo (int)$sch['id']; ?>">
+                                    <?php echo htmlspecialchars($sch['scheme_name'] . ' (' . $sch['scheme_code'] . ')'); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted">Required if registering again for this course under a different project.</small>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Personal Information Section -->

@@ -4,6 +4,7 @@ session_start();
 
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // Check if the student is already logged in
 if (isset($_SESSION['student_id'])) {
@@ -16,40 +17,73 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $student_id = trim($_POST['student_id']);
     $password = $_POST['password'];
 
-    // Query to fetch student data including status
-    $sql = "SELECT student_id, password, name, status FROM students WHERE student_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $student_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $authenticated = false;
+    $display_name = '';
 
-    if ($result->num_rows > 0) {
-        $student = $result->fetch_assoc();
-        
-        // Check if student is approved (active status)
-        if (strtolower($student['status']) != 'active') {
-            if (strtolower($student['status']) == 'pending') {
-                $error_message = "Your account is pending admin approval. Please wait for approval before logging in.";
-            } elseif (strtolower($student['status']) == 'rejected') {
-                $error_message = "Your registration has been rejected. Please contact admin for more information.";
-            } else {
-                $error_message = "Your account is not active. Please contact admin.";
+    $account = getAccountByStudentId($conn, $student_id);
+    if ($account && password_verify($password, $account['password'])) {
+        $authenticated = true;
+        $display_name = $account['name'];
+    } else {
+        $sql = "SELECT student_id, password, name, status FROM students WHERE student_id = ? ORDER BY id DESC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param("s", $student_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                if (password_verify($password, $row['password'])) {
+                    $authenticated = true;
+                    $display_name = $row['name'];
+                    break;
+                }
+            }
+            $stmt->close();
+        }
+    }
+
+    if (!$authenticated) {
+        $error_message = "Invalid Student ID or Password.";
+    } else {
+        $enrollments = getEnrollmentsForStudentId($conn, $student_id);
+        $has_active = false;
+        $all_rejected = !empty($enrollments);
+
+        foreach ($enrollments as $enrollment) {
+            $status = strtolower($enrollment['status'] ?? '');
+            if (in_array($status, ['active', 'approved'], true)) {
+                $has_active = true;
+                $all_rejected = false;
+            }
+            if (!in_array($status, ['rejected', 'cancelled'], true)) {
+                $all_rejected = false;
             }
         }
-        // Verify the password
-        elseif (password_verify($password, $student['password'])) {
-            // Store student info in session
-            $_SESSION['student_id'] = $student['student_id'];
-            $_SESSION['student_name'] = $student['name'];
-            
-            // Redirect to dashboard
+
+        if (!empty($enrollments) && $all_rejected && !$has_active) {
+            $error_message = "Your registration has been rejected. Please contact admin for more information.";
+        } elseif (!$has_active && !empty($enrollments)) {
+            $only_pending = true;
+            foreach ($enrollments as $enrollment) {
+                if (strtolower($enrollment['status'] ?? '') !== 'pending') {
+                    $only_pending = false;
+                    break;
+                }
+            }
+            if ($only_pending) {
+                $error_message = "Your account is pending admin approval. Please wait for approval before logging in.";
+            } else {
+                $_SESSION['student_id'] = $student_id;
+                $_SESSION['student_name'] = $display_name;
+                header("Location: dashboard.php");
+                exit;
+            }
+        } else {
+            $_SESSION['student_id'] = $student_id;
+            $_SESSION['student_name'] = $display_name;
             header("Location: dashboard.php");
             exit;
-        } else {
-            $error_message = "Invalid Password.";
         }
-    } else {
-        $error_message = "Student ID not found.";
     }
 }
 ?>

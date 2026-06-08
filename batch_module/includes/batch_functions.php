@@ -217,13 +217,31 @@ function getActiveBatches($conn) {
  * Approve student and assign to batch
  */
 function approveStudent($student_id, $batch_id, $admin_name, $conn) {
-    // Start transaction
+    $helper = __DIR__ . '/../../includes/multi_course_helper.php';
+    if (file_exists($helper)) {
+        require_once $helper;
+        if (function_exists('assignEnrollmentToBatch')) {
+            return assignEnrollmentToBatch($conn, (int)$student_id, (int)$batch_id, $admin_name);
+        }
+    }
+
     $conn->begin_transaction();
-    
+
     try {
-        // Update student status
+        $check = $conn->prepare('SELECT id FROM batch_students WHERE student_id = ? AND batch_id = ? LIMIT 1');
+        if ($check) {
+            $check->bind_param('ii', $student_id, $batch_id);
+            $check->execute();
+            if ($check->get_result()->num_rows > 0) {
+                $check->close();
+                $conn->commit();
+                return ['success' => true, 'message' => 'Student is already in this batch.'];
+            }
+            $check->close();
+        }
+
         $sql1 = "UPDATE students SET 
-                status = 'Approved', 
+                status = 'active', 
                 batch_id = ?, 
                 approved_by = ?, 
                 approved_at = NOW() 
@@ -232,44 +250,23 @@ function approveStudent($student_id, $batch_id, $admin_name, $conn) {
         $stmt1->bind_param("isi", $batch_id, $admin_name, $student_id);
         $stmt1->execute();
         $stmt1->close();
-        
-        // Add to batch_students
+
         $sql2 = "INSERT INTO batch_students (batch_id, student_id, enrollment_date) 
                 VALUES (?, ?, NOW())";
         $stmt2 = $conn->prepare($sql2);
         $stmt2->bind_param("ii", $batch_id, $student_id);
         $stmt2->execute();
         $stmt2->close();
-        
-        // Update batch seats_filled
+
         $sql3 = "UPDATE batches SET seats_filled = seats_filled + 1 WHERE id = ?";
         $stmt3 = $conn->prepare($sql3);
         $stmt3->bind_param("i", $batch_id);
         $stmt3->execute();
         $stmt3->close();
-        
-        // Generate student ID if not exists
-        $sql4 = "SELECT student_id FROM students WHERE id = ?";
-        $stmt4 = $conn->prepare($sql4);
-        $stmt4->bind_param("i", $student_id);
-        $stmt4->execute();
-        $result = $stmt4->get_result();
-        $row = $result->fetch_assoc();
-        $stmt4->close();
-        
-        if (empty($row['student_id'])) {
-            // Generate student ID
-            $student_id_code = 'NIELIT' . date('Y') . str_pad($student_id, 5, '0', STR_PAD_LEFT);
-            $sql5 = "UPDATE students SET student_id = ? WHERE id = ?";
-            $stmt5 = $conn->prepare($sql5);
-            $stmt5->bind_param("si", $student_id_code, $student_id);
-            $stmt5->execute();
-            $stmt5->close();
-        }
-        
+
         $conn->commit();
         return ['success' => true, 'message' => 'Student approved and assigned to batch successfully'];
-        
+
     } catch (Exception $e) {
         $conn->rollback();
         return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
@@ -403,22 +400,279 @@ function getBatchStudents($batch_id, $conn) {
 }
 
 /**
+ * Students eligible to be added to a batch (same course, not already in this batch)
+ */
+function getEligibleStudentsForBatch($batch_id, $conn) {
+    $batch = getBatchById($batch_id, $conn);
+    if (!$batch || empty($batch['course_id'])) {
+        return [];
+    }
+
+    $course_id = (int)$batch['course_id'];
+    $batch_scheme_id = !empty($batch['scheme_id']) ? (int)$batch['scheme_id'] : null;
+
+    $helper = __DIR__ . '/../../includes/multi_course_helper.php';
+    $hasScheme = false;
+    if (file_exists($helper)) {
+        require_once $helper;
+        $hasScheme = function_exists('hasSchemeEnrollmentColumns') && hasSchemeEnrollmentColumns($conn);
+    }
+
+    $sql = "SELECT s.id, s.student_id, s.name, s.email, s.mobile, s.status, c.course_name, s.scheme_id
+            FROM students s
+            LEFT JOIN courses c ON c.id = s.course_id
+            WHERE s.course_id = ?
+            AND LOWER(s.status) NOT IN ('rejected')
+            AND s.batch_id IS NULL
+            AND NOT EXISTS (
+                SELECT 1 FROM batch_students bs
+                WHERE bs.batch_id = ?
+                AND (bs.student_id = s.id OR bs.student_record_id = s.id)
+            )";
+
+    if ($hasScheme && $batch_scheme_id !== null) {
+        $sql .= " AND s.scheme_id = ?";
+    } elseif ($hasScheme) {
+        $sql .= " AND s.scheme_id IS NULL";
+    }
+
+    $sql .= " ORDER BY s.name ASC";
+
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        return [];
+    }
+    if ($hasScheme && $batch_scheme_id !== null) {
+        $stmt->bind_param('iii', $course_id, $batch_id, $batch_scheme_id);
+    } else {
+        $stmt->bind_param('ii', $course_id, $batch_id);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $students = [];
+    while ($row = $result->fetch_assoc()) {
+        $students[] = $row;
+    }
+    $stmt->close();
+    return $students;
+}
+
+/**
+ * Add multiple students to a batch
+ */
+function addStudentsToBatch(array $student_record_ids, $batch_id, $admin_name, $conn) {
+    require_once __DIR__ . '/../../includes/multi_course_helper.php';
+
+    $success = 0;
+    $errors = [];
+    foreach ($student_record_ids as $rid) {
+        $rid = (int)$rid;
+        if ($rid <= 0) {
+            continue;
+        }
+        $result = assignEnrollmentToBatch($conn, $rid, (int)$batch_id, $admin_name);
+        if ($result['success']) {
+            $success++;
+        } else {
+            $errors[] = $result['message'];
+        }
+    }
+
+    if ($success === 0 && !empty($errors)) {
+        return ['success' => false, 'message' => $errors[0], 'count' => 0];
+    }
+
+    $msg = $success . ' student(s) added to batch successfully.';
+    if (!empty($errors)) {
+        $msg .= ' Some failed: ' . implode('; ', array_slice($errors, 0, 3));
+    }
+    return ['success' => true, 'message' => $msg, 'count' => $success];
+}
+
+/**
+ * Active batches for the same course (excluding current batch) — move targets
+ */
+function getMoveTargetBatches($batch_id, $conn) {
+    $batch = getBatchById($batch_id, $conn);
+    if (!$batch || empty($batch['course_id'])) {
+        return [];
+    }
+
+    $course_id = (int)$batch['course_id'];
+    $batch_id = (int)$batch_id;
+    $from_scheme = !empty($batch['scheme_id']) ? (int)$batch['scheme_id'] : null;
+
+    $helper = __DIR__ . '/../../includes/multi_course_helper.php';
+    $hasScheme = false;
+    if (file_exists($helper)) {
+        require_once $helper;
+        $hasScheme = function_exists('hasSchemeEnrollmentColumns') && hasSchemeEnrollmentColumns($conn);
+    }
+
+    $sql = "SELECT b.id, b.batch_name, b.batch_code, b.seats_total, b.seats_filled, b.status, b.scheme_id
+            FROM batches b
+            WHERE b.course_id = ?
+            AND b.id != ?
+            AND LOWER(b.status) = 'active'";
+
+    if ($hasScheme && $from_scheme !== null) {
+        $sql .= " AND b.scheme_id = ?";
+    } elseif ($hasScheme) {
+        $sql .= " AND b.scheme_id IS NULL";
+    }
+
+    $sql .= " ORDER BY b.batch_name ASC";
+
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        return [];
+    }
+    if ($hasScheme && $from_scheme !== null) {
+        $stmt->bind_param('iii', $course_id, $batch_id, $from_scheme);
+    } else {
+        $stmt->bind_param('ii', $course_id, $batch_id);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $batches = [];
+    while ($row = $result->fetch_assoc()) {
+        $batches[] = $row;
+    }
+    $stmt->close();
+    return $batches;
+}
+
+/**
+ * Move enrollment row(s) from one batch to another (same course only)
+ */
+function moveStudentsToBatch(array $student_record_ids, $from_batch_id, $to_batch_id, $admin_name, $conn) {
+    require_once __DIR__ . '/../../includes/multi_course_helper.php';
+
+    $from_batch_id = (int)$from_batch_id;
+    $to_batch_id = (int)$to_batch_id;
+
+    if ($from_batch_id <= 0 || $to_batch_id <= 0) {
+        return ['success' => false, 'message' => 'Invalid batch selected.', 'count' => 0];
+    }
+    if ($from_batch_id === $to_batch_id) {
+        return ['success' => false, 'message' => 'Please choose a different batch.', 'count' => 0];
+    }
+
+    $from = getBatchById($from_batch_id, $conn);
+    $to = getBatchById($to_batch_id, $conn);
+    if (!$from || !$to) {
+        return ['success' => false, 'message' => 'Batch not found.', 'count' => 0];
+    }
+    if ((int)$from['course_id'] !== (int)$to['course_id']) {
+        return ['success' => false, 'message' => 'Destination batch must be for the same course.', 'count' => 0];
+    }
+    if (strtolower((string)$to['status']) !== 'active') {
+        return ['success' => false, 'message' => 'Destination batch is not active.', 'count' => 0];
+    }
+
+    $student_record_ids = array_values(array_filter(array_map('intval', $student_record_ids)));
+    if (empty($student_record_ids)) {
+        return ['success' => false, 'message' => 'Please select at least one student.', 'count' => 0];
+    }
+
+    $success = 0;
+    $errors = [];
+
+    foreach ($student_record_ids as $rid) {
+        if ($rid <= 0) {
+            continue;
+        }
+
+        $inBatch = $conn->prepare(
+            'SELECT id FROM batch_students
+             WHERE batch_id = ? AND (student_record_id = ? OR student_id = ?)
+             LIMIT 1'
+        );
+        if (!$inBatch) {
+            $errors[] = 'Database error verifying student in batch.';
+            continue;
+        }
+        $inBatch->bind_param('iii', $from_batch_id, $rid, $rid);
+        $inBatch->execute();
+        $found = $inBatch->get_result()->num_rows > 0;
+        $inBatch->close();
+
+        if (!$found) {
+            $errors[] = "Student record #$rid is not in this batch.";
+            continue;
+        }
+
+        $removed = removeStudentFromBatch($rid, $from_batch_id, $conn);
+        if (!$removed['success']) {
+            $errors[] = $removed['message'];
+            continue;
+        }
+
+        $assigned = assignEnrollmentToBatch($conn, $rid, $to_batch_id, $admin_name);
+        if ($assigned['success']) {
+            $success++;
+        } else {
+            $errors[] = $assigned['message'];
+        }
+    }
+
+    if ($success === 0) {
+        return [
+            'success' => false,
+            'message' => !empty($errors) ? $errors[0] : 'No students were moved.',
+            'count' => 0,
+        ];
+    }
+
+    $msg = $success . ' student(s) moved to ' . $to['batch_name'] . ' successfully.';
+    if (!empty($errors)) {
+        $msg .= ' Some failed: ' . implode('; ', array_slice($errors, 0, 3));
+    }
+
+    return ['success' => true, 'message' => $msg, 'count' => $success];
+}
+
+/**
  * Remove student from batch
  */
 function removeStudentFromBatch($student_id, $batch_id, $conn) {
-    // Update student's batch_id to NULL using numeric ID
-    $sql = "UPDATE students SET batch_id = NULL WHERE id = ?";
+    $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+    if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
+        $del = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? AND batch_id = ?');
+        if ($del) {
+            $del->bind_param('ii', $student_id, $batch_id);
+            $del->execute();
+            $del->close();
+        }
+    } else {
+        $del = $conn->prepare('DELETE FROM batch_students WHERE student_id = ? AND batch_id = ?');
+        if ($del) {
+            $del->bind_param('ii', $student_id, $batch_id);
+            $del->execute();
+            $del->close();
+        }
+    }
+
+    $sql = "UPDATE students SET batch_id = NULL WHERE id = ? AND batch_id = ?";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $student_id);
-    
+    $stmt->bind_param("ii", $student_id, $batch_id);
+
     if ($stmt->execute()) {
         $stmt->close();
+
+        $batchUpd = $conn->prepare('UPDATE batches SET seats_filled = GREATEST(0, seats_filled - 1) WHERE id = ?');
+        if ($batchUpd) {
+            $batchUpd->bind_param('i', $batch_id);
+            $batchUpd->execute();
+            $batchUpd->close();
+        }
+
         return ['success' => true, 'message' => 'Student removed from batch successfully'];
-    } else {
-        $error = $stmt->error;
-        $stmt->close();
-        return ['success' => false, 'message' => 'Error: ' . $error];
     }
+
+    $error = $stmt->error;
+    $stmt->close();
+    return ['success' => false, 'message' => 'Error: ' . $error];
 }
 
 /**

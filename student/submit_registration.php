@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/student_id_helper.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/email_helper.php';
 
 // ============================================================
@@ -181,6 +182,7 @@ error_log("course_id raw: " . ($_POST['course_id'] ?? 'NOT SET'));
 // 1. Collect fields
 // ----------------------------------------------------------
 $course_id        = intval($_POST['course_id'] ?? 0);
+$scheme_id        = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
 $training_center  = trim($_POST['training_center']  ?? '');
 $name             = trim($_POST['name']              ?? '');
 $father_name      = trim($_POST['father_name']       ?? '');
@@ -302,15 +304,56 @@ foreach ($required as $label => $val) {
 }
 
 // ----------------------------------------------------------
-// 5. Generate student ID
+// 5. Aadhar validation + multi-course checks + Student ID
 // ----------------------------------------------------------
-$student_id = getNextStudentID($course_id, $conn);
-if ($student_id === null) {
-    $_SESSION['error'] = "Error generating student ID. Ensure the course has an abbreviation set.";
+$aadhar = normalizeAadhar($aadhar);
+if (strlen($aadhar) !== 12) {
+    $_SESSION['error'] = "Aadhar number must be exactly 12 digits.";
     header("Location: " . $redirectBack);
     exit();
 }
-error_log("Student ID: $student_id");
+
+$course_schemes = getSchemesForCourse($conn, $course_id);
+if (!empty($course_schemes) && $scheme_id === null) {
+    $_SESSION['error'] = "Please select a scheme/project for this course.";
+    header("Location: " . $redirectBack);
+    exit();
+}
+if ($scheme_id !== null && !validateSchemeForCourse($conn, $course_id, $scheme_id)) {
+    $_SESSION['error'] = "Invalid scheme/project selected for this course.";
+    header("Location: " . $redirectBack);
+    exit();
+}
+if (isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
+    $_SESSION['error'] = "This Aadhar is already registered for this course and scheme/project. Select a different project or contact admin.";
+    header("Location: " . $redirectBack);
+    exit();
+}
+
+$is_returning_student = false;
+$existing_account = findAccountByAadhar($conn, $aadhar);
+
+if ($existing_account) {
+    $is_returning_student = true;
+    $student_id = $existing_account['student_id'];
+    error_log("Returning student - reusing ID: $student_id");
+} elseif (isMultiCourseSystemInstalled($conn)) {
+    $student_id = getNextGlobalStudentID($conn);
+    if ($student_id === null) {
+        $_SESSION['error'] = "Error generating student ID. Please try again or contact support.";
+        header("Location: " . $redirectBack);
+        exit();
+    }
+    error_log("New student - global ID: $student_id");
+} else {
+    $student_id = getNextStudentID($course_id, $conn);
+    if ($student_id === null) {
+        $_SESSION['error'] = "Error generating student ID. Ensure the course has an abbreviation set.";
+        header("Location: " . $redirectBack);
+        exit();
+    }
+    error_log("New student - course ID: $student_id");
+}
 
 // FIX: Safe version of student_id for use in filenames (replaces / \ with -)
 $safe_student_id = str_replace(['/', '\\', ' '], '-', $student_id);
@@ -449,8 +492,13 @@ $other_documents_path        = $uploadedDocs['other_documents']        ?? '';
 // ----------------------------------------------------------
 // 11. Password & education data
 // ----------------------------------------------------------
-$password        = bin2hex(random_bytes(8));
-$hashed_password = password_hash($password, PASSWORD_DEFAULT);
+$password = null;
+if ($is_returning_student && !empty($existing_account['password'])) {
+    $hashed_password = $existing_account['password'];
+} else {
+    $password        = bin2hex(random_bytes(8));
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+}
 $education_data  = json_encode([
     'exam_passed'     => $exam_passed,
     'exam_name'       => $exam_name_arr,
@@ -464,6 +512,10 @@ $education_data  = json_encode([
 // 12. INSERT into students table - FIXED PARAMETER MISMATCH
 // Updated to match actual database schema with all required fields
 // ----------------------------------------------------------
+$hasSchemeCol = hasSchemeEnrollmentColumns($conn);
+$schemeColSql = $hasSchemeCol ? ', scheme_id' : '';
+$schemeValSql = $hasSchemeCol ? ', ?' : '';
+
 $sql = "INSERT INTO students (
     course, course_id, training_center, name, father_name, mother_name,
     dob, age, mobile, aadhar, apaar_id, gender, religion, marital_status,
@@ -473,13 +525,13 @@ $sql = "INSERT INTO students (
     student_id, password,
     aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc,
     twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc,
-    status, registration_date
+    status{$schemeColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
-    'pending', NOW()
+    'pending'{$schemeValSql}, NOW()
 )";
 
 $stmt = $conn->prepare($sql);
@@ -490,10 +542,11 @@ if (!$stmt) {
     exit();
 }
 
-// FIXED: Corrected parameter count and types to match SQL statement
 $bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 32);
-$stmt->bind_param(
-    $bindTypes,
+if ($hasSchemeCol) {
+    $bindTypes .= 'i';
+}
+$bindArgs = [
     $course_name, $course_id, $training_center, $name, $father_name,
     $mother_name, $dob, $age, $mobile, $aadhar, $apaar_id, $gender,
     $religion, $marital_status, $student_category, $pwd_status,
@@ -502,8 +555,12 @@ $stmt->bind_param(
     $passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path, $utr_number, $payment_date_db,
     $student_id, $hashed_password,
     $aadhar_card_path, $caste_certificate_path, $tenth_marksheet_path,
-    $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path
-);
+    $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path,
+];
+if ($hasSchemeCol) {
+    $bindArgs[] = $scheme_id;
+}
+$stmt->bind_param($bindTypes, ...$bindArgs);
 
 if (!$stmt->execute()) {
     error_log("INSERT FAILED for student $student_id: " . $stmt->error . " (errno=" . $stmt->errno . ")");
@@ -536,6 +593,50 @@ if (!$stmt->execute()) {
 
 error_log("INSERT SUCCESS: $student_id with documents: passport=$passport_photo_path, signature=$signature_path" . 
     (!empty($uploadedDocs) ? ", categorized_docs=" . implode(',', array_keys($uploadedDocs)) : ""));
+
+$student_record_id = (int)$conn->insert_id;
+
+if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
+    $account_id = null;
+    if ($is_returning_student) {
+        if (!empty($existing_account['id'])) {
+            $account_id = (int)$existing_account['id'];
+        } else {
+            $account_id = createStudentAccount($conn, [
+                'student_id' => $student_id,
+                'aadhar' => $aadhar,
+                'name' => $name,
+                'email' => $email,
+                'mobile' => $mobile,
+                'password' => $hashed_password,
+                'dob' => $dob,
+                'gender' => $gender,
+            ]);
+            if (!$account_id) {
+                $refetch = findAccountByAadhar($conn, $aadhar);
+                $account_id = !empty($refetch['id']) ? (int)$refetch['id'] : null;
+            }
+        }
+    } else {
+        $account_id = createStudentAccount($conn, [
+            'student_id' => $student_id,
+            'aadhar' => $aadhar,
+            'name' => $name,
+            'email' => $email,
+            'mobile' => $mobile,
+            'password' => $hashed_password,
+            'dob' => $dob,
+            'gender' => $gender,
+        ]);
+    }
+
+    if ($account_id) {
+        linkStudentRecordToAccount($conn, $student_record_id, $account_id);
+        createStudentEnrollment($conn, $account_id, $course_id, $student_record_id, 'pending', $scheme_id);
+    } else {
+        error_log("WARN: Multi-course account/enrollment not created for $student_id");
+    }
+}
 
 // ----------------------------------------------------------
 // 13. Insert education details into separate table
@@ -571,13 +672,17 @@ if (!empty($exam_passed) && is_array($exam_passed)) {
 // ----------------------------------------------------------
 // 14. Set session and redirect to success page
 // ----------------------------------------------------------
-$email_sent = sendRegistrationEmail($email, $name, $student_id, $password, $course_name, $training_center);
-
-$_SESSION['success'] = $email_sent
-    ? "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Email sent to <strong>$email</strong>.<br><strong>Note:</strong> Account pending admin approval."
-    : "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Save these credentials.<br><strong>Note:</strong> Account pending admin approval.";
+if ($is_returning_student) {
+    $email_sent = false;
+    $_SESSION['success'] = "Additional course enrollment submitted! Your Student ID remains <strong>$student_id</strong>. Use your <strong>existing password</strong> to login after approval.<br><strong>Course:</strong> $course_name<br><strong>Note:</strong> Pending admin approval.";
+} else {
+    $email_sent = sendRegistrationEmail($email, $name, $student_id, $password, $course_name, $training_center);
+    $_SESSION['success'] = $email_sent
+        ? "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Email sent to <strong>$email</strong>.<br><strong>Note:</strong> Account pending admin approval."
+        : "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Save these credentials.<br><strong>Note:</strong> Account pending admin approval.";
+}
 $_SESSION['student_id']       = $student_id;
-$_SESSION['student_password'] = $password;
+$_SESSION['student_password'] = $password ?? '';
 $_SESSION['student_email']    = $email;
 $_SESSION['course_name']      = $course_name;
 $_SESSION['training_center']  = $training_center;

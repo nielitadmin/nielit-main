@@ -3,6 +3,8 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
 
 // Enable error reporting for debugging (remove in production)
 // ini_set('display_errors', 1);
@@ -150,77 +152,91 @@ if (isset($_POST['update_student'])) {
     exit();
 }
 
-// ─── HANDLE: Assign batch (single) ───────────────────────────────────────────
-if (isset($_POST['assign_batch'])) {
-    $student_id = $_POST['student_id'];
-    $batch_id   = $_POST['batch_id'];
+// ─── HANDLE: Assign course to student (additional enrollment) ────────────────
+if (isset($_POST['assign_course'])) {
+    $student_id_str = trim($_POST['student_id'] ?? '');
+    $course_id      = (int)($_POST['course_id'] ?? 0);
+    $scheme_id      = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
+    $admin_name     = $_SESSION['admin'] ?? 'Admin';
 
-    if (!empty($batch_id)) {
-        $stmt = $conn->prepare("UPDATE students SET batch_id = ? WHERE student_id = ?");
-        $stmt->bind_param("is", $batch_id, $student_id);
-        if ($stmt->execute()) {
-            $_SESSION['message'] = "Student assigned to batch successfully!";
-            $_SESSION['message_type'] = "success";
-        } else {
-            $_SESSION['message'] = "Error assigning student to batch: " . $conn->error;
-            $_SESSION['message_type'] = "danger";
-        }
-        $stmt->close();
+    if ($student_id_str === '' || $course_id <= 0) {
+        $_SESSION['message'] = 'Please select a student and a course.';
+        $_SESSION['message_type'] = 'warning';
+    } else {
+        $result = adminAssignCourseToStudent($conn, $student_id_str, $course_id, null, $admin_name, $scheme_id);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
     }
 
     $redirect_params = [];
     if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
     if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
     if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
-    header("Location: students.php" . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    exit();
+}
+
+// ─── HANDLE: Assign batch (single enrollment row) ────────────────────────────
+if (isset($_POST['assign_batch'])) {
+    $student_record_id = (int)($_POST['student_record_id'] ?? 0);
+    $batch_id          = (int)($_POST['batch_id'] ?? 0);
+    $admin_name        = $_SESSION['admin'] ?? 'Admin';
+
+    if ($student_record_id > 0 && $batch_id > 0) {
+        $result = assignEnrollmentToBatch($conn, $student_record_id, $batch_id, $admin_name);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    } else {
+        $_SESSION['message'] = 'Please select a batch.';
+        $_SESSION['message_type'] = 'warning';
+    }
+
+    $redirect_params = [];
+    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
+    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
+    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
 // ─── HANDLE: Bulk assign batch ────────────────────────────────────────────────
 if (isset($_POST['bulk_assign_batch'])) {
-    $student_ids = $_POST['student_ids'] ?? [];
-    $batch_id    = $_POST['batch_id']    ?? '';
+    $student_record_ids = $_POST['student_record_ids'] ?? [];
+    $batch_id           = (int)($_POST['batch_id'] ?? 0);
+    $admin_name         = $_SESSION['admin'] ?? 'Admin';
 
-    if (!empty($batch_id) && !empty($student_ids)) {
+    if ($batch_id > 0 && !empty($student_record_ids)) {
         $success_count = 0;
         $error_count   = 0;
-        $stmt = $conn->prepare("UPDATE students SET batch_id = ? WHERE student_id = ?");
-        foreach ($student_ids as $sid) {
-            $stmt->bind_param("is", $batch_id, $sid);
-            $stmt->execute() ? $success_count++ : $error_count++;
+        foreach ($student_record_ids as $rid) {
+            $result = assignEnrollmentToBatch($conn, (int)$rid, $batch_id, $admin_name);
+            $result['success'] ? $success_count++ : $error_count++;
         }
-        $stmt->close();
         $_SESSION['message']      = "$success_count student(s) assigned to batch successfully!";
-        $_SESSION['message_type'] = $error_count > 0 ? "warning" : "success";
+        $_SESSION['message_type'] = $error_count > 0 ? 'warning' : 'success';
         if ($error_count > 0) {
             $_SESSION['message'] .= " $error_count student(s) failed to assign.";
         }
     } else {
-        $_SESSION['message']      = "Please select students and a batch.";
-        $_SESSION['message_type'] = "warning";
+        $_SESSION['message']      = 'Please select students and a batch.';
+        $_SESSION['message_type'] = 'warning';
     }
 
     $redirect_params = [];
     if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
     if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
     if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
-    header("Location: students.php" . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
 // ─── HANDLE: Remove student from batch ───────────────────────────────────────
-if (isset($_GET['remove_batch'])) {
-    $student_id = $_GET['remove_batch'];
-    $stmt = $conn->prepare("UPDATE students SET batch_id = NULL WHERE student_id = ?");
-    $stmt->bind_param("s", $student_id);
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Student removed from batch successfully!";
-        $_SESSION['message_type'] = "success";
-    } else {
-        $_SESSION['message'] = "Error removing student from batch: " . $conn->error;
-        $_SESSION['message_type'] = "danger";
-    }
-    $stmt->close();
+if (isset($_GET['remove_record']) && isset($_GET['batch_id'])) {
+    $student_record_id = (int)$_GET['remove_record'];
+    $batch_id          = (int)$_GET['batch_id'];
+    $result = removeStudentFromBatch($student_record_id, $batch_id, $conn);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
 
     $redirect_params = [];
     if (!empty($_GET['filter_course']))  $redirect_params[] = 'filter_course='  . urlencode($_GET['filter_course']);
@@ -228,7 +244,7 @@ if (isset($_GET['remove_batch'])) {
                                          $redirect_params[] = 'filter_gender='  . urlencode($_GET['filter_gender']);
     if (!empty($_GET['start_date']))     $redirect_params[] = 'start_date='     . urlencode($_GET['start_date']);
     if (!empty($_GET['end_date']))       $redirect_params[] = 'end_date='       . urlencode($_GET['end_date']);
-    header("Location: students.php" . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
@@ -316,6 +332,7 @@ if ($is_course_coordinator && !empty($admin_course_ids)) {
     $sql_courses = "SELECT id, course_name, course_description FROM courses ORDER BY course_name";
 }
 $courses_result = $conn->query($sql_courses);
+$assign_courses_result = $conn->query("SELECT id, course_name, course_code FROM courses ORDER BY course_name");
 
 // ─── CHECK batches.created_by column ─────────────────────────────────────────
 $col_check = $conn->query("SHOW COLUMNS FROM batches LIKE 'created_by'");
@@ -324,18 +341,20 @@ $has_created_by_column = ($col_check && $col_check->num_rows > 0);
 // ─── LOAD BATCHES (for assignment modals) ────────────────────────────────────
 function loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_column) {
     if ($is_course_coordinator && $admin_id && $has_created_by_column) {
-        $stmt = $conn->prepare("SELECT b.*, c.course_name
+        $stmt = $conn->prepare("SELECT b.*, c.course_name, s.scheme_name
                                 FROM batches b
                                 LEFT JOIN courses c ON b.course_id = c.id
+                                LEFT JOIN schemes s ON s.id = b.scheme_id
                                 WHERE b.status = 'Active' AND b.created_by = ?
                                 ORDER BY b.batch_name");
         $stmt->bind_param("i", $admin_id);
         $stmt->execute();
         return $stmt->get_result();
     }
-    return $conn->query("SELECT b.*, c.course_name
+    return $conn->query("SELECT b.*, c.course_name, s.scheme_name
                          FROM batches b
                          LEFT JOIN courses c ON b.course_id = c.id
+                         LEFT JOIN schemes s ON s.id = b.scheme_id
                          WHERE b.status = 'Active'
                          ORDER BY b.batch_name");
 }
@@ -349,10 +368,11 @@ $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
 
 // ─── MAIN STUDENTS QUERY ─────────────────────────────────────────────────────
-$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name
+$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
           FROM students s
           LEFT JOIN batches b ON s.batch_id = b.id
           LEFT JOIN courses c ON s.course_id = c.id
+          LEFT JOIN schemes sch ON sch.id = s.scheme_id
           WHERE 1=1";
 
 $bind_types  = '';
@@ -1020,6 +1040,7 @@ if ($other_gender_count > 0) {
                         <a href="export_students_excel.php<?php
                             $ep = [];
                             if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
+                            if ($selected_gender !== 'All') $ep[] = 'filter_gender=' . urlencode($selected_gender);
                             if (!empty($start_date))         $ep[] = 'start_date='    . urlencode($start_date);
                             if (!empty($end_date))           $ep[] = 'end_date='      . urlencode($end_date);
                             echo !empty($ep) ? '?' . implode('&', $ep) : '';
@@ -1040,6 +1061,7 @@ if ($other_gender_count > 0) {
                                 <th>Email</th>
                                 <th>Mobile</th>
                                 <th>Course</th>
+                                <th>Scheme / Project</th>
                                 <th>Batch</th>
                                 <th>Status</th>
                                 <th>Registration Date</th>
@@ -1060,8 +1082,9 @@ if ($other_gender_count > 0) {
                             <td>
                                 <?php if (empty($row['batch_name'])): ?>
                                     <input type="checkbox" class="student-checkbox"
-                                           value="<?php echo htmlspecialchars($row['student_id']); ?>"
-                                           data-course="<?php echo $course_display; ?>">
+                                           value="<?php echo (int)$row['id']; ?>"
+                                           data-course="<?php echo $course_display; ?>"
+                                           data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
                                 <?php else: ?>
                                     <span style="color:#cbd5e1;" title="Already in a batch"><i class="fas fa-check-circle"></i></span>
                                 <?php endif; ?>
@@ -1072,6 +1095,13 @@ if ($other_gender_count > 0) {
                             <td><?php echo htmlspecialchars($row['email']); ?></td>
                             <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                             <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
+                            <td>
+                                <?php if (!empty($row['scheme_name'])): ?>
+                                    <span class="badge badge-info"><?php echo htmlspecialchars($row['scheme_name']); ?></span>
+                                <?php else: ?>
+                                    <span class="text-muted small">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if (!empty($row['batch_name'])): ?>
                                     <span class="badge badge-success" title="<?php echo htmlspecialchars($row['batch_code']); ?>">
@@ -1117,30 +1147,48 @@ if ($other_gender_count > 0) {
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
                                             <i class="fas fa-times"></i> Reject
                                         </a>
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm assign-course-btn"
+                                                title="Assign Another Course"
+                                                data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                                data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                                data-current-course="<?php echo (int)($row['course_id'] ?? 0); ?>">
+                                            <i class="fas fa-book"></i> Assign Course
+                                        </button>
                                     <?php else: ?>
                                         <a href="edit_student.php?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        <?php if ($status !== 'rejected'): ?>
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm assign-course-btn"
+                                                title="Assign Another Course"
+                                                data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                                data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                                data-current-course="<?php echo (int)($row['course_id'] ?? 0); ?>">
+                                            <i class="fas fa-book"></i> Assign Course
+                                        </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
 
                                     <?php if (!empty($row['batch_name'])): ?>
                                         <a href="javascript:void(0);"
                                            class="btn btn-secondary btn-sm remove-batch-btn"
                                            title="Remove from Batch"
-                                           data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                            data-batch-name="<?php echo htmlspecialchars($row['batch_name']); ?>"
-                                           data-url="students.php?remove_batch=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
+                                           data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)($row['batch_id'] ?? 0); ?><?php echo $filter_suffix; ?>">
                                             <i class="fas fa-unlink"></i>
                                         </a>
                                     <?php else: ?>
                                         <button type="button"
                                                 class="btn btn-info btn-sm assign-batch-btn"
                                                 title="Assign to Batch"
-                                                data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                                data-student-record-id="<?php echo (int)$row['id']; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                                data-course="<?php echo $course_display; ?>">
+                                                data-course="<?php echo $course_display; ?>"
+                                                data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
                                             <i class="fas fa-plus-circle"></i> Assign Batch
                                         </button>
                                     <?php endif; ?>
@@ -1156,7 +1204,7 @@ if ($other_gender_count > 0) {
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
-                                <a href="download_student_form.php?id=<?php echo urlencode($row['student_id']); ?>"
+                                <a href="download_student_form.php?record_id=<?php echo (int)$row['id']; ?>"
                                    class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                     <i class="fas fa-download"></i>
                                 </a>
@@ -1178,7 +1226,7 @@ if ($other_gender_count > 0) {
                         else:
                         ?>
                         <tr>
-                            <td colspan="11" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+                            <td colspan="12" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
                                 <strong>No students found for the selected filters.</strong>
                             </td>
                         </tr>
@@ -1204,7 +1252,7 @@ if ($other_gender_count > 0) {
             <p><strong>Course:</strong> <span id="modal-course"></span></p>
         </div>
         <form method="POST" action="students.php">
-            <input type="hidden" name="student_id" id="modal-student-id">
+            <input type="hidden" name="student_record_id" id="modal-student-record-id">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
@@ -1215,9 +1263,11 @@ if ($other_gender_count > 0) {
                     <?php if ($batches_result && $batches_result->num_rows > 0): ?>
                         <?php while ($batch = $batches_result->fetch_assoc()): ?>
                         <option value="<?php echo $batch['id']; ?>"
-                                data-course="<?php echo htmlspecialchars($batch['course_name']); ?>">
+                                data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
+                                data-scheme-id="<?php echo (int)($batch['scheme_id'] ?? 0); ?>">
                             <?php echo htmlspecialchars($batch['batch_name']); ?>
                             (<?php echo htmlspecialchars($batch['batch_code']); ?>)
+                            <?php if (!empty($batch['scheme_name'])): ?> — <?php echo htmlspecialchars($batch['scheme_name']); ?><?php endif; ?>
                         </option>
                         <?php endwhile; ?>
                     <?php endif; ?>
@@ -1228,6 +1278,57 @@ if ($other_gender_count > 0) {
                     <i class="fas fa-check"></i> Assign to Batch
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeBatchModal()" style="flex:1;">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assign Course Modal -->
+<div id="courseModal" class="batch-modal">
+    <div class="batch-modal-content">
+        <div class="batch-modal-header">
+            <h3><i class="fas fa-book"></i> Assign Course to Student</h3>
+            <button class="close-modal" onclick="closeCourseModal()">&times;</button>
+        </div>
+        <div class="batch-info">
+            <p><strong>Student:</strong> <span id="course-modal-student-name"></span></p>
+            <p><strong>Student ID:</strong> <span id="course-modal-student-id"></span></p>
+            <p style="font-size:12px;color:#64748b;margin-top:8px;">
+                <i class="fas fa-info-circle"></i> Same Student ID is reused. Same course is allowed under a <strong>different scheme/project</strong>.
+            </p>
+        </div>
+        <form method="POST" action="students.php">
+            <input type="hidden" name="student_id" id="course-modal-student-id-input">
+            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
+            <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
+            <div class="form-group">
+                <label class="form-label">Select Course</label>
+                <select name="course_id" id="course-modal-select" class="form-control" required>
+                    <option value="">-- Select a Course --</option>
+                    <?php if ($assign_courses_result && $assign_courses_result->num_rows > 0): ?>
+                        <?php while ($course = $assign_courses_result->fetch_assoc()): ?>
+                        <option value="<?php echo (int)$course['id']; ?>">
+                            <?php echo htmlspecialchars($course['course_name'] . ' (' . $course['course_code'] . ')'); ?>
+                        </option>
+                        <?php endwhile; ?>
+                    <?php endif; ?>
+                </select>
+            </div>
+            <div class="form-group" id="course-scheme-group" style="display:none;">
+                <label class="form-label">Scheme / Project</label>
+                <select name="scheme_id" id="course-modal-scheme-select" class="form-control">
+                    <option value="">-- Select Scheme / Project --</option>
+                </select>
+                <small id="course-scheme-hint" style="color:#64748b;display:block;margin-top:6px;"></small>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button type="submit" name="assign_course" value="1" class="btn btn-primary" style="flex:1;">
+                    <i class="fas fa-check"></i> Assign Course
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeCourseModal()" style="flex:1;">
                     <i class="fas fa-times"></i> Cancel
                 </button>
             </div>
@@ -1260,10 +1361,12 @@ if ($other_gender_count > 0) {
                     <?php if ($batches_result2 && $batches_result2->num_rows > 0): ?>
                         <?php while ($batch = $batches_result2->fetch_assoc()): ?>
                         <option value="<?php echo $batch['id']; ?>"
-                                data-course="<?php echo htmlspecialchars($batch['course_name']); ?>">
+                                data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
+                                data-scheme-id="<?php echo (int)($batch['scheme_id'] ?? 0); ?>">
                             <?php echo htmlspecialchars($batch['batch_name']); ?>
                             (<?php echo htmlspecialchars($batch['batch_code']); ?>) -
                             <?php echo htmlspecialchars($batch['course_name']); ?>
+                            <?php if (!empty($batch['scheme_name'])): ?> — <?php echo htmlspecialchars($batch['scheme_name']); ?><?php endif; ?>
                         </option>
                         <?php endwhile; ?>
                     <?php endif; ?>
@@ -1403,8 +1506,15 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 // ── Batch modal (single) ──────────────────────────────────────────────────────
-function openBatchModal(studentId, studentName, course) {
-    document.getElementById('modal-student-id').value   = studentId;
+function schemeMatchesBatch(studentSchemeId, batchSchemeId) {
+    const s = String(studentSchemeId || '0');
+    const b = String(batchSchemeId || '0');
+    if (s === '0' && b === '0') return true;
+    return s === b;
+}
+
+function openBatchModal(studentRecordId, studentName, course, studentSchemeId) {
+    document.getElementById('modal-student-record-id').value = studentRecordId;
     document.getElementById('modal-student-name').textContent = studentName;
     document.getElementById('modal-course').textContent       = course;
 
@@ -1415,8 +1525,9 @@ function openBatchModal(studentId, studentName, course) {
     select.querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
         const optCourse = (opt.dataset.course || '').trim().toLowerCase();
-        opt.style.display = (optCourse === norm) ? '' : 'none';
-        if (optCourse === norm) matched++;
+        const ok = (optCourse === norm) && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId);
+        opt.style.display = ok ? '' : 'none';
+        if (ok) matched++;
     });
 
     select.value = '';
@@ -1424,6 +1535,61 @@ function openBatchModal(studentId, studentName, course) {
 }
 function closeBatchModal() {
     document.getElementById('batchModal').style.display = 'none';
+}
+
+async function loadCourseSchemesForStudent(studentId, courseId) {
+    const group = document.getElementById('course-scheme-group');
+    const select = document.getElementById('course-modal-scheme-select');
+    const hint = document.getElementById('course-scheme-hint');
+    select.innerHTML = '<option value="">-- Select Scheme / Project --</option>';
+    group.style.display = 'none';
+    select.required = false;
+    hint.textContent = '';
+
+    if (!courseId) return;
+
+    try {
+        const res = await fetch('get_course_schemes_for_student.php?student_id=' + encodeURIComponent(studentId) + '&course_id=' + encodeURIComponent(courseId));
+        const data = await res.json();
+        if (!data.success) return;
+
+        if (data.requires_scheme) {
+            group.style.display = 'block';
+            if (data.schemes.length === 0) {
+                hint.textContent = 'Student is already enrolled in all schemes for this course.';
+                select.required = false;
+                return;
+            }
+            data.schemes.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.scheme_name + ' (' + s.scheme_code + ')';
+                select.appendChild(opt);
+            });
+            select.required = true;
+            hint.textContent = 'Select the project under which this enrollment should be created.';
+        } else if (data.can_enroll_without_scheme) {
+            hint.textContent = 'No schemes linked to this course.';
+        } else if (data.already_enrolled_null) {
+            hint.textContent = 'Student already has a general enrollment for this course.';
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function openCourseModal(studentId, studentName) {
+    document.getElementById('course-modal-student-id-input').value = studentId;
+    document.getElementById('course-modal-student-id').textContent = studentId;
+    document.getElementById('course-modal-student-name').textContent = studentName;
+
+    const select = document.getElementById('course-modal-select');
+    select.value = '';
+    document.getElementById('course-scheme-group').style.display = 'none';
+    document.getElementById('courseModal').style.display = 'block';
+}
+function closeCourseModal() {
+    document.getElementById('courseModal').style.display = 'none';
 }
 
 // ── Bulk batch modal ──────────────────────────────────────────────────────────
@@ -1436,19 +1602,26 @@ function openBulkBatchModal() {
     const container = document.getElementById('bulk-student-ids');
     container.innerHTML = '';
     const courses = new Set();
+    const schemes = new Set();
 
     checked.forEach(cb => {
         const inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'student_ids[]'; inp.value = cb.value;
+        inp.type = 'hidden'; inp.name = 'student_record_ids[]'; inp.value = cb.value;
         container.appendChild(inp);
         const c = (cb.dataset.course || '').trim().toLowerCase();
         if (c) courses.add(c);
+        schemes.add(String(cb.dataset.schemeId || '0'));
     });
 
     document.getElementById('bulk-modal-batch-select').querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
         const oc = (opt.dataset.course || '').trim().toLowerCase();
-        opt.style.display = courses.has(oc) ? '' : 'none';
+        const courseOk = courses.has(oc);
+        let schemeOk = true;
+        schemes.forEach(sid => {
+            if (!schemeMatchesBatch(sid, opt.dataset.schemeId)) schemeOk = false;
+        });
+        opt.style.display = (courseOk && schemeOk) ? '' : 'none';
     });
 
     document.getElementById('bulk-modal-batch-select').value = '';
@@ -1486,12 +1659,31 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.assign-batch-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             openBatchModal(
-                this.dataset.studentId,
+                this.dataset.studentRecordId,
                 this.dataset.studentName,
-                this.dataset.course
+                this.dataset.course,
+                this.dataset.schemeId || '0'
             );
         });
     });
+
+    // Assign course buttons
+    document.querySelectorAll('.assign-course-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            openCourseModal(
+                this.dataset.studentId,
+                this.dataset.studentName
+            );
+        });
+    });
+
+    const courseSelect = document.getElementById('course-modal-select');
+    if (courseSelect) {
+        courseSelect.addEventListener('change', function () {
+            const studentId = document.getElementById('course-modal-student-id-input').value;
+            loadCourseSchemesForStudent(studentId, this.value);
+        });
+    }
 
     // Remove batch buttons
     document.querySelectorAll('.remove-batch-btn').forEach(btn => {
