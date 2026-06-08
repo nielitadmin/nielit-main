@@ -8,11 +8,15 @@
 /vendor/
 composer.lock
 
-# Environment & Config
+# Environment & Config (keep on server only — never overwrite production DB credentials via git)
 .env
 .env.local
 .env.*.local
 /config/
+
+# Hostinger / local deploy artifacts
+.deploy-cache/
+hostinger-deploy.log
 
 # Uploads & User Generated Content
 /uploads/*

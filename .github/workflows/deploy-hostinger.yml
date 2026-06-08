@@ -1,0 +1,37 @@
+# Deploy to Hostinger via SSH (bypasses broken Hostinger Git "pull" when branches diverge).
+#
+# Setup (one time in GitHub repo → Settings → Secrets → Actions):
+#   HOSTINGER_SSH_HOST     e.g. ssh.hostinger.com or server IP
+#   HOSTINGER_SSH_USER     SSH username from hPanel
+#   HOSTINGER_SSH_KEY      Private SSH key (full PEM contents)
+#   HOSTINGER_SSH_PORT     e.g. 65002 (optional; defaults to 65002)
+#   HOSTINGER_DEPLOY_PATH  e.g. domains/nielitbhubaneswar.in/public_html
+#
+# After secrets are set: Actions → Deploy to Hostinger → Run workflow
+# Or push to main (auto deploy).
+
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync production to origin/main
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_SSH_PORT || 65002 }}
+          script: |
+            set -e
+            cd "${{ secrets.HOSTINGER_DEPLOY_PATH }}"
+            git fetch origin
+            git reset --hard origin/main
+            echo "Deployed commit:"
+            git log -1 --oneline

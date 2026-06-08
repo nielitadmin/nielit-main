@@ -681,11 +681,13 @@ if ($is_returning_student) {
         ? "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Email sent to <strong>$email</strong>.<br><strong>Note:</strong> Account pending admin approval."
         : "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Save these credentials.<br><strong>Note:</strong> Account pending admin approval.";
 }
-$_SESSION['student_id']       = $student_id;
-$_SESSION['student_password'] = $password ?? '';
-$_SESSION['student_email']    = $email;
-$_SESSION['course_name']      = $course_name;
-$_SESSION['training_center']  = $training_center;
+$_SESSION['student_id']            = $student_id;
+$_SESSION['student_password']      = $password ?? '';
+$_SESSION['student_email']         = $email;
+$_SESSION['course_name']           = $course_name;
+$_SESSION['training_center']       = $training_center;
+$_SESSION['is_returning_student']  = $is_returning_student;
+$_SESSION['registration_email_sent'] = !empty($email_sent);
 
 header("Location: " . APP_URL . "/student/registration_success.php");
 exit();

@@ -2,26 +2,20 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 
-// DEBUG: Log what's in session when this page loads
-error_log("=== registration_success.php loaded ===");
-error_log("SESSION keys: " . implode(', ', array_keys($_SESSION)));
-error_log("student_id in session: " . ($_SESSION['student_id'] ?? 'NOT SET'));
-error_log("success in session: " . (isset($_SESSION['success']) ? 'SET' : 'NOT SET'));
-
 // Check if registration was successful
 if (!isset($_SESSION['success']) || !isset($_SESSION['student_id'])) {
-    error_log("Session check FAILED - redirecting back to courses");
-    // Redirect to courses page (not register.php which needs course param)
     header("Location: " . APP_URL . "/public/courses.php");
     exit();
 }
 
-$student_id      = $_SESSION['student_id'];
-$password        = $_SESSION['student_password']  ?? '';
-$success_message = $_SESSION['success'];
-$student_email   = $_SESSION['student_email']     ?? null;
-$course_name     = $_SESSION['course_name']       ?? null;
-$training_center = $_SESSION['training_center']   ?? null;
+$student_id           = $_SESSION['student_id'];
+$password             = $_SESSION['student_password'] ?? '';
+$success_message      = $_SESSION['success'];
+$student_email        = $_SESSION['student_email'] ?? null;
+$course_name          = $_SESSION['course_name'] ?? null;
+$training_center      = $_SESSION['training_center'] ?? null;
+$is_returning_student = !empty($_SESSION['is_returning_student']);
+$email_sent           = !empty($_SESSION['registration_email_sent']);
 
 // Clear session variables after reading them
 unset(
@@ -30,7 +24,9 @@ unset(
     $_SESSION['success'],
     $_SESSION['student_email'],
     $_SESSION['course_name'],
-    $_SESSION['training_center']
+    $_SESSION['training_center'],
+    $_SESSION['is_returning_student'],
+    $_SESSION['registration_email_sent']
 );
 ?>
 <!DOCTYPE html>
@@ -375,10 +371,22 @@ unset(
                     </div>
 
                     <h1 class="success-title text-center">Registration Successful!</h1>
+                    <?php if ($success_message): ?>
+                    <div class="alert-box alert-success-box mb-4">
+                        <i class="fas fa-circle-check" style="color:#10b981;"></i>
+                        <p style="color:#065f46;"><?php echo $success_message; ?></p>
+                    </div>
+                    <?php else: ?>
                     <p class="success-message text-center">
+                        <?php if ($is_returning_student): ?>
+                        Your additional course enrollment has been submitted successfully.
+                        Use your <strong>existing Student ID and password</strong> to log in after admin approval.
+                        <?php else: ?>
                         Congratulations! Your registration has been completed successfully.
                         Please save your credentials below for future login.
+                        <?php endif; ?>
                     </p>
+                    <?php endif; ?>
 
                     <div class="credentials-box">
                         <div class="credential-item">
@@ -391,6 +399,14 @@ unset(
                             </div>
                         </div>
 
+                        <?php if ($is_returning_student): ?>
+                        <div class="credential-item">
+                            <span class="credential-label">Password</span>
+                            <span class="credential-value" style="font-size:14px;font-family:Arial,sans-serif;">
+                                Use your existing password (not changed)
+                            </span>
+                        </div>
+                        <?php else: ?>
                         <div class="credential-item">
                             <span class="credential-label">Password</span>
                             <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
@@ -400,6 +416,7 @@ unset(
                                 </button>
                             </div>
                         </div>
+                        <?php endif; ?>
 
                         <?php if ($course_name): ?>
                         <div class="credential-item">
@@ -420,13 +437,22 @@ unset(
                         <?php endif; ?>
                     </div>
 
-                    <?php if ($student_email): ?>
+                    <?php if ($email_sent && $student_email): ?>
                     <div class="alert-box alert-success-box">
                         <i class="fas fa-envelope-circle-check" style="color:#10b981;"></i>
                         <p style="color:#065f46;">
                             <strong>Email Sent:</strong> A confirmation email with your credentials has been sent to
                             <strong><?php echo htmlspecialchars($student_email); ?></strong>.
                             Please check your inbox (and spam folder).
+                        </p>
+                    </div>
+                    <?php elseif ($is_returning_student && $student_email): ?>
+                    <div class="alert-box alert-warning-box">
+                        <i class="fas fa-envelope" style="color:#f59e0b;"></i>
+                        <p style="color:#78350f;">
+                            <strong>No new email sent.</strong> This Aadhar is already registered.
+                            Log in with your existing password at
+                            <strong><?php echo htmlspecialchars($student_email); ?></strong> after admin approves this enrollment.
                         </p>
                     </div>
                     <?php endif; ?>
