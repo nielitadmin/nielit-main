@@ -427,8 +427,53 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 </div>
 
-<!-- Printable Content (A4 — compact single-page layout) -->
-<div id="printable-content" style="font-family: Arial, sans-serif; max-width: 200mm; margin: 0; padding: 0; box-sizing: border-box; font-size: 8.5pt; line-height: 1.1;">
+<!-- Printable Content (A4 — letterhead-friendly: light tables, bottom clearance) -->
+<style>
+    #printable-content {
+        font-family: Arial, sans-serif;
+        max-width: 200mm;
+        margin: 0;
+        padding: 0 0 22mm 0;
+        box-sizing: border-box;
+        font-size: 8.5pt;
+        line-height: 1.15;
+    }
+    .ao-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3px 0; font-family: Arial, sans-serif; }
+    .ao-light-table th, .ao-light-table td {
+        border: 0.5px solid #999;
+        padding: 2px 3px;
+        vertical-align: top;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        line-height: 1.3;
+        font-weight: normal;
+        color: #222;
+    }
+    .ao-light-table th {
+        background: #fafafa;
+        font-size: 7px;
+        font-weight: 600;
+        color: #333;
+        border-color: #aaa;
+    }
+    .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
+    .ao-students-table .ao-reg { width: 11%; font-size: 5.5px; word-break: break-all; line-height: 1.2; }
+    .ao-students-table .ao-name { width: 24%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-father { width: 22%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
+    .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-all; }
+    .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
+    .ao-students-table .ao-cat { width: 5%; text-align: center; font-size: 7px; }
+    .ao-students-table .ao-remark { width: 10%; font-size: 6px; text-align: center; word-break: break-all; }
+    .ao-footer-block { margin-top: 10px; font-size: 7.5pt; line-height: 1.4; }
+    .ao-footer-signature { margin-top: 14px; font-size: 7.5pt; line-height: 1.45; }
+    .ao-footer-signature p { margin: 0 0 3px 0; font-weight: normal; }
+    .ao-footer-signature .ao-sig-name { font-weight: 600; }
+    .ao-copy-list { margin: 4px 0 0 16px; padding: 0; }
+    .ao-copy-list li { margin: 0 0 3px 0; line-height: 1.35; }
+</style>
+<div id="printable-content">
     <!-- Header -->
     <table style="width: 100%; margin-bottom: 3px;">
         <tr>
@@ -499,29 +544,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 
     <!-- Students Table -->
-    <style>
-        .ao-students-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3px 0; font-family: Arial, sans-serif; }
-        .ao-students-table th, .ao-students-table td {
-            border: 1px solid #000;
-            padding: 2px 3px;
-            vertical-align: top;
-            white-space: normal;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            line-height: 1.25;
-        }
-        .ao-students-table th { background: #f0f0f0; font-size: 7px; font-weight: bold; }
-        .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
-        .ao-students-table .ao-reg { width: 11%; font-size: 5.5px; word-break: break-all; line-height: 1.15; }
-        .ao-students-table .ao-name { width: 24%; font-size: 7.5px; text-align: left; }
-        .ao-students-table .ao-father { width: 22%; font-size: 7.5px; text-align: left; }
-        .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
-        .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-all; }
-        .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
-        .ao-students-table .ao-cat { width: 5%; text-align: center; font-size: 7px; }
-        .ao-students-table .ao-remark { width: 10%; font-size: 6.5px; text-align: center; }
-    </style>
-    <table class="ao-students-table">
+    <table class="ao-light-table ao-students-table">
         <thead>
             <tr>
                 <th class="ao-sl">SL</th>
@@ -556,44 +579,44 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </table>
 
     <!-- Category Summary -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 6.5px; margin: 3px 0;">
+    <table class="ao-light-table ao-summary-table" style="font-size: 6.5px;">
         <tr>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">SC</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">ST</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">OBC</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">PWD</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">GEN</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">TOTAL</th>
-            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" rowspan="2">TOTAL</th>
+            <th colspan="2">SC</th>
+            <th colspan="2">ST</th>
+            <th colspan="2">OBC</th>
+            <th colspan="2">PWD</th>
+            <th colspan="2">GEN</th>
+            <th colspan="2">TOTAL</th>
+            <th rowspan="2">TOTAL</th>
         </tr>
         <tr>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
+            <td style="text-align:center;font-size:6px;">M</td>
+            <td style="text-align:center;font-size:6px;">F</td>
         </tr>
         <tr>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['SC']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['SC']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['ST']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['ST']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['OBC']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['OBC']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['PWD']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['PWD']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['GEN']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['GEN']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_male; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_female; ?></td>
-            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_students; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['SC']['M']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['SC']['F']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['ST']['M']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['ST']['F']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['OBC']['M']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['OBC']['F']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['PWD']['M']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['PWD']['F']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['GEN']['M']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $category_gender_counts['GEN']['F']; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $total_male; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $total_female; ?></td>
+            <td style="text-align:center;font-size:6px;"><?php echo $total_students; ?></td>
         </tr>
     </table>
 
@@ -615,35 +638,34 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
     <?php endif; ?>
 
-    <!-- Footer Note -->
-    <div style="margin-top: 4px; font-size: 7pt;">
-        <p style="margin: 0; line-height: 1.15;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
+    <!-- Footer (spaced for letterhead printing) -->
+    <div class="ao-footer-block">
+        <p style="margin: 0;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
     </div>
 
-    <!-- Signature + Copy To (side by side to save vertical space) -->
-    <table style="width: 100%; margin-top: 6px; font-size: 7pt; border-collapse: collapse;">
+    <table class="ao-footer-signature" style="width: 100%; border: none; border-collapse: collapse;">
         <tr>
-            <td style="width: 48%; vertical-align: top; padding-right: 8px;">
-                <p style="margin: 0 0 2px 0;"><strong>Copy to:</strong></p>
-                <ol id="display_copy_to" style="margin: 0 0 0 14px; padding: 0;">
+            <td style="width: 50%; vertical-align: top; padding-right: 12px; border: none;">
+                <p style="margin: 0 0 4px 0; font-weight: 600;">Copy to:</p>
+                <ol id="display_copy_to" class="ao-copy-list">
                     <?php foreach ($copy_to_list as $recipient): ?>
-                        <li style="margin: 0; line-height: 1.15;"><?php echo htmlspecialchars($recipient); ?></li>
+                        <li><?php echo htmlspecialchars($recipient); ?></li>
                     <?php endforeach; ?>
                 </ol>
             </td>
-            <td style="width: 52%; vertical-align: top; text-align: right;">
-                <p style="margin: 0; line-height: 1.15;"><strong>Signature</strong></p>
-                <p style="margin: 0; line-height: 1.15;"><?php echo date('d-m-Y'); ?></p>
-                <p style="margin: 0; line-height: 1.15;"><strong><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></strong></p>
-                <p style="margin: 0; line-height: 1.15;"><strong><?php 
+            <td style="width: 50%; vertical-align: top; text-align: right; border: none; padding-top: 8px;">
+                <p style="margin: 0 0 6px 0;">Signature</p>
+                <p style="margin: 0 0 6px 0;"><?php echo date('d-m-Y'); ?></p>
+                <p class="ao-sig-name" style="margin: 0 0 4px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
+                <p style="margin: 0 0 4px 0;"><?php 
                     $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
                     if (strtolower($scheme_code) === 'regular') {
                         echo 'Project Incharge,';
                     } else {
                         echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
                     }
-                ?></strong></p>
-                <p style="margin: 0; line-height: 1.15;"><strong>NIELIT Bhubaneswar.</strong></p>
+                ?></p>
+                <p style="margin: 0;">NIELIT Bhubaneswar.</p>
             </td>
         </tr>
     </table>

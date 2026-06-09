@@ -320,7 +320,7 @@ function downloadPDF() {
     }
     
     const opt = {
-        margin: [3, 4, 3, 4],
+        margin: [3, 4, 12, 4],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
@@ -379,7 +379,7 @@ function printOrder() {
     <style>
         @page {
             size: A4;
-            margin: 3mm 4mm;
+            margin: 3mm 4mm 12mm 4mm;
         }
         
         @media print {
@@ -409,7 +409,7 @@ function printOrder() {
         
         #printable-content {
             max-width: 100%;
-            padding: 0;
+            padding: 0 0 22mm 0;
             margin: 0;
         }
         
@@ -432,29 +432,29 @@ function printOrder() {
             display: table-footer-group;
         }
         
-        th, td {
-            border: 1px solid #000;
+        .ao-light-table th, .ao-light-table td {
+            border: 0.5px solid #999 !important;
             padding: 2px 3px;
-            text-align: left;
+            font-weight: normal;
             font-size: 7pt;
-            line-height: 1.25;
+            line-height: 1.3;
             white-space: normal;
             word-wrap: break-word;
-            overflow-wrap: break-word;
             vertical-align: top;
+        }
+
+        .ao-light-table th {
+            background: #fafafa !important;
+            font-weight: 600 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
         }
 
         .ao-students-table { table-layout: fixed; }
         .ao-students-table .ao-name,
         .ao-students-table .ao-father { font-size: 7.5pt; }
-        
-        th {
-            background: #f0f0f0 !important;
-            font-weight: bold;
-            font-size: 8pt;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-        }
+
+        .ao-footer-signature td { border: none !important; }
         
         h3 {
             margin: 3px 0;
