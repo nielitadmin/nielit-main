@@ -320,7 +320,7 @@ function downloadPDF() {
     }
     
     const opt = {
-        margin: [3, 4, 12, 4],
+        margin: [4, 8, 12, 8],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
@@ -379,7 +379,7 @@ function printOrder() {
     <style>
         @page {
             size: A4;
-            margin: 3mm 4mm 12mm 4mm;
+            margin: 4mm 8mm 12mm 8mm;
         }
         
         @media print {
@@ -409,9 +409,14 @@ function printOrder() {
         
         #printable-content {
             max-width: 100%;
-            padding: 0 0 22mm 0;
+            padding: 0 5mm 22mm 5mm;
             margin: 0;
+            box-sizing: border-box;
+            overflow: visible;
         }
+
+        .ao-ref-date .ao-date-cell { white-space: nowrap; text-align: right; }
+        .ao-details-table td { word-wrap: break-word; }
         
         table {
             width: 100%;

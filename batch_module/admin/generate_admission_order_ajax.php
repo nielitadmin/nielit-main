@@ -431,13 +431,23 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
 <style>
     #printable-content {
         font-family: Arial, sans-serif;
-        max-width: 200mm;
-        margin: 0;
-        padding: 0 0 22mm 0;
+        width: 100%;
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0 5mm 22mm 5mm;
         box-sizing: border-box;
         font-size: 8.5pt;
         line-height: 1.15;
+        overflow: visible;
     }
+    .ao-ref-date { width: 100%; border-collapse: collapse; margin-bottom: 4px; font-size: 8pt; table-layout: fixed; }
+    .ao-ref-date td { vertical-align: top; padding: 0; border: none; }
+    .ao-ref-date .ao-ref-cell { width: 62%; text-align: left; padding-right: 6px; word-wrap: break-word; }
+    .ao-ref-date .ao-date-cell { width: 38%; text-align: right; white-space: nowrap; padding-left: 4px; }
+    .ao-details-table { width: 100%; margin: 2px 0; font-size: 7.5pt; border-collapse: collapse; table-layout: fixed; }
+    .ao-details-table td { padding: 2px 4px 2px 0; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
+    .ao-details-table .ao-label { width: 18%; font-weight: 600; }
+    .ao-details-table .ao-value { width: 32%; }
     .ao-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3px 0; font-family: Arial, sans-serif; }
     .ao-light-table th, .ao-light-table td {
         border: 0.5px solid #999;
@@ -464,8 +474,8 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
     .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-all; }
     .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-cat { width: 5%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-remark { width: 10%; font-size: 6px; text-align: center; word-break: break-all; }
+    .ao-students-table .ao-cat { width: 7%; text-align: center; font-size: 6.5px; white-space: nowrap; }
+    .ao-students-table .ao-remark { width: 8%; font-size: 6px; text-align: center; word-break: break-all; }
     .ao-footer-block { margin-top: 10px; font-size: 7.5pt; line-height: 1.4; }
     .ao-footer-signature { margin-top: 14px; font-size: 7.5pt; line-height: 1.45; }
     .ao-footer-signature p { margin: 0 0 3px 0; font-weight: normal; }
@@ -490,15 +500,12 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </table>
 
     <!-- Reference and Date -->
-    <div style="margin-bottom: 3px; font-size: 8pt;">
-        <div style="float: left;">
-            <strong>Ref: <span id="display_ref"><?php echo htmlspecialchars($batch['admission_order_ref']); ?></span></strong>
-        </div>
-        <div style="float: right;">
-            <strong>Dated: <span id="display_date"><?php echo date('d.m.Y', strtotime($order_date)); ?></span></strong>
-        </div>
-        <div style="clear: both;"></div>
-    </div>
+    <table class="ao-ref-date">
+        <tr>
+            <td class="ao-ref-cell"><strong>Ref: <span id="display_ref"><?php echo htmlspecialchars($batch['admission_order_ref']); ?></span></strong></td>
+            <td class="ao-date-cell"><strong>Dated: <span id="display_date"><?php echo date('d.m.Y', strtotime($order_date)); ?></span></strong></td>
+        </tr>
+    </table>
 
     <!-- Title -->
     <div style="text-align: center; margin: 3px 0;">
@@ -509,36 +516,36 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     <div style="margin-bottom: 3px; line-height: 1.15; font-size: 7.5pt;">
         <p style="margin: 1px 0;">The following eligible students are admitted in the <strong><?php echo $batch['batch_name']; ?></strong> Batch of "<strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>" which commenced from <strong><?php echo date('d-m-Y', strtotime($batch['start_date'])); ?></strong>.</p>
         
-        <table style="width: 100%; margin: 2px 0; font-size: 7.5pt;">
+        <table class="ao-details-table">
             <tr>
-                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><strong>Location:</strong></td>
-                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_location"><?php echo htmlspecialchars($location); ?></span></td>
-                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><strong>Faculty Name:</strong></td>
-                <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_faculty"><?php echo htmlspecialchars($faculty_display); ?></span></td>
+                <td class="ao-label">Location:</td>
+                <td class="ao-value"><span id="display_location"><?php echo htmlspecialchars($location); ?></span></td>
+                <td class="ao-label">Faculty Name:</td>
+                <td class="ao-value"><span id="display_faculty"><?php echo htmlspecialchars($faculty_display); ?></span></td>
             </tr>
             <tr>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Course Name:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['course_name']); ?></td>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Start Date:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
+                <td class="ao-label">Course Name:</td>
+                <td class="ao-value"><?php echo htmlspecialchars($batch['course_name']); ?></td>
+                <td class="ao-label">Start Date:</td>
+                <td class="ao-value" style="white-space: nowrap;"><?php echo date('d.m.Y', strtotime($batch['start_date'])); ?></td>
             </tr>
             <tr>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Batch ID:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['batch_name']); ?></td>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>End Date:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></td>
+                <td class="ao-label">Batch ID:</td>
+                <td class="ao-value"><?php echo htmlspecialchars($batch['batch_name']); ?></td>
+                <td class="ao-label">End Date:</td>
+                <td class="ao-value" style="white-space: nowrap;"><?php echo date('d.m.Y', strtotime($batch['end_date'])); ?></td>
             </tr>
             <tr>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Exam Month:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><span id="display_exam_month"><?php echo htmlspecialchars($batch['examination_month']); ?></span></td>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Time:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><span id="display_time"><?php echo htmlspecialchars($class_time); ?></span></td>
+                <td class="ao-label">Exam Month:</td>
+                <td class="ao-value"><span id="display_exam_month"><?php echo htmlspecialchars($batch['examination_month']); ?></span></td>
+                <td class="ao-label">Time:</td>
+                <td class="ao-value"><span id="display_time"><?php echo htmlspecialchars($class_time); ?></span></td>
             </tr>
             <tr>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Scheme:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['scheme_name'] ?? 'General'); ?></td>
-                <td style="padding: 2px 0; vertical-align: top;"><strong>Duration:</strong></td>
-                <td style="padding: 2px 0; vertical-align: top;"><?php echo htmlspecialchars($batch['duration']); ?></td>
+                <td class="ao-label">Scheme:</td>
+                <td class="ao-value"><?php echo htmlspecialchars($batch['scheme_name'] ?? 'General'); ?></td>
+                <td class="ao-label">Duration:</td>
+                <td class="ao-value"><?php echo htmlspecialchars($batch['duration']); ?></td>
             </tr>
         </table>
     </div>
