@@ -499,18 +499,40 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 
     <!-- Students Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 6.5px; margin: 3px 0;">
+    <style>
+        .ao-students-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3px 0; font-family: Arial, sans-serif; }
+        .ao-students-table th, .ao-students-table td {
+            border: 1px solid #000;
+            padding: 2px 3px;
+            vertical-align: top;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.25;
+        }
+        .ao-students-table th { background: #f0f0f0; font-size: 7px; font-weight: bold; }
+        .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
+        .ao-students-table .ao-reg { width: 11%; font-size: 5.5px; word-break: break-all; line-height: 1.15; }
+        .ao-students-table .ao-name { width: 24%; font-size: 7.5px; text-align: left; }
+        .ao-students-table .ao-father { width: 22%; font-size: 7.5px; text-align: left; }
+        .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
+        .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-all; }
+        .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
+        .ao-students-table .ao-cat { width: 5%; text-align: center; font-size: 7px; }
+        .ao-students-table .ao-remark { width: 10%; font-size: 6.5px; text-align: center; }
+    </style>
+    <table class="ao-students-table">
         <thead>
-            <tr style="background: #f0f0f0;">
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 4%;">SL</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 11%;">NIELIT REG</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; width: 19%;">NAME</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; width: 17%;">FATHER NAME</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 10%;">MOBILE</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 12%;">AADHAAR</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 5%;">GEN</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 6%;">CAT</th>
-                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 16%;">REMARK</th>
+            <tr>
+                <th class="ao-sl">SL</th>
+                <th class="ao-reg">NIELIT REG</th>
+                <th class="ao-name">NAME</th>
+                <th class="ao-father">FATHER NAME</th>
+                <th class="ao-mobile">MOBILE</th>
+                <th class="ao-aadhaar">AADHAAR</th>
+                <th class="ao-gen">GEN</th>
+                <th class="ao-cat">CAT</th>
+                <th class="ao-remark">REMARK</th>
             </tr>
         </thead>
         <tbody>
@@ -519,15 +541,15 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             foreach ($students as $student): 
             ?>
             <tr>
-                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6.5px; line-height: 1;"><?php echo $sl_no++; ?></td>
-                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['mobile']); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
-                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1; word-wrap: break-word;"><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
+                <td class="ao-sl"><?php echo $sl_no++; ?></td>
+                <td class="ao-reg"><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
+                <td class="ao-name"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
+                <td class="ao-father"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
+                <td class="ao-mobile"><?php echo htmlspecialchars($student['mobile']); ?></td>
+                <td class="ao-aadhaar"><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
+                <td class="ao-gen"><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
+                <td class="ao-cat"><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
+                <td class="ao-remark"><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>

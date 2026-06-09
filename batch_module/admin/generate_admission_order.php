@@ -326,7 +326,7 @@ function downloadPDF() {
         html2canvas: { 
             scale: 2,
             useCORS: true,
-            letterRendering: true,
+            letterRendering: false,
             scrollY: 0
         },
         jsPDF: { 
@@ -434,10 +434,19 @@ function printOrder() {
         
         th, td {
             border: 1px solid #000;
-            padding: 3px 4px;
+            padding: 2px 3px;
             text-align: left;
             font-size: 7pt;
+            line-height: 1.25;
+            white-space: normal;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            vertical-align: top;
         }
+
+        .ao-students-table { table-layout: fixed; }
+        .ao-students-table .ao-name,
+        .ao-students-table .ao-father { font-size: 7.5pt; }
         
         th {
             background: #f0f0f0 !important;
