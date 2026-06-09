@@ -251,7 +251,7 @@ if (!$batch) {
                         </div>
                     </div>
                     
-                    <div id="admission-order-content" style="padding: 20px; background: white; <?php echo $lock_restricted ? 'opacity: 0.7; pointer-events: none;' : ''; ?>">
+                    <div id="admission-order-content" style="padding: 8px; background: white; <?php echo $lock_restricted ? 'opacity: 0.7; pointer-events: none;' : ''; ?>">
                         <?php if ($lock_restricted): ?>
                             <div style="text-align: center; padding: 40px; color: #64748b; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
                                 <i class="fas fa-lock" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
@@ -320,13 +320,14 @@ function downloadPDF() {
     }
     
     const opt = {
-        margin: [8, 5, 8, 5], // Top, Right, Bottom, Left margins in mm (minimal margins)
+        margin: [3, 4, 3, 4],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
             scale: 2,
             useCORS: true,
-            letterRendering: true
+            letterRendering: true,
+            scrollY: 0
         },
         jsPDF: { 
             unit: 'mm', 
@@ -334,7 +335,7 @@ function downloadPDF() {
             orientation: 'portrait',
             compress: true
         },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        pagebreak: { mode: ['css', 'legacy'] }
     };
     
     // Show loading toast
@@ -378,7 +379,7 @@ function printOrder() {
     <style>
         @page {
             size: A4;
-            margin: 8mm 5mm; /* Minimal margins - top/bottom 8mm, left/right 5mm */
+            margin: 3mm 4mm;
         }
         
         @media print {
@@ -408,7 +409,7 @@ function printOrder() {
         
         #printable-content {
             max-width: 100%;
-            padding: 8mm 5mm 8mm 5mm; /* Equal top/bottom margins: 8mm, minimal left/right: 5mm */
+            padding: 0;
             margin: 0;
         }
         

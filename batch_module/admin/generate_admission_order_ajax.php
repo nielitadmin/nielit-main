@@ -297,9 +297,8 @@ foreach ($category_gender_counts as $counts) {
 
 $total_students = count($students);
 
-// Calculate estimated page count based on student count
-// Approximate: ~20-25 students fit on first page, additional students require second page
-$estimated_pages = ($total_students <= 22) ? 1 : 2;
+// Compact single-page layout targets up to ~35 students on A4
+$estimated_pages = ($total_students <= 35) ? 1 : 2;
 
 // Count PWD students separately (independent of category)
 $pwd_counts = ['M' => 0, 'F' => 0];
@@ -428,25 +427,25 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 </div>
 
-<!-- Printable Content (A4 formatted - Professional 2-page layout with minimal margins) -->
-<div id="printable-content" style="font-family: Arial, sans-serif; max-width: 190mm; margin: 0 auto; padding: 8mm 5mm 8mm 5mm; box-sizing: border-box; font-size: 9pt; line-height: 1.2;">
+<!-- Printable Content (A4 — compact single-page layout) -->
+<div id="printable-content" style="font-family: Arial, sans-serif; max-width: 200mm; margin: 0; padding: 0; box-sizing: border-box; font-size: 8.5pt; line-height: 1.1;">
     <!-- Header -->
-    <table style="width: 100%; margin-bottom: 8px;">
+    <table style="width: 100%; margin-bottom: 3px;">
         <tr>
-            <td style="width: 70px; vertical-align: middle; padding-right: 8px;">
-                <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" style="height: 55px; width: auto;">
+            <td style="width: 52px; vertical-align: middle; padding-right: 4px;">
+                <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" style="height: 42px; width: auto;">
             </td>
             <td style="text-align: center; vertical-align: middle;">
-                <h3 style="margin: 2px 0; font-size: 11pt; font-weight: bold;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</h3>
-                <h4 style="margin: 2px 0; font-size: 10pt;">National Institute of Electronics and Information Technology (NIELIT)</h4>
-                <h4 style="margin: 2px 0; font-size: 9pt;">Bhubaneswar/Balasore Extension Centre</h4>
-                <p style="font-size: 7pt; margin: 2px 0;">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>
+                <h3 style="margin: 0; font-size: 9.5pt; font-weight: bold; line-height: 1.1;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</h3>
+                <h4 style="margin: 0; font-size: 9pt; line-height: 1.1;">National Institute of Electronics and Information Technology (NIELIT)</h4>
+                <h4 style="margin: 0; font-size: 8pt; line-height: 1.1;">Bhubaneswar/Balasore Extension Centre</h4>
+                <p style="font-size: 6.5pt; margin: 1px 0 0 0; line-height: 1.1;">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>
             </td>
         </tr>
     </table>
 
     <!-- Reference and Date -->
-    <div style="margin-bottom: 8px; font-size: 9pt;">
+    <div style="margin-bottom: 3px; font-size: 8pt;">
         <div style="float: left;">
             <strong>Ref: <span id="display_ref"><?php echo htmlspecialchars($batch['admission_order_ref']); ?></span></strong>
         </div>
@@ -457,15 +456,15 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 
     <!-- Title -->
-    <div style="text-align: center; margin: 8px 0;">
-        <h3 style="text-decoration: underline; font-size: 12pt; margin: 0; font-weight: bold;">ADMISSION ORDER</h3>
+    <div style="text-align: center; margin: 3px 0;">
+        <h3 style="text-decoration: underline; font-size: 10.5pt; margin: 0; font-weight: bold;">ADMISSION ORDER</h3>
     </div>
 
     <!-- Admission Details -->
-    <div style="margin-bottom: 8px; line-height: 1.3; font-size: 8pt;">
-        <p style="margin: 3px 0;">The following eligible students are admitted in the <strong><?php echo $batch['batch_name']; ?></strong> Batch of "<strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>" which commenced from <strong><?php echo date('d-m-Y', strtotime($batch['start_date'])); ?></strong>.</p>
+    <div style="margin-bottom: 3px; line-height: 1.15; font-size: 7.5pt;">
+        <p style="margin: 1px 0;">The following eligible students are admitted in the <strong><?php echo $batch['batch_name']; ?></strong> Batch of "<strong><?php echo htmlspecialchars($batch['course_name']); ?></strong>" which commenced from <strong><?php echo date('d-m-Y', strtotime($batch['start_date'])); ?></strong>.</p>
         
-        <table style="width: 100%; margin: 5px 0; font-size: 8pt;">
+        <table style="width: 100%; margin: 2px 0; font-size: 7.5pt;">
             <tr>
                 <td style="width: 25%; padding: 2px 0; vertical-align: top;"><strong>Location:</strong></td>
                 <td style="width: 25%; padding: 2px 0; vertical-align: top;"><span id="display_location"><?php echo htmlspecialchars($location); ?></span></td>
@@ -500,18 +499,18 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </div>
 
     <!-- Students Table -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 7px; margin: 8px 0;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 6.5px; margin: 3px 0;">
         <thead>
             <tr style="background: #f0f0f0;">
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 4%;">SL</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 11%;">NIELIT REG</th>
-                <th style="border: 1px solid #000; padding: 3px; width: 19%;">NAME</th>
-                <th style="border: 1px solid #000; padding: 3px; width: 17%;">FATHER NAME</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 10%;">MOBILE</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 12%;">AADHAAR</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 5%;">GEN</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 6%;">CAT</th>
-                <th style="border: 1px solid #000; padding: 3px; text-align: center; width: 16%;">REMARK</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 4%;">SL</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 11%;">NIELIT REG</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; width: 19%;">NAME</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; width: 17%;">FATHER NAME</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 10%;">MOBILE</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 12%;">AADHAAR</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 5%;">GEN</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 6%;">CAT</th>
+                <th style="border: 1px solid #000; padding: 1px 2px; text-align: center; width: 16%;">REMARK</th>
             </tr>
         </thead>
         <tbody>
@@ -520,59 +519,59 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             foreach ($students as $student): 
             ?>
             <tr>
-                <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 7px;"><?php echo $sl_no++; ?></td>
-                <td style="border: 1px solid #000; padding: 2px; font-size: 6px;"><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; font-size: 6px;"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; font-size: 6px;"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo htmlspecialchars($student['mobile']); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
-                <td style="border: 1px solid #000; padding: 2px; font-size: 6px; word-wrap: break-word;"><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6.5px; line-height: 1;"><?php echo $sl_no++; ?></td>
+                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1;"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['mobile']); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo htmlspecialchars($student['aadhar_number'] ?? 'N/A'); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo strtoupper(substr($student['gender'], 0, 1)); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo strtoupper($student['category'] ?? 'GEN'); ?></td>
+                <td style="border: 1px solid #000; padding: 1px; font-size: 6px; line-height: 1; word-wrap: break-word;"><?php echo htmlspecialchars($batch['scheme_code'] ?? ''); ?></td>
             </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
 
     <!-- Category Summary -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 7px; margin: 8px 0;">
+    <table style="width: 100%; border-collapse: collapse; font-size: 6.5px; margin: 3px 0;">
         <tr>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">SC</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">ST</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">OBC</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">PWD</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">GEN</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" colspan="2">TOTAL</th>
-            <th style="border: 1px solid #000; padding: 3px; background: #f0f0f0; font-size: 7px;" rowspan="2">TOTAL</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">SC</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">ST</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">OBC</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">PWD</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">GEN</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" colspan="2">TOTAL</th>
+            <th style="border: 1px solid #000; padding: 1px 2px; background: #f0f0f0; font-size: 6.5px;" rowspan="2">TOTAL</th>
         </tr>
         <tr>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">M</td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">M</td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;">F</td>
         </tr>
         <tr>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['SC']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['SC']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['ST']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['ST']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['OBC']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['OBC']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['PWD']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['PWD']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['GEN']['M']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $category_gender_counts['GEN']['F']; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $total_male; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $total_female; ?></td>
-            <td style="border: 1px solid #000; padding: 2px; text-align: center; font-size: 6px;"><?php echo $total_students; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['SC']['M']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['SC']['F']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['ST']['M']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['ST']['F']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['OBC']['M']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['OBC']['F']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['PWD']['M']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['PWD']['F']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['GEN']['M']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $category_gender_counts['GEN']['F']; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_male; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_female; ?></td>
+            <td style="border: 1px solid #000; padding: 1px; text-align: center; font-size: 6px; line-height: 1;"><?php echo $total_students; ?></td>
         </tr>
     </table>
 
@@ -595,40 +594,42 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     <?php endif; ?>
 
     <!-- Footer Note -->
-    <div style="margin-top: 12px; font-size: 8pt;">
-        <p style="margin: 0;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
+    <div style="margin-top: 4px; font-size: 7pt;">
+        <p style="margin: 0; line-height: 1.15;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
     </div>
 
-    <!-- Signature -->
-    <div style="margin-top: 20px; text-align: right; font-size: 8pt;">
-        <p style="margin: 3px 0;"><strong>Signature</strong></p>
-        <p style="margin: 3px 0;"><?php echo date('d-m-Y'); ?></p>
-        <p style="margin: 3px 0;"><strong><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></strong></p>
-        <p style="margin: 3px 0;"><strong><?php 
-            $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
-            if (strtolower($scheme_code) === 'regular') {
-                echo 'Project Incharge,';
-            } else {
-                echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
-            }
-        ?></strong></p>
-        <p style="margin: 3px 0;"><strong>NIELIT Bhubaneswar.</strong></p>
-    </div>
-
-    <!-- Copy To -->
-    <div style="margin-top: 15px; font-size: 7pt;">
-        <p style="margin: 0 0 4px 0;"><strong>Copy to:</strong></p>
-        <ol id="display_copy_to" style="margin: 0 0 0 15px; padding: 0;">
-            <?php foreach ($copy_to_list as $recipient): ?>
-                <li style="margin: 2px 0;"><?php echo htmlspecialchars($recipient); ?></li>
-            <?php endforeach; ?>
-        </ol>
-    </div>
-
-    <!-- Page Footer -->
-    <div style="text-align: center; margin-top: 15px; font-size: 7pt; color: #666;">
+    <!-- Signature + Copy To (side by side to save vertical space) -->
+    <table style="width: 100%; margin-top: 6px; font-size: 7pt; border-collapse: collapse;">
+        <tr>
+            <td style="width: 48%; vertical-align: top; padding-right: 8px;">
+                <p style="margin: 0 0 2px 0;"><strong>Copy to:</strong></p>
+                <ol id="display_copy_to" style="margin: 0 0 0 14px; padding: 0;">
+                    <?php foreach ($copy_to_list as $recipient): ?>
+                        <li style="margin: 0; line-height: 1.15;"><?php echo htmlspecialchars($recipient); ?></li>
+                    <?php endforeach; ?>
+                </ol>
+            </td>
+            <td style="width: 52%; vertical-align: top; text-align: right;">
+                <p style="margin: 0; line-height: 1.15;"><strong>Signature</strong></p>
+                <p style="margin: 0; line-height: 1.15;"><?php echo date('d-m-Y'); ?></p>
+                <p style="margin: 0; line-height: 1.15;"><strong><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></strong></p>
+                <p style="margin: 0; line-height: 1.15;"><strong><?php 
+                    $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
+                    if (strtolower($scheme_code) === 'regular') {
+                        echo 'Project Incharge,';
+                    } else {
+                        echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
+                    }
+                ?></strong></p>
+                <p style="margin: 0; line-height: 1.15;"><strong>NIELIT Bhubaneswar.</strong></p>
+            </td>
+        </tr>
+    </table>
+    <?php if ($estimated_pages > 1): ?>
+    <div style="text-align: center; margin-top: 4px; font-size: 6.5pt; color: #666;">
         <p style="margin: 0;">Page 1 of <?php echo $estimated_pages; ?></p>
     </div>
+    <?php endif; ?>
 </div>
 
 <script>
