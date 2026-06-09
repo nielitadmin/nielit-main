@@ -421,6 +421,14 @@ function printOrder() {
         .ao-header-text .ao-institute { margin: 0 0 4px 0; line-height: 1.35; }
         .ao-header-text .ao-centre { margin: 0 0 5px 0; line-height: 1.35; }
         .ao-header-text .ao-tagline { margin: 0; line-height: 1.3; }
+        .ao-header-rule {
+            width: 100%;
+            height: 0;
+            border: none;
+            border-top: 2.5px solid #000;
+            margin: 4px 0 10px 0;
+            padding: 0;
+        }
         .ao-doc-title { margin: 8px 0 8px 0; }
         
         table {

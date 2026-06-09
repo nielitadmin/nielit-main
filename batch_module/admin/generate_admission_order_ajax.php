@@ -453,6 +453,14 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-ref-date td { vertical-align: middle; padding: 4px 0; border: none; }
     .ao-ref-date .ao-ref-cell { width: 62%; text-align: left; padding-right: 8px; word-wrap: break-word; }
     .ao-ref-date .ao-date-cell { width: 38%; text-align: right; white-space: nowrap; padding-left: 8px; }
+    .ao-header-rule {
+        width: 100%;
+        height: 0;
+        border: none;
+        border-top: 2.5px solid #000;
+        margin: 4px 0 10px 0;
+        padding: 0;
+    }
     .ao-doc-title { text-align: center; margin: 8px 0 8px 0; padding: 2px 0; }
     .ao-doc-title h3 { text-decoration: underline; font-size: 11pt; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
     .ao-details-table { width: 100%; margin: 2px 0; font-size: 7.5pt; border-collapse: collapse; table-layout: fixed; }
@@ -518,6 +526,8 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             <td class="ao-date-cell"><strong>Dated: <span id="display_date"><?php echo date('d.m.Y', strtotime($order_date)); ?></span></strong></td>
         </tr>
     </table>
+
+    <hr class="ao-header-rule" aria-hidden="true">
 
     <!-- Title -->
     <div class="ao-doc-title">
