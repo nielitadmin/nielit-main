@@ -434,7 +434,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
-        padding: 3mm 5mm 22mm 5mm;
+        padding: 3mm 5mm 14mm 5mm;
         box-sizing: border-box;
         font-size: 8.5pt;
         line-height: 1.15;
@@ -443,31 +443,31 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-header-block { width: 100%; border-collapse: collapse; margin: 0 0 10px 0; }
     .ao-header-block td { border: none; vertical-align: middle; }
     .ao-header-logo { width: 58px; padding-right: 10px; }
-    .ao-header-logo img { height: 44px; width: auto; display: block; }
+    .ao-header-logo img { height: 40px; width: auto; display: block; }
     .ao-header-text { text-align: center; padding: 2px 0; }
     .ao-header-text .ao-hindi { margin: 0 0 5px 0; font-size: 9.5pt; font-weight: 700; line-height: 1.35; }
     .ao-header-text .ao-institute { margin: 0 0 4px 0; font-size: 9pt; font-weight: 600; line-height: 1.35; }
     .ao-header-text .ao-centre { margin: 0 0 5px 0; font-size: 8.5pt; font-weight: 600; line-height: 1.35; }
     .ao-header-text .ao-tagline { margin: 0; font-size: 6.5pt; font-weight: normal; line-height: 1.3; color: #333; }
-    .ao-ref-date { width: 100%; border-collapse: collapse; margin: 8px 0 10px 0; font-size: 8pt; table-layout: fixed; }
+    .ao-ref-date { width: 100%; border-collapse: collapse; margin: 6px 0 8px 0; font-size: 8pt; table-layout: fixed; }
     .ao-ref-date td { vertical-align: middle; padding: 4px 0; border: none; }
     .ao-ref-date .ao-ref-cell { width: 62%; text-align: left; padding-right: 8px; word-wrap: break-word; }
     .ao-ref-date .ao-date-cell { width: 38%; text-align: right; white-space: nowrap; padding-left: 8px; }
-    .ao-doc-title { text-align: center; margin: 10px 0 12px 0; padding: 4px 0; }
+    .ao-doc-title { text-align: center; margin: 8px 0 8px 0; padding: 2px 0; }
     .ao-doc-title h3 { text-decoration: underline; font-size: 11pt; margin: 0; font-weight: 700; letter-spacing: 0.5px; }
     .ao-details-table { width: 100%; margin: 2px 0; font-size: 7.5pt; border-collapse: collapse; table-layout: fixed; }
     .ao-details-table td { padding: 2px 4px 2px 0; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
     .ao-details-table .ao-label { width: 18%; font-weight: 600; }
     .ao-details-table .ao-value { width: 32%; }
-    .ao-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 3px 0; font-family: Arial, sans-serif; }
+    .ao-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2px 0; font-family: Arial, sans-serif; }
     .ao-light-table th, .ao-light-table td {
         border: 0.5px solid #999;
-        padding: 2px 3px;
+        padding: 1px 2px;
         vertical-align: top;
         white-space: normal;
         word-wrap: break-word;
         overflow-wrap: break-word;
-        line-height: 1.3;
+        line-height: 1.22;
         font-weight: normal;
         color: #222;
     }
@@ -479,20 +479,21 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         border-color: #aaa;
     }
     .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-reg { width: 11%; font-size: 5.5px; word-break: break-all; line-height: 1.2; }
-    .ao-students-table .ao-name { width: 24%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-father { width: 22%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
-    .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-all; }
+    .ao-students-table .ao-reg { width: 13%; font-size: 7px; word-break: break-all; line-height: 1.25; }
+    .ao-students-table .ao-name { width: 23%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-father { width: 21%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-mobile { width: 8%; text-align: center; font-size: 6.5px; }
+    .ao-students-table .ao-aadhaar { width: 10%; text-align: center; font-size: 6px; word-break: break-all; }
     .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
     .ao-students-table .ao-cat { width: 7%; text-align: center; font-size: 6.5px; white-space: nowrap; }
-    .ao-students-table .ao-remark { width: 8%; font-size: 6px; text-align: center; word-break: break-all; }
-    .ao-footer-block { margin-top: 10px; font-size: 7.5pt; line-height: 1.4; }
-    .ao-footer-signature { margin-top: 14px; font-size: 7.5pt; line-height: 1.45; }
-    .ao-footer-signature p { margin: 0 0 3px 0; font-weight: normal; }
+    .ao-students-table .ao-remark { width: 10%; font-size: 6px; text-align: center; word-break: break-all; }
+    .ao-footer-section { page-break-inside: avoid; break-inside: avoid; }
+    .ao-footer-block { margin-top: 5px; font-size: 7pt; line-height: 1.3; }
+    .ao-footer-signature { margin-top: 6px; font-size: 7pt; line-height: 1.3; page-break-inside: avoid; break-inside: avoid; }
+    .ao-footer-signature p { margin: 0 0 2px 0; font-weight: normal; }
     .ao-footer-signature .ao-sig-name { font-weight: 600; }
-    .ao-copy-list { margin: 4px 0 0 16px; padding: 0; }
-    .ao-copy-list li { margin: 0 0 3px 0; line-height: 1.35; }
+    .ao-copy-list { margin: 2px 0 0 14px; padding: 0; font-size: 6.5pt; }
+    .ao-copy-list li { margin: 0 0 1px 0; line-height: 1.25; }
 </style>
 <div id="printable-content">
     <!-- Header -->
@@ -597,7 +598,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </table>
 
     <!-- Category Summary -->
-    <table class="ao-light-table ao-summary-table" style="font-size: 6.5px;">
+    <table class="ao-light-table ao-summary-table" style="font-size: 6px; margin-top: 1px;">
         <tr>
             <th colspan="2">SC</th>
             <th colspan="2">ST</th>
@@ -657,6 +658,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     <?php endif; ?>
 
     <!-- Footer (spaced for letterhead printing) -->
+    <div class="ao-footer-section">
     <div class="ao-footer-block">
         <p style="margin: 0;">All documents and eligibility of above listed students (<?php echo $total_students; ?> No's) as per Course norms and Project/scheme norms are checked and Verified by undersigned.</p>
     </div>
@@ -671,11 +673,11 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     <?php endforeach; ?>
                 </ol>
             </td>
-            <td style="width: 50%; vertical-align: top; text-align: right; border: none; padding-top: 8px;">
-                <p style="margin: 0 0 6px 0;">Signature</p>
-                <p style="margin: 0 0 6px 0;"><?php echo date('d-m-Y'); ?></p>
-                <p class="ao-sig-name" style="margin: 0 0 4px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
-                <p style="margin: 0 0 4px 0;"><?php 
+            <td style="width: 50%; vertical-align: top; text-align: right; border: none; padding-top: 4px;">
+                <p style="margin: 0 0 3px 0;">Signature</p>
+                <p style="margin: 0 0 3px 0;"><?php echo date('d-m-Y'); ?></p>
+                <p class="ao-sig-name" style="margin: 0 0 2px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
+                <p style="margin: 0 0 2px 0;"><?php 
                     $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
                     if (strtolower($scheme_code) === 'regular') {
                         echo 'Project Incharge,';
@@ -687,6 +689,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             </td>
         </tr>
     </table>
+    </div>
     <?php if ($estimated_pages > 1): ?>
     <div style="text-align: center; margin-top: 4px; font-size: 6.5pt; color: #666;">
         <p style="margin: 0;">Page 1 of <?php echo $estimated_pages; ?></p>

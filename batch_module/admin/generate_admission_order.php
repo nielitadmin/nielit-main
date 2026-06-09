@@ -320,7 +320,7 @@ function downloadPDF() {
     }
     
     const opt = {
-        margin: [4, 8, 12, 8],
+        margin: [3, 8, 10, 8],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
@@ -335,7 +335,7 @@ function downloadPDF() {
             orientation: 'portrait',
             compress: true
         },
-        pagebreak: { mode: ['css', 'legacy'] }
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.ao-footer-section' }
     };
     
     // Show loading toast
@@ -379,7 +379,7 @@ function printOrder() {
     <style>
         @page {
             size: A4;
-            margin: 4mm 8mm 12mm 8mm;
+            margin: 3mm 8mm 10mm 8mm;
         }
         
         @media print {
@@ -409,7 +409,7 @@ function printOrder() {
         
         #printable-content {
             max-width: 100%;
-            padding: 0 5mm 22mm 5mm;
+            padding: 0 5mm 14mm 5mm;
             margin: 0;
             box-sizing: border-box;
             overflow: visible;
@@ -421,7 +421,7 @@ function printOrder() {
         .ao-header-text .ao-institute { margin: 0 0 4px 0; line-height: 1.35; }
         .ao-header-text .ao-centre { margin: 0 0 5px 0; line-height: 1.35; }
         .ao-header-text .ao-tagline { margin: 0; line-height: 1.3; }
-        .ao-doc-title { margin: 10px 0 12px 0; }
+        .ao-doc-title { margin: 8px 0 8px 0; }
         
         table {
             width: 100%;
@@ -429,7 +429,7 @@ function printOrder() {
             page-break-inside: auto;
         }
         
-        tr {
+        .ao-students-table tr {
             page-break-inside: avoid;
             page-break-after: auto;
         }
@@ -444,10 +444,10 @@ function printOrder() {
         
         .ao-light-table th, .ao-light-table td {
             border: 0.5px solid #999 !important;
-            padding: 2px 3px;
+            padding: 1px 2px;
             font-weight: normal;
             font-size: 7pt;
-            line-height: 1.3;
+            line-height: 1.22;
             white-space: normal;
             word-wrap: break-word;
             vertical-align: top;
@@ -461,10 +461,14 @@ function printOrder() {
         }
 
         .ao-students-table { table-layout: fixed; }
+        .ao-students-table .ao-reg { font-size: 7pt; width: 13%; }
         .ao-students-table .ao-name,
         .ao-students-table .ao-father { font-size: 7.5pt; }
 
+        .ao-footer-section,
+        .ao-footer-signature { page-break-inside: avoid; break-inside: avoid; }
         .ao-footer-signature td { border: none !important; }
+        .ao-copy-list li { margin: 0 0 1px 0; line-height: 1.25; }
         
         h3 {
             margin: 3px 0;
