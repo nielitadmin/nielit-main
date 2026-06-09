@@ -417,6 +417,11 @@ function printOrder() {
 
         .ao-ref-date .ao-date-cell { white-space: nowrap; text-align: right; }
         .ao-details-table td { word-wrap: break-word; }
+        .ao-header-text .ao-hindi { margin: 0 0 5px 0; line-height: 1.35; }
+        .ao-header-text .ao-institute { margin: 0 0 4px 0; line-height: 1.35; }
+        .ao-header-text .ao-centre { margin: 0 0 5px 0; line-height: 1.35; }
+        .ao-header-text .ao-tagline { margin: 0; line-height: 1.3; }
+        .ao-doc-title { margin: 10px 0 12px 0; }
         
         table {
             width: 100%;
