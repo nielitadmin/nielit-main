@@ -886,10 +886,11 @@ $courses_result = $conn->query($sql_courses);
                                         echo '</select>';
                                         echo '</td>';
                                         
-                                        // Exam Name dropdown (will be populated by JavaScript)
+                                        // Exam Name dropdown (populated by JavaScript on load; data attribute preserves DB value)
                                         echo '<td>';
-                                        echo '<select class="form-select form-select-sm" name="exam_name[]" required>';
-                                        echo '<option value="' . htmlspecialchars($edu['exam_name'] ?? '') . '">' . htmlspecialchars($edu['exam_name'] ?? 'Select Exam') . '</option>';
+                                        $saved_exam_name = $edu['exam_name'] ?? '';
+                                        echo '<select class="form-select form-select-sm" name="exam_name[]" required data-saved-exam-name="' . htmlspecialchars($saved_exam_name, ENT_QUOTES) . '">';
+                                        echo '<option value="' . htmlspecialchars($saved_exam_name, ENT_QUOTES) . '" selected>' . htmlspecialchars($saved_exam_name ?: 'Select Exam') . '</option>';
                                         echo '</select>';
                                         echo '</td>';
                                         
@@ -1581,10 +1582,17 @@ function addEducationRow() {
 }
 
 // Update exam name options based on exam passed selection
-function updateExamName(examPassedSelect) {
+function updateExamName(examPassedSelect, savedExamName) {
     const row = examPassedSelect.closest('tr');
     const examNameSelect = row.querySelector('select[name="exam_name[]"]');
     const selectedLevel = examPassedSelect.value;
+
+    // On user change, reset; on page load, caller passes the value from the database
+    if (savedExamName === undefined) {
+        savedExamName = '';
+    } else if (!savedExamName && examNameSelect) {
+        savedExamName = examNameSelect.dataset.savedExamName || examNameSelect.value || '';
+    }
     
     // Clear existing options
     examNameSelect.innerHTML = '<option value="">Select Exam</option>';
@@ -1701,6 +1709,18 @@ function updateExamName(examPassedSelect) {
     otherOption.value = 'Other';
     otherOption.textContent = 'Other (Specify custom)';
     examNameSelect.appendChild(otherOption);
+
+    // Restore saved exam name from database (add custom value if not in preset list)
+    if (savedExamName) {
+        const hasOption = Array.from(examNameSelect.options).some(opt => opt.value === savedExamName);
+        if (!hasOption) {
+            const savedOption = document.createElement('option');
+            savedOption.value = savedExamName;
+            savedOption.textContent = savedExamName;
+            examNameSelect.insertBefore(savedOption, otherOption);
+        }
+        examNameSelect.value = savedExamName;
+    }
     
     // Add event listener for exam name "Other" selection
     examNameSelect.addEventListener('change', function() {
@@ -1767,9 +1787,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listeners to existing exam passed selects
     const examPassedSelects = document.querySelectorAll('select[name="exam_passed[]"]');
     examPassedSelects.forEach(select => {
-        // Trigger updateExamName for existing rows with values
+        // Populate exam names and restore values saved in the database
         if (select.value) {
-            updateExamName(select);
+            const row = select.closest('tr');
+            const examNameSelect = row ? row.querySelector('select[name="exam_name[]"]') : null;
+            const savedName = examNameSelect
+                ? (examNameSelect.dataset.savedExamName || examNameSelect.value || '')
+                : '';
+            updateExamName(select, savedName);
         }
     });
     
