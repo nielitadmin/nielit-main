@@ -5,7 +5,12 @@
 
 if (!function_exists('ensureCourseProjectLevelColumn')) {
     function ensureCourseProjectLevelColumn(mysqli $conn): void {
-        $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS project_level_label VARCHAR(255) DEFAULT NULL");
+        $check = $conn->query("SHOW COLUMNS FROM courses LIKE 'project_level_label'");
+        if ($check && $check->num_rows > 0) {
+            return;
+        }
+        $sql = "ALTER TABLE courses ADD COLUMN project_level_label VARCHAR(255) DEFAULT NULL";
+        $conn->query($sql);
     }
 }
 
