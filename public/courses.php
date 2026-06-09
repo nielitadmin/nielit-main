@@ -5,6 +5,9 @@ require_once __DIR__ . '/../includes/maintenance_check.php';
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/course_public_display.php';
+
+ensureCourseProjectLevelColumn($conn);
 
 // Load active theme
 $active_theme = loadActiveTheme($conn);
@@ -136,6 +139,26 @@ $result_internship = $conn->query($sql_internship);
             font-size: 1.1rem;
             margin: 0;
             flex: 1;
+        }
+
+        .course-project-level {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 6px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(245, 158, 11, 0.18);
+            border: 1px solid rgba(251, 191, 36, 0.45);
+            color: #fcd34d;
+            font-size: 0.78rem;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+
+        .course-project-level i {
+            color: var(--gold);
+            font-size: 0.72rem;
         }
 
         .course-card-toggle {
@@ -493,6 +516,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?><?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?> <span class="badge bg-info" style="font-size:0.7rem;">NSQF</span><?php endif; ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -521,6 +545,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <?php if (!empty($row["eligibility"])): ?>
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
@@ -581,6 +606,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?><?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?> <span class="badge bg-info" style="font-size:0.7rem;">NSQF</span><?php endif; ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -609,6 +635,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <?php if (!empty($row["eligibility"])): ?>
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
@@ -669,6 +696,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?><?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?> <span class="badge bg-info" style="font-size:0.7rem;">NSQF</span><?php endif; ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -697,6 +725,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <?php if (!empty($row["eligibility"])): ?>
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
@@ -757,6 +786,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -794,6 +824,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
                                         <div>
@@ -917,6 +948,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?><?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?> <span class="badge bg-info" style="font-size:0.7rem;">NSQF</span><?php endif; ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -945,6 +977,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <?php if (!empty($row["eligibility"])): ?>
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
@@ -1005,6 +1038,7 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-header">
                                 <div class="course-header-info">
                                     <h4><?php echo htmlspecialchars($row["course_name"]); ?><?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?> <span class="badge bg-info" style="font-size:0.7rem;">NSQF</span><?php endif; ?></h4>
+                                    <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php if (!empty($row["training_fees"])): ?>
@@ -1033,6 +1067,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <?php if (!empty($row["eligibility"])): ?>
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
@@ -1085,6 +1120,7 @@ $result_internship = $conn->query($sql_internship);
                         <div class="course-card">
                             <div class="course-card-header">
                                 <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
+                                <?php echo renderCourseProjectLevelHeader($row); ?>
                                 <!-- Enrollment Status Badge -->
                                 <div class="enrollment-status-badge" style="margin-top: 8px;">
                                     <?php 
@@ -1117,6 +1153,7 @@ $result_internship = $conn->query($sql_internship);
                             </div>
                             <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
                                 <div class="course-info-grid">
+                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
                                     <div class="info-item">
                                         <i class="fas fa-user-graduate"></i>
                                         <div>

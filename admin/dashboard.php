@@ -216,6 +216,7 @@ if (isset($_POST['add_course'])) {
     $end_date = $_POST['end_date'];
     $description_url = $_POST['description_url'];
     $course_description = trim($_POST['course_description'] ?? '');
+    $project_level_label = trim($_POST['project_level_label'] ?? '');
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'] ?? (!empty($centres) ? $centres[0]['name'] : 'NIELIT BHUBANESWAR');
@@ -235,21 +236,21 @@ if (isset($_POST['add_course'])) {
         }
     }
 
-    // Auto-add course_description column if missing
+    require_once __DIR__ . '/../includes/course_public_display.php';
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
+    ensureCourseProjectLevelColumn($conn);
 
     $insert_sql = "INSERT INTO courses (
         course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
-        training_center, is_nsqf, link_published, course_description, registration_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        training_center, is_nsqf, link_published, course_description, project_level_label, registration_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    // 18 variables: 14 strings, then i (is_nsqf), i (link_published), s (course_description), s (registration_token)
-    $stmt->bind_param("ssssssssssssssiiss", 
+    $stmt->bind_param("ssssssssssssssiisss", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
-        $training_center, $is_nsqf, $link_published, $course_description, $registration_token
+        $training_center, $is_nsqf, $link_published, $course_description, $project_level_label, $registration_token
     );
 
     if ($stmt->execute()) {
@@ -2508,6 +2509,15 @@ $dashboard_payload = [
                         </div>
                     </div>
                     
+                    <div class="form-group">
+                        <label class="form-label">Project Name / Course Level <small class="text-muted">(Public display)</small></label>
+                        <input type="text" class="form-control" name="project_level_label" maxlength="255" placeholder="e.g. PMKVY Project / NSQF Level-4">
+                        <div class="form-help">
+                            <i class="fas fa-layer-group"></i>
+                            Optional label shown on the public courses page (project name, scheme, or NSQF level)
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Course Description</label>
                         <textarea class="form-control" name="course_description" rows="3" placeholder="Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details about the course..."></textarea>

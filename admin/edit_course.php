@@ -5,6 +5,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 
 // Function to generate short token
@@ -50,6 +51,7 @@ $column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_re
 $payment_column_exists = $column_check && $column_check->num_rows > 0;
 
 $course = [];
+ensureCourseProjectLevelColumn($conn);
 
 if (isset($_GET['id'])) {
     $course_id = $_GET['id'];
@@ -148,6 +150,7 @@ if (isset($_POST['update_course'])) {
     $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
     $description_url    = $_POST['description_url'];
     $course_description = trim($_POST['course_description'] ?? '');
+    $project_level_label = trim($_POST['project_level_label'] ?? '');
     $apply_link         = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $training_center    = $_POST['training_center'];
@@ -233,8 +236,9 @@ if (isset($_POST['update_course'])) {
         }
     }
 
-    // Auto-add course_description column if missing
+    // Auto-add optional columns if missing
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
+    ensureCourseProjectLevelColumn($conn);
 
     if ($payment_column_exists) {
         // 21 parameters:
@@ -262,13 +266,13 @@ if (isset($_POST['update_course'])) {
             enrollment_status = ?,
             payment_details_required = ?,
             is_nsqf = ?,
-            course_description = ?
+            course_description = ?,
+            project_level_label = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 17 strings, 2 ints, 2 strings, 1 int, 1 string, 1 int = 23 total
-            $stmt->bind_param("ssssssssssssssssiissisi",
+            $stmt->bind_param("ssssssssssssssssiississi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -291,7 +295,8 @@ if (isset($_POST['update_course'])) {
                 $payment_details_required, // 20 s
                 $is_nsqf,                  // 21 i
                 $course_description,       // 22 s
-                $course_id                 // 23 i
+                $project_level_label,      // 23 s
+                $course_id                 // 24 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -323,13 +328,13 @@ if (isset($_POST['update_course'])) {
             link_published = ?,
             enrollment_status = ?,
             is_nsqf = ?,
-            course_description = ?
+            course_description = ?,
+            project_level_label = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            // 16 strings, 2 ints, 1 string, 1 int, 1 string, 1 int = 22 total
-            $stmt->bind_param("ssssssssssssssssiisii",
+            $stmt->bind_param("ssssssssssssssssiisissi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
@@ -351,7 +356,8 @@ if (isset($_POST['update_course'])) {
                 $enrollment_status,    // 19 s
                 $is_nsqf,              // 20 i
                 $course_description,   // 21 s
-                $course_id             // 22 i
+                $project_level_label,  // 22 s
+                $course_id             // 23 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -592,6 +598,12 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                         <input type="url" class="form-control" name="description_url" value="<?php echo htmlspecialchars($course['description_url']); ?>" placeholder="https://...">
                     </div>
                     
+                    <div class="form-group">
+                        <label class="form-label">Project Name / Course Level <small class="text-muted">(Public display)</small></label>
+                        <input type="text" class="form-control" name="project_level_label" value="<?php echo htmlspecialchars($course['project_level_label'] ?? ''); ?>" maxlength="255" placeholder="e.g. PMKVY Project / NSQF Level-4">
+                        <small class="text-muted">Shown on the public courses page to help students identify the project or level (optional)</small>
+                    </div>
+
                     <div class="form-group">
                         <label class="form-label">Course Description <small class="text-muted">(Optional)</small></label>
                         <textarea class="form-control" name="course_description" rows="3" placeholder="e.g. Location: NIELIT Bhubaneswar, Ground Floor. Venue: Training Hall A. Any additional details..."><?php echo htmlspecialchars($course['course_description'] ?? ''); ?></textarea>
