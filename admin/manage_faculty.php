@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/email_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login_new.php');
@@ -39,30 +40,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'add_staff':
-                $name = trim($_POST['name']);
-                $email = trim($_POST['email']);
-                $phone = trim($_POST['phone']);
-                $designation = trim($_POST['designation']);
-                $department = trim($_POST['department']);
-                $staff_category = $_POST['staff_category'];
+                $name = trim($_POST['name'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $phone = trim($_POST['phone'] ?? '');
+                $designation = trim($_POST['designation'] ?? '');
+                $department = trim($_POST['department'] ?? '');
+                $staff_category = trim($_POST['staff_category'] ?? '');
                 
-                if (!empty($name)) {
-                    $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, staff_category, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    $stmt->bind_param("ssssssi", $name, $email, $phone, $designation, $department, $staff_category, $admin_id);
-                    if ($stmt->execute()) {
-                        // Auto-send confirmation email if email is provided
-                        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                            $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
-                            $success_message = $email_sent
-                                ? "Staff member added successfully! Confirmation email sent to <strong>$email</strong>."
-                                : "Staff member added successfully! (Email could not be sent — check SMTP settings.)";
-                        } else {
-                            $success_message = "Staff member added successfully!";
+                if (empty($name)) {
+                    $error_message = "Staff name is required.";
+                    break;
+                }
+                if (empty($staff_category)) {
+                    $error_message = "Please select a staff category.";
+                    break;
+                }
+
+                $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, staff_category, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                if (!$stmt) {
+                    $error_message = "Error preparing add request: " . $conn->error;
+                    break;
+                }
+
+                $stmt->bind_param("ssssssi", $name, $email, $phone, $designation, $department, $staff_category, $admin_id);
+                if ($stmt->execute()) {
+                    $success_message = "Staff member added successfully!";
+
+                    // Auto-send confirmation email if email is provided
+                    if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                        $email_sent = sendFacultyConfirmationEmail($email, $name, $designation, $department);
+                        $success_message = $email_sent
+                            ? "Staff member added successfully! Confirmation email sent to <strong>$email</strong>."
+                            : "Staff member added successfully! (Email could not be sent — check SMTP settings.)";
+
+                        if ($email_sent) {
+                            $column_check = $conn->query("SHOW COLUMNS FROM faculty LIKE 'email_confirmed_at'");
+                            if ($column_check && $column_check->num_rows > 0) {
+                                $faculty_id = (int) $conn->insert_id;
+                                $update_stmt = $conn->prepare("UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?");
+                                if ($update_stmt) {
+                                    $update_stmt->bind_param("i", $faculty_id);
+                                    $update_stmt->execute();
+                                    $update_stmt->close();
+                                }
+                            }
                         }
+                    }
+                } else {
+                    if ($conn->errno === 1062) {
+                        $error_message = "A staff member with this email already exists. Use a different email or edit the existing record.";
                     } else {
-                        $error_message = "Error adding staff member.";
+                        $error_message = "Error adding staff member: " . $stmt->error;
                     }
                 }
+                $stmt->close();
                 break;
                 
             case 'update_staff':
