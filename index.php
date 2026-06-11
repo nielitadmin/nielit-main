@@ -27,6 +27,7 @@
     if (empty($navigation_menu_html)) {
         $navigation_menu_html = getFallbackNavigationMenu();
     }
+    $job_fair_portal_url = getJobFairPortalUrl();
     injectThemeCSS($active_theme);
     
     $banners = []; $announcements_content = []; $featured_courses = [];
@@ -514,6 +515,141 @@
             margin-bottom: 10px;
         }
         .feat-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin: 0; }
+
+        /* ===== JOB FAIR PORTAL ===== */
+        .jobfair-section {
+            padding: 88px 0;
+            background: linear-gradient(135deg, var(--navy) 0%, #163a6b 52%, var(--navy-mid) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .jobfair-section::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(245,158,11,0.16) 0, transparent 34%),
+                radial-gradient(circle at 88% 72%, rgba(59,130,246,0.18) 0, transparent 36%);
+            pointer-events: none;
+        }
+        .jobfair-section > .container { position: relative; z-index: 1; }
+        .jobfair-panel {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 28px;
+            padding: 40px;
+            backdrop-filter: blur(14px);
+        }
+        .jobfair-eyebrow {
+            display: inline-block;
+            background: rgba(245,158,11,0.15);
+            border: 1px solid rgba(245,158,11,0.35);
+            color: var(--gold-light);
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 20px;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            font-family: 'Sora', sans-serif;
+        }
+        .jobfair-title {
+            color: #fff;
+            font-size: clamp(1.8rem, 3.4vw, 2.7rem);
+            font-weight: 800;
+            letter-spacing: -0.8px;
+            line-height: 1.15;
+            margin-bottom: 14px;
+        }
+        .jobfair-lead {
+            color: rgba(255,255,255,0.78);
+            font-size: 1.02rem;
+            line-height: 1.75;
+            margin-bottom: 24px;
+            max-width: 640px;
+        }
+        .jobfair-alert {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            background: rgba(245,158,11,0.12);
+            border: 1px solid rgba(245,158,11,0.28);
+            color: #fde68a;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+        .jobfair-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+        .jobfair-btn-primary,
+        .jobfair-btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 22px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            font-size: 0.92rem;
+            transition: all 0.25s ease;
+        }
+        .jobfair-btn-primary {
+            background: var(--gold);
+            color: var(--navy);
+        }
+        .jobfair-btn-primary:hover {
+            background: var(--gold-light);
+            color: var(--navy);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(245,158,11,0.28);
+        }
+        .jobfair-btn-secondary {
+            background: transparent;
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.35);
+        }
+        .jobfair-btn-secondary:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-color: #fff;
+        }
+        .jobfair-stats {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+        .jobfair-stat {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 18px 16px;
+            text-align: center;
+        }
+        .jobfair-stat strong {
+            display: block;
+            color: var(--gold);
+            font-family: 'Sora', sans-serif;
+            font-size: 1.7rem;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .jobfair-stat span {
+            color: rgba(255,255,255,0.72);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        @media (max-width: 991px) {
+            .jobfair-panel { padding: 28px 22px; }
+            .jobfair-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
 
         /* ===== INFO CARDS (DETAILED) ===== */
         .info-section { padding: 90px 0; background: var(--cream); }
@@ -1057,6 +1193,9 @@
                     <a href="student/login.php" class="btn-hero-outline">
                         Student Portal
                     </a>
+                    <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
+                        Job Fair Portal
+                    </a>
                 </div>
             </div>
         </div>
@@ -1111,6 +1250,57 @@
                     <a class="stat-pill" href="https://www.nielit.gov.in/content/nsqf-it" target="_blank" rel="noopener" title="NSQF information on NIELIT" role="link">
                         <i class="fas fa-shield-alt"></i> NSQF Aligned Programs
                     </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== JOB FAIR PORTAL ===== -->
+<section class="jobfair-section" id="job-fair">
+    <div class="container">
+        <div class="jobfair-panel">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-7">
+                    <span class="jobfair-eyebrow">National Job Fair Initiative</span>
+                    <h2 class="jobfair-title">NIELIT Bhubaneswar Job Fair Portal</h2>
+                    <p class="jobfair-lead">
+                        A centralized government platform for transparent, seamless, and large-scale recruitment drives across NIELIT regional centres. Empowering youth and connecting employers with skilled talent.
+                    </p>
+                    <div class="jobfair-alert">
+                        <i class="fas fa-bullhorn mt-1"></i>
+                        <div>
+                            Registration is open for upcoming Mega Job Fairs. Candidates can complete profiles and check in at the venue. Recruiters can upload offer letters directly through the portal.
+                        </div>
+                    </div>
+                    <div class="jobfair-actions">
+                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="jobfair-btn-primary" target="_blank" rel="noopener">
+                            <i class="fas fa-briefcase"></i> Visit Job Fair Portal
+                        </a>
+                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="jobfair-btn-secondary" target="_blank" rel="noopener">
+                            <i class="fas fa-sign-in-alt"></i> Login to Portal
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="jobfair-stats">
+                        <div class="jobfair-stat">
+                            <strong>1+</strong>
+                            <span>Centers</span>
+                        </div>
+                        <div class="jobfair-stat">
+                            <strong>10+</strong>
+                            <span>Youth Enrolled</span>
+                        </div>
+                        <div class="jobfair-stat">
+                            <strong>4+</strong>
+                            <span>Corporates</span>
+                        </div>
+                        <div class="jobfair-stat">
+                            <strong>Live</strong>
+                            <span>Active Drives</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1208,6 +1398,9 @@
                         </a>
                         <a href="public/news.php" class="quick-btn">
                             <i class="fas fa-newspaper"></i> News & Events
+                        </a>
+                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
+                            <i class="fas fa-briefcase"></i> Job Fair Portal
                         </a>
                     </div>
                 </div>
@@ -1399,6 +1592,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                     <a href="public/courses.php"><i class="fas fa-chevron-right"></i> Courses</a>
                     <a href="public/news.php"><i class="fas fa-chevron-right"></i> News & Events</a>
                     <a href="public/contact.php"><i class="fas fa-chevron-right"></i> Contact Us</a>
+                    <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Job Fair Portal</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Terms & Conditions</a>
                 </div>

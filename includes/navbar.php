@@ -1,3 +1,8 @@
+<?php
+if (!function_exists('getJobFairPortalUrl')) {
+    require_once __DIR__ . '/navigation_helper.php';
+}
+?>
 <!-- Navigation Menu -->
 <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #356c9f;">
     <div class="container">
@@ -11,7 +16,7 @@
                     <a class="nav-link" href="<?php echo APP_URL; ?>/index.php">Home</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="<?php echo APP_URL; ?>/DGR/index.php">Job Fair</a>
+                    <a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">

@@ -13,6 +13,7 @@
     require_once __DIR__ . '/../includes/maintenance_check.php';
     require_once __DIR__ . '/../config/config.php';
     require_once __DIR__ . '/../includes/theme_loader.php';
+    require_once __DIR__ . '/../includes/navigation_helper.php';
     
     // Load active theme
     $active_theme = loadActiveTheme($conn);
@@ -61,7 +62,7 @@
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/index.php">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/DGR/index.php">Job Fair</a></li>
+                    <li class="nav-item"><a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a></li>
                     
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
