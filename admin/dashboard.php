@@ -397,13 +397,15 @@ if ($is_course_coordinator) {
 $stats_query = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
 $total_centres = $stats_query ? $stats_query->fetch_assoc()['count'] : 0;
 
-// Fetch active centres for dropdown
-$centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC";
+// Fetch active centres for dropdown and dashboard display
+$centres_query = "SELECT id, name, code, city, state FROM centres WHERE is_active = 1 ORDER BY name ASC";
 $centres_result = $conn->query($centres_query);
 $centres = [];
+$centre_name_labels = [];
 if ($centres_result) {
     while ($centre = $centres_result->fetch_assoc()) {
         $centres[] = $centre;
+        $centre_name_labels[] = $centre['name'];
     }
 }
 
@@ -1749,6 +1751,9 @@ $dashboard_payload = [
                         echo 'Admin!';
                     }
                     ?>
+                    <?php if (!empty($centre_name_labels)): ?>
+                        &nbsp;|&nbsp; Centres: <?php echo htmlspecialchars(implode(', ', $centre_name_labels)); ?>
+                    <?php endif; ?>
                 </small>
             </div>
             <div class="topbar-right">
@@ -1817,6 +1822,20 @@ $dashboard_payload = [
                     </div>
                     <h3 class="stat-value"><?php echo $total_centres; ?></h3>
                     <p class="stat-label">Training Centres</p>
+                    <?php if (!empty($centres)): ?>
+                        <p class="stat-subtext" style="margin: 0.35rem 0 0; font-size: 0.72rem; line-height: 1.35; color: #64748b; font-weight: 500;">
+                            <?php
+                            $centre_summaries = array_map(function ($centre) {
+                                $label = $centre['name'];
+                                if (!empty($centre['city'])) {
+                                    $label .= ' (' . $centre['city'] . ')';
+                                }
+                                return $label;
+                            }, $centres);
+                            echo htmlspecialchars(implode(' · ', $centre_summaries));
+                            ?>
+                        </p>
+                    <?php endif; ?>
                 </div>
                 
                 <div class="stat-card warning">
@@ -1835,6 +1854,46 @@ $dashboard_payload = [
                     <p class="stat-label">Homepage Sections</p>
                 </div>
             </div>
+
+            <?php if (!empty($centres)): ?>
+            <div class="content-card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:240px;">
+                        <div style="font-weight:800; font-size:1rem; color:#0f172a; margin-bottom:0.5rem;">
+                            <i class="fas fa-map-marker-alt" style="color:#2563eb;"></i> Training Centre Names
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
+                            <?php foreach ($centres as $centre): ?>
+                                <span style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.45rem 0.75rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:0.82rem; font-weight:600;">
+                                    <i class="fas fa-building" style="font-size:0.75rem;"></i>
+                                    <?php echo htmlspecialchars($centre['name']); ?>
+                                    <span style="opacity:0.75; font-weight:500;">(<?php echo htmlspecialchars($centre['code']); ?>)</span>
+                                </span>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php
+                        $centre_locations = [];
+                        foreach ($centres as $centre) {
+                            $location_parts = array_filter([$centre['city'] ?? '', $centre['state'] ?? '']);
+                            if (!empty($location_parts)) {
+                                $centre_locations[] = $centre['name'] . ' — ' . implode(', ', $location_parts);
+                            }
+                        }
+                        if (!empty($centre_locations)):
+                        ?>
+                            <div style="margin-top:0.65rem; color:#64748b; font-size:0.82rem; line-height:1.45;">
+                                <?php echo htmlspecialchars(implode(' | ', $centre_locations)); ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'master_admin'): ?>
+                        <a href="manage_centres.php" class="btn btn-outline-primary btn-sm" style="white-space:nowrap;">
+                            <i class="fas fa-cog"></i> Manage Centres
+                        </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <!-- Compact All Courses Summary (Top) -->
             <?php if ($is_course_coordinator && empty($admin_course_ids)): ?>
@@ -2019,6 +2078,7 @@ $dashboard_payload = [
                             <tr>
                                 <th>Course Name</th>
                                 <th>Course Code</th>
+                                <th>Training Centre</th>
                                 <th>Category</th>
                                 <th>Duration</th>
                                 <th>Fees</th>
@@ -2038,6 +2098,15 @@ $dashboard_payload = [
                                     <td>
                                         <?php if (!empty($row['course_code'])): ?>
                                             <span class="badge badge-primary"><?php echo htmlspecialchars($row['course_code']); ?></span>
+                                        <?php else: ?>
+                                            <span class="badge badge-secondary">Not Set</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($row['training_center'])): ?>
+                                            <span class="badge badge-info" style="white-space:normal; text-align:left; line-height:1.3;">
+                                                <?php echo htmlspecialchars($row['training_center']); ?>
+                                            </span>
                                         <?php else: ?>
                                             <span class="badge badge-secondary">Not Set</span>
                                         <?php endif; ?>
@@ -2081,7 +2150,7 @@ $dashboard_payload = [
                                 <?php endwhile; ?>
                             <?php else: ?>
                                 <tr>
-                                    <td colspan="9" style="text-align: center; padding: 40px; color: #64748b;">
+                                    <td colspan="10" style="text-align: center; padding: 40px; color: #64748b;">
                                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
                                         <p style="margin: 0; font-size: 16px;">No courses found. Click "Add New Course" to get started.</p>
                                     </td>
