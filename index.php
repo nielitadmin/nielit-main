@@ -28,6 +28,7 @@
         $navigation_menu_html = getFallbackNavigationMenu();
     }
     $job_fair_portal_url = getJobFairPortalUrl();
+    $mock_test_portal_url = getMockTestPortalUrl();
     injectThemeCSS($active_theme);
     
     $banners = []; $announcements_content = []; $featured_courses = [];
@@ -649,6 +650,134 @@
         @media (max-width: 991px) {
             .jobfair-panel { padding: 28px 22px; }
             .jobfair-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        /* ===== MOCK TEST PORTAL ===== */
+        .mocktest-section {
+            padding: 72px 0 88px;
+            background: var(--cream);
+            border-top: 1px solid var(--border);
+        }
+        .mocktest-panel {
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 38px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+        }
+        .mocktest-eyebrow {
+            display: inline-block;
+            background: rgba(26, 86, 219, 0.08);
+            border: 1px solid rgba(26, 86, 219, 0.18);
+            color: var(--blue);
+            font-size: 0.74rem;
+            font-weight: 700;
+            padding: 5px 14px;
+            border-radius: 20px;
+            letter-spacing: 1.1px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            font-family: 'Sora', sans-serif;
+        }
+        .mocktest-title {
+            color: var(--navy);
+            font-size: clamp(1.7rem, 3vw, 2.4rem);
+            font-weight: 800;
+            letter-spacing: -0.7px;
+            line-height: 1.15;
+            margin-bottom: 14px;
+        }
+        .mocktest-lead {
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.75;
+            margin-bottom: 22px;
+            max-width: 700px;
+        }
+        .mocktest-features {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .mocktest-feature {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            background: var(--cream);
+            border-radius: 14px;
+            padding: 14px;
+            font-size: 0.88rem;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .mocktest-feature i {
+            color: var(--blue);
+            margin-top: 2px;
+        }
+        .mocktest-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .mocktest-btn-primary,
+        .mocktest-btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 22px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            font-family: 'Sora', sans-serif;
+            font-size: 0.92rem;
+            transition: all 0.25s ease;
+        }
+        .mocktest-btn-primary {
+            background: var(--blue);
+            color: #fff;
+        }
+        .mocktest-btn-primary:hover {
+            background: var(--blue-light);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(26, 86, 219, 0.22);
+        }
+        .mocktest-btn-secondary {
+            background: #fff;
+            color: var(--navy);
+            border: 1px solid var(--border);
+        }
+        .mocktest-btn-secondary:hover {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+        .mocktest-stats {
+            display: grid;
+            gap: 12px;
+        }
+        .mocktest-stat {
+            background: linear-gradient(135deg, var(--navy) 0%, #163a6b 100%);
+            border-radius: 18px;
+            padding: 18px 16px;
+            text-align: center;
+        }
+        .mocktest-stat strong {
+            display: block;
+            color: var(--gold);
+            font-family: 'Sora', sans-serif;
+            font-size: 1.55rem;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .mocktest-stat span {
+            color: rgba(255,255,255,0.78);
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        @media (max-width: 767px) {
+            .mocktest-panel { padding: 26px 20px; }
+            .mocktest-features { grid-template-columns: 1fr; }
         }
 
         /* ===== INFO CARDS (DETAILED) ===== */
@@ -1307,6 +1436,65 @@
     </div>
 </section>
 
+<!-- ===== MOCK TEST PORTAL ===== -->
+<section class="mocktest-section" id="mock-test">
+    <div class="container">
+        <div class="mocktest-panel">
+            <div class="row align-items-center g-4">
+                <div class="col-lg-7">
+                    <span class="mocktest-eyebrow">Exam Preparation</span>
+                    <h2 class="mocktest-title">NIELIT Mock Assessment Platform</h2>
+                    <p class="mocktest-lead">
+                        A secure mock test platform for NIELIT Bhubaneswar candidates and authorized training partners. Practice NSQF-aligned assessments, download admit cards, and build exam readiness before official certification tests.
+                    </p>
+                    <div class="mocktest-features">
+                        <div class="mocktest-feature">
+                            <i class="fas fa-user-graduate"></i>
+                            <span>Candidate portal for mock exams, admit cards, and digital scorecards</span>
+                        </div>
+                        <div class="mocktest-feature">
+                            <i class="fas fa-school"></i>
+                            <span>Training partner dashboard for batch scheduling and exam slots</span>
+                        </div>
+                        <div class="mocktest-feature">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Secure examination environment with transparent evaluation</span>
+                        </div>
+                        <div class="mocktest-feature">
+                            <i class="fas fa-chart-line"></i>
+                            <span>Performance analytics to identify weak areas before the real exam</span>
+                        </div>
+                    </div>
+                    <div class="mocktest-actions">
+                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="mocktest-btn-primary" target="_blank" rel="noopener">
+                            <i class="fas fa-laptop-code"></i> Open Mock Test Portal
+                        </a>
+                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="mocktest-btn-secondary" target="_blank" rel="noopener">
+                            <i class="fas fa-sign-in-alt"></i> Candidate Login
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="mocktest-stats">
+                        <div class="mocktest-stat">
+                            <strong>50K+</strong>
+                            <span>Candidates</span>
+                        </div>
+                        <div class="mocktest-stat">
+                            <strong>200+</strong>
+                            <span>Exam Sessions</span>
+                        </div>
+                        <div class="mocktest-stat">
+                            <strong>99.9%</strong>
+                            <span>System Uptime</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- ===== FEATURES SECTION ===== -->
 <section class="features-section section-white-pattern">
     <div class="container">
@@ -1401,6 +1589,9 @@
                         </a>
                         <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
                             <i class="fas fa-briefcase"></i> Job Fair Portal
+                        </a>
+                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
+                            <i class="fas fa-laptop-code"></i> Mock Test Portal
                         </a>
                     </div>
                 </div>
@@ -1593,6 +1784,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                     <a href="public/news.php"><i class="fas fa-chevron-right"></i> News & Events</a>
                     <a href="public/contact.php"><i class="fas fa-chevron-right"></i> Contact Us</a>
                     <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Job Fair Portal</a>
+                    <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Terms & Conditions</a>
                 </div>
@@ -1600,6 +1792,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                 <div class="col-lg-4">
                     <h5>Student Access</h5>
                     <a href="student/login.php"><i class="fas fa-chevron-right"></i> Student Login</a>
+                    <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
                     <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Admit Card</a>
                     <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Results</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Certificate Verification</a>

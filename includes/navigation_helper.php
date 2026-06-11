@@ -112,14 +112,23 @@ function getJobFairPortalUrl() {
 }
 
 /**
+ * Official NIELIT Bhubaneswar Mock Test portal URL.
+ */
+function getMockTestPortalUrl() {
+    return 'https://test.nielitbhubaneswar.in/';
+}
+
+/**
  * Get fallback hardcoded navigation menu (for backward compatibility)
  * @return string HTML markup for hardcoded navigation menu
  */
 function getFallbackNavigationMenu() {
     $job_fair_url = htmlspecialchars(getJobFairPortalUrl(), ENT_QUOTES, 'UTF-8');
+    $mock_test_url = htmlspecialchars(getMockTestPortalUrl(), ENT_QUOTES, 'UTF-8');
     return '
         <li class="nav-item"><a class="nav-link active" href="index.php">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $job_fair_url . '" target="_blank" rel="noopener">Job Fair</a></li>
+        <li class="nav-item"><a class="nav-link" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test</a></li>
         
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
@@ -133,6 +142,7 @@ function getFallbackNavigationMenu() {
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="public/courses.php">Courses Offered</a></li>
                 <li><a class="dropdown-item" href="student/login.php">Student Portal</a></li>
+                <li><a class="dropdown-item" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test Portal</a></li>
             </ul>
         </li>
 

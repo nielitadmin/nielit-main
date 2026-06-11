@@ -18,6 +18,9 @@ if (!function_exists('getJobFairPortalUrl')) {
                 <li class="nav-item">
                     <a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test</a>
+                </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                         PM SHRI KV JNV
@@ -34,6 +37,7 @@ if (!function_exists('getJobFairPortalUrl')) {
                         <a class="dropdown-item" href="<?php echo APP_URL; ?>/public/courses.php">Courses Offered</a>
                         <a class="dropdown-item" href="<?php echo APP_URL; ?>/student/login.php">Student Portal</a>
                         <a class="dropdown-item" href="<?php echo APP_URL; ?>/student/register.php">Registration</a>
+                        <a class="dropdown-item" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test Portal</a>
                     </div>
                 </li>
                 <li class="nav-item dropdown">
