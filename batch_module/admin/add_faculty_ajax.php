@@ -47,6 +47,14 @@ try {
     $phone = trim($data['phone'] ?? '');
     $designation = trim($data['designation'] ?? '');
     $department = trim($data['department'] ?? '');
+
+    // UNIQUE(email) allows many NULLs but only one empty string
+    if ($email === '') {
+        $email = null;
+    }
+    if ($phone === '') {
+        $phone = null;
+    }
     
     // Bind parameters - faculty created by current admin
     $stmt->bind_param("sssssi", $name, $email, $phone, $designation, $department, $admin_id);

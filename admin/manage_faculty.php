@@ -46,6 +46,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $designation = trim($_POST['designation'] ?? '');
                 $department = trim($_POST['department'] ?? '');
                 $staff_category = trim($_POST['staff_category'] ?? '');
+
+                // UNIQUE(email) allows many NULLs but only one empty string
+                if ($email === '') {
+                    $email = null;
+                }
+                if ($phone === '') {
+                    $phone = null;
+                }
                 
                 if (empty($name)) {
                     $error_message = "Staff name is required.";
@@ -88,7 +96,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 } else {
                     if ($conn->errno === 1062) {
-                        $error_message = "A staff member with this email already exists. Use a different email or edit the existing record.";
+                        $error_message = empty($_POST['email'])
+                            ? "Could not save without email due to a database constraint. Please enter an email address, or contact support to run the faculty email cleanup migration."
+                            : "A staff member with this email already exists. Use a different email or edit the existing record.";
                     } else {
                         $error_message = "Error adding staff member: " . $stmt->error;
                     }
@@ -105,14 +115,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $department = trim($_POST['department']);
                 $staff_category = $_POST['staff_category'];
                 $is_active = isset($_POST['is_active']) ? 1 : 0;
+
+                if ($email === '') {
+                    $email = null;
+                }
+                if ($phone === '') {
+                    $phone = null;
+                }
                 
                 $stmt = $conn->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, staff_category = ?, is_active = ? WHERE id = ?");
+                if (!$stmt) {
+                    $error_message = "Error preparing update request: " . $conn->error;
+                    break;
+                }
                 $stmt->bind_param("ssssssii", $name, $email, $phone, $designation, $department, $staff_category, $is_active, $faculty_id);
                 if ($stmt->execute()) {
                     $success_message = "Staff member updated successfully!";
                 } else {
-                    $error_message = "Error updating staff member.";
+                    $error_message = ($conn->errno === 1062)
+                        ? "Another staff member already uses this email address."
+                        : "Error updating staff member: " . $stmt->error;
                 }
+                $stmt->close();
                 break;
                 
             case 'delete_staff':
