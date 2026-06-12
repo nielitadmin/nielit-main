@@ -14,6 +14,7 @@
     require_once __DIR__ . '/config/config.php';
     require_once __DIR__ . '/includes/theme_loader.php';
     require_once __DIR__ . '/includes/navigation_helper.php';
+    require_once __DIR__ . '/includes/url_helper.php';
     
     $active_theme = loadActiveTheme($conn);
     $theme_logo = getThemeLogo($active_theme);
@@ -1216,7 +1217,7 @@
 <!-- ===== NAVBAR ===== -->
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
-        <a class="navbar-brand" href="index.php">
+        <a class="navbar-brand" href="<?php echo relative_url(); ?>">
             <i class="fas fa-university me-2" style="color:var(--gold);"></i> NIELIT <span>Bhubaneswar</span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
@@ -1316,10 +1317,10 @@
                     NIELIT Bhubaneswar — your gateway to NSQF-aligned technology education across Odisha and Chhattisgarh. Skills that power India's future.
                 </p>
                 <div class="hero-btns fade-up fade-up-delay-3">
-                    <a href="public/courses.php" class="btn-hero-primary">
+                    <a href="<?php echo relative_url('public/courses'); ?>" class="btn-hero-primary">
                         Explore Courses <i class="fas fa-arrow-right fa-sm"></i>
                     </a>
-                    <a href="student/login.php" class="btn-hero-outline">
+                    <a href="<?php echo relative_url('student/login'); ?>" class="btn-hero-outline">
                         Student Portal
                     </a>
                     <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
@@ -1575,16 +1576,16 @@
                     <h4>Quick Access</h4>
                     <p>Explore our offerings and start your learning journey. Access courses, register online, and connect with us for queries.</p>
                     <div class="quick-grid">
-                        <a href="public/courses.php" class="quick-btn">
+                        <a href="<?php echo relative_url('public/courses'); ?>" class="quick-btn">
                             <i class="fas fa-book"></i> View Courses
                         </a>
-                        <a href="student/login.php" class="quick-btn">
+                        <a href="<?php echo relative_url('student/login'); ?>" class="quick-btn">
                             <i class="fas fa-sign-in-alt"></i> Student Portal
                         </a>
-                        <a href="public/contact.php" class="quick-btn">
+                        <a href="<?php echo relative_url('public/contact'); ?>" class="quick-btn">
                             <i class="fas fa-envelope"></i> Contact Us
                         </a>
-                        <a href="public/news.php" class="quick-btn">
+                        <a href="<?php echo relative_url('public/news'); ?>" class="quick-btn">
                             <i class="fas fa-newspaper"></i> News & Events
                         </a>
                         <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
@@ -1684,7 +1685,7 @@ if ($has_database_content):
                                 <?php echo htmlspecialchars(mb_substr(strip_tags($news['content']), 0, 120)); ?>
                             </p>
                             
-                            <a href="public/news.php#news-<?php echo $news['id']; ?>" class="news-read-more">
+                            <a href="<?php echo relative_url('public/news'); ?>#news-<?php echo $news['id']; ?>" class="news-read-more">
                                 Read More <i class="fas fa-arrow-right"></i>
                             </a>
                         </div>
@@ -1694,7 +1695,7 @@ if ($has_database_content):
         </div>
         
         <div class="text-center mt-5">
-            <a href="public/news.php" class="btn btn-primary btn-lg" style="border-radius: 10px; padding: 12px 32px; font-weight: 600;">
+            <a href="<?php echo relative_url('public/news'); ?>" class="btn btn-primary btn-lg" style="border-radius: 10px; padding: 12px 32px; font-weight: 600;">
                 <i class="fas fa-newspaper me-2"></i>View All News
             </a>
         </div>
@@ -1780,9 +1781,9 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                 <div class="col-6 col-lg-2">
                     <h5>Quick Links</h5>
                     <a href="#"><i class="fas fa-chevron-right"></i> About Us</a>
-                    <a href="public/courses.php"><i class="fas fa-chevron-right"></i> Courses</a>
-                    <a href="public/news.php"><i class="fas fa-chevron-right"></i> News & Events</a>
-                    <a href="public/contact.php"><i class="fas fa-chevron-right"></i> Contact Us</a>
+                    <a href="<?php echo relative_url('public/courses'); ?>"><i class="fas fa-chevron-right"></i> Courses</a>
+                    <a href="<?php echo relative_url('public/news'); ?>"><i class="fas fa-chevron-right"></i> News & Events</a>
+                    <a href="<?php echo relative_url('public/contact'); ?>"><i class="fas fa-chevron-right"></i> Contact Us</a>
                     <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Job Fair Portal</a>
                     <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a>
@@ -1791,7 +1792,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
 
                 <div class="col-lg-4">
                     <h5>Student Access</h5>
-                    <a href="student/login.php"><i class="fas fa-chevron-right"></i> Student Login</a>
+                    <a href="<?php echo relative_url('student/login'); ?>"><i class="fas fa-chevron-right"></i> Student Login</a>
                     <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
                     <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Admit Card</a>
                     <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Results</a>

@@ -4,6 +4,8 @@
  * Provides functions to load and render navigation menu from database
  */
 
+require_once __DIR__ . '/url_helper.php';
+
 /**
  * Get all active navigation menu items organized by parent-child relationship
  * @param mysqli $conn Database connection
@@ -66,14 +68,14 @@ function renderNavigationMenu($menu_items, $current_page = '') {
         if ($has_children) {
             // Parent item with dropdown
             $html .= '<li class="nav-item dropdown">';
-            $html .= '<a class="nav-link dropdown-toggle ' . $is_active . '" href="' . htmlspecialchars($item['url']) . '" data-bs-toggle="dropdown">';
+            $html .= '<a class="nav-link dropdown-toggle ' . $is_active . '" href="' . htmlspecialchars(clean_menu_href($item['url'])) . '" data-bs-toggle="dropdown">';
             $html .= htmlspecialchars($item['label']);
             $html .= '</a>';
             $html .= '<ul class="dropdown-menu">';
             
             foreach ($item['children'] as $child) {
                 $html .= '<li>';
-                $html .= '<a class="dropdown-item" href="' . htmlspecialchars($child['url']) . '" target="' . htmlspecialchars($child['target']) . '">';
+                $html .= '<a class="dropdown-item" href="' . htmlspecialchars(clean_menu_href($child['url'])) . '" target="' . htmlspecialchars($child['target']) . '">';
                 $html .= htmlspecialchars($child['label']);
                 $html .= '</a>';
                 $html .= '</li>';
@@ -84,7 +86,7 @@ function renderNavigationMenu($menu_items, $current_page = '') {
         } else {
             // Single item without dropdown
             $html .= '<li class="nav-item">';
-            $html .= '<a class="nav-link ' . $is_active . '" href="' . htmlspecialchars($item['url']) . '" target="' . htmlspecialchars($item['target']) . '">';
+            $html .= '<a class="nav-link ' . $is_active . '" href="' . htmlspecialchars(clean_menu_href($item['url'])) . '" target="' . htmlspecialchars($item['target']) . '">';
             $html .= htmlspecialchars($item['label']);
             $html .= '</a>';
             $html .= '</li>';
@@ -126,22 +128,22 @@ function getFallbackNavigationMenu() {
     $job_fair_url = htmlspecialchars(getJobFairPortalUrl(), ENT_QUOTES, 'UTF-8');
     $mock_test_url = htmlspecialchars(getMockTestPortalUrl(), ENT_QUOTES, 'UTF-8');
     return '
-        <li class="nav-item"><a class="nav-link active" href="index.php">Home</a></li>
+        <li class="nav-item"><a class="nav-link active" href="' . relative_url('index.php') . '">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $job_fair_url . '" target="_blank" rel="noopener">Job Fair</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test</a></li>
         
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="Membership_Form/index.php">Membership Form</a></li>
+                <li><a class="dropdown-item" href="' . relative_url('Membership_Form/index.php') . '">Membership Form</a></li>
             </ul>
         </li>
 
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="public/courses.php">Courses Offered</a></li>
-                <li><a class="dropdown-item" href="student/login.php">Student Portal</a></li>
+                <li><a class="dropdown-item" href="' . relative_url('public/courses.php') . '">Courses Offered</a></li>
+                <li><a class="dropdown-item" href="' . relative_url('student/login.php') . '">Student Portal</a></li>
                 <li><a class="dropdown-item" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test Portal</a></li>
             </ul>
         </li>
@@ -149,11 +151,11 @@ function getFallbackNavigationMenu() {
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="admin/login.php">Admin Login</a></li>
-                <li><a class="dropdown-item" href="/Salary_Slip/login.php">Finance Login</a></li>
-                <li><a class="dropdown-item" href="/Certificate/index.php">Certificate</a></li>
+                <li><a class="dropdown-item" href="' . relative_url('admin/login.php') . '">Admin Login</a></li>
+                <li><a class="dropdown-item" href="/Salary_Slip/login">Finance Login</a></li>
+                <li><a class="dropdown-item" href="/Certificate/index">Certificate</a></li>
             </ul>
         </li>
-        <li class="nav-item"><a class="nav-link" href="public/contact.php">Contact</a></li>
+        <li class="nav-item"><a class="nav-link" href="' . relative_url('public/contact.php') . '">Contact</a></li>
     ';
 }

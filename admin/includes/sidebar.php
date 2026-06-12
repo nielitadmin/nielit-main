@@ -4,6 +4,7 @@
 
 // Include config for APP_URL and other constants
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/url_helper.php';
 
 // Ensure session is started and role is set
 if (!isset($_SESSION['admin_role'])) {
@@ -31,7 +32,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <nav class="sidebar-nav">
         <!-- Core Features (All Roles) -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> Dashboard
             </a>
         </div>
@@ -39,14 +40,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php if ($is_front_office): ?>
         <!-- Front Office Desk - Students only -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/students.php" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
         
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/students.php" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
@@ -55,14 +56,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php if ($is_nsqf_manager): ?>
         <!-- NSQF Manager - Manage NSQF Course -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_nsqf_templates.php" class="nav-link <?php echo ($current_page === 'manage_nsqf_templates.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_nsqf_templates'); ?>" class="nav-link <?php echo ($current_page === 'manage_nsqf_templates.php') ? 'active' : ''; ?>">
                 <i class="fas fa-graduation-cap"></i> Manage NSQF Course
             </a>
         </div>
         <?php elseif (!$is_front_office): ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
                 <i class="fas fa-book"></i> Courses
             </a>
         </div>
@@ -70,7 +71,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         <?php if (!$is_nsqf_manager && !$is_front_office): ?>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link <?php echo ($current_page === 'manage_batches.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo ($current_page === 'manage_batches.php') ? 'active' : ''; ?>">
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
@@ -79,13 +80,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php if ($is_master_admin): ?>
         <!-- Schemes/Projects - Master Admin Only -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link <?php echo ($current_page === 'manage_schemes.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('schemes_module/admin/manage_schemes'); ?>" class="nav-link <?php echo ($current_page === 'manage_schemes.php') ? 'active' : ''; ?>">
                 <i class="fas fa-project-diagram"></i> Schemes/Projects
             </a>
         </div>
         <!-- Non - Scientific and Technical staffs - Master Admin Only -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_faculty.php" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_faculty'); ?>" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chalkboard-teacher"></i> Non - Scientific and Technical staffs
             </a>
         </div>
@@ -97,27 +98,27 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="nav-section-title">System Settings</div>
         
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_centres.php" class="nav-link <?php echo ($current_page === 'manage_centres.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_centres'); ?>" class="nav-link <?php echo ($current_page === 'manage_centres.php') ? 'active' : ''; ?>">
                 <i class="fas fa-building"></i> Training Centres
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_themes.php" class="nav-link <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>">
                 <i class="fas fa-palette"></i> Themes
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_maintenance.php" class="nav-link <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_maintenance'); ?>" class="nav-link <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
                 <i class="fas fa-tools"></i> Maintenance Mode
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_homepage.php" class="nav-link <?php echo ($current_page === 'manage_homepage.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_homepage'); ?>" class="nav-link <?php echo ($current_page === 'manage_homepage.php') ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> Homepage Content
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_news.php" class="nav-link <?php echo ($current_page === 'manage_news.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_news'); ?>" class="nav-link <?php echo ($current_page === 'manage_news.php') ? 'active' : ''; ?>">
                 <i class="fas fa-newspaper"></i> News & Updates
             </a>
         </div>
@@ -128,7 +129,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         <!-- Student Approval (Non-NSQF, Non-Front-Office Roles Only) -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link <?php echo ($current_page === 'approve_students.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('batch_module/admin/approve_students'); ?>" class="nav-link <?php echo ($current_page === 'approve_students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-check"></i> Approve Students
             </a>
         </div>
@@ -137,44 +138,44 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <!-- Admin Management (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/add_admin.php" class="nav-link <?php echo ($current_page === 'add_admin.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/add_admin'); ?>" class="nav-link <?php echo ($current_page === 'add_admin.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-plus"></i> Add Admin
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_admins.php" class="nav-link <?php echo ($current_page === 'manage_admins.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_admins'); ?>" class="nav-link <?php echo ($current_page === 'manage_admins.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users-cog"></i> Manage Admins
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/reset_password.php" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/reset_password'); ?>" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
                 <i class="fas fa-key"></i> Reset Password
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/manage_course_assignments.php" class="nav-link <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_course_assignments'); ?>" class="nav-link <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-tie"></i> Course Assignments
             </a>
         </div>
         
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/attendance_scanner.php" class="nav-link <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/attendance_scanner'); ?>" class="nav-link <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
                 <i class="fas fa-qrcode"></i> QR Attendance Scanner
             </a>
         </div>
         
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/attendance_reports.php" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-bar"></i> Attendance Reports
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/view_otp_logs.php" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
                 <i class="fas fa-list-alt"></i> OTP Logs
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/api/admin/manage_api_keys.php" class="nav-link <?php echo ($current_page === 'manage_api_keys.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('api/admin/manage_api_keys'); ?>" class="nav-link <?php echo ($current_page === 'manage_api_keys.php') ? 'active' : ''; ?>">
                 <i class="fas fa-key"></i> API Management
             </a>
         </div>
@@ -189,12 +190,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         <!-- Common Links -->
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/index.php" class="nav-link">
+            <a href="<?php echo app_url(); ?>" class="nav-link">
                 <i class="fas fa-globe"></i> View Website
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo APP_URL; ?>/admin/logout.php" class="nav-link">
+            <a href="<?php echo app_url('admin/logout'); ?>" class="nav-link">
                 <i class="fas fa-sign-out-alt"></i> Logout
             </a>
         </div>

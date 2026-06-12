@@ -14,6 +14,7 @@
     require_once __DIR__ . '/../config/config.php';
     require_once __DIR__ . '/../includes/theme_loader.php';
     require_once __DIR__ . '/../includes/navigation_helper.php';
+    require_once __DIR__ . '/../includes/url_helper.php';
     
     // Load active theme
     $active_theme = loadActiveTheme($conn);
@@ -52,7 +53,7 @@
     <!-- Main Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="<?php echo APP_URL; ?>/index.php">
+            <a class="navbar-brand" href="<?php echo app_url('index'); ?>">
                 <i class="fas fa-university me-2"></i> NIELIT
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
@@ -61,22 +62,22 @@
 
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/index.php">Home</a></li>
+                    <li class="nav-item"><a class="nav-link" href="<?php echo app_url('index'); ?>">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a></li>
                     
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/Membership_Form/index.php">Membership Form</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('Membership_Form/index'); ?>">Membership Form</a></li>
                         </ul>
                     </li>
 
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/public/courses.php">Courses Offered</a></li>
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/student/login.php">Student Portal</a></li>
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/student/register.php">Registration</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Courses Offered</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('student/login'); ?>">Student Portal</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('student/register'); ?>">Registration</a></li>
                             <li><a class="dropdown-item" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test Portal</a></li>
                         </ul>
                     </li>
@@ -84,20 +85,20 @@
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">About</a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/public/management.php">Management</a></li>
-                            <li><a class="dropdown-item active" href="<?php echo APP_URL; ?>/public/news.php">News</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('public/management'); ?>">Management</a></li>
+                            <li><a class="dropdown-item active" href="<?php echo app_url('public/news'); ?>">News</a></li>
                         </ul>
                     </li>
 
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/admin/login.php">Admin Login</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('admin/login'); ?>">Admin Login</a></li>
                             <li><a class="dropdown-item" href="/Salary_Slip/login.php">Salary Slip</a></li>
                             <li><a class="dropdown-item" href="/Nielit_Project/index.php">Certificate</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/contact.php">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link" href="<?php echo app_url('public/contact'); ?>">Contact</a></li>
                 </ul>
             </div>
         </div>
@@ -182,7 +183,7 @@
                             </div>
                             <h5 class="card-title">New Courses Announced</h5>
                             <p class="card-text text-muted">Exciting new courses in AI, Machine Learning, and Cloud Computing now available.</p>
-                            <a href="<?php echo APP_URL; ?>/public/courses.php" class="btn btn-outline-primary btn-sm">
+                            <a href="<?php echo app_url('public/courses'); ?>" class="btn btn-outline-primary btn-sm">
                                 <i class="fas fa-arrow-right me-2"></i>Explore Courses
                             </a>
                         </div>
@@ -220,7 +221,7 @@
                         <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>About Us</a></li>
                         <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Privacy Policy</a></li>
                         <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Terms & Conditions</a></li>
-                        <li><a href="<?php echo APP_URL; ?>/public/contact.php"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
+                        <li><a href="<?php echo app_url('public/contact'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
                     </ul>
                 </div>
 

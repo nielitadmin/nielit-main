@@ -1,0 +1,45 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Production (domain document root). For local XAMPP in /public_html/, use:
+    # RewriteBase /public_html/
+    RewriteBase /
+
+    # Optional HTTPS redirect (uncomment on production if not handled by host panel)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # Block direct web access to sensitive directories
+    RewriteRule ^(?:config|includes|migrations|libraries)(?:/|$) - [F,L]
+
+    # Serve existing files and directories as-is
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
+
+    # Redirect visible .php URLs to extensionless equivalents (skip POST forms)
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{THE_REQUEST} \s/+index\.php[\s?] [NC]
+    RewriteRule ^ / [R=301,L]
+
+    RewriteCond %{ENV:REDIRECT_STATUS} ^$
+    RewriteCond %{REQUEST_METHOD} !POST
+    RewriteCond %{THE_REQUEST} \s/+(.+?)\.php[\s?] [NC]
+    RewriteRule ^ %1 [R=301,L,NE,QSA]
+
+    # Internally map /path to /path.php when the file exists
+    RewriteCond %{REQUEST_FILENAME}.php -f
+    RewriteRule ^(.+?)/?$ $1.php [L,QSA]
+</IfModule>
+
+DirectoryIndex index.php index.html
+Options -Indexes
+
+# Upload limits (adjust if your host allows php_value in .htaccess)
+<IfModule mod_php.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 12M
+    php_value max_execution_time 300
+    php_value memory_limit 256M
+</IfModule>

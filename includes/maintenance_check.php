@@ -23,6 +23,7 @@ if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true
 
 // Check if maintenance mode is enabled
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/url_helper.php';
 
 try {
     $maintenance_query = $conn->query("SELECT is_enabled FROM maintenance_mode WHERE id = 1");
@@ -31,7 +32,7 @@ try {
         $maintenance = $maintenance_query->fetch_assoc();
         
         if ($maintenance && $maintenance['is_enabled'] == 1) {
-            header("Location: " . APP_URL . "/maintenance.php");
+            header("Location: " . app_url('maintenance'));
             exit();
         }
     }
