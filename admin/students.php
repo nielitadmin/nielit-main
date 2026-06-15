@@ -44,7 +44,20 @@ if (isset($_GET['delete_id'])) {
         $_SESSION['message_type'] = "danger";
     }
     $stmt->close();
-    header("Location: students.php");
+    $redirect_params = [];
+    if (!empty($_GET['filter_course']) && $_GET['filter_course'] !== 'All') {
+        $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);
+    }
+    if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_GET['filter_gender']);
+    }
+    if (!empty($_GET['start_date'])) {
+        $redirect_params[] = 'start_date=' . urlencode($_GET['start_date']);
+    }
+    if (!empty($_GET['end_date'])) {
+        $redirect_params[] = 'end_date=' . urlencode($_GET['end_date']);
+    }
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
@@ -61,7 +74,20 @@ if (isset($_GET['approve_id'])) {
         $_SESSION['message_type'] = "danger";
     }
     $stmt->close();
-    header("Location: students.php");
+    $redirect_params = [];
+    if (!empty($_GET['filter_course']) && $_GET['filter_course'] !== 'All') {
+        $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);
+    }
+    if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_GET['filter_gender']);
+    }
+    if (!empty($_GET['start_date'])) {
+        $redirect_params[] = 'start_date=' . urlencode($_GET['start_date']);
+    }
+    if (!empty($_GET['end_date'])) {
+        $redirect_params[] = 'end_date=' . urlencode($_GET['end_date']);
+    }
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
