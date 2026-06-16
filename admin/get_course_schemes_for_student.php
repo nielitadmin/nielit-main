@@ -29,29 +29,32 @@ if ($courseStmt) {
     $courseName = $courseRow['course_name'] ?? '';
 }
 
-$account = resolveStudentAccount($conn, $studentId);
-$aadhar = $account['aadhar'] ?? '';
-
 $allSchemes = getSchemesForCourse($conn, $courseId);
-$enrolledIds = $aadhar !== '' ? getEnrolledSchemeIdsForCourse($conn, $aadhar, $courseId) : [];
+$enrolled = getEnrolledSchemesForStudentCourse($conn, $studentId, $courseId);
+$enrolledIds = array_map(function ($row) {
+    return (int)$row['id'];
+}, $enrolled);
 
-$enrolled = [];
 $available = [];
 foreach ($allSchemes as $sch) {
     $sid = (int)$sch['id'];
-    $item = [
-        'id' => $sid,
-        'scheme_name' => $sch['scheme_name'],
-        'scheme_code' => $sch['scheme_code'],
-    ];
-    if (in_array($sid, $enrolledIds, true)) {
-        $enrolled[] = $item;
-    } else {
-        $available[] = $item;
+    if (!in_array($sid, $enrolledIds, true)) {
+        $available[] = [
+            'id' => $sid,
+            'scheme_name' => $sch['scheme_name'],
+            'scheme_code' => $sch['scheme_code'],
+        ];
     }
 }
 
-$hasNullEnrollment = in_array(0, $enrolledIds, true);
+$hasNullEnrollment = false;
+$nullStmt = $conn->prepare("SELECT id FROM students WHERE student_id = ? AND course_id = ? AND scheme_id IS NULL AND LOWER(status) NOT IN ('rejected') LIMIT 1");
+if ($nullStmt) {
+    $nullStmt->bind_param('si', $studentId, $courseId);
+    $nullStmt->execute();
+    $hasNullEnrollment = $nullStmt->get_result()->num_rows > 0;
+    $nullStmt->close();
+}
 
 echo json_encode([
     'success' => true,
@@ -59,6 +62,12 @@ echo json_encode([
     'requires_scheme' => !empty($allSchemes),
     'can_enroll_without_scheme' => empty($allSchemes) && !$hasNullEnrollment,
     'already_enrolled_null' => $hasNullEnrollment,
-    'enrolled_schemes' => $enrolled,
+    'enrolled_schemes' => array_map(function ($row) {
+        return [
+            'id' => (int)$row['id'],
+            'scheme_name' => $row['scheme_name'],
+            'scheme_code' => $row['scheme_code'],
+        ];
+    }, $enrolled),
     'schemes' => $available,
 ]);

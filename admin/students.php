@@ -245,6 +245,8 @@ if (isset($_POST['add_scheme_enrollments'])) {
         $_SESSION['message'] = 'Please select at least one scheme/project to add.';
         $_SESSION['message_type'] = 'warning';
     } else {
+        ensureSchemeEnrollmentUniqueIndex($conn);
+
         $currentRowScheme = null;
         if ($student_record_id > 0) {
             $rowStmt = $conn->prepare('SELECT scheme_id FROM students WHERE id = ? LIMIT 1');
@@ -1287,6 +1289,7 @@ if ($other_gender_count > 0) {
                         <?php
                         $sl_no = 1;
                         $course_schemes_cache = [];
+                        $student_course_schemes_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
@@ -1299,6 +1302,16 @@ if ($other_gender_count > 0) {
                                 }
                                 $row_linked_schemes = $course_schemes_cache[$row_course_id] ?? [];
                                 $has_linked_schemes = !empty($row_linked_schemes);
+
+                                $schemes_cache_key = $row['student_id'] . ':' . $row_course_id;
+                                if ($row_course_id > 0 && !isset($student_course_schemes_cache[$schemes_cache_key])) {
+                                    $student_course_schemes_cache[$schemes_cache_key] = getEnrolledSchemesForStudentCourse(
+                                        $conn,
+                                        (string)$row['student_id'],
+                                        $row_course_id
+                                    );
+                                }
+                                $all_student_schemes = $student_course_schemes_cache[$schemes_cache_key] ?? [];
                         ?>
                         <tr>
                             <td>
@@ -1319,8 +1332,13 @@ if ($other_gender_count > 0) {
                             <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                             <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
                             <td>
-                                <?php if (!empty($row['scheme_name'])): ?>
-                                    <span class="badge badge-info"><?php echo htmlspecialchars($row['scheme_name']); ?></span>
+                                <?php if (!empty($all_student_schemes)): ?>
+                                    <?php foreach ($all_student_schemes as $sch_item): ?>
+                                        <span class="badge badge-info" style="margin:1px 2px 1px 0;display:inline-block;"
+                                              title="<?php echo htmlspecialchars($sch_item['scheme_code'] ?? ''); ?>">
+                                            <?php echo htmlspecialchars($sch_item['scheme_name']); ?>
+                                        </span>
+                                    <?php endforeach; ?>
                                 <?php elseif ($has_linked_schemes): ?>
                                     <span class="badge badge-warning" title="Assign a scheme from this course">Not set</span>
                                 <?php else: ?>

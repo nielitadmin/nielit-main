@@ -351,40 +351,173 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             return $ids;
         }
 
-        if (isMultiCourseSystemInstalled($conn)) {
-            $sql = "SELECT se.scheme_id FROM student_enrollments se
-                    INNER JOIN student_accounts sa ON sa.id = se.account_id
-                    WHERE sa.aadhar = ? AND se.course_id = ?
-                    AND se.status NOT IN ('rejected', 'cancelled')";
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param('si', $aadhar, $courseId);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                while ($row = $res->fetch_assoc()) {
-                    $ids[] = $row['scheme_id'] === null ? 0 : (int)$row['scheme_id'];
-                }
-                $stmt->close();
-                if (!empty($ids)) {
-                    return $ids;
-                }
-            }
-        }
-
-        $stmt = $conn->prepare("SELECT scheme_id FROM students
+        $stmt = $conn->prepare("SELECT DISTINCT scheme_id FROM students
             WHERE REPLACE(REPLACE(aadhar,' ',''),'-','') = ?
             AND course_id = ?
-            AND LOWER(status) NOT IN ('rejected')");
+            AND LOWER(status) NOT IN ('rejected')
+            AND scheme_id IS NOT NULL");
         if ($stmt) {
             $stmt->bind_param('si', $aadhar, $courseId);
             $stmt->execute();
             $res = $stmt->get_result();
             while ($row = $res->fetch_assoc()) {
-                $ids[] = $row['scheme_id'] === null ? 0 : (int)($row['scheme_id'] ?? 0);
+                $ids[] = (int)$row['scheme_id'];
             }
             $stmt->close();
         }
-        return $ids;
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $sql = "SELECT DISTINCT se.scheme_id FROM student_enrollments se
+                    INNER JOIN student_accounts sa ON sa.id = se.account_id
+                    WHERE sa.aadhar = ? AND se.course_id = ?
+                    AND se.status NOT IN ('rejected', 'cancelled')
+                    AND se.scheme_id IS NOT NULL";
+            $enrStmt = $conn->prepare($sql);
+            if ($enrStmt) {
+                $enrStmt->bind_param('si', $aadhar, $courseId);
+                $enrStmt->execute();
+                $res = $enrStmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $ids[] = (int)$row['scheme_id'];
+                }
+                $enrStmt->close();
+            }
+        }
+
+        $ids = array_values(array_unique(array_filter($ids, function ($id) {
+            return $id > 0;
+        })));
+
+        $nullEnrollment = false;
+        $nullStmt = $conn->prepare("SELECT id FROM students
+            WHERE REPLACE(REPLACE(aadhar,' ',''),'-','') = ?
+            AND course_id = ? AND scheme_id IS NULL
+            AND LOWER(status) NOT IN ('rejected') LIMIT 1");
+        if ($nullStmt) {
+            $nullStmt->bind_param('si', $aadhar, $courseId);
+            $nullStmt->execute();
+            $nullEnrollment = $nullStmt->get_result()->num_rows > 0;
+            $nullStmt->close();
+        }
+        if ($nullEnrollment) {
+            $ids[] = 0;
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * Create or update student_enrollments row for a students record (keeps scheme list in sync).
+     */
+    function syncStudentEnrollmentRecord(mysqli $conn, int $studentRecordId): void {
+        if (!isMultiCourseSystemInstalled($conn)) {
+            return;
+        }
+        $stmt = $conn->prepare('SELECT id, account_id, course_id, scheme_id, status FROM students WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return;
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row || empty($row['course_id'])) {
+            return;
+        }
+
+        $accountId = (int)($row['account_id'] ?? 0);
+        if ($accountId <= 0) {
+            $legacy = $conn->prepare('SELECT student_id, aadhar FROM students WHERE id = ? LIMIT 1');
+            if ($legacy) {
+                $legacy->bind_param('i', $studentRecordId);
+                $legacy->execute();
+                $leg = $legacy->get_result()->fetch_assoc();
+                $legacy->close();
+                if ($leg) {
+                    $account = resolveStudentAccount($conn, (string)$leg['student_id']);
+                    if ($account) {
+                        $accountId = (int)$account['id'];
+                        linkStudentRecordToAccount($conn, $studentRecordId, $accountId);
+                    }
+                }
+            }
+        }
+        if ($accountId <= 0) {
+            return;
+        }
+
+        ensureSchemeEnrollmentUniqueIndex($conn);
+        $courseId = (int)$row['course_id'];
+        $schemeId = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
+        $status = (string)($row['status'] ?? 'pending');
+
+        $check = $conn->prepare('SELECT id FROM student_enrollments WHERE student_record_id = ? LIMIT 1');
+        if ($check) {
+            $check->bind_param('i', $studentRecordId);
+            $check->execute();
+            $exists = $check->get_result()->fetch_assoc();
+            $check->close();
+            if ($exists) {
+                if (hasSchemeEnrollmentColumns($conn)) {
+                    $schemeBind = $schemeId;
+                    $upd = $conn->prepare('UPDATE student_enrollments SET scheme_id = ?, status = ?, account_id = ?, course_id = ? WHERE student_record_id = ?');
+                    if ($upd) {
+                        $upd->bind_param('isiii', $schemeBind, $status, $accountId, $courseId, $studentRecordId);
+                        $upd->execute();
+                        $upd->close();
+                    }
+                }
+                return;
+            }
+        }
+
+        createStudentEnrollment($conn, $accountId, $courseId, $studentRecordId, $status, $schemeId);
+    }
+
+    /**
+     * All scheme enrollments for a student ID + course (from students rows — source of truth for admin list).
+     */
+    function getEnrolledSchemesForStudentCourse(mysqli $conn, string $studentIdStr, int $courseId): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || $courseId <= 0 || !hasSchemeEnrollmentColumns($conn)) {
+            return [];
+        }
+        $sql = "SELECT DISTINCT sch.id, sch.scheme_name, sch.scheme_code, s.id AS student_record_id
+                FROM students s
+                INNER JOIN schemes sch ON sch.id = s.scheme_id
+                WHERE s.student_id = ? AND s.course_id = ?
+                AND LOWER(s.status) NOT IN ('rejected')
+                ORDER BY sch.scheme_name ASC";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('si', $studentIdStr, $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+
+    /**
+     * Ensure student_enrollments allows multiple schemes per course (migration may not have run on production).
+     */
+    function ensureSchemeEnrollmentUniqueIndex(mysqli $conn): void {
+        if (!isMultiCourseSystemInstalled($conn) || !hasSchemeEnrollmentColumns($conn)) {
+            return;
+        }
+        $idx = $conn->query("SHOW INDEX FROM student_enrollments WHERE Key_name = 'uk_account_course'");
+        if ($idx && $idx->num_rows > 0) {
+            $conn->query("ALTER TABLE student_enrollments DROP INDEX uk_account_course");
+        }
+        $idx2 = $conn->query("SHOW INDEX FROM student_enrollments WHERE Key_name = 'uk_account_course_scheme'");
+        if (!$idx2 || $idx2->num_rows === 0) {
+            $conn->query("ALTER TABLE student_enrollments ADD UNIQUE KEY uk_account_course_scheme (account_id, course_id, scheme_id)");
+        }
     }
 
     function createStudentAccount(mysqli $conn, array $data): ?int {
@@ -416,6 +549,11 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     function createStudentEnrollment(mysqli $conn, int $accountId, int $courseId, int $studentRecordId, string $status = 'pending', ?int $schemeId = null): ?int {
+        if (!isMultiCourseSystemInstalled($conn)) {
+            return null;
+        }
+        ensureSchemeEnrollmentUniqueIndex($conn);
+
         $schemeId = normalizeEnrollmentSchemeId($schemeId);
         if (hasSchemeEnrollmentColumns($conn)) {
             $sql = "INSERT INTO student_enrollments (account_id, course_id, scheme_id, student_record_id, status, registered_at)
@@ -424,7 +562,8 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$stmt) {
                 return null;
             }
-            $stmt->bind_param('iiiis', $accountId, $courseId, $schemeId, $studentRecordId, $status);
+            $schemeBind = $schemeId;
+            $stmt->bind_param('iiiis', $accountId, $courseId, $schemeBind, $studentRecordId, $status);
         } else {
             $sql = "INSERT INTO student_enrollments (account_id, course_id, student_record_id, status, registered_at)
                     VALUES (?, ?, ?, ?, NOW())";
@@ -865,6 +1004,8 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             }
         }
 
+        syncStudentEnrollmentRecord($conn, $studentRecordId);
+
         return ['success' => true, 'message' => 'Scheme/project updated successfully.'];
     }
 
@@ -1007,7 +1148,11 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $studentRecordId = (int)$stmt->insert_id;
         $stmt->close();
 
-        createStudentEnrollment($conn, $accountId, $courseId, $studentRecordId, $status, $schemeId);
+        $enrollmentId = createStudentEnrollment($conn, $accountId, $courseId, $studentRecordId, $status, $schemeId);
+        if ($enrollmentId === null && isMultiCourseSystemInstalled($conn)) {
+            $conn->query('DELETE FROM students WHERE id = ' . (int)$studentRecordId);
+            return ['success' => false, 'message' => 'Failed to link scheme enrollment. Please contact admin to run scheme enrollment migration, then try again.'];
+        }
 
         if ($batchId) {
             return assignEnrollmentToBatch($conn, $studentRecordId, $batchId, $adminName);
