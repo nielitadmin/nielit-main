@@ -371,7 +371,7 @@ function loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_c
                                 FROM batches b
                                 LEFT JOIN courses c ON b.course_id = c.id
                                 LEFT JOIN schemes s ON s.id = b.scheme_id
-                                WHERE b.status = 'Active' AND b.created_by = ?
+                                WHERE LOWER(TRIM(b.status)) = 'active' AND b.created_by = ?
                                 ORDER BY b.batch_name");
         $stmt->bind_param("i", $admin_id);
         $stmt->execute();
@@ -381,7 +381,7 @@ function loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_c
                          FROM batches b
                          LEFT JOIN courses c ON b.course_id = c.id
                          LEFT JOIN schemes s ON s.id = b.scheme_id
-                         WHERE b.status = 'Active'
+                         WHERE LOWER(TRIM(b.status)) = 'active'
                          ORDER BY b.batch_name");
 }
 $batches_result  = loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_column);
@@ -1110,6 +1110,7 @@ if ($other_gender_count > 0) {
                                     <input type="checkbox" class="student-checkbox"
                                            value="<?php echo (int)$row['id']; ?>"
                                            data-course="<?php echo $course_display; ?>"
+                                           data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                            data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
                                 <?php else: ?>
                                     <span style="color:#cbd5e1;" title="Already in a batch"><i class="fas fa-check-circle"></i></span>
@@ -1214,6 +1215,7 @@ if ($other_gender_count > 0) {
                                                 data-student-record-id="<?php echo (int)$row['id']; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                 data-course="<?php echo $course_display; ?>"
+                                                data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                                 data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
                                             <i class="fas fa-plus-circle"></i> Assign Batch
                                         </button>
@@ -1289,6 +1291,7 @@ if ($other_gender_count > 0) {
                     <?php if ($batches_result && $batches_result->num_rows > 0): ?>
                         <?php while ($batch = $batches_result->fetch_assoc()): ?>
                         <option value="<?php echo $batch['id']; ?>"
+                                data-course-id="<?php echo (int)$batch['course_id']; ?>"
                                 data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
                                 data-scheme-id="<?php echo (int)($batch['scheme_id'] ?? 0); ?>">
                             <?php echo htmlspecialchars($batch['batch_name']); ?>
@@ -1387,6 +1390,7 @@ if ($other_gender_count > 0) {
                     <?php if ($batches_result2 && $batches_result2->num_rows > 0): ?>
                         <?php while ($batch = $batches_result2->fetch_assoc()): ?>
                         <option value="<?php echo $batch['id']; ?>"
+                                data-course-id="<?php echo (int)$batch['course_id']; ?>"
                                 data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
                                 data-scheme-id="<?php echo (int)($batch['scheme_id'] ?? 0); ?>">
                             <?php echo htmlspecialchars($batch['batch_name']); ?>
@@ -1533,25 +1537,36 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Batch modal (single) ──────────────────────────────────────────────────────
 function schemeMatchesBatch(studentSchemeId, batchSchemeId) {
-    const s = String(studentSchemeId || '0');
-    const b = String(batchSchemeId || '0');
-    if (s === '0' && b === '0') return true;
+    const s = parseInt(studentSchemeId, 10) || 0;
+    const b = parseInt(batchSchemeId, 10) || 0;
+    if (s === 0) return true;
+    if (b === 0) return false;
     return s === b;
 }
 
-function openBatchModal(studentRecordId, studentName, course, studentSchemeId) {
+function courseMatchesBatch(studentCourseId, batchCourseId, studentCourseName, batchCourseName) {
+    const studentId = parseInt(studentCourseId, 10) || 0;
+    const batchId = parseInt(batchCourseId, 10) || 0;
+    if (studentId > 0 && batchId > 0) {
+        return studentId === batchId;
+    }
+    const norm = (studentCourseName || '').trim().toLowerCase();
+    const optCourse = (batchCourseName || '').trim().toLowerCase();
+    return norm !== '' && optCourse === norm;
+}
+
+function openBatchModal(studentRecordId, studentName, course, studentSchemeId, courseId) {
     document.getElementById('modal-student-record-id').value = studentRecordId;
     document.getElementById('modal-student-name').textContent = studentName;
     document.getElementById('modal-course').textContent       = course;
 
-    const norm    = course.trim().toLowerCase();
     const select  = document.getElementById('modal-batch-select');
     let   matched = 0;
 
     select.querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
-        const optCourse = (opt.dataset.course || '').trim().toLowerCase();
-        const ok = (optCourse === norm) && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId);
+        const ok = courseMatchesBatch(courseId, opt.dataset.courseId, course, opt.dataset.course)
+            && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId);
         opt.style.display = ok ? '' : 'none';
         if (ok) matched++;
     });
@@ -1628,6 +1643,7 @@ function openBulkBatchModal() {
     const container = document.getElementById('bulk-student-ids');
     container.innerHTML = '';
     const courses = new Set();
+    const courseIds = new Set();
     const schemes = new Set();
 
     checked.forEach(cb => {
@@ -1636,13 +1652,17 @@ function openBulkBatchModal() {
         container.appendChild(inp);
         const c = (cb.dataset.course || '').trim().toLowerCase();
         if (c) courses.add(c);
+        const cid = parseInt(cb.dataset.courseId, 10) || 0;
+        if (cid > 0) courseIds.add(cid);
         schemes.add(String(cb.dataset.schemeId || '0'));
     });
 
     document.getElementById('bulk-modal-batch-select').querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
+        const batchCourseId = parseInt(opt.dataset.courseId, 10) || 0;
         const oc = (opt.dataset.course || '').trim().toLowerCase();
-        const courseOk = courses.has(oc);
+        const courseOk = (batchCourseId > 0 && courseIds.has(batchCourseId))
+            || (courseIds.size === 0 && courses.has(oc));
         let schemeOk = true;
         schemes.forEach(sid => {
             if (!schemeMatchesBatch(sid, opt.dataset.schemeId)) schemeOk = false;
@@ -1688,7 +1708,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 this.dataset.studentRecordId,
                 this.dataset.studentName,
                 this.dataset.course,
-                this.dataset.schemeId || '0'
+                this.dataset.schemeId || '0',
+                this.dataset.courseId || '0'
             );
         });
     });

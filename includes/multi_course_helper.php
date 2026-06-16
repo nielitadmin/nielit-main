@@ -209,6 +209,17 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return ($a === null && $b === null) || ($a !== null && $b !== null && $a === $b);
     }
 
+    /**
+     * Whether a student enrollment can be assigned to a batch (scheme rules).
+     * Students without a scheme may join any batch for their course; scheme is inherited from the batch.
+     */
+    function canAssignStudentSchemeToBatch(?int $studentScheme, ?int $batchScheme): bool {
+        if ($studentScheme === null) {
+            return true;
+        }
+        return schemeIdsMatch($studentScheme, $batchScheme);
+    }
+
     function isAadharEnrolledInCourseScheme(mysqli $conn, string $aadhar, int $courseId, ?int $schemeId = null): bool {
         $aadhar = normalizeAadhar($aadhar);
         if ($aadhar === '' || $courseId <= 0) {
@@ -619,6 +630,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             return ['success' => false, 'message' => 'Batch not found.'];
         }
 
+        $studentScheme = null;
+        $batchScheme = normalizeEnrollmentSchemeId($batch['scheme_id'] ?? null);
+
         $stuStmt = $conn->prepare('SELECT id, course_id, scheme_id FROM students WHERE id = ? LIMIT 1');
         if ($stuStmt) {
             $stuStmt->bind_param('i', $studentRecordId);
@@ -632,9 +646,8 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 return ['success' => false, 'message' => 'Batch course does not match student enrollment.'];
             }
             $studentScheme = normalizeEnrollmentSchemeId($studentRow['scheme_id'] ?? null);
-            $batchScheme = normalizeEnrollmentSchemeId($batch['scheme_id'] ?? null);
             if (hasSchemeEnrollmentColumns($conn) && ($studentScheme !== null || $batchScheme !== null)) {
-                if (!schemeIdsMatch($studentScheme, $batchScheme)) {
+                if (!canAssignStudentSchemeToBatch($studentScheme, $batchScheme)) {
                     return ['success' => false, 'message' => 'Student scheme/project does not match this batch.'];
                 }
             }
@@ -691,12 +704,29 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $upd->close();
         }
 
+        if (hasSchemeEnrollmentColumns($conn) && $studentScheme === null && $batchScheme !== null) {
+            $schemeUpd = $conn->prepare('UPDATE students SET scheme_id = ? WHERE id = ?');
+            if ($schemeUpd) {
+                $schemeUpd->bind_param('ii', $batchScheme, $studentRecordId);
+                $schemeUpd->execute();
+                $schemeUpd->close();
+            }
+        }
+
         if (isMultiCourseSystemInstalled($conn)) {
             $enr = $conn->prepare("UPDATE student_enrollments SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE student_record_id = ?");
             if ($enr) {
                 $enr->bind_param('isi', $batchId, $adminName, $studentRecordId);
                 $enr->execute();
                 $enr->close();
+            }
+            if (hasSchemeEnrollmentColumns($conn) && $studentScheme === null && $batchScheme !== null) {
+                $enrScheme = $conn->prepare('UPDATE student_enrollments SET scheme_id = ? WHERE student_record_id = ?');
+                if ($enrScheme) {
+                    $enrScheme->bind_param('ii', $batchScheme, $studentRecordId);
+                    $enrScheme->execute();
+                    $enrScheme->close();
+                }
             }
         }
 
