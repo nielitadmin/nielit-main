@@ -202,6 +202,34 @@ if (isset($_POST['assign_course'])) {
     exit();
 }
 
+// ─── HANDLE: Assign / update scheme on student enrollment ─────────────────────
+if (isset($_POST['assign_scheme'])) {
+    $student_record_id = (int)($_POST['student_record_id'] ?? 0);
+    $scheme_id         = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
+
+    if ($student_record_id <= 0) {
+        $_SESSION['message'] = 'Invalid student record.';
+        $_SESSION['message_type'] = 'warning';
+    } else {
+        $result = adminUpdateStudentScheme($conn, $student_record_id, $scheme_id);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    }
+
+    $redirect_params = [];
+    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
+    if (!empty($_POST['filter_scheme']) && $_POST['filter_scheme'] !== 'All') {
+        $redirect_params[] = 'filter_scheme=' . urlencode($_POST['filter_scheme']);
+    }
+    if (!empty($_POST['filter_gender']) && $_POST['filter_gender'] !== 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_POST['filter_gender']);
+    }
+    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
+    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    exit();
+}
+
 // ─── HANDLE: Assign batch (single enrollment row) ────────────────────────────
 if (isset($_POST['assign_batch'])) {
     $student_record_id = (int)($_POST['student_record_id'] ?? 0);
@@ -390,8 +418,21 @@ $batches_result2 = loadBatches($conn, $is_course_coordinator, $admin_id, $has_cr
 // ─── FILTERS ──────────────────────────────────────────────────────────────────
 $selected_course  = $_GET['filter_course']  ?? 'All';
 $selected_gender  = $_GET['filter_gender']  ?? 'All';
+$selected_scheme  = $_GET['filter_scheme']  ?? 'All';
 $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
+
+$filter_scheme_options = [];
+if ($selected_course !== 'All') {
+    $filter_scheme_options = getSchemesForCourse($conn, (int)$selected_course);
+} else {
+    $scheme_filter_res = $conn->query("SELECT id, scheme_name, scheme_code FROM schemes WHERE LOWER(status) = 'active' ORDER BY scheme_name");
+    if ($scheme_filter_res) {
+        while ($sch_row = $scheme_filter_res->fetch_assoc()) {
+            $filter_scheme_options[] = $sch_row;
+        }
+    }
+}
 
 // ─── MAIN STUDENTS QUERY ─────────────────────────────────────────────────────
 $query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
@@ -425,6 +466,16 @@ if ($selected_gender !== 'All') {
     $query        .= " AND s.gender = ?";
     $bind_types   .= 's';
     $bind_values[] = $selected_gender;
+}
+
+if ($selected_scheme !== 'All') {
+    if ($selected_scheme === 'none') {
+        $query .= " AND s.scheme_id IS NULL";
+    } else {
+        $query        .= " AND s.scheme_id = ?";
+        $bind_types   .= 'i';
+        $bind_values[] = (int)$selected_scheme;
+    }
 }
 
 if (!empty($start_date) && !empty($end_date)) {
@@ -476,6 +527,13 @@ if ($selected_course !== 'All') {
 }
 if ($selected_gender !== 'All') {
     $stats_where_parts[]  = "gender = '" . $conn->real_escape_string($selected_gender) . "'";
+}
+if ($selected_scheme !== 'All') {
+    if ($selected_scheme === 'none') {
+        $stats_where_parts[] = 'scheme_id IS NULL';
+    } else {
+        $stats_where_parts[] = 'scheme_id = ' . (int)$selected_scheme;
+    }
 }
 if (!empty($start_date) && !empty($end_date)) {
     $stats_where_parts[]  = "created_at BETWEEN '" . $conn->real_escape_string($start_date) . "' AND '" . $conn->real_escape_string($end_date) . "'";
@@ -877,6 +935,20 @@ if ($other_gender_count > 0) {
                         </div>
 
                         <div class="form-group">
+                            <label class="form-label">Filter by Scheme / Project</label>
+                            <select name="filter_scheme" class="form-select">
+                                <option value="All" <?php if ($selected_scheme === 'All') echo 'selected'; ?>>All Schemes</option>
+                                <option value="none" <?php if ($selected_scheme === 'none') echo 'selected'; ?>>Not set</option>
+                                <?php foreach ($filter_scheme_options as $sch_opt): ?>
+                                    <option value="<?php echo (int)$sch_opt['id']; ?>"
+                                        <?php if ((string)$selected_scheme === (string)$sch_opt['id']) echo 'selected'; ?>>
+                                        <?php echo htmlspecialchars($sch_opt['scheme_name'] . ' (' . $sch_opt['scheme_code'] . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
                             <label class="form-label">Start Date</label>
                             <input type="date" name="start_date" class="form-control" value="<?php echo htmlspecialchars($start_date); ?>">
                         </div>
@@ -891,6 +963,35 @@ if ($other_gender_count > 0) {
                         </button>
                     </div>
                 </form>
+
+                <?php if ($selected_course !== 'All'): ?>
+                    <?php
+                    $linked_for_course = getSchemesForCourse($conn, (int)$selected_course);
+                    $linked_course_name = '';
+                    if ($courses_result) {
+                        $courses_result->data_seek(0);
+                        while ($c = $courses_result->fetch_assoc()) {
+                            if ((int)$c['id'] === (int)$selected_course) {
+                                $linked_course_name = $c['course_name'];
+                                break;
+                            }
+                        }
+                        $courses_result->data_seek(0);
+                    }
+                    ?>
+                    <div style="margin-top:1rem;padding:12px 16px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;font-size:13px;color:#0c4a6e;">
+                        <strong><i class="fas fa-project-diagram"></i> Schemes for <?php echo htmlspecialchars($linked_course_name ?: 'selected course'); ?>:</strong>
+                        <?php if (!empty($linked_for_course)): ?>
+                            <?php echo htmlspecialchars(implode(', ', array_map(function ($s) {
+                                return $s['scheme_name'] . ' (' . $s['scheme_code'] . ')';
+                            }, $linked_for_course))); ?>
+                            <span style="color:#64748b;"> — edit linked schemes in <a href="edit_course.php?id=<?php echo (int)$selected_course; ?>">Edit Course</a></span>
+                        <?php else: ?>
+                            <span style="color:#b45309;">No schemes linked yet.</span>
+                            <a href="edit_course.php?id=<?php echo (int)$selected_course; ?>">Add schemes in Edit Course</a>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Filter Stats (FIX: uses $stats_* variables, NOT $result) -->
                 <div class="course-stats" style="margin-top:1.5rem;">
@@ -1066,6 +1167,7 @@ if ($other_gender_count > 0) {
                         <a href="export_students_excel.php<?php
                             $ep = [];
                             if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
+                            if ($selected_scheme !== 'All') $ep[] = 'filter_scheme=' . urlencode($selected_scheme);
                             if ($selected_gender !== 'All') $ep[] = 'filter_gender=' . urlencode($selected_gender);
                             if (!empty($start_date))         $ep[] = 'start_date='    . urlencode($start_date);
                             if (!empty($end_date))           $ep[] = 'end_date='      . urlencode($end_date);
@@ -1097,12 +1199,19 @@ if ($other_gender_count > 0) {
                         <tbody>
                         <?php
                         $sl_no = 1;
+                        $course_schemes_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
                                 $badge_map  = ['active'=>'badge-success','pending'=>'badge-warning','rejected'=>'badge-danger','inactive'=>'badge-secondary'];
                                 $badge_cls  = $badge_map[$status] ?? 'badge-secondary';
                                 $course_display = htmlspecialchars(!empty($row['course_name']) ? $row['course_name'] : $row['course']);
+                                $row_course_id = (int)($row['course_id'] ?? 0);
+                                if ($row_course_id > 0 && !isset($course_schemes_cache[$row_course_id])) {
+                                    $course_schemes_cache[$row_course_id] = getSchemesForCourse($conn, $row_course_id);
+                                }
+                                $row_linked_schemes = $course_schemes_cache[$row_course_id] ?? [];
+                                $has_linked_schemes = !empty($row_linked_schemes);
                         ?>
                         <tr>
                             <td>
@@ -1125,6 +1234,8 @@ if ($other_gender_count > 0) {
                             <td>
                                 <?php if (!empty($row['scheme_name'])): ?>
                                     <span class="badge badge-info"><?php echo htmlspecialchars($row['scheme_name']); ?></span>
+                                <?php elseif ($has_linked_schemes): ?>
+                                    <span class="badge badge-warning" title="Assign a scheme from this course">Not set</span>
                                 <?php else: ?>
                                     <span class="text-muted small">—</span>
                                 <?php endif; ?>
@@ -1152,6 +1263,7 @@ if ($other_gender_count > 0) {
                                 // Build filter param suffix for action URLs
                                 $fp = [];
                                 if ($selected_course !== 'All') $fp[] = 'filter_course=' . urlencode($selected_course);
+                                if ($selected_scheme !== 'All')  $fp[] = 'filter_scheme='  . urlencode($selected_scheme);
                                 if (!empty($start_date))         $fp[] = 'start_date='    . urlencode($start_date);
                                 if (!empty($end_date))           $fp[] = 'end_date='      . urlencode($end_date);
                                 $filter_suffix = !empty($fp) ? '&' . implode('&', $fp) : '';
@@ -1197,6 +1309,19 @@ if ($other_gender_count > 0) {
                                             <i class="fas fa-book"></i> Assign Course
                                         </button>
                                         <?php endif; ?>
+                                    <?php endif; ?>
+
+                                    <?php if ($has_linked_schemes && !$is_front_office && $status !== 'rejected'): ?>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm assign-scheme-btn"
+                                                title="<?php echo empty($row['scheme_name']) ? 'Assign Scheme / Project' : 'Change Scheme / Project'; ?>"
+                                                data-student-record-id="<?php echo (int)$row['id']; ?>"
+                                                data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                                data-course-id="<?php echo $row_course_id; ?>"
+                                                data-current-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
+                                            <i class="fas fa-project-diagram"></i>
+                                            <?php echo empty($row['scheme_name']) ? 'Scheme' : 'Scheme'; ?>
+                                        </button>
                                     <?php endif; ?>
 
                                     <?php if (!empty($row['batch_name'])): ?>
@@ -1358,6 +1483,45 @@ if ($other_gender_count > 0) {
                     <i class="fas fa-check"></i> Assign Course
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeCourseModal()" style="flex:1;">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Assign Scheme Modal -->
+<div id="schemeModal" class="batch-modal">
+    <div class="batch-modal-content">
+        <div class="batch-modal-header">
+            <h3><i class="fas fa-project-diagram"></i> Assign Scheme / Project</h3>
+            <button class="close-modal" onclick="closeSchemeModal()">&times;</button>
+        </div>
+        <div class="batch-info">
+            <p><strong>Student:</strong> <span id="scheme-modal-student-name"></span></p>
+            <p style="font-size:12px;color:#64748b;margin-top:8px;">
+                <i class="fas fa-info-circle"></i> Only schemes linked to this course in <strong>Edit Course</strong> are listed.
+            </p>
+        </div>
+        <form method="POST" action="students.php" id="scheme-assign-form">
+            <input type="hidden" name="student_record_id" id="scheme-modal-student-record-id">
+            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+            <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
+            <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
+            <div class="form-group">
+                <label class="form-label">Scheme / Project</label>
+                <select name="scheme_id" id="scheme-modal-select" class="form-control" required>
+                    <option value="">-- Select Scheme / Project --</option>
+                </select>
+                <small id="scheme-modal-hint" style="color:#64748b;display:block;margin-top:6px;"></small>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button type="submit" name="assign_scheme" value="1" class="btn btn-primary" style="flex:1;">
+                    <i class="fas fa-check"></i> Save Scheme
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeSchemeModal()" style="flex:1;">
                     <i class="fas fa-times"></i> Cancel
                 </button>
             </div>
@@ -1633,6 +1797,48 @@ function closeCourseModal() {
     document.getElementById('courseModal').style.display = 'none';
 }
 
+async function openSchemeModal(studentRecordId, studentName, courseId, currentSchemeId) {
+    document.getElementById('scheme-modal-student-record-id').value = studentRecordId;
+    document.getElementById('scheme-modal-student-name').textContent = studentName;
+
+    const select = document.getElementById('scheme-modal-select');
+    const hint = document.getElementById('scheme-modal-hint');
+    select.innerHTML = '<option value="">-- Select Scheme / Project --</option>';
+    hint.textContent = 'Loading schemes…';
+
+    try {
+        const res = await fetch('get_schemes_for_course.php?course_id=' + encodeURIComponent(courseId));
+        const data = await res.json();
+        if (!data.success || !data.schemes.length) {
+            hint.textContent = 'No schemes linked to this course. Edit the course to add schemes/projects.';
+            select.required = false;
+            document.getElementById('schemeModal').style.display = 'block';
+            return;
+        }
+        data.schemes.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.id;
+            opt.textContent = s.scheme_name + ' (' + s.scheme_code + ')';
+            if (String(currentSchemeId) === String(s.id)) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+        select.required = true;
+        hint.textContent = data.schemes.length === 1
+            ? 'This course has one linked scheme.'
+            : 'Select the scheme/project for this student enrollment.';
+    } catch (e) {
+        console.error(e);
+        hint.textContent = 'Could not load schemes. Please try again.';
+    }
+
+    document.getElementById('schemeModal').style.display = 'block';
+}
+function closeSchemeModal() {
+    document.getElementById('schemeModal').style.display = 'none';
+}
+
 // ── Bulk batch modal ──────────────────────────────────────────────────────────
 function openBulkBatchModal() {
     const checked = document.querySelectorAll('.student-checkbox:checked');
@@ -1731,6 +1937,17 @@ document.addEventListener('DOMContentLoaded', function () {
             loadCourseSchemesForStudent(studentId, this.value);
         });
     }
+
+    document.querySelectorAll('.assign-scheme-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            openSchemeModal(
+                this.dataset.studentRecordId,
+                this.dataset.studentName,
+                this.dataset.courseId,
+                this.dataset.currentSchemeId || '0'
+            );
+        });
+    });
 
     // Remove batch buttons
     document.querySelectorAll('.remove-batch-btn').forEach(btn => {

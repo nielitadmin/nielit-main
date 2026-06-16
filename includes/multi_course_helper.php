@@ -757,6 +757,117 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return $row ?: null;
     }
 
+    /**
+     * Set or change scheme/project on an existing student enrollment (must match course_schemes).
+     */
+    function adminUpdateStudentScheme(mysqli $conn, int $studentRecordId, ?int $schemeId): array {
+        if (!hasSchemeEnrollmentColumns($conn)) {
+            return ['success' => false, 'message' => 'Scheme support is not installed on this system.'];
+        }
+
+        $stmt = $conn->prepare('SELECT id, student_id, course_id, scheme_id, batch_id, aadhar FROM students WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $studentRow = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$studentRow) {
+            return ['success' => false, 'message' => 'Student record not found.'];
+        }
+
+        $courseId = (int)($studentRow['course_id'] ?? 0);
+        if ($courseId <= 0) {
+            return ['success' => false, 'message' => 'Student has no course assigned.'];
+        }
+
+        $schemeId = normalizeEnrollmentSchemeId($schemeId);
+        $courseSchemes = getSchemesForCourse($conn, $courseId);
+
+        if (!empty($courseSchemes)) {
+            if ($schemeId === null) {
+                return ['success' => false, 'message' => 'Please select a scheme/project linked to this course.'];
+            }
+            if (!validateSchemeForCourse($conn, $courseId, $schemeId)) {
+                return ['success' => false, 'message' => 'Selected scheme is not linked to this course. Edit the course to add schemes.'];
+            }
+        } else {
+            $schemeId = null;
+        }
+
+        $currentScheme = normalizeEnrollmentSchemeId($studentRow['scheme_id'] ?? null);
+        if ($currentScheme === $schemeId) {
+            return ['success' => true, 'message' => 'Scheme/project is already set for this student.'];
+        }
+
+        $aadhar = normalizeAadhar($studentRow['aadhar'] ?? '');
+        if ($aadhar !== '' && $schemeId !== null) {
+            $otherId = (int)$studentRow['id'];
+            $dup = $conn->prepare('SELECT id FROM students WHERE REPLACE(REPLACE(aadhar," ",""),"-","") = ? AND course_id = ? AND scheme_id = ? AND id != ? AND LOWER(status) NOT IN ("rejected") LIMIT 1');
+            if ($dup) {
+                $dup->bind_param('siii', $aadhar, $courseId, $schemeId, $otherId);
+                $dup->execute();
+                if ($dup->get_result()->num_rows > 0) {
+                    $dup->close();
+                    return ['success' => false, 'message' => 'This student already has another enrollment under the selected scheme for this course.'];
+                }
+                $dup->close();
+            }
+        }
+
+        if (!empty($studentRow['batch_id'])) {
+            $batch = getBatchByIdForEnrollment($conn, (int)$studentRow['batch_id']);
+            if ($batch) {
+                $batchScheme = normalizeEnrollmentSchemeId($batch['scheme_id'] ?? null);
+                if (!canAssignStudentSchemeToBatch($schemeId, $batchScheme)) {
+                    return ['success' => false, 'message' => 'Selected scheme does not match the student\'s batch. Remove from batch first or pick a matching scheme.'];
+                }
+            }
+        }
+
+        if ($schemeId === null) {
+            $upd = $conn->prepare('UPDATE students SET scheme_id = NULL WHERE id = ?');
+            if (!$upd) {
+                return ['success' => false, 'message' => $conn->error];
+            }
+            $upd->bind_param('i', $studentRecordId);
+        } else {
+            $upd = $conn->prepare('UPDATE students SET scheme_id = ? WHERE id = ?');
+            if (!$upd) {
+                return ['success' => false, 'message' => $conn->error];
+            }
+            $upd->bind_param('ii', $schemeId, $studentRecordId);
+        }
+        if (!$upd->execute()) {
+            $err = $upd->error;
+            $upd->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $upd->close();
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            if ($schemeId === null) {
+                $enr = $conn->prepare('UPDATE student_enrollments SET scheme_id = NULL WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('i', $studentRecordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            } else {
+                $enr = $conn->prepare('UPDATE student_enrollments SET scheme_id = ? WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('ii', $schemeId, $studentRecordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+
+        return ['success' => true, 'message' => 'Scheme/project updated successfully.'];
+    }
+
     function adminAssignCourseToStudent(mysqli $conn, string $studentIdStr, int $courseId, ?int $batchId, string $adminName, ?int $schemeId = null): array {
         if (!isMultiCourseSystemInstalled($conn)) {
             return ['success' => false, 'message' => 'Multi-course system is not installed. Run migrations/install_multi_course_system.php first.'];
