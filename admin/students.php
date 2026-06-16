@@ -230,6 +230,93 @@ if (isset($_POST['assign_scheme'])) {
     exit();
 }
 
+// ─── HANDLE: Add additional scheme enrollments (same course, new enrollment rows) ─
+if (isset($_POST['add_scheme_enrollments'])) {
+    $student_id_str = trim($_POST['student_id'] ?? '');
+    $student_record_id = (int)($_POST['student_record_id'] ?? 0);
+    $course_id      = (int)($_POST['course_id'] ?? 0);
+    $scheme_ids     = $_POST['scheme_ids'] ?? [];
+    $admin_name     = $_SESSION['admin'] ?? 'Admin';
+
+    if ($student_id_str === '' || $course_id <= 0) {
+        $_SESSION['message'] = 'Invalid student or course.';
+        $_SESSION['message_type'] = 'warning';
+    } elseif (empty($scheme_ids) || !is_array($scheme_ids)) {
+        $_SESSION['message'] = 'Please select at least one scheme/project to add.';
+        $_SESSION['message_type'] = 'warning';
+    } else {
+        $currentRowScheme = null;
+        if ($student_record_id > 0) {
+            $rowStmt = $conn->prepare('SELECT scheme_id FROM students WHERE id = ? LIMIT 1');
+            if ($rowStmt) {
+                $rowStmt->bind_param('i', $student_record_id);
+                $rowStmt->execute();
+                $rowData = $rowStmt->get_result()->fetch_assoc();
+                $rowStmt->close();
+                if ($rowData) {
+                    $currentRowScheme = normalizeEnrollmentSchemeId($rowData['scheme_id'] ?? null);
+                }
+            }
+        }
+
+        $added = 0;
+        $skipped = 0;
+        $errors = [];
+        $isFirst = true;
+        foreach ($scheme_ids as $sid) {
+            $scheme_id = normalizeEnrollmentSchemeId($sid);
+            if ($scheme_id === null) {
+                continue;
+            }
+
+            if ($isFirst && $student_record_id > 0 && $currentRowScheme === null) {
+                $result = adminUpdateStudentScheme($conn, $student_record_id, $scheme_id);
+                $isFirst = false;
+            } else {
+                $result = adminAssignCourseToStudent($conn, $student_id_str, $course_id, null, $admin_name, $scheme_id);
+                $isFirst = false;
+            }
+
+            if ($result['success']) {
+                $added++;
+            } else {
+                if (stripos($result['message'], 'already') !== false) {
+                    $skipped++;
+                } else {
+                    $errors[] = $result['message'];
+                }
+            }
+        }
+        if ($added > 0) {
+            $msg = $added . ' scheme enrollment(s) added successfully.';
+            if ($skipped > 0) {
+                $msg .= " {$skipped} already enrolled.";
+            }
+            $_SESSION['message'] = $msg;
+            $_SESSION['message_type'] = 'success';
+        } elseif (!empty($errors)) {
+            $_SESSION['message'] = $errors[0];
+            $_SESSION['message_type'] = 'danger';
+        } else {
+            $_SESSION['message'] = 'Student is already enrolled in the selected scheme(s).';
+            $_SESSION['message_type'] = 'warning';
+        }
+    }
+
+    $redirect_params = [];
+    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
+    if (!empty($_POST['filter_scheme']) && $_POST['filter_scheme'] !== 'All') {
+        $redirect_params[] = 'filter_scheme=' . urlencode($_POST['filter_scheme']);
+    }
+    if (!empty($_POST['filter_gender']) && $_POST['filter_gender'] !== 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_POST['filter_gender']);
+    }
+    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
+    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    exit();
+}
+
 // ─── HANDLE: Assign batch (single enrollment row) ────────────────────────────
 if (isset($_POST['assign_batch'])) {
     $student_record_id = (int)($_POST['student_record_id'] ?? 0);
@@ -1314,13 +1401,14 @@ if ($other_gender_count > 0) {
                                     <?php if ($has_linked_schemes && !$is_front_office && $status !== 'rejected'): ?>
                                         <button type="button"
                                                 class="btn btn-outline-primary btn-sm assign-scheme-btn"
-                                                title="<?php echo empty($row['scheme_name']) ? 'Assign Scheme / Project' : 'Change Scheme / Project'; ?>"
+                                                title="Add or manage multiple scheme/project enrollments"
+                                                data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                                 data-student-record-id="<?php echo (int)$row['id']; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                 data-course-id="<?php echo $row_course_id; ?>"
+                                                data-course-name="<?php echo $course_display; ?>"
                                                 data-current-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
-                                            <i class="fas fa-project-diagram"></i>
-                                            <?php echo empty($row['scheme_name']) ? 'Scheme' : 'Scheme'; ?>
+                                            <i class="fas fa-project-diagram"></i> Schemes
                                         </button>
                                     <?php endif; ?>
 
@@ -1490,19 +1578,45 @@ if ($other_gender_count > 0) {
     </div>
 </div>
 
-<!-- Assign Scheme Modal -->
+<!-- Assign / Add Scheme Modal -->
 <div id="schemeModal" class="batch-modal">
-    <div class="batch-modal-content">
+    <div class="batch-modal-content" style="max-width:520px;">
         <div class="batch-modal-header">
-            <h3><i class="fas fa-project-diagram"></i> Assign Scheme / Project</h3>
+            <h3><i class="fas fa-project-diagram"></i> Manage Schemes / Projects</h3>
             <button class="close-modal" onclick="closeSchemeModal()">&times;</button>
         </div>
         <div class="batch-info">
             <p><strong>Student:</strong> <span id="scheme-modal-student-name"></span></p>
+            <p><strong>Course:</strong> <span id="scheme-modal-course-name"></span></p>
             <p style="font-size:12px;color:#64748b;margin-top:8px;">
-                <i class="fas fa-info-circle"></i> Only schemes linked to this course in <strong>Edit Course</strong> are listed.
+                <i class="fas fa-info-circle"></i> A student can have <strong>one enrollment per scheme</strong> for the same course. Each appears as a separate row in the list.
             </p>
         </div>
+
+        <div id="scheme-modal-enrolled-wrap" style="display:none;margin-bottom:16px;">
+            <label class="form-label">Already enrolled</label>
+            <div id="scheme-modal-enrolled-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        </div>
+
+        <form method="POST" action="students.php" id="scheme-add-form" style="margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid #e5e7eb;">
+            <input type="hidden" name="student_id" id="scheme-modal-student-id">
+            <input type="hidden" name="student_record_id" id="scheme-modal-student-record-id-add">
+            <input type="hidden" name="course_id" id="scheme-modal-course-id">
+            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+            <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
+            <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
+            <div class="form-group" id="scheme-add-group">
+                <label class="form-label">Add scheme enrollments</label>
+                <div id="scheme-modal-checkboxes" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;max-height:180px;overflow-y:auto;"></div>
+                <small id="scheme-modal-add-hint" style="color:#64748b;display:block;margin-top:6px;"></small>
+            </div>
+            <button type="submit" name="add_scheme_enrollments" value="1" class="btn btn-primary" id="scheme-add-submit" style="width:100%;">
+                <i class="fas fa-plus"></i> Add Selected Schemes
+            </button>
+        </form>
+
         <form method="POST" action="students.php" id="scheme-assign-form">
             <input type="hidden" name="student_record_id" id="scheme-modal-student-record-id">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
@@ -1510,19 +1624,19 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>">
-            <div class="form-group">
-                <label class="form-label">Scheme / Project</label>
-                <select name="scheme_id" id="scheme-modal-select" class="form-control" required>
+            <div class="form-group" id="scheme-current-group">
+                <label class="form-label">Scheme for <em>this</em> enrollment row</label>
+                <select name="scheme_id" id="scheme-modal-select" class="form-control">
                     <option value="">-- Select Scheme / Project --</option>
                 </select>
                 <small id="scheme-modal-hint" style="color:#64748b;display:block;margin-top:6px;"></small>
             </div>
-            <div style="display:flex;gap:10px;margin-top:20px;">
-                <button type="submit" name="assign_scheme" value="1" class="btn btn-primary" style="flex:1;">
-                    <i class="fas fa-check"></i> Save Scheme
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button type="submit" name="assign_scheme" value="1" class="btn btn-outline-primary" style="flex:1;">
+                    <i class="fas fa-check"></i> Save This Row
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeSchemeModal()" style="flex:1;">
-                    <i class="fas fa-times"></i> Cancel
+                    <i class="fas fa-times"></i> Close
                 </button>
             </div>
         </form>
@@ -1797,25 +1911,43 @@ function closeCourseModal() {
     document.getElementById('courseModal').style.display = 'none';
 }
 
-async function openSchemeModal(studentRecordId, studentName, courseId, currentSchemeId) {
+async function openSchemeModal(studentId, studentRecordId, studentName, courseId, courseName, currentSchemeId) {
+    document.getElementById('scheme-modal-student-id').value = studentId;
     document.getElementById('scheme-modal-student-record-id').value = studentRecordId;
+    document.getElementById('scheme-modal-student-record-id-add').value = studentRecordId;
+    document.getElementById('scheme-modal-course-id').value = courseId;
     document.getElementById('scheme-modal-student-name').textContent = studentName;
+    document.getElementById('scheme-modal-course-name').textContent = courseName || '';
 
     const select = document.getElementById('scheme-modal-select');
     const hint = document.getElementById('scheme-modal-hint');
+    const addHint = document.getElementById('scheme-modal-add-hint');
+    const checkboxWrap = document.getElementById('scheme-modal-checkboxes');
+    const enrolledWrap = document.getElementById('scheme-modal-enrolled-wrap');
+    const enrolledList = document.getElementById('scheme-modal-enrolled-list');
+    const addGroup = document.getElementById('scheme-add-group');
+    const addSubmit = document.getElementById('scheme-add-submit');
+
     select.innerHTML = '<option value="">-- Select Scheme / Project --</option>';
-    hint.textContent = 'Loading schemes…';
+    checkboxWrap.innerHTML = '';
+    enrolledList.innerHTML = '';
+    hint.textContent = 'Loading…';
+    addHint.textContent = '';
 
     try {
-        const res = await fetch('get_schemes_for_course.php?course_id=' + encodeURIComponent(courseId));
+        const res = await fetch(
+            'get_course_schemes_for_student.php?student_id=' + encodeURIComponent(studentId)
+            + '&course_id=' + encodeURIComponent(courseId)
+        );
         const data = await res.json();
-        if (!data.success || !data.schemes.length) {
-            hint.textContent = 'No schemes linked to this course. Edit the course to add schemes/projects.';
-            select.required = false;
-            document.getElementById('schemeModal').style.display = 'block';
+
+        if (!data.success) {
+            hint.textContent = data.message || 'Could not load schemes.';
             return;
         }
-        data.schemes.forEach(s => {
+
+        const allForRow = [...(data.enrolled_schemes || []), ...(data.schemes || [])];
+        allForRow.forEach(s => {
             const opt = document.createElement('option');
             opt.value = s.id;
             opt.textContent = s.scheme_name + ' (' + s.scheme_code + ')';
@@ -1824,10 +1956,43 @@ async function openSchemeModal(studentRecordId, studentName, courseId, currentSc
             }
             select.appendChild(opt);
         });
-        select.required = true;
-        hint.textContent = data.schemes.length === 1
-            ? 'This course has one linked scheme.'
-            : 'Select the scheme/project for this student enrollment.';
+        select.required = allForRow.length > 0 && !currentSchemeId;
+
+        if (data.enrolled_schemes && data.enrolled_schemes.length > 0) {
+            enrolledWrap.style.display = 'block';
+            data.enrolled_schemes.forEach(s => {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-info';
+                badge.style.margin = '0';
+                badge.textContent = s.scheme_name;
+                enrolledList.appendChild(badge);
+            });
+        } else {
+            enrolledWrap.style.display = 'none';
+        }
+
+        if (data.schemes && data.schemes.length > 0) {
+            addGroup.style.display = 'block';
+            addSubmit.style.display = 'block';
+            data.schemes.forEach(s => {
+                const label = document.createElement('label');
+                label.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;';
+                label.innerHTML = '<input type="checkbox" name="scheme_ids[]" value="' + s.id + '" style="width:16px;height:16px;">'
+                    + '<span>' + s.scheme_name + ' <small style="color:#64748b;">(' + s.scheme_code + ')</small></span>';
+                checkboxWrap.appendChild(label);
+            });
+            addHint.textContent = 'Tick one or more schemes to create additional enrollment rows (same Student ID).';
+        } else {
+            addGroup.style.display = 'none';
+            addSubmit.style.display = 'none';
+            addHint.textContent = data.enrolled_schemes && data.enrolled_schemes.length
+                ? 'Student is enrolled in all schemes linked to this course.'
+                : 'No schemes linked to this course. Edit the course to add schemes.';
+        }
+
+        hint.textContent = currentSchemeId
+            ? 'Change the scheme for this specific enrollment row only.'
+            : 'Set the scheme for this enrollment row, or add more schemes above.';
     } catch (e) {
         console.error(e);
         hint.textContent = 'Could not load schemes. Please try again.';
@@ -1941,9 +2106,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.assign-scheme-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             openSchemeModal(
+                this.dataset.studentId,
                 this.dataset.studentRecordId,
                 this.dataset.studentName,
                 this.dataset.courseId,
+                this.dataset.courseName,
                 this.dataset.currentSchemeId || '0'
             );
         });
