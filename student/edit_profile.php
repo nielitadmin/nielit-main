@@ -28,6 +28,9 @@ if (!$student) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = trim($_POST['name'] ?? '');
+    $father_name = trim($_POST['father_name'] ?? '');
+    $mother_name = trim($_POST['mother_name'] ?? '');
     $mobile = trim($_POST['mobile'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $address = trim($_POST['address'] ?? '');
@@ -38,16 +41,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $apaar_id = trim($_POST['apaar_id'] ?? '');
     $distinguishing_marks = trim($_POST['distinguishing_marks'] ?? '');
 
-    if ($mobile === '' || !preg_match('/^[0-9]{10}$/', $mobile)) {
+    if ($name === '') {
+        $error_message = 'Full name is required.';
+    } elseif ($father_name === '' || $mother_name === '') {
+        $error_message = "Father's and mother's names are required.";
+    } elseif ($mobile === '' || !preg_match('/^[0-9]{10}$/', $mobile)) {
         $error_message = 'Please enter a valid 10-digit mobile number.';
     } elseif ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_message = 'Please enter a valid email address.';
     } elseif ($address === '' || $city === '' || $state === '' || $pincode === '') {
         $error_message = 'Address, city, state, and pincode are required.';
-    } elseif ($pincode !== '' && !preg_match('/^[0-9]{6}$/', $pincode)) {
+    } elseif (!preg_match('/^[0-9]{6}$/', $pincode)) {
         $error_message = 'Please enter a valid 6-digit pincode.';
     } else {
         $upd = $conn->prepare('UPDATE students SET
+            name = ?, father_name = ?, mother_name = ?,
             mobile = ?, email = ?, address = ?, city = ?, state = ?, pincode = ?,
             college_name = ?, apaar_id = ?, distinguishing_marks = ?
             WHERE student_id = ?');
@@ -55,7 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error_message = 'Could not save profile. Please try again.';
         } else {
             $upd->bind_param(
-                'ssssssssss',
+                'sssssssssssss',
+                $name,
+                $father_name,
+                $mother_name,
                 $mobile,
                 $email,
                 $address,
@@ -71,17 +82,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (isMultiCourseSystemInstalled($conn)) {
                     $account = getAccountByStudentId($conn, $student_id);
                     if ($account) {
-                        $accUpd = $conn->prepare('UPDATE student_accounts SET mobile = ?, email = ?, name = name WHERE id = ?');
+                        $accUpd = $conn->prepare('UPDATE student_accounts SET name = ?, mobile = ?, email = ? WHERE id = ?');
                         if ($accUpd) {
                             $accountId = (int)$account['id'];
-                            $accUpd->bind_param('ssi', $mobile, $email, $accountId);
+                            $accUpd->bind_param('sssi', $name, $mobile, $email, $accountId);
                             $accUpd->execute();
                             $accUpd->close();
                         }
                     }
                 }
 
+                $_SESSION['student_name'] = $name;
                 $success_message = 'Profile updated successfully.';
+                $student['name'] = $name;
+                $student['father_name'] = $father_name;
+                $student['mother_name'] = $mother_name;
                 $student['mobile'] = $mobile;
                 $student['email'] = $email;
                 $student['address'] = $address;
@@ -109,7 +124,7 @@ include 'includes/header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 class="mb-1"><i class="fas fa-user-edit"></i> Edit Profile</h2>
-                    <p class="text-muted mb-0">Update your contact details. Name, Aadhar, and course can only be changed by admin.</p>
+                    <p class="text-muted mb-0">Update your personal and contact details. Course and enrollment changes are handled by admin.</p>
                 </div>
                 <a href="profile.php" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Back to Profile
@@ -130,39 +145,39 @@ include 'includes/header.php';
                 </div>
             <?php endif; ?>
 
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-id-card"></i> Student Information (read-only)</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Student ID</label>
-                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['student_id']); ?>" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Full Name</label>
-                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['name']); ?>" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Aadhar Number</label>
-                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['aadhar']); ?>" readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label text-muted">Course</label>
-                            <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['course']); ?>" readonly>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-address-card"></i> Editable Contact Details</h5>
+                    <h5 class="mb-0"><i class="fas fa-user"></i> Profile Details</h5>
                 </div>
                 <div class="card-body">
                     <form method="POST" action="edit_profile.php">
                         <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Student ID</label>
+                                <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['student_id']); ?>" readonly>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Aadhar Number</label>
+                                <input type="text" class="form-control" value="<?php echo htmlspecialchars($student['aadhar']); ?>" readonly>
+                                <small class="text-muted">Contact admin to correct Aadhar.</small>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label for="name" class="form-label">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name"
+                                       value="<?php echo htmlspecialchars($student['name'] ?? ''); ?>" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="father_name" class="form-label">Father's Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="father_name" name="father_name"
+                                       value="<?php echo htmlspecialchars($student['father_name'] ?? ''); ?>" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mother_name" class="form-label">Mother's Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="mother_name" name="mother_name"
+                                       value="<?php echo htmlspecialchars($student['mother_name'] ?? ''); ?>" required>
+                            </div>
+
                             <div class="col-md-6">
                                 <label for="mobile" class="form-label">Mobile Number <span class="text-danger">*</span></label>
                                 <input type="text" class="form-control" id="mobile" name="mobile" maxlength="10"
