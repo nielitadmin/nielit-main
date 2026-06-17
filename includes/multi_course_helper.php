@@ -504,6 +504,151 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Add missing scheme enrollments; reuse orphan rows (scheme_id NULL) before creating new rows.
+     */
+    function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin'): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || $courseId <= 0) {
+            return ['success' => false, 'message' => 'Invalid student or course.'];
+        }
+
+        ensureSchemeEnrollmentUniqueIndex($conn);
+
+        $targetIds = [];
+        foreach ($schemeIds as $sid) {
+            $normalized = normalizeEnrollmentSchemeId($sid);
+            if ($normalized !== null) {
+                $targetIds[$normalized] = $normalized;
+            }
+        }
+        $targetIds = array_values($targetIds);
+
+        if (empty($targetIds) && !empty(getSchemesForCourse($conn, $courseId))) {
+            return ['success' => false, 'message' => 'Please select at least one scheme/project.'];
+        }
+
+        foreach ($targetIds as $schemeId) {
+            if (!validateSchemeForCourse($conn, $courseId, $schemeId)) {
+                return ['success' => false, 'message' => 'One or more schemes are not linked to this course.'];
+            }
+        }
+
+        $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentIdStr, $courseId);
+        $enrolledIds = array_map(function ($row) {
+            return (int)$row['id'];
+        }, $enrolled);
+
+        $toAdd = array_values(array_diff($targetIds, $enrolledIds));
+
+        $orphanStmt = $conn->prepare("SELECT id FROM students
+            WHERE student_id = ? AND course_id = ?
+            AND scheme_id IS NULL
+            AND LOWER(status) NOT IN ('rejected')
+            ORDER BY id ASC");
+        $orphans = [];
+        if ($orphanStmt) {
+            $orphanStmt->bind_param('si', $studentIdStr, $courseId);
+            $orphanStmt->execute();
+            $res = $orphanStmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $orphans[] = (int)$row['id'];
+            }
+            $orphanStmt->close();
+        }
+
+        $added = 0;
+        $errors = [];
+        foreach ($toAdd as $schemeId) {
+            if (!empty($orphans)) {
+                $orphanId = (int)array_shift($orphans);
+                $result = adminUpdateStudentScheme($conn, $orphanId, $schemeId);
+            } else {
+                $result = adminAssignCourseToStudent($conn, $studentIdStr, $courseId, null, $adminName, $schemeId);
+            }
+
+            if ($result['success']) {
+                $added++;
+            } elseif (stripos($result['message'], 'already') !== false) {
+                continue;
+            } else {
+                $errors[] = $result['message'];
+            }
+        }
+
+        $removedOrphans = cleanupOrphanSchemeEnrollments($conn, $studentIdStr, $courseId);
+
+        if ($added > 0) {
+            $msg = $added . ' scheme enrollment(s) saved successfully.';
+            if ($removedOrphans > 0) {
+                $msg .= " Removed {$removedOrphans} empty duplicate row(s).";
+            }
+            return ['success' => true, 'message' => $msg];
+        }
+        if (!empty($errors)) {
+            return ['success' => false, 'message' => $errors[0]];
+        }
+
+        $msg = 'Scheme enrollments are up to date.';
+        if ($removedOrphans > 0) {
+            $msg .= " Removed {$removedOrphans} empty duplicate row(s).";
+        }
+        return ['success' => true, 'message' => $msg];
+    }
+
+    /**
+     * Remove duplicate enrollment rows with no scheme and no batch assigned.
+     */
+    function cleanupOrphanSchemeEnrollments(mysqli $conn, string $studentIdStr, int $courseId): int {
+        if (!hasSchemeEnrollmentColumns($conn)) {
+            return 0;
+        }
+
+        $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentIdStr, $courseId);
+        if (empty($enrolled)) {
+            return 0;
+        }
+
+        $stmt = $conn->prepare("SELECT id FROM students
+            WHERE student_id = ? AND course_id = ?
+            AND scheme_id IS NULL
+            AND (batch_id IS NULL OR batch_id = 0)
+            AND LOWER(status) NOT IN ('rejected')");
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('si', $studentIdStr, $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $ids = [];
+        while ($row = $res->fetch_assoc()) {
+            $ids[] = (int)$row['id'];
+        }
+        $stmt->close();
+
+        $removed = 0;
+        foreach ($ids as $rid) {
+            if (isMultiCourseSystemInstalled($conn)) {
+                $delEnr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
+                if ($delEnr) {
+                    $delEnr->bind_param('i', $rid);
+                    $delEnr->execute();
+                    $delEnr->close();
+                }
+            }
+            $del = $conn->prepare('DELETE FROM students WHERE id = ? AND scheme_id IS NULL AND (batch_id IS NULL OR batch_id = 0)');
+            if ($del) {
+                $del->bind_param('i', $rid);
+                if ($del->execute() && $del->affected_rows > 0) {
+                    $removed++;
+                }
+                $del->close();
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
      * Ensure student_enrollments allows multiple schemes per course (migration may not have run on production).
      */
     function ensureSchemeEnrollmentUniqueIndex(mysqli $conn): void {

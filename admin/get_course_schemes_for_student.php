@@ -13,6 +13,7 @@ if (!isset($_SESSION['admin'])) {
 
 $studentId = trim($_GET['student_id'] ?? '');
 $courseId = (int)($_GET['course_id'] ?? 0);
+$recordId = (int)($_GET['student_record_id'] ?? 0);
 
 if ($studentId === '' || $courseId <= 0) {
     echo json_encode(['success' => false, 'message' => 'Invalid parameters']);
@@ -31,43 +32,57 @@ if ($courseStmt) {
 
 $allSchemes = getSchemesForCourse($conn, $courseId);
 $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentId, $courseId);
-$enrolledIds = array_map(function ($row) {
-    return (int)$row['id'];
-}, $enrolled);
-
-$available = [];
-foreach ($allSchemes as $sch) {
-    $sid = (int)$sch['id'];
-    if (!in_array($sid, $enrolledIds, true)) {
-        $available[] = [
-            'id' => $sid,
-            'scheme_name' => $sch['scheme_name'],
-            'scheme_code' => $sch['scheme_code'],
-        ];
-    }
+$enrolledById = [];
+foreach ($enrolled as $row) {
+    $enrolledById[(int)$row['id']] = $row;
 }
 
-$hasNullEnrollment = false;
-$nullStmt = $conn->prepare("SELECT id FROM students WHERE student_id = ? AND course_id = ? AND scheme_id IS NULL AND LOWER(status) NOT IN ('rejected') LIMIT 1");
-if ($nullStmt) {
-    $nullStmt->bind_param('si', $studentId, $courseId);
-    $nullStmt->execute();
-    $hasNullEnrollment = $nullStmt->get_result()->num_rows > 0;
-    $nullStmt->close();
+$courseSchemes = [];
+foreach ($allSchemes as $sch) {
+    $sid = (int)$sch['id'];
+    $courseSchemes[] = [
+        'id' => $sid,
+        'scheme_name' => $sch['scheme_name'],
+        'scheme_code' => $sch['scheme_code'],
+        'enrolled' => isset($enrolledById[$sid]),
+    ];
+}
+
+$orphanCount = 0;
+$orphanStmt = $conn->prepare("SELECT COUNT(*) AS c FROM students
+    WHERE student_id = ? AND course_id = ?
+    AND scheme_id IS NULL
+    AND LOWER(status) NOT IN ('rejected')");
+if ($orphanStmt) {
+    $orphanStmt->bind_param('si', $studentId, $courseId);
+    $orphanStmt->execute();
+    $orphanCount = (int)($orphanStmt->get_result()->fetch_assoc()['c'] ?? 0);
+    $orphanStmt->close();
+}
+
+$currentRowSchemeId = 0;
+if ($recordId > 0) {
+    $rowStmt = $conn->prepare('SELECT scheme_id FROM students WHERE id = ? LIMIT 1');
+    if ($rowStmt) {
+        $rowStmt->bind_param('i', $recordId);
+        $rowStmt->execute();
+        $rowData = $rowStmt->get_result()->fetch_assoc();
+        $rowStmt->close();
+        $currentRowSchemeId = (int)($rowData['scheme_id'] ?? 0);
+    }
 }
 
 echo json_encode([
     'success' => true,
     'course_name' => $courseName,
-    'requires_scheme' => !empty($allSchemes),
-    'can_enroll_without_scheme' => empty($allSchemes) && !$hasNullEnrollment,
-    'already_enrolled_null' => $hasNullEnrollment,
-    'enrolled_schemes' => array_map(function ($row) {
+    'course_schemes' => $courseSchemes,
+    'enrolled_schemes' => array_values(array_map(function ($row) {
         return [
             'id' => (int)$row['id'],
             'scheme_name' => $row['scheme_name'],
             'scheme_code' => $row['scheme_code'],
         ];
-    }, $enrolled),
-    'schemes' => $available,
+    }, $enrolled)),
+    'orphan_row_count' => $orphanCount,
+    'current_row_scheme_id' => $currentRowSchemeId,
 ]);
