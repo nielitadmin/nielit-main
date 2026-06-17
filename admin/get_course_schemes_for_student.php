@@ -83,6 +83,18 @@ echo json_encode([
             'scheme_code' => $row['scheme_code'],
         ];
     }, $enrolled)),
+    'schemes' => array_values(array_map(function ($row) {
+        return [
+            'id' => (int)$row['id'],
+            'scheme_name' => $row['scheme_name'],
+            'scheme_code' => $row['scheme_code'],
+        ];
+    }, array_filter($courseSchemes, function ($row) {
+        return empty($row['enrolled']);
+    }))),
+    'requires_scheme' => !empty($allSchemes),
+    'can_enroll_without_scheme' => empty($allSchemes),
+    'already_enrolled_null' => $orphanCount > 0 && empty($enrolled),
     'orphan_row_count' => $orphanCount,
     'current_row_scheme_id' => $currentRowSchemeId,
 ]);

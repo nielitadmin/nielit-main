@@ -1706,7 +1706,7 @@ if ($other_gender_count > 0) {
                 <i class="fas fa-info-circle"></i> Same Student ID is reused. Same course is allowed under a <strong>different scheme/project</strong>.
             </p>
         </div>
-        <form method="POST" action="students.php">
+        <form method="POST" action="students.php" id="course-assign-form">
             <input type="hidden" name="student_id" id="course-modal-student-id-input">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>">
@@ -2137,30 +2137,42 @@ async function loadCourseSchemesForStudent(studentId, courseId) {
     try {
         const res = await fetch('get_course_schemes_for_student.php?student_id=' + encodeURIComponent(studentId) + '&course_id=' + encodeURIComponent(courseId));
         const data = await res.json();
-        if (!data.success) return;
+        if (!data.success) {
+            hint.textContent = data.message || 'Could not load schemes for this course.';
+            return;
+        }
 
-        if (data.requires_scheme) {
+        const requiresScheme = !!(data.requires_scheme || ((data.course_schemes || []).length > 0));
+        const availableSchemes = data.schemes || (data.course_schemes || []).filter(function (s) {
+            return !s.enrolled;
+        });
+
+        if (requiresScheme) {
             group.style.display = 'block';
-            if (data.schemes.length === 0) {
+            if (data.already_enrolled_null) {
+                hint.textContent = 'Student already has a general enrollment for this course. Use Schemes to assign a project.';
+                select.required = false;
+                return;
+            }
+            if (availableSchemes.length === 0) {
                 hint.textContent = 'Student is already enrolled in all schemes for this course.';
                 select.required = false;
                 return;
             }
-            data.schemes.forEach(s => {
+            availableSchemes.forEach(function (s) {
                 const opt = document.createElement('option');
                 opt.value = s.id;
                 opt.textContent = s.scheme_name + ' (' + s.scheme_code + ')';
                 select.appendChild(opt);
             });
             select.required = true;
-            hint.textContent = 'Select the project under which this enrollment should be created.';
+            hint.textContent = 'This course has linked schemes — please select one before assigning.';
         } else if (data.can_enroll_without_scheme) {
-            hint.textContent = 'No schemes linked to this course.';
-        } else if (data.already_enrolled_null) {
-            hint.textContent = 'Student already has a general enrollment for this course.';
+            hint.textContent = 'No schemes linked to this course — you can assign without selecting a scheme.';
         }
     } catch (e) {
         console.error(e);
+        hint.textContent = 'Could not load schemes. Please try again.';
     }
 }
 
@@ -2361,6 +2373,19 @@ document.addEventListener('DOMContentLoaded', function () {
         courseSelect.addEventListener('change', function () {
             const studentId = document.getElementById('course-modal-student-id-input').value;
             loadCourseSchemesForStudent(studentId, this.value);
+        });
+    }
+
+    const courseAssignForm = document.getElementById('course-assign-form');
+    if (courseAssignForm) {
+        courseAssignForm.addEventListener('submit', function (e) {
+            const schemeGroup = document.getElementById('course-scheme-group');
+            const schemeSelect = document.getElementById('course-modal-scheme-select');
+            if (schemeGroup && schemeGroup.style.display !== 'none' && schemeSelect && schemeSelect.required && !schemeSelect.value) {
+                e.preventDefault();
+                alert('Please select a scheme/project for this course before assigning.');
+                schemeSelect.focus();
+            }
         });
     }
 
