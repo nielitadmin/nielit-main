@@ -710,6 +710,95 @@ function getBatchesForStudentRecord($conn, int $studentRecordId): array {
 }
 
 /**
+ * All batches for a student in one course (across every scheme enrollment row).
+ * Each entry includes student_record_id for remove actions.
+ */
+function getBatchesForStudentCourse($conn, string $studentIdStr, int $courseId): array {
+    $studentIdStr = trim($studentIdStr);
+    if ($studentIdStr === '' || $courseId <= 0) {
+        return [];
+    }
+
+    $batches = [];
+    $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+    $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
+
+    if ($useRecordCol) {
+        $sql = "SELECT b.id, b.batch_name, b.batch_code,
+                COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id) AS student_record_id
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                WHERE s.student_id = ? AND s.course_id = ?
+                ORDER BY b.batch_name ASC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param('si', $studentIdStr, $courseId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $bid = (int)$row['id'];
+                $batches[$bid] = [
+                    'id' => $bid,
+                    'batch_name' => $row['batch_name'],
+                    'batch_code' => $row['batch_code'],
+                    'student_record_id' => (int)$row['student_record_id'],
+                ];
+            }
+            $stmt->close();
+        }
+    } else {
+        $sql = "SELECT b.id, b.batch_name, b.batch_code, bs.student_id AS student_record_id
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                INNER JOIN students s ON s.id = bs.student_id
+                WHERE s.student_id = ? AND s.course_id = ?
+                ORDER BY b.batch_name ASC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param('si', $studentIdStr, $courseId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $bid = (int)$row['id'];
+                $batches[$bid] = [
+                    'id' => $bid,
+                    'batch_name' => $row['batch_name'],
+                    'batch_code' => $row['batch_code'],
+                    'student_record_id' => (int)$row['student_record_id'],
+                ];
+            }
+            $stmt->close();
+        }
+    }
+
+    $fallback = $conn->prepare("SELECT s.id AS student_record_id, b.id, b.batch_name, b.batch_code
+        FROM students s
+        INNER JOIN batches b ON b.id = s.batch_id
+        WHERE s.student_id = ? AND s.course_id = ?
+        AND s.batch_id IS NOT NULL AND s.batch_id > 0");
+    if ($fallback) {
+        $fallback->bind_param('si', $studentIdStr, $courseId);
+        $fallback->execute();
+        $res = $fallback->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $bid = (int)$row['id'];
+            if (!isset($batches[$bid])) {
+                $batches[$bid] = [
+                    'id' => $bid,
+                    'batch_name' => $row['batch_name'],
+                    'batch_code' => $row['batch_code'],
+                    'student_record_id' => (int)$row['student_record_id'],
+                ];
+            }
+        }
+        $fallback->close();
+    }
+
+    return array_values($batches);
+}
+
+/**
  * Remove student from batch
  */
 function removeStudentFromBatch($student_id, $batch_id, $conn) {

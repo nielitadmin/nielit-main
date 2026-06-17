@@ -1323,7 +1323,7 @@ if ($other_gender_count > 0) {
                         $course_schemes_cache = [];
                         $student_course_schemes_cache = [];
                         $batch_assign_enrollments_cache = [];
-                        $record_batches_cache = [];
+                        $student_course_batches_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
@@ -1381,10 +1381,16 @@ if ($other_gender_count > 0) {
                                 $batch_assign_enrollments = $batch_assign_enrollments_cache[$batch_assign_key] ?? [];
 
                                 $record_id = (int)$row['id'];
-                                if (!isset($record_batches_cache[$record_id])) {
-                                    $record_batches_cache[$record_id] = getBatchesForStudentRecord($conn, $record_id);
+
+                                $course_batches_key = $row['student_id'] . ':' . $row_course_id;
+                                if ($row_course_id > 0 && !isset($student_course_batches_cache[$course_batches_key])) {
+                                    $student_course_batches_cache[$course_batches_key] = getBatchesForStudentCourse(
+                                        $conn,
+                                        (string)$row['student_id'],
+                                        $row_course_id
+                                    );
                                 }
-                                $row_batches = $record_batches_cache[$record_id];
+                                $row_batches = $student_course_batches_cache[$course_batches_key] ?? [];
                                 $assigned_batch_ids = array_map(function ($b) {
                                     return (int)$b['id'];
                                 }, $row_batches);
@@ -1438,6 +1444,7 @@ if ($other_gender_count > 0) {
                             <td>
                                 <?php if (!empty($row_batches)): ?>
                                     <?php foreach ($row_batches as $rb): ?>
+                                        <?php $batch_record_id = (int)($rb['student_record_id'] ?? $record_id); ?>
                                         <span class="badge badge-success" style="margin:1px 4px 4px 0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;line-height:1.3;"
                                               title="<?php echo htmlspecialchars($rb['batch_code'] ?? ''); ?>">
                                             <i class="fas fa-layer-group"></i>
@@ -1449,7 +1456,7 @@ if ($other_gender_count > 0) {
                                                title="Remove from <?php echo htmlspecialchars($rb['batch_name']); ?>"
                                                data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                data-batch-name="<?php echo htmlspecialchars($rb['batch_name']); ?>"
-                                               data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
+                                               data-url="students.php?remove_record=<?php echo $batch_record_id; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
                                                 <i class="fas fa-times-circle"></i>
                                             </a>
                                             <?php endif; ?>
