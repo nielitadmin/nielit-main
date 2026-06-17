@@ -720,6 +720,73 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Restore every soft-removed scheme enrollment for one student + course.
+     */
+    function adminRestoreAllInactiveEnrollmentsForStudentCourse(mysqli $conn, string $studentIdStr, int $courseId): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || $courseId <= 0) {
+            return ['success' => false, 'message' => 'Invalid student or course.', 'restored' => 0];
+        }
+
+        $inactive = getInactiveSchemeEnrollmentsForStudentCourse($conn, $studentIdStr, $courseId);
+        if (empty($inactive)) {
+            return ['success' => false, 'message' => 'No removed enrollments found for this student.', 'restored' => 0];
+        }
+
+        $restored = 0;
+        $errors = [];
+        foreach ($inactive as $row) {
+            $result = adminRestoreSchemeEnrollment($conn, (int)$row['student_record_id']);
+            if ($result['success']) {
+                $restored++;
+            } else {
+                $errors[] = $result['message'];
+            }
+        }
+
+        if ($restored > 0) {
+            $msg = "Restored {$restored} scheme enrollment(s).";
+            if (!empty($errors)) {
+                $msg .= ' ' . $errors[0];
+            }
+            return ['success' => true, 'message' => $msg, 'restored' => $restored];
+        }
+
+        return ['success' => false, 'message' => $errors[0] ?? 'Could not restore enrollments.', 'restored' => 0];
+    }
+
+    /**
+     * Count student+course groups that only have inactive (removed) enrollments.
+     */
+    function countFullyRemovedStudentCourses(mysqli $conn, array $courseIds = []): int {
+        $courseFilter = '';
+        if (!empty($courseIds)) {
+            $ids = implode(',', array_map('intval', $courseIds));
+            $courseFilter = " AND s.course_id IN ($ids)";
+        }
+
+        $sql = "SELECT COUNT(*) AS c FROM (
+            SELECT s.student_id, s.course_id
+            FROM students s
+            WHERE LOWER(s.status) = 'inactive'
+            $courseFilter
+            AND NOT EXISTS (
+                SELECT 1 FROM students s2
+                WHERE s2.student_id = s.student_id AND s2.course_id = s.course_id
+                AND LOWER(s2.status) NOT IN ('rejected', 'inactive')
+            )
+            GROUP BY s.student_id, s.course_id
+        ) removed_groups";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            return 0;
+        }
+        $row = $res->fetch_assoc();
+        return (int)($row['c'] ?? 0);
+    }
+
+    /**
      * Add missing scheme enrollments; remove unchecked ones; reuse orphan rows before creating new rows.
      */
     function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin', bool $confirmRemovals = false): array {
