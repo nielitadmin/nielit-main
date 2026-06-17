@@ -772,7 +772,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $studentScheme = null;
         $batchScheme = normalizeEnrollmentSchemeId($batch['scheme_id'] ?? null);
 
-        $stuStmt = $conn->prepare('SELECT id, course_id, scheme_id FROM students WHERE id = ? LIMIT 1');
+        $stuStmt = $conn->prepare('SELECT id, course_id, scheme_id, batch_id FROM students WHERE id = ? LIMIT 1');
         if ($stuStmt) {
             $stuStmt->bind_param('i', $studentRecordId);
             $stuStmt->execute();
@@ -836,11 +836,21 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
         $stmt->close();
 
-        $upd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
-        if ($upd) {
-            $upd->bind_param('isi', $batchId, $adminName, $studentRecordId);
-            $upd->execute();
-            $upd->close();
+        $existingBatchId = !empty($studentRow['batch_id']) ? (int)$studentRow['batch_id'] : 0;
+        if ($existingBatchId <= 0) {
+            $upd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
+            if ($upd) {
+                $upd->bind_param('isi', $batchId, $adminName, $studentRecordId);
+                $upd->execute();
+                $upd->close();
+            }
+        } else {
+            $statusUpd = $conn->prepare("UPDATE students SET status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
+            if ($statusUpd) {
+                $statusUpd->bind_param('si', $adminName, $studentRecordId);
+                $statusUpd->execute();
+                $statusUpd->close();
+            }
         }
 
         if (hasSchemeEnrollmentColumns($conn) && $studentScheme === null && $batchScheme !== null) {
@@ -853,7 +863,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
 
         if (isMultiCourseSystemInstalled($conn)) {
-            $enr = $conn->prepare("UPDATE student_enrollments SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE student_record_id = ?");
+            $enr = $conn->prepare("UPDATE student_enrollments SET batch_id = COALESCE(batch_id, ?), status = 'active', approved_by = ?, approved_at = NOW() WHERE student_record_id = ?");
             if ($enr) {
                 $enr->bind_param('isi', $batchId, $adminName, $studentRecordId);
                 $enr->execute();

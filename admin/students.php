@@ -20,6 +20,11 @@ if (!isset($_SESSION['admin'])) {
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
 
+// Ensure scheme enrollment DB index supports multiple schemes per course (no public migration URL needed)
+if (function_exists('ensureSchemeEnrollmentUniqueIndex')) {
+    ensureSchemeEnrollmentUniqueIndex($conn);
+}
+
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';
 $is_course_coordinator = ($admin_role === 'course_coordinator');
@@ -1290,6 +1295,7 @@ if ($other_gender_count > 0) {
                         $sl_no = 1;
                         $course_schemes_cache = [];
                         $student_course_schemes_cache = [];
+                        $record_batches_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
@@ -1312,10 +1318,19 @@ if ($other_gender_count > 0) {
                                     );
                                 }
                                 $all_student_schemes = $student_course_schemes_cache[$schemes_cache_key] ?? [];
+
+                                $record_id = (int)$row['id'];
+                                if (!isset($record_batches_cache[$record_id])) {
+                                    $record_batches_cache[$record_id] = getBatchesForStudentRecord($conn, $record_id);
+                                }
+                                $row_batches = $record_batches_cache[$record_id];
+                                $assigned_batch_ids = array_map(function ($b) {
+                                    return (int)$b['id'];
+                                }, $row_batches);
                         ?>
                         <tr>
                             <td>
-                                <?php if (empty($row['batch_name'])): ?>
+                                <?php if (empty($row_batches)): ?>
                                     <input type="checkbox" class="student-checkbox"
                                            value="<?php echo (int)$row['id']; ?>"
                                            data-course="<?php echo $course_display; ?>"
@@ -1332,13 +1347,13 @@ if ($other_gender_count > 0) {
                             <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                             <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
                             <td>
-                                <?php if (!empty($all_student_schemes)): ?>
-                                    <?php foreach ($all_student_schemes as $sch_item): ?>
-                                        <span class="badge badge-info" style="margin:1px 2px 1px 0;display:inline-block;"
-                                              title="<?php echo htmlspecialchars($sch_item['scheme_code'] ?? ''); ?>">
-                                            <?php echo htmlspecialchars($sch_item['scheme_name']); ?>
-                                        </span>
-                                    <?php endforeach; ?>
+                                <?php if (!empty($row['scheme_name'])): ?>
+                                    <span class="badge badge-info"><?php echo htmlspecialchars($row['scheme_name']); ?></span>
+                                    <?php
+                                    $other_scheme_count = count($all_student_schemes) - 1;
+                                    if ($other_scheme_count > 0): ?>
+                                        <br><small class="text-muted" style="font-size:11px;">+<?php echo $other_scheme_count; ?> more scheme<?php echo $other_scheme_count > 1 ? 's' : ''; ?> (separate row<?php echo $other_scheme_count > 1 ? 's' : ''; ?>)</small>
+                                    <?php endif; ?>
                                 <?php elseif ($has_linked_schemes): ?>
                                     <span class="badge badge-warning" title="Assign a scheme from this course">Not set</span>
                                 <?php else: ?>
@@ -1346,10 +1361,13 @@ if ($other_gender_count > 0) {
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (!empty($row['batch_name'])): ?>
-                                    <span class="badge badge-success" title="<?php echo htmlspecialchars($row['batch_code']); ?>">
-                                        <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($row['batch_name']); ?>
-                                    </span>
+                                <?php if (!empty($row_batches)): ?>
+                                    <?php foreach ($row_batches as $rb): ?>
+                                        <span class="badge badge-success" style="margin:1px 2px 1px 0;display:inline-block;"
+                                              title="<?php echo htmlspecialchars($rb['batch_code'] ?? ''); ?>">
+                                            <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($rb['batch_name']); ?>
+                                        </span>
+                                    <?php endforeach; ?>
                                 <?php else: ?>
                                     <span class="badge badge-secondary"><i class="fas fa-minus-circle"></i> Not Assigned</span>
                                 <?php endif; ?>
@@ -1430,25 +1448,27 @@ if ($other_gender_count > 0) {
                                         </button>
                                     <?php endif; ?>
 
-                                    <?php if (!empty($row['batch_name'])): ?>
+                                    <?php if (!$is_front_office && $status !== 'rejected'): ?>
+                                        <?php foreach ($row_batches as $rb): ?>
                                         <a href="javascript:void(0);"
                                            class="btn btn-secondary btn-sm remove-batch-btn"
-                                           title="Remove from Batch"
+                                           title="Remove from <?php echo htmlspecialchars($rb['batch_name']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                           data-batch-name="<?php echo htmlspecialchars($row['batch_name']); ?>"
-                                           data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)($row['batch_id'] ?? 0); ?><?php echo $filter_suffix; ?>">
+                                           data-batch-name="<?php echo htmlspecialchars($rb['batch_name']); ?>"
+                                           data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
                                             <i class="fas fa-unlink"></i>
                                         </a>
-                                    <?php else: ?>
+                                        <?php endforeach; ?>
                                         <button type="button"
                                                 class="btn btn-info btn-sm assign-batch-btn"
-                                                title="Assign to Batch"
+                                                title="<?php echo !empty($row_batches) ? 'Add to another batch' : 'Assign to batch'; ?>"
                                                 data-student-record-id="<?php echo (int)$row['id']; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                 data-course="<?php echo $course_display; ?>"
                                                 data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
-                                                data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
-                                            <i class="fas fa-plus-circle"></i> Assign Batch
+                                                data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>"
+                                                data-assigned-batch-ids="<?php echo htmlspecialchars(implode(',', $assigned_batch_ids)); ?>">
+                                            <i class="fas fa-plus-circle"></i> <?php echo !empty($row_batches) ? 'Add Batch' : 'Assign Batch'; ?>
                                         </button>
                                     <?php endif; ?>
                                 <?php else: ?>
@@ -1851,20 +1871,27 @@ function courseMatchesBatch(studentCourseId, batchCourseId, studentCourseName, b
     return norm !== '' && optCourse === norm;
 }
 
-function openBatchModal(studentRecordId, studentName, course, studentSchemeId, courseId) {
+function openBatchModal(studentRecordId, studentName, course, studentSchemeId, courseId, assignedBatchIds) {
     document.getElementById('modal-student-record-id').value = studentRecordId;
     document.getElementById('modal-student-name').textContent = studentName;
     document.getElementById('modal-course').textContent       = course;
 
+    const assigned = new Set(
+        String(assignedBatchIds || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(Boolean)
+    );
+
     const select  = document.getElementById('modal-batch-select');
-    let   matched = 0;
 
     select.querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
-        const ok = courseMatchesBatch(courseId, opt.dataset.courseId, course, opt.dataset.course)
-            && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId);
+        const optCourseId = parseInt(opt.dataset.courseId, 10) || 0;
+        const ok = courseMatchesBatch(courseId, optCourseId, course, opt.dataset.course)
+            && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId)
+            && !assigned.has(String(opt.value));
         opt.style.display = ok ? '' : 'none';
-        if (ok) matched++;
     });
 
     select.value = '';
@@ -2098,7 +2125,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 this.dataset.studentName,
                 this.dataset.course,
                 this.dataset.schemeId || '0',
-                this.dataset.courseId || '0'
+                this.dataset.courseId || '0',
+                this.dataset.assignedBatchIds || ''
             );
         });
     });

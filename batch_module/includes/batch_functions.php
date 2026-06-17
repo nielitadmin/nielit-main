@@ -633,6 +633,72 @@ function moveStudentsToBatch(array $student_record_ids, $from_batch_id, $to_batc
 }
 
 /**
+ * All batches linked to a student enrollment record (batch_students + legacy batch_id).
+ */
+function getBatchesForStudentRecord($conn, int $studentRecordId): array {
+    if ($studentRecordId <= 0) {
+        return [];
+    }
+
+    $batches = [];
+    $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+    $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
+
+    if ($useRecordCol) {
+        $sql = "SELECT b.id, b.batch_name, b.batch_code
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                WHERE bs.student_record_id = ?
+                ORDER BY b.batch_name ASC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param('i', $studentRecordId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $batches[(int)$row['id']] = $row;
+            }
+            $stmt->close();
+        }
+    } else {
+        $sql = "SELECT b.id, b.batch_name, b.batch_code
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                WHERE bs.student_id = ?
+                ORDER BY b.batch_name ASC";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param('i', $studentRecordId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $batches[(int)$row['id']] = $row;
+            }
+            $stmt->close();
+        }
+    }
+
+    if (empty($batches)) {
+        $fallback = $conn->prepare("SELECT b.id, b.batch_name, b.batch_code
+            FROM students s
+            INNER JOIN batches b ON b.id = s.batch_id
+            WHERE s.id = ? AND s.batch_id IS NOT NULL
+            LIMIT 1");
+        if ($fallback) {
+            $fallback->bind_param('i', $studentRecordId);
+            $fallback->execute();
+            $row = $fallback->get_result()->fetch_assoc();
+            $fallback->close();
+            if ($row) {
+                $batches[(int)$row['id']] = $row;
+            }
+        }
+    }
+
+    return array_values($batches);
+}
+
+/**
  * Remove student from batch
  */
 function removeStudentFromBatch($student_id, $batch_id, $conn) {
@@ -653,26 +719,33 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
         }
     }
 
-    $sql = "UPDATE students SET batch_id = NULL WHERE id = ? AND batch_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ii", $student_id, $batch_id);
+    $remaining = getBatchesForStudentRecord($conn, (int)$student_id);
+    $nextBatchId = !empty($remaining) ? (int)$remaining[0]['id'] : null;
 
-    if ($stmt->execute()) {
-        $stmt->close();
-
-        $batchUpd = $conn->prepare('UPDATE batches SET seats_filled = GREATEST(0, seats_filled - 1) WHERE id = ?');
-        if ($batchUpd) {
-            $batchUpd->bind_param('i', $batch_id);
-            $batchUpd->execute();
-            $batchUpd->close();
+    if ($nextBatchId === null) {
+        $reassign = $conn->prepare('UPDATE students SET batch_id = NULL WHERE id = ?');
+        if ($reassign) {
+            $reassign->bind_param('i', $student_id);
+            $reassign->execute();
+            $reassign->close();
         }
-
-        return ['success' => true, 'message' => 'Student removed from batch successfully'];
+    } else {
+        $reassign = $conn->prepare('UPDATE students SET batch_id = ? WHERE id = ?');
+        if ($reassign) {
+            $reassign->bind_param('ii', $nextBatchId, $student_id);
+            $reassign->execute();
+            $reassign->close();
+        }
     }
 
-    $error = $stmt->error;
-    $stmt->close();
-    return ['success' => false, 'message' => 'Error: ' . $error];
+    $batchUpd = $conn->prepare('UPDATE batches SET seats_filled = GREATEST(0, seats_filled - 1) WHERE id = ?');
+    if ($batchUpd) {
+        $batchUpd->bind_param('i', $batch_id);
+        $batchUpd->execute();
+        $batchUpd->close();
+    }
+
+    return ['success' => true, 'message' => 'Student removed from batch successfully'];
 }
 
 /**
