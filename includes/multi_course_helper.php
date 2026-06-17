@@ -504,7 +504,105 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
-     * Add missing scheme enrollments; reuse orphan rows (scheme_id NULL) before creating new rows.
+     * Whether an enrollment row has any batch assignment (primary or batch_students).
+     */
+    function enrollmentRecordHasBatches(mysqli $conn, int $recordId): bool {
+        if ($recordId <= 0) {
+            return false;
+        }
+
+        $stmt = $conn->prepare('SELECT batch_id FROM students WHERE id = ? LIMIT 1');
+        if ($stmt) {
+            $stmt->bind_param('i', $recordId);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!empty($row['batch_id'])) {
+                return true;
+            }
+        }
+
+        $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
+
+        if ($useRecordCol) {
+            $bs = $conn->prepare('SELECT id FROM batch_students WHERE student_record_id = ? LIMIT 1');
+        } else {
+            $bs = $conn->prepare('SELECT id FROM batch_students WHERE student_id = ? LIMIT 1');
+        }
+        if (!$bs) {
+            return false;
+        }
+        $bs->bind_param('i', $recordId);
+        $bs->execute();
+        $has = $bs->get_result()->num_rows > 0;
+        $bs->close();
+        return $has;
+    }
+
+    /**
+     * Remove a scheme-specific enrollment row (unchecked in Manage Schemes).
+     */
+    function adminRemoveSchemeEnrollment(mysqli $conn, int $studentRecordId, int $schemeId): array {
+        if ($studentRecordId <= 0 || $schemeId <= 0) {
+            return ['success' => false, 'message' => 'Invalid enrollment or scheme.'];
+        }
+
+        $stmt = $conn->prepare('SELECT s.id, s.scheme_id, sch.scheme_name
+            FROM students s
+            LEFT JOIN schemes sch ON sch.id = s.scheme_id
+            WHERE s.id = ? AND LOWER(s.status) NOT IN ("rejected")
+            LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return ['success' => false, 'message' => 'Enrollment record not found.'];
+        }
+        if ((int)($row['scheme_id'] ?? 0) !== $schemeId) {
+            return ['success' => false, 'message' => 'Scheme enrollment record mismatch.'];
+        }
+
+        $schemeLabel = $row['scheme_name'] ?? 'scheme';
+
+        if (enrollmentRecordHasBatches($conn, $studentRecordId)) {
+            return [
+                'success' => false,
+                'message' => 'Cannot remove "' . $schemeLabel . '": student is assigned to a batch. Remove from batch first.',
+            ];
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $delEnr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
+            if ($delEnr) {
+                $delEnr->bind_param('i', $studentRecordId);
+                $delEnr->execute();
+                $delEnr->close();
+            }
+        }
+
+        $del = $conn->prepare('DELETE FROM students WHERE id = ? AND scheme_id = ?');
+        if (!$del) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $del->bind_param('ii', $studentRecordId, $schemeId);
+        if (!$del->execute() || $del->affected_rows <= 0) {
+            $err = $del->error;
+            $del->close();
+            return ['success' => false, 'message' => $err ?: 'Could not remove scheme enrollment.'];
+        }
+        $del->close();
+
+        return ['success' => true, 'message' => 'Removed "' . $schemeLabel . '" enrollment.'];
+    }
+
+    /**
+     * Add missing scheme enrollments; remove unchecked ones; reuse orphan rows before creating new rows.
      */
     function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin'): array {
         $studentIdStr = trim($studentIdStr);
@@ -537,8 +635,28 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $enrolledIds = array_map(function ($row) {
             return (int)$row['id'];
         }, $enrolled);
+        $enrolledBySchemeId = [];
+        foreach ($enrolled as $row) {
+            $enrolledBySchemeId[(int)$row['id']] = (int)$row['student_record_id'];
+        }
 
         $toAdd = array_values(array_diff($targetIds, $enrolledIds));
+        $toRemove = array_values(array_diff($enrolledIds, $targetIds));
+
+        $removed = 0;
+        $removeErrors = [];
+        foreach ($toRemove as $schemeId) {
+            $recordId = $enrolledBySchemeId[$schemeId] ?? 0;
+            if ($recordId <= 0) {
+                continue;
+            }
+            $result = adminRemoveSchemeEnrollment($conn, $recordId, $schemeId);
+            if ($result['success']) {
+                $removed++;
+            } else {
+                $removeErrors[] = $result['message'];
+            }
+        }
 
         $orphanStmt = $conn->prepare("SELECT id FROM students
             WHERE student_id = ? AND course_id = ?
@@ -577,15 +695,33 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         $removedOrphans = cleanupOrphanSchemeEnrollments($conn, $studentIdStr, $courseId);
 
+        $parts = [];
         if ($added > 0) {
-            $msg = $added . ' scheme enrollment(s) saved successfully.';
-            if ($removedOrphans > 0) {
-                $msg .= " Removed {$removedOrphans} empty duplicate row(s).";
+            $parts[] = $added . ' scheme enrollment(s) added';
+        }
+        if ($removed > 0) {
+            $parts[] = $removed . ' removed';
+        }
+        if ($removedOrphans > 0) {
+            $parts[] = $removedOrphans . ' empty duplicate row(s) cleaned up';
+        }
+
+        if (!empty($parts)) {
+            $msg = ucfirst(implode(', ', $parts)) . '.';
+            if (!empty($removeErrors)) {
+                $msg .= ' ' . $removeErrors[0];
             }
-            return ['success' => true, 'message' => $msg];
+            return [
+                'success' => ($added > 0 || $removed > 0 || $removedOrphans > 0) && empty($removeErrors),
+                'warning' => !empty($removeErrors) && ($added > 0 || $removed > 0 || $removedOrphans > 0),
+                'message' => $msg,
+            ];
         }
         if (!empty($errors)) {
             return ['success' => false, 'message' => $errors[0]];
+        }
+        if (!empty($removeErrors)) {
+            return ['success' => false, 'message' => $removeErrors[0]];
         }
 
         $msg = 'Scheme enrollments are up to date.';

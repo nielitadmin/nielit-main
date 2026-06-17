@@ -248,7 +248,7 @@ if (isset($_POST['sync_student_schemes'])) {
     } else {
         $result = adminSyncStudentSchemes($conn, $student_id_str, $course_id, is_array($scheme_ids) ? $scheme_ids : [], $admin_name);
         $_SESSION['message'] = $result['message'];
-        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        $_SESSION['message_type'] = !empty($result['warning']) ? 'warning' : ($result['success'] ? 'success' : 'danger');
     }
 
     $redirect_params = [];
@@ -300,7 +300,7 @@ if (isset($_POST['add_scheme_enrollments'])) {
     $admin_name     = $_SESSION['admin'] ?? 'Admin';
     $result = adminSyncStudentSchemes($conn, $student_id_str, $course_id, is_array($scheme_ids) ? $scheme_ids : [], $admin_name);
     $_SESSION['message'] = $result['message'];
-    $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    $_SESSION['message_type'] = !empty($result['warning']) ? 'warning' : ($result['success'] ? 'success' : 'danger');
     $redirect_params = [];
     if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
     if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
@@ -1682,7 +1682,7 @@ if ($other_gender_count > 0) {
             <p><strong>Student:</strong> <span id="scheme-modal-student-name"></span></p>
             <p><strong>Course:</strong> <span id="scheme-modal-course-name"></span></p>
             <p style="font-size:12px;color:#64748b;margin-top:8px;">
-                <i class="fas fa-info-circle"></i> Tick the schemes this student should be enrolled in. Each scheme appears as its own row in the student list.
+                <i class="fas fa-info-circle"></i> Tick schemes to add enrollments; <strong>untick to remove</strong>. Each scheme is a separate row in the list. Schemes assigned to a batch must be removed from the batch first.
             </p>
         </div>
 
@@ -2148,7 +2148,7 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
 
         const enrolledCount = (data.enrolled_schemes || []).length;
         hint.textContent = enrolledCount > 0
-            ? enrolledCount + ' scheme(s) already enrolled. Tick more and click Save Schemes to add.'
+            ? enrolledCount + ' scheme(s) enrolled. Tick to add, untick to remove, then click Save Schemes.'
             : 'Tick one or more schemes, then click Save Schemes.';
 
         if ((data.orphan_row_count || 0) > 0) {
