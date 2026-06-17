@@ -32,7 +32,6 @@ if ($courseStmt) {
 
 $allSchemes = getSchemesForCourse($conn, $courseId);
 $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentId, $courseId);
-$inactive = getInactiveSchemeEnrollmentsForStudentCourse($conn, $studentId, $courseId);
 $enrolledById = [];
 foreach ($enrolled as $row) {
     $enrolledById[(int)$row['id']] = $row;
@@ -84,14 +83,6 @@ echo json_encode([
             'scheme_code' => $row['scheme_code'],
         ];
     }, $enrolled)),
-    'inactive_schemes' => array_values(array_map(function ($row) {
-        return [
-            'student_record_id' => (int)$row['student_record_id'],
-            'id' => (int)$row['id'],
-            'scheme_name' => $row['scheme_name'],
-            'scheme_code' => $row['scheme_code'],
-        ];
-    }, $inactive)),
     'orphan_row_count' => $orphanCount,
     'current_row_scheme_id' => $currentRowSchemeId,
 ]);

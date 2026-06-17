@@ -582,9 +582,48 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
-     * Remove a scheme-specific enrollment row (unchecked in Manage Schemes).
+     * Delete one scheme-specific enrollment row when the student still has other scheme rows.
      */
-    function adminRemoveSchemeEnrollment(mysqli $conn, int $studentRecordId, int $schemeId): array {
+    function adminDeleteSchemeEnrollmentRow(mysqli $conn, int $studentRecordId): array {
+        if ($studentRecordId <= 0) {
+            return ['success' => false, 'message' => 'Invalid enrollment record.'];
+        }
+
+        if (enrollmentRecordHasBatches($conn, $studentRecordId)) {
+            return [
+                'success' => false,
+                'message' => 'Cannot clear scheme: student is assigned to a batch. Remove from batch first.',
+            ];
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $enr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
+            if ($enr) {
+                $enr->bind_param('i', $studentRecordId);
+                $enr->execute();
+                $enr->close();
+            }
+        }
+
+        $del = $conn->prepare('DELETE FROM students WHERE id = ?');
+        if (!$del) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $del->bind_param('i', $studentRecordId);
+        if (!$del->execute() || $del->affected_rows <= 0) {
+            $err = $del->error;
+            $del->close();
+            return ['success' => false, 'message' => $err ?: 'Could not update enrollment.'];
+        }
+        $del->close();
+
+        return ['success' => true, 'message' => 'Scheme enrollment cleared.'];
+    }
+
+    /**
+     * Uncheck a scheme in Manage Schemes — clears to "Not set" or drops extra row; never hides the student.
+     */
+    function adminUnsetSchemeEnrollment(mysqli $conn, int $studentRecordId, int $schemeId, string $studentIdStr, int $courseId): array {
         if ($studentRecordId <= 0 || $schemeId <= 0) {
             return ['success' => false, 'message' => 'Invalid enrollment or scheme.'];
         }
@@ -614,20 +653,31 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if (enrollmentRecordHasBatches($conn, $studentRecordId)) {
             return [
                 'success' => false,
-                'message' => 'Cannot remove "' . $schemeLabel . '": student is assigned to a batch. Remove from batch first.',
+                'message' => 'Cannot clear "' . $schemeLabel . '": student is assigned to a batch. Remove from batch first.',
             ];
         }
 
-        if (isMultiCourseSystemInstalled($conn)) {
-            $enr = $conn->prepare("UPDATE student_enrollments SET status = 'inactive' WHERE student_record_id = ?");
-            if ($enr) {
-                $enr->bind_param('i', $studentRecordId);
-                $enr->execute();
-                $enr->close();
-            }
+        $siblingStmt = $conn->prepare("SELECT COUNT(*) AS c FROM students
+            WHERE student_id = ? AND course_id = ?
+            AND id != ? AND scheme_id IS NOT NULL
+            AND LOWER(status) NOT IN ('rejected', 'inactive')");
+        $siblingCount = 0;
+        if ($siblingStmt) {
+            $siblingStmt->bind_param('sii', $studentIdStr, $courseId, $studentRecordId);
+            $siblingStmt->execute();
+            $siblingCount = (int)($siblingStmt->get_result()->fetch_assoc()['c'] ?? 0);
+            $siblingStmt->close();
         }
 
-        $upd = $conn->prepare("UPDATE students SET status = 'inactive' WHERE id = ? AND scheme_id = ?");
+        if ($siblingCount > 0) {
+            $result = adminDeleteSchemeEnrollmentRow($conn, $studentRecordId);
+            if ($result['success']) {
+                $result['message'] = 'Cleared "' . $schemeLabel . '" from student (other schemes unchanged).';
+            }
+            return $result;
+        }
+
+        $upd = $conn->prepare("UPDATE students SET scheme_id = NULL, status = 'active' WHERE id = ? AND scheme_id = ?");
         if (!$upd) {
             return ['success' => false, 'message' => $conn->error];
         }
@@ -635,14 +685,49 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if (!$upd->execute() || $upd->affected_rows <= 0) {
             $err = $upd->error;
             $upd->close();
-            return ['success' => false, 'message' => $err ?: 'Could not remove scheme enrollment.'];
+            return ['success' => false, 'message' => $err ?: 'Could not clear scheme.'];
         }
         $upd->close();
 
+        if (isMultiCourseSystemInstalled($conn)) {
+            $enr = $conn->prepare("UPDATE student_enrollments SET scheme_id = NULL, status = 'active' WHERE student_record_id = ?");
+            if ($enr) {
+                $enr->bind_param('i', $studentRecordId);
+                $enr->execute();
+                $enr->close();
+            }
+        }
+
+        syncStudentEnrollmentRecord($conn, $studentRecordId);
+
         return [
             'success' => true,
-            'message' => 'Removed "' . $schemeLabel . '" enrollment. You can restore it from the Schemes dialog.',
+            'message' => 'Cleared "' . $schemeLabel . '". Scheme / Project will show as Not set.',
         ];
+    }
+
+    /**
+     * @deprecated Use adminUnsetSchemeEnrollment — kept as alias for older callers.
+     */
+    function adminRemoveSchemeEnrollment(mysqli $conn, int $studentRecordId, int $schemeId): array {
+        $stmt = $conn->prepare('SELECT student_id, course_id FROM students WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return ['success' => false, 'message' => 'Enrollment record not found.'];
+        }
+        return adminUnsetSchemeEnrollment(
+            $conn,
+            $studentRecordId,
+            $schemeId,
+            (string)$row['student_id'],
+            (int)$row['course_id']
+        );
     }
 
     /**
@@ -787,9 +872,30 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
-     * Add missing scheme enrollments; remove unchecked ones; reuse orphan rows before creating new rows.
+     * One-time repair: students hidden by the old soft-delete scheme logic.
      */
-    function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin', bool $confirmRemovals = false): array {
+    function repairSoftRemovedEnrollments(mysqli $conn): int {
+        $repaired = 0;
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $enr = $conn->query("UPDATE student_enrollments SET status = 'active' WHERE LOWER(status) = 'inactive'");
+            if ($enr) {
+                $repaired += (int)$conn->affected_rows;
+            }
+        }
+
+        $stu = $conn->query("UPDATE students SET status = 'active' WHERE LOWER(status) = 'inactive'");
+        if ($stu) {
+            $repaired += (int)$conn->affected_rows;
+        }
+
+        return $repaired;
+    }
+
+    /**
+     * Add missing scheme enrollments; clear unchecked ones to Not set; reuse orphan rows before creating new rows.
+     */
+    function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin'): array {
         $studentIdStr = trim($studentIdStr);
         if ($studentIdStr === '' || $courseId <= 0) {
             return ['success' => false, 'message' => 'Invalid student or course.'];
@@ -806,16 +912,17 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
         $targetIds = array_values($targetIds);
 
-        if (empty($targetIds) && !empty(getSchemesForCourse($conn, $courseId))) {
-            return ['success' => false, 'message' => 'Please select at least one scheme/project.'];
-        }
-
         foreach ($targetIds as $schemeId) {
             if (!validateSchemeForCourse($conn, $courseId, $schemeId)) {
                 return ['success' => false, 'message' => 'One or more schemes are not linked to this course.'];
             }
         }
 
+        $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentIdStr, $courseId);
+        $inactiveEnrolled = getInactiveSchemeEnrollmentsForStudentCourse($conn, $studentIdStr, $courseId);
+        foreach ($inactiveEnrolled as $inactiveRow) {
+            adminRestoreSchemeEnrollment($conn, (int)$inactiveRow['student_record_id']);
+        }
         $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentIdStr, $courseId);
         $enrolledIds = array_map(function ($row) {
             return (int)$row['id'];
@@ -827,25 +934,19 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         $toAdd = array_values(array_diff($targetIds, $enrolledIds));
         $toRemove = array_values(array_diff($enrolledIds, $targetIds));
-        $skippedRemovals = [];
 
-        if (!empty($toRemove) && !$confirmRemovals) {
-            $skippedRemovals = $toRemove;
-            $toRemove = [];
-        }
-
-        $removed = 0;
-        $removeErrors = [];
+        $cleared = 0;
+        $clearErrors = [];
         foreach ($toRemove as $schemeId) {
             $recordId = $enrolledBySchemeId[$schemeId] ?? 0;
             if ($recordId <= 0) {
                 continue;
             }
-            $result = adminRemoveSchemeEnrollment($conn, $recordId, $schemeId);
+            $result = adminUnsetSchemeEnrollment($conn, $recordId, $schemeId, $studentIdStr, $courseId);
             if ($result['success']) {
-                $removed++;
+                $cleared++;
             } else {
-                $removeErrors[] = $result['message'];
+                $clearErrors[] = $result['message'];
             }
         }
 
@@ -907,43 +1008,36 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         $parts = [];
         if ($added > 0) {
-            $parts[] = $added . ' scheme enrollment(s) added';
+            $parts[] = $added . ' scheme(s) assigned';
         }
-        if ($removed > 0) {
-            $parts[] = $removed . ' removed';
+        if ($cleared > 0) {
+            $parts[] = $cleared . ' cleared to Not set';
         }
         if ($removedOrphans > 0) {
             $parts[] = $removedOrphans . ' empty duplicate row(s) cleaned up';
         }
 
         if (!empty($parts)) {
-            $msg = ucfirst(implode(', ', $parts)) . '.';
-            if (!empty($removeErrors)) {
-                $msg .= ' ' . $removeErrors[0];
-            }
-            if (!empty($skippedRemovals)) {
-                $msg .= ' Unchecked scheme(s) were not removed — confirmation is required.';
+            $msg = ucfirst(implode(', ', $parts)) . '. Student stays in the list.';
+            if (!empty($clearErrors)) {
+                $msg .= ' ' . $clearErrors[0];
             }
             return [
-                'success' => ($added > 0 || $removed > 0 || $removedOrphans > 0) && empty($removeErrors),
-                'warning' => !empty($removeErrors) && ($added > 0 || $removed > 0 || $removedOrphans > 0),
+                'success' => ($added > 0 || $cleared > 0 || $removedOrphans > 0) && empty($clearErrors),
+                'warning' => !empty($clearErrors) && ($added > 0 || $cleared > 0 || $removedOrphans > 0),
                 'message' => $msg,
             ];
         }
         if (!empty($errors)) {
             return ['success' => false, 'message' => $errors[0]];
         }
-        if (!empty($removeErrors)) {
-            return ['success' => false, 'message' => $removeErrors[0]];
+        if (!empty($clearErrors)) {
+            return ['success' => false, 'message' => $clearErrors[0]];
         }
 
         $msg = 'Scheme enrollments are up to date.';
         if ($removedOrphans > 0) {
             $msg .= " Removed {$removedOrphans} empty duplicate row(s).";
-        }
-        if (!empty($skippedRemovals)) {
-            $msg .= ' Unchecked scheme(s) were not removed — confirmation is required.';
-            return ['success' => false, 'message' => $msg];
         }
         return ['success' => true, 'message' => $msg];
     }
