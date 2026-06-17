@@ -1413,13 +1413,24 @@ if ($other_gender_count > 0) {
                             <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                             <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
                             <td>
-                                <?php if (!empty($row['scheme_name'])): ?>
-                                    <span class="badge badge-info"><?php echo htmlspecialchars($row['scheme_name']); ?></span>
-                                    <?php
-                                    $other_scheme_count = count($all_student_schemes) - 1;
-                                    if ($other_scheme_count > 0): ?>
-                                        <br><small class="text-muted" style="font-size:11px;">+<?php echo $other_scheme_count; ?> more scheme<?php echo $other_scheme_count > 1 ? 's' : ''; ?> (separate row<?php echo $other_scheme_count > 1 ? 's' : ''; ?>)</small>
+                                <?php if (!empty($all_student_schemes)): ?>
+                                    <?php foreach ($all_student_schemes as $sch): ?>
+                                        <?php
+                                        $is_this_row = ((int)($sch['student_record_id'] ?? 0) === $record_id);
+                                        ?>
+                                        <span class="badge <?php echo $is_this_row ? 'badge-info' : 'badge-secondary'; ?>"
+                                              style="margin:1px 2px 4px 0;display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;<?php echo $is_this_row ? '' : 'opacity:0.9;'; ?>"
+                                              title="<?php echo $is_this_row ? 'Scheme for this row' : htmlspecialchars($sch['scheme_name']); ?>">
+                                            <?php echo htmlspecialchars($sch['scheme_name']); ?>
+                                        </span>
+                                    <?php endforeach; ?>
+                                    <?php if (empty($row['scheme_name']) && $has_linked_schemes): ?>
+                                        <span class="badge badge-warning" style="margin:1px 2px 0 0;display:inline-block;" title="This row has no scheme assigned">Not set</span>
                                     <?php endif; ?>
+                                <?php elseif (!empty($row['scheme_name'])): ?>
+                                    <span class="badge badge-info" style="display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;">
+                                        <?php echo htmlspecialchars($row['scheme_name']); ?>
+                                    </span>
                                 <?php elseif ($has_linked_schemes): ?>
                                     <span class="badge badge-warning" title="Assign a scheme from this course">Not set</span>
                                 <?php else: ?>
