@@ -233,7 +233,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                         INNER JOIN student_accounts sa ON sa.id = se.account_id
                         WHERE sa.aadhar = ? AND se.course_id = ?
                         AND se.scheme_id IS NULL
-                        AND se.status NOT IN ('rejected', 'cancelled')
+                        AND se.status NOT IN ('rejected', 'cancelled', 'inactive')
                         LIMIT 1";
                 $stmt = $conn->prepare($sql);
                 if ($stmt) {
@@ -249,7 +249,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 $sql = "SELECT se.id FROM student_enrollments se
                         INNER JOIN student_accounts sa ON sa.id = se.account_id
                         WHERE sa.aadhar = ? AND se.course_id = ? AND se.scheme_id = ?
-                        AND se.status NOT IN ('rejected', 'cancelled')
+                        AND se.status NOT IN ('rejected', 'cancelled', 'inactive')
                         LIMIT 1";
                 $stmt = $conn->prepare($sql);
                 if ($stmt) {
@@ -269,7 +269,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 $stmt = $conn->prepare("SELECT id FROM students
                     WHERE REPLACE(REPLACE(aadhar,' ',''),'-','') = ?
                     AND course_id = ? AND scheme_id IS NULL
-                    AND LOWER(status) NOT IN ('rejected')
+                    AND LOWER(status) NOT IN ('rejected', 'inactive')
                     LIMIT 1");
                 if ($stmt) {
                     $stmt->bind_param('si', $aadhar, $courseId);
@@ -282,7 +282,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 $stmt = $conn->prepare("SELECT id FROM students
                     WHERE REPLACE(REPLACE(aadhar,' ',''),'-','') = ?
                     AND course_id = ? AND scheme_id = ?
-                    AND LOWER(status) NOT IN ('rejected')
+                    AND LOWER(status) NOT IN ('rejected', 'inactive')
                     LIMIT 1");
                 if ($stmt) {
                     $stmt->bind_param('sii', $aadhar, $courseId, $schemeId);
@@ -308,7 +308,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $sql = "SELECT se.id FROM student_enrollments se
                     INNER JOIN student_accounts sa ON sa.id = se.account_id
                     WHERE sa.aadhar = ? AND se.course_id = ?
-                    AND se.status NOT IN ('rejected', 'cancelled')
+                    AND se.status NOT IN ('rejected', 'cancelled', 'inactive')
                     LIMIT 1";
             $stmt = $conn->prepare($sql);
             if ($stmt) {
@@ -370,7 +370,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $sql = "SELECT DISTINCT se.scheme_id FROM student_enrollments se
                     INNER JOIN student_accounts sa ON sa.id = se.account_id
                     WHERE sa.aadhar = ? AND se.course_id = ?
-                    AND se.status NOT IN ('rejected', 'cancelled')
+                    AND se.status NOT IN ('rejected', 'cancelled', 'inactive')
                     AND se.scheme_id IS NOT NULL";
             $enrStmt = $conn->prepare($sql);
             if ($enrStmt) {
@@ -486,7 +486,36 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 FROM students s
                 INNER JOIN schemes sch ON sch.id = s.scheme_id
                 WHERE s.student_id = ? AND s.course_id = ?
-                AND LOWER(s.status) NOT IN ('rejected')
+                AND LOWER(s.status) NOT IN ('rejected', 'inactive')
+                ORDER BY sch.scheme_name ASC";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('si', $studentIdStr, $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+
+    /**
+     * Scheme enrollments that were soft-removed (status inactive) — can be restored.
+     */
+    function getInactiveSchemeEnrollmentsForStudentCourse(mysqli $conn, string $studentIdStr, int $courseId): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || $courseId <= 0 || !hasSchemeEnrollmentColumns($conn)) {
+            return [];
+        }
+        $sql = "SELECT s.id AS student_record_id, sch.id, sch.scheme_name, sch.scheme_code
+                FROM students s
+                INNER JOIN schemes sch ON sch.id = s.scheme_id
+                WHERE s.student_id = ? AND s.course_id = ?
+                AND LOWER(s.status) = 'inactive'
                 ORDER BY sch.scheme_name ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -590,33 +619,110 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
 
         if (isMultiCourseSystemInstalled($conn)) {
-            $delEnr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
-            if ($delEnr) {
-                $delEnr->bind_param('i', $studentRecordId);
-                $delEnr->execute();
-                $delEnr->close();
+            $enr = $conn->prepare("UPDATE student_enrollments SET status = 'inactive' WHERE student_record_id = ?");
+            if ($enr) {
+                $enr->bind_param('i', $studentRecordId);
+                $enr->execute();
+                $enr->close();
             }
         }
 
-        $del = $conn->prepare('DELETE FROM students WHERE id = ? AND scheme_id = ?');
-        if (!$del) {
+        $upd = $conn->prepare("UPDATE students SET status = 'inactive' WHERE id = ? AND scheme_id = ?");
+        if (!$upd) {
             return ['success' => false, 'message' => $conn->error];
         }
-        $del->bind_param('ii', $studentRecordId, $schemeId);
-        if (!$del->execute() || $del->affected_rows <= 0) {
-            $err = $del->error;
-            $del->close();
+        $upd->bind_param('ii', $studentRecordId, $schemeId);
+        if (!$upd->execute() || $upd->affected_rows <= 0) {
+            $err = $upd->error;
+            $upd->close();
             return ['success' => false, 'message' => $err ?: 'Could not remove scheme enrollment.'];
         }
-        $del->close();
+        $upd->close();
 
-        return ['success' => true, 'message' => 'Removed "' . $schemeLabel . '" enrollment.'];
+        return [
+            'success' => true,
+            'message' => 'Removed "' . $schemeLabel . '" enrollment. You can restore it from the Schemes dialog.',
+        ];
+    }
+
+    /**
+     * Restore a soft-removed scheme enrollment row.
+     */
+    function adminRestoreSchemeEnrollment(mysqli $conn, int $studentRecordId): array {
+        if ($studentRecordId <= 0) {
+            return ['success' => false, 'message' => 'Invalid enrollment record.'];
+        }
+
+        $stmt = $conn->prepare('SELECT s.id, s.student_id, s.course_id, s.scheme_id, s.status, sch.scheme_name
+            FROM students s
+            LEFT JOIN schemes sch ON sch.id = s.scheme_id
+            WHERE s.id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return ['success' => false, 'message' => 'Enrollment record not found.'];
+        }
+        if (strtolower($row['status'] ?? '') !== 'inactive') {
+            return ['success' => false, 'message' => 'This enrollment is not in removed state.'];
+        }
+
+        $schemeId = (int)($row['scheme_id'] ?? 0);
+        $courseId = (int)($row['course_id'] ?? 0);
+        $studentIdStr = (string)$row['student_id'];
+
+        if ($schemeId > 0 && $courseId > 0) {
+            $dup = $conn->prepare("SELECT id FROM students
+                WHERE student_id = ? AND course_id = ? AND scheme_id = ?
+                AND id != ? AND LOWER(status) NOT IN ('rejected', 'inactive')
+                LIMIT 1");
+            if ($dup) {
+                $dup->bind_param('siii', $studentIdStr, $courseId, $schemeId, $studentRecordId);
+                $dup->execute();
+                if ($dup->get_result()->num_rows > 0) {
+                    $dup->close();
+                    return ['success' => false, 'message' => 'An active enrollment for this scheme already exists.'];
+                }
+                $dup->close();
+            }
+        }
+
+        $upd = $conn->prepare("UPDATE students SET status = 'active' WHERE id = ?");
+        if (!$upd) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $upd->bind_param('i', $studentRecordId);
+        if (!$upd->execute()) {
+            $err = $upd->error;
+            $upd->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $upd->close();
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $enr = $conn->prepare("UPDATE student_enrollments SET status = 'active' WHERE student_record_id = ?");
+            if ($enr) {
+                $enr->bind_param('i', $studentRecordId);
+                $enr->execute();
+                $enr->close();
+            }
+        }
+
+        syncStudentEnrollmentRecord($conn, $studentRecordId);
+
+        $label = $row['scheme_name'] ?? 'scheme';
+        return ['success' => true, 'message' => 'Restored "' . $label . '" enrollment successfully.'];
     }
 
     /**
      * Add missing scheme enrollments; remove unchecked ones; reuse orphan rows before creating new rows.
      */
-    function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin'): array {
+    function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin', bool $confirmRemovals = false): array {
         $studentIdStr = trim($studentIdStr);
         if ($studentIdStr === '' || $courseId <= 0) {
             return ['success' => false, 'message' => 'Invalid student or course.'];
@@ -654,6 +760,12 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         $toAdd = array_values(array_diff($targetIds, $enrolledIds));
         $toRemove = array_values(array_diff($enrolledIds, $targetIds));
+        $skippedRemovals = [];
+
+        if (!empty($toRemove) && !$confirmRemovals) {
+            $skippedRemovals = $toRemove;
+            $toRemove = [];
+        }
 
         $removed = 0;
         $removeErrors = [];
@@ -689,6 +801,25 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $added = 0;
         $errors = [];
         foreach ($toAdd as $schemeId) {
+            $restoreStmt = $conn->prepare("SELECT id FROM students
+                WHERE student_id = ? AND course_id = ? AND scheme_id = ?
+                AND LOWER(status) = 'inactive' LIMIT 1");
+            if ($restoreStmt) {
+                $restoreStmt->bind_param('sii', $studentIdStr, $courseId, $schemeId);
+                $restoreStmt->execute();
+                $inactiveRow = $restoreStmt->get_result()->fetch_assoc();
+                $restoreStmt->close();
+                if ($inactiveRow) {
+                    $result = adminRestoreSchemeEnrollment($conn, (int)$inactiveRow['id']);
+                    if ($result['success']) {
+                        $added++;
+                        continue;
+                    }
+                    $errors[] = $result['message'];
+                    continue;
+                }
+            }
+
             if (!empty($orphans)) {
                 $orphanId = (int)array_shift($orphans);
                 $result = adminUpdateStudentScheme($conn, $orphanId, $schemeId);
@@ -723,6 +854,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!empty($removeErrors)) {
                 $msg .= ' ' . $removeErrors[0];
             }
+            if (!empty($skippedRemovals)) {
+                $msg .= ' Unchecked scheme(s) were not removed — confirmation is required.';
+            }
             return [
                 'success' => ($added > 0 || $removed > 0 || $removedOrphans > 0) && empty($removeErrors),
                 'warning' => !empty($removeErrors) && ($added > 0 || $removed > 0 || $removedOrphans > 0),
@@ -739,6 +873,10 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $msg = 'Scheme enrollments are up to date.';
         if ($removedOrphans > 0) {
             $msg .= " Removed {$removedOrphans} empty duplicate row(s).";
+        }
+        if (!empty($skippedRemovals)) {
+            $msg .= ' Unchecked scheme(s) were not removed — confirmation is required.';
+            return ['success' => false, 'message' => $msg];
         }
         return ['success' => true, 'message' => $msg];
     }
@@ -775,6 +913,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         $removed = 0;
         foreach ($ids as $rid) {
+            if (enrollmentRecordHasBatches($conn, $rid)) {
+                continue;
+            }
             if (isMultiCourseSystemInstalled($conn)) {
                 $delEnr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
                 if ($delEnr) {
@@ -1354,6 +1495,22 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if ($schemeId !== null && !validateSchemeForCourse($conn, $courseId, $schemeId)) {
             return ['success' => false, 'message' => 'Invalid scheme/project for the selected course.'];
         }
+
+        if ($schemeId !== null) {
+            $inactiveStmt = $conn->prepare("SELECT id FROM students
+                WHERE student_id = ? AND course_id = ? AND scheme_id = ?
+                AND LOWER(status) = 'inactive' LIMIT 1");
+            if ($inactiveStmt) {
+                $inactiveStmt->bind_param('sii', $studentIdStr, $courseId, $schemeId);
+                $inactiveStmt->execute();
+                $inactiveRow = $inactiveStmt->get_result()->fetch_assoc();
+                $inactiveStmt->close();
+                if ($inactiveRow) {
+                    return adminRestoreSchemeEnrollment($conn, (int)$inactiveRow['id']);
+                }
+            }
+        }
+
         if (isAadharEnrolledInCourseScheme($conn, $account['aadhar'], $courseId, $schemeId)) {
             $schemeLabel = $schemeId ? 'this scheme for this course' : 'this course';
             return ['success' => false, 'message' => "Student is already enrolled in {$schemeLabel}."];

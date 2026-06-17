@@ -249,11 +249,43 @@ if (isset($_POST['sync_student_schemes'])) {
         $_SESSION['message'] = 'Invalid student or course.';
         $_SESSION['message_type'] = 'warning';
     } else {
-        $result = adminSyncStudentSchemes($conn, $student_id_str, $course_id, is_array($scheme_ids) ? $scheme_ids : [], $admin_name);
+        $result = adminSyncStudentSchemes(
+            $conn,
+            $student_id_str,
+            $course_id,
+            is_array($scheme_ids) ? $scheme_ids : [],
+            $admin_name,
+            !empty($_POST['confirm_scheme_removals'])
+        );
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = !empty($result['warning']) ? 'warning' : ($result['success'] ? 'success' : 'danger');
     }
 
+    $redirect_params = [];
+    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
+    if (!empty($_POST['filter_scheme']) && $_POST['filter_scheme'] !== 'All') {
+        $redirect_params[] = 'filter_scheme=' . urlencode($_POST['filter_scheme']);
+    }
+    if (!empty($_POST['filter_gender']) && $_POST['filter_gender'] !== 'All') {
+        $redirect_params[] = 'filter_gender=' . urlencode($_POST['filter_gender']);
+    }
+    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
+    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    exit();
+}
+
+// ─── HANDLE: Restore soft-removed scheme enrollment ──────────────────────────
+if (isset($_POST['restore_scheme_enrollment'])) {
+    $student_record_id = (int)($_POST['student_record_id'] ?? 0);
+    if ($student_record_id <= 0) {
+        $_SESSION['message'] = 'Invalid enrollment record.';
+        $_SESSION['message_type'] = 'warning';
+    } else {
+        $result = adminRestoreSchemeEnrollment($conn, $student_record_id);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    }
     $redirect_params = [];
     if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
     if (!empty($_POST['filter_scheme']) && $_POST['filter_scheme'] !== 'All') {
@@ -301,7 +333,14 @@ if (isset($_POST['add_scheme_enrollments'])) {
     $course_id      = (int)($_POST['course_id'] ?? 0);
     $scheme_ids     = $_POST['scheme_ids'] ?? [];
     $admin_name     = $_SESSION['admin'] ?? 'Admin';
-    $result = adminSyncStudentSchemes($conn, $student_id_str, $course_id, is_array($scheme_ids) ? $scheme_ids : [], $admin_name);
+    $result = adminSyncStudentSchemes(
+        $conn,
+        $student_id_str,
+        $course_id,
+        is_array($scheme_ids) ? $scheme_ids : [],
+        $admin_name,
+        !empty($_POST['confirm_scheme_removals'])
+    );
     $_SESSION['message'] = $result['message'];
     $_SESSION['message_type'] = !empty($result['warning']) ? 'warning' : ($result['success'] ? 'success' : 'danger');
     $redirect_params = [];
@@ -475,7 +514,7 @@ if ($is_course_coordinator) {
         $types = str_repeat('i', count($admin_course_ids));
 
         $total_students_count  = runCount($conn,
-            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND status != 'rejected'",
+            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND LOWER(status) NOT IN ('rejected', 'inactive')",
             $types, $admin_course_ids);
 
         $pending_students_count = runCount($conn,
@@ -561,7 +600,8 @@ $query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name
           LEFT JOIN batches b ON s.batch_id = b.id
           LEFT JOIN courses c ON s.course_id = c.id
           LEFT JOIN schemes sch ON sch.id = s.scheme_id
-          WHERE 1=1";
+          WHERE 1=1
+          AND LOWER(s.status) NOT IN ('rejected', 'inactive')";
 
 $bind_types  = '';
 $bind_values = [];
@@ -569,7 +609,7 @@ $bind_values = [];
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query      .= " AND s.course_id IN ($ph) AND s.status != 'rejected'";
+        $query      .= " AND s.course_id IN ($ph)";
         $bind_types  .= str_repeat('i', count($admin_course_ids));
         $bind_values  = array_merge($bind_values, $admin_course_ids);
     } else {
@@ -636,10 +676,12 @@ if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_map('intval', $admin_course_ids)); // safe int list
         $stats_where_parts[] = "course_id IN ($ph)";
-        $stats_where_parts[] = "status != 'rejected'";
+        $stats_where_parts[] = "LOWER(status) NOT IN ('rejected', 'inactive')";
     } else {
         $stats_where_parts[] = "1=0";
     }
+} else {
+    $stats_where_parts[] = "LOWER(status) NOT IN ('rejected', 'inactive')";
 }
 
 if ($selected_course !== 'All') {
@@ -1357,7 +1399,7 @@ if ($other_gender_count > 0) {
                                         SUM(CASE WHEN LOWER(status) = 'rejected' THEN 1 ELSE 0 END) AS rejected_count
                                         FROM students
                                         WHERE student_id = ? AND course_id = ?
-                                        AND LOWER(status) NOT IN ('rejected')");
+                                        AND LOWER(status) NOT IN ('rejected', 'inactive')");
                                     if ($meta_stmt) {
                                         $meta_stmt->bind_param('si', $row['student_id'], $row_course_id);
                                         $meta_stmt->execute();
@@ -1375,7 +1417,7 @@ if ($other_gender_count > 0) {
                                         FROM students s
                                         LEFT JOIN schemes sch ON sch.id = s.scheme_id
                                         WHERE s.student_id = ? AND s.course_id = ?
-                                        AND LOWER(s.status) NOT IN ('rejected')
+                                        AND LOWER(s.status) NOT IN ('rejected', 'inactive')
                                         ORDER BY sch.scheme_name ASC, s.id ASC");
                                     $batch_assign_rows = [];
                                     if ($enr_stmt) {
@@ -1732,13 +1774,14 @@ if ($other_gender_count > 0) {
             <p><strong>Student:</strong> <span id="scheme-modal-student-name"></span></p>
             <p><strong>Course:</strong> <span id="scheme-modal-course-name"></span></p>
             <p style="font-size:12px;color:#64748b;margin-top:8px;">
-                <i class="fas fa-info-circle"></i> Tick schemes to add enrollments; <strong>untick to remove</strong>. Each scheme is a separate row in the list. Schemes assigned to a batch must be removed from the batch first.
+                <i class="fas fa-info-circle"></i> Tick schemes to add enrollments. <strong>Unticking removes</strong> an enrollment (you will be asked to confirm). Removal is reversible — use <strong>Restore</strong> below or re-tick the scheme and save. Students assigned to a batch must be removed from the batch first.
             </p>
         </div>
 
         <form method="POST" action="students.php" id="scheme-sync-form">
             <input type="hidden" name="student_id" id="scheme-modal-student-id">
             <input type="hidden" name="course_id" id="scheme-modal-course-id">
+            <input type="hidden" name="confirm_scheme_removals" id="scheme-confirm-removals" value="">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
@@ -1751,13 +1794,19 @@ if ($other_gender_count > 0) {
                 <small id="scheme-modal-hint" style="color:#64748b;display:block;margin-top:8px;"></small>
             </div>
 
+            <div id="scheme-modal-restore-wrap" style="display:none;margin-bottom:12px;">
+                <label class="form-label" style="margin-bottom:6px;">Removed enrollments</label>
+                <div id="scheme-modal-restore-list" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px;"></div>
+                <small style="color:#64748b;display:block;margin-top:6px;">These were soft-removed and can be restored without re-entering student details.</small>
+            </div>
+
             <div id="scheme-orphan-wrap" style="display:none;margin-bottom:12px;padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:13px;color:#9a3412;">
                 <i class="fas fa-exclamation-triangle"></i>
                 <span id="scheme-orphan-text"></span>
             </div>
 
             <div style="display:flex;gap:10px;margin-top:16px;">
-                <button type="submit" name="sync_student_schemes" value="1" class="btn btn-primary" style="flex:1;">
+                <button type="submit" name="sync_student_schemes" value="1" id="scheme-save-btn" class="btn btn-primary" style="flex:1;" disabled>
                     <i class="fas fa-check"></i> Save Schemes
                 </button>
                 <button type="button" class="btn btn-secondary" onclick="closeSchemeModal()" style="flex:1;">
@@ -2156,6 +2205,22 @@ function closeCourseModal() {
     document.getElementById('courseModal').style.display = 'none';
 }
 
+let schemeModalInitialEnrolled = new Set();
+let schemeModalLoaded = false;
+const schemeFilterFieldNames = ['filter_course', 'filter_scheme', 'filter_gender', 'start_date', 'end_date'];
+
+function getSchemeFilterHiddenInputsHtml() {
+    let html = '';
+    schemeFilterFieldNames.forEach(function (name) {
+        const el = document.querySelector('#scheme-sync-form input[name="' + name + '"]');
+        if (el) {
+            const val = (el.value || '').replace(/"/g, '&quot;');
+            html += '<input type="hidden" name="' + name + '" value="' + val + '">';
+        }
+    });
+    return html;
+}
+
 async function openSchemeModal(studentId, studentRecordId, studentName, courseId, courseName) {
     document.getElementById('scheme-modal-student-id').value = studentId;
     document.getElementById('scheme-modal-course-id').value = courseId;
@@ -2168,8 +2233,19 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
     const checkboxWrap = document.getElementById('scheme-modal-checkboxes');
     const orphanWrap = document.getElementById('scheme-orphan-wrap');
     const orphanForm = document.getElementById('scheme-orphan-form');
+    const restoreWrap = document.getElementById('scheme-modal-restore-wrap');
+    const restoreList = document.getElementById('scheme-modal-restore-list');
+    const saveBtn = document.getElementById('scheme-save-btn');
+    const confirmInput = document.getElementById('scheme-confirm-removals');
+
+    schemeModalLoaded = false;
+    schemeModalInitialEnrolled = new Set();
+    if (saveBtn) saveBtn.disabled = true;
+    if (confirmInput) confirmInput.value = '';
 
     checkboxWrap.innerHTML = '';
+    if (restoreList) restoreList.innerHTML = '';
+    if (restoreWrap) restoreWrap.style.display = 'none';
     hint.textContent = 'Loading…';
     orphanWrap.style.display = 'none';
     orphanForm.style.display = 'none';
@@ -2184,6 +2260,7 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
 
         if (!data.success) {
             hint.textContent = data.message || 'Could not load schemes.';
+            if (saveBtn) saveBtn.disabled = true;
             document.getElementById('schemeModal').style.display = 'block';
             return;
         }
@@ -2191,6 +2268,7 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
         const schemes = data.course_schemes || [];
         if (schemes.length === 0) {
             hint.textContent = 'No schemes linked to this course. Add schemes in Edit Course first.';
+            if (saveBtn) saveBtn.disabled = true;
             document.getElementById('schemeModal').style.display = 'block';
             return;
         }
@@ -2199,6 +2277,9 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
             const label = document.createElement('label');
             label.style.cssText = 'display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;cursor:pointer;';
             const checked = s.enrolled ? ' checked' : '';
+            if (s.enrolled) {
+                schemeModalInitialEnrolled.add(String(s.id));
+            }
             label.innerHTML = '<input type="checkbox" name="scheme_ids[]" value="' + s.id + '" style="width:16px;height:16px;margin-top:3px;"' + checked + '>'
                 + '<span><strong>' + s.scheme_name + '</strong>'
                 + ' <small style="color:#64748b;">(' + s.scheme_code + ')</small>'
@@ -2207,10 +2288,31 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
             checkboxWrap.appendChild(label);
         });
 
+        const inactiveSchemes = data.inactive_schemes || [];
+        if (inactiveSchemes.length > 0 && restoreWrap && restoreList) {
+            restoreWrap.style.display = 'block';
+            const filterFields = getSchemeFilterHiddenInputsHtml();
+            inactiveSchemes.forEach(function (item) {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;';
+                row.innerHTML = '<span><strong>' + item.scheme_name + '</strong>'
+                    + ' <small style="color:#64748b;">(' + item.scheme_code + ')</small></span>'
+                    + '<form method="POST" action="students.php" style="margin:0;">'
+                    + '<input type="hidden" name="student_record_id" value="' + item.student_record_id + '">'
+                    + filterFields
+                    + '<button type="submit" name="restore_scheme_enrollment" value="1" class="btn btn-outline-success btn-sm">'
+                    + '<i class="fas fa-undo"></i> Restore</button></form>';
+                restoreList.appendChild(row);
+            });
+        }
+
         const enrolledCount = (data.enrolled_schemes || []).length;
         hint.textContent = enrolledCount > 0
-            ? enrolledCount + ' scheme(s) enrolled. Tick to add, untick to remove, then click Save Schemes.'
+            ? enrolledCount + ' scheme(s) enrolled. Tick to add, untick to remove (confirmation required), then click Save Schemes.'
             : 'Tick one or more schemes, then click Save Schemes.';
+
+        schemeModalLoaded = true;
+        if (saveBtn) saveBtn.disabled = false;
 
         if ((data.orphan_row_count || 0) > 0) {
             orphanWrap.style.display = 'block';
@@ -2221,6 +2323,7 @@ async function openSchemeModal(studentId, studentRecordId, studentName, courseId
     } catch (e) {
         console.error(e);
         hint.textContent = 'Could not load schemes. Please try again.';
+        if (saveBtn) saveBtn.disabled = true;
     }
 
     document.getElementById('schemeModal').style.display = 'block';
@@ -2428,7 +2531,46 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('click', function (e) {
         if (e.target === document.getElementById('batchModal'))     closeBatchModal();
         if (e.target === document.getElementById('bulkBatchModal')) closeBulkBatchModal();
+        if (e.target === document.getElementById('schemeModal'))    closeSchemeModal();
     });
+
+    const schemeSyncForm = document.getElementById('scheme-sync-form');
+    if (schemeSyncForm) {
+        schemeSyncForm.addEventListener('submit', function (e) {
+            if (!schemeModalLoaded) {
+                e.preventDefault();
+                return;
+            }
+            const confirmInput = document.getElementById('scheme-confirm-removals');
+            if (confirmInput) confirmInput.value = '';
+
+            const currentChecked = new Set();
+            document.querySelectorAll('#scheme-modal-checkboxes input[type="checkbox"]:checked').forEach(function (cb) {
+                currentChecked.add(cb.value);
+            });
+
+            const removedNames = [];
+            schemeModalInitialEnrolled.forEach(function (schemeId) {
+                if (!currentChecked.has(schemeId)) {
+                    const cb = document.querySelector('#scheme-modal-checkboxes input[value="' + schemeId + '"]');
+                    const labelText = cb ? cb.closest('label') : null;
+                    const nameEl = labelText ? labelText.querySelector('strong') : null;
+                    removedNames.push(nameEl ? nameEl.textContent : ('Scheme #' + schemeId));
+                }
+            });
+
+            if (removedNames.length > 0) {
+                const msg = 'Remove these scheme enrollment(s)?\n\n'
+                    + removedNames.join('\n')
+                    + '\n\nThe student will be hidden from the list until you restore them (use Restore below or re-tick and save).';
+                if (!confirm(msg)) {
+                    e.preventDefault();
+                    return;
+                }
+                if (confirmInput) confirmInput.value = '1';
+            }
+        });
+    }
 });
 </script>
 </body>

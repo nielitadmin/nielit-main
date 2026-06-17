@@ -32,6 +32,7 @@ if ($courseStmt) {
 
 $allSchemes = getSchemesForCourse($conn, $courseId);
 $enrolled = getEnrolledSchemesForStudentCourse($conn, $studentId, $courseId);
+$inactive = getInactiveSchemeEnrollmentsForStudentCourse($conn, $studentId, $courseId);
 $enrolledById = [];
 foreach ($enrolled as $row) {
     $enrolledById[(int)$row['id']] = $row;
@@ -52,7 +53,7 @@ $orphanCount = 0;
 $orphanStmt = $conn->prepare("SELECT COUNT(*) AS c FROM students
     WHERE student_id = ? AND course_id = ?
     AND scheme_id IS NULL
-    AND LOWER(status) NOT IN ('rejected')");
+    AND LOWER(status) NOT IN ('rejected', 'inactive')");
 if ($orphanStmt) {
     $orphanStmt->bind_param('si', $studentId, $courseId);
     $orphanStmt->execute();
@@ -83,6 +84,14 @@ echo json_encode([
             'scheme_code' => $row['scheme_code'],
         ];
     }, $enrolled)),
+    'inactive_schemes' => array_values(array_map(function ($row) {
+        return [
+            'student_record_id' => (int)$row['student_record_id'],
+            'id' => (int)$row['id'],
+            'scheme_name' => $row['scheme_name'],
+            'scheme_code' => $row['scheme_code'],
+        ];
+    }, $inactive)),
     'orphan_row_count' => $orphanCount,
     'current_row_scheme_id' => $currentRowSchemeId,
 ]);
