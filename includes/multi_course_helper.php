@@ -893,6 +893,104 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Approve a student for portal login — updates students + student_enrollments (login uses both).
+     */
+    function adminApproveStudent(mysqli $conn, string $studentIdStr, string $adminName = 'Admin'): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return ['success' => false, 'message' => 'Invalid student ID.'];
+        }
+
+        $stmt = $conn->prepare("UPDATE students SET status = 'active' WHERE student_id = ? AND LOWER(status) NOT IN ('rejected')");
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('s', $studentIdStr);
+        if (!$stmt->execute()) {
+            $err = $stmt->error;
+            $stmt->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        $recordStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ?');
+        $recordIds = [];
+        if ($recordStmt) {
+            $recordStmt->bind_param('s', $studentIdStr);
+            $recordStmt->execute();
+            $res = $recordStmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $recordIds[] = (int)$row['id'];
+            }
+            $recordStmt->close();
+        }
+
+        foreach ($recordIds as $recordId) {
+            syncStudentEnrollmentRecord($conn, $recordId);
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $account = getAccountByStudentId($conn, $studentIdStr);
+            if ($account) {
+                $accountId = (int)$account['id'];
+                $enr = $conn->prepare("UPDATE student_enrollments SET status = 'active'
+                    WHERE account_id = ? AND LOWER(status) NOT IN ('rejected', 'cancelled')");
+                if ($enr) {
+                    $enr->bind_param('i', $accountId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+
+        if ($affected <= 0 && empty($recordIds)) {
+            return ['success' => false, 'message' => 'Student not found or already rejected.'];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Student approved successfully! They can now log in to the student portal.',
+        ];
+    }
+
+    /**
+     * Fix portal login block: students row is active but student_enrollments still pending.
+     */
+    function repairEnrollmentStatusMismatch(mysqli $conn): int {
+        if (!isMultiCourseSystemInstalled($conn)) {
+            return 0;
+        }
+
+        $fixed = 0;
+        $sql = "UPDATE student_enrollments se
+                INNER JOIN students s ON s.id = se.student_record_id
+                SET se.status = s.status
+                WHERE LOWER(s.status) IN ('active', 'approved')
+                AND LOWER(se.status) NOT IN ('active', 'approved', 'rejected', 'cancelled')";
+        if ($conn->query($sql)) {
+            $fixed += (int)$conn->affected_rows;
+        }
+
+        $stmt = $conn->prepare("SELECT s.id FROM students s
+            LEFT JOIN student_enrollments se ON se.student_record_id = s.id
+            WHERE LOWER(s.status) IN ('active', 'approved')
+            AND se.id IS NULL
+            LIMIT 500");
+        if ($stmt) {
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                syncStudentEnrollmentRecord($conn, (int)$row['id']);
+                $fixed++;
+            }
+            $stmt->close();
+        }
+
+        return $fixed;
+    }
+
+    /**
      * Add missing scheme enrollments; clear unchecked ones to Not set; reuse orphan rows before creating new rows.
      */
     function adminSyncStudentSchemes(mysqli $conn, string $studentIdStr, int $courseId, array $schemeIds, string $adminName = 'Admin'): array {

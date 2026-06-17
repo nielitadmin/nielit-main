@@ -30,6 +30,9 @@ if (function_exists('backfillBatchStudentRecordIds')) {
 if (function_exists('repairSoftRemovedEnrollments')) {
     repairSoftRemovedEnrollments($conn);
 }
+if (function_exists('repairEnrollmentStatusMismatch')) {
+    repairEnrollmentStatusMismatch($conn);
+}
 
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';
@@ -74,17 +77,16 @@ if (isset($_GET['delete_id'])) {
 
 // ─── HANDLE: Approve student ──────────────────────────────────────────────────
 if (isset($_GET['approve_id'])) {
-    $approve_id = $_GET['approve_id'];
-    $stmt = $conn->prepare("UPDATE students SET status = 'active' WHERE student_id = ?");
-    $stmt->bind_param("s", $approve_id);
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Student approved successfully! Status changed to Active.";
-        $_SESSION['message_type'] = "success";
+    $approve_id = trim($_GET['approve_id'] ?? '');
+    $admin_name = $_SESSION['admin'] ?? 'Admin';
+    if ($approve_id === '') {
+        $_SESSION['message'] = 'Invalid student ID.';
+        $_SESSION['message_type'] = 'warning';
     } else {
-        $_SESSION['message'] = "Error approving student: " . $conn->error;
-        $_SESSION['message_type'] = "danger";
+        $result = adminApproveStudent($conn, $approve_id, $admin_name);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
     }
-    $stmt->close();
     $redirect_params = [];
     if (!empty($_GET['filter_course']) && $_GET['filter_course'] !== 'All') {
         $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);

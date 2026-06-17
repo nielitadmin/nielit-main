@@ -6,6 +6,10 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 
+if (function_exists('repairEnrollmentStatusMismatch')) {
+    repairEnrollmentStatusMismatch($conn);
+}
+
 // Check if the student is already logged in
 if (isset($_SESSION['student_id'])) {
     header("Location: dashboard.php");
@@ -57,6 +61,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             }
             if (!in_array($status, ['rejected', 'cancelled'], true)) {
                 $all_rejected = false;
+            }
+        }
+
+        if (!$has_active) {
+            $activeCheck = $conn->prepare("SELECT 1 FROM students
+                WHERE student_id = ? AND LOWER(status) IN ('active', 'approved') LIMIT 1");
+            if ($activeCheck) {
+                $activeCheck->bind_param('s', $student_id);
+                $activeCheck->execute();
+                if ($activeCheck->get_result()->num_rows > 0) {
+                    $has_active = true;
+                    repairEnrollmentStatusMismatch($conn);
+                }
+                $activeCheck->close();
             }
         }
 
