@@ -331,71 +331,67 @@ function getPendingStudents($conn, $admin_courses = []) {
  * Get students in a batch
  */
 function getBatchStudents($batch_id, $conn) {
-    // First, try to get students from batch_students junction table
+    $batch_id = (int)$batch_id;
+    $check_table = $conn->query("SHOW TABLES LIKE 'batch_students'");
+    $has_batch_students_table = ($check_table && $check_table->num_rows > 0);
+
     $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
     $has_nielit_column = ($check_column && $check_column->num_rows > 0);
-    
-    if ($has_nielit_column) {
-        $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid, 
-                bs.attendance_percentage, bs.nielit_registration_no,
-                bs.id AS batch_student_link_id
-                FROM batch_students bs
-                INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
-                WHERE bs.batch_id = ? 
-                ORDER BY s.name ASC";
-    } else {
-        $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid, 
-                bs.attendance_percentage, NULL as nielit_registration_no,
-                bs.id AS batch_student_link_id
-                FROM batch_students bs
-                INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
-                WHERE bs.batch_id = ? 
-                ORDER BY s.name ASC";
-    }
-    
-    $stmt = $conn->prepare($sql);
-    
-    if ($stmt) {
-        $stmt->bind_param("i", $batch_id);
+
+    if ($has_batch_students_table) {
+        if ($has_nielit_column) {
+            $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid,
+                    bs.attendance_percentage, bs.nielit_registration_no,
+                    bs.id AS batch_student_link_id
+                    FROM batch_students bs
+                    INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                    WHERE bs.batch_id = ?
+                    ORDER BY s.name ASC";
+        } else {
+            $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid,
+                    bs.attendance_percentage, NULL as nielit_registration_no,
+                    bs.id AS batch_student_link_id
+                    FROM batch_students bs
+                    INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                    WHERE bs.batch_id = ?
+                    ORDER BY s.name ASC";
+        }
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('i', $batch_id);
         $stmt->execute();
         $result = $stmt->get_result();
-        
         $students = [];
         while ($row = $result->fetch_assoc()) {
             $students[] = $row;
         }
         $stmt->close();
-        
-        // If we got students from batch_students, return them
-        if (!empty($students)) {
-            return $students;
-        }
+        return $students;
     }
-    
-    // If batch_students table doesn't exist OR has no records, fall back to students table
-    $sql = "SELECT s.*, s.created_at as enrollment_date, 
+
+    // Legacy: no batch_students table — use students.batch_id only
+    $sql = "SELECT s.*, s.created_at as enrollment_date,
             'Not Paid' as fees_status, 0 as fees_paid, 0 as attendance_percentage,
             s.nielit_registration_no
-            FROM students s 
-            WHERE s.batch_id = ? 
+            FROM students s
+            WHERE s.batch_id = ?
             ORDER BY s.name ASC";
     $stmt = $conn->prepare($sql);
-    
     if (!$stmt) {
-        // Last resort: return empty array
         return [];
     }
-    
-    $stmt->bind_param("i", $batch_id);
+    $stmt->bind_param('i', $batch_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    
     $students = [];
     while ($row = $result->fetch_assoc()) {
         $students[] = $row;
     }
     $stmt->close();
-    
+
     return $students;
 }
 
@@ -845,11 +841,9 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
     }
 
     $remaining = getBatchesForStudentRecord($conn, $recordId);
-    if ($legacyPrimaryOnly) {
-        $remaining = array_values(array_filter($remaining, function ($b) use ($batchId) {
-            return (int)$b['id'] !== $batchId;
-        }));
-    }
+    $remaining = array_values(array_filter($remaining, function ($b) use ($batchId) {
+        return (int)$b['id'] !== $batchId;
+    }));
     $nextBatchId = !empty($remaining) ? (int)$remaining[0]['id'] : null;
 
     if ($nextBatchId === null) {

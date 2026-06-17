@@ -29,13 +29,29 @@ if (!$batch) {
 $is_locked = isBatchLocked($batch_id, $conn);
 $lock_info = getBatchLockInfo($batch_id, $conn);
 
+// Handle remove student first — redirect after action (PRG)
+if (isset($_GET['remove_student']) && !$is_locked) {
+    $remove_record_id = (int)$_GET['remove_student'];
+    $result = removeStudentFromBatch($remove_record_id, $batch_id, $conn);
+    $_SESSION['batch_details_message'] = $result['message'];
+    $_SESSION['batch_details_message_type'] = $result['success'] ? 'success' : 'danger';
+    header('Location: batch_details.php?id=' . (int)$batch_id);
+    exit();
+} elseif (isset($_GET['remove_student']) && $is_locked) {
+    $_SESSION['batch_details_message'] = 'Cannot remove student: Batch is locked and cannot be modified.';
+    $_SESSION['batch_details_message_type'] = 'danger';
+    header('Location: batch_details.php?id=' . (int)$batch_id);
+    exit();
+}
+
 $students = getBatchStudents($batch_id, $conn);
 $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
 $move_target_batches = getMoveTargetBatches($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
 
-$message = '';
-$message_type = 'success';
+$message = $_SESSION['batch_details_message'] ?? '';
+$message_type = $_SESSION['batch_details_message_type'] ?? 'success';
+unset($_SESSION['batch_details_message'], $_SESSION['batch_details_message_type']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_students_to_batch']) && !$is_locked) {
     $record_ids = $_POST['student_record_ids'] ?? [];
@@ -72,20 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_students_to_batc
     }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_students_to_batch']) && $is_locked) {
     $message = 'Cannot move students: Batch is locked.';
-    $message_type = 'danger';
-}
-
-// Handle remove student (only if batch is not locked)
-if (isset($_GET['remove_student']) && !$is_locked) {
-    $result = removeStudentFromBatch($_GET['remove_student'], $batch_id, $conn);
-    $message = $result['message'];
-    $message_type = $result['success'] ? 'success' : 'danger';
-    
-    // Refresh data
-    $students = getBatchStudents($batch_id, $conn);
-    $stats = getBatchStats($batch_id, $conn);
-} elseif (isset($_GET['remove_student']) && $is_locked) {
-    $message = 'Cannot remove student: Batch is locked and cannot be modified.';
     $message_type = 'danger';
 }
 
