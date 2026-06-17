@@ -526,18 +526,30 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
 
         if ($useRecordCol) {
-            $bs = $conn->prepare('SELECT id FROM batch_students WHERE student_record_id = ? LIMIT 1');
+            $bs = $conn->prepare('SELECT id FROM batch_students WHERE student_record_id = ? OR student_id = ? LIMIT 1');
+            if ($bs) {
+                $bs->bind_param('ii', $recordId, $recordId);
+                $bs->execute();
+                $has = $bs->get_result()->num_rows > 0;
+                $bs->close();
+                if ($has) {
+                    return true;
+                }
+            }
         } else {
             $bs = $conn->prepare('SELECT id FROM batch_students WHERE student_id = ? LIMIT 1');
+            if ($bs) {
+                $bs->bind_param('i', $recordId);
+                $bs->execute();
+                $has = $bs->get_result()->num_rows > 0;
+                $bs->close();
+                if ($has) {
+                    return true;
+                }
+            }
         }
-        if (!$bs) {
-            return false;
-        }
-        $bs->bind_param('i', $recordId);
-        $bs->execute();
-        $has = $bs->get_result()->num_rows > 0;
-        $bs->close();
-        return $has;
+
+        return false;
     }
 
     /**
@@ -1077,9 +1089,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
 
         if ($useRecordCol) {
-            $check = $conn->prepare('SELECT id FROM batch_students WHERE student_record_id = ? AND batch_id = ? LIMIT 1');
+            $check = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR student_id = ?) LIMIT 1');
             if ($check) {
-                $check->bind_param('ii', $studentRecordId, $batchId);
+                $check->bind_param('iii', $batchId, $studentRecordId, $studentRecordId);
                 $check->execute();
                 if ($check->get_result()->num_rows > 0) {
                     $check->close();

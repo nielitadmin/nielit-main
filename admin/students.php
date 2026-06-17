@@ -24,6 +24,9 @@ $theme_logo = getThemeLogo($active_theme);
 if (function_exists('ensureSchemeEnrollmentUniqueIndex')) {
     ensureSchemeEnrollmentUniqueIndex($conn);
 }
+if (function_exists('backfillBatchStudentRecordIds')) {
+    backfillBatchStudentRecordIds($conn);
+}
 
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';
@@ -404,6 +407,9 @@ if (isset($_GET['remove_record']) && isset($_GET['batch_id'])) {
 
     $redirect_params = [];
     if (!empty($_GET['filter_course']))  $redirect_params[] = 'filter_course='  . urlencode($_GET['filter_course']);
+    if (!empty($_GET['filter_scheme']) && $_GET['filter_scheme'] !== 'All') {
+        $redirect_params[] = 'filter_scheme=' . urlencode($_GET['filter_scheme']);
+    }
     if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All')
                                          $redirect_params[] = 'filter_gender='  . urlencode($_GET['filter_gender']);
     if (!empty($_GET['start_date']))     $redirect_params[] = 'start_date='     . urlencode($_GET['start_date']);
@@ -2287,17 +2293,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // Remove batch buttons
-    document.querySelectorAll('.remove-batch-btn').forEach(btn => {
-        btn.addEventListener('click', async function (e) {
-            e.preventDefault();
-            const confirmed = await showConfirm({
-                title: 'Remove from Batch',
-                message: `Remove <strong>${this.dataset.studentName}</strong> from <strong>${this.dataset.batchName}</strong>?`,
-                confirmText: 'Remove', cancelText: 'Cancel', type: 'warning'
-            });
-            if (confirmed) { toast.loading('Removing…'); window.location.href = this.dataset.url; }
+    // Remove from batch (delegated — works for × icon inside batch badges)
+    document.addEventListener('click', async function (e) {
+        const btn = e.target.closest('.remove-batch-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const confirmed = await showConfirm({
+            title: 'Remove from Batch',
+            message: `Remove <strong>${btn.dataset.studentName}</strong> from <strong>${btn.dataset.batchName}</strong>?`,
+            confirmText: 'Remove', cancelText: 'Cancel', type: 'warning'
         });
+        if (confirmed) { toast.loading('Removing…'); window.location.href = btn.dataset.url; }
     });
 
     // Delete buttons

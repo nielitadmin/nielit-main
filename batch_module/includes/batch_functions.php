@@ -632,6 +632,20 @@ function moveStudentsToBatch(array $student_record_ids, $from_batch_id, $to_batc
 }
 
 /**
+ * Backfill batch_students.student_record_id from student_id for legacy rows.
+ */
+function backfillBatchStudentRecordIds($conn) {
+    $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+    if (!$hasRecordCol || $hasRecordCol->num_rows === 0) {
+        return;
+    }
+    $conn->query("UPDATE batch_students
+        SET student_record_id = student_id
+        WHERE (student_record_id IS NULL OR student_record_id = 0)
+        AND student_id IS NOT NULL AND student_id > 0");
+}
+
+/**
  * All batches linked to a student enrollment record (batch_students + legacy batch_id).
  */
 function getBatchesForStudentRecord($conn, int $studentRecordId): array {
@@ -644,14 +658,14 @@ function getBatchesForStudentRecord($conn, int $studentRecordId): array {
     $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
 
     if ($useRecordCol) {
-        $sql = "SELECT b.id, b.batch_name, b.batch_code
+        $sql = "SELECT DISTINCT b.id, b.batch_name, b.batch_code
                 FROM batch_students bs
                 INNER JOIN batches b ON b.id = bs.batch_id
-                WHERE bs.student_record_id = ?
+                WHERE bs.student_record_id = ? OR bs.student_id = ?
                 ORDER BY b.batch_name ASC";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param('i', $studentRecordId);
+            $stmt->bind_param('ii', $studentRecordId, $studentRecordId);
             $stmt->execute();
             $res = $stmt->get_result();
             while ($row = $res->fetch_assoc()) {
@@ -660,7 +674,7 @@ function getBatchesForStudentRecord($conn, int $studentRecordId): array {
             $stmt->close();
         }
     } else {
-        $sql = "SELECT b.id, b.batch_name, b.batch_code
+        $sql = "SELECT DISTINCT b.id, b.batch_name, b.batch_code
                 FROM batch_students bs
                 INNER JOIN batches b ON b.id = bs.batch_id
                 WHERE bs.student_id = ?
@@ -677,20 +691,18 @@ function getBatchesForStudentRecord($conn, int $studentRecordId): array {
         }
     }
 
-    if (empty($batches)) {
-        $fallback = $conn->prepare("SELECT b.id, b.batch_name, b.batch_code
-            FROM students s
-            INNER JOIN batches b ON b.id = s.batch_id
-            WHERE s.id = ? AND s.batch_id IS NOT NULL
-            LIMIT 1");
-        if ($fallback) {
-            $fallback->bind_param('i', $studentRecordId);
-            $fallback->execute();
-            $row = $fallback->get_result()->fetch_assoc();
-            $fallback->close();
-            if ($row) {
-                $batches[(int)$row['id']] = $row;
-            }
+    $fallback = $conn->prepare("SELECT b.id, b.batch_name, b.batch_code
+        FROM students s
+        INNER JOIN batches b ON b.id = s.batch_id
+        WHERE s.id = ? AND s.batch_id IS NOT NULL AND s.batch_id > 0
+        LIMIT 1");
+    if ($fallback) {
+        $fallback->bind_param('i', $studentRecordId);
+        $fallback->execute();
+        $row = $fallback->get_result()->fetch_assoc();
+        $fallback->close();
+        if ($row) {
+            $batches[(int)$row['id']] = $row;
         }
     }
 
@@ -704,12 +716,18 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
     $recordId = (int)$student_id;
     $batchId = (int)$batch_id;
 
+    if ($recordId <= 0 || $batchId <= 0) {
+        return ['success' => false, 'message' => 'Invalid student or batch.'];
+    }
+
+    $removedFromLink = false;
     $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
     if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
-        $del = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? AND batch_id = ?');
+        $del = $conn->prepare('DELETE FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR student_id = ?)');
         if ($del) {
-            $del->bind_param('ii', $recordId, $batchId);
+            $del->bind_param('iii', $batchId, $recordId, $recordId);
             $del->execute();
+            $removedFromLink = $del->affected_rows > 0;
             $del->close();
         }
     } else {
@@ -717,11 +735,32 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
         if ($del) {
             $del->bind_param('ii', $recordId, $batchId);
             $del->execute();
+            $removedFromLink = $del->affected_rows > 0;
             $del->close();
         }
     }
 
+    $legacyPrimaryOnly = false;
+    if (!$removedFromLink) {
+        $chk = $conn->prepare('SELECT id FROM students WHERE id = ? AND batch_id = ? LIMIT 1');
+        if ($chk) {
+            $chk->bind_param('ii', $recordId, $batchId);
+            $chk->execute();
+            $legacyPrimaryOnly = $chk->get_result()->num_rows > 0;
+            $chk->close();
+        }
+    }
+
+    if (!$removedFromLink && !$legacyPrimaryOnly) {
+        return ['success' => false, 'message' => 'Student was not found in this batch.'];
+    }
+
     $remaining = getBatchesForStudentRecord($conn, $recordId);
+    if ($legacyPrimaryOnly) {
+        $remaining = array_values(array_filter($remaining, function ($b) use ($batchId) {
+            return (int)$b['id'] !== $batchId;
+        }));
+    }
     $nextBatchId = !empty($remaining) ? (int)$remaining[0]['id'] : null;
 
     if ($nextBatchId === null) {
@@ -769,7 +808,7 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
         $batchUpd->close();
     }
 
-    return ['success' => true, 'message' => 'Student removed from batch successfully'];
+    return ['success' => true, 'message' => 'Student removed from batch successfully.'];
 }
 
 /**
