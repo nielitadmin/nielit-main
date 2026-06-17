@@ -309,18 +309,49 @@ if (isset($_POST['add_scheme_enrollments'])) {
     exit();
 }
 
-// ─── HANDLE: Assign batch (single enrollment row) ────────────────────────────
+// ─── HANDLE: Assign batch (single or multi-scheme enrollment rows) ───────────
 if (isset($_POST['assign_batch'])) {
-    $student_record_id = (int)($_POST['student_record_id'] ?? 0);
-    $batch_id          = (int)($_POST['batch_id'] ?? 0);
-    $admin_name        = $_SESSION['admin'] ?? 'Admin';
+    $admin_name   = $_SESSION['admin'] ?? 'Admin';
+    $assignments  = $_POST['batch_assignments'] ?? [];
+    if (!is_array($assignments)) {
+        $assignments = [];
+    }
 
-    if ($student_record_id > 0 && $batch_id > 0) {
-        $result = assignEnrollmentToBatch($conn, $student_record_id, $batch_id, $admin_name);
-        $_SESSION['message'] = $result['message'];
-        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    if (empty($assignments)) {
+        $legacy_record = (int)($_POST['student_record_id'] ?? 0);
+        $legacy_batch  = (int)($_POST['batch_id'] ?? 0);
+        if ($legacy_record > 0 && $legacy_batch > 0) {
+            $assignments[$legacy_record] = $legacy_batch;
+        }
+    }
+
+    $success_count = 0;
+    $error_messages = [];
+    foreach ($assignments as $record_id => $batch_id) {
+        $record_id = (int)$record_id;
+        $batch_id  = (int)$batch_id;
+        if ($record_id <= 0 || $batch_id <= 0) {
+            continue;
+        }
+        $result = assignEnrollmentToBatch($conn, $record_id, $batch_id, $admin_name);
+        if ($result['success']) {
+            $success_count++;
+        } else {
+            $error_messages[] = $result['message'];
+        }
+    }
+
+    if ($success_count > 0) {
+        $_SESSION['message'] = $success_count . ' batch assignment(s) saved successfully.';
+        if (!empty($error_messages)) {
+            $_SESSION['message'] .= ' ' . $error_messages[0];
+        }
+        $_SESSION['message_type'] = !empty($error_messages) ? 'warning' : 'success';
+    } elseif (!empty($error_messages)) {
+        $_SESSION['message'] = $error_messages[0];
+        $_SESSION['message_type'] = 'danger';
     } else {
-        $_SESSION['message'] = 'Please select a batch.';
+        $_SESSION['message'] = 'Please select at least one batch.';
         $_SESSION['message_type'] = 'warning';
     }
 
@@ -491,8 +522,13 @@ function loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_c
                          WHERE LOWER(TRIM(b.status)) = 'active'
                          ORDER BY b.batch_name");
 }
-$batches_result  = loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_column);
-$batches_result2 = loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_column);
+$active_batches = [];
+$batches_load   = loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_column);
+if ($batches_load) {
+    while ($batch_row = $batches_load->fetch_assoc()) {
+        $active_batches[] = $batch_row;
+    }
+}
 
 // ─── FILTERS ──────────────────────────────────────────────────────────────────
 $selected_course  = $_GET['filter_course']  ?? 'All';
@@ -527,7 +563,13 @@ $bind_values = [];
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query      .= " AND s.course_id IN ($ph) AND s.batch_id IS NULL AND s.status != 'rejected'";
+        $query      .= " AND s.course_id IN ($ph) AND s.status != 'rejected'
+            AND (s.batch_id IS NULL OR s.batch_id = 0)
+            AND NOT EXISTS (
+                SELECT 1 FROM batch_students bs
+                WHERE bs.student_record_id = s.id
+                   OR (bs.student_record_id IS NULL AND bs.student_id = s.id)
+            )";
         $bind_types  .= str_repeat('i', count($admin_course_ids));
         $bind_values  = array_merge($bind_values, $admin_course_ids);
     } else {
@@ -594,8 +636,13 @@ if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_map('intval', $admin_course_ids)); // safe int list
         $stats_where_parts[] = "course_id IN ($ph)";
-        $stats_where_parts[] = "batch_id IS NULL";
+        $stats_where_parts[] = "(batch_id IS NULL OR batch_id = 0)";
         $stats_where_parts[] = "status != 'rejected'";
+        $stats_where_parts[] = "id NOT IN (
+            SELECT DISTINCT COALESCE(bs.student_record_id, bs.student_id)
+            FROM batch_students bs
+            WHERE COALESCE(bs.student_record_id, bs.student_id) IS NOT NULL
+        )";
     } else {
         $stats_where_parts[] = "1=0";
     }
@@ -1280,6 +1327,7 @@ if ($other_gender_count > 0) {
                         $sl_no = 1;
                         $course_schemes_cache = [];
                         $student_course_schemes_cache = [];
+                        $batch_assign_enrollments_cache = [];
                         $record_batches_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
@@ -1303,6 +1351,39 @@ if ($other_gender_count > 0) {
                                     );
                                 }
                                 $all_student_schemes = $student_course_schemes_cache[$schemes_cache_key] ?? [];
+
+                                $batch_assign_key = $row['student_id'] . ':' . $row_course_id;
+                                if ($row_course_id > 0 && !isset($batch_assign_enrollments_cache[$batch_assign_key])) {
+                                    $enr_stmt = $conn->prepare("SELECT s.id AS record_id, s.scheme_id, sch.scheme_name, sch.scheme_code
+                                        FROM students s
+                                        LEFT JOIN schemes sch ON sch.id = s.scheme_id
+                                        WHERE s.student_id = ? AND s.course_id = ?
+                                        AND LOWER(s.status) NOT IN ('rejected')
+                                        ORDER BY sch.scheme_name ASC, s.id ASC");
+                                    $batch_assign_rows = [];
+                                    if ($enr_stmt) {
+                                        $enr_stmt->bind_param('si', $row['student_id'], $row_course_id);
+                                        $enr_stmt->execute();
+                                        $enr_res = $enr_stmt->get_result();
+                                        while ($enr_row = $enr_res->fetch_assoc()) {
+                                            $enr_record_id = (int)$enr_row['record_id'];
+                                            $enr_batches = getBatchesForStudentRecord($conn, $enr_record_id);
+                                            $batch_assign_rows[] = [
+                                                'record_id' => $enr_record_id,
+                                                'scheme_id' => (int)($enr_row['scheme_id'] ?? 0),
+                                                'scheme_name' => !empty($enr_row['scheme_name'])
+                                                    ? $enr_row['scheme_name']
+                                                    : 'Not set',
+                                                'assigned_batch_ids' => array_map(function ($b) {
+                                                    return (int)$b['id'];
+                                                }, $enr_batches),
+                                            ];
+                                        }
+                                        $enr_stmt->close();
+                                    }
+                                    $batch_assign_enrollments_cache[$batch_assign_key] = $batch_assign_rows;
+                                }
+                                $batch_assign_enrollments = $batch_assign_enrollments_cache[$batch_assign_key] ?? [];
 
                                 $record_id = (int)$row['id'];
                                 if (!isset($record_batches_cache[$record_id])) {
@@ -1452,7 +1533,8 @@ if ($other_gender_count > 0) {
                                                 data-course="<?php echo $course_display; ?>"
                                                 data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                                 data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>"
-                                                data-assigned-batch-ids="<?php echo htmlspecialchars(implode(',', $assigned_batch_ids)); ?>">
+                                                data-assigned-batch-ids="<?php echo htmlspecialchars(implode(',', $assigned_batch_ids)); ?>"
+                                                data-enrollments="<?php echo htmlspecialchars(json_encode($batch_assign_enrollments), ENT_QUOTES, 'UTF-8'); ?>">
                                             <i class="fas fa-plus-circle"></i> <?php echo !empty($row_batches) ? 'Add Batch' : 'Assign Batch'; ?>
                                         </button>
                                     <?php endif; ?>
@@ -1514,30 +1596,18 @@ if ($other_gender_count > 0) {
         <div class="batch-info">
             <p><strong>Student:</strong> <span id="modal-student-name"></span></p>
             <p><strong>Course:</strong> <span id="modal-course"></span></p>
+            <p id="batch-modal-multi-hint" style="display:none;font-size:12px;color:#64748b;margin-top:8px;">
+                <i class="fas fa-info-circle"></i> This student has multiple scheme enrollments. Pick a batch for each scheme below.
+            </p>
         </div>
-        <form method="POST" action="students.php">
-            <input type="hidden" name="student_record_id" id="modal-student-record-id">
+        <form method="POST" action="students.php" id="batch-assign-form">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
-            <div class="form-group">
-                <label class="form-label">Select Batch</label>
-                <select name="batch_id" id="modal-batch-select" class="form-control" required>
-                    <option value="">-- Select a Batch --</option>
-                    <?php if ($batches_result && $batches_result->num_rows > 0): ?>
-                        <?php while ($batch = $batches_result->fetch_assoc()): ?>
-                        <option value="<?php echo $batch['id']; ?>"
-                                data-course-id="<?php echo (int)$batch['course_id']; ?>"
-                                data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
-                                data-scheme-id="<?php echo (int)($batch['scheme_id'] ?? 0); ?>">
-                            <?php echo htmlspecialchars($batch['batch_name']); ?>
-                            (<?php echo htmlspecialchars($batch['batch_code']); ?>)
-                            <?php if (!empty($batch['scheme_name'])): ?> — <?php echo htmlspecialchars($batch['scheme_name']); ?><?php endif; ?>
-                        </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
-                </select>
-            </div>
+            <div id="batch-modal-enrollments"></div>
+            <p id="batch-modal-empty" style="display:none;color:#b45309;font-size:13px;margin-top:8px;">
+                <i class="fas fa-exclamation-triangle"></i> No matching batches available for the selected scheme(s).
+            </p>
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button type="submit" name="assign_batch" class="btn btn-primary" style="flex:1;">
                     <i class="fas fa-check"></i> Assign to Batch
@@ -1682,8 +1752,7 @@ if ($other_gender_count > 0) {
                 <label class="form-label">Select Batch</label>
                 <select name="batch_id" id="bulk-modal-batch-select" class="form-control" required>
                     <option value="">-- Select a Batch --</option>
-                    <?php if ($batches_result2 && $batches_result2->num_rows > 0): ?>
-                        <?php while ($batch = $batches_result2->fetch_assoc()): ?>
+                    <?php foreach ($active_batches as $batch): ?>
                         <option value="<?php echo $batch['id']; ?>"
                                 data-course-id="<?php echo (int)$batch['course_id']; ?>"
                                 data-course="<?php echo htmlspecialchars($batch['course_name']); ?>"
@@ -1693,8 +1762,7 @@ if ($other_gender_count > 0) {
                             <?php echo htmlspecialchars($batch['course_name']); ?>
                             <?php if (!empty($batch['scheme_name'])): ?> — <?php echo htmlspecialchars($batch['scheme_name']); ?><?php endif; ?>
                         </option>
-                        <?php endwhile; ?>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </select>
                 <small style="color:#64748b;margin-top:5px;display:block;">
                     <i class="fas fa-lightbulb"></i> Batches are filtered by selected students' courses
@@ -1830,7 +1898,22 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
-// ── Batch modal (single) ──────────────────────────────────────────────────────
+// ── Batch modal (single + multi-scheme) ───────────────────────────────────────
+const ALL_BATCHES = <?php
+    $batch_js = array_map(function ($b) {
+        return [
+            'id'          => (int)$b['id'],
+            'batch_name'  => $b['batch_name'] ?? '',
+            'batch_code'  => $b['batch_code'] ?? '',
+            'course_id'   => (int)($b['course_id'] ?? 0),
+            'course_name' => $b['course_name'] ?? '',
+            'scheme_id'   => (int)($b['scheme_id'] ?? 0),
+            'scheme_name' => $b['scheme_name'] ?? '',
+        ];
+    }, $active_batches);
+    echo json_encode($batch_js, JSON_UNESCAPED_UNICODE);
+?>;
+
 function schemeMatchesBatch(studentSchemeId, batchSchemeId) {
     const s = parseInt(studentSchemeId, 10) || 0;
     const b = parseInt(batchSchemeId, 10) || 0;
@@ -1850,30 +1933,107 @@ function courseMatchesBatch(studentCourseId, batchCourseId, studentCourseName, b
     return norm !== '' && optCourse === norm;
 }
 
-function openBatchModal(studentRecordId, studentName, course, studentSchemeId, courseId, assignedBatchIds) {
-    document.getElementById('modal-student-record-id').value = studentRecordId;
+function batchOptionLabel(batch) {
+    let label = batch.batch_name + ' (' + batch.batch_code + ')';
+    if (batch.scheme_name) {
+        label += ' — ' + batch.scheme_name;
+    }
+    return label;
+}
+
+function getEligibleBatchesForEnrollment(enrollment, courseId, courseName) {
+    const assigned = new Set((enrollment.assigned_batch_ids || []).map(String));
+    return ALL_BATCHES.filter(batch => {
+        return courseMatchesBatch(courseId, batch.course_id, courseName, batch.course_name)
+            && schemeMatchesBatch(enrollment.scheme_id || 0, batch.scheme_id)
+            && !assigned.has(String(batch.id));
+    });
+}
+
+function openBatchModal(studentRecordId, studentName, course, studentSchemeId, courseId, assignedBatchIds, enrollmentsJson) {
     document.getElementById('modal-student-name').textContent = studentName;
     document.getElementById('modal-course').textContent       = course;
 
-    const assigned = new Set(
-        String(assignedBatchIds || '')
-            .split(',')
-            .map(id => id.trim())
-            .filter(Boolean)
-    );
+    let enrollments = [];
+    try {
+        enrollments = JSON.parse(enrollmentsJson || '[]');
+    } catch (e) {
+        enrollments = [];
+    }
 
-    const select  = document.getElementById('modal-batch-select');
+    if (!enrollments.length) {
+        enrollments = [{
+            record_id: parseInt(studentRecordId, 10) || 0,
+            scheme_id: parseInt(studentSchemeId, 10) || 0,
+            scheme_name: 'This enrollment',
+            assigned_batch_ids: String(assignedBatchIds || '')
+                .split(',')
+                .map(id => parseInt(id, 10))
+                .filter(id => id > 0),
+        }];
+    }
 
-    select.querySelectorAll('option').forEach(opt => {
-        if (!opt.value) { opt.style.display = ''; return; }
-        const optCourseId = parseInt(opt.dataset.courseId, 10) || 0;
-        const ok = courseMatchesBatch(courseId, optCourseId, course, opt.dataset.course)
-            && schemeMatchesBatch(studentSchemeId, opt.dataset.schemeId)
-            && !assigned.has(String(opt.value));
-        opt.style.display = ok ? '' : 'none';
+    const multi = enrollments.length > 1;
+    document.getElementById('batch-modal-multi-hint').style.display = multi ? 'block' : 'none';
+
+    const container = document.getElementById('batch-modal-enrollments');
+    container.innerHTML = '';
+    let totalOptions = 0;
+
+    enrollments.forEach(enrollment => {
+        const eligible = getEligibleBatchesForEnrollment(enrollment, courseId, course);
+        totalOptions += eligible.length;
+
+        const block = document.createElement('div');
+        block.className = 'form-group';
+        block.style.marginBottom = '14px';
+
+        const label = document.createElement('label');
+        label.className = 'form-label';
+        const hasBatch = (enrollment.assigned_batch_ids || []).length > 0;
+        label.textContent = enrollment.scheme_name
+            + (hasBatch ? ' (add another batch)' : '');
+
+        const select = document.createElement('select');
+        select.name = 'batch_assignments[' + enrollment.record_id + ']';
+        select.className = 'form-control batch-enrollment-select';
+        if (enrollment.record_id === parseInt(studentRecordId, 10)) {
+            select.dataset.focus = '1';
+        }
+
+        const empty = document.createElement('option');
+        empty.value = '';
+        empty.textContent = '-- Select a Batch --';
+        select.appendChild(empty);
+
+        eligible.forEach(batch => {
+            const opt = document.createElement('option');
+            opt.value = batch.id;
+            opt.textContent = batchOptionLabel(batch);
+            select.appendChild(opt);
+        });
+
+        if (!eligible.length) {
+            const none = document.createElement('option');
+            none.value = '';
+            none.textContent = 'No batches available for this scheme';
+            none.disabled = true;
+            select.appendChild(none);
+        }
+
+        block.appendChild(label);
+        block.appendChild(select);
+        container.appendChild(block);
     });
 
-    select.value = '';
+    document.getElementById('batch-modal-empty').style.display = totalOptions === 0 ? 'block' : 'none';
+
+    const focusSelect = container.querySelector('select[data-focus="1"]')
+        || container.querySelector('select');
+    if (focusSelect) {
+        focusSelect.focus();
+    }
+
     document.getElementById('batchModal').style.display = 'block';
 }
 function closeBatchModal() {
@@ -2019,7 +2179,6 @@ function openBulkBatchModal() {
     container.innerHTML = '';
     const courses = new Set();
     const courseIds = new Set();
-    const schemes = new Set();
 
     checked.forEach(cb => {
         const inp = document.createElement('input');
@@ -2029,7 +2188,6 @@ function openBulkBatchModal() {
         if (c) courses.add(c);
         const cid = parseInt(cb.dataset.courseId, 10) || 0;
         if (cid > 0) courseIds.add(cid);
-        schemes.add(String(cb.dataset.schemeId || '0'));
     });
 
     document.getElementById('bulk-modal-batch-select').querySelectorAll('option').forEach(opt => {
@@ -2039,8 +2197,10 @@ function openBulkBatchModal() {
         const courseOk = (batchCourseId > 0 && courseIds.has(batchCourseId))
             || (courseIds.size === 0 && courses.has(oc));
         let schemeOk = true;
-        schemes.forEach(sid => {
-            if (!schemeMatchesBatch(sid, opt.dataset.schemeId)) schemeOk = false;
+        checked.forEach(cb => {
+            if (!schemeMatchesBatch(cb.dataset.schemeId || '0', opt.dataset.schemeId)) {
+                schemeOk = false;
+            }
         });
         opt.style.display = (courseOk && schemeOk) ? '' : 'none';
     });
@@ -2085,7 +2245,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 this.dataset.course,
                 this.dataset.schemeId || '0',
                 this.dataset.courseId || '0',
-                this.dataset.assignedBatchIds || ''
+                this.dataset.assignedBatchIds || '',
+                this.dataset.enrollments || '[]'
             );
         });
     });
