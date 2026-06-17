@@ -50,9 +50,15 @@
     </footer>
 
     <!-- Scripts -->
+    <?php
+    $studentPortalJsPath = __DIR__ . '/../../assets/js/student-portal.js';
+    $studentToastJsPath = __DIR__ . '/../../assets/js/toast-notifications.js';
+    $studentPortalJsVer = is_file($studentPortalJsPath) ? filemtime($studentPortalJsPath) : time();
+    $studentToastJsVer = is_file($studentToastJsPath) ? filemtime($studentToastJsPath) : time();
+    ?>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="../assets/js/toast-notifications.js"></script>
-    <script src="../assets/js/student-portal.js"></script>
+    <script src="../assets/js/toast-notifications.js?v=<?php echo $studentToastJsVer; ?>"></script>
+    <script src="../assets/js/student-portal.js?v=<?php echo $studentPortalJsVer; ?>"></script>
 </body>
 </html>

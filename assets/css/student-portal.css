@@ -413,13 +413,7 @@ h1, h2, h3, h4, h5, h6 {
 
 @media (prefers-reduced-motion: reduce) {
     .announcement-ticker-track {
-        animation: none;
-    }
-
-    .announcement-ticker-viewport {
-        height: auto;
-        max-height: 420px;
-        overflow-y: auto;
+        animation-duration: 60s;
     }
 }
 

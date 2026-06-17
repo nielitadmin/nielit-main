@@ -15,8 +15,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <!-- Custom CSS -->
-    <link href="../assets/css/student-portal.css" rel="stylesheet">
-    <link href="../assets/css/toast-notifications.css" rel="stylesheet">
+    <?php
+    $studentPortalCssPath = __DIR__ . '/../../assets/css/student-portal.css';
+    $studentToastCssPath = __DIR__ . '/../../assets/css/toast-notifications.css';
+    $studentPortalCssVer = is_file($studentPortalCssPath) ? filemtime($studentPortalCssPath) : time();
+    $studentToastCssVer = is_file($studentToastCssPath) ? filemtime($studentToastCssPath) : time();
+    ?>
+    <link href="../assets/css/student-portal.css?v=<?php echo $studentPortalCssVer; ?>" rel="stylesheet">
+    <link href="../assets/css/toast-notifications.css?v=<?php echo $studentToastCssVer; ?>" rel="stylesheet">
 </head>
 <body>
     <!-- Top Header -->

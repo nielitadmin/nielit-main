@@ -352,30 +352,28 @@ include 'includes/header.php';
                         <div class="announcement-ticker" aria-live="polite">
                             <div class="announcement-ticker-viewport">
                                 <div class="announcement-ticker-track" style="--ticker-duration: <?php echo max(24, count($announcements_list) * 10); ?>s;">
-                                    <?php for ($copy = 0; $copy < 2; $copy++): ?>
-                                        <?php foreach ($announcements_list as $announcement):
-                                            $type = $announcement['type'] ?? 'info';
-                                            $tickerClass = $announcement_alert_class[$type] ?? 'ticker-info';
-                                            $iconClass = $announcement_icon_class[$type] ?? 'fa-info-circle';
-                                        ?>
-                                        <article class="announcement-ticker-item <?php echo $tickerClass; ?>">
-                                            <div class="announcement-ticker-icon">
-                                                <i class="fas <?php echo $iconClass; ?>"></i>
-                                            </div>
-                                            <div class="announcement-ticker-content">
-                                                <h6><?php echo htmlspecialchars($announcement['title']); ?></h6>
-                                                <p><?php echo nl2br(htmlspecialchars($announcement['message'])); ?></p>
-                                                <small>
-                                                    <i class="fas fa-clock"></i>
-                                                    <?php echo date('M d, Y - h:i A', strtotime($announcement['created_at'])); ?>
-                                                    <?php if (($announcement['target_audience'] ?? '') === 'specific_course' && !empty($announcement['course_code'])): ?>
-                                                        | <i class="fas fa-tag"></i> <?php echo htmlspecialchars($announcement['course_code']); ?>
-                                                    <?php endif; ?>
-                                                </small>
-                                            </div>
-                                        </article>
-                                        <?php endforeach; ?>
-                                    <?php endfor; ?>
+                                    <?php foreach ($announcements_list as $announcement):
+                                        $type = $announcement['type'] ?? 'info';
+                                        $tickerClass = $announcement_alert_class[$type] ?? 'ticker-info';
+                                        $iconClass = $announcement_icon_class[$type] ?? 'fa-info-circle';
+                                    ?>
+                                    <article class="announcement-ticker-item <?php echo $tickerClass; ?>">
+                                        <div class="announcement-ticker-icon">
+                                            <i class="fas <?php echo $iconClass; ?>"></i>
+                                        </div>
+                                        <div class="announcement-ticker-content">
+                                            <h6><?php echo htmlspecialchars($announcement['title']); ?></h6>
+                                            <p><?php echo nl2br(htmlspecialchars($announcement['message'])); ?></p>
+                                            <small>
+                                                <i class="fas fa-clock"></i>
+                                                <?php echo date('M d, Y - h:i A', strtotime($announcement['created_at'])); ?>
+                                                <?php if (($announcement['target_audience'] ?? '') === 'specific_course' && !empty($announcement['course_code'])): ?>
+                                                    | <i class="fas fa-tag"></i> <?php echo htmlspecialchars($announcement['course_code']); ?>
+                                                <?php endif; ?>
+                                            </small>
+                                        </div>
+                                    </article>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
                         </div>
@@ -461,5 +459,52 @@ include 'includes/header.php';
         </div>
     </div>
 </div>
+
+<style>
+/* Inline fallback so announcement ticker works even if cached CSS is old */
+.announcement-ticker-viewport {
+    position: relative;
+    height: 320px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+.announcement-ticker-track {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+}
+.announcement-ticker-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #0ea5e9;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+.announcement-ticker-item.ticker-success { border-left-color: #22c55e; }
+.announcement-ticker-item.ticker-warning { border-left-color: #f59e0b; }
+.announcement-ticker-item.ticker-danger { border-left-color: #ef4444; }
+.announcement-ticker-content h6 {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+.announcement-ticker-content p {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.5;
+}
+.announcement-ticker-content small {
+    color: #64748b;
+    font-size: 0.78rem;
+}
+</style>
 
 <?php include 'includes/footer.php'; ?>

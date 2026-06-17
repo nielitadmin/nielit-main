@@ -26,6 +26,60 @@ setTimeout(() => {
     });
 }, 5000);
 
+function initAnnouncementTickers() {
+    document.querySelectorAll('.announcement-ticker').forEach((ticker) => {
+        const viewport = ticker.querySelector('.announcement-ticker-viewport');
+        const track = ticker.querySelector('.announcement-ticker-track');
+        if (!viewport || !track || track.dataset.tickerReady === '1') {
+            return;
+        }
+
+        track.dataset.tickerReady = '1';
+
+        if (!track.dataset.loopReady) {
+            Array.from(track.children).forEach((item) => {
+                track.appendChild(item.cloneNode(true));
+            });
+            track.dataset.loopReady = '1';
+        }
+
+        track.style.animation = 'none';
+        track.style.willChange = 'transform';
+
+        let offset = 0;
+        let paused = false;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const speed = reduceMotion ? 0.2 : 0.45;
+
+        viewport.addEventListener('mouseenter', () => {
+            paused = true;
+        });
+        viewport.addEventListener('mouseleave', () => {
+            paused = false;
+        });
+
+        function step() {
+            const loopHeight = track.scrollHeight / 2;
+            if (loopHeight > 0 && !paused) {
+                offset += speed;
+                if (offset >= loopHeight) {
+                    offset = 0;
+                }
+                track.style.transform = 'translate3d(0,' + (-offset) + 'px,0)';
+            }
+            requestAnimationFrame(step);
+        }
+
+        requestAnimationFrame(step);
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAnnouncementTickers);
+} else {
+    initAnnouncementTickers();
+}
+
 // Confirm before logout
 document.querySelectorAll('a[href*="logout"]').forEach(link => {
     link.addEventListener('click', function(e) {
