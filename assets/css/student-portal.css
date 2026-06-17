@@ -283,6 +283,146 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 14px;
 }
 
+/* Vertical announcement ticker (dashboard) */
+.announcement-ticker-card {
+    padding-bottom: 0.75rem;
+}
+
+.announcement-ticker-viewport {
+    position: relative;
+    height: 320px;
+    overflow: hidden;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.announcement-ticker-viewport::before,
+.announcement-ticker-viewport::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 28px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.announcement-ticker-viewport::before {
+    top: 0;
+    background: linear-gradient(to bottom, #f8fafc 0%, rgba(248, 250, 252, 0) 100%);
+}
+
+.announcement-ticker-viewport::after {
+    bottom: 0;
+    background: linear-gradient(to top, #f8fafc 0%, rgba(248, 250, 252, 0) 100%);
+}
+
+.announcement-ticker-track {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+    animation: announcement-scroll-up var(--ticker-duration, 30s) linear infinite;
+}
+
+.announcement-ticker-viewport:hover .announcement-ticker-track {
+    animation-play-state: paused;
+}
+
+@keyframes announcement-scroll-up {
+    0% {
+        transform: translateY(0);
+    }
+    100% {
+        transform: translateY(-50%);
+    }
+}
+
+.announcement-ticker-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-left-width: 4px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+
+.announcement-ticker-item.ticker-info {
+    border-left-color: #0ea5e9;
+}
+
+.announcement-ticker-item.ticker-success {
+    border-left-color: #22c55e;
+}
+
+.announcement-ticker-item.ticker-warning {
+    border-left-color: #f59e0b;
+}
+
+.announcement-ticker-item.ticker-danger {
+    border-left-color: #ef4444;
+}
+
+.announcement-ticker-icon {
+    flex: 0 0 28px;
+    font-size: 1.25rem;
+    line-height: 1.4;
+}
+
+.ticker-info .announcement-ticker-icon {
+    color: #0284c7;
+}
+
+.ticker-success .announcement-ticker-icon {
+    color: #16a34a;
+}
+
+.ticker-warning .announcement-ticker-icon {
+    color: #d97706;
+}
+
+.ticker-danger .announcement-ticker-icon {
+    color: #dc2626;
+}
+
+.announcement-ticker-content h6 {
+    margin: 0 0 6px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.announcement-ticker-content p {
+    margin: 0 0 8px;
+    font-size: 0.875rem;
+    color: #475569;
+    line-height: 1.5;
+}
+
+.announcement-ticker-content small {
+    color: #64748b;
+    font-size: 0.78rem;
+}
+
+.announcement-ticker-hint {
+    text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .announcement-ticker-track {
+        animation: none;
+    }
+
+    .announcement-ticker-viewport {
+        height: auto;
+        max-height: 420px;
+        overflow-y: auto;
+    }
+}
+
 /* Profile Photo */
 .profile-photo {
     width: 120px;

@@ -14,10 +14,12 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     });
 });
 
-// Auto-hide alerts after 5 seconds
+// Auto-hide temporary flash alerts after 5 seconds
 setTimeout(() => {
-    const alerts = document.querySelectorAll('.alert:not(.alert-permanent)');
-    alerts.forEach(alert => {
+    document.querySelectorAll('.alert:not(.alert-permanent)').forEach(alert => {
+        if (alert.closest('.announcement-ticker')) {
+            return;
+        }
         alert.style.transition = 'opacity 0.5s';
         alert.style.opacity = '0';
         setTimeout(() => alert.remove(), 500);

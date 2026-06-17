@@ -75,18 +75,53 @@ if (!$student) {
     exit;
 }
 
-// Fetch announcements for this student
-$announcements_sql = "SELECT * FROM announcements 
-                      WHERE is_active = 1 
-                      AND (target_audience = 'all' 
-                           OR target_audience = 'students' 
-                           OR (target_audience = 'specific_course' AND course_code = ?))
-                      ORDER BY created_at DESC 
-                      LIMIT 5";
+// Fetch announcements for this student (all + students + any enrolled course)
+$announcements_list = [];
+$course_codes = array_values(array_unique(array_filter(array_merge(
+    [$student['course'] ?? ''],
+    array_map(function ($enr) {
+        return $enr['course_code'] ?? ($enr['course'] ?? '');
+    }, $enrollments)
+))));
+
+$announcements_sql = "SELECT * FROM announcements
+                      WHERE is_active = 1
+                      AND (
+                          target_audience IN ('all', 'students')";
+if (!empty($course_codes)) {
+    $placeholders = implode(',', array_fill(0, count($course_codes), '?'));
+    $announcements_sql .= " OR (target_audience = 'specific_course' AND course_code IN ($placeholders))";
+}
+$announcements_sql .= ")
+                      ORDER BY created_at DESC
+                      LIMIT 10";
+
 $stmt_announcements = $conn->prepare($announcements_sql);
-$stmt_announcements->bind_param("s", $student['course']);
-$stmt_announcements->execute();
-$announcements_result = $stmt_announcements->get_result();
+if ($stmt_announcements) {
+    if (!empty($course_codes)) {
+        $types = str_repeat('s', count($course_codes));
+        $stmt_announcements->bind_param($types, ...$course_codes);
+    }
+    $stmt_announcements->execute();
+    $announcements_result = $stmt_announcements->get_result();
+    while ($row = $announcements_result->fetch_assoc()) {
+        $announcements_list[] = $row;
+    }
+    $stmt_announcements->close();
+}
+
+$announcement_alert_class = [
+    'info' => 'ticker-info',
+    'success' => 'ticker-success',
+    'warning' => 'ticker-warning',
+    'danger' => 'ticker-danger',
+];
+$announcement_icon_class = [
+    'info' => 'fa-info-circle',
+    'success' => 'fa-check-circle',
+    'warning' => 'fa-exclamation-triangle',
+    'danger' => 'fa-exclamation-circle',
+];
 
 // Get course progress (if you have a progress table)
 $progress = 0; // Default
@@ -306,42 +341,47 @@ include 'includes/header.php';
 
             <!-- Recent Announcements -->
             <div class="card">
-                <div class="card-header">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0"><i class="fas fa-bullhorn"></i> Announcements</h5>
+                    <?php if (!empty($announcements_list)): ?>
+                    <span class="badge bg-primary"><?php echo count($announcements_list); ?></span>
+                    <?php endif; ?>
                 </div>
-                <div class="card-body">
-                    <?php if ($announcements_result && $announcements_result->num_rows > 0): ?>
-                        <?php while ($announcement = $announcements_result->fetch_assoc()): 
-                            $alert_class = [
-                                'info' => 'alert-info',
-                                'success' => 'alert-success',
-                                'warning' => 'alert-warning',
-                                'danger' => 'alert-danger'
-                            ];
-                            $icon_class = [
-                                'info' => 'fa-info-circle',
-                                'success' => 'fa-check-circle',
-                                'warning' => 'fa-exclamation-triangle',
-                                'danger' => 'fa-exclamation-circle'
-                            ];
-                        ?>
-                        <div class="alert <?php echo $alert_class[$announcement['type']]; ?> alert-dismissible fade show" role="alert">
-                            <h6 class="alert-heading">
-                                <i class="fas <?php echo $icon_class[$announcement['type']]; ?>"></i>
-                                <?php echo htmlspecialchars($announcement['title']); ?>
-                            </h6>
-                            <p class="mb-2"><?php echo nl2br(htmlspecialchars($announcement['message'])); ?></p>
-                            <hr>
-                            <small class="text-muted">
-                                <i class="fas fa-clock"></i> 
-                                <?php echo date('M d, Y - h:i A', strtotime($announcement['created_at'])); ?>
-                                <?php if ($announcement['target_audience'] == 'specific_course'): ?>
-                                    | <i class="fas fa-tag"></i> <?php echo $announcement['course_code']; ?>
-                                <?php endif; ?>
-                            </small>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <div class="card-body announcement-ticker-card">
+                    <?php if (!empty($announcements_list)): ?>
+                        <div class="announcement-ticker" aria-live="polite">
+                            <div class="announcement-ticker-viewport">
+                                <div class="announcement-ticker-track" style="--ticker-duration: <?php echo max(24, count($announcements_list) * 10); ?>s;">
+                                    <?php for ($copy = 0; $copy < 2; $copy++): ?>
+                                        <?php foreach ($announcements_list as $announcement):
+                                            $type = $announcement['type'] ?? 'info';
+                                            $tickerClass = $announcement_alert_class[$type] ?? 'ticker-info';
+                                            $iconClass = $announcement_icon_class[$type] ?? 'fa-info-circle';
+                                        ?>
+                                        <article class="announcement-ticker-item <?php echo $tickerClass; ?>">
+                                            <div class="announcement-ticker-icon">
+                                                <i class="fas <?php echo $iconClass; ?>"></i>
+                                            </div>
+                                            <div class="announcement-ticker-content">
+                                                <h6><?php echo htmlspecialchars($announcement['title']); ?></h6>
+                                                <p><?php echo nl2br(htmlspecialchars($announcement['message'])); ?></p>
+                                                <small>
+                                                    <i class="fas fa-clock"></i>
+                                                    <?php echo date('M d, Y - h:i A', strtotime($announcement['created_at'])); ?>
+                                                    <?php if (($announcement['target_audience'] ?? '') === 'specific_course' && !empty($announcement['course_code'])): ?>
+                                                        | <i class="fas fa-tag"></i> <?php echo htmlspecialchars($announcement['course_code']); ?>
+                                                    <?php endif; ?>
+                                                </small>
+                                            </div>
+                                        </article>
+                                        <?php endforeach; ?>
+                                    <?php endfor; ?>
+                                </div>
+                            </div>
                         </div>
-                        <?php endwhile; ?>
+                        <p class="announcement-ticker-hint text-muted small mb-0 mt-2">
+                            <i class="fas fa-arrows-alt-v"></i> Announcements scroll automatically. Hover to pause.
+                        </p>
                     <?php else: ?>
                         <div class="text-center py-4">
                             <i class="fas fa-bullhorn fa-3x text-muted mb-3"></i>
