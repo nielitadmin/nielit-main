@@ -469,7 +469,7 @@ if ($is_course_coordinator) {
         $types = str_repeat('i', count($admin_course_ids));
 
         $total_students_count  = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE course_id IN ($ph) AND batch_id IS NULL AND status != 'rejected'",
+            "SELECT COUNT(*) FROM students WHERE course_id IN ($ph) AND status != 'rejected'",
             $types, $admin_course_ids);
 
         $pending_students_count = runCount($conn,
@@ -477,7 +477,7 @@ if ($is_course_coordinator) {
             $types, $admin_course_ids);
 
         $active_students_count  = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE status='active' AND batch_id IS NULL AND course_id IN ($ph)",
+            "SELECT COUNT(*) FROM students WHERE status='active' AND course_id IN ($ph)",
             $types, $admin_course_ids);
     } else {
         $total_students_count = $pending_students_count = $active_students_count = 0;
@@ -563,13 +563,7 @@ $bind_values = [];
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query      .= " AND s.course_id IN ($ph) AND s.status != 'rejected'
-            AND (s.batch_id IS NULL OR s.batch_id = 0)
-            AND NOT EXISTS (
-                SELECT 1 FROM batch_students bs
-                WHERE bs.student_record_id = s.id
-                   OR (bs.student_record_id IS NULL AND bs.student_id = s.id)
-            )";
+        $query      .= " AND s.course_id IN ($ph) AND s.status != 'rejected'";
         $bind_types  .= str_repeat('i', count($admin_course_ids));
         $bind_values  = array_merge($bind_values, $admin_course_ids);
     } else {
@@ -636,13 +630,7 @@ if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_map('intval', $admin_course_ids)); // safe int list
         $stats_where_parts[] = "course_id IN ($ph)";
-        $stats_where_parts[] = "(batch_id IS NULL OR batch_id = 0)";
         $stats_where_parts[] = "status != 'rejected'";
-        $stats_where_parts[] = "id NOT IN (
-            SELECT DISTINCT COALESCE(bs.student_record_id, bs.student_id)
-            FROM batch_students bs
-            WHERE COALESCE(bs.student_record_id, bs.student_id) IS NOT NULL
-        )";
     } else {
         $stats_where_parts[] = "1=0";
     }
@@ -1260,7 +1248,8 @@ if ($other_gender_count > 0) {
                         <div>
                             <h6 style="margin:0;color:#1565c0;font-weight:600;">Course Coordinator View</h6>
                             <p style="margin:4px 0 0 0;color:#424242;font-size:14px;">
-                                Showing students from your assigned courses who are <strong>not yet assigned to batches</strong> and <strong>not rejected</strong>.
+                                Showing students from your assigned courses (not rejected).
+                                Students can be in <strong>multiple batches</strong> — use <strong>Add Batch</strong> to assign more.
                                 <?php if ($has_created_by_column): ?>
                                     You can only assign students to <strong>batches you created</strong>.
                                 <?php else: ?>
@@ -1393,18 +1382,21 @@ if ($other_gender_count > 0) {
                                 $assigned_batch_ids = array_map(function ($b) {
                                     return (int)$b['id'];
                                 }, $row_batches);
+
+                                $fp = [];
+                                if ($selected_course !== 'All') $fp[] = 'filter_course=' . urlencode($selected_course);
+                                if ($selected_scheme !== 'All')  $fp[] = 'filter_scheme='  . urlencode($selected_scheme);
+                                if (!empty($start_date))         $fp[] = 'start_date='    . urlencode($start_date);
+                                if (!empty($end_date))           $fp[] = 'end_date='      . urlencode($end_date);
+                                $filter_suffix = !empty($fp) ? '&' . implode('&', $fp) : '';
                         ?>
                         <tr>
                             <td>
-                                <?php if (empty($row_batches)): ?>
-                                    <input type="checkbox" class="student-checkbox"
-                                           value="<?php echo (int)$row['id']; ?>"
-                                           data-course="<?php echo $course_display; ?>"
-                                           data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
-                                           data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
-                                <?php else: ?>
-                                    <span style="color:#cbd5e1;" title="Already in a batch"><i class="fas fa-check-circle"></i></span>
-                                <?php endif; ?>
+                                <input type="checkbox" class="student-checkbox"
+                                       value="<?php echo (int)$row['id']; ?>"
+                                       data-course="<?php echo $course_display; ?>"
+                                       data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
+                                       data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
                             </td>
                             <td><?php echo $sl_no++; ?></td>
                             <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
@@ -1440,9 +1432,21 @@ if ($other_gender_count > 0) {
                             <td>
                                 <?php if (!empty($row_batches)): ?>
                                     <?php foreach ($row_batches as $rb): ?>
-                                        <span class="badge badge-success" style="margin:1px 2px 1px 0;display:inline-block;"
+                                        <span class="badge badge-success" style="margin:1px 4px 4px 0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;line-height:1.3;"
                                               title="<?php echo htmlspecialchars($rb['batch_code'] ?? ''); ?>">
-                                            <i class="fas fa-layer-group"></i> <?php echo htmlspecialchars($rb['batch_name']); ?>
+                                            <i class="fas fa-layer-group"></i>
+                                            <?php echo htmlspecialchars($rb['batch_name']); ?>
+                                            <?php if (!$is_front_office && $status !== 'rejected'): ?>
+                                            <a href="javascript:void(0);"
+                                               class="remove-batch-btn"
+                                               style="color:#fff;opacity:0.85;margin-left:2px;"
+                                               title="Remove from <?php echo htmlspecialchars($rb['batch_name']); ?>"
+                                               data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                               data-batch-name="<?php echo htmlspecialchars($rb['batch_name']); ?>"
+                                               data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
+                                                <i class="fas fa-times-circle"></i>
+                                            </a>
+                                            <?php endif; ?>
                                         </span>
                                     <?php endforeach; ?>
                                 <?php else: ?>
@@ -1459,16 +1463,6 @@ if ($other_gender_count > 0) {
                             </td>
                             <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
                             <td>
-                                <?php
-                                // Build filter param suffix for action URLs
-                                $fp = [];
-                                if ($selected_course !== 'All') $fp[] = 'filter_course=' . urlencode($selected_course);
-                                if ($selected_scheme !== 'All')  $fp[] = 'filter_scheme='  . urlencode($selected_scheme);
-                                if (!empty($start_date))         $fp[] = 'start_date='    . urlencode($start_date);
-                                if (!empty($end_date))           $fp[] = 'end_date='      . urlencode($end_date);
-                                $filter_suffix = !empty($fp) ? '&' . implode('&', $fp) : '';
-                                ?>
-
                                 <?php if (!$is_front_office): ?>
                                     <?php if ($status === 'pending'): ?>
                                         <a href="javascript:void(0);"
@@ -1526,16 +1520,6 @@ if ($other_gender_count > 0) {
                                     <?php endif; ?>
 
                                     <?php if (!$is_front_office && $status !== 'rejected'): ?>
-                                        <?php foreach ($row_batches as $rb): ?>
-                                        <a href="javascript:void(0);"
-                                           class="btn btn-secondary btn-sm remove-batch-btn"
-                                           title="Remove from <?php echo htmlspecialchars($rb['batch_name']); ?>"
-                                           data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                           data-batch-name="<?php echo htmlspecialchars($rb['batch_name']); ?>"
-                                           data-url="students.php?remove_record=<?php echo (int)$row['id']; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
-                                            <i class="fas fa-unlink"></i>
-                                        </a>
-                                        <?php endforeach; ?>
                                         <button type="button"
                                                 class="btn btn-info btn-sm assign-batch-btn"
                                                 title="<?php echo !empty($row_batches) ? 'Add to another batch' : 'Assign to batch'; ?>"
@@ -1608,7 +1592,7 @@ if ($other_gender_count > 0) {
             <p><strong>Student:</strong> <span id="modal-student-name"></span></p>
             <p><strong>Course:</strong> <span id="modal-course"></span></p>
             <p id="batch-modal-multi-hint" style="display:none;font-size:12px;color:#64748b;margin-top:8px;">
-                <i class="fas fa-info-circle"></i> This student has multiple scheme enrollments. Pick a batch for each scheme below.
+                <i class="fas fa-info-circle"></i> <span id="batch-modal-multi-hint-text"></span>
             </p>
         </div>
         <form method="POST" action="students.php" id="batch-assign-form">
@@ -1985,7 +1969,18 @@ function openBatchModal(studentRecordId, studentName, course, studentSchemeId, c
     }
 
     const multi = enrollments.length > 1;
-    document.getElementById('batch-modal-multi-hint').style.display = multi ? 'block' : 'none';
+    const hasAnyBatch = enrollments.some(enr => (enr.assigned_batch_ids || []).length > 0);
+    const hintEl = document.getElementById('batch-modal-multi-hint');
+    const hintTextEl = document.getElementById('batch-modal-multi-hint-text');
+    if (multi) {
+        hintTextEl.textContent = 'This student has multiple scheme enrollments. Pick a batch for each scheme below.';
+        hintEl.style.display = 'block';
+    } else if (hasAnyBatch) {
+        hintTextEl.textContent = 'Student is already in one or more batches. Select another batch below to add them.';
+        hintEl.style.display = 'block';
+    } else {
+        hintEl.style.display = 'none';
+    }
 
     const container = document.getElementById('batch-modal-enrollments');
     container.innerHTML = '';

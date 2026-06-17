@@ -336,19 +336,19 @@ function getBatchStudents($batch_id, $conn) {
     $has_nielit_column = ($check_column && $check_column->num_rows > 0);
     
     if ($has_nielit_column) {
-        // Use batch_students table with nielit_registration_no
         $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid, 
-                bs.attendance_percentage, bs.nielit_registration_no
+                bs.attendance_percentage, bs.nielit_registration_no,
+                bs.id AS batch_student_link_id
                 FROM batch_students bs
-                INNER JOIN students s ON bs.student_id = s.id
+                INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
                 WHERE bs.batch_id = ? 
                 ORDER BY s.name ASC";
     } else {
-        // Fallback: use batch_students table without nielit_registration_no
         $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid, 
-                bs.attendance_percentage, NULL as nielit_registration_no
+                bs.attendance_percentage, NULL as nielit_registration_no,
+                bs.id AS batch_student_link_id
                 FROM batch_students bs
-                INNER JOIN students s ON bs.student_id = s.id
+                INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
                 WHERE bs.batch_id = ? 
                 ORDER BY s.name ASC";
     }
@@ -423,11 +423,10 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
             LEFT JOIN courses c ON c.id = s.course_id
             WHERE s.course_id = ?
             AND LOWER(s.status) NOT IN ('rejected')
-            AND s.batch_id IS NULL
             AND NOT EXISTS (
                 SELECT 1 FROM batch_students bs
                 WHERE bs.batch_id = ?
-                AND (bs.student_id = s.id OR bs.student_record_id = s.id)
+                AND (bs.student_record_id = s.id OR (bs.student_record_id IS NULL AND bs.student_id = s.id))
             )";
 
     if ($hasScheme && $batch_scheme_id !== null) {
@@ -702,45 +701,70 @@ function getBatchesForStudentRecord($conn, int $studentRecordId): array {
  * Remove student from batch
  */
 function removeStudentFromBatch($student_id, $batch_id, $conn) {
+    $recordId = (int)$student_id;
+    $batchId = (int)$batch_id;
+
     $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
     if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
         $del = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? AND batch_id = ?');
         if ($del) {
-            $del->bind_param('ii', $student_id, $batch_id);
+            $del->bind_param('ii', $recordId, $batchId);
             $del->execute();
             $del->close();
         }
     } else {
         $del = $conn->prepare('DELETE FROM batch_students WHERE student_id = ? AND batch_id = ?');
         if ($del) {
-            $del->bind_param('ii', $student_id, $batch_id);
+            $del->bind_param('ii', $recordId, $batchId);
             $del->execute();
             $del->close();
         }
     }
 
-    $remaining = getBatchesForStudentRecord($conn, (int)$student_id);
+    $remaining = getBatchesForStudentRecord($conn, $recordId);
     $nextBatchId = !empty($remaining) ? (int)$remaining[0]['id'] : null;
 
     if ($nextBatchId === null) {
         $reassign = $conn->prepare('UPDATE students SET batch_id = NULL WHERE id = ?');
         if ($reassign) {
-            $reassign->bind_param('i', $student_id);
+            $reassign->bind_param('i', $recordId);
             $reassign->execute();
             $reassign->close();
         }
     } else {
         $reassign = $conn->prepare('UPDATE students SET batch_id = ? WHERE id = ?');
         if ($reassign) {
-            $reassign->bind_param('ii', $nextBatchId, $student_id);
+            $reassign->bind_param('ii', $nextBatchId, $recordId);
             $reassign->execute();
             $reassign->close();
         }
     }
 
+    $helper = __DIR__ . '/../../includes/multi_course_helper.php';
+    if (file_exists($helper)) {
+        require_once $helper;
+        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
+            if ($nextBatchId === null) {
+                $enr = $conn->prepare('UPDATE student_enrollments SET batch_id = NULL WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('i', $recordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            } else {
+                $enr = $conn->prepare('UPDATE student_enrollments SET batch_id = ? WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('ii', $nextBatchId, $recordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+    }
+
     $batchUpd = $conn->prepare('UPDATE batches SET seats_filled = GREATEST(0, seats_filled - 1) WHERE id = ?');
     if ($batchUpd) {
-        $batchUpd->bind_param('i', $batch_id);
+        $batchUpd->bind_param('i', $batchId);
         $batchUpd->execute();
         $batchUpd->close();
     }
