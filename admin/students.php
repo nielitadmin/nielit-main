@@ -475,7 +475,7 @@ if ($is_course_coordinator) {
         $types = str_repeat('i', count($admin_course_ids));
 
         $total_students_count  = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE course_id IN ($ph) AND status != 'rejected'",
+            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND status != 'rejected'",
             $types, $admin_course_ids);
 
         $pending_students_count = runCount($conn,
@@ -1324,6 +1324,8 @@ if ($other_gender_count > 0) {
                         $student_course_schemes_cache = [];
                         $batch_assign_enrollments_cache = [];
                         $student_course_batches_cache = [];
+                        $displayed_student_course = [];
+                        $student_course_meta_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
@@ -1348,6 +1350,26 @@ if ($other_gender_count > 0) {
                                 $all_student_schemes = $student_course_schemes_cache[$schemes_cache_key] ?? [];
 
                                 $batch_assign_key = $row['student_id'] . ':' . $row_course_id;
+                                if ($row_course_id > 0 && !isset($student_course_meta_cache[$batch_assign_key])) {
+                                    $meta_stmt = $conn->prepare("SELECT MIN(id) AS primary_id,
+                                        MIN(created_at) AS first_registered,
+                                        SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                                        SUM(CASE WHEN LOWER(status) = 'rejected' THEN 1 ELSE 0 END) AS rejected_count
+                                        FROM students
+                                        WHERE student_id = ? AND course_id = ?
+                                        AND LOWER(status) NOT IN ('rejected')");
+                                    if ($meta_stmt) {
+                                        $meta_stmt->bind_param('si', $row['student_id'], $row_course_id);
+                                        $meta_stmt->execute();
+                                        $meta_row = $meta_stmt->get_result()->fetch_assoc();
+                                        $meta_stmt->close();
+                                        $student_course_meta_cache[$batch_assign_key] = [
+                                            'primary_id' => (int)($meta_row['primary_id'] ?? 0),
+                                            'first_registered' => $meta_row['first_registered'] ?? $row['created_at'],
+                                            'has_pending' => ((int)($meta_row['pending_count'] ?? 0) > 0),
+                                        ];
+                                    }
+                                }
                                 if ($row_course_id > 0 && !isset($batch_assign_enrollments_cache[$batch_assign_key])) {
                                     $enr_stmt = $conn->prepare("SELECT s.id AS record_id, s.scheme_id, sch.scheme_name, sch.scheme_code
                                         FROM students s
@@ -1401,11 +1423,37 @@ if ($other_gender_count > 0) {
                                 if (!empty($start_date))         $fp[] = 'start_date='    . urlencode($start_date);
                                 if (!empty($end_date))           $fp[] = 'end_date='      . urlencode($end_date);
                                 $filter_suffix = !empty($fp) ? '&' . implode('&', $fp) : '';
+
+                                $student_course_group_key = $row_course_id > 0
+                                    ? ($row['student_id'] . ':' . $row_course_id)
+                                    : '';
+                                if ($student_course_group_key !== '' && isset($displayed_student_course[$student_course_group_key])) {
+                                    continue;
+                                }
+                                if ($student_course_group_key !== '') {
+                                    $displayed_student_course[$student_course_group_key] = true;
+                                }
+
+                                $course_meta = $student_course_meta_cache[$batch_assign_key] ?? [];
+                                $primary_record_id = (int)($course_meta['primary_id'] ?? $record_id);
+                                if ($primary_record_id <= 0) {
+                                    $primary_record_id = $record_id;
+                                }
+                                if (!empty($batch_assign_enrollments)) {
+                                    $primary_record_id = min(array_column($batch_assign_enrollments, 'record_id'));
+                                }
+
+                                if (!empty($course_meta['has_pending'])) {
+                                    $status = 'pending';
+                                    $badge_cls = 'badge-warning';
+                                }
+
+                                $display_created_at = $course_meta['first_registered'] ?? $row['created_at'];
                         ?>
                         <tr>
                             <td>
                                 <input type="checkbox" class="student-checkbox"
-                                       value="<?php echo (int)$row['id']; ?>"
+                                       value="<?php echo $primary_record_id; ?>"
                                        data-course="<?php echo $course_display; ?>"
                                        data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                        data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
@@ -1419,18 +1467,12 @@ if ($other_gender_count > 0) {
                             <td>
                                 <?php if (!empty($all_student_schemes)): ?>
                                     <?php foreach ($all_student_schemes as $sch): ?>
-                                        <?php
-                                        $is_this_row = ((int)($sch['student_record_id'] ?? 0) === $record_id);
-                                        ?>
-                                        <span class="badge <?php echo $is_this_row ? 'badge-info' : 'badge-secondary'; ?>"
-                                              style="margin:1px 2px 4px 0;display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;<?php echo $is_this_row ? '' : 'opacity:0.9;'; ?>"
-                                              title="<?php echo $is_this_row ? 'Scheme for this row' : htmlspecialchars($sch['scheme_name']); ?>">
+                                        <span class="badge badge-info"
+                                              style="margin:1px 2px 4px 0;display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;"
+                                              title="<?php echo htmlspecialchars($sch['scheme_name']); ?>">
                                             <?php echo htmlspecialchars($sch['scheme_name']); ?>
                                         </span>
                                     <?php endforeach; ?>
-                                    <?php if (empty($row['scheme_name']) && $has_linked_schemes): ?>
-                                        <span class="badge badge-warning" style="margin:1px 2px 0 0;display:inline-block;" title="This row has no scheme assigned">Not set</span>
-                                    <?php endif; ?>
                                 <?php elseif (!empty($row['scheme_name'])): ?>
                                     <span class="badge badge-info" style="display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;">
                                         <?php echo htmlspecialchars($row['scheme_name']); ?>
@@ -1474,7 +1516,7 @@ if ($other_gender_count > 0) {
                                     </small>
                                 <?php endif; ?>
                             </td>
-                            <td><?php echo date('d M Y', strtotime($row['created_at'])); ?></td>
+                            <td><?php echo date('d M Y', strtotime($display_created_at)); ?></td>
                             <td>
                                 <?php if (!$is_front_office): ?>
                                     <?php if ($status === 'pending'): ?>
@@ -1523,7 +1565,7 @@ if ($other_gender_count > 0) {
                                                 class="btn btn-outline-primary btn-sm assign-scheme-btn"
                                                 title="Add or manage multiple scheme/project enrollments"
                                                 data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
-                                                data-student-record-id="<?php echo (int)$row['id']; ?>"
+                                                data-student-record-id="<?php echo $primary_record_id; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                 data-course-id="<?php echo $row_course_id; ?>"
                                                 data-course-name="<?php echo $course_display; ?>"
@@ -1536,7 +1578,7 @@ if ($other_gender_count > 0) {
                                         <button type="button"
                                                 class="btn btn-info btn-sm assign-batch-btn"
                                                 title="<?php echo !empty($row_batches) ? 'Add to another batch' : 'Assign to batch'; ?>"
-                                                data-student-record-id="<?php echo (int)$row['id']; ?>"
+                                                data-student-record-id="<?php echo $primary_record_id; ?>"
                                                 data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                 data-course="<?php echo $course_display; ?>"
                                                 data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
@@ -1558,7 +1600,7 @@ if ($other_gender_count > 0) {
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
-                                <a href="download_student_form.php?record_id=<?php echo (int)$row['id']; ?>"
+                                <a href="download_student_form.php?record_id=<?php echo $primary_record_id; ?>"
                                    class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                     <i class="fas fa-download"></i>
                                 </a>
