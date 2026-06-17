@@ -8,16 +8,13 @@ if (!isset($_SESSION['student_id'])) {
 }
 
 $student_id = $_SESSION['student_id'];
+require_once __DIR__ . '/includes/load_enrollments.php';
 
-// Fetch student details
-$sql = "SELECT s.*, c.course_name FROM students s 
-        LEFT JOIN courses c ON s.course = c.course_code 
-        WHERE s.student_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $student_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$student = $result->fetch_assoc();
+$student = $student_profile;
+if (!$student) {
+    header("Location: login.php");
+    exit;
+}
 
 // Fetch certificates
 $sql_certs = "SELECT * FROM certificates WHERE student_id = ? ORDER BY issue_date DESC";
@@ -42,6 +39,11 @@ include 'includes/header.php';
         <div class="col-12">
             <h2><i class="fas fa-certificate"></i> My Certificates</h2>
             <p class="text-muted">Download and view your course certificates</p>
+            <?php if (count($student_enrollment_rows) > 1 || count($student_enrollments) > 1): ?>
+            <div class="mt-2 text-dark">
+                <?php include __DIR__ . '/includes/enrollment_courses_list.php'; ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 

@@ -8,26 +8,12 @@ if (!isset($_SESSION['student_id'])) {
 }
 
 $student_id = $_SESSION['student_id'];
+require_once __DIR__ . '/includes/load_enrollments.php';
 
-// Fetch student details
-$sql = "SELECT * FROM students WHERE student_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $student_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$student = $result->fetch_assoc();
-
-// Try to get course name
-$course_name = $student['course'];
-$sql_course = "SELECT course_name FROM courses WHERE course_code = ?";
-$stmt_course = $conn->prepare($sql_course);
-if ($stmt_course) {
-    $stmt_course->bind_param("s", $student['course']);
-    $stmt_course->execute();
-    $result_course = $stmt_course->get_result();
-    if ($row_course = $result_course->fetch_assoc()) {
-        $course_name = $row_course['course_name'];
-    }
+$student = $student_profile;
+if (!$student) {
+    header("Location: login.php");
+    exit;
 }
 
 // Fetch education details
@@ -58,10 +44,9 @@ include 'includes/header.php';
                             <p class="text-muted mb-2">
                                 <i class="fas fa-id-card"></i> <?php echo htmlspecialchars($student['student_id']); ?>
                             </p>
-                            <p class="mb-1">
-                                <i class="fas fa-graduation-cap"></i> 
-                                <?php echo htmlspecialchars($course_name); ?>
-                            </p>
+                            <div class="mb-1">
+                                <?php include __DIR__ . '/includes/enrollment_courses_list.php'; ?>
+                            </div>
                             <p class="mb-1">
                                 <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($student['email']); ?>
                             </p>
@@ -183,49 +168,20 @@ include 'includes/header.php';
     <div class="row">
         <div class="col-lg-12 mb-4">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-book"></i> Course Information</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-book"></i> My Courses</h5>
+                    <?php if (count($student_enrollment_rows) > 1 || count($student_enrollments) > 1): ?>
+                    <span class="badge bg-primary"><?php echo max(count($student_enrollment_rows), count($student_enrollments)); ?> enrollments</span>
+                    <?php endif; ?>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <table class="table table-borderless profile-table">
-                                <tr>
-                                    <th>Course Name</th>
-                                    <td><?php echo htmlspecialchars($course_name); ?></td>
-                                </tr>
-                                <tr>
-                                    <th>Training Centre</th>
-                                    <td><?php echo htmlspecialchars($student['training_center']); ?></td>
-                                </tr>
-                                <tr>
-                                    <th>College Name</th>
-                                    <td><?php echo htmlspecialchars($student['college_name'] ?? 'N/A'); ?></td>
-                                </tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <table class="table table-borderless profile-table">
-                                <tr>
-                                    <th>Position</th>
-                                    <td><?php echo htmlspecialchars($student['position'] ?? 'N/A'); ?></td>
-                                </tr>
-                                <tr>
-                                    <th>UTR Number</th>
-                                    <td><?php echo htmlspecialchars($student['utr_number'] ?? 'N/A'); ?></td>
-                                </tr>
-                                <tr>
-                                    <th>Status</th>
-                                    <td>
-                                        <span class="badge badge-success">
-                                            <?php echo ucfirst($student['status'] ?? 'Active'); ?>
-                                        </span>
-                                    </td>
-                                </tr>
-                            </table>
-                        </div>
-                    </div>
+                <div class="card-body p-0">
+                    <?php include __DIR__ . '/includes/enrollment_courses_table.php'; ?>
                 </div>
+                <?php if (!empty($student['college_name'])): ?>
+                <div class="card-footer text-muted small">
+                    <i class="fas fa-university"></i> College: <?php echo htmlspecialchars($student['college_name']); ?>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -427,6 +383,10 @@ include 'includes/header.php';
 .profile-table td {
     color: #333;
     padding: 12px 8px;
+}
+
+.profile-header-card .badge.bg-light {
+    font-weight: 500;
 }
 </style>
 

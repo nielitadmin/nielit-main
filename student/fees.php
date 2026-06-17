@@ -8,31 +8,55 @@ if (!isset($_SESSION['student_id'])) {
 }
 
 $student_id = $_SESSION['student_id'];
+require_once __DIR__ . '/includes/load_enrollments.php';
 
-// Fetch student and course details
-$sql = "SELECT * FROM students WHERE student_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $student_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$student = $result->fetch_assoc();
+$student = $student_profile;
+if (!$student) {
+    header("Location: login.php");
+    exit;
+}
 
-// Try to get course details
-$course_name = $student['course'];
+$course_name = $student['course_name'] ?? $student['course'] ?? 'N/A';
 $duration = 'N/A';
 $course_fees = 0;
 
-$sql_course = "SELECT course_name, fees, duration FROM courses WHERE course_code = ?";
-$stmt_course = $conn->prepare($sql_course);
-if ($stmt_course) {
-    $stmt_course->bind_param("s", $student['course']);
-    $stmt_course->execute();
-    $result_course = $stmt_course->get_result();
-    if ($row_course = $result_course->fetch_assoc()) {
-        $course_name = $row_course['course_name'];
-        $course_fees = $row_course['fees'];
-        $duration = $row_course['duration'];
+$enrollment_fee_rows = [];
+$total_course_fees = 0;
+foreach ($student_enrollment_rows as $erow) {
+    $rowFee = (float)($erow['fees'] ?? 0);
+    if ($rowFee <= 0) {
+        $rowFee = (float)($erow['catalog_fees'] ?? 0);
     }
+    $enrollment_fee_rows[] = [
+        'course_name' => $erow['course_name'] ?? ($erow['course'] ?? 'N/A'),
+        'scheme_name' => $erow['scheme_name'] ?? '',
+        'duration' => $erow['duration'] ?? 'N/A',
+        'fees' => $rowFee,
+    ];
+    $total_course_fees += $rowFee;
+}
+
+if (count($enrollment_fee_rows) === 1) {
+    $course_name = $enrollment_fee_rows[0]['course_name'];
+    $duration = $enrollment_fee_rows[0]['duration'];
+    $course_fees = $enrollment_fee_rows[0]['fees'];
+} elseif (count($enrollment_fee_rows) > 1) {
+    $course_fees = $total_course_fees;
+    $course_name = count($enrollment_fee_rows) . ' courses';
+} else {
+    $sql_course = "SELECT course_name, fees, duration FROM courses WHERE course_code = ?";
+    $stmt_course = $conn->prepare($sql_course);
+    if ($stmt_course) {
+        $stmt_course->bind_param("s", $student['course']);
+        $stmt_course->execute();
+        $result_course = $stmt_course->get_result();
+        if ($row_course = $result_course->fetch_assoc()) {
+            $course_name = $row_course['course_name'];
+            $course_fees = (float)$row_course['fees'];
+            $duration = $row_course['duration'];
+        }
+    }
+    $course_fees = (float)($student['fees'] ?? $course_fees);
 }
 
 // Fetch payment history
@@ -51,7 +75,9 @@ if ($stmt_payments) {
     }
 }
 
-$course_fees = $student['fees'] ?? 0;
+if ($course_fees <= 0) {
+    $course_fees = (float)($student['fees'] ?? 0);
+}
 $balance = $course_fees - $total_paid;
 
 $page_title = "Fee Details";
@@ -76,7 +102,7 @@ include 'includes/header.php';
                 </div>
                 <div class="stat-content">
                     <h3>₹<?php echo number_format($course_fees, 2); ?></h3>
-                    <p>Total Course Fee</p>
+                    <p><?php echo count($enrollment_fee_rows) > 1 ? 'Total Fees (All Courses)' : 'Total Course Fee'; ?></p>
                 </div>
             </div>
         </div>
@@ -105,6 +131,42 @@ include 'includes/header.php';
             </div>
         </div>
     </div>
+
+    <?php if (count($enrollment_fee_rows) > 1): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-layer-group"></i> Fee by Course</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Course</th>
+                                    <th>Scheme / Project</th>
+                                    <th>Duration</th>
+                                    <th>Course Fee</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($enrollment_fee_rows as $feeRow): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($feeRow['course_name']); ?></td>
+                                    <td><?php echo $feeRow['scheme_name'] !== '' ? htmlspecialchars($feeRow['scheme_name']) : '—'; ?></td>
+                                    <td><?php echo htmlspecialchars($feeRow['duration']); ?></td>
+                                    <td><strong>₹<?php echo number_format($feeRow['fees'], 2); ?></strong></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Fee Structure -->
     <div class="row mb-4">
