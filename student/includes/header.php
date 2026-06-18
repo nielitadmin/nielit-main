@@ -23,8 +23,12 @@
     ?>
     <link href="../assets/css/student-portal.css?v=<?php echo $studentPortalCssVer; ?>" rel="stylesheet">
     <link href="../assets/css/toast-notifications.css?v=<?php echo $studentToastCssVer; ?>" rel="stylesheet">
+    <script>
+        document.documentElement.classList.add('student-portal-loading');
+    </script>
 </head>
-<body>
+<body class="student-portal-loading">
+    <?php include __DIR__ . '/skeleton_loader.php'; ?>
     <!-- Top Header -->
     <div class="top-bar">
         <div class="container">

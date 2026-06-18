@@ -1,5 +1,53 @@
 // Student Portal JavaScript
 
+function hideStudentSkeletonLoader() {
+    document.documentElement.classList.remove('student-portal-loading');
+    document.body.classList.remove('student-portal-loading');
+    document.body.classList.add('student-portal-loaded');
+}
+
+function showStudentSkeletonLoader() {
+    document.documentElement.classList.add('student-portal-loading');
+    document.body.classList.add('student-portal-loading');
+    document.body.classList.remove('student-portal-loaded');
+}
+
+function initStudentSkeletonLoader() {
+    const minDisplayMs = 350;
+    const startedAt = performance.now();
+
+    function finish() {
+        const elapsed = performance.now() - startedAt;
+        const wait = Math.max(0, minDisplayMs - elapsed);
+        window.setTimeout(hideStudentSkeletonLoader, wait);
+    }
+
+    if (document.readyState === 'complete') {
+        finish();
+    } else {
+        window.addEventListener('load', finish, { once: true });
+    }
+
+    document.querySelectorAll('#studentNav a.nav-link[href], .footer-links a[href], .student-navbar a.navbar-brand[href]').forEach((link) => {
+        link.addEventListener('click', function (event) {
+            const href = this.getAttribute('href');
+            if (!href || href === '#' || href.startsWith('#') || this.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey) {
+                return;
+            }
+            if (/^(https?:|mailto:|tel:)/i.test(href)) {
+                return;
+            }
+            showStudentSkeletonLoader();
+        });
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStudentSkeletonLoader);
+} else {
+    initStudentSkeletonLoader();
+}
+
 // Smooth scroll for anchor links
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function (e) {

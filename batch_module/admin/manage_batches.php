@@ -263,7 +263,9 @@ if (!$batches_result) {
 }
 
 $batches = [];
+repairBatchStudentsJunction($conn);
 while ($row = $batches_result->fetch_assoc()) {
+    $row['enrolled_count'] = getBatchEnrolledCount((int)$row['id'], $conn);
     $batches[] = $row;
 }
 ?>

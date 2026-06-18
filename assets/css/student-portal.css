@@ -584,3 +584,98 @@ h1, h2, h3, h4, h5, h6 {
         font-size: 24px;
     }
 }
+
+/* Skeleton loading screen */
+html.student-portal-loading,
+body.student-portal-loading {
+    overflow: hidden;
+}
+
+.student-skeleton-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--cream);
+    overflow: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+body.student-portal-loaded .student-skeleton-loader {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+body.student-portal-loading .main-content {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.student-portal-loaded .main-content {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.35s ease;
+}
+
+.skeleton-block {
+    position: relative;
+    overflow: hidden;
+    background: #e8edf3;
+    border-radius: 12px;
+}
+
+.skeleton-block::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.55) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-100%);
+    animation: student-skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+.skeleton-welcome {
+    height: 88px;
+}
+
+.skeleton-stat {
+    height: 110px;
+}
+
+.skeleton-card {
+    width: 100%;
+}
+
+.skeleton-card-lg {
+    height: 280px;
+}
+
+.skeleton-card-md {
+    height: 220px;
+}
+
+.skeleton-card-sm {
+    height: 180px;
+}
+
+@keyframes student-skeleton-shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-block::after {
+        animation: none;
+        opacity: 0.25;
+    }
+
+    .student-skeleton-loader,
+    body.student-portal-loaded .main-content {
+        transition: none;
+    }
+}

@@ -139,8 +139,7 @@ function deleteBatch($batch_id, $conn) {
  */
 function getBatchById($batch_id, $conn) {
     // Try with schemes table first
-    $sql = "SELECT b.*, c.course_name, c.course_code, s.scheme_name, s.scheme_code,
-            (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as seats_filled
+    $sql = "SELECT b.*, c.course_name, c.course_code, s.scheme_name, s.scheme_code
             FROM batches b 
             LEFT JOIN courses c ON b.course_id = c.id 
             LEFT JOIN schemes s ON b.scheme_id = s.id
@@ -149,8 +148,7 @@ function getBatchById($batch_id, $conn) {
     
     // If schemes table doesn't exist, try without it
     if (!$stmt) {
-        $sql = "SELECT b.*, c.course_name, c.course_code, NULL as scheme_name, NULL as scheme_code,
-                (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as seats_filled
+        $sql = "SELECT b.*, c.course_name, c.course_code, NULL as scheme_name, NULL as scheme_code
                 FROM batches b 
                 LEFT JOIN courses c ON b.course_id = c.id 
                 WHERE b.id = ?";
@@ -166,6 +164,10 @@ function getBatchById($batch_id, $conn) {
     $result = $stmt->get_result();
     $batch = $result->fetch_assoc();
     $stmt->close();
+
+    if ($batch) {
+        $batch['seats_filled'] = getBatchEnrolledCount((int)$batch_id, $conn);
+    }
     
     return $batch;
 }
@@ -332,36 +334,44 @@ function getPendingStudents($conn, $admin_courses = []) {
  */
 function getBatchStudents($batch_id, $conn) {
     $batch_id = (int)$batch_id;
+    if ($batch_id <= 0) {
+        return [];
+    }
+
     $check_table = $conn->query("SHOW TABLES LIKE 'batch_students'");
     $has_batch_students_table = ($check_table && $check_table->num_rows > 0);
+
+    if ($has_batch_students_table) {
+        repairBatchStudentsJunction($conn, $batch_id);
+    }
 
     $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
     $has_nielit_column = ($check_column && $check_column->num_rows > 0);
 
     if ($has_batch_students_table) {
-        if ($has_nielit_column) {
-            $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid,
-                    bs.attendance_percentage, bs.nielit_registration_no,
-                    bs.id AS batch_student_link_id
-                    FROM batch_students bs
-                    INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
-                    WHERE bs.batch_id = ?
-                    ORDER BY s.name ASC";
-        } else {
-            $sql = "SELECT s.*, bs.enrollment_date, bs.fees_status, bs.fees_paid,
-                    bs.attendance_percentage, NULL as nielit_registration_no,
-                    bs.id AS batch_student_link_id
-                    FROM batch_students bs
-                    INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
-                    WHERE bs.batch_id = ?
-                    ORDER BY s.name ASC";
-        }
+        $nielitSelect = $has_nielit_column ? 'bs.nielit_registration_no' : 'NULL as nielit_registration_no';
+        $sql = "SELECT DISTINCT s.*,
+                COALESCE(bs.enrollment_date, s.approved_at, s.created_at) AS enrollment_date,
+                COALESCE(bs.fees_status, 'Not Paid') AS fees_status,
+                COALESCE(bs.fees_paid, 0) AS fees_paid,
+                COALESCE(bs.attendance_percentage, 0) AS attendance_percentage,
+                {$nielitSelect},
+                bs.id AS batch_student_link_id
+                FROM students s
+                LEFT JOIN batch_students bs ON bs.batch_id = ?
+                    AND (bs.student_record_id = s.id OR bs.student_id = s.id)
+                WHERE LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')
+                AND (
+                    s.batch_id = ?
+                    OR bs.id IS NOT NULL
+                )
+                ORDER BY s.name ASC";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return [];
         }
-        $stmt->bind_param('i', $batch_id);
+        $stmt->bind_param('ii', $batch_id, $batch_id);
         $stmt->execute();
         $result = $stmt->get_result();
         $students = [];
@@ -418,11 +428,12 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
             FROM students s
             LEFT JOIN courses c ON c.id = s.course_id
             WHERE s.course_id = ?
-            AND LOWER(s.status) NOT IN ('rejected')
+            AND LOWER(s.status) NOT IN ('rejected', 'inactive')
+            AND (s.batch_id IS NULL OR s.batch_id != ?)
             AND NOT EXISTS (
                 SELECT 1 FROM batch_students bs
                 WHERE bs.batch_id = ?
-                AND (bs.student_record_id = s.id OR (bs.student_record_id IS NULL AND bs.student_id = s.id))
+                AND (bs.student_record_id = s.id OR bs.student_id = s.id)
             )";
 
     if ($hasScheme && $batch_scheme_id !== null) {
@@ -438,9 +449,9 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
         return [];
     }
     if ($hasScheme && $batch_scheme_id !== null) {
-        $stmt->bind_param('iii', $course_id, $batch_id, $batch_scheme_id);
+        $stmt->bind_param('iiii', $course_id, $batch_id, $batch_id, $batch_scheme_id);
     } else {
-        $stmt->bind_param('ii', $course_id, $batch_id);
+        $stmt->bind_param('iii', $course_id, $batch_id, $batch_id);
     }
     $stmt->execute();
     $result = $stmt->get_result();
@@ -639,6 +650,130 @@ function backfillBatchStudentRecordIds($conn) {
         SET student_record_id = student_id
         WHERE (student_record_id IS NULL OR student_record_id = 0)
         AND student_id IS NOT NULL AND student_id > 0");
+}
+
+/**
+ * Create missing batch_students rows for students assigned via students.batch_id only.
+ */
+function repairBatchStudentsJunction($conn, $batch_id = null) {
+    $check = $conn->query("SHOW TABLES LIKE 'batch_students'");
+    if (!$check || $check->num_rows === 0) {
+        return 0;
+    }
+
+    backfillBatchStudentRecordIds($conn);
+
+    $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+    $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
+
+    $sql = "SELECT s.id, s.batch_id
+            FROM students s
+            WHERE s.batch_id IS NOT NULL AND s.batch_id > 0
+            AND LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')";
+    if ($batch_id !== null) {
+        $sql .= ' AND s.batch_id = ' . (int)$batch_id;
+    }
+
+    $result = $conn->query($sql);
+    if (!$result) {
+        return 0;
+    }
+
+    $fixed = 0;
+    while ($row = $result->fetch_assoc()) {
+        $recordId = (int)$row['id'];
+        $batchId = (int)$row['batch_id'];
+        if ($recordId <= 0 || $batchId <= 0) {
+            continue;
+        }
+
+        if ($useRecordCol) {
+            $chk = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR student_id = ?) LIMIT 1');
+            if (!$chk) {
+                continue;
+            }
+            $chk->bind_param('iii', $batchId, $recordId, $recordId);
+        } else {
+            $chk = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND student_id = ? LIMIT 1');
+            if (!$chk) {
+                continue;
+            }
+            $chk->bind_param('ii', $batchId, $recordId);
+        }
+        $chk->execute();
+        $exists = $chk->get_result()->num_rows > 0;
+        $chk->close();
+        if ($exists) {
+            continue;
+        }
+
+        if ($useRecordCol) {
+            $ins = $conn->prepare('INSERT INTO batch_students (batch_id, student_id, student_record_id, enrollment_date) VALUES (?, ?, ?, NOW())');
+            if ($ins) {
+                $ins->bind_param('iii', $batchId, $recordId, $recordId);
+                if ($ins->execute()) {
+                    $fixed++;
+                }
+                $ins->close();
+            }
+        } else {
+            $ins = $conn->prepare('INSERT INTO batch_students (batch_id, student_id, enrollment_date) VALUES (?, ?, NOW())');
+            if ($ins) {
+                $ins->bind_param('ii', $batchId, $recordId);
+                if ($ins->execute()) {
+                    $fixed++;
+                }
+                $ins->close();
+            }
+        }
+    }
+
+    return $fixed;
+}
+
+/**
+ * Count students enrolled in a batch (primary batch_id + batch_students links).
+ */
+function getBatchEnrolledCount($batch_id, $conn) {
+    $batch_id = (int)$batch_id;
+    if ($batch_id <= 0) {
+        return 0;
+    }
+
+    $check = $conn->query("SHOW TABLES LIKE 'batch_students'");
+    $hasBatchStudents = ($check && $check->num_rows > 0);
+
+    if ($hasBatchStudents) {
+        $sql = "SELECT COUNT(DISTINCT s.id) AS enrolled_count
+                FROM students s
+                WHERE LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')
+                AND (
+                    s.batch_id = ?
+                    OR EXISTS (
+                        SELECT 1 FROM batch_students bs
+                        WHERE bs.batch_id = ?
+                        AND (bs.student_record_id = s.id OR bs.student_id = s.id)
+                    )
+                )";
+        $stmt = $conn->prepare($sql);
+        if ($stmt) {
+            $stmt->bind_param('ii', $batch_id, $batch_id);
+            $stmt->execute();
+            $count = (int)($stmt->get_result()->fetch_assoc()['enrolled_count'] ?? 0);
+            $stmt->close();
+            return $count;
+        }
+    }
+
+    $stmt = $conn->prepare("SELECT COUNT(*) AS enrolled_count FROM students WHERE batch_id = ? AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')");
+    if (!$stmt) {
+        return 0;
+    }
+    $stmt->bind_param('i', $batch_id);
+    $stmt->execute();
+    $count = (int)($stmt->get_result()->fetch_assoc()['enrolled_count'] ?? 0);
+    $stmt->close();
+    return $count;
 }
 
 /**
@@ -898,21 +1033,13 @@ function removeStudentFromBatch($student_id, $batch_id, $conn) {
  * Get batch statistics
  */
 function getBatchStats($batch_id, $conn) {
-    $sql = "SELECT 
-            COUNT(*) as total_students,
-            0 as fees_paid_count,
-            0 as total_fees_collected,
-            0 as avg_attendance
-            FROM students 
-            WHERE batch_id = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $batch_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $stats = $result->fetch_assoc();
-    $stmt->close();
-    
-    return $stats;
+    $total = getBatchEnrolledCount((int)$batch_id, $conn);
+    return [
+        'total_students' => $total,
+        'fees_paid_count' => 0,
+        'total_fees_collected' => 0,
+        'avg_attendance' => 0,
+    ];
 }
 
 /**

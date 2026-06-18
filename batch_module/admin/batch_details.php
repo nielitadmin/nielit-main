@@ -25,6 +25,8 @@ if (!$batch) {
     exit();
 }
 
+repairBatchStudentsJunction($conn, (int)$batch_id);
+
 // Check if batch is locked
 $is_locked = isBatchLocked($batch_id, $conn);
 $lock_info = getBatchLockInfo($batch_id, $conn);
