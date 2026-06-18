@@ -894,25 +894,32 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                             <i class="fas fa-image"></i> Upload Course Flyer (JPG/PNG)
                         </label>
                         <input type="file" class="form-control" name="course_flyer" accept=".jpg,.jpeg,.png" id="flyer_upload">
-                        <?php if (!empty($course['course_flyer'])): ?>
+                        <?php if (!empty($course['course_flyer'])):
+                            $flyer_rel = $course['course_flyer'];
+                            $flyer_disk = __DIR__ . '/../' . $flyer_rel;
+                            $flyer_url = APP_URL . '/' . $flyer_rel;
+                            $flyer_exists = file_exists($flyer_disk);
+                        ?>
                         <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin-top: 8px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                                 <div>
                                     <i class="fas fa-image" style="color: #1976d2;"></i>
                                     <strong>Current Flyer:</strong> 
-                                    <span style="color: #1976d2;"><?php echo basename($course['course_flyer']); ?></span>
+                                    <span style="color: #1976d2;"><?php echo basename($flyer_rel); ?></span>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($course['course_flyer']); ?>" 
+                                    <?php if ($flyer_exists): ?>
+                                    <a href="<?php echo htmlspecialchars($flyer_url); ?>" 
                                        target="_blank" 
                                        class="btn btn-primary btn-sm">
                                         <i class="fas fa-eye"></i> View
                                     </a>
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($course['course_flyer']); ?>" 
+                                    <a href="<?php echo htmlspecialchars($flyer_url); ?>" 
                                        download 
                                        class="btn btn-success btn-sm">
                                         <i class="fas fa-download"></i> Download
                                     </a>
+                                    <?php endif; ?>
                                     <button type="button" 
                                             class="btn btn-danger btn-sm" 
                                             onclick="confirmRemoveFlyer(<?php echo $course['id']; ?>)">
@@ -920,11 +927,21 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                                     </button>
                                 </div>
                             </div>
+                            <?php if ($flyer_exists): ?>
                             <div style="margin-top: 8px;">
-                                <img src="<?php echo APP_URL . '/' . htmlspecialchars($course['course_flyer']); ?>" 
+                                <img src="<?php echo htmlspecialchars($flyer_url); ?>"
                                      alt="Course Flyer Preview" 
                                      style="max-width: 300px; max-height: 400px; border: 2px solid #0d47a1; border-radius: 4px; display: block;">
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-warning mb-0 mt-2 py-2 px-3" style="font-size: 0.9rem;">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>File missing on server.</strong>
+                                The database has <code><?php echo htmlspecialchars($flyer_rel); ?></code> but the image is not on disk
+                                (upload may have failed, or the file was lost during server migration).
+                                Please upload the flyer again.
+                            </div>
+                            <?php endif; ?>
                         </div>
                         <small class="text-muted">Upload a new image to replace the current flyer, or click Remove to delete it</small>
                         <?php else: ?>
