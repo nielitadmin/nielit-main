@@ -58,6 +58,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <?php endif; ?>
+        <?php endif; ?>
         
         <?php if ($is_nsqf_manager): ?>
         <!-- NSQF Manager - Manage NSQF Course -->
