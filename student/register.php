@@ -1844,6 +1844,7 @@ if (isset($_SESSION['info'])) {
                                             <option value="Computer Science Engineering">Computer Science Engineering</option>
                                             <option value="Information Technology">Information Technology</option>
                                             <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                                            <option value="Electrical and Electronics Engineering (EEE)">Electrical and Electronics Engineering (EEE)</option>
                                             <option value="Electrical Engineering">Electrical Engineering</option>
                                             <option value="Mechanical Engineering">Mechanical Engineering</option>
                                             <option value="Civil Engineering">Civil Engineering</option>
@@ -2835,6 +2836,7 @@ function addEducationRow() {
                     <option value="Computer Science Engineering">Computer Science Engineering</option>
                     <option value="Information Technology">Information Technology</option>
                     <option value="Electronics & Communication Engineering">Electronics & Communication Engineering</option>
+                    <option value="Electrical and Electronics Engineering (EEE)">Electrical and Electronics Engineering (EEE)</option>
                     <option value="Electrical Engineering">Electrical Engineering</option>
                     <option value="Mechanical Engineering">Mechanical Engineering</option>
                     <option value="Civil Engineering">Civil Engineering</option>
