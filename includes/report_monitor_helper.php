@@ -194,6 +194,51 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 
+    /** Scope filter by assigned courses and/or selected centre (course alias). */
+    function report_monitor_build_scope_filter($conn, array $courseIds = [], $centreId = 0, $courseAlias = 'c') {
+        $sql = '';
+        $types = '';
+        $values = [];
+
+        if (!empty($courseIds)) {
+            $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
+            $sql .= " AND {$courseAlias}.id IN ({$placeholders})";
+            $types .= str_repeat('i', count($courseIds));
+            $values = array_merge($values, array_map('intval', $courseIds));
+        }
+
+        if ($centreId > 0) {
+            $centreName = report_monitor_get_centre_name($conn, $centreId);
+            if ($centreName !== '') {
+                $sql .= " AND ({$courseAlias}.centre_id = ? OR ({$courseAlias}.centre_id IS NULL AND TRIM({$courseAlias}.training_center) = ?))";
+                $types .= 'is';
+                $values[] = (int) $centreId;
+                $values[] = $centreName;
+            } else {
+                $sql .= " AND {$courseAlias}.centre_id = ?";
+                $types .= 'i';
+                $values[] = (int) $centreId;
+            }
+        }
+
+        return ['sql' => $sql, 'types' => $types, 'values' => $values];
+    }
+
+    function report_monitor_get_centre_name($conn, $centreId) {
+        if ($centreId <= 0 || !report_monitor_table_exists($conn, 'centres')) {
+            return '';
+        }
+        $stmt = $conn->prepare('SELECT name FROM centres WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return '';
+        }
+        $stmt->bind_param('i', $centreId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row['name'] ?? '';
+    }
+
     function report_monitor_bind_and_execute($conn, $sql, $types = '', array $values = []) {
         if ($types === '' || empty($values)) {
             return $conn->query($sql);
@@ -207,7 +252,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $stmt->get_result();
     }
 
-    function report_monitor_get_overall_stats($conn, array $courseIds = []) {
+    function report_monitor_get_overall_stats($conn, array $courseIds = [], $centreId = 0) {
         $stats = [
             'total_courses' => 0,
             'active_courses' => 0,
@@ -220,29 +265,30 @@ if (!function_exists('get_report_monitor_category_groups')) {
             'unassigned_students' => 0,
         ];
 
-        $courseFilter = report_monitor_build_course_filter($conn, $courseIds, 'c');
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $courseSql = "SELECT COUNT(*) AS total,
                              SUM(CASE WHEN LOWER(COALESCE(c.status, 'active')) = 'active' THEN 1 ELSE 0 END) AS active
-                      FROM courses c WHERE 1=1{$courseFilter['sql']}";
-        $result = report_monitor_bind_and_execute($conn, $courseSql, $courseFilter['types'], $courseFilter['values']);
+                      FROM courses c WHERE 1=1{$scopeFilter['sql']}";
+        $result = report_monitor_bind_and_execute($conn, $courseSql, $scopeFilter['types'], $scopeFilter['values']);
         if ($result && $row = $result->fetch_assoc()) {
             $stats['total_courses'] = (int) ($row['total'] ?? 0);
             $stats['active_courses'] = (int) ($row['active'] ?? 0);
         }
 
         if (report_monitor_table_exists($conn, 'batches')) {
-            $batchFilter = report_monitor_build_course_filter($conn, $courseIds, 'b');
+            $batchScope = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
             $batchSql = "SELECT COUNT(*) AS total,
                                 SUM(CASE WHEN LOWER(COALESCE(b.status, 'active')) IN ('active', 'ongoing', 'open') THEN 1 ELSE 0 END) AS active
-                         FROM batches b WHERE 1=1{$batchFilter['sql']}";
-            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchFilter['types'], $batchFilter['values']);
+                         FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
+                         WHERE 1=1{$batchScope['sql']}";
+            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchScope['types'], $batchScope['values']);
             if ($batchResult && $row = $batchResult->fetch_assoc()) {
                 $stats['total_batches'] = (int) ($row['total'] ?? 0);
                 $stats['active_batches'] = (int) ($row['active'] ?? 0);
             }
         }
 
-        $studentFilter = report_monitor_build_course_filter($conn, $courseIds, 'c');
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
 
@@ -253,8 +299,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                             SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled_students
                        FROM students s
                        INNER JOIN courses c ON c.id = s.course_id
-                       WHERE {$activeCondition}{$studentFilter['sql']}";
-        $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentFilter['types'], $studentFilter['values']);
+                       WHERE {$activeCondition}{$scopeFilter['sql']}";
+        $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $scopeFilter['types'], $scopeFilter['values']);
         if ($studentResult && $row = $studentResult->fetch_assoc()) {
             $stats['total_applications'] = (int) ($row['total_applications'] ?? 0);
             $stats['pending_applications'] = (int) ($row['pending_applications'] ?? 0);
@@ -266,10 +312,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $stats;
     }
 
-    function report_monitor_get_centre_stats($conn, array $courseIds = []) {
+    function report_monitor_get_centre_stats($conn, array $courseIds = [], $centreId = 0) {
         $rows = [];
-        $categoryExpr = report_monitor_course_category_sql('c');
-        $courseFilter = report_monitor_build_course_filter($conn, $courseIds, 'c');
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
 
@@ -285,11 +330,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 LEFT JOIN centres cen ON cen.id = c.centre_id
                 LEFT JOIN batches b ON b.course_id = c.id
                 LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
-                WHERE 1=1{$courseFilter['sql']}
+                WHERE 1=1{$scopeFilter['sql']}
                 GROUP BY centre_id, centre_name, centre_code
                 ORDER BY applications DESC, centre_name ASC";
 
-        $result = report_monitor_bind_and_execute($conn, $sql, $courseFilter['types'], $courseFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $scopeFilter['types'], $scopeFilter['values']);
         if ($result) {
             while ($row = $result->fetch_assoc()) {
                 $rows[] = [
@@ -307,7 +352,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $rows;
     }
 
-    function report_monitor_get_category_stats($conn, array $courseIds = []) {
+    function report_monitor_get_category_stats($conn, array $courseIds = [], $centreId = 0) {
         $groups = [];
         foreach (get_report_monitor_category_groups() as $key => $group) {
             $groups[$key] = [
@@ -331,12 +376,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
 
         $categoryExpr = report_monitor_course_category_sql('c');
-        $courseFilter = report_monitor_build_course_filter($conn, $courseIds, 'c');
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
 
         $courseSql = "SELECT {$categoryExpr} AS raw_category, COUNT(*) AS total
-                      FROM courses c WHERE 1=1{$courseFilter['sql']}
+                      FROM courses c WHERE 1=1{$scopeFilter['sql']}
                       GROUP BY raw_category";
-        $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $courseFilter['types'], $courseFilter['values']);
+        $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $scopeFilter['types'], $scopeFilter['values']);
         if ($courseResult) {
             while ($row = $courseResult->fetch_assoc()) {
                 $key = report_monitor_resolve_category_group($row['raw_category']);
@@ -364,9 +409,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
                               SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled
                        FROM students s
                        INNER JOIN courses c ON c.id = s.course_id
-                       WHERE {$activeCondition}{$courseFilter['sql']}
+                       WHERE {$activeCondition}{$scopeFilter['sql']}
                        GROUP BY raw_category";
-        $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $courseFilter['types'], $courseFilter['values']);
+        $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $scopeFilter['types'], $scopeFilter['values']);
         if ($studentResult) {
             while ($row = $studentResult->fetch_assoc()) {
                 $key = report_monitor_resolve_category_group($row['raw_category']);
@@ -395,7 +440,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $rows;
     }
 
-    function report_monitor_get_batch_monthly($conn, $months = 12, array $courseIds = []) {
+    function report_monitor_get_batch_monthly($conn, $months = 12, array $courseIds = [], $centreId = 0) {
         $labels = [];
         $batchCounts = [];
         $enrollmentCounts = [];
@@ -411,14 +456,15 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $applyMap = array_fill_keys($monthKeys, 0);
 
         if (report_monitor_table_exists($conn, 'batches')) {
-            $batchFilter = report_monitor_build_course_filter($conn, $courseIds, 'b');
+            $batchScope = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
             $batchSql = "SELECT DATE_FORMAT(b.created_at, '%Y-%m') AS month_key, COUNT(*) AS total
                          FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
                          WHERE b.created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
-                         {$batchFilter['sql']}
+                         {$batchScope['sql']}
                          GROUP BY month_key";
-            $types = 'i' . $batchFilter['types'];
-            $values = array_merge([(int) $months - 1], $batchFilter['values']);
+            $types = 'i' . $batchScope['types'];
+            $values = array_merge([(int) $months - 1], $batchScope['values']);
             $result = report_monitor_bind_and_execute($conn, $batchSql, $types, $values);
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
@@ -430,16 +476,17 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         if (report_monitor_table_exists($conn, 'batch_students')) {
-            $batchFilter = report_monitor_build_course_filter($conn, $courseIds, 'b');
+            $batchScope = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
             $enrollSql = "SELECT DATE_FORMAT(COALESCE(bs.enrollment_date, b.created_at), '%Y-%m') AS month_key,
                                  COUNT(DISTINCT bs.id) AS total
                           FROM batch_students bs
                           INNER JOIN batches b ON b.id = bs.batch_id
+                          INNER JOIN courses c ON c.id = b.course_id
                           WHERE COALESCE(bs.enrollment_date, b.created_at) >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
-                          {$batchFilter['sql']}
+                          {$batchScope['sql']}
                           GROUP BY month_key";
-            $types = 'i' . $batchFilter['types'];
-            $values = array_merge([(int) $months - 1], $batchFilter['values']);
+            $types = 'i' . $batchScope['types'];
+            $values = array_merge([(int) $months - 1], $batchScope['values']);
             $result = report_monitor_bind_and_execute($conn, $enrollSql, $types, $values);
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
@@ -450,17 +497,17 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
-        $courseFilter = report_monitor_build_course_filter($conn, $courseIds, 'c');
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $activeCondition = report_monitor_student_active_sql('s');
         $applySql = "SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS month_key, COUNT(*) AS total
                      FROM students s
                      INNER JOIN courses c ON c.id = s.course_id
                      WHERE {$activeCondition}
                      AND s.created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
-                     {$courseFilter['sql']}
+                     {$scopeFilter['sql']}
                      GROUP BY month_key";
-        $types = 'i' . $courseFilter['types'];
-        $values = array_merge([(int) $months - 1], $courseFilter['values']);
+        $types = 'i' . $scopeFilter['types'];
+        $values = array_merge([(int) $months - 1], $scopeFilter['values']);
         $result = report_monitor_bind_and_execute($conn, $applySql, $types, $values);
         if ($result) {
             while ($row = $result->fetch_assoc()) {
@@ -492,15 +539,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         $rows = [];
         $categoryExpr = report_monitor_course_category_sql('c');
-        $courseFilter = report_monitor_build_course_filter($conn, $courseIds, 'b');
-        $types = $courseFilter['types'];
-        $values = $courseFilter['values'];
-        $centreSql = '';
-        if ($centreId > 0) {
-            $centreSql = ' AND c.centre_id = ?';
-            $types .= 'i';
-            $values[] = (int) $centreId;
-        }
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
 
         $hasBatchFaculty = report_monitor_table_exists($conn, 'batch_faculty') && report_monitor_table_exists($conn, 'faculty');
         $facultySelect = $hasBatchFaculty
@@ -529,7 +570,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 FROM batches b
                 INNER JOIN courses c ON c.id = b.course_id
                 LEFT JOIN centres cen ON cen.id = c.centre_id
-                WHERE 1=1{$courseFilter['sql']}{$centreSql}
+                WHERE 1=1{$scopeFilter['sql']}
                 ORDER BY b.created_at DESC, b.id DESC
                 LIMIT 100";
 

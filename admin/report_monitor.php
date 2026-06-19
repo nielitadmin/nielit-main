@@ -35,11 +35,12 @@ if ($adminRole === 'course_coordinator') {
 
 $centreId = max(0, (int) ($_GET['centre_id'] ?? 0));
 $chartMonths = max(6, min(24, (int) ($_GET['months'] ?? 12)));
+$selectedCentreName = $centreId > 0 ? report_monitor_get_centre_name($conn, $centreId) : '';
 
-$overallStats = report_monitor_get_overall_stats($conn, $scopedCourseIds);
-$centreStats = report_monitor_get_centre_stats($conn, $scopedCourseIds);
-$categoryStats = report_monitor_get_category_stats($conn, $scopedCourseIds);
-$batchMonthly = report_monitor_get_batch_monthly($conn, $chartMonths, $scopedCourseIds);
+$overallStats = report_monitor_get_overall_stats($conn, $scopedCourseIds, $centreId);
+$centreStats = report_monitor_get_centre_stats($conn, $scopedCourseIds, $centreId);
+$categoryStats = report_monitor_get_category_stats($conn, $scopedCourseIds, $centreId);
+$batchMonthly = report_monitor_get_batch_monthly($conn, $chartMonths, $scopedCourseIds, $centreId);
 $batchDetails = report_monitor_get_batch_details($conn, $scopedCourseIds, $centreId);
 $centresList = report_monitor_get_centres_list($conn);
 
@@ -128,6 +129,9 @@ $isScoped = ($adminRole === 'course_coordinator');
                     <h2 class="mb-1"><i class="fas fa-chart-line"></i> <?php echo htmlspecialchars($pageTitle); ?></h2>
                     <p class="text-muted mb-0">
                         Overall records, centre-wise breakdown, course categories, and batch module analytics in one place.
+                        <?php if ($centreId > 0 && $selectedCentreName !== ''): ?>
+                            <span class="badge bg-primary">Filtered: <?php echo htmlspecialchars($selectedCentreName); ?></span>
+                        <?php endif; ?>
                         <?php if ($isScoped): ?>
                             <span class="badge bg-info text-dark">Your assigned courses only</span>
                         <?php endif; ?>
