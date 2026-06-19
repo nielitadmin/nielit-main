@@ -11,8 +11,15 @@ if (!isset($_SESSION['admin'])) {
 }
 
 $adminRole = $_SESSION['admin_role'] ?? '';
-$canDelete = ($adminRole !== 'front_office_desk');
-$canManageEnrollment = ($adminRole !== 'front_office_desk');
+if ($adminRole !== 'master_admin') {
+    $_SESSION['message'] = 'Access denied. Student Record Inspector is for Master Admin only.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: students.php');
+    exit();
+}
+
+$canDelete = true;
+$canManageEnrollment = true;
 $assignCoursesList = inspectorGetCoursesForAssign($conn);
 $flashMessage = '';
 $flashType = 'success';

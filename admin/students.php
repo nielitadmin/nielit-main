@@ -844,7 +844,7 @@ if ($other_gender_count > 0) {
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-users"></i> Manage Students</h4>
-                <?php if (!$is_front_office): ?>
+                <?php if ($admin_role === 'master_admin'): ?>
                 <p class="text-muted small mb-0">
                     Assign course &amp; schemes:
                     <a href="check_student_exists.php">Student Record Inspector</a>
