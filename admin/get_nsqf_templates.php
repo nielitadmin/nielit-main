@@ -75,7 +75,7 @@ function nsqf_template_category_values($category) {
 }
 
 try {
-    // Return all active NSQF templates unless explicitly marked NON-NSQF
+    // Return all active NSQF templates unless explicitly marked Non-NSQF
     $base_sql = "SELECT id, course_name, eligibility, category, nsqf_type
                  FROM nsqf_course_templates
                  WHERE is_active = 1

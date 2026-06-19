@@ -5,6 +5,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/course_category_options.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");
@@ -45,8 +46,8 @@ if (isset($_POST['add_course'])) {
     $apply_link = $_POST['apply_link'];
     $course_coordinator = $_POST['course_coordinator'];
     $description_pdf = '';
-    $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
-    $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+    $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
+    $is_nsqf = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
 
     if (isset($_FILES['description_pdf']) && $_FILES['description_pdf']['error'] == 0) {
         $pdf_file = $_FILES['description_pdf'];
@@ -295,9 +296,7 @@ $total_students = $conn->query("SELECT COUNT(*) as count FROM students")->fetch_
                     <div class="form-group">
                         <label class="form-label">Sub-Category *</label>
                         <select class="form-select" name="nsqf_type" required>
-                            <option value="">--Select Sub-Category--</option>
-                            <option value="NSQF Course">NSQF Course</option>
-                            <option value="NON-NSQF Course">NON-NSQF Course</option>
+                            <?php echo render_course_sub_category_options('', '--Select Sub-Category--', true); ?>
                         </select>
                     </div>
                     <div class="form-group">

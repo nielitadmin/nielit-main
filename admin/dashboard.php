@@ -107,7 +107,13 @@ if ($is_course_coordinator) {
 
 // Add category filter
 if ($filter_category !== 'all') {
-    $sql .= " AND category = ?";
+    $filter_values = get_sub_category_filter_values($filter_category);
+    if (count($filter_values) > 1) {
+        $placeholders = implode(',', array_fill(0, count($filter_values), '?'));
+        $sql .= " AND category IN ($placeholders)";
+    } else {
+        $sql .= " AND category = ?";
+    }
 }
 
 // Add courses tab filter (date based)
@@ -135,8 +141,14 @@ if ($is_course_coordinator && !empty($admin_course_ids)) {
 
 // Add category filter
 if ($filter_category !== 'all') {
-    $bind_types .= 's';
-    $bind_values[] = $filter_category;
+    $filter_values = get_sub_category_filter_values($filter_category);
+    if (count($filter_values) > 1) {
+        $bind_types .= str_repeat('s', count($filter_values));
+        $bind_values = array_merge($bind_values, $filter_values);
+    } else {
+        $bind_types .= 's';
+        $bind_values[] = $filter_category;
+    }
 }
 
 // Add courses tab bind values (date based)
@@ -221,8 +233,8 @@ if (isset($_POST['add_course'])) {
     $course_coordinator = $_POST['course_coordinator'];
     $training_center = $_POST['training_center'] ?? (!empty($centres) ? $centres[0]['name'] : 'NIELIT BHUBANESWAR');
     $link_published = isset($_POST['link_published']) ? 1 : 0;
-    $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
-    $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+    $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
+    $is_nsqf = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
     $registration_token = $_POST['registration_token'] ?? ''; // Get token from hidden field
     $description_pdf = '';
 
@@ -1985,7 +1997,7 @@ $dashboard_payload = [
                                     <option value="Awareness Program" <?= $filter_category === 'Awareness Program' ? 'selected' : '' ?>>Awareness Program</option>
                                     <option value="FDP Program" <?= $filter_category === 'FDP Program' ? 'selected' : '' ?>>FDP Program</option>
                                     <option value="Workshop" <?= $filter_category === 'Workshop' ? 'selected' : '' ?>>Workshop</option>
-                                    <option value="GOVT/CORPORATE Training" <?= $filter_category === 'GOVT/CORPORATE Training' ? 'selected' : '' ?>>GOVT/CORPORATE Training</option>
+                                    <option value="Govt/Corporate Training" <?= sub_category_matches($filter_category, 'Govt/Corporate Training') ? 'selected' : '' ?>>Govt/Corporate Training</option>
                                 </optgroup>
                                 <?php else: ?>
                                 <option value="NSQF" <?= $filter_category === 'NSQF' ? 'selected' : '' ?>>NSQF</option>

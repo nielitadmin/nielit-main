@@ -6,6 +6,61 @@
 
 if (!function_exists('get_course_main_categories')) {
 
+    function get_default_non_nsqf_sub_category() {
+        return 'Non-NSQF Course';
+    }
+
+    function get_govt_corporate_training_label() {
+        return 'Govt/Corporate Training';
+    }
+
+    /** Maps legacy stored values to current canonical labels */
+    function get_legacy_sub_category_map() {
+        return [
+            'NON-NSQF Course' => 'Non-NSQF Course',
+            'NON-NSQF' => 'Non-NSQF',
+            'GOVT/CORPORATE Training' => 'Govt/Corporate Training',
+        ];
+    }
+
+    function normalize_course_sub_category($value) {
+        if ($value === null || $value === '') {
+            return $value;
+        }
+        $trimmed = trim((string) $value);
+        $map = get_legacy_sub_category_map();
+        return $map[$trimmed] ?? $trimmed;
+    }
+
+    function is_nsqf_course_sub_category($value) {
+        return normalize_course_sub_category($value) === 'NSQF Course';
+    }
+
+    function sub_category_matches($value, $canonical) {
+        return normalize_course_sub_category($value) === normalize_course_sub_category($canonical);
+    }
+
+    function is_special_subcategory($value) {
+        $normalized = normalize_course_sub_category($value);
+        return in_array($normalized, get_special_subcategories(), true);
+    }
+
+    /** Values that match a filter for a canonical sub-category (includes legacy DB rows) */
+    function get_sub_category_filter_values($canonical) {
+        $canonical = normalize_course_sub_category($canonical);
+        $values = [$canonical];
+        foreach (get_legacy_sub_category_map() as $legacy => $normalized) {
+            if ($normalized === $canonical) {
+                $values[] = $legacy;
+            }
+        }
+        return array_values(array_unique($values));
+    }
+
+    function sub_category_option_selected($selected, $value) {
+        return sub_category_matches($selected, $value) ? ' selected' : '';
+    }
+
     function get_course_main_categories() {
         return [
             'Degree / Diploma / PG' => 'Degree / Diploma Courses / PG',
@@ -19,12 +74,12 @@ if (!function_exists('get_course_main_categories')) {
     function get_course_sub_categories() {
         return [
             'NSQF Course' => 'NSQF Course',
-            'NON-NSQF Course' => 'NON-NSQF Course',
+            'Non-NSQF Course' => 'Non-NSQF Course',
             'Internship Program' => 'Internship Program',
             'Awareness Program' => 'Awareness Program',
             'FDP Program' => 'FDP Program',
             'Workshop' => 'Workshop',
-            'GOVT/CORPORATE Training' => 'GOVT/CORPORATE Training',
+            'Govt/Corporate Training' => 'Govt/Corporate Training',
         ];
     }
 
@@ -32,7 +87,7 @@ if (!function_exists('get_course_main_categories')) {
     function get_nsqf_template_sub_categories() {
         return [
             'NSQF Course' => 'NSQF Course',
-            'NON-NSQF Course' => 'NON-NSQF Course',
+            'Non-NSQF Course' => 'Non-NSQF Course',
         ];
     }
 
@@ -43,7 +98,7 @@ if (!function_exists('get_course_main_categories')) {
             'Awareness Program',
             'FDP Program',
             'Workshop',
-            'GOVT/CORPORATE Training',
+            'Govt/Corporate Training',
         ];
     }
 
@@ -54,6 +109,7 @@ if (!function_exists('get_course_main_categories')) {
             'Long Term NSQF',
             'Short Term NSQF',
             'Internship Program',
+            'GOVT/CORPORATE Training',
             'Skill Based (Long Term) Courses (> 500 hrs)',
             'Skill Based (Short Term) Courses (90-500 hrs)',
             'Short Term / Digital Competency Courses (<= 90 hrs)',
@@ -81,9 +137,13 @@ if (!function_exists('get_course_main_categories')) {
         $categories = $nsqf_template_mode ? get_nsqf_template_sub_categories() : get_course_sub_categories();
         $html = '<option value="">' . htmlspecialchars($placeholder) . '</option>';
         foreach ($categories as $value => $label) {
-            $sel = ($selected === $value) ? ' selected' : '';
+            $sel = sub_category_option_selected($selected, $value);
             $html .= '<option value="' . htmlspecialchars($value) . '"' . $sel . '>' . htmlspecialchars($label) . '</option>';
         }
         return $html;
+    }
+
+    function format_course_sub_category_display($value) {
+        return normalize_course_sub_category($value ?? get_default_non_nsqf_sub_category());
     }
 }

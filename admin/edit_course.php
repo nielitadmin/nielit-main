@@ -163,13 +163,12 @@ if (isset($_POST['update_course'])) {
     } else {
         $enrollment_status = 'ongoing';
     }
-    $nsqf_type          = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
-    $is_nsqf            = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+    $nsqf_type          = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
+    $is_nsqf            = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
     
     // Handle special sub-categories that should be stored as categories
-    $special_subcategories = get_special_subcategories();
-    if (in_array($nsqf_type, $special_subcategories)) {
-        $category = $nsqf_type;
+    if (is_special_subcategory($nsqf_type)) {
+        $category = normalize_course_sub_category($nsqf_type);
         $is_nsqf = 0; // These programs are typically non-NSQF
     }
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
@@ -417,11 +416,11 @@ if (isset($_POST['update_course'])) {
 $selected_main_category = in_array($course['category'] ?? '', array_keys(get_course_main_categories()), true)
     ? $course['category']
     : '';
-$selected_sub_category = 'NON-NSQF Course';
+$selected_sub_category = get_default_non_nsqf_sub_category();
 if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
     $selected_sub_category = 'NSQF Course';
-} elseif (in_array($course['category'] ?? '', get_special_subcategories(), true)) {
-    $selected_sub_category = $course['category'];
+} elseif (is_special_subcategory($course['category'] ?? '')) {
+    $selected_sub_category = normalize_course_sub_category($course['category']);
 }
 ?>
 <!DOCTYPE html>
@@ -1296,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } elseif (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) {
             echo 'NSQF Course';
         } else {
-            echo 'NON-NSQF Course';
+            echo addslashes(get_default_non_nsqf_sub_category());
         }
     ?>';
     if (currentNsqfType === 'NSQF Course') {
@@ -1350,7 +1349,7 @@ function handleCategoryChange(currentCategory) {
         } else if (selectedNsqfType === 'Workshop') {
             courseNameInput.placeholder    = 'Enter workshop name';
             eligibilityField.placeholder   = 'Enter eligibility criteria for workshop';
-        } else if (selectedNsqfType === 'GOVT/CORPORATE Training') {
+        } else if (selectedNsqfType === 'Govt/Corporate Training') {
             courseNameInput.placeholder    = 'Enter training program name';
             eligibilityField.placeholder   = 'Enter eligibility criteria for training';
         }

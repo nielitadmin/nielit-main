@@ -52,11 +52,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $course_code = strtoupper(trim($_POST['course_code']));
         $course_abbreviation = '';
         $course_type = $_POST['course_type'];
-        $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
         
         // Check if NSQF manager is trying to create non-NSQF course
         if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
-            $nsqf_type !== 'NSQF Course') {
+            !is_nsqf_course_sub_category($nsqf_type)) {
             $error = "You can only create NSQF courses.";
             goto skip_add;
         }
@@ -74,8 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fees = $_POST['fees'];
         $description = $_POST['description'];
         $eligibility = $_POST['eligibility'] ?? '';
-        $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
-        $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
+        $is_nsqf = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
@@ -156,11 +156,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $course_name = $_POST['course_name'];
         $course_code = strtoupper(trim($_POST['course_code']));
         $course_type = $_POST['course_type'];
-        $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
         
         // Check if NSQF manager is trying to edit to non-NSQF course
         if ($_SESSION['admin_role'] === 'nsqf_course_manager' && 
-            $nsqf_type !== 'NSQF Course') {
+            !is_nsqf_course_sub_category($nsqf_type)) {
             $error = "You can only manage NSQF courses.";
             goto skip_edit;
         }
@@ -188,8 +188,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $fees = $_POST['fees'];
         $description = $_POST['description'];
         $eligibility = $_POST['eligibility'] ?? '';
-        $nsqf_type = $_POST['nsqf_type'] ?? 'NON-NSQF Course';
-        $is_nsqf = ($nsqf_type === 'NSQF Course') ? 1 : 0;
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
+        $is_nsqf = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
@@ -476,7 +476,7 @@ if (!empty($params)) {
                                 <select name="type" class="form-select" onchange="this.form.submit()">
                                     <option value="all" <?= $filter_type === 'all' ? 'selected' : '' ?>>All Categories</option>
                                     <option value="NSQF" <?= $filter_type === 'NSQF' ? 'selected' : '' ?>>NSQF</option>
-                                    <option value="NON-NSQF" <?= $filter_type === 'NON-NSQF' ? 'selected' : '' ?>>NON-NSQF</option>
+                                    <option value="NON-NSQF" <?= $filter_type === 'NON-NSQF' ? 'selected' : '' ?>>Non-NSQF</option>
                                     <option value="Internship Program" <?= $filter_type === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
                                     <option value="Regular" <?= $filter_type === 'Regular' ? 'selected' : '' ?>>Regular</option>
                                     <option value="Internship" <?= $filter_type === 'Internship' ? 'selected' : '' ?>>Internship</option>
@@ -1210,7 +1210,7 @@ if (!empty($params)) {
             document.getElementById('edit_course_type').value = course.course_type;
             const editNsqfTypeSelect = document.getElementById('edit_nsqf_type');
             if (editNsqfTypeSelect) {
-                editNsqfTypeSelect.value = (course.is_nsqf == 1 || course.is_nsqf === '1') ? 'NSQF Course' : 'NON-NSQF Course';
+                editNsqfTypeSelect.value = (course.is_nsqf == 1 || course.is_nsqf === '1') ? 'NSQF Course' : '<?php echo addslashes(get_default_non_nsqf_sub_category()); ?>';
                 handleNsqfTypeChange('edit', editNsqfTypeSelect.value);
             }
             document.getElementById('edit_training_center').value = course.training_center;
@@ -1516,7 +1516,7 @@ if (!empty($params)) {
                     case 'Workshop':
                         eligibilityField.placeholder = 'e.g., Basic knowledge of the subject';
                         break;
-                    case 'GOVT/CORPORATE Training':
+                    case 'Govt/Corporate Training':
                         eligibilityField.placeholder = 'e.g., As per organization requirements';
                         break;
                     default:
@@ -1602,7 +1602,7 @@ if (!empty($params)) {
                     case 'Workshop':
                         eligibilityField.placeholder = 'e.g., Basic knowledge of the subject';
                         break;
-                    case 'GOVT/CORPORATE Training':
+                    case 'Govt/Corporate Training':
                         eligibilityField.placeholder = 'e.g., As per organization requirements';
                         break;
                     default:

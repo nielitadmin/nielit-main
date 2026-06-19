@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'add') {
         $course_name = trim($_POST['course_name']);
         $category = $_POST['category'];
-        $nsqf_type = $_POST['nsqf_type'];
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type']);
         $eligibility = trim($_POST['eligibility']);
         $created_by = $_SESSION['admin_id'];
         
@@ -51,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = intval($_POST['template_id']);
         $course_name = trim($_POST['course_name']);
         $category = $_POST['category'];
-        $nsqf_type = $_POST['nsqf_type'];
+        $nsqf_type = normalize_course_sub_category($_POST['nsqf_type']);
         $eligibility = trim($_POST['eligibility']);
         
         $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, nsqf_type=?, eligibility=? WHERE id=? AND created_by=?");
@@ -180,8 +180,8 @@ $templates = $stmt->get_result();
                                         </span>
                                     </td>
                                     <td>
-                                        <span class="badge <?= ($template['nsqf_type'] ?? '') === 'NSQF Course' ? 'bg-success' : 'bg-warning' ?>">
-                                            <?= htmlspecialchars($template['nsqf_type'] ?? 'NON-NSQF Course') ?>
+                                        <span class="badge <?= is_nsqf_course_sub_category($template['nsqf_type'] ?? '') ? 'bg-success' : 'bg-warning' ?>">
+                                            <?= htmlspecialchars(format_course_sub_category_display($template['nsqf_type'] ?? null)) ?>
                                         </span>
                                     </td>
                                     <td><?= htmlspecialchars($template['eligibility']) ?></td>
@@ -317,11 +317,21 @@ $templates = $stmt->get_result();
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+const legacySubCategoryMap = <?php echo json_encode(get_legacy_sub_category_map()); ?>;
+const defaultNonNsqfSubCategory = <?php echo json_encode(get_default_non_nsqf_sub_category()); ?>;
+
+function normalizeSubCategoryValue(value) {
+    if (!value) {
+        return defaultNonNsqfSubCategory;
+    }
+    return legacySubCategoryMap[value] || value;
+}
+
 function editTemplate(template) {
     document.getElementById('edit_template_id').value = template.id;
     document.getElementById('edit_course_name').value = template.course_name;
     document.getElementById('edit_category').value = template.category;
-    document.getElementById('edit_nsqf_type').value = template.nsqf_type || 'NON-NSQF Course';
+    document.getElementById('edit_nsqf_type').value = normalizeSubCategoryValue(template.nsqf_type);
     document.getElementById('edit_eligibility').value = template.eligibility;
     
     new bootstrap.Modal(document.getElementById('editTemplateModal')).show();
