@@ -854,6 +854,14 @@ $dashboard_payload = [
         .form-control:hover, .form-select:hover {
             border-color: #d1d5db;
         }
+
+        .eligibility-textarea {
+            resize: vertical;
+            min-height: 130px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
         
         .form-help {
             font-size: 0.75rem;
@@ -2488,12 +2496,12 @@ $dashboard_payload = [
                     </div>
                     
                     <div class="form-grid form-grid-2">
-                        <div class="form-group">
+                        <div class="form-group" style="grid-column: 1 / -1;">
                             <label class="form-label">Eligibility <span class="required">*</span></label>
-                            <input type="text" class="form-control" name="eligibility" id="add_eligibility_dash" required placeholder="Graduate in any discipline">
+                            <textarea class="form-control eligibility-textarea" name="eligibility" id="add_eligibility_dash" rows="5" required placeholder="Graduate in any discipline"></textarea>
                             <div class="form-help">
-                                <i class="fas fa-user-graduate"></i>
-                                For NSQF courses, this will be filled automatically from template
+                                <i class="fas fa-arrows-alt-v"></i>
+                                Drag the bottom-right corner to resize. For NSQF courses, this will be filled automatically from template.
                             </div>
                         </div>
                         
