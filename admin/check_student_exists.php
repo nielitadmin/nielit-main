@@ -4,6 +4,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
+require_once __DIR__ . '/includes/student_inspector_roster.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login_new.php');
@@ -38,6 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $redirectUrl = 'check_student_exists.php' . ($redirectQs !== '' ? '?' . $redirectQs : '');
 
     $enrollmentResult = inspectorHandleEnrollmentPost($conn, $adminRole);
+    if ($enrollmentResult === null) {
+        $enrollmentResult = inspectorHandleRosterPost($conn, $adminRole);
+    }
     if ($enrollmentResult !== null) {
         $flashMessage = $enrollmentResult['message'];
         $flashType = $enrollmentResult['type'];
@@ -251,6 +255,10 @@ $page_title = 'Student Record Inspector';
             </div>
         </form>
     </div>
+
+    <?php if ($canManageEnrollment): ?>
+    <?php include __DIR__ . '/includes/student_inspector_roster_ui.php'; ?>
+    <?php endif; ?>
 
     <?php if ($searched):
         $alertClass = 'status-missing';
