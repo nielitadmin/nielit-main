@@ -106,12 +106,22 @@ $result_internship = $conn->query($sql_internship);
         }
 
         /* Compact Collapsible Course Cards */
+        .course-section .row.g-4 > [class*="col-"] {
+            display: flex;
+        }
+
         .course-card {
-            margin-bottom: 1rem;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            margin-bottom: 0;
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
+            transition: box-shadow 0.3s ease, transform 0.3s ease;
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.06);
         }
 
         .course-card:hover {
@@ -122,38 +132,62 @@ $result_internship = $conn->query($sql_internship);
         .course-card-header {
             background: linear-gradient(135deg, #0a1628 0%, #112240 100%) !important;
             border-bottom: 1px solid rgba(245,158,11,0.25);
-            padding: 1rem 1.25rem;
+            padding: 1rem 1.1rem 1.15rem;
             cursor: pointer;
             user-select: none;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            grid-template-areas:
+                "info info toggle"
+                "project status status"
+                "meta meta meta";
+            gap: 0.55rem 0.65rem;
+            align-items: start;
         }
 
         .course-card-header:hover {
             background: linear-gradient(135deg, #112240 0%, #1a3a5a 100%) !important;
         }
 
-        .course-card-header h4 {
+        .course-header-info {
+            display: contents;
+        }
+
+        .course-header-info h4 {
+            grid-area: info;
             color: #fff !important;
-            font-size: 1.1rem;
+            font-size: 0.95rem;
+            line-height: 1.4;
             margin: 0;
-            flex: 1;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            min-width: 0;
+            padding-right: 0.25rem;
+        }
+
+        .course-header-info h4 .badge {
+            vertical-align: middle;
+            margin-left: 0.35rem;
+            white-space: nowrap;
         }
 
         .course-project-level {
+            grid-area: project;
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            margin-top: 6px;
+            margin-top: 0;
             padding: 4px 10px;
             border-radius: 6px;
             background: rgba(245, 158, 11, 0.18);
             border: 1px solid rgba(251, 191, 36, 0.45);
             color: #fcd34d;
-            font-size: 0.78rem;
+            font-size: 0.76rem;
             font-weight: 600;
             line-height: 1.3;
+            width: fit-content;
+            max-width: 100%;
+            justify-self: start;
         }
 
         .course-project-level i {
@@ -162,10 +196,12 @@ $result_internship = $conn->query($sql_internship);
         }
 
         .course-card-toggle {
+            grid-area: toggle;
             color: var(--gold);
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             transition: transform 0.3s ease;
-            margin-left: 1rem;
+            margin-top: 2px;
+            flex-shrink: 0;
         }
 
         .course-card.expanded .course-card-toggle {
@@ -173,28 +209,35 @@ $result_internship = $conn->query($sql_internship);
         }
 
         .course-card-header .enrollment-status-badge {
-            margin-left: 1rem;
+            grid-area: status;
+            margin-left: 0;
+            flex-shrink: 0;
+            max-width: none;
+            justify-self: end;
         }
 
         .course-card-header .enrollment-status-badge .status-badge {
-            font-size: 0.75rem;
-            padding: 0.5rem 1rem;
+            font-size: 0.7rem;
+            padding: 0.45rem 0.65rem;
             border-radius: 6px;
             font-weight: 600;
             display: inline-block;
-            white-space: nowrap;
+            text-align: center;
+            line-height: 1.3;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .course-card-header .enrollment-status-badge .status-badge.status-ongoing {
             background: linear-gradient(135deg, #d1fae5 0%, #bbf7d0 100%);
             color: #0a1628;
-            border-color: rgba(10, 22, 40, 0.08);
+            border: 1px solid rgba(10, 22, 40, 0.08);
         }
 
         .course-card-header .enrollment-status-badge .status-badge.status-closed {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
             color: #0a1628;
-            border-color: rgba(10, 22, 40, 0.08);
+            border: 1px solid rgba(10, 22, 40, 0.08);
         }
 
         .course-card-body {
@@ -202,10 +245,11 @@ $result_internship = $conn->query($sql_internship);
             overflow: hidden;
             transition: max-height 0.4s ease, padding 0.4s ease;
             padding: 0 1.25rem;
+            background: #fff;
         }
 
         .course-card.expanded .course-card-body {
-            max-height: 2000px;
+            max-height: 3000px;
             padding: 1.25rem;
         }
 
@@ -215,11 +259,84 @@ $result_internship = $conn->query($sql_internship);
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.4s ease, padding 0.4s ease;
+            border-top: 0 solid #e2e8f0;
         }
 
         .course-card.expanded .course-card-footer {
-            max-height: 200px;
-            padding: 1rem 1.25rem;
+            max-height: 120px;
+            padding: 0.9rem 1.1rem;
+            border-top-width: 1px;
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .course-quick-info {
+            grid-area: meta;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem 0.75rem;
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.9);
+            flex-wrap: wrap;
+            width: 100%;
+            padding-top: 0.15rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .course-quick-info span {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 0.35rem;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.4;
+            max-width: 100%;
+        }
+
+        .course-quick-info span:has(i.fa-rupee-sign),
+        .course-quick-info .course-fee-item {
+            flex: 1 1 100%;
+        }
+
+        .course-quick-info .course-fee-text {
+            display: block;
+            width: 100%;
+            font-size: 0.74rem;
+            line-height: 1.45;
+            opacity: 0.95;
+        }
+
+        .course-quick-info span:has(i.fa-building) {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+            padding: 0.3rem 0.65rem;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.76rem;
+            flex: 1 1 auto;
+        }
+
+        .course-quick-info i {
+            color: var(--gold);
+            margin-top: 2px;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 576px) {
+            .course-card-header {
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-areas:
+                    "info toggle"
+                    "project project"
+                    "status status"
+                    "meta meta";
+            }
+
+            .course-card-header .enrollment-status-badge {
+                justify-self: start;
+            }
         }
 
         .section-header {
@@ -237,7 +354,7 @@ $result_internship = $conn->query($sql_internship);
             overflow: hidden;
             white-space: nowrap;
         }
-        
+
         .notice-label {
             background: var(--navy);
             color: var(--gold);
@@ -249,7 +366,7 @@ $result_internship = $conn->query($sql_internship);
             font-family: 'Sora', sans-serif;
             letter-spacing: 0.5px;
         }
-        
+
         .notice-content {
             display: inline-block;
             padding-left: 100%;
@@ -257,67 +374,10 @@ $result_internship = $conn->query($sql_internship);
             font-weight: 500;
             font-size: 0.88rem;
         }
-        
+
         @keyframes ticker {
             0% { transform: translate3d(0,0,0); }
             100% { transform: translate3d(-100%,0,0); }
-        }
-
-        /* Compact header info */
-        .course-header-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            flex: 1;
-        }
-
-        .course-quick-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.85);
-            flex-wrap: wrap;
-        }
-
-        .course-quick-info span {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
-            white-space: nowrap;
-        }
-
-        .course-quick-info span:has(i.fa-building) {
-            background: rgba(245, 158, 11, 0.2);
-            color: #fcd34d;
-            padding: 0.3rem 0.75rem;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 0.78rem;
-        }
-
-        .course-quick-info i {
-            color: var(--gold);
-        }
-
-        /* Inline closing date next to status badge */
-        .enrollment-status-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-            margin-left: 1rem;
-        }
-
-        .enrollment-closing-date {
-            font-size: 0.72rem;
-            color: rgba(255,255,255,0.75);
-            white-space: nowrap;
-        }
-
-        .enrollment-closing-date i {
-            color: var(--gold);
-            margin-right: 2px;
         }
     </style>
 </head>
@@ -477,26 +537,6 @@ $result_internship = $conn->query($sql_internship);
 </section>
 
 <!-- Courses Offered Section -->
-                                </div>
-                            </div>
-                            <div class="stat-item text-center">
-                                <div style="font-size: 1.2rem; font-weight: 700; color: #10b981; margin-bottom: 0.25rem;">
-                                    <?php 
-                                    $centres_result = $conn->query("SELECT COUNT(*) as count FROM centres WHERE is_active = 1");
-                                    $centres_count = $centres_result ? $centres_result->fetch_assoc()['count'] : 0;
-                                    echo $centres_count;
-                                    ?>
-                                </div>
-                                <div style="font-size: 0.75rem; color: #64748b; line-height: 1.2;">Centres</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-
-
-<!-- Courses Offered Section -->
 <section class="py-5">
     <div class="container">
 
@@ -519,9 +559,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -550,9 +588,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
                                     <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
-                                    <?php if (!empty($row["training_fees"])): ?>
-                                    <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Training Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
-                                    <?php endif; ?>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <?php if (!empty($row["start_date"])): ?>
                                     <div class="info-item"><i class="fas fa-calendar-alt"></i><div><span class="info-label">Course Start Date</span><span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span></div></div>
                                     <?php endif; ?>
@@ -609,9 +645,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -640,9 +674,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
                                     <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
-                                    <?php if (!empty($row["training_fees"])): ?>
-                                    <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Training Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
-                                    <?php endif; ?>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <?php if (!empty($row["start_date"])): ?>
                                     <div class="info-item"><i class="fas fa-calendar-alt"></i><div><span class="info-label">Course Start Date</span><span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span></div></div>
                                     <?php endif; ?>
@@ -699,9 +731,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -730,9 +760,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
                                     <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
-                                    <?php if (!empty($row["training_fees"])): ?>
-                                    <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Training Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
-                                    <?php endif; ?>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <?php if (!empty($row["start_date"])): ?>
                                     <div class="info-item"><i class="fas fa-calendar-alt"></i><div><span class="info-label">Course Start Date</span><span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span></div></div>
                                     <?php endif; ?>
@@ -789,9 +817,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -839,13 +865,7 @@ $result_internship = $conn->query($sql_internship);
                                             <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
                                         </div>
                                     </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-rupee-sign"></i>
-                                        <div>
-                                            <span class="info-label">Training Fees</span>
-                                            <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        </div>
-                                    </div>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <div class="info-item">
                                         <i class="fas fa-calendar-alt"></i>
                                         <div>
@@ -951,9 +971,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -982,9 +1000,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
                                     <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
-                                    <?php if (!empty($row["training_fees"])): ?>
-                                    <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Training Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
-                                    <?php endif; ?>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <?php if (!empty($row["start_date"])): ?>
                                     <div class="info-item"><i class="fas fa-calendar-alt"></i><div><span class="info-label">Course Start Date</span><span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span></div></div>
                                     <?php endif; ?>
@@ -1041,9 +1057,7 @@ $result_internship = $conn->query($sql_internship);
                                     <?php echo renderCourseProjectLevelHeader($row); ?>
                                     <div class="course-quick-info">
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        <?php if (!empty($row["training_fees"])): ?>
-                                        <span><i class="fas fa-rupee-sign"></i> ₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        <?php endif; ?>
+                                        <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
                                         <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
                                         <?php endif; ?>
@@ -1072,9 +1086,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item"><i class="fas fa-user-graduate"></i><div><span class="info-label">Eligibility</span><span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span></div></div>
                                     <?php endif; ?>
                                     <div class="info-item"><i class="fas fa-clock"></i><div><span class="info-label">Duration</span><span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span></div></div>
-                                    <?php if (!empty($row["training_fees"])): ?>
-                                    <div class="info-item"><i class="fas fa-rupee-sign"></i><div><span class="info-label">Training Fees</span><span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span></div></div>
-                                    <?php endif; ?>
+                                    <?php echo renderCourseFeeDetailItem($row); ?>
                                     <?php if (!empty($row["start_date"])): ?>
                                     <div class="info-item"><i class="fas fa-calendar-alt"></i><div><span class="info-label">Course Start Date</span><span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span></div></div>
                                     <?php endif; ?>
@@ -1113,161 +1125,6 @@ $result_internship = $conn->query($sql_internship);
         </div>
     </div>
 </section>
-            <?php if ($result_skill_long && $result_skill_long->num_rows > 0): ?>
-                <div class="row">
-                    <?php while ($row = $result_skill_long->fetch_assoc()): ?>
-                    <div class="col-md-6 col-lg-4">
-                        <div class="course-card">
-                            <div class="course-card-header">
-                                <h4><?php echo htmlspecialchars($row["course_name"]); ?> <?php if (!empty($row["is_nsqf"]) && $row["is_nsqf"]==1): ?><span class="badge bg-info" style="margin-left:8px;">NSQF</span><?php endif; ?></h4>
-                                <?php echo renderCourseProjectLevelHeader($row); ?>
-                                <!-- Enrollment Status Badge -->
-                                <div class="enrollment-status-badge" style="margin-top: 8px;">
-                                    <?php 
-                                    $enrollment_status = $row['enrollment_status'] ?? 'ongoing';
-                                    $enrollment_closing_date = $row['enrollment_closing_date'] ?? null;
-                                    $today = date('Y-m-d');
-                                    $is_closed = false;
-                                    if ($enrollment_status == 'closed') {
-                                        $is_closed = true;
-                                    } elseif (!empty($enrollment_closing_date) && $today > $enrollment_closing_date) {
-                                        $is_closed = true;
-                                    }
-                                    if ($is_closed): 
-                                    ?>
-                                        <span class="status-badge status-closed">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                            <?php if (!empty($enrollment_closing_date)): ?>
-                                                <br><small style="color:#b58900;">Closed on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small>
-                                            <?php endif; ?>
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="status-badge status-ongoing">
-                                            <i class="fas fa-check-circle"></i> Enrollment Open
-                                            <?php if (!empty($enrollment_closing_date)): ?>
-                                                <br><small style="color:#388e3c;">Closes on <?php echo date('d M Y', strtotime($enrollment_closing_date)); ?></small>
-                                            <?php endif; ?>
-                                        </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-body <?php echo ($is_closed) ? 'course-disabled' : ''; ?>">
-                                <div class="course-info-grid">
-                                    <?php echo renderCourseProjectLevelInfoItem($row); ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-user-graduate"></i>
-                                        <div>
-                                            <span class="info-label">Eligibility</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["eligibility"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-clock"></i>
-                                        <div>
-                                            <span class="info-label">Duration</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["duration"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-rupee-sign"></i>
-                                        <div>
-                                            <span class="info-label">Training Fees</span>
-                                            <span class="info-value">₹<?php echo is_numeric($row["training_fees"]) ? number_format($row["training_fees"]) : htmlspecialchars($row["training_fees"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-alt"></i>
-                                        <div>
-                                            <span class="info-label">Course Start Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["start_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <div class="info-item">
-                                        <i class="fas fa-calendar-check"></i>
-                                        <div>
-                                            <span class="info-label">Course End Date</span>
-                                            <span class="info-value"><?php echo date('d M Y', strtotime($row["end_date"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php if (!empty($row["course_coordinator"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-user-tie"></i>
-                                        <div>
-                                            <span class="info-label">Coordinator</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["course_coordinator"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["course_description"])): ?>
-                                    <div class="info-item" style="grid-column: 1 / -1;">
-                                        <i class="fas fa-info-circle"></i>
-                                        <div>
-                                            <span class="info-label">Description</span>
-                                            <span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-map-marker-alt"></i>
-                                        <div>
-                                            <span class="info-label">Training Centre</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
-                                    <div class="info-item">
-                                        <i class="fas fa-location-dot"></i>
-                                        <div>
-                                            <span class="info-label">Location</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span>
-                                        </div>
-                                    </div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div class="course-card-footer">
-                                <?php if (!empty($row["description_url"])): ?>
-                                    <a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-info-circle"></i> View Details
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["description_pdf"])): ?>
-                                    <a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern">
-                                        <i class="fas fa-file-pdf"></i> Download PDF
-                                    </a>
-                                <?php endif; ?>
-                                
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
-                                    <?php if ($is_closed): ?>
-                                        <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
-                                            <i class="fas fa-times-circle"></i> Enrollment Closed
-                                        </button>
-                                    <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern">
-                                            <i class="fas fa-paper-plane"></i> Apply Now
-                                        </a>
-                                    <?php endif; ?>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endwhile; ?>
-                </div>
-            <?php else: ?>
-                <div class="empty-state"><i class="fas fa-inbox"></i><h4>No Skill Based (Long Term) Courses Available</h4><p>Please check back later.</p></div>
-            <?php endif; ?>
-        </div>
-    </div>
-</section>
-
-
-
-
-
-
 <!-- Footer (Matching Index.php) -->
 <footer class="pt-5">
     <div class="container pb-4">

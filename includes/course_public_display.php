@@ -14,6 +14,53 @@ if (!function_exists('ensureCourseProjectLevelColumn')) {
     }
 }
 
+if (!function_exists('formatCourseFeeValue')) {
+    function formatCourseFeeValue($fees): string
+    {
+        $fees = trim((string)$fees);
+        if ($fees === '') {
+            return '';
+        }
+        if (is_numeric($fees)) {
+            return '₹' . number_format((float)$fees);
+        }
+        if (preg_match('/^[₹]|^rs\.?\s/i', $fees)) {
+            return $fees;
+        }
+        return $fees;
+    }
+}
+
+if (!function_exists('renderCourseFeeQuickInfo')) {
+    function renderCourseFeeQuickInfo(array $row): string
+    {
+        $fees = trim((string)($row['training_fees'] ?? ''));
+        if ($fees === '') {
+            return '';
+        }
+        $display = formatCourseFeeValue($fees);
+        $icon = is_numeric($fees) ? 'fa-rupee-sign' : 'fa-tags';
+        $class = is_numeric($fees) ? 'course-fee-item' : 'course-fee-item course-fee-text';
+        return '<span class="' . $class . '"><i class="fas ' . $icon . '"></i> '
+            . htmlspecialchars($display) . '</span>';
+    }
+}
+
+if (!function_exists('renderCourseFeeDetailItem')) {
+    function renderCourseFeeDetailItem(array $row): string
+    {
+        $fees = trim((string)($row['training_fees'] ?? ''));
+        if ($fees === '') {
+            return '';
+        }
+        $display = formatCourseFeeValue($fees);
+        return '<div class="info-item"><i class="fas fa-rupee-sign"></i><div>'
+            . '<span class="info-label">Training Fees</span>'
+            . '<span class="info-value">' . htmlspecialchars($display) . '</span>'
+            . '</div></div>';
+    }
+}
+
 if (!function_exists('renderCourseProjectLevelHeader')) {
     function renderCourseProjectLevelHeader(array $row): string {
         $label = trim($row['project_level_label'] ?? '');
