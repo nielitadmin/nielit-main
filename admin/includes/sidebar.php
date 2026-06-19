@@ -82,6 +82,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <?php if ($is_course_coordinator): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chart-line"></i> Report Monitor
+            </a>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
         
         <?php if ($is_master_admin): ?>
@@ -174,6 +181,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-bar"></i> Attendance Reports
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chart-line"></i> Report Monitor
             </a>
         </div>
         <div class="nav-item">
