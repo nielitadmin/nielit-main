@@ -90,8 +90,51 @@ if (!function_exists('inspectorFindStudentRecordId')) {
     }
 }
 
+if (!function_exists('inspectorEnsureBatchSchemeForRoster')) {
+    /**
+     * Legacy batches are often created without scheme_id; set it before roster assign.
+     */
+    function inspectorEnsureBatchSchemeForRoster(mysqli $conn, int $batchId, ?int $schemeId): bool
+    {
+        $schemeId = normalizeEnrollmentSchemeId($schemeId);
+        if ($batchId <= 0 || $schemeId === null || !hasSchemeEnrollmentColumns($conn)) {
+            return true;
+        }
+
+        $stmt = $conn->prepare('SELECT scheme_id FROM batches WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $batchId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return false;
+        }
+
+        $current = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
+        if ($current === null) {
+            $upd = $conn->prepare('UPDATE batches SET scheme_id = ? WHERE id = ?');
+            if (!$upd) {
+                return false;
+            }
+            $upd->bind_param('ii', $schemeId, $batchId);
+            $ok = $upd->execute();
+            $upd->close();
+            return $ok;
+        }
+
+        return schemeIdsMatch($current, $schemeId);
+    }
+}
+
 if (!function_exists('inspectorGetTargetBatchesForRoster')) {
     /**
+     * Active batches for a target course, compatible with the selected scheme.
+     * Includes batches with no scheme set (common for older batches).
+     *
      * @return array<int, array<string, mixed>>
      */
     function inspectorGetTargetBatchesForRoster(mysqli $conn, int $courseId, ?int $schemeId): array
@@ -102,41 +145,50 @@ if (!function_exists('inspectorGetTargetBatchesForRoster')) {
 
         $schemeId = normalizeEnrollmentSchemeId($schemeId);
         $hasScheme = hasSchemeEnrollmentColumns($conn);
+        $courseSchemes = getSchemesForCourse($conn, $courseId);
+        $courseRequiresScheme = !empty($courseSchemes);
 
-        $sql = "SELECT b.id, b.batch_name, b.batch_code, b.seats_total, b.scheme_id,
-                       (SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = b.id) AS enrolled_count
-                FROM batches b
-                WHERE b.course_id = ?
-                AND LOWER(COALESCE(b.status, '')) = 'active'";
-
-        if ($hasScheme && $schemeId !== null) {
-            $sql .= ' AND b.scheme_id = ?';
-        } elseif ($hasScheme) {
-            $sql .= ' AND b.scheme_id IS NULL';
+        if ($courseRequiresScheme && $schemeId === null) {
+            return [];
         }
 
-        $sql .= ' ORDER BY b.batch_name ASC';
+        $sql = "SELECT b.id, b.batch_name, b.batch_code, b.seats_total, b.scheme_id,
+                       s.scheme_name, s.scheme_code,
+                       (SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = b.id) AS enrolled_count
+                FROM batches b
+                LEFT JOIN schemes s ON s.id = b.scheme_id
+                WHERE b.course_id = ?
+                AND LOWER(TRIM(COALESCE(b.status, ''))) = 'active'
+                ORDER BY b.batch_name ASC";
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return [];
         }
 
-        if ($hasScheme && $schemeId !== null) {
-            $stmt->bind_param('ii', $courseId, $schemeId);
-        } else {
-            $stmt->bind_param('i', $courseId);
-        }
-
+        $stmt->bind_param('i', $courseId);
         $stmt->execute();
         $res = $stmt->get_result();
-        $batches = [];
+        $all = [];
         while ($row = $res->fetch_assoc()) {
-            $batches[] = $row;
+            $all[] = $row;
         }
         $stmt->close();
 
-        return $batches;
+        if (!$hasScheme || $schemeId === null) {
+            return $all;
+        }
+
+        $filtered = [];
+        foreach ($all as $row) {
+            $batchScheme = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
+            if ($batchScheme === null || schemeIdsMatch($batchScheme, $schemeId)) {
+                $row['needs_scheme_set'] = ($batchScheme === null);
+                $filtered[] = $row;
+            }
+        }
+
+        return $filtered;
     }
 }
 
@@ -228,6 +280,10 @@ if (!function_exists('inspectorCopyBatchRoster')) {
         }
 
         if ($targetBatchId !== null) {
+            if (!inspectorEnsureBatchSchemeForRoster($conn, $targetBatchId, $targetSchemeId)) {
+                return ['success' => false, 'message' => 'Target batch scheme does not match the selected scheme.', 'type' => 'danger'];
+            }
+
             $targetBatch = getBatchByIdForEnrollment($conn, $targetBatchId);
             if (!$targetBatch) {
                 return ['success' => false, 'message' => 'Target batch not found.', 'type' => 'danger'];

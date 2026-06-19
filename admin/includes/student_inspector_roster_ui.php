@@ -92,7 +92,7 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
                     <select name="target_batch_id" id="roster-target-batch" class="form-select">
                         <option value="">-- Select target batch (optional if unchecked above) --</option>
                     </select>
-                    <small class="text-muted d-block mt-1">Shown after you pick target course (and scheme if required).</small>
+                    <small class="text-muted d-block mt-1" id="roster-target-batch-hint">Shown after you pick target course (and scheme if required).</small>
                 </div>
             </div>
         </div>
@@ -118,8 +118,10 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
     const previewSummary = document.getElementById('roster-source-summary');
     const previewBody = document.getElementById('roster-source-students');
     const copyHint = document.getElementById('roster-copy-hint');
+    const targetBatchHint = document.getElementById('roster-target-batch-hint');
 
     let sourceStudentCount = 0;
+    let targetCourseRequiresScheme = false;
 
     function rosterEsc(text) {
         const d = document.createElement('div');
@@ -168,18 +170,29 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
             });
     }
 
+    function setTargetBatchHint(text) {
+        if (targetBatchHint) {
+            targetBatchHint.textContent = text;
+        }
+    }
+
     function loadTargetSchemes(courseId) {
         targetScheme.innerHTML = '<option value="">-- Select scheme / project --</option>';
         targetSchemeGroup.style.display = 'none';
         targetScheme.required = false;
+        targetCourseRequiresScheme = false;
+        targetBatch.innerHTML = '<option value="">-- Select target batch --</option>';
+        setTargetBatchHint('Shown after you pick target course (and scheme if required).');
+
         if (!courseId) {
-            loadTargetBatches(0, null);
             return;
         }
+
         fetch('get_schemes_for_course.php?course_id=' + encodeURIComponent(courseId))
             .then(r => r.json())
             .then(data => {
                 if (data.requires_scheme && data.schemes && data.schemes.length) {
+                    targetCourseRequiresScheme = true;
                     targetSchemeGroup.style.display = 'block';
                     targetScheme.required = true;
                     data.schemes.forEach(sch => {
@@ -188,8 +201,10 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
                         opt.textContent = sch.scheme_name + (sch.scheme_code ? ' (' + sch.scheme_code + ')' : '');
                         targetScheme.appendChild(opt);
                     });
+                    setTargetBatchHint('Select a scheme/project to load batches for this course.');
+                    return;
                 }
-                loadTargetBatches(courseId, targetScheme.value || null);
+                loadTargetBatches(courseId, null);
             })
             .catch(() => loadTargetBatches(courseId, null));
     }
@@ -197,8 +212,15 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
     function loadTargetBatches(courseId, schemeId) {
         targetBatch.innerHTML = '<option value="">-- Select target batch --</option>';
         if (!courseId) {
+            setTargetBatchHint('Select a target course first.');
             return;
         }
+        if (targetCourseRequiresScheme && !schemeId) {
+            setTargetBatchHint('Select a scheme/project to load batches for this course.');
+            return;
+        }
+
+        setTargetBatchHint('Loading batches…');
         let url = 'ajax_inspector_roster.php?action=target_batches&course_id=' + encodeURIComponent(courseId);
         if (schemeId) {
             url += '&scheme_id=' + encodeURIComponent(schemeId);
@@ -206,16 +228,29 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
         fetch(url)
             .then(r => r.json())
             .then(data => {
-                if (!data.success || !data.batches) {
+                if (!data.success) {
+                    setTargetBatchHint(data.message || 'Could not load batches.');
                     return;
                 }
-                data.batches.forEach(b => {
+                const batches = data.batches || [];
+                if (batches.length === 0) {
+                    setTargetBatchHint(data.message || 'No active batches found. Create one in Manage Batches.');
+                    return;
+                }
+                batches.forEach(b => {
                     const opt = document.createElement('option');
                     opt.value = b.id;
                     const seats = b.seats_total > 0 ? ' — ' + b.enrolled_count + '/' + b.seats_total + ' seats' : '';
-                    opt.textContent = b.batch_name + (b.batch_code ? ' (' + b.batch_code + ')' : '') + seats;
+                    const schemeLabel = b.scheme_name
+                        ? ' — ' + b.scheme_name
+                        : (b.needs_scheme_set ? ' — scheme will be set on copy' : '');
+                    opt.textContent = b.batch_name + (b.batch_code ? ' (' + b.batch_code + ')' : '') + schemeLabel + seats;
                     targetBatch.appendChild(opt);
                 });
+                setTargetBatchHint(batches.length + ' active batch(es) available.');
+            })
+            .catch(() => {
+                setTargetBatchHint('Failed to load batches. Refresh the page and try again.');
             });
     }
 
