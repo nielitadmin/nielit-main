@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
+require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login_new.php');
@@ -11,33 +12,43 @@ if (!isset($_SESSION['admin'])) {
 
 $adminRole = $_SESSION['admin_role'] ?? '';
 $canDelete = ($adminRole !== 'front_office_desk');
+$canManageEnrollment = ($adminRole !== 'front_office_desk');
+$assignCoursesList = inspectorGetCoursesForAssign($conn);
 $flashMessage = '';
 $flashType = 'success';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canDelete) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $searchParams = [
         'aadhar' => trim($_POST['aadhar'] ?? ''),
         'mobile' => trim($_POST['mobile'] ?? ''),
         'email' => trim($_POST['email'] ?? ''),
         'student_id' => trim($_POST['student_id'] ?? ''),
         'name' => trim($_POST['name'] ?? ''),
+        'course_name' => trim($_POST['course_name'] ?? ''),
+        'course_id' => (int)($_POST['course_id'] ?? 0),
     ];
     $redirectQs = inspectorSearchParams($searchParams);
     $redirectUrl = 'check_student_exists.php' . ($redirectQs !== '' ? '?' . $redirectQs : '');
 
-    if (($_POST['delete_action'] ?? '') === 'purge_all' && !empty($_POST['confirm_purge'])) {
-        $ids = [
-            'record_ids' => array_values(array_filter(array_map('intval', explode(',', $_POST['purge_record_ids'] ?? '')))),
-            'account_ids' => array_values(array_filter(array_map('intval', explode(',', $_POST['purge_account_ids'] ?? '')))),
-            'student_id_strings' => array_values(array_filter(array_map('trim', explode(',', $_POST['purge_student_ids'] ?? '')))),
-        ];
-        $result = inspectorPurgeAllRelated($conn, $ids);
-        $flashMessage = $result['message'];
-        $flashType = $result['success'] ? 'success' : 'danger';
-    } elseif (($_POST['delete_action'] ?? '') === 'delete_one') {
-        $result = inspectorDeleteRecord($conn, (string)($_POST['record_type'] ?? ''), (int)($_POST['record_id'] ?? 0));
-        $flashMessage = $result['message'];
-        $flashType = $result['success'] ? 'success' : 'danger';
+    $enrollmentResult = inspectorHandleEnrollmentPost($conn, $adminRole);
+    if ($enrollmentResult !== null) {
+        $flashMessage = $enrollmentResult['message'];
+        $flashType = $enrollmentResult['type'];
+    } elseif ($canDelete) {
+        if (($_POST['delete_action'] ?? '') === 'purge_all' && !empty($_POST['confirm_purge'])) {
+            $ids = [
+                'record_ids' => array_values(array_filter(array_map('intval', explode(',', $_POST['purge_record_ids'] ?? '')))),
+                'account_ids' => array_values(array_filter(array_map('intval', explode(',', $_POST['purge_account_ids'] ?? '')))),
+                'student_id_strings' => array_values(array_filter(array_map('trim', explode(',', $_POST['purge_student_ids'] ?? '')))),
+            ];
+            $result = inspectorPurgeAllRelated($conn, $ids);
+            $flashMessage = $result['message'];
+            $flashType = $result['success'] ? 'success' : 'danger';
+        } elseif (($_POST['delete_action'] ?? '') === 'delete_one') {
+            $result = inspectorDeleteRecord($conn, (string)($_POST['record_type'] ?? ''), (int)($_POST['record_id'] ?? 0));
+            $flashMessage = $result['message'];
+            $flashType = $result['success'] ? 'success' : 'danger';
+        }
     }
 
     if ($flashMessage !== '') {
@@ -53,18 +64,15 @@ if (!empty($_SESSION['inspector_flash'])) {
     unset($_SESSION['inspector_flash']);
 }
 
-function normalizeDigits(string $value): string
-{
-    return preg_replace('/\D+/', '', $value) ?? '';
-}
+$aadhar = $searchCriteria['aadhar'];
+$mobile = $searchCriteria['mobile'];
+$email = $searchCriteria['email'];
+$studentId = $searchCriteria['student_id'];
+$name = $searchCriteria['name'];
+$courseName = $searchCriteria['course_name'];
+$courseId = (int)$searchCriteria['course_id'];
 
-$aadhar = normalizeDigits(trim($_GET['aadhar'] ?? $_POST['aadhar'] ?? ''));
-$mobile = normalizeDigits(trim($_GET['mobile'] ?? $_POST['mobile'] ?? ''));
-$email = strtolower(trim($_GET['email'] ?? $_POST['email'] ?? ''));
-$studentId = trim($_GET['student_id'] ?? $_POST['student_id'] ?? '');
-$name = trim($_GET['name'] ?? $_POST['name'] ?? '');
-
-$searched = ($aadhar !== '' || $mobile !== '' || $email !== '' || $studentId !== '' || $name !== '');
+$searched = inspectorHasIdentityCriteria($searchCriteria) || inspectorHasCourseCriteria($searchCriteria);
 $studentRows = [];
 $accountRows = [];
 $enrollmentRows = [];
@@ -76,215 +84,26 @@ $summary = 'No search performed yet.';
 $relatedRecords = [];
 $relatedTotal = 0;
 $collectedIds = ['record_ids' => [], 'account_ids' => [], 'student_id_strings' => []];
-$searchParams = [
-    'aadhar' => $aadhar,
-    'mobile' => $mobile,
-    'email' => $email,
-    'student_id' => $studentId,
-    'name' => $name,
-];
+$enrollmentContext = ['primary_student_id' => '', 'primary_name' => '', 'course_items' => []];
+$courseFilterLabel = '';
+$searchParams = $searchCriteria;
 
 if ($searched) {
-    $studentConds = [];
-    $studentParams = [];
-    $studentTypes = '';
-
-    if ($aadhar !== '') {
-        $studentConds[] = "REPLACE(REPLACE(REPLACE(aadhar,' ',''),'-',''),'.','') = ?";
-        $studentParams[] = $aadhar;
-        $studentTypes .= 's';
-    }
-    if ($mobile !== '') {
-        $studentConds[] = "REPLACE(REPLACE(mobile,' ',''),'-','') = ?";
-        $studentParams[] = $mobile;
-        $studentTypes .= 's';
-    }
-    if ($email !== '') {
-        $studentConds[] = 'LOWER(TRIM(email)) = ?';
-        $studentParams[] = $email;
-        $studentTypes .= 's';
-    }
-    if ($studentId !== '') {
-        $studentConds[] = 'student_id = ?';
-        $studentParams[] = $studentId;
-        $studentTypes .= 's';
-    }
-    if ($name !== '') {
-        $studentConds[] = 'name LIKE ?';
-        $studentParams[] = '%' . $name . '%';
-        $studentTypes .= 's';
-    }
-
-    if (!empty($studentConds)) {
-        $sql = 'SELECT s.id, s.student_id, s.name, s.aadhar, s.mobile, s.email, s.dob, s.course_id,
-                       c.course_name, s.scheme_id, s.batch_id, s.status, s.registration_date
-                FROM students s
-                LEFT JOIN courses c ON c.id = s.course_id
-                WHERE (' . implode(' OR ', $studentConds) . ')
-                AND LOWER(s.status) NOT IN (\'rejected\', \'inactive\')
-                ORDER BY s.registration_date DESC, s.id DESC
-                LIMIT 50';
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param($studentTypes, ...$studentParams);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $studentRows[] = $row;
-            }
-            $stmt->close();
-        }
-    }
-
-    $hasAccounts = $conn->query("SHOW TABLES LIKE 'student_accounts'");
-    if ($hasAccounts && $hasAccounts->num_rows > 0) {
-        $accountConds = [];
-        $accountParams = [];
-        $accountTypes = '';
-
-        if ($aadhar !== '') {
-            $accountConds[] = "REPLACE(REPLACE(REPLACE(aadhar,' ',''),'-',''),'.','') = ?";
-            $accountParams[] = $aadhar;
-            $accountTypes .= 's';
-        }
-        if ($mobile !== '') {
-            $accountConds[] = "REPLACE(REPLACE(mobile,' ',''),'-','') = ?";
-            $accountParams[] = $mobile;
-            $accountTypes .= 's';
-        }
-        if ($email !== '') {
-            $accountConds[] = 'LOWER(TRIM(email)) = ?';
-            $accountParams[] = $email;
-            $accountTypes .= 's';
-        }
-        if ($studentId !== '') {
-            $accountConds[] = 'student_id = ?';
-            $accountParams[] = $studentId;
-            $accountTypes .= 's';
-        }
-        if ($name !== '') {
-            $accountConds[] = 'name LIKE ?';
-            $accountParams[] = '%' . $name . '%';
-            $accountTypes .= 's';
-        }
-
-        if (!empty($accountConds)) {
-            $sql = 'SELECT id, student_id, name, aadhar, mobile, email, status, created_at
-                    FROM student_accounts
-                    WHERE ' . implode(' OR ', $accountConds) . '
-                    ORDER BY created_at DESC, id DESC
-                    LIMIT 20';
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param($accountTypes, ...$accountParams);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                while ($row = $res->fetch_assoc()) {
-                    $accountRows[] = $row;
-                }
-                $stmt->close();
-            }
-        }
-    }
-
-    $hasEnrollments = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
-    if ($hasEnrollments && $hasEnrollments->num_rows > 0 && ($email !== '' || $aadhar !== '' || $studentId !== '' || $mobile !== '' || $name !== '')) {
-        $enrConds = [];
-        $enrParams = [];
-        $enrTypes = '';
-
-        if ($aadhar !== '') {
-            $enrConds[] = "REPLACE(REPLACE(REPLACE(sa.aadhar,' ',''),'-',''),'.','') = ?";
-            $enrParams[] = $aadhar;
-            $enrTypes .= 's';
-        }
-        if ($mobile !== '') {
-            $enrConds[] = "REPLACE(REPLACE(sa.mobile,' ',''),'-','') = ?";
-            $enrParams[] = $mobile;
-            $enrTypes .= 's';
-        }
-        if ($email !== '') {
-            $enrConds[] = 'LOWER(TRIM(sa.email)) = ?';
-            $enrParams[] = $email;
-            $enrTypes .= 's';
-        }
-        if ($studentId !== '') {
-            $enrConds[] = 'sa.student_id = ?';
-            $enrParams[] = $studentId;
-            $enrTypes .= 's';
-        }
-        if ($name !== '') {
-            $enrConds[] = 'sa.name LIKE ?';
-            $enrParams[] = '%' . $name . '%';
-            $enrTypes .= 's';
-        }
-
-        if (!empty($enrConds)) {
-            $sql = 'SELECT se.id, se.account_id, se.course_id, se.student_record_id, se.scheme_id, se.status, se.registered_at,
-                           c.course_name,
-                           sa.id AS linked_account_id, sa.student_id, sa.name, sa.aadhar, sa.mobile, sa.email
-                    FROM student_enrollments se
-                    INNER JOIN student_accounts sa ON sa.id = se.account_id
-                    LEFT JOIN courses c ON c.id = se.course_id
-                    WHERE ' . implode(' OR ', $enrConds) . '
-                    ORDER BY se.registered_at DESC, se.id DESC
-                    LIMIT 50';
-            $stmt = $conn->prepare($sql);
-            if ($stmt) {
-                $stmt->bind_param($enrTypes, ...$enrParams);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                $seenAccountIds = array_column($accountRows, 'id');
-                while ($row = $res->fetch_assoc()) {
-                    $enrollmentRows[] = $row;
-                    $linkedAccountId = (int)($row['linked_account_id'] ?? 0);
-                    if ($linkedAccountId > 0 && !in_array($linkedAccountId, $seenAccountIds, true)) {
-                        $accountRows[] = [
-                            'id' => $linkedAccountId,
-                            'student_id' => $row['student_id'],
-                            'name' => $row['name'],
-                            'aadhar' => $row['aadhar'],
-                            'mobile' => $row['mobile'],
-                            'email' => $row['email'],
-                            'status' => 'via enrollment link',
-                            'created_at' => null,
-                        ];
-                        $seenAccountIds[] = $linkedAccountId;
-                    }
-                }
-                $stmt->close();
-            }
-        }
-    }
-
-    // Also find rejected / inactive rows (hidden from Admin → Students list)
-    $hiddenStudentRows = [];
-    if (!empty($studentConds)) {
-        $sql = 'SELECT s.id, s.student_id, s.name, s.aadhar, s.mobile, s.email, s.course_id,
-                       c.course_name, s.status, s.registration_date
-                FROM students s
-                LEFT JOIN courses c ON c.id = s.course_id
-                WHERE (' . implode(' OR ', $studentConds) . ')
-                AND LOWER(s.status) IN (\'rejected\', \'inactive\')
-                ORDER BY s.registration_date DESC, s.id DESC
-                LIMIT 20';
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param($studentTypes, ...$studentParams);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $hiddenStudentRows[] = $row;
-            }
-            $stmt->close();
-        }
-    }
+    $searchResult = inspectorRunSearch($conn, $searchCriteria);
+    $studentRows = $searchResult['studentRows'];
+    $hiddenStudentRows = $searchResult['hiddenStudentRows'];
+    $accountRows = $searchResult['accountRows'];
+    $enrollmentRows = $searchResult['enrollmentRows'];
+    $courseFilterLabel = $searchResult['courseFilterLabel'];
 
     $inAdminPanel = !empty($studentRows);
     $hasOrphanEnrollments = empty($studentRows) && !empty($enrollmentRows);
     $exists = $inAdminPanel || !empty($accountRows) || !empty($enrollmentRows) || !empty($hiddenStudentRows);
 
-    if ($inAdminPanel) {
+    if ($inAdminPanel && inspectorHasCourseCriteria($searchCriteria) && !inspectorHasIdentityCriteria($searchCriteria)) {
+        $summary = 'Found ' . count($studentRows) . ' student(s) for course filter'
+            . ($courseFilterLabel !== '' ? ': ' . $courseFilterLabel : '') . '.';
+    } elseif ($inAdminPanel) {
         $summary = 'Student is in the database and SHOULD appear in Admin → Students.';
     } elseif ($hasOrphanEnrollments) {
         $summary = 'Orphan enrollment only — NOT visible in Admin → Students (missing students row).';
@@ -293,7 +112,7 @@ if ($searched) {
     } elseif ($exists) {
         $summary = 'Partial record found (account/enrollment) but not in main students list.';
     } else {
-        $summary = 'No matching student found. They are NOT registered yet.';
+        $summary = 'No matching student found for your search/filter.';
     }
 
     $collectedIds = inspectorCollectIds($studentRows, $hiddenStudentRows, $accountRows, $enrollmentRows);
@@ -322,6 +141,14 @@ if ($searched) {
     $collectedIds['account_ids'] = array_values(array_unique(array_filter($collectedIds['account_ids'])));
     $collectedIds['student_id_strings'] = array_values(array_unique(array_filter($collectedIds['student_id_strings'])));
     $relatedTotal = inspectorCountRelated($relatedRecords);
+    $enrollmentContext = inspectorBuildEnrollmentContext(
+        $conn,
+        $studentRows,
+        $hiddenStudentRows,
+        $accountRows,
+        $enrollmentRows,
+        $relatedRecords
+    );
 }
 
 $page_title = 'Student Record Inspector';
@@ -351,7 +178,7 @@ $page_title = 'Student Record Inspector';
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1"><i class="fas fa-user-check text-primary"></i> Student Record Inspector</h1>
-            <p class="text-muted mb-0">Search all related records. Admin → Students only lists the <strong>students</strong> table.</p>
+            <p class="text-muted mb-0">Search by student details or filter by course. Shows all linked records, schemes, batches, and enrollments.</p>
         </div>
         <div class="d-flex gap-2">
             <a href="students.php" class="btn btn-outline-secondary"><i class="fas fa-users"></i> Students</a>
@@ -388,13 +215,30 @@ $page_title = 'Student Record Inspector';
                 <input type="text" name="student_id" class="form-control"
                        value="<?php echo htmlspecialchars($studentId); ?>" placeholder="NIELIT/2026/BBSR/0001">
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Name (optional, partial match)</label>
+            <div class="col-md-4">
+                <label class="form-label">Student Name</label>
                 <input type="text" name="name" class="form-control"
-                       value="<?php echo htmlspecialchars($name); ?>" placeholder="Student name">
+                       value="<?php echo htmlspecialchars($name); ?>" placeholder="Partial name match">
             </div>
-            <div class="col-md-6 d-flex align-items-end gap-2">
-                <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Check</button>
+            <div class="col-md-4">
+                <label class="form-label">Filter by Course</label>
+                <select name="course_id" class="form-select">
+                    <option value="">-- All courses --</option>
+                    <?php foreach ($assignCoursesList as $course): ?>
+                    <option value="<?php echo (int)$course['id']; ?>"<?php echo $courseId === (int)$course['id'] ? ' selected' : ''; ?>>
+                        <?php echo htmlspecialchars($course['course_name'] . ' (' . $course['course_code'] . ')'); ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Course Name / Code</label>
+                <input type="text" name="course_name" class="form-control"
+                       value="<?php echo htmlspecialchars($courseName); ?>" placeholder="e.g. Data Annotation">
+                <small class="text-muted">Or type course name/code (partial match)</small>
+            </div>
+            <div class="col-12 d-flex align-items-end gap-2">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
                 <a href="check_student_exists.php" class="btn btn-light">Clear</a>
             </div>
         </form>
@@ -420,6 +264,7 @@ $page_title = 'Student Record Inspector';
             enrollments: <?php echo count($enrollmentRows); ?>
             <?php if ($relatedTotal > 0): ?> | <strong>all linked:</strong> <?php echo (int)$relatedTotal; ?><?php endif; ?>
             <?php if (!empty($hiddenStudentRows)): ?> | hidden rejected/inactive: <?php echo count($hiddenStudentRows); ?><?php endif; ?>
+            <?php if ($courseFilterLabel !== ''): ?> | <strong>course:</strong> <?php echo htmlspecialchars($courseFilterLabel); ?><?php endif; ?>
         </div>
         <?php if ($hasOrphanEnrollments): ?>
         <div class="small mt-2">
@@ -429,6 +274,64 @@ $page_title = 'Student Record Inspector';
         </div>
         <?php endif; ?>
     </div>
+
+    <?php if ($searched && $exists && $canManageEnrollment && $enrollmentContext['primary_student_id'] !== ''): ?>
+    <div class="page-card p-4 mb-4 border border-primary">
+        <h2 class="h5 mb-3"><i class="fas fa-book-medical text-primary"></i> Assign Course &amp; Schemes</h2>
+        <p class="text-muted small mb-3">
+            <strong><?php echo htmlspecialchars($enrollmentContext['primary_name']); ?></strong>
+            — <code><?php echo htmlspecialchars($enrollmentContext['primary_student_id']); ?></code>
+        </p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-primary inspector-assign-course-btn"
+                    data-student-id="<?php echo htmlspecialchars($enrollmentContext['primary_student_id']); ?>"
+                    data-student-name="<?php echo htmlspecialchars($enrollmentContext['primary_name']); ?>">
+                <i class="fas fa-book"></i> Assign Course
+            </button>
+        </div>
+        <?php if (!empty($enrollmentContext['course_items'])): ?>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Course</th>
+                        <th>Record ID</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($enrollmentContext['course_items'] as $item): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($item['course_name']); ?></td>
+                        <td><?php echo !empty($item['is_orphan']) ? '<span class="text-danger">missing</span>' : (int)$item['student_record_id']; ?></td>
+                        <td><?php echo htmlspecialchars($item['status']); ?></td>
+                        <td>
+                            <?php if (!empty($item['has_linked_schemes']) && empty($item['is_orphan'])): ?>
+                            <button type="button" class="btn btn-sm btn-outline-primary inspector-assign-scheme-btn"
+                                    data-student-id="<?php echo htmlspecialchars($item['student_id']); ?>"
+                                    data-student-record-id="<?php echo (int)$item['student_record_id']; ?>"
+                                    data-student-name="<?php echo htmlspecialchars($enrollmentContext['primary_name']); ?>"
+                                    data-course-id="<?php echo (int)$item['course_id']; ?>"
+                                    data-course-name="<?php echo htmlspecialchars($item['course_name']); ?>">
+                                <i class="fas fa-project-diagram"></i> Manage Schemes
+                            </button>
+                            <?php elseif (!empty($item['has_linked_schemes']) && !empty($item['is_orphan'])): ?>
+                            <span class="text-muted small">Fix orphan record first, then manage schemes</span>
+                            <?php else: ?>
+                            <span class="text-muted small">No schemes for this course</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php else: ?>
+        <p class="text-muted small mb-0">No course enrollments yet. Use <strong>Assign Course</strong> to add one.</p>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <?php if ($searched && $exists && $canDelete): ?>
     <div class="page-card p-4 mb-4 border border-danger">
@@ -491,12 +394,14 @@ $page_title = 'Student Record Inspector';
                         <th>Record ID</th>
                         <th>Student ID</th>
                         <th>Name</th>
-                        <th>Aadhar</th>
                         <th>Mobile</th>
                         <th>Email</th>
                         <th>Course</th>
+                        <th>Scheme</th>
+                        <th>Batch</th>
                         <th>Status</th>
                         <th>Registered</th>
+                        <th>View</th>
                         <?php if ($canDelete): ?><th>Action</th><?php endif; ?>
                     </tr>
                 </thead>
@@ -506,12 +411,19 @@ $page_title = 'Student Record Inspector';
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
                         <td><?php echo htmlspecialchars($row['name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['aadhar']); ?></td>
                         <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                         <td><?php echo htmlspecialchars($row['email']); ?></td>
-                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?></td>
+                        <td>
+                            <?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($row['scheme_name'] ?? '—'); ?></td>
+                        <td><?php echo !empty($row['batch_name']) ? htmlspecialchars($row['batch_name']) : '—'; ?></td>
                         <td><span class="badge bg-secondary"><?php echo htmlspecialchars($row['status']); ?></span></td>
                         <td><?php echo !empty($row['registration_date']) ? date('d M Y', strtotime($row['registration_date'])) : '—'; ?></td>
+                        <td><a href="<?php echo htmlspecialchars(inspectorDrillDownUrl($searchParams, $row['student_id'])); ?>" class="btn btn-sm btn-outline-primary">Details</a></td>
                         <?php if ($canDelete): ?>
                         <td><?php echo inspectorDeleteForm('student', (int)$row['id'], $searchParams); ?></td>
                         <?php endif; ?>
@@ -534,6 +446,7 @@ $page_title = 'Student Record Inspector';
                         <th>Student ID</th>
                         <th>Name</th>
                         <th>Course</th>
+                        <th>Scheme</th>
                         <th>Status</th>
                         <th>Registered</th>
                         <?php if ($canDelete): ?><th>Action</th><?php endif; ?>
@@ -545,7 +458,12 @@ $page_title = 'Student Record Inspector';
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
                         <td><?php echo htmlspecialchars($row['name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?></td>
+                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($row['scheme_name'] ?? '—'); ?></td>
                         <td><span class="badge bg-danger"><?php echo htmlspecialchars($row['status']); ?></span></td>
                         <td><?php echo !empty($row['registration_date']) ? date('d M Y', strtotime($row['registration_date'])) : '—'; ?></td>
                         <?php if ($canDelete): ?>
@@ -613,7 +531,7 @@ $page_title = 'Student Record Inspector';
 
     <?php if (!empty($enrollmentRows)): ?>
     <div class="page-card p-0 mb-4 overflow-hidden">
-        <div class="p-3 border-bottom"><h2 class="h5 mb-0"><i class="fas fa-layer-group"></i> student_enrollments <span class="badge bg-warning text-dark">not shown in Admin list alone</span></h2></div>
+        <div class="p-3 border-bottom"><h2 class="h5 mb-0"><i class="fas fa-layer-group"></i> student_enrollments<?php if ($hasOrphanEnrollments): ?> <span class="badge bg-warning text-dark" title="Admin → Students lists the students table only">Orphan — missing students row</span><?php endif; ?></h2></div>
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
@@ -622,6 +540,7 @@ $page_title = 'Student Record Inspector';
                         <th>Student ID</th>
                         <th>Name</th>
                         <th>Course</th>
+                        <th>Scheme</th>
                         <th>Record ID</th>
                         <th>Account</th>
                         <th>Status</th>
@@ -635,7 +554,12 @@ $page_title = 'Student Record Inspector';
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><?php echo htmlspecialchars($row['student_id']); ?></td>
                         <td><?php echo htmlspecialchars($row['name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?></td>
+                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($row['scheme_name'] ?? '—'); ?></td>
                         <td><?php
                             $recordId = (int)($row['student_record_id'] ?? 0);
                             echo $recordId > 0 ? (string)$recordId : '<span class="text-danger">missing</span>';
@@ -668,7 +592,7 @@ $page_title = 'Student Record Inspector';
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th>Record ID</th><th>Student ID</th><th>Name</th><th>Course</th><th>Account</th><th>Status</th>
+                        <th>Record ID</th><th>Student ID</th><th>Name</th><th>Course</th><th>Scheme</th><th>Account</th><th>Status</th>
                         <?php if ($canDelete): ?><th>Action</th><?php endif; ?>
                     </tr>
                 </thead>
@@ -678,7 +602,12 @@ $page_title = 'Student Record Inspector';
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><?php echo htmlspecialchars($row['student_id']); ?></td>
                         <td><?php echo htmlspecialchars($row['name']); ?></td>
-                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?></td>
+                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($row['scheme_name'] ?? '—'); ?></td>
                         <td><?php echo (int)($row['account_id'] ?? 0) > 0 ? '#' . (int)$row['account_id'] : '—'; ?></td>
                         <td><?php echo htmlspecialchars($row['status']); ?></td>
                         <?php if ($canDelete): ?>
@@ -715,7 +644,12 @@ $page_title = 'Student Record Inspector';
                     <tr>
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><?php echo htmlspecialchars($row['student_id'] ?? '—'); ?></td>
-                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?></td>
+                        <td><?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($row['scheme_name'] ?? '—'); ?></td>
                         <td>#<?php echo (int)($row['account_id'] ?? 0); ?></td>
                         <td><?php echo (int)($row['student_record_id'] ?? 0) > 0 ? (int)$row['student_record_id'] : '<span class="text-danger">missing</span>'; ?></td>
                         <td><?php echo htmlspecialchars($row['status']); ?></td>
@@ -825,5 +759,10 @@ $page_title = 'Student Record Inspector';
     <?php endif; ?>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php
+if ($canManageEnrollment) {
+    include __DIR__ . '/includes/student_inspector_enrollment_ui.php';
+}
+?>
 </body>
 </html>

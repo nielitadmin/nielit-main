@@ -543,12 +543,393 @@ if (!function_exists('inspectorPurgeAllRelated')) {
     }
 }
 
+if (!function_exists('inspectorCriteriaFromRequest')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function inspectorCriteriaFromRequest(array $source): array
+    {
+        return [
+            'aadhar' => preg_replace('/\D+/', '', trim((string)($source['aadhar'] ?? ''))) ?? '',
+            'mobile' => preg_replace('/\D+/', '', trim((string)($source['mobile'] ?? ''))) ?? '',
+            'email' => strtolower(trim((string)($source['email'] ?? ''))),
+            'student_id' => trim((string)($source['student_id'] ?? '')),
+            'name' => trim((string)($source['name'] ?? '')),
+            'course_name' => trim((string)($source['course_name'] ?? '')),
+            'course_id' => (int)($source['course_id'] ?? 0),
+        ];
+    }
+}
+
+if (!function_exists('inspectorHasIdentityCriteria')) {
+    function inspectorHasIdentityCriteria(array $criteria): bool
+    {
+        return ($criteria['aadhar'] ?? '') !== ''
+            || ($criteria['mobile'] ?? '') !== ''
+            || ($criteria['email'] ?? '') !== ''
+            || ($criteria['student_id'] ?? '') !== ''
+            || ($criteria['name'] ?? '') !== '';
+    }
+}
+
+if (!function_exists('inspectorHasCourseCriteria')) {
+    function inspectorHasCourseCriteria(array $criteria): bool
+    {
+        return (int)($criteria['course_id'] ?? 0) > 0
+            || ($criteria['course_name'] ?? '') !== '';
+    }
+}
+
+if (!function_exists('inspectorAppendCourseFilter')) {
+    /**
+     * @param array<int, mixed> $params
+     */
+    function inspectorAppendCourseFilter(
+        array $criteria,
+        string $courseIdColumn,
+        string $courseTableAlias,
+        array &$params,
+        string &$types
+    ): string {
+        $courseId = (int)($criteria['course_id'] ?? 0);
+        $courseName = (string)($criteria['course_name'] ?? '');
+
+        if ($courseId > 0) {
+            $params[] = $courseId;
+            $types .= 'i';
+            return "{$courseIdColumn} = ?";
+        }
+        if ($courseName !== '') {
+            $like = '%' . $courseName . '%';
+            $params[] = $like;
+            $params[] = $like;
+            $types .= 'ss';
+            return "({$courseTableAlias}.course_name LIKE ? OR {$courseTableAlias}.course_code LIKE ?)";
+        }
+        return '';
+    }
+}
+
+if (!function_exists('inspectorRunSearch')) {
+    /**
+     * @return array{
+     *   studentRows: array,
+     *   hiddenStudentRows: array,
+     *   accountRows: array,
+     *   enrollmentRows: array,
+     *   courseFilterLabel: string
+     * }
+     */
+    function inspectorRunSearch(mysqli $conn, array $criteria): array
+    {
+        $result = [
+            'studentRows' => [],
+            'hiddenStudentRows' => [],
+            'accountRows' => [],
+            'enrollmentRows' => [],
+            'courseFilterLabel' => '',
+        ];
+
+        $hasIdentity = inspectorHasIdentityCriteria($criteria);
+        $hasCourse = inspectorHasCourseCriteria($criteria);
+        if (!$hasIdentity && !$hasCourse) {
+            return $result;
+        }
+
+        $limit = $hasCourse && !$hasIdentity ? 150 : 50;
+
+        if ((int)($criteria['course_id'] ?? 0) > 0) {
+            $cid = (int)$criteria['course_id'];
+            $cStmt = $conn->prepare('SELECT course_name, course_code FROM courses WHERE id = ? LIMIT 1');
+            if ($cStmt) {
+                $cStmt->bind_param('i', $cid);
+                $cStmt->execute();
+                $cRow = $cStmt->get_result()->fetch_assoc();
+                $cStmt->close();
+                if ($cRow) {
+                    $result['courseFilterLabel'] = ($cRow['course_name'] ?? '') . ' (' . ($cRow['course_code'] ?? '') . ')';
+                }
+            }
+        } elseif (($criteria['course_name'] ?? '') !== '') {
+            $result['courseFilterLabel'] = 'name/code contains: ' . $criteria['course_name'];
+        }
+
+        $identityConds = [];
+        $identityParams = [];
+        $identityTypes = '';
+
+        if (($criteria['aadhar'] ?? '') !== '') {
+            $identityConds[] = "REPLACE(REPLACE(REPLACE(s.aadhar,' ',''),'-',''),'.','') = ?";
+            $identityParams[] = $criteria['aadhar'];
+            $identityTypes .= 's';
+        }
+        if (($criteria['mobile'] ?? '') !== '') {
+            $identityConds[] = "REPLACE(REPLACE(s.mobile,' ',''),'-','') = ?";
+            $identityParams[] = $criteria['mobile'];
+            $identityTypes .= 's';
+        }
+        if (($criteria['email'] ?? '') !== '') {
+            $identityConds[] = 'LOWER(TRIM(s.email)) = ?';
+            $identityParams[] = $criteria['email'];
+            $identityTypes .= 's';
+        }
+        if (($criteria['student_id'] ?? '') !== '') {
+            $identityConds[] = 's.student_id = ?';
+            $identityParams[] = $criteria['student_id'];
+            $identityTypes .= 's';
+        }
+        if (($criteria['name'] ?? '') !== '') {
+            $identityConds[] = 's.name LIKE ?';
+            $identityParams[] = '%' . $criteria['name'] . '%';
+            $identityTypes .= 's';
+        }
+
+        $studentSelect = 'SELECT s.id, s.student_id, s.name, s.aadhar, s.mobile, s.email, s.dob, s.course_id,
+                c.course_name, c.course_code, s.scheme_id, sch.scheme_name, s.batch_id,
+                b.batch_name, b.batch_code, s.status, s.registration_date, s.account_id
+            FROM students s
+            LEFT JOIN courses c ON c.id = s.course_id
+            LEFT JOIN schemes sch ON sch.id = s.scheme_id
+            LEFT JOIN batches b ON b.id = s.batch_id';
+
+        foreach (['active' => "LOWER(s.status) NOT IN ('rejected', 'inactive')", 'hidden' => "LOWER(s.status) IN ('rejected', 'inactive')"] as $bucket => $statusSql) {
+            $where = [];
+            $params = [];
+            $types = '';
+
+            if ($hasIdentity) {
+                $where[] = '(' . implode(' OR ', $identityConds) . ')';
+                $params = array_merge($params, $identityParams);
+                $types .= $identityTypes;
+            }
+            if ($hasCourse) {
+                $courseSql = inspectorAppendCourseFilter($criteria, 's.course_id', 'c', $params, $types);
+                if ($courseSql !== '') {
+                    $where[] = $courseSql;
+                }
+            }
+            $where[] = $statusSql;
+
+            $sql = $studentSelect . ' WHERE ' . implode(' AND ', $where)
+                . ' ORDER BY s.registration_date DESC, s.id DESC LIMIT ' . (int)$limit;
+
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                if ($types !== '') {
+                    $stmt->bind_param($types, ...$params);
+                }
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    if ($bucket === 'active') {
+                        $result['studentRows'][] = $row;
+                    } else {
+                        $result['hiddenStudentRows'][] = $row;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+
+        if (inspectorTableExists($conn, 'student_accounts')) {
+            $accountConds = [];
+            $accountParams = [];
+            $accountTypes = '';
+
+            if (($criteria['aadhar'] ?? '') !== '') {
+                $accountConds[] = "REPLACE(REPLACE(REPLACE(sa.aadhar,' ',''),'-',''),'.','') = ?";
+                $accountParams[] = $criteria['aadhar'];
+                $accountTypes .= 's';
+            }
+            if (($criteria['mobile'] ?? '') !== '') {
+                $accountConds[] = "REPLACE(REPLACE(sa.mobile,' ',''),'-','') = ?";
+                $accountParams[] = $criteria['mobile'];
+                $accountTypes .= 's';
+            }
+            if (($criteria['email'] ?? '') !== '') {
+                $accountConds[] = 'LOWER(TRIM(sa.email)) = ?';
+                $accountParams[] = $criteria['email'];
+                $accountTypes .= 's';
+            }
+            if (($criteria['student_id'] ?? '') !== '') {
+                $accountConds[] = 'sa.student_id = ?';
+                $accountParams[] = $criteria['student_id'];
+                $accountTypes .= 's';
+            }
+            if (($criteria['name'] ?? '') !== '') {
+                $accountConds[] = 'sa.name LIKE ?';
+                $accountParams[] = '%' . $criteria['name'] . '%';
+                $accountTypes .= 's';
+            }
+
+            if ($hasIdentity || $hasCourse) {
+                if ($hasCourse && inspectorTableExists($conn, 'student_enrollments')) {
+                    $where = [];
+                    $params = [];
+                    $types = '';
+                    if ($hasIdentity && !empty($accountConds)) {
+                        $where[] = '(' . implode(' OR ', $accountConds) . ')';
+                        $params = array_merge($params, $accountParams);
+                        $types .= $accountTypes;
+                    }
+                    $courseSql = inspectorAppendCourseFilter($criteria, 'se.course_id', 'c', $params, $types);
+                    if ($courseSql !== '') {
+                        $where[] = $courseSql;
+                    }
+                    if (!empty($where)) {
+                        $sql = 'SELECT DISTINCT sa.id, sa.student_id, sa.name, sa.aadhar, sa.mobile, sa.email, sa.status, sa.created_at
+                                FROM student_accounts sa
+                                INNER JOIN student_enrollments se ON se.account_id = sa.id
+                                LEFT JOIN courses c ON c.id = se.course_id
+                                WHERE ' . implode(' AND ', $where) . '
+                                ORDER BY sa.created_at DESC, sa.id DESC
+                                LIMIT ' . (int)$limit;
+                        $stmt = $conn->prepare($sql);
+                        if ($stmt) {
+                            $stmt->bind_param($types, ...$params);
+                            $stmt->execute();
+                            $res = $stmt->get_result();
+                            while ($row = $res->fetch_assoc()) {
+                                $result['accountRows'][] = $row;
+                            }
+                            $stmt->close();
+                        }
+                    }
+                } elseif ($hasIdentity && !empty($accountConds)) {
+                    $sql = 'SELECT id, student_id, name, aadhar, mobile, email, status, created_at
+                            FROM student_accounts sa
+                            WHERE ' . implode(' OR ', $accountConds) . '
+                            ORDER BY created_at DESC, id DESC
+                            LIMIT ' . (int)$limit;
+                    $stmt = $conn->prepare($sql);
+                    if ($stmt) {
+                        $stmt->bind_param($accountTypes, ...$accountParams);
+                        $stmt->execute();
+                        $res = $stmt->get_result();
+                        while ($row = $res->fetch_assoc()) {
+                            $result['accountRows'][] = $row;
+                        }
+                        $stmt->close();
+                    }
+                }
+            }
+        }
+
+        if (inspectorTableExists($conn, 'student_enrollments')) {
+            $enrConds = [];
+            $enrParams = [];
+            $enrTypes = '';
+
+            if (($criteria['aadhar'] ?? '') !== '') {
+                $enrConds[] = "REPLACE(REPLACE(REPLACE(sa.aadhar,' ',''),'-',''),'.','') = ?";
+                $enrParams[] = $criteria['aadhar'];
+                $enrTypes .= 's';
+            }
+            if (($criteria['mobile'] ?? '') !== '') {
+                $enrConds[] = "REPLACE(REPLACE(sa.mobile,' ',''),'-','') = ?";
+                $enrParams[] = $criteria['mobile'];
+                $enrTypes .= 's';
+            }
+            if (($criteria['email'] ?? '') !== '') {
+                $enrConds[] = 'LOWER(TRIM(sa.email)) = ?';
+                $enrParams[] = $criteria['email'];
+                $enrTypes .= 's';
+            }
+            if (($criteria['student_id'] ?? '') !== '') {
+                $enrConds[] = 'sa.student_id = ?';
+                $enrParams[] = $criteria['student_id'];
+                $enrTypes .= 's';
+            }
+            if (($criteria['name'] ?? '') !== '') {
+                $enrConds[] = 'sa.name LIKE ?';
+                $enrParams[] = '%' . $criteria['name'] . '%';
+                $enrTypes .= 's';
+            }
+
+            $where = [];
+            $params = [];
+            $types = '';
+            if ($hasIdentity && !empty($enrConds)) {
+                $where[] = '(' . implode(' OR ', $enrConds) . ')';
+                $params = array_merge($params, $enrParams);
+                $types .= $enrTypes;
+            }
+            if ($hasCourse) {
+                $courseSql = inspectorAppendCourseFilter($criteria, 'se.course_id', 'c', $params, $types);
+                if ($courseSql !== '') {
+                    $where[] = $courseSql;
+                }
+            }
+
+            if (!empty($where)) {
+                $sql = 'SELECT se.id, se.account_id, se.course_id, se.student_record_id, se.scheme_id, se.status, se.registered_at,
+                               c.course_name, c.course_code, sch.scheme_name,
+                               sa.id AS linked_account_id, sa.student_id, sa.name, sa.aadhar, sa.mobile, sa.email
+                        FROM student_enrollments se
+                        INNER JOIN student_accounts sa ON sa.id = se.account_id
+                        LEFT JOIN courses c ON c.id = se.course_id
+                        LEFT JOIN schemes sch ON sch.id = se.scheme_id
+                        WHERE ' . implode(' AND ', $where) . '
+                        ORDER BY se.registered_at DESC, se.id DESC
+                        LIMIT ' . (int)$limit;
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param($types, ...$params);
+                    $stmt->execute();
+                    $res = $stmt->get_result();
+                    $seenAccountIds = array_column($result['accountRows'], 'id');
+                    while ($row = $res->fetch_assoc()) {
+                        $result['enrollmentRows'][] = $row;
+                        $linkedAccountId = (int)($row['linked_account_id'] ?? 0);
+                        if ($linkedAccountId > 0 && !in_array($linkedAccountId, $seenAccountIds, true)) {
+                            $result['accountRows'][] = [
+                                'id' => $linkedAccountId,
+                                'student_id' => $row['student_id'],
+                                'name' => $row['name'],
+                                'aadhar' => $row['aadhar'],
+                                'mobile' => $row['mobile'],
+                                'email' => $row['email'],
+                                'status' => 'via enrollment link',
+                                'created_at' => null,
+                            ];
+                            $seenAccountIds[] = $linkedAccountId;
+                        }
+                    }
+                    $stmt->close();
+                }
+            }
+        }
+
+        return $result;
+    }
+}
+
+if (!function_exists('inspectorDrillDownUrl')) {
+    function inspectorDrillDownUrl(array $searchParams, string $studentId): string
+    {
+        $params = [
+            'student_id' => $studentId,
+            'aadhar' => $searchParams['aadhar'] ?? '',
+            'mobile' => $searchParams['mobile'] ?? '',
+            'email' => $searchParams['email'] ?? '',
+            'name' => $searchParams['name'] ?? '',
+        ];
+        return 'check_student_exists.php?' . inspectorSearchParams($params);
+    }
+}
+
 if (!function_exists('inspectorSearchParams')) {
     function inspectorSearchParams(array $params): string
     {
-        $keep = ['aadhar', 'mobile', 'email', 'student_id', 'name'];
+        $keep = ['aadhar', 'mobile', 'email', 'student_id', 'name', 'course_name', 'course_id'];
         $out = [];
         foreach ($keep as $key) {
+            if ($key === 'course_id') {
+                if (!empty($params[$key])) {
+                    $out[$key] = (int)$params[$key];
+                }
+                continue;
+            }
             if (!empty($params[$key])) {
                 $out[$key] = $params[$key];
             }
@@ -580,8 +961,8 @@ if (!function_exists('inspectorHiddenSearchFields')) {
     function inspectorHiddenSearchFields(array $searchParams): string
     {
         $html = '';
-        foreach (['aadhar', 'mobile', 'email', 'student_id', 'name'] as $key) {
-            if (isset($searchParams[$key]) && $searchParams[$key] !== '') {
+        foreach (['aadhar', 'mobile', 'email', 'student_id', 'name', 'course_name', 'course_id'] as $key) {
+            if (isset($searchParams[$key]) && $searchParams[$key] !== '' && $searchParams[$key] !== 0) {
                 $html .= '<input type="hidden" name="' . $key . '" value="'
                     . htmlspecialchars((string)$searchParams[$key], ENT_QUOTES, 'UTF-8') . '">';
             }

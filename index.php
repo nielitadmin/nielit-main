@@ -22,6 +22,9 @@
     $navigation_menu_html = '';
     if (navigationMenuTableExists($conn)) {
         $menu_items = getNavigationMenu($conn);
+        $menu_items = array_values(array_filter($menu_items, static function (array $item): bool {
+            return stripos((string)($item['label'] ?? ''), 'PM SHRI') === false;
+        }));
         $current_page = basename($_SERVER['PHP_SELF']);
         $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
     }

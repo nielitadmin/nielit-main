@@ -44,11 +44,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="nav-link <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-check"></i> Student Record Inspector
+            </a>
+        </div>
         
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="nav-link <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-check"></i> Student Record Inspector
             </a>
         </div>
         <?php endif; ?>

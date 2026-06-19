@@ -131,13 +131,6 @@ function getFallbackNavigationMenu() {
         <li class="nav-item"><a class="nav-link active" href="' . relative_url('index.php') . '">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $job_fair_url . '" target="_blank" rel="noopener">Job Fair</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test</a></li>
-        
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="' . relative_url('Membership_Form/index.php') . '">Membership Form</a></li>
-            </ul>
-        </li>
 
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
