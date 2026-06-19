@@ -64,6 +64,7 @@ if (!empty($_SESSION['inspector_flash'])) {
     unset($_SESSION['inspector_flash']);
 }
 
+$searchCriteria = inspectorCriteriaFromRequest(array_merge($_GET, $_POST));
 $aadhar = $searchCriteria['aadhar'];
 $mobile = $searchCriteria['mobile'];
 $email = $searchCriteria['email'];

@@ -33,6 +33,7 @@
     }
     $job_fair_portal_url = getJobFairPortalUrl();
     $mock_test_portal_url = getMockTestPortalUrl();
+    $nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
     injectThemeCSS($active_theme);
     
     $banners = []; $announcements_content = []; $featured_courses = [];
@@ -436,6 +437,12 @@
         .stat-pill a { color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 10px; }
         .stat-pill:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(0,0,0,0.2); }
         .stat-pill[role="link"] { cursor: pointer; }
+        .stat-pill-main-site {
+            background: rgba(245, 158, 11, 0.18);
+            border-color: rgba(245, 158, 11, 0.45);
+            font-weight: 600;
+        }
+        .stat-pill-main-site i { color: var(--gold-light); }
         /* Decorative premium CSS background for white sections */
         .section-white-pattern {
             position: relative;
@@ -1329,6 +1336,9 @@
                     <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
                         Job Fair Portal
                     </a>
+                    <a href="<?php echo htmlspecialchars($nielit_main_website_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
+                        <i class="fas fa-globe fa-sm"></i> Main Website
+                    </a>
                 </div>
             </div>
         </div>
@@ -1369,6 +1379,9 @@
             </div>
             <div class="col-lg-6">
                 <div>
+                    <a class="stat-pill stat-pill-main-site" href="<?php echo htmlspecialchars($nielit_main_website_url); ?>" target="_blank" rel="noopener" title="NIELIT India official website — Bhubaneswar centre" role="link">
+                        <i class="fas fa-globe"></i> Go to Main Website
+                    </a>
                     <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar" target="_blank" rel="noopener" title="Open OCAC Tower in Google Maps" role="link">
                         <i class="fas fa-map-marker-alt"></i> OCAC Tower, Bhubaneswar
                     </a>
