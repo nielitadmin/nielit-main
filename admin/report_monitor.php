@@ -120,8 +120,9 @@ $isScoped = ($adminRole === 'course_coordinator');
 <div class="admin-wrapper report-monitor">
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-    <main class="admin-main">
-        <div class="container-fluid py-4">
+    <main class="admin-content">
+        <div class="admin-main">
+        <div class="container-fluid py-2">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
                 <div>
                     <h2 class="mb-1"><i class="fas fa-chart-line"></i> <?php echo htmlspecialchars($pageTitle); ?></h2>
@@ -382,6 +383,7 @@ $isScoped = ($adminRole === 'course_coordinator');
                     </div>
                 </div>
             </div>
+        </div>
         </div>
     </main>
 </div>
