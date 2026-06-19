@@ -407,6 +407,15 @@ if (!empty($params)) {
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin-theme.css" rel="stylesheet">
     <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <style>
+        .eligibility-textarea {
+            resize: vertical;
+            min-height: 130px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
 </head>
 <body>
 <div class="admin-wrapper">
@@ -671,8 +680,8 @@ if (!empty($params)) {
 
                         <div class="mb-3">
                             <label class="form-label">Eligibility *</label>
-                            <textarea name="eligibility" id="add_eligibility" class="form-control" rows="2" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
-                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                            <textarea name="eligibility" id="add_eligibility" class="form-control eligibility-textarea" rows="5" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                            <small class="text-muted">Drag the bottom-right corner to resize. For NSQF courses, this will be filled automatically from the selected template.</small>
                         </div>
 
                         <div class="row">
@@ -813,8 +822,8 @@ if (!empty($params)) {
 
                         <div class="mb-3">
                             <label class="form-label">Eligibility *</label>
-                            <textarea name="eligibility" id="edit_eligibility" class="form-control" rows="2" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
-                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                            <textarea name="eligibility" id="edit_eligibility" class="form-control eligibility-textarea" rows="5" required placeholder="Will auto-populate from template for NSQF courses"></textarea>
+                            <small class="text-muted">Drag the bottom-right corner to resize. For NSQF courses, this will be filled automatically from the selected template.</small>
                         </div>
 
                         <div class="row">

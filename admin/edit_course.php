@@ -434,6 +434,15 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css?v=<?php echo time(); ?>">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <style>
+        .eligibility-textarea {
+            resize: vertical;
+            min-height: 130px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+    </style>
 </head>
 <body>
 
@@ -546,8 +555,8 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                         
                         <div class="form-group">
                             <label class="form-label">Eligibility *</label>
-                            <textarea class="form-control" name="eligibility" id="edit_eligibility" rows="2" required placeholder="Will auto-populate from template for NSQF courses"><?php echo htmlspecialchars($course['eligibility']); ?></textarea>
-                            <small class="text-muted">For NSQF courses, this will be filled automatically from the selected template</small>
+                            <textarea class="form-control eligibility-textarea" name="eligibility" id="edit_eligibility" rows="5" required placeholder="Will auto-populate from template for NSQF courses"><?php echo htmlspecialchars($course['eligibility']); ?></textarea>
+                            <small class="text-muted">Drag the bottom-right corner to resize. For NSQF courses, this will be filled automatically from the selected template.</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Duration *</label>
