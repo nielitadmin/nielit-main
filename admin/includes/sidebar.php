@@ -186,6 +186,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-key"></i> API Management
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/run_sub_category_label_migration'); ?>" class="nav-link <?php echo ($current_page === 'run_sub_category_label_migration.php') ? 'active' : ''; ?>">
+                <i class="fas fa-tags"></i> Category Label Migration
+            </a>
+        </div>
         <?php endif; ?>
         
         
