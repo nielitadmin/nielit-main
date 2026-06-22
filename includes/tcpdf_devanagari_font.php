@@ -30,8 +30,11 @@ if (!function_exists('getTcpdfDevanagariFontName')) {
     }
 
     function getAdmissionFormHindiTexts(): array {
+        if (!defined('INSTITUTE_NAME_HI')) {
+            require_once __DIR__ . '/institute_branding.php';
+        }
         return [
-            'institute_line' => 'राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर',
+            'institute_line' => INSTITUTE_NAME_HI,
             'declaration' => 'मैं एतद्द्वारा घोषणा करता/करती हूं कि ऊपर दी गई जानकारी मेरी जानकारी के अनुसार सत्य और सही है। मैं समझता/समझती हूं कि कोई भी गलत जानकारी मेरे प्रवेश/प्रंजीकरण को रद्द कर सकती है।',
         ];
     }

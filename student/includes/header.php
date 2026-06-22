@@ -39,14 +39,14 @@ require_once __DIR__ . '/../../includes/institute_branding.php';
                 <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center">
                     <img src="../assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                     <div>
-                        <div class="fw-bold text-primary d-none d-sm-block" style="font-size: 0.85rem;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
+                        <div class="fw-bold text-primary d-none d-sm-block" style="font-size: 0.85rem;"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
                         <div class="fw-bold text-dark" style="font-size: 0.9rem;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                     </div>
                 </div>
                 <div class="col-md-4 d-flex justify-content-md-end justify-content-center">
                     <div class="text-end me-3 d-none d-lg-block">
-                        <small class="d-block fw-bold text-secondary">Ministry of Electronics & IT</small>
-                        <small class="d-block text-secondary">Government of India</small>
+                        <small class="d-block text-secondary d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
+                        <small class="d-block fw-bold text-secondary"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
                     </div>
                     <img src="../assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
                 </div>

@@ -169,7 +169,7 @@ if (file_exists($logoPath)) {
 
 // Title cell
 $titleCell = $headerTable->addCell(8000);
-$titleCell->addText('राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर', 
+$titleCell->addText(INSTITUTE_NAME_HI_FORMAL, 
     ['name' => 'Arial', 'size' => 11, 'bold' => true], ['alignment' => 'center']);
 $titleCell->addText('National Institute of Electronics and Information Technology (NIELIT)', 
     ['name' => 'Arial', 'size' => 10, 'bold' => true], ['alignment' => 'center']);

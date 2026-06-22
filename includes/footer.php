@@ -12,7 +12,7 @@ require_once __DIR__ . '/institute_branding.php';
                         <div style="font-size: 0.8rem; color: rgba(255,255,255,0.45);">Bhubaneswar</div>
                     </div>
                     <p style="color: rgba(255,255,255,0.5); font-size: 0.85rem; line-height: 1.7; margin-top: 14px;">
-                        <?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?> under Ministry of Electronics & IT, Government of India.
+                        <?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?> under <?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?>.
                     </p>
                 </div>
                 <div class="col-md-4 mb-4 mb-md-0">

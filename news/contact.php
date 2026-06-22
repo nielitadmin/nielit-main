@@ -34,14 +34,14 @@
             <div class="col-md-8 d-flex align-items-center">
                 <img src="bhubaneswar_logo.png" alt="Institute Logo" class="logo mr-3">
                 <div>
-                    <h5 class="mb-0 hindi-text">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान , भुवनेश्वर</h5>
+                    <h5 class="mb-0 hindi-text"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></h5>
                     <h6 class="mb-0"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></h6>
                 </div>
             </div>
             <div class="col-md-4 text-right d-flex align-items-center justify-content-end">
                 <div>
-                    <h6 class="ministry-text mb-1">Ministry of Electronics & Information Technology</h6>
-                    <h6 class="mb-1">Government of India</h6>
+                    <h6 class="mb-0 hindi-text ministry-text d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></h6>
+                    <h6 class="mb-0 ministry-text"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></h6>
                 </div>
                 <img src="National-Emblem.png" alt="Government Emblem" class="gov-logo ml-3">
             </div>

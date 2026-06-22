@@ -390,14 +390,14 @@ $result_internship = $conn->query($sql_internship);
             <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
                 <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                 <div>
-                    <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;">????????? ????????????? ??? ????? ???????????? ???????, ?????????</div>
+                    <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
                     <div class="fw-bold" style="color: var(--navy); font-size: 0.95rem; font-family: 'Sora', sans-serif;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
                 <div class="text-end me-3 d-none d-lg-block">
-                    <small class="d-block fw-bold" style="color: var(--navy);">Ministry of Electronics & IT</small>
-                    <small class="d-block" style="color: var(--muted);">Government of India</small>
+                    <small class="d-block text-secondary d-none d-md-block" style="color: var(--muted);"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
+                    <small class="d-block fw-bold" style="color: var(--navy);"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
                 <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
             </div>
@@ -1157,7 +1157,7 @@ $result_internship = $conn->query($sql_internship);
                 <ul class="list-unstyled">
                     <li class="mb-2"><i class="fas fa-phone-alt me-2" style="color: var(--gold);"></i> 0674-2960354</li>
                     <li class="mb-2"><i class="fas fa-envelope me-2" style="color: var(--gold);"></i> dir-bbsr@nielit.gov.in</li>
-                    <li class="mb-2"><i class="fas fa-clock me-2" style="color: var(--gold);"></i> Mon-Fri: 09:00 AM – 5:30 PM</li>
+                    <li class="mb-2"><i class="fas fa-clock me-2" style="color: var(--gold);"></i> Mon-Fri: 09:00 AM ? 5:30 PM</li>
                 </ul>
             </div>
         </div>
@@ -1167,7 +1167,7 @@ $result_internship = $conn->query($sql_internship);
         <div class="container">
             <div class="row">
                 <div class="col-md-6 text-md-start text-center">
-                    © 2025 NIELIT Bhubaneswar. All Rights Reserved.
+                    ? 2025 NIELIT Bhubaneswar. All Rights Reserved.
                 </div>
                 <div class="col-md-6 text-md-end text-center">
                     Designed & Developed by NIELIT Team

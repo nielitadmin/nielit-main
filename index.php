@@ -126,6 +126,7 @@
         .top-bar img { height: 48px; }
         .top-bar .inst-name-hi { font-size: 0.82rem; color: var(--blue); font-weight: 600; font-family: 'Sora', sans-serif; }
         .top-bar .inst-name-en { font-size: 0.82rem; font-weight: 700; color: var(--navy); font-family: 'Sora', sans-serif; line-height: 1.35; }
+        .top-bar .ministry-hi { font-size: 0.68rem; color: var(--navy); font-weight: 600; font-family: 'Sora', sans-serif; margin-bottom: 2px; }
         .top-bar .ministry-badge {
             background: var(--navy);
             color: #fff;
@@ -1210,13 +1211,14 @@
             <div class="col-md-8 d-flex align-items-center gap-3">
                 <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo">
                 <div>
-                    <div class="inst-name-hi">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
+                    <div class="inst-name-hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
                     <div class="inst-name-en"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center align-items-center gap-3 mt-2 mt-md-0">
                 <div class="text-end d-none d-md-block">
-                    <div class="ministry-badge">Ministry of Electronics & IT &nbsp; | &nbsp; Govt. of India</div>
+                    <div class="ministry-hi"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="ministry-badge"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
                 <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 48px;">
             </div>
@@ -1765,7 +1767,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                     <div class="footer-brand">
                         <span class="brand-name">NIELIT Bhubaneswar</span>
                         <span class="brand-sub"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></span>
-                        <p>An autonomous scientific society under the Ministry of Electronics & IT, Government of India — dedicated to technology education and skill development.</p>
+                        <p>An autonomous scientific society under <?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?> — dedicated to technology education and skill development.</p>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-map-marker-alt mt-1"></i>

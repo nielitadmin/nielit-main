@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/../includes/institute_branding.php'; ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -406,9 +407,9 @@
                 <img src="logo1.png" alt="NIELIT Logo">
             </div>
             <div class="header-text">
-                <p class="main-title">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</p>
+                <p class="main-title"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="subtitle">National Institute of Electronics & Information Technology (NIELIT)</p>
-                <p class="subtext">(Under Ministry of Electronics & Information Technology, Government of India)</p>
+                <p class="subtext">(Under <?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?>)</p>
                 <p class="address">3rd Floor, OCAC Tower, Acharya Vihar, Bhubaneswar-751013, Odisha</p>
             </div>
             <div class="logo-right">

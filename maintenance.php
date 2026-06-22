@@ -332,8 +332,8 @@ $show_contact = $maintenance['show_contact'] ?? 1;
             <div class="govt-header">
                 <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="National Emblem">
                 <div class="ministry-text">
-                    <span class="main">MINISTRY OF ELECTRONICS & INFORMATION TECHNOLOGY</span>
-                    <span class="sub">Government of India</span>
+                    <span class="main hindi-text d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="main"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
             </div>
             <div class="nielit-logo">

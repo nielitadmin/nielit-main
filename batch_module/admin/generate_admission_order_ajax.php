@@ -511,7 +511,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                 <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
             </td>
             <td class="ao-header-text">
-                <p class="ao-hindi">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</p>
+                <p class="ao-hindi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="ao-institute">National Institute of Electronics and Information Technology (NIELIT)</p>
                 <p class="ao-centre">Bhubaneswar/Balasore Extension Centre</p>
                 <p class="ao-tagline">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>

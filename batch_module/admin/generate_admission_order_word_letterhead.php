@@ -571,7 +571,7 @@ header('Cache-Control: max-age=0');
         <?php endif; ?>
     </div>
     <div class="header-text-section">
-        <div class="hindi-institutional-name">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान (रा.इ.सू.प्रौ. सं) भुवनेश्वर</div>
+        <div class="hindi-institutional-name"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></div>
         <div class="english-institutional-name">National Institute of Electronics and Information Technology (NIELIT)</div>
         <div class="extension-centre"><?php echo htmlspecialchars($extension_centre); ?>/Balasore Extension Centre</div>
         <div class="government-affiliation">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</div>
