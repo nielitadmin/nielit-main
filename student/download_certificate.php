@@ -10,7 +10,8 @@ if (!isset($_SESSION['student_id'])) {
 
 $student_id = $_SESSION['student_id'];
 $certificate_id = (int) ($_GET['id'] ?? 0);
-$cert = getCertificateForStudent($conn, $certificate_id, $student_id);
+$batch_student_id = (int) ($_GET['batch_student_id'] ?? 0);
+$cert = batch_certificate_resolve_student_view($conn, $student_id, $certificate_id, $batch_student_id);
 
 if (!$cert) {
     http_response_code(404);

@@ -289,14 +289,262 @@ HTACCESS;
         return $count;
     }
 
+    function batch_certificate_merge_key(array $row) {
+        if (!empty($row['batch_student_id'])) {
+            return 'bs:' . (int) $row['batch_student_id'];
+        }
+        if (!empty($row['file_path'])) {
+            return 'fp:' . $row['file_path'];
+        }
+        if (!empty($row['id'])) {
+            return 'id:' . (int) $row['id'];
+        }
+        return uniqid('cert:', true);
+    }
+
+    function batch_certificate_certificates_uses_numeric_student_id($conn) {
+        if (!batch_certificate_table_exists($conn, 'certificates')) {
+            return false;
+        }
+        $result = $conn->query("SHOW COLUMNS FROM certificates LIKE 'student_id'");
+        if (!$result || !($row = $result->fetch_assoc())) {
+            return false;
+        }
+        $type = strtolower((string) ($row['Type'] ?? ''));
+        return strpos($type, 'int') !== false;
+    }
+
+    function batch_certificate_portal_student_id_value($conn, array $payload) {
+        if (batch_certificate_certificates_uses_numeric_student_id($conn)) {
+            return (string) (int) ($payload['student_record_id'] ?? 0);
+        }
+        return trim((string) ($payload['student_id'] ?? ''));
+    }
+
+    function batch_certificate_fetch_direct_for_student($conn, $student_id) {
+        ensureBatchCertificateSchema($conn);
+        $student_id = trim((string) $student_id);
+        if ($student_id === '' || !batch_certificate_column_exists($conn, 'certificate_file')) {
+            return [];
+        }
+
+        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
+        $params = [$student_id];
+        $types = 's';
+        $scopeSql = 's.student_id = ?';
+
+        if (!empty($recordIds)) {
+            $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $scopeSql .= " OR s.id IN ({$placeholders})";
+            foreach ($recordIds as $recordId) {
+                $params[] = (int) $recordId;
+                $types .= 'i';
+            }
+        }
+
+        $sql = "SELECT bs.id AS batch_student_id,
+                       bs.batch_id,
+                       bs.certificate_file AS file_path,
+                       bs.certificate_number,
+                       bs.certificate_uploaded_at,
+                       bs.certificate_uploaded_by AS uploaded_by,
+                       s.id AS student_record_id,
+                       s.student_id,
+                       COALESCE(c.course_name, b.batch_name, 'Course') AS course_name,
+                       b.batch_name,
+                       b.batch_code
+                FROM batch_students bs
+                INNER JOIN students s ON (bs.student_record_id = s.id OR bs.student_id = s.id)
+                LEFT JOIN batches b ON b.id = bs.batch_id
+                LEFT JOIN courses c ON c.id = b.course_id
+                WHERE bs.certificate_file IS NOT NULL
+                AND bs.certificate_file != ''
+                AND ({$scopeSql})
+                ORDER BY bs.certificate_uploaded_at DESC, bs.id DESC";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $rows = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $courseName = trim((string) ($row['course_name'] ?? 'Course'));
+            $rows[] = [
+                'id' => null,
+                'batch_student_id' => (int) ($row['batch_student_id'] ?? 0),
+                'student_id' => trim((string) ($row['student_id'] ?? $student_id)),
+                'student_record_id' => (int) ($row['student_record_id'] ?? 0),
+                'batch_id' => (int) ($row['batch_id'] ?? 0),
+                'certificate_name' => $courseName . ' — Completion Certificate',
+                'course_name' => $courseName,
+                'certificate_number' => (string) ($row['certificate_number'] ?? ''),
+                'file_path' => (string) ($row['file_path'] ?? ''),
+                'issue_date' => !empty($row['certificate_uploaded_at'])
+                    ? date('Y-m-d', strtotime($row['certificate_uploaded_at']))
+                    : date('Y-m-d'),
+                'created_at' => $row['certificate_uploaded_at'] ?? null,
+                'batch_name' => $row['batch_name'] ?? null,
+                'batch_code' => $row['batch_code'] ?? null,
+                'status' => 'issued',
+            ];
+        }
+        $stmt->close();
+
+        return $rows;
+    }
+
+    function batch_certificate_fetch_from_certificates_table($conn, $student_id) {
+        if (!batch_certificate_table_exists($conn, 'certificates')) {
+            return [];
+        }
+
+        $student_id = trim((string) $student_id);
+        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
+        $params = [$student_id];
+        $types = 's';
+        $recordClause = '';
+
+        if (!empty($recordIds)) {
+            $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $recordClause = " OR c.student_record_id IN ({$placeholders})";
+            foreach ($recordIds as $rid) {
+                $params[] = $rid;
+                $types .= 'i';
+            }
+        }
+
+        if (batch_certificate_certificates_uses_numeric_student_id($conn) && !empty($recordIds)) {
+            $numericPlaceholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $recordClause .= " OR c.student_id IN ({$numericPlaceholders})";
+            foreach ($recordIds as $rid) {
+                $params[] = (string) $rid;
+                $types .= 's';
+            }
+        }
+
+        $filePathExpr = batch_certificate_column_exists_on_table($conn, 'certificates', 'file_path')
+            ? 'c.file_path'
+            : (batch_certificate_column_exists_on_table($conn, 'certificates', 'certificate_file')
+                ? 'c.certificate_file'
+                : 'c.file_path');
+
+        $sql = "SELECT c.*, {$filePathExpr} AS file_path, b.batch_name, b.batch_code
+                FROM certificates c
+                LEFT JOIN batches b ON b.id = c.batch_id
+                WHERE (c.student_id = ?{$recordClause})
+                AND LOWER(COALESCE(c.status, 'issued')) = 'issued'
+                AND {$filePathExpr} IS NOT NULL
+                AND {$filePathExpr} != ''
+                ORDER BY COALESCE(c.issue_date, c.created_at) DESC, c.id DESC";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+
+        return $rows;
+    }
+
+    function batch_certificate_column_exists_on_table($conn, $table, $column) {
+        $table = preg_replace('/[^a-z0-9_]/i', '', (string) $table);
+        $column = $conn->real_escape_string($column);
+        $result = $conn->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'");
+        return $result && $result->num_rows > 0;
+    }
+
+    function batch_certificate_get_for_student_by_batch_student($conn, $batch_student_id, $student_id) {
+        $batch_student_id = (int) $batch_student_id;
+        $student_id = trim((string) $student_id);
+        if ($batch_student_id <= 0 || $student_id === '') {
+            return null;
+        }
+
+        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
+        $params = [$batch_student_id, $student_id];
+        $types = 'is';
+        $scopeSql = 's.student_id = ?';
+
+        if (!empty($recordIds)) {
+            $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $scopeSql .= " OR s.id IN ({$placeholders})";
+            foreach ($recordIds as $recordId) {
+                $params[] = (int) $recordId;
+                $types .= 'i';
+            }
+        }
+
+        $sql = "SELECT bs.id AS batch_student_id,
+                       bs.batch_id,
+                       bs.certificate_file AS file_path,
+                       bs.certificate_number,
+                       bs.certificate_uploaded_at,
+                       s.id AS student_record_id,
+                       s.student_id,
+                       COALESCE(c.course_name, b.batch_name, 'Course') AS course_name
+                FROM batch_students bs
+                INNER JOIN students s ON (bs.student_record_id = s.id OR bs.student_id = s.id)
+                LEFT JOIN batches b ON b.id = bs.batch_id
+                LEFT JOIN courses c ON c.id = b.course_id
+                WHERE bs.id = ?
+                AND bs.certificate_file IS NOT NULL
+                AND bs.certificate_file != ''
+                AND ({$scopeSql})
+                LIMIT 1";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return null;
+        }
+
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return null;
+        }
+
+        $courseName = trim((string) ($row['course_name'] ?? 'Course'));
+        return [
+            'id' => null,
+            'batch_student_id' => (int) ($row['batch_student_id'] ?? 0),
+            'student_id' => trim((string) ($row['student_id'] ?? $student_id)),
+            'student_record_id' => (int) ($row['student_record_id'] ?? 0),
+            'batch_id' => (int) ($row['batch_id'] ?? 0),
+            'certificate_name' => $courseName . ' — Completion Certificate',
+            'course_name' => $courseName,
+            'certificate_number' => (string) ($row['certificate_number'] ?? ''),
+            'file_path' => (string) ($row['file_path'] ?? ''),
+            'issue_date' => !empty($row['certificate_uploaded_at'])
+                ? date('Y-m-d', strtotime($row['certificate_uploaded_at']))
+                : date('Y-m-d'),
+            'status' => 'issued',
+        ];
+    }
+
     function batch_certificate_sync_portal_record($conn, array $payload) {
         if (!batch_certificate_table_exists($conn, 'certificates')) {
             return false;
         }
 
-        $payload['student_id'] = trim((string) ($payload['student_id'] ?? ''));
+        $payload['student_id'] = batch_certificate_portal_student_id_value($conn, $payload);
         $payload['file_path'] = trim((string) ($payload['file_path'] ?? ''));
-        if ($payload['student_id'] === '' || $payload['file_path'] === '') {
+        if ($payload['student_id'] === '' || $payload['student_id'] === '0' || $payload['file_path'] === '') {
             return false;
         }
 
@@ -496,10 +744,7 @@ HTACCESS;
         ]);
 
         if (!$synced) {
-            return [
-                'success' => false,
-                'message' => 'Certificate file saved, but the student portal record could not be created. Please contact support or re-open My Certificates after deploy.',
-            ];
+            error_log('batch_certificate_sync_portal_record failed after upload for student ' . ($studentRow['student_id'] ?? ''));
         }
 
         return [
@@ -507,59 +752,41 @@ HTACCESS;
             'message' => 'Certificate uploaded successfully. The student can view it in their portal.',
             'certificate_number' => $certificateNumber,
             'file_path' => $relativePath,
+            'portal_synced' => $synced,
         ];
     }
 
     function getStudentPortalCertificates($conn, $student_id) {
         ensureBatchCertificateSchema($conn);
-        $rows = [];
         $student_id = trim((string) $student_id);
         if ($student_id === '') {
-            return $rows;
+            return [];
         }
 
         batch_certificate_backfill_portal_for_student($conn, $student_id);
 
-        if (!batch_certificate_table_exists($conn, 'certificates')) {
-            return $rows;
-        }
+        $merged = [];
+        $seen = [];
 
-        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
-        $params = [$student_id];
-        $types = 's';
-        $recordClause = '';
-
-        if (!empty($recordIds)) {
-            $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
-            $recordClause = " OR c.student_record_id IN ({$placeholders})";
-            foreach ($recordIds as $rid) {
-                $params[] = $rid;
-                $types .= 'i';
+        foreach (batch_certificate_fetch_from_certificates_table($conn, $student_id) as $row) {
+            $key = batch_certificate_merge_key($row);
+            if (isset($seen[$key])) {
+                continue;
             }
+            $seen[$key] = true;
+            $merged[] = $row;
         }
 
-        $sql = "SELECT c.*, b.batch_name, b.batch_code
-                FROM certificates c
-                LEFT JOIN batches b ON b.id = c.batch_id
-                WHERE (c.student_id = ?{$recordClause})
-                AND LOWER(COALESCE(c.status, 'issued')) = 'issued'
-                AND c.file_path IS NOT NULL
-                AND c.file_path != ''
-                ORDER BY COALESCE(c.issue_date, c.created_at) DESC, c.id DESC";
-
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return $rows;
+        foreach (batch_certificate_fetch_direct_for_student($conn, $student_id) as $row) {
+            $key = batch_certificate_merge_key($row);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $merged[] = $row;
         }
 
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        while ($row = $result->fetch_assoc()) {
-            $rows[] = $row;
-        }
-        $stmt->close();
-        return $rows;
+        return $merged;
     }
 
     function getCertificateForStudent($conn, $certificate_id, $student_id) {
@@ -570,8 +797,17 @@ HTACCESS;
         }
 
         batch_certificate_backfill_portal_for_student($conn, $student_id);
-        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
 
+        $direct = batch_certificate_get_for_student_by_batch_student($conn, $certificate_id, $student_id);
+        if ($direct) {
+            return $direct;
+        }
+
+        if (!batch_certificate_table_exists($conn, 'certificates')) {
+            return null;
+        }
+
+        $recordIds = batch_certificate_student_record_ids($conn, $student_id);
         $params = [$certificate_id, $student_id];
         $types = 'is';
         $recordClause = '';
@@ -585,7 +821,22 @@ HTACCESS;
             }
         }
 
-        $sql = "SELECT c.* FROM certificates c
+        if (batch_certificate_certificates_uses_numeric_student_id($conn) && !empty($recordIds)) {
+            $numericPlaceholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $recordClause .= " OR c.student_id IN ({$numericPlaceholders})";
+            foreach ($recordIds as $rid) {
+                $params[] = (string) $rid;
+                $types .= 's';
+            }
+        }
+
+        $filePathExpr = batch_certificate_column_exists_on_table($conn, 'certificates', 'file_path')
+            ? 'c.file_path'
+            : (batch_certificate_column_exists_on_table($conn, 'certificates', 'certificate_file')
+                ? 'c.certificate_file'
+                : 'c.file_path');
+
+        $sql = "SELECT c.*, {$filePathExpr} AS file_path FROM certificates c
                 WHERE c.id = ?
                 AND (c.student_id = ?{$recordClause})
                 AND LOWER(COALESCE(c.status, 'issued')) = 'issued'
@@ -600,6 +851,24 @@ HTACCESS;
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         return $row ?: null;
+    }
+
+    function batch_certificate_resolve_student_view($conn, $student_id, $certificate_id = 0, $batch_student_id = 0) {
+        $batch_student_id = (int) $batch_student_id;
+        $certificate_id = (int) $certificate_id;
+
+        if ($batch_student_id > 0) {
+            $cert = batch_certificate_get_for_student_by_batch_student($conn, $batch_student_id, $student_id);
+            if ($cert) {
+                return $cert;
+            }
+        }
+
+        if ($certificate_id > 0) {
+            return getCertificateForStudent($conn, $certificate_id, $student_id);
+        }
+
+        return null;
     }
 
     function batch_certificate_absolute_path($relativePath) {

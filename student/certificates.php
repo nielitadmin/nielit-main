@@ -62,12 +62,23 @@ include 'includes/header.php';
                             <strong>Certificate No:</strong> <?php echo htmlspecialchars($cert['certificate_number']); ?>
                         </p>
                         <div class="btn-group" role="group">
-                            <a href="view_certificate.php?id=<?php echo $cert['id']; ?>" 
+                            <?php
+                            $certViewId = !empty($cert['id']) ? (int) $cert['id'] : 0;
+                            $certBatchStudentId = !empty($cert['batch_student_id']) ? (int) $cert['batch_student_id'] : 0;
+                            if ($certViewId > 0) {
+                                $viewUrl = 'view_certificate.php?id=' . $certViewId;
+                                $downloadUrl = 'download_certificate.php?id=' . $certViewId;
+                            } else {
+                                $viewUrl = 'view_certificate.php?batch_student_id=' . $certBatchStudentId;
+                                $downloadUrl = 'download_certificate.php?batch_student_id=' . $certBatchStudentId;
+                            }
+                            ?>
+                            <a href="<?php echo htmlspecialchars($viewUrl); ?>"
                                target="_blank" 
                                class="btn btn-sm btn-primary">
                                 <i class="fas fa-eye"></i> View
                             </a>
-                            <a href="download_certificate.php?id=<?php echo $cert['id']; ?>" 
+                            <a href="<?php echo htmlspecialchars($downloadUrl); ?>"
                                class="btn btn-sm btn-success">
                                 <i class="fas fa-download"></i> Download
                             </a>
