@@ -22,7 +22,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 
 // Ensure front_office_desk role exists in enum (auto-migrate if needed)
-$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
 
 // PHPMailer for sending OTP
 use PHPMailer\PHPMailer\PHPMailer;
@@ -463,12 +463,14 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                             <option value="course_coordinator">Course Coordinator</option>
                             <option value="nsqf_course_manager">NSQF Course Manager</option>
                             <option value="front_office_desk">Front Office Desk</option>
+                            <option value="placement_coordinator">Placement Coordinator</option>
                             <option value="master_admin">Master Admin</option>
                         </select>
                         <small class="text-muted">
                             <strong>Course Coordinator:</strong> Access to Dashboard, Students, Courses, Batches, Approve Students, Reset Password<br>
                             <strong>NSQF Course Manager:</strong> Can only manage NSQF courses<br>
                             <strong>Front Office Desk:</strong> View all students, edit student info, download forms — no access to courses, batches, or admin settings<br>
+                            <strong>Placement Coordinator:</strong> View batches and update student placement details (company, role, package)<br>
                             <strong>Master Admin:</strong> Full access including admin management
                         </small>
                     </div>

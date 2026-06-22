@@ -3,14 +3,23 @@ session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../includes/batch_certificate_helper.php';
+require_once __DIR__ . '/../includes/batch_placement_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login_new.php");
     exit();
 }
 
+$admin_role = $_SESSION['admin_role'] ?? '';
+$is_placement_coordinator = ($admin_role === 'placement_coordinator');
+
+if ($is_placement_coordinator && !canViewBatchPlacements($admin_role)) {
+    header('Location: ../../admin/dashboard.php');
+    exit();
+}
+
 // Check user role for lock bypass
-$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$is_master_admin = ($admin_role === 'master_admin');
 $current_admin_id = $_SESSION['admin_id'] ?? null;
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
@@ -28,6 +37,7 @@ if (!$batch) {
 
 repairBatchStudentsJunction($conn, (int)$batch_id);
 ensureBatchCertificateSchema($conn);
+ensureBatchPlacementSchema($conn);
 
 // Check if batch is locked
 $is_locked = isBatchLocked($batch_id, $conn);
@@ -54,6 +64,11 @@ $move_target_batches = getMoveTargetBatches($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
 $can_upload_certificates = isBatchCertificateUploadAllowed($batch);
 $certificate_upload_hint = batch_certificate_upload_reason($batch);
+$can_manage_placement = canManageBatchPlacement($admin_role);
+$can_view_placement = canViewBatchPlacements($admin_role);
+$placement_stats = getBatchPlacementStats($conn, (int) $batch_id);
+$placement_status_options = batch_placement_status_options();
+$placement_package_types = batch_placement_package_type_options();
 
 $message = $_SESSION['batch_details_message'] ?? '';
 $message_type = $_SESSION['batch_details_message_type'] ?? 'success';
@@ -559,6 +574,49 @@ function uploadStudentCertificate(studentRecordId, batchId, inputEl) {
     });
 }
 
+function openPlacementModal(data) {
+    document.getElementById('placementStudentRecordId').value = data.student_record_id || '';
+    document.getElementById('placementStudentName').textContent = data.student_name || '';
+    document.getElementById('placementStatus').value = data.placement_status || 'not_placed';
+    document.getElementById('placementCompany').value = data.placement_company || '';
+    document.getElementById('placementRole').value = data.placement_role || '';
+    document.getElementById('placementPackageAmount').value = data.placement_package_amount || '';
+    document.getElementById('placementPackageType').value = data.placement_package_type || 'annual';
+    document.getElementById('placementLocation').value = data.placement_location || '';
+    document.getElementById('placementDate').value = data.placement_date || '';
+    document.getElementById('placementRemarks').value = data.placement_remarks || '';
+    document.getElementById('placementModal').style.display = 'flex';
+}
+
+function closePlacementModal() {
+    document.getElementById('placementModal').style.display = 'none';
+}
+
+function saveBatchPlacement() {
+    const form = document.getElementById('placementForm');
+    const formData = new FormData(form);
+    formData.append('batch_id', <?php echo (int) $batch_id; ?>);
+
+    showToast('Saving placement...', 'info');
+    fetch('save_batch_placement.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message || 'Placement saved.', 'success');
+            setTimeout(() => window.location.reload(), 800);
+        } else {
+            showToast(data.message || 'Could not save placement.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        showToast('Could not save placement.', 'error');
+    });
+}
+
 // Scanned Admission Order Functions
 function uploadScannedOrder(batchId, fileInput) {
     const file = fileInput.files[0];
@@ -890,6 +948,12 @@ function downloadScannedOrder(batchId) {
                     <div class="stat-value"><?php echo number_format($stats['avg_attendance'] ?? 0, 1); ?>%</div>
                     <div class="stat-label">Avg Attendance</div>
                 </div>
+                <?php if ($can_view_placement): ?>
+                <div class="stat-card">
+                    <div class="stat-value"><?php echo (int) ($placement_stats['placed'] ?? 0); ?> / <?php echo (int) ($placement_stats['total'] ?? 0); ?></div>
+                    <div class="stat-label">Students Placed</div>
+                </div>
+                <?php endif; ?>
             </div>
 
             <!-- Batch Information -->
@@ -1135,7 +1199,7 @@ function downloadScannedOrder(batchId) {
             </div>
 
             <!-- Add Students to Batch -->
-            <?php if (!$is_locked && !empty($eligible_students)): ?>
+            <?php if (!$is_locked && !$is_placement_coordinator && !empty($eligible_students)): ?>
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
@@ -1226,6 +1290,20 @@ function downloadScannedOrder(batchId) {
                         <?php echo htmlspecialchars($certificate_upload_hint ?: 'Certificate upload will be available after the batch is marked Completed and Locked.'); ?>
                     </div>
                 <?php endif; ?>
+
+                <?php if ($can_view_placement && !empty($students)): ?>
+                    <div class="alert alert-primary certificate-info-banner" style="margin: 16px 16px 0;">
+                        <i class="fas fa-briefcase"></i>
+                        <strong>Placement tracking:</strong>
+                        <?php echo (int) ($placement_stats['placed'] ?? 0); ?> placed,
+                        <?php echo (int) ($placement_stats['in_process'] ?? 0); ?> in process,
+                        <?php echo (int) ($placement_stats['higher_studies'] ?? 0); ?> higher studies,
+                        <?php echo (int) ($placement_stats['not_placed'] ?? 0); ?> not placed.
+                        <?php if ($can_manage_placement): ?>
+                            Use the <strong>Placement</strong> column to record company, role, and package.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                 
                 <?php if (!empty($students)): ?>
                     <div class="table-responsive">
@@ -1246,6 +1324,9 @@ function downloadScannedOrder(batchId) {
                                     <th>Fees Status</th>
                                     <th>Attendance</th>
                                     <th>Certificate</th>
+                                    <?php if ($can_view_placement): ?>
+                                    <th>Placement</th>
+                                    <?php endif; ?>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1328,10 +1409,56 @@ function downloadScannedOrder(batchId) {
                                                 <span class="text-muted small">Not uploaded</span>
                                             <?php endif; ?>
                                         </td>
+                                        <?php if ($can_view_placement):
+                                            $pStatus = strtolower(trim((string) ($student['placement_status'] ?? 'not_placed')));
+                                            $pStatusLabel = $placement_status_options[$pStatus] ?? 'Not placed';
+                                            $pBadge = batch_placement_status_badge_class($pStatus);
+                                            $pPackage = batch_placement_format_package(
+                                                $student['placement_package_amount'] ?? null,
+                                                $student['placement_package_type'] ?? 'annual'
+                                            );
+                                        ?>
+                                        <td>
+                                            <span class="badge badge-<?php echo htmlspecialchars($pBadge); ?>">
+                                                <?php echo htmlspecialchars($pStatusLabel); ?>
+                                            </span>
+                                            <?php if ($pStatus === 'placed' && !empty($student['placement_company'])): ?>
+                                                <div class="small mt-1"><strong><?php echo htmlspecialchars($student['placement_company']); ?></strong></div>
+                                                <?php if (!empty($student['placement_role'])): ?>
+                                                    <div class="small text-muted"><?php echo htmlspecialchars($student['placement_role']); ?></div>
+                                                <?php endif; ?>
+                                                <?php if ($pPackage !== ''): ?>
+                                                    <div class="small text-success"><?php echo htmlspecialchars($pPackage); ?></div>
+                                                <?php endif; ?>
+                                                <?php if (!empty($student['placement_location'])): ?>
+                                                    <div class="small text-muted"><i class="fas fa-map-marker-alt"></i> <?php echo htmlspecialchars($student['placement_location']); ?></div>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                            <?php if ($can_manage_placement): ?>
+                                                <button type="button"
+                                                        class="btn btn-outline-primary btn-sm mt-1"
+                                                        onclick='openPlacementModal(<?php echo json_encode([
+                                                            "student_record_id" => (int) $student["id"],
+                                                            "student_name" => $student["name"],
+                                                            "placement_status" => $pStatus,
+                                                            "placement_company" => $student["placement_company"] ?? "",
+                                                            "placement_role" => $student["placement_role"] ?? "",
+                                                            "placement_package_amount" => $student["placement_package_amount"] ?? "",
+                                                            "placement_package_type" => $student["placement_package_type"] ?? "annual",
+                                                            "placement_location" => $student["placement_location"] ?? "",
+                                                            "placement_date" => $student["placement_date"] ?? "",
+                                                            "placement_remarks" => $student["placement_remarks"] ?? "",
+                                                        ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
+                                                    <i class="fas fa-briefcase"></i> <?php echo ($pStatus === 'not_placed' && empty($student['placement_company'])) ? 'Add' : 'Edit'; ?>
+                                                </button>
+                                            <?php endif; ?>
+                                        </td>
+                                        <?php endif; ?>
                                         <td>
                                             <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>" class="btn btn-primary btn-sm" title="View Student Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            <?php if (!$is_placement_coordinator): ?>
                                             <?php if ($is_locked): ?>
                                                 <button class="btn btn-secondary btn-sm" disabled title="Batch is locked">
                                                     <i class="fas fa-lock"></i>
@@ -1351,6 +1478,7 @@ function downloadScannedOrder(batchId) {
                                                    title="Remove from Batch">
                                                     <i class="fas fa-user-times"></i>
                                                 </a>
+                                            <?php endif; ?>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -1494,6 +1622,67 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+
+<?php if ($can_manage_placement): ?>
+<div id="placementModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:10000;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:#fff;border-radius:12px;max-width:560px;width:100%;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,0.2);max-height:90vh;overflow:auto;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h5 style="margin:0;"><i class="fas fa-briefcase"></i> Student Placement</h5>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="closePlacementModal()">&times;</button>
+        </div>
+        <p class="text-muted mb-3">Student: <strong id="placementStudentName"></strong></p>
+        <form id="placementForm" onsubmit="event.preventDefault(); saveBatchPlacement();">
+            <input type="hidden" name="student_record_id" id="placementStudentRecordId">
+            <div class="mb-3">
+                <label class="form-label">Status</label>
+                <select class="form-control" name="placement_status" id="placementStatus">
+                    <?php foreach ($placement_status_options as $value => $label): ?>
+                        <option value="<?php echo htmlspecialchars($value); ?>"><?php echo htmlspecialchars($label); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Company / Organization</label>
+                <input type="text" class="form-control" name="placement_company" id="placementCompany" placeholder="e.g. TCS, Infosys, Local employer">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Job Role / Designation</label>
+                <input type="text" class="form-control" name="placement_role" id="placementRole" placeholder="e.g. Junior Developer">
+            </div>
+            <div class="row">
+                <div class="col-md-7 mb-3">
+                    <label class="form-label">Package Amount</label>
+                    <input type="number" step="0.01" min="0" class="form-control" name="placement_package_amount" id="placementPackageAmount" placeholder="e.g. 3.6">
+                </div>
+                <div class="col-md-5 mb-3">
+                    <label class="form-label">Package Type</label>
+                    <select class="form-control" name="placement_package_type" id="placementPackageType">
+                        <?php foreach ($placement_package_types as $value => $label): ?>
+                            <option value="<?php echo htmlspecialchars($value); ?>"><?php echo htmlspecialchars($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Location</label>
+                <input type="text" class="form-control" name="placement_location" id="placementLocation" placeholder="City / state">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Placement Date</label>
+                <input type="date" class="form-control" name="placement_date" id="placementDate">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Remarks</label>
+                <textarea class="form-control" name="placement_remarks" id="placementRemarks" rows="2" placeholder="Optional notes"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Placement</button>
+                <button type="button" class="btn btn-secondary" onclick="closePlacementModal()">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 </body>
 </html>

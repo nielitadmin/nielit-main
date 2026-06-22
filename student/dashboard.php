@@ -324,6 +324,12 @@ include 'includes/header.php';
                             </a>
                         </div>
                         <div class="col-md-4 mb-3">
+                            <a href="placement.php" class="action-btn">
+                                <i class="fas fa-briefcase"></i>
+                                <span>My Placement</span>
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
                             <a href="fees.php" class="action-btn">
                                 <i class="fas fa-rupee-sign"></i>
                                 <span>Fee Details</span>

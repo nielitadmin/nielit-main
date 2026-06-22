@@ -20,7 +20,7 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 require_once __DIR__ . '/../config/config.php';
 
 // Ensure front_office_desk role exists in enum (auto-migrate if needed)
-$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
 
 // PHPMailer for OTP
 use PHPMailer\PHPMailer\PHPMailer;
@@ -231,7 +231,7 @@ if (isset($_POST['update_role'])) {
     $new_role = $_POST['role'];
     
     // Whitelist valid roles
-    $allowed_roles = ['master_admin', 'course_coordinator', 'nsqf_course_manager', 'front_office_desk', 'data_entry_operator', 'report_viewer'];
+    $allowed_roles = ['master_admin', 'course_coordinator', 'nsqf_course_manager', 'front_office_desk', 'placement_coordinator', 'data_entry_operator', 'report_viewer'];
     
     // Prevent changing own role
     if ($admin_id == $_SESSION['admin_id']) {
@@ -248,7 +248,7 @@ if (isset($_POST['update_role'])) {
             // If update fails, likely the enum doesn't have this value yet
             if (strpos($conn->error, 'Data truncated') !== false || $stmt->affected_rows === 0) {
                 // Auto-run migration to add the role
-                $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk') NOT NULL DEFAULT 'course_coordinator'");
+                $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
                 
                 // Retry
                 $stmt2 = $conn->prepare("UPDATE admin SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
@@ -576,6 +576,10 @@ $admins_result = $conn->query($admins_query);
                                             $role_class = 'role-front-office';
                                             $role_icon = 'fa-concierge-bell';
                                             $role_text = 'Front Office Desk';
+                                        } elseif ($admin['role'] === 'placement_coordinator') {
+                                            $role_class = 'role-placement';
+                                            $role_icon = 'fa-briefcase';
+                                            $role_text = 'Placement Coordinator';
                                         }
                                         ?>
                                         <span class="role-badge <?php echo $role_class; ?>">
@@ -615,6 +619,7 @@ $admins_result = $conn->query($admins_query);
                                             <option value="course_coordinator" <?php echo $admin['role'] === 'course_coordinator' ? 'selected' : ''; ?>>Course Coordinator</option>
                                             <option value="nsqf_course_manager" <?php echo $admin['role'] === 'nsqf_course_manager' ? 'selected' : ''; ?>>NSQF Course Manager</option>
                                             <option value="front_office_desk" <?php echo $admin['role'] === 'front_office_desk' ? 'selected' : ''; ?>>Front Office Desk</option>
+                                            <option value="placement_coordinator" <?php echo $admin['role'] === 'placement_coordinator' ? 'selected' : ''; ?>>Placement Coordinator</option>
                                         </select>
                                         <button type="submit" name="update_role" class="btn btn-warning btn-sm">
                                             <i class="fas fa-sync-alt"></i> Update Role

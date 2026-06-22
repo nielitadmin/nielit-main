@@ -8,6 +8,9 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+$admin_role = $_SESSION['admin_role'] ?? '';
+$is_placement_coordinator = ($admin_role === 'placement_coordinator');
+
 $message = '';
 $message_type = 'success';
 
@@ -331,7 +334,12 @@ while ($row = $batches_result->fetch_assoc()) {
             <?php endif; ?>
 
             <!-- Role-based Information Banner -->
-            <?php if (!$is_master_admin): ?>
+            <?php if ($is_placement_coordinator): ?>
+                <div class="alert alert-info">
+                    <i class="fas fa-briefcase"></i>
+                    <strong>Placement Coordinator:</strong> Open a batch to record student placement details (company, role, package, location).
+                </div>
+            <?php elseif (!$is_master_admin): ?>
                 <div class="alert alert-info">
                     <i class="fas fa-info-circle"></i>
                     <strong>Course Coordinator View:</strong> You can only see and manage batches that you created. 
@@ -340,6 +348,7 @@ while ($row = $batches_result->fetch_assoc()) {
             <?php endif; ?>
 
             <!-- Create New Batch -->
+            <?php if (!$is_placement_coordinator): ?>
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
@@ -421,6 +430,7 @@ while ($row = $batches_result->fetch_assoc()) {
                     </div>
                 </form>
             </div>
+            <?php endif; ?>
 
             <!-- Existing Batches -->
             <div class="content-card">

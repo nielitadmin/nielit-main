@@ -14,6 +14,7 @@ if (!isset($_SESSION['admin_role'])) {
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
 $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
+$is_placement_coordinator = ($_SESSION['admin_role'] === 'placement_coordinator');
 $is_course_coordinator = ($_SESSION['admin_role'] === 'course_coordinator');
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
@@ -44,6 +45,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
+
+        <?php elseif ($is_placement_coordinator): ?>
+        <!-- Placement Coordinator - Batches & placement tracking -->
+        <div class="nav-item">
+            <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_batches.php', 'batch_details.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-layer-group"></i> Batches
+            </a>
+        </div>
         
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
@@ -67,7 +76,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-graduation-cap"></i> Manage NSQF Course
             </a>
         </div>
-        <?php elseif (!$is_front_office): ?>
+        <?php elseif (!$is_front_office && !$is_placement_coordinator): ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
             <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
@@ -76,7 +85,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
+        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo ($current_page === 'manage_batches.php') ? 'active' : ''; ?>">
                 <i class="fas fa-layer-group"></i> Batches
@@ -143,7 +152,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
+        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <div class="nav-divider"></div>
         
         <!-- Student Approval (Non-NSQF, Non-Front-Office Roles Only) -->
@@ -206,7 +215,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <?php endif; ?>
         
         
-        <?php if (!$is_nsqf_manager && !$is_front_office): ?>
+        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <!-- This section is now empty as Reset Password moved to Master Admin section -->
         <?php endif; ?>
         
