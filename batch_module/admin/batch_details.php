@@ -602,7 +602,14 @@ function saveBatchPlacement() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(async response => {
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(text || 'Invalid server response');
+        }
+    })
     .then(data => {
         if (data.success) {
             showToast(data.message || 'Placement saved.', 'success');
@@ -613,7 +620,7 @@ function saveBatchPlacement() {
     })
     .catch(error => {
         console.error(error);
-        showToast('Could not save placement.', 'error');
+        showToast(error.message || 'Could not save placement.', 'error');
     });
 }
 

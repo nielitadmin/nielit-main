@@ -218,18 +218,21 @@ if (!function_exists('batch_placement_status_options')) {
         $role = $data['placement_role'] !== '' ? $data['placement_role'] : null;
         $location = $data['placement_location'] !== '' ? $data['placement_location'] : null;
         $remarks = $data['placement_remarks'] !== '' ? $data['placement_remarks'] : null;
+        $status = $data['placement_status'];
+        $packageType = $data['placement_package_type'];
+        $placementDate = $data['placement_date'];
         $amount = $data['placement_package_amount'];
-        $amountParam = $amount === null ? null : (float) $amount;
+        $amountParam = $amount === null ? null : (string) $amount;
 
         $stmt->bind_param(
-            'sssdsssii',
-            $data['placement_status'],
+            'ssssssssii',
+            $status,
             $company,
             $role,
             $amountParam,
-            $data['placement_package_type'],
+            $packageType,
             $location,
-            $data['placement_date'],
+            $placementDate,
             $remarks,
             $admin_id,
             $batchStudentId
