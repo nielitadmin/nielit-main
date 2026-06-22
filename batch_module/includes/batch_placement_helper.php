@@ -64,7 +64,11 @@ if (!function_exists('batch_placement_status_options')) {
     }
 
     function canManageBatchPlacement($role) {
-        return in_array($role, ['master_admin', 'placement_coordinator'], true);
+        return in_array($role, [
+            'master_admin',
+            'course_coordinator',
+            'placement_coordinator',
+        ], true);
     }
 
     function canViewBatchPlacements($role) {
