@@ -350,13 +350,23 @@ function getBatchStudents($batch_id, $conn) {
 
     if ($has_batch_students_table) {
         $nielitSelect = $has_nielit_column ? 'bs.nielit_registration_no' : 'NULL as nielit_registration_no';
+        $certSelect = '';
+        if (file_exists(__DIR__ . '/batch_certificate_helper.php')) {
+            require_once __DIR__ . '/batch_certificate_helper.php';
+            if (function_exists('ensureBatchCertificateSchema')) {
+                ensureBatchCertificateSchema($conn);
+            }
+            if (function_exists('batch_certificate_column_exists') && batch_certificate_column_exists($conn, 'certificate_file')) {
+                $certSelect = ', bs.certificate_file, bs.certificate_number, bs.certificate_uploaded_at';
+            }
+        }
         $sql = "SELECT DISTINCT s.*,
                 COALESCE(bs.enrollment_date, s.approved_at, s.created_at) AS enrollment_date,
                 COALESCE(bs.fees_status, 'Not Paid') AS fees_status,
                 COALESCE(bs.fees_paid, 0) AS fees_paid,
                 COALESCE(bs.attendance_percentage, 0) AS attendance_percentage,
                 {$nielitSelect},
-                bs.id AS batch_student_link_id
+                bs.id AS batch_student_link_id{$certSelect}
                 FROM students s
                 LEFT JOIN batch_students bs ON bs.batch_id = ?
                     AND (bs.student_record_id = s.id OR bs.student_id = s.id)

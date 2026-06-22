@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
+require_once __DIR__ . '/../includes/batch_certificate_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login_new.php");
@@ -26,6 +27,7 @@ if (!$batch) {
 }
 
 repairBatchStudentsJunction($conn, (int)$batch_id);
+ensureBatchCertificateSchema($conn);
 
 // Check if batch is locked
 $is_locked = isBatchLocked($batch_id, $conn);
@@ -50,6 +52,8 @@ $students = getBatchStudents($batch_id, $conn);
 $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
 $move_target_batches = getMoveTargetBatches($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
+$can_upload_certificates = isBatchCertificateUploadAllowed($batch);
+$certificate_upload_hint = batch_certificate_upload_reason($batch);
 
 $message = $_SESSION['batch_details_message'] ?? '';
 $message_type = $_SESSION['batch_details_message_type'] ?? 'success';
@@ -516,6 +520,45 @@ function updateNielitRegNo(studentId, batchId) {
     });
 }
 
+function uploadStudentCertificate(studentRecordId, batchId, inputEl) {
+    const file = inputEl.files[0];
+    if (!file) return;
+
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (!allowedTypes.includes(file.type)) {
+        showToast('Only PDF, JPG, and PNG files are allowed.', 'error');
+        inputEl.value = '';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('batch_id', batchId);
+    formData.append('student_record_id', studentRecordId);
+    formData.append('certificate_file', file);
+
+    showToast('Uploading certificate...', 'info');
+
+    fetch('upload_student_certificate.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast(data.message || 'Certificate uploaded successfully.', 'success');
+            setTimeout(() => window.location.reload(), 900);
+        } else {
+            showToast(data.message || 'Certificate upload failed.', 'error');
+            inputEl.value = '';
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        showToast('Certificate upload failed.', 'error');
+        inputEl.value = '';
+    });
+}
+
 // Scanned Admission Order Functions
 function uploadScannedOrder(batchId, fileInput) {
     const file = fileInput.files[0];
@@ -768,6 +811,22 @@ function downloadScannedOrder(batchId) {
         transform: translateY(0);
         opacity: 1;
     }
+}
+.cert-upload-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 150px;
+}
+.cert-upload-wrap .cert-status {
+    font-size: 11px;
+    color: #64748b;
+}
+.cert-upload-wrap .btn {
+    white-space: nowrap;
+}
+.certificate-info-banner {
+    margin-bottom: 16px;
 }
 </style>
 
@@ -1154,6 +1213,19 @@ function downloadScannedOrder(batchId) {
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <?php if ($can_upload_certificates): ?>
+                    <div class="alert alert-success certificate-info-banner" style="margin: 16px 16px 0;">
+                        <i class="fas fa-certificate"></i>
+                        <strong>Certificate upload is enabled.</strong>
+                        This batch is Completed and Locked. Upload each student's completion certificate (PDF/JPG/PNG). Students will see it under <em>My Certificates</em> in the student portal.
+                    </div>
+                <?php elseif (!empty($students)): ?>
+                    <div class="alert alert-info certificate-info-banner" style="margin: 16px 16px 0;">
+                        <i class="fas fa-info-circle"></i>
+                        <?php echo htmlspecialchars($certificate_upload_hint ?: 'Certificate upload will be available after the batch is marked Completed and Locked.'); ?>
+                    </div>
+                <?php endif; ?>
                 
                 <?php if (!empty($students)): ?>
                     <div class="table-responsive">
@@ -1173,6 +1245,7 @@ function downloadScannedOrder(batchId) {
                                     <th>Enrollment Date</th>
                                     <th>Fees Status</th>
                                     <th>Attendance</th>
+                                    <th>Certificate</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -1224,6 +1297,34 @@ function downloadScannedOrder(batchId) {
                                             </span>
                                         </td>
                                         <td><?php echo number_format($student['attendance_percentage'], 1); ?>%</td>
+                                        <td>
+                                            <?php if (!empty($student['certificate_file'])): ?>
+                                                <div class="cert-upload-wrap">
+                                                    <a href="<?php echo APP_URL . '/' . ltrim($student['certificate_file'], '/'); ?>" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                        <i class="fas fa-eye"></i> View
+                                                    </a>
+                                                    <?php if ($student['certificate_number']): ?>
+                                                        <span class="cert-status"><?php echo htmlspecialchars($student['certificate_number']); ?></span>
+                                                    <?php endif; ?>
+                                                    <?php if ($can_upload_certificates): ?>
+                                                        <label class="btn btn-outline-secondary btn-sm mb-0" style="cursor:pointer;">
+                                                            <i class="fas fa-upload"></i> Replace
+                                                            <input type="file" class="d-none cert-file-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onchange="uploadStudentCertificate(<?php echo (int)$student['id']; ?>, <?php echo (int)$batch_id; ?>, this)">
+                                                        </label>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php elseif ($can_upload_certificates): ?>
+                                                <div class="cert-upload-wrap">
+                                                    <label class="btn btn-warning btn-sm mb-0" style="cursor:pointer;">
+                                                        <i class="fas fa-upload"></i> Upload Certificate
+                                                        <input type="file" class="d-none cert-file-input" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onchange="uploadStudentCertificate(<?php echo (int)$student['id']; ?>, <?php echo (int)$batch_id; ?>, this)">
+                                                    </label>
+                                                    <span class="cert-status">PDF, JPG, or PNG</span>
+                                                </div>
+                                            <?php else: ?>
+                                                <span class="text-muted small">Not uploaded</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td>
                                             <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>" class="btn btn-primary btn-sm" title="View Student Details">
                                                 <i class="fas fa-eye"></i>

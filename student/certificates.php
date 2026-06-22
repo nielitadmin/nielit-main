@@ -9,6 +9,7 @@ if (!isset($_SESSION['student_id'])) {
 
 $student_id = $_SESSION['student_id'];
 require_once __DIR__ . '/includes/load_enrollments.php';
+require_once __DIR__ . '/../batch_module/includes/batch_certificate_helper.php';
 
 $student = $student_profile;
 if (!$student) {
@@ -16,18 +17,7 @@ if (!$student) {
     exit;
 }
 
-// Fetch certificates
-$sql_certs = "SELECT * FROM certificates WHERE student_id = ? ORDER BY issue_date DESC";
-$stmt_certs = $conn->prepare($sql_certs);
-$certificates = [];
-if ($stmt_certs) {
-    $stmt_certs->bind_param("s", $student_id);
-    $stmt_certs->execute();
-    $result_certs = $stmt_certs->get_result();
-    while ($row = $result_certs->fetch_assoc()) {
-        $certificates[] = $row;
-    }
-}
+$certificates = getStudentPortalCertificates($conn, $student_id);
 
 $page_title = "Certificates";
 include 'includes/header.php';
@@ -60,10 +50,13 @@ include 'includes/header.php';
                         <h5 class="card-title"><?php echo htmlspecialchars($cert['certificate_name']); ?></h5>
                         <p class="text-muted mb-2">
                             <?php echo htmlspecialchars($cert['course_name'] ?? $student['course_name']); ?>
+                            <?php if (!empty($cert['batch_name'])): ?>
+                                <br><small class="text-muted">Batch: <?php echo htmlspecialchars($cert['batch_name']); ?></small>
+                            <?php endif; ?>
                         </p>
                         <p class="small text-muted mb-3">
-                            <i class="fas fa-calendar"></i> 
-                            Issued: <?php echo date('d M Y', strtotime($cert['issue_date'])); ?>
+                            <i class="fas fa-calendar"></i>
+                            Issued: <?php echo !empty($cert['issue_date']) ? date('d M Y', strtotime($cert['issue_date'])) : date('d M Y', strtotime($cert['created_at'] ?? 'now')); ?>
                         </p>
                         <p class="small mb-3">
                             <strong>Certificate No:</strong> <?php echo htmlspecialchars($cert['certificate_number']); ?>
