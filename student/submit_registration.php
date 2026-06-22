@@ -167,6 +167,90 @@ function normalizeStateName($state) {
     return $stateMap[$upperState] ?? $state;
 }
 
+function registrationFieldLabels() {
+    return [
+        'name' => 'Full Name',
+        'father_name' => "Father's Name",
+        'mother_name' => "Mother's Name",
+        'dob' => 'Date of Birth',
+        'gender' => 'Gender',
+        'marital_status' => 'Marital Status',
+        'mobile' => 'Mobile Number',
+        'email' => 'Email Address',
+        'aadhar' => 'Aadhar Number',
+        'nationality' => 'Nationality',
+        'religion' => 'Religion',
+        'category' => 'Category',
+        'position' => 'Position/Occupation',
+        'address' => 'Address',
+        'state' => 'State',
+        'city' => 'City/District',
+        'pincode' => 'Pincode',
+        'scheme_id' => 'Scheme / Project',
+        'utr_number' => 'UTR/Transaction ID',
+        'payment_date' => 'Payment Date',
+        'payment_receipt' => 'Payment Receipt',
+        'passport_photo' => 'Passport Photo',
+        'signature' => 'Signature',
+        'aadhar_card' => 'Aadhar Card Document',
+        'tenth_marksheet' => '10th Marksheet/Certificate',
+    ];
+}
+
+function registrationStoreFormData(array $post) {
+    $stored = [];
+    foreach ($post as $key => $value) {
+        if ($key === 'registration_token') {
+            continue;
+        }
+        if (is_array($value)) {
+            $stored[$key] = array_map(static function ($item) {
+                return is_string($item) ? $item : $item;
+            }, $value);
+        } elseif (is_string($value) || is_numeric($value)) {
+            $stored[$key] = (string) $value;
+        }
+    }
+    return $stored;
+}
+
+function registrationRedirectWithErrors($redirectBack, array $errors, array $missingFields = []) {
+    $errors = array_values(array_filter($errors));
+    $missingFields = array_values(array_unique(array_filter($missingFields)));
+
+    $_SESSION['registration_errors'] = $errors;
+    $_SESSION['registration_missing_fields'] = $missingFields;
+    $_SESSION['registration_form_data'] = registrationStoreFormData($_POST);
+
+    if (count($errors) === 1) {
+        $_SESSION['error'] = $errors[0];
+    } elseif (count($errors) > 1) {
+        $_SESSION['error'] = 'Please correct the ' . count($errors) . ' issue(s) listed below and submit again.';
+    } else {
+        $_SESSION['error'] = 'Please review the form and try again.';
+    }
+
+    header('Location: ' . $redirectBack);
+    exit();
+}
+
+function registrationFileUploadError($field) {
+    if (!isset($_FILES[$field])) {
+        return 'missing';
+    }
+    $code = $_FILES[$field]['error'];
+    if ($code === UPLOAD_ERR_OK) {
+        return '';
+    }
+    $codes = [
+        UPLOAD_ERR_INI_SIZE => 'File exceeds server limit',
+        UPLOAD_ERR_FORM_SIZE => 'File exceeds form limit',
+        UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+        UPLOAD_ERR_NO_FILE => 'No file selected',
+    ];
+    return $codes[$code] ?? 'Upload error code ' . $code;
+}
+
 // ============================================================
 // MAIN
 // ============================================================
@@ -231,7 +315,12 @@ $age = !empty($dob) ? (int)(new DateTime($dob))->diff(new DateTime())->y : 0;
 // ----------------------------------------------------------
 if ($course_id <= 0) {
     $_SESSION['error'] = "Invalid course. Please use a valid registration link.";
-    header("Location: " . APP_URL . "/public/courses.php");
+    $token = trim($_POST['registration_token'] ?? '');
+    if ($token !== '') {
+        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($token));
+    } else {
+        header('Location: ' . APP_URL . '/public/courses.php');
+    }
     exit();
 }
 
@@ -249,7 +338,13 @@ if ($feeColumnCheck && $feeColumnCheck->num_rows > 0) {
     }
 }
 
-$s = $conn->prepare("SELECT course_name, course_code, $feeColumn FROM courses WHERE id = ?");
+$paymentColSql = "'optional' AS payment_details_required";
+$paymentColCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
+if ($paymentColCheck && $paymentColCheck->num_rows > 0) {
+    $paymentColSql = 'payment_details_required';
+}
+
+$s = $conn->prepare("SELECT course_name, course_code, registration_token, {$paymentColSql}, $feeColumn FROM courses WHERE id = ?");
 if (!$s) {
     $_SESSION['error'] = "Database error loading course details: " . $conn->error;
     header("Location: " . APP_URL . "/public/courses.php");
@@ -268,66 +363,123 @@ $course_name  = $cRow['course_name'];
 $course_code  = $cRow['course_code'];
 $course_fee   = isset($cRow['fees']) ? (float)$cRow['fees'] : 0.00;
 
-// FIXED: Detect which form was used and redirect appropriately
-$redirectBack = APP_URL . "/student/register.php?course=" . urlencode($course_code); // Default fallback
+$registration_token = trim($_POST['registration_token'] ?? '');
+if ($registration_token === '') {
+    $registration_token = trim($cRow['registration_token'] ?? '');
+}
 
-// Check HTTP_REFERER to determine which form was used
+if ($registration_token !== '') {
+    $redirectBack = APP_URL . '/student/register.php?token=' . rawurlencode($registration_token);
+} else {
+    $redirectBack = APP_URL . '/public/courses.php';
+}
+
+// Check HTTP_REFERER for alternate registration forms (legacy)
 if (isset($_SERVER['HTTP_REFERER'])) {
     $referer = $_SERVER['HTTP_REFERER'];
-    error_log("REDIRECT FIX: HTTP_REFERER = " . $referer);
-    
+    error_log("REDIRECT: HTTP_REFERER = " . $referer);
+
     if (strpos($referer, 'register_fixed.php') !== false) {
-        $redirectBack = APP_URL . "/student/register_fixed.php?course=" . urlencode($course_code);
-        error_log("REDIRECT FIX: Detected register_fixed.php, redirecting to: " . $redirectBack);
+        $redirectBack = APP_URL . '/student/register_fixed.php?course=' . urlencode($course_code);
     } elseif (strpos($referer, 'test_registration_simple.php') !== false) {
-        $redirectBack = APP_URL . "/student/test_registration_simple.php";
-        error_log("REDIRECT FIX: Detected test_registration_simple.php, redirecting to: " . $redirectBack);
-    } else {
-        error_log("REDIRECT FIX: Using default redirect to: " . $redirectBack);
-    }
-    // If referer contains register.php or no specific match, use default
-} else {
-    error_log("REDIRECT FIX: No HTTP_REFERER found, using default redirect: " . $redirectBack);
-}
-
-// ----------------------------------------------------------
-// 4. Required field validation
-// ----------------------------------------------------------
-$required = ['Name'=>$name,'DOB'=>$dob,'Mobile'=>$mobile,'Email'=>$email,'State'=>$state,'City'=>$city,'Pincode'=>$pincode,'Address'=>$address,'Position'=>$position,'Father Name'=>$father_name,'Mother Name'=>$mother_name,'Gender'=>$gender,'Marital Status'=>$marital_status,'Category'=>$student_category,'Nationality'=>$nationality];
-foreach ($required as $label => $val) {
-    if (empty($val)) {
-        $_SESSION['error'] = "$label is required and cannot be empty.";
-        error_log("Validation failed: $label is empty");
-        header("Location: " . $redirectBack);
-        exit();
+        $redirectBack = APP_URL . '/student/test_registration_simple.php';
     }
 }
 
 // ----------------------------------------------------------
-// 5. Aadhar validation + multi-course checks + Student ID
+// 4. Validate all required fields (collect every issue, then redirect once)
 // ----------------------------------------------------------
+$validationErrors = [];
+$missingFields = [];
+$labels = registrationFieldLabels();
+
+$requiredMap = [
+    'name' => $name,
+    'father_name' => $father_name,
+    'mother_name' => $mother_name,
+    'dob' => $dob,
+    'gender' => $gender,
+    'marital_status' => $marital_status,
+    'mobile' => $mobile,
+    'email' => $email,
+    'nationality' => $nationality,
+    'religion' => $religion,
+    'category' => $student_category,
+    'position' => $position,
+    'address' => $address,
+    'state' => $state,
+    'city' => $city,
+    'pincode' => $pincode,
+];
+
+foreach ($requiredMap as $field => $val) {
+    if ($val === '' || $val === null) {
+        $missingFields[] = $field;
+        $validationErrors[] = ($labels[$field] ?? ucwords(str_replace('_', ' ', $field))) . ' is required.';
+    }
+}
+
 $aadhar = normalizeAadhar($aadhar);
-if (strlen($aadhar) !== 12) {
-    $_SESSION['error'] = "Aadhar number must be exactly 12 digits.";
-    header("Location: " . $redirectBack);
-    exit();
+if ($aadhar === '' || strlen($aadhar) !== 12) {
+    $missingFields[] = 'aadhar';
+    $validationErrors[] = 'Aadhar number must be exactly 12 digits.';
 }
 
 $course_schemes = getSchemesForCourse($conn, $course_id);
 if (!empty($course_schemes) && $scheme_id === null) {
-    $_SESSION['error'] = "Please select a scheme/project for this course.";
-    header("Location: " . $redirectBack);
-    exit();
+    $missingFields[] = 'scheme_id';
+    $validationErrors[] = 'Please select a scheme/project for this course.';
 }
+
+$paymentRequired = (($cRow['payment_details_required'] ?? 'optional') === 'required');
+if ($paymentRequired) {
+    if ($utr_number === '') {
+        $missingFields[] = 'utr_number';
+        $validationErrors[] = 'UTR/Transaction ID is required.';
+    }
+    if ($payment_date === '') {
+        $missingFields[] = 'payment_date';
+        $validationErrors[] = 'Payment date is required.';
+    }
+    $receiptErr = registrationFileUploadError('payment_receipt');
+    if ($receiptErr !== '') {
+        $missingFields[] = 'payment_receipt';
+        $validationErrors[] = 'Payment receipt is required' . ($receiptErr !== 'missing' ? ' (' . $receiptErr . ')' : '') . '.';
+    }
+}
+
+foreach (['passport_photo' => 'Passport photo', 'signature' => 'Signature'] as $fileField => $fileLabel) {
+    $fileErr = registrationFileUploadError($fileField);
+    if ($fileErr !== '') {
+        $missingFields[] = $fileField;
+        $validationErrors[] = $fileLabel . ' is required' . ($fileErr !== 'missing' ? ' (' . $fileErr . ')' : '') . '.';
+    }
+}
+
+foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th marksheet/certificate'] as $fileField => $fileLabel) {
+    $fileErr = registrationFileUploadError($fileField);
+    if ($fileErr !== '') {
+        $missingFields[] = $fileField;
+        $validationErrors[] = $fileLabel . ' is required' . ($fileErr !== 'missing' ? ' (' . $fileErr . ')' : '') . '.';
+    }
+}
+
+if (!empty($validationErrors)) {
+    registrationRedirectWithErrors($redirectBack, $validationErrors, $missingFields);
+}
+
+// ----------------------------------------------------------
+// 5. Aadhar duplicate check + Student ID
+// ----------------------------------------------------------
 if ($scheme_id !== null && !validateSchemeForCourse($conn, $course_id, $scheme_id)) {
-    $_SESSION['error'] = "Invalid scheme/project selected for this course.";
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Invalid scheme/project selected for this course.'], ['scheme_id']);
 }
 if (isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
-    $_SESSION['error'] = "This Aadhar is already registered for this course and scheme/project. Select a different project or contact admin.";
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors(
+        $redirectBack,
+        ['This Aadhar is already registered for this course and scheme/project. Select a different project or contact admin.'],
+        ['aadhar']
+    );
 }
 
 $is_returning_student = false;
@@ -340,17 +492,13 @@ if ($existing_account) {
 } elseif (isMultiCourseSystemInstalled($conn)) {
     $student_id = getNextGlobalStudentID($conn);
     if ($student_id === null) {
-        $_SESSION['error'] = "Error generating student ID. Please try again or contact support.";
-        header("Location: " . $redirectBack);
-        exit();
+        registrationRedirectWithErrors($redirectBack, ['Error generating student ID. Please try again or contact support.'], []);
     }
     error_log("New student - global ID: $student_id");
 } else {
     $student_id = getNextStudentID($course_id, $conn);
     if ($student_id === null) {
-        $_SESSION['error'] = "Error generating student ID. Ensure the course has an abbreviation set.";
-        header("Location: " . $redirectBack);
-        exit();
+        registrationRedirectWithErrors($redirectBack, ['Error generating student ID. Ensure the course has an abbreviation set.'], []);
     }
     error_log("New student - course ID: $student_id");
 }
@@ -375,22 +523,20 @@ $left_thumb_impression_path = null;
 // 7. Upload passport photo (mandatory)
 // ----------------------------------------------------------
 if (!isset($_FILES['passport_photo']) || $_FILES['passport_photo']['error'] !== UPLOAD_ERR_OK) {
-    $_SESSION['error'] = "Passport photo is required. Upload error code: " . ($_FILES['passport_photo']['error'] ?? 'missing');
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors(
+        $redirectBack,
+        ['Passport photo is required. Upload error code: ' . ($_FILES['passport_photo']['error'] ?? 'missing')],
+        ['passport_photo']
+    );
 }
 $v = validateUploadedDocument($_FILES['passport_photo'], 'passport');
 if (!$v['valid']) {
-    $_SESSION['error'] = "Passport photo invalid: " . $v['message'];
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Passport photo invalid: ' . $v['message']], ['passport_photo']);
 }
 $ext = strtolower(pathinfo($_FILES['passport_photo']['name'], PATHINFO_EXTENSION));
 $fn  = $safe_student_id . '_' . time() . '_passport.' . $ext;
 if (!move_uploaded_file($_FILES['passport_photo']['tmp_name'], $uploadDir . $fn)) {
-    $_SESSION['error'] = "Failed to save passport photo. Check folder permissions on: $uploadDir";
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Failed to save passport photo. Check folder permissions.'], ['passport_photo']);
 }
 $passport_photo_path = 'student/uploads/students/' . $fn;
 
@@ -398,22 +544,20 @@ $passport_photo_path = 'student/uploads/students/' . $fn;
 // 8. Upload signature (mandatory)
 // ----------------------------------------------------------
 if (!isset($_FILES['signature']) || $_FILES['signature']['error'] !== UPLOAD_ERR_OK) {
-    $_SESSION['error'] = "Signature is required. Upload error code: " . ($_FILES['signature']['error'] ?? 'missing');
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors(
+        $redirectBack,
+        ['Signature is required. Upload error code: ' . ($_FILES['signature']['error'] ?? 'missing')],
+        ['signature']
+    );
 }
 $v = validateUploadedDocument($_FILES['signature'], 'signature');
 if (!$v['valid']) {
-    $_SESSION['error'] = "Signature invalid: " . $v['message'];
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Signature invalid: ' . $v['message']], ['signature']);
 }
 $ext = strtolower(pathinfo($_FILES['signature']['name'], PATHINFO_EXTENSION));
 $fn  = $safe_student_id . '_' . (time()+1) . '_signature.' . $ext;
 if (!move_uploaded_file($_FILES['signature']['tmp_name'], $uploadDir . $fn)) {
-    $_SESSION['error'] = "Failed to save signature. Check folder permissions on: $uploadDir";
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Failed to save signature. Check folder permissions.'], ['signature']);
 }
 $signature_path = 'student/uploads/students/' . $fn;
 
@@ -425,9 +569,7 @@ if (isset($_FILES['left_thumb_impression']) && $_FILES['left_thumb_impression'][
     if ($r['success']) {
         $left_thumb_impression_path = $r['path'];
     } else {
-        $_SESSION['error'] = "Thumb impression invalid: " . $r['error'];
-        header("Location: " . $redirectBack);
-        exit();
+        registrationRedirectWithErrors($redirectBack, ['Thumb impression invalid: ' . $r['error']], ['left_thumb_impression']);
     }
 }
 
@@ -469,17 +611,19 @@ foreach ($docCats as $field => $cat) {
 }
 
 if (!empty($uploadErrors)) {
-    $msg = "Document upload errors:<br>";
-    foreach ($uploadErrors as $f => $e)
-        $msg .= "- " . ucwords(str_replace('_',' ',$f)) . ": $e<br>";
-    $_SESSION['error'] = $msg;
-    // Rollback uploaded files
-    foreach (array_merge($uploadedDocs, array_filter([$passport_photo_path,$signature_path,$left_thumb_impression_path,$payment_receipt_path])) as $p) {
-        $abs = __DIR__ . '/' . $p;
-        if (!empty($p) && file_exists($abs)) unlink($abs);
+    $docErrors = [];
+    $docMissing = [];
+    foreach ($uploadErrors as $f => $e) {
+        $docMissing[] = $f;
+        $docErrors[] = (registrationFieldLabels()[$f] ?? ucwords(str_replace('_', ' ', $f))) . ': ' . $e;
     }
-    header("Location: " . $redirectBack);
-    exit();
+    foreach (array_merge($uploadedDocs, array_filter([$passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path])) as $p) {
+        $abs = __DIR__ . '/' . $p;
+        if (!empty($p) && file_exists($abs)) {
+            unlink($abs);
+        }
+    }
+    registrationRedirectWithErrors($redirectBack, $docErrors, $docMissing);
 }
 
 $aadhar_card_path            = $uploadedDocs['aadhar_card']            ?? '';
@@ -537,9 +681,7 @@ $sql = "INSERT INTO students (
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
     error_log("PREPARE FAILED: " . $conn->error);
-    $_SESSION['error'] = "Database error: " . $conn->error;
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors($redirectBack, ['Database error: ' . $conn->error], []);
 }
 
 $bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 32);
@@ -586,9 +728,11 @@ if (!$stmt->execute()) {
         }
     }
     
-    $_SESSION['error'] = "Registration failed due to database error. Please try again. If the problem persists, contact support. Error: " . $stmt->error;
-    header("Location: " . $redirectBack);
-    exit();
+    registrationRedirectWithErrors(
+        $redirectBack,
+        ['Registration failed due to database error. Please try again or contact support. Error: ' . $stmt->error],
+        []
+    );
 }
 
 error_log("INSERT SUCCESS: $student_id with documents: passport=$passport_photo_path, signature=$signature_path" . 

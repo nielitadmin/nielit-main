@@ -457,6 +457,15 @@ $result_internship = $conn->query($sql_internship);
     </div>
 </section>
 
+<?php if (!empty($_SESSION['error'])): ?>
+<div class="container mt-3">
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($_SESSION['error']); ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+</div>
+<?php unset($_SESSION['error']); endif; ?>
+
 <!-- Filter Section - Compact Horizontal Layout -->
 <section class="py-2" style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
     <div class="container">

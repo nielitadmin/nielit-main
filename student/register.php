@@ -39,24 +39,6 @@ if ($result->num_rows === 0) {
 }
 $course_details = $result->fetch_assoc();
 
-// Check if prepare was successful
-if (!$stmt) {
-    $_SESSION['error'] = 'Database error: ' . $conn->error;
-    header('Location: ' . APP_URL . '/public/courses.php');
-    exit();
-}
-
-$stmt->execute();
-$result = $stmt->get_result();
-
-if ($result->num_rows === 0) {
-    $_SESSION['error'] = 'Invalid or inactive course. Please select a valid course from the courses page.';
-    header('Location: ' . APP_URL . '/public/courses.php');
-    exit();
-}
-
-$course_details = $result->fetch_assoc();
-
 // Check if the registration link is active
 
 if (!isset($course_details['link_published']) || $course_details['link_published'] != 1) {
@@ -498,6 +480,17 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
             color: #dc2626;
             margin-left: 3px;
             font-weight: 700;
+        }
+
+        .form-control.is-invalid,
+        .form-select.is-invalid {
+            border-color: #dc3545 !important;
+            box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.15);
+        }
+
+        .invalid-field-label {
+            color: #dc3545 !important;
+            font-weight: 600;
         }
         
         /* Form Controls with Enhanced Styling */
@@ -1337,6 +1330,11 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
 
 <?php
 // Display session messages as toasts
+$registrationErrors = $_SESSION['registration_errors'] ?? [];
+$registrationMissingFields = $_SESSION['registration_missing_fields'] ?? [];
+$registrationFormData = $_SESSION['registration_form_data'] ?? [];
+unset($_SESSION['registration_errors'], $_SESSION['registration_missing_fields'], $_SESSION['registration_form_data']);
+
 if (isset($_SESSION['success'])) {
     echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.success('" . addslashes($_SESSION['success']) . "'); });</script>";
     unset($_SESSION['success']);
@@ -1354,6 +1352,19 @@ if (isset($_SESSION['info'])) {
     unset($_SESSION['info']);
 }
 ?>
+
+<?php if (!empty($registrationErrors)): ?>
+<div class="container px-0 mb-3">
+    <div class="alert alert-danger border-0 shadow-sm" role="alert" id="registrationErrorSummary">
+        <h6 class="alert-heading mb-2"><i class="fas fa-exclamation-triangle me-2"></i>Please fix the following before submitting again:</h6>
+        <ul class="mb-0 ps-3">
+            <?php foreach ($registrationErrors as $err): ?>
+                <li><?php echo htmlspecialchars($err); ?></li>
+            <?php endforeach; ?>
+        </ul>
+    </div>
+</div>
+<?php endif; ?>
 
 <div class="registration-container">
     <div class="page-title">
@@ -1470,7 +1481,7 @@ if (isset($_SESSION['info'])) {
     </div>
     <?php endif; ?>
 
-    <form method="POST" action="<?php echo APP_URL; ?>/student/submit_registration.php" enctype="multipart/form-data" id="registrationForm">
+    <form method="POST" action="<?php echo APP_URL; ?>/student/submit_registration.php" enctype="multipart/form-data" id="registrationForm" novalidate>
         <!-- LEVEL 1: COURSE & PERSONAL INFORMATION -->
         <div class="registration-level-section" id="level1" style="display: block;">
             <div class="level-header">
@@ -1505,6 +1516,7 @@ if (isset($_SESSION['info'])) {
                         <!-- Locked Course -->
                         <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_details['course_name']); ?> (<?php echo htmlspecialchars($course_details['course_code']); ?>)" readonly style="background-color: #f0f9ff; cursor: not-allowed;">
                         <input type="hidden" name="course_id" value="<?php echo htmlspecialchars($course_details['id']); ?>">
+                        <input type="hidden" name="registration_token" value="<?php echo htmlspecialchars($registration_token); ?>">
                         <small class="text-muted"><i class="fas fa-lock"></i> Locked by registration link</small>
                     </div>
                 </div>
@@ -2374,6 +2386,7 @@ function showStep(step) {
         console.log('Step 2: Showing Prev and Next buttons');
     }
 }
+window.showRegistrationStep = showStep;
 
 // Next button
 const nextBtn = document.getElementById('nextBtn');
@@ -2413,6 +2426,103 @@ if (prevBtn) {
 console.log('=== Initializing multi-step form - calling showStep(1)');
 showStep(1);
 console.log('=== Initialization complete ===');
+
+(function restoreRegistrationAfterErrors() {
+    const savedData = <?php echo json_encode($registrationFormData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    const missingFields = <?php echo json_encode(array_values($registrationMissingFields), JSON_UNESCAPED_UNICODE); ?>;
+    if ((!savedData || Object.keys(savedData).length === 0) && missingFields.length === 0) {
+        return;
+    }
+
+    const fieldStepMap = {
+        name: 1, father_name: 1, mother_name: 1, dob: 1, gender: 1, marital_status: 1, scheme_id: 1,
+        mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
+        address: 2, state: 2, city: 2, pincode: 2, pwd_status: 2, college_name: 2, apaar_id: 2,
+        utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
+        aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3, graduation_certificate: 3
+    };
+
+    const form = document.getElementById('registrationForm');
+    if (!form) return;
+
+    Object.keys(savedData).forEach(function(key) {
+        const value = savedData[key];
+        const fields = form.querySelectorAll('[name="' + key + '"], [name="' + key + '[]"]');
+        if (!fields.length) return;
+
+        if (Array.isArray(value)) {
+            fields.forEach(function(field, index) {
+                if (value[index] !== undefined && value[index] !== null && field.type !== 'file') {
+                    field.value = value[index];
+                }
+            });
+            return;
+        }
+
+        fields.forEach(function(field) {
+            if (field.type === 'file') return;
+            field.value = value;
+        });
+    });
+
+    if (savedData.dob && typeof calculateAge === 'function') {
+        calculateAge();
+    }
+
+    if (savedData.state) {
+        const stateSelect = document.getElementById('state');
+        if (stateSelect) {
+            stateSelect.value = savedData.state;
+            stateSelect.dispatchEvent(new Event('change'));
+            if (savedData.city) {
+                setTimeout(function() {
+                    const citySelect = document.getElementById('city');
+                    if (citySelect) {
+                        citySelect.value = savedData.city;
+                        citySelect.disabled = false;
+                    }
+                }, 400);
+            }
+        }
+    }
+
+    missingFields.forEach(function(fieldName) {
+        const field = form.querySelector('[name="' + fieldName + '"]');
+        if (!field) return;
+        field.classList.add('is-invalid');
+        const label = form.querySelector('label[for="' + field.id + '"]') || (field.closest('.mb-3') && field.closest('.mb-3').querySelector('.form-label'));
+        if (label) {
+            label.classList.add('invalid-field-label');
+        }
+    });
+
+    let targetStep = 1;
+    missingFields.forEach(function(fieldName) {
+        const step = fieldStepMap[fieldName] || 1;
+        if (step > targetStep) targetStep = step;
+    });
+
+    if (targetStep > 1) {
+        showStep(targetStep);
+    }
+
+    const summary = document.getElementById('registrationErrorSummary');
+    if (summary) {
+        summary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (missingFields.length) {
+        const firstMissing = form.querySelector('[name="' + missingFields[0] + '"]');
+        if (firstMissing) {
+            setTimeout(function() {
+                firstMissing.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (typeof firstMissing.focus === 'function' && firstMissing.type !== 'file') {
+                    firstMissing.focus();
+                }
+            }, 500);
+        }
+    }
+})();
 
 }); // End DOMContentLoaded
 
@@ -3495,66 +3605,105 @@ document.getElementById('training_center').addEventListener('change', function()
 });
 <?php endif; ?>
 
-// Form validation with toast notifications
+// Form validation before submit (novalidate on form avoids hidden-step HTML5 blocking)
 document.getElementById('registrationForm').addEventListener('submit', function(e) {
-    console.log('Form submitted with simplified validation');
-    
-    // Add visual feedback for debugging
+    const form = this;
     const submitBtn = document.getElementById('submitBtn');
+    const defaultBtnHtml = '<i class="fas fa-paper-plane me-2"></i>Submit Registration';
+
+    function resetSubmitButton() {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = defaultBtnHtml;
+        }
+    }
+
+    function failValidation(message, fieldName) {
+        e.preventDefault();
+        resetSubmitButton();
+        if (typeof toast !== 'undefined' && toast.error) {
+            toast.error(message);
+        } else {
+            alert(message);
+        }
+        const field = fieldName ? form.querySelector('[name="' + fieldName + '"]') : null;
+        if (field) {
+            field.classList.add('is-invalid');
+            field.focus();
+        }
+        const fieldStepMap = {
+            name: 1, father_name: 1, mother_name: 1, dob: 1, gender: 1, marital_status: 1, scheme_id: 1,
+            mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
+            address: 2, state: 2, city: 2, pincode: 2,
+            utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
+            aadhar_card: 3, tenth_marksheet: 3
+        };
+        if (fieldName && typeof window.showRegistrationStep === 'function') {
+            window.showRegistrationStep(fieldStepMap[fieldName] || 1);
+            setTimeout(function() {
+                if (field) field.focus();
+            }, 300);
+        }
+        return false;
+    }
+
+    const citySelect = document.getElementById('city');
+    if (citySelect && citySelect.value) {
+        citySelect.disabled = false;
+    }
+
+    const requiredFields = ['name', 'father_name', 'mother_name', 'dob', 'gender', 'marital_status', 'mobile', 'email', 'aadhar', 'nationality', 'religion', 'category', 'position', 'state', 'city', 'pincode', 'address'];
+    const schemeSelect = form.querySelector('[name="scheme_id"]');
+    if (schemeSelect && schemeSelect.tagName === 'SELECT') {
+        requiredFields.splice(6, 0, 'scheme_id');
+    }
+
+    for (let i = 0; i < requiredFields.length; i++) {
+        const fieldName = requiredFields[i];
+        const input = form.querySelector('[name="' + fieldName + '"]');
+        if (!input || !String(input.value || '').trim()) {
+            return failValidation('Please fill in the ' + fieldName.replace(/_/g, ' ') + ' field.', fieldName);
+        }
+    }
+
+    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
+    for (let i = 0; i < requiredFiles.length; i++) {
+        const fileName = requiredFiles[i];
+        const input = form.querySelector('[name="' + fileName + '"]');
+        if (!input || !input.files || !input.files[0]) {
+            return failValidation('Please upload ' + fileName.replace(/_/g, ' ') + '.', fileName);
+        }
+    }
+
+    const utrInput = form.querySelector('[name="utr_number"]');
+    if (utrInput && utrInput.hasAttribute('required')) {
+        if (!String(utrInput.value || '').trim()) {
+            return failValidation('Please enter the UTR/Transaction ID.', 'utr_number');
+        }
+        const paymentDate = form.querySelector('[name="payment_date"]');
+        if (!paymentDate || !String(paymentDate.value || '').trim()) {
+            return failValidation('Please enter the payment date.', 'payment_date');
+        }
+        const paymentReceipt = form.querySelector('[name="payment_receipt"]');
+        if (!paymentReceipt || !paymentReceipt.files || !paymentReceipt.files[0]) {
+            return failValidation('Please upload the payment receipt.', 'payment_receipt');
+        }
+    }
+
+    const mobileInput = form.querySelector('input[name="mobile"]');
+    if (mobileInput && !/^[0-9]{10}$/.test(mobileInput.value.trim())) {
+        return failValidation('Please enter a valid 10-digit mobile number.', 'mobile');
+    }
+
+    const emailInput = form.querySelector('input[name="email"]');
+    if (emailInput && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
+        return failValidation('Please enter a valid email address.', 'email');
+    }
+
     if (submitBtn) {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
         submitBtn.disabled = true;
     }
-    
-    // Basic validation only - let HTML5 and server handle the rest
-    const requiredFields = ['name', 'father_name', 'mother_name', 'dob', 'gender', 'marital_status', 'mobile', 'email', 'aadhar', 'nationality', 'religion', 'category', 'position', 'state', 'city', 'pincode', 'address'];
-    
-    for (let field of requiredFields) {
-        const input = document.querySelector(`[name="${field}"]`);
-        if (!input || !input.value.trim()) {
-            alert(`Please fill in the ${field.replace('_', ' ')} field.`);
-            e.preventDefault();
-            if (input) input.focus();
-            return false;
-        }
-    }
-    
-    // Check required files
-    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
-    for (let file of requiredFiles) {
-        const input = document.querySelector(`[name="${file}"]`);
-        if (!input || !input.files[0]) {
-            alert(`Please upload ${file.replace('_', ' ')}.`);
-            e.preventDefault();
-            if (input) input.focus();
-            return false;
-        }
-    }
-    
-    // Basic mobile validation
-    const mobile = document.querySelector('input[name="mobile"]').value;
-    if (!/^[0-9]{10}$/.test(mobile)) {
-        alert('Please enter a valid 10-digit mobile number.');
-        e.preventDefault();
-        return false;
-    }
-    
-    // Basic email validation
-    const email = document.querySelector('input[name="email"]').value;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        alert('Please enter a valid email address.');
-        e.preventDefault();
-        return false;
-    }
-    
-    console.log('All validations passed, submitting form...');
-    
-    // Show success message before submission
-    if (submitBtn) {
-        submitBtn.innerHTML = '<i class="fas fa-check me-2"></i>Validated - Submitting...';
-    }
-    
-    // Form will submit normally - no preventDefault() called unless validation fails
 });
 
 // ===== FLYER MODAL FUNCTIONS =====
@@ -3603,6 +3752,7 @@ document.querySelectorAll('.registration-level-section').forEach((section, index
         });
     });
 });
+
 </script>
 
 </body>
