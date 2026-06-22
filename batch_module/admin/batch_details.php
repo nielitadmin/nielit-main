@@ -538,7 +538,7 @@ function uploadStudentCertificate(studentRecordId, batchId, inputEl) {
 
     showToast('Uploading certificate...', 'info');
 
-    fetch('upload_student_certificate.php', {
+    fetch('save_batch_certificate.php', {
         method: 'POST',
         body: formData
     })
@@ -1300,8 +1300,11 @@ function downloadScannedOrder(batchId) {
                                         <td>
                                             <?php if (!empty($student['certificate_file'])): ?>
                                                 <div class="cert-upload-wrap">
-                                                    <a href="<?php echo APP_URL . '/' . ltrim($student['certificate_file'], '/'); ?>" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                    <a href="view_batch_certificate.php?batch_id=<?php echo (int)$batch_id; ?>&student_record_id=<?php echo (int)$student['id']; ?>" target="_blank" class="btn btn-outline-primary btn-sm">
                                                         <i class="fas fa-eye"></i> View
+                                                    </a>
+                                                    <a href="view_batch_certificate.php?batch_id=<?php echo (int)$batch_id; ?>&student_record_id=<?php echo (int)$student['id']; ?>&download=1" class="btn btn-outline-success btn-sm">
+                                                        <i class="fas fa-download"></i> Download
                                                     </a>
                                                     <?php if ($student['certificate_number']): ?>
                                                         <span class="cert-status"><?php echo htmlspecialchars($student['certificate_number']); ?></span>

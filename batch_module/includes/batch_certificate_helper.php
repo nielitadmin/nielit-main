@@ -77,8 +77,75 @@ if (!function_exists('batch_certificate_column_exists')) {
         if (!is_dir($certDir)) {
             mkdir($certDir, 0755, true);
         }
+        batch_certificate_write_htaccess_files($certDir);
 
         return true;
+    }
+
+    function batch_certificate_htaccess_content() {
+        return <<<'HTACCESS'
+# Batch completion certificates — allow PDF/images, block scripts and directory listing.
+Options -Indexes
+
+<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|jsp|asp|sh|cgi)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<FilesMatch "\.(jpg|jpeg|png|pdf)$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Allow from all
+    </IfModule>
+</FilesMatch>
+
+HTACCESS;
+    }
+
+    function batch_certificate_write_htaccess_files($certDir) {
+        $htaccessPath = rtrim($certDir, '/\\') . '/.htaccess';
+        if (!is_file($htaccessPath)) {
+            file_put_contents($htaccessPath, batch_certificate_htaccess_content());
+        }
+
+        $uploadsRoot = dirname($certDir);
+        $uploadsHtaccess = $uploadsRoot . '/.htaccess';
+        if (!is_file($uploadsHtaccess)) {
+            $uploadsContent = <<<'HTACCESS'
+# Uploads root — allow document files, block script execution, hide directory listing.
+Options -Indexes
+
+<FilesMatch "\.(php|phtml|php3|php4|php5|pl|py|jsp|asp|sh|cgi)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<FilesMatch "\.(jpg|jpeg|png|pdf)$">
+    <IfModule mod_authz_core.c>
+        Require all granted
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Allow from all
+    </IfModule>
+</FilesMatch>
+
+HTACCESS;
+            file_put_contents($uploadsHtaccess, $uploadsContent);
+        }
     }
 
     function isBatchCertificateUploadAllowed(array $batch) {

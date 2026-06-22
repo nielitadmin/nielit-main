@@ -21,6 +21,7 @@ hostinger-deploy.log
 # Uploads & User Generated Content
 /uploads/*
 !/uploads/.gitkeep
+!/uploads/.htaccess
 /course_pdf/*
 !/course_pdf/.gitkeep
 /course_flyers/*
@@ -53,6 +54,11 @@ hostinger-deploy.log
 # Scanned admission orders
 /uploads/scanned_admission_orders/*
 !/uploads/scanned_admission_orders/.gitkeep
+
+# Batch completion certificates
+/uploads/batch_certificates/*
+!/uploads/batch_certificates/.gitkeep
+!/uploads/batch_certificates/.htaccess
 
 # External/Legacy Projects (not part of main codebase)
 /hrms/
