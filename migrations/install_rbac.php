@@ -408,11 +408,14 @@ function verify_rbac($conn) {
 }
 
 // Main execution
-if (php_sapi_name() !== 'cli') {
+$isWebRunner = defined('MIGRATION_WEB_RUNNER') && MIGRATION_WEB_RUNNER;
+if (php_sapi_name() !== 'cli' && !$isWebRunner) {
     die("This script must be run from the command line.\n");
 }
 
-$command = $argv[1] ?? 'help';
+$command = php_sapi_name() === 'cli'
+    ? ($argv[1] ?? 'help')
+    : ($GLOBALS['migration_web_command'] ?? 'install');
 
 switch ($command) {
     case 'install':

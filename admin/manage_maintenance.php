@@ -447,14 +447,12 @@ $active_theme = $active_theme_result ? $active_theme_result->fetch_assoc() : nul
         <hr>
         <h5>Installation Steps:</h5>
         <ol>
-            <li>Open your browser and visit: 
-                <br><code>http://localhost/public_html/migrations/install_maintenance_mode.php</code>
-            </li>
-            <li>Wait for the installation to complete</li>
-            <li>Refresh this page</li>
+            <li>Go to <strong>System Settings → DB Migrations</strong> in the admin panel.</li>
+            <li>Run <code>install_maintenance_mode.php</code> and wait for completion.</li>
+            <li>Refresh this page.</li>
         </ol>
-        <a href="<?php echo APP_URL; ?>/migrations/install_maintenance_mode.php" class="btn btn-primary mt-3" target="_blank">
-            <i class="fas fa-download"></i> Run Installation Script
+        <a href="<?php echo APP_URL; ?>/admin/manage_migrations" class="btn btn-primary mt-3">
+            <i class="fas fa-database"></i> Open DB Migrations
         </a>
     </div>
     <?php else: ?>
