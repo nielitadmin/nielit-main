@@ -58,7 +58,15 @@ $page_title = 'DB Migrations';
             white-space: pre-wrap;
             word-break: break-word;
         }
-        .file-name { font-family: Consolas, Monaco, monospace; font-size: 0.92rem; }
+        .file-name {
+            font-family: Consolas, Monaco, monospace;
+            font-size: 0.92rem;
+            word-break: break-word;
+        }
+        #migrationTable td:first-child,
+        #migrationTable th:first-child {
+            min-width: 280px;
+        }
         .filter-pills .btn { margin: 0 4px 8px 0; }
     </style>
 </head>
@@ -66,7 +74,8 @@ $page_title = 'DB Migrations';
 <div class="admin-wrapper">
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-    <main class="admin-main">
+    <main class="admin-content">
+        <div class="admin-main">
         <div class="container-fluid py-4">
             <div class="mb-4">
                 <h2><i class="fas fa-database"></i> <?php echo htmlspecialchars($page_title); ?></h2>
@@ -198,6 +207,7 @@ $page_title = 'DB Migrations';
                     </table>
                 </div>
             </div>
+        </div>
         </div>
     </main>
 </div>
