@@ -14,24 +14,15 @@ if (!isset($_SESSION['admin'])) {
 }
 
 $adminRole = $_SESSION['admin_role'] ?? '';
-$allowedRoles = ['master_admin', 'course_coordinator'];
-if (!in_array($adminRole, $allowedRoles, true)) {
-    $_SESSION['message'] = 'Access denied. Report Monitor is available to Master Admin and Course Coordinators.';
+if ($adminRole !== 'master_admin') {
+    $_SESSION['message'] = 'Access denied. Report Monitor is available to Master Admin only.';
     $_SESSION['message_type'] = 'danger';
     header('Location: dashboard.php');
     exit();
 }
 
 $active_theme = loadActiveTheme($conn);
-$adminId = (int) ($_SESSION['admin_id'] ?? 0);
 $scopedCourseIds = [];
-
-if ($adminRole === 'course_coordinator') {
-    $scopedCourseIds = report_monitor_get_assigned_course_ids($conn, $adminId);
-    if (empty($scopedCourseIds)) {
-        $scopedCourseIds = [-1];
-    }
-}
 
 $centreId = max(0, (int) ($_GET['centre_id'] ?? 0));
 $chartMonths = max(6, min(24, (int) ($_GET['months'] ?? 12)));
@@ -57,7 +48,6 @@ $reportPayload = [
 ];
 
 $pageTitle = 'Report Monitor';
-$isScoped = ($adminRole === 'course_coordinator');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -148,9 +138,6 @@ $isScoped = ($adminRole === 'course_coordinator');
                         Overall records, centre-wise breakdown, course categories, and batch module analytics in one place.
                         <?php if ($centreId > 0 && $selectedCentreName !== ''): ?>
                             <span class="badge bg-primary">Filtered: <?php echo htmlspecialchars($selectedCentreName); ?></span>
-                        <?php endif; ?>
-                        <?php if ($isScoped): ?>
-                            <span class="badge bg-info text-dark">Your assigned courses only</span>
                         <?php endif; ?>
                         <?php if (!empty($monthFilter['active'])): ?>
                             <span class="badge bg-secondary">Records: <?php echo htmlspecialchars($monthScopeLabel); ?></span>
