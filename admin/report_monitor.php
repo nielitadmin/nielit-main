@@ -35,14 +35,20 @@ if ($adminRole === 'course_coordinator') {
 
 $centreId = max(0, (int) ($_GET['centre_id'] ?? 0));
 $chartMonths = max(6, min(24, (int) ($_GET['months'] ?? 12)));
+$reportMonth = trim((string) ($_GET['report_month'] ?? 'all'));
+$monthFilter = report_monitor_parse_month_filter($reportMonth);
+$monthOptions = report_monitor_get_month_options(24);
 $selectedCentreName = $centreId > 0 ? report_monitor_get_centre_name($conn, $centreId) : '';
 
 $overallStats = report_monitor_get_overall_stats($conn, $scopedCourseIds, $centreId);
-$centreStats = report_monitor_get_centre_stats($conn, $scopedCourseIds, $centreId);
-$categoryStats = report_monitor_get_category_stats($conn, $scopedCourseIds, $centreId);
+$centreStats = report_monitor_get_centre_stats($conn, $scopedCourseIds, $centreId, $monthFilter);
+$categoryStats = report_monitor_get_category_stats($conn, $scopedCourseIds, $centreId, $monthFilter);
+$facultyStats = report_monitor_get_faculty_stats($conn, $scopedCourseIds, $centreId, $monthFilter);
 $batchMonthly = report_monitor_get_batch_monthly($conn, $chartMonths, $scopedCourseIds, $centreId);
 $batchDetails = report_monitor_get_batch_details($conn, $scopedCourseIds, $centreId);
 $centresList = report_monitor_get_centres_list($conn);
+
+$monthScopeLabel = !empty($monthFilter['active']) ? $monthFilter['label'] : 'All time';
 
 $reportPayload = [
     'batchMonthly' => $batchMonthly,
@@ -112,6 +118,17 @@ $isScoped = ($adminRole === 'course_coordinator');
         .report-monitor .badge-fill-high { background: #dcfce7; color: #166534; }
         .report-monitor .badge-fill-mid { background: #fef9c3; color: #854d0e; }
         .report-monitor .badge-fill-low { background: #fee2e2; color: #991b1b; }
+        .report-monitor .faculty-detail-row { background: #f8fafc; }
+        .report-monitor .faculty-detail-row td { border-top: none; padding-top: 0; }
+        .report-monitor .category-chip {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            font-size: 0.72rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin: 2px 4px 2px 0;
+        }
         @media (max-width: 768px) {
             .report-monitor .chart-wrap { min-height: 220px; }
         }
@@ -135,11 +152,14 @@ $isScoped = ($adminRole === 'course_coordinator');
                         <?php if ($isScoped): ?>
                             <span class="badge bg-info text-dark">Your assigned courses only</span>
                         <?php endif; ?>
+                        <?php if (!empty($monthFilter['active'])): ?>
+                            <span class="badge bg-secondary">Records: <?php echo htmlspecialchars($monthScopeLabel); ?></span>
+                        <?php endif; ?>
                     </p>
                 </div>
                 <div class="filter-bar">
                     <form method="GET" class="row g-2 align-items-end">
-                        <div class="col-md-5">
+                        <div class="col-md-4">
                             <label class="form-label small mb-1">Centre</label>
                             <select name="centre_id" class="form-select form-select-sm" onchange="this.form.submit()">
                                 <?php foreach ($centresList as $centre): ?>
@@ -150,6 +170,16 @@ $isScoped = ($adminRole === 'course_coordinator');
                             </select>
                         </div>
                         <div class="col-md-4">
+                            <label class="form-label small mb-1">Category / Centre records month</label>
+                            <select name="report_month" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <?php foreach ($monthOptions as $option): ?>
+                                    <option value="<?php echo htmlspecialchars($option['value']); ?>" <?php echo $reportMonth === $option['value'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($option['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label small mb-1">Monthly chart range</label>
                             <select name="months" class="form-select form-select-sm" onchange="this.form.submit()">
                                 <?php foreach ([6, 12, 18, 24] as $option): ?>
@@ -159,10 +189,15 @@ $isScoped = ($adminRole === 'course_coordinator');
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-3">
-                            <a href="report_monitor.php" class="btn btn-sm btn-outline-secondary w-100">Reset filters</a>
+                        <div class="col-md-1">
+                            <a href="report_monitor.php" class="btn btn-sm btn-outline-secondary w-100">Reset</a>
                         </div>
                     </form>
+                    <?php if (!empty($monthFilter['active'])): ?>
+                        <small class="text-muted d-block mt-2">
+                            Monthly view counts applications by registration date, batches by start/creation date, and enrollments by batch enrollment date for <?php echo htmlspecialchars($monthScopeLabel); ?>.
+                        </small>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -245,6 +280,7 @@ $isScoped = ($adminRole === 'course_coordinator');
             <div class="card table-card mb-4">
                 <div class="card-header bg-white border-0 pt-3">
                     <div class="section-title"><i class="fas fa-table"></i> Category Summary</div>
+                    <small class="text-muted">Period: <?php echo htmlspecialchars($monthScopeLabel); ?></small>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -283,6 +319,7 @@ $isScoped = ($adminRole === 'course_coordinator');
             <div class="card table-card mb-4">
                 <div class="card-header bg-white border-0 pt-3">
                     <div class="section-title"><i class="fas fa-map-marker-alt"></i> Centre-wise Records</div>
+                    <small class="text-muted">Period: <?php echo htmlspecialchars($monthScopeLabel); ?></small>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -314,6 +351,112 @@ $isScoped = ($adminRole === 'course_coordinator');
                                             <td class="text-end"><?php echo number_format($row['applications']); ?></td>
                                             <td class="text-end text-success"><?php echo number_format($row['batch_enrolled']); ?></td>
                                             <td class="text-end text-muted"><?php echo number_format($row['unassigned']); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Faculty training report -->
+            <div class="card table-card mb-4">
+                <div class="card-header bg-white border-0 pt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div class="section-title"><i class="fas fa-chalkboard-teacher"></i> Faculty Training Report</div>
+                        <small class="text-muted">
+                            Batches assigned via faculty module — period: <?php echo htmlspecialchars($monthScopeLabel); ?>
+                        </small>
+                    </div>
+                    <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-user-tie"></i> Manage Faculty in Batches
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Faculty</th>
+                                    <th>Designation</th>
+                                    <th class="text-end">Batches</th>
+                                    <th class="text-end">Courses</th>
+                                    <th class="text-end">Students Trained</th>
+                                    <th>Categories</th>
+                                    <th>Centres</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($facultyStats)): ?>
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">
+                                            No faculty batch assignments found for the selected filters.
+                                            Assign faculty in Batch Module → Admission Order / batch setup.
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($facultyStats as $index => $faculty): ?>
+                                        <tr>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-primary faculty-toggle" data-target="faculty-detail-<?php echo $index; ?>" title="Show batches">
+                                                    <i class="fas fa-chevron-down"></i>
+                                                </button>
+                                            </td>
+                                            <td><strong><?php echo htmlspecialchars($faculty['name']); ?></strong></td>
+                                            <td>
+                                                <?php echo htmlspecialchars($faculty['designation'] ?: '—'); ?>
+                                                <?php if ($faculty['department']): ?>
+                                                    <br><small class="text-muted"><?php echo htmlspecialchars($faculty['department']); ?></small>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-end fw-semibold"><?php echo number_format($faculty['batch_count']); ?></td>
+                                            <td class="text-end"><?php echo number_format($faculty['course_count']); ?></td>
+                                            <td class="text-end text-success fw-semibold"><?php echo number_format($faculty['students_trained']); ?></td>
+                                            <td>
+                                                <?php foreach ($faculty['categories'] as $categoryLabel): ?>
+                                                    <span class="category-chip"><?php echo htmlspecialchars($categoryLabel); ?></span>
+                                                <?php endforeach; ?>
+                                            </td>
+                                            <td><small><?php echo htmlspecialchars(implode(', ', $faculty['centres'])); ?></small></td>
+                                        </tr>
+                                        <tr id="faculty-detail-<?php echo $index; ?>" class="faculty-detail-row d-none">
+                                            <td colspan="8">
+                                                <div class="table-responsive pb-3">
+                                                    <table class="table table-sm table-bordered bg-white mb-0">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Batch</th>
+                                                                <th>Course</th>
+                                                                <th>Category</th>
+                                                                <th>Centre</th>
+                                                                <th>Start</th>
+                                                                <th>Status</th>
+                                                                <th class="text-end">Students</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <?php foreach ($faculty['batches'] as $batch): ?>
+                                                                <tr>
+                                                                    <td>
+                                                                        <strong><?php echo htmlspecialchars($batch['batch_name']); ?></strong>
+                                                                        <?php if ($batch['batch_code']): ?>
+                                                                            <br><small class="text-muted"><?php echo htmlspecialchars($batch['batch_code']); ?></small>
+                                                                        <?php endif; ?>
+                                                                    </td>
+                                                                    <td><?php echo htmlspecialchars($batch['course_name']); ?></td>
+                                                                    <td><small><?php echo htmlspecialchars($batch['category']); ?></small></td>
+                                                                    <td><?php echo htmlspecialchars($batch['centre_name']); ?></td>
+                                                                    <td><?php echo $batch['start_date'] ? htmlspecialchars(date('d M Y', strtotime($batch['start_date']))) : '—'; ?></td>
+                                                                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($batch['status'] ?: 'active'); ?></span></td>
+                                                                    <td class="text-end"><?php echo number_format($batch['enrolled']); ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </td>
                                         </tr>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -506,7 +649,24 @@ function initReportCharts() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', initReportCharts);
+document.addEventListener('DOMContentLoaded', function () {
+    initReportCharts();
+
+    document.querySelectorAll('.faculty-toggle').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const targetId = button.getAttribute('data-target');
+            const row = document.getElementById(targetId);
+            if (!row) return;
+            const isHidden = row.classList.contains('d-none');
+            row.classList.toggle('d-none', !isHidden);
+            const icon = button.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !isHidden);
+                icon.classList.toggle('fa-chevron-up', isHidden);
+            }
+        });
+    });
+});
 </script>
 </body>
 </html>

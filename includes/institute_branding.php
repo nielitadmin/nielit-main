@@ -33,6 +33,6 @@ if (!defined('MINISTRY_NAME_HI')) {
 if (!defined('MINISTRY_NAME_EN')) {
     define(
         'MINISTRY_NAME_EN',
-        'Ministry of Electronics & IT | Govt. of India'
+        'Ministry of Electronics & Information Technology'
     );
 }
