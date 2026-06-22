@@ -61,13 +61,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
-        <?php if ($is_master_admin): ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="nav-link <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-check"></i> Student Record Inspector
-            </a>
-        </div>
-        <?php endif; ?>
         <?php endif; ?>
         
         <?php if ($is_nsqf_manager): ?>
@@ -132,6 +125,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_migrations'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_migrations.php', 'run_migration.php'], true) ? 'active' : ''; ?>">
                 <i class="fas fa-database"></i> DB Migrations
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="nav-link <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-check"></i> Student Record Inspector
             </a>
         </div>
         <div class="nav-item">
