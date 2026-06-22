@@ -289,6 +289,17 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $values[] = $monthFilter['next_start'];
     }
 
+    function report_monitor_enrollment_timestamp_sql($conn, $bsAlias = 'bs', $studentAlias = 'st') {
+        $parts = [
+            "NULLIF({$bsAlias}.enrollment_date, '0000-00-00')",
+            "NULLIF({$bsAlias}.enrollment_date, '0000-00-00 00:00:00')",
+            "NULLIF({$studentAlias}.approved_at, '0000-00-00 00:00:00')",
+            "{$studentAlias}.created_at",
+        ];
+
+        return 'COALESCE(' . implode(', ', $parts) . ')';
+    }
+
     function report_monitor_bind_and_execute($conn, $sql, $types = '', array $values = []) {
         if ($types === '' || empty($values)) {
             return $conn->query($sql);
@@ -368,81 +379,44 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
         $batchMonthExpr = report_monitor_batch_month_column_sql('b');
-        $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
 
         if (!empty($monthFilter['active'])) {
             $monthStart = $monthFilter['start'];
             $monthNext = $monthFilter['next_start'];
 
-            if ($hasBatchStudents) {
-                $sql = "SELECT
-                            COALESCE(cen.id, 0) AS centre_id,
-                            COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
-                            COALESCE(cen.code, '') AS centre_code,
-                            COUNT(DISTINCT CASE
-                                WHEN (s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?)
-                                  OR (b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?)
-                                  OR (bs.id IS NOT NULL AND COALESCE(bs.enrollment_date, b.created_at) >= ? AND COALESCE(bs.enrollment_date, b.created_at) < ?)
-                                THEN c.id END) AS course_count,
-                            COUNT(DISTINCT CASE
-                                WHEN b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?
-                                THEN b.id END) AS batch_count,
-                            COUNT(DISTINCT CASE
-                                WHEN s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?
-                                THEN s.id END) AS applications,
-                            COUNT(DISTINCT CASE
-                                WHEN bs.id IS NOT NULL
-                                AND COALESCE(bs.enrollment_date, b.created_at) >= ?
-                                AND COALESCE(bs.enrollment_date, b.created_at) < ?
-                                THEN bs.id END) AS batch_enrolled
-                        FROM courses c
-                        LEFT JOIN centres cen ON cen.id = c.centre_id
-                        LEFT JOIN batches b ON b.course_id = c.id
-                        LEFT JOIN batch_students bs ON bs.batch_id = b.id
-                        LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
-                        WHERE 1=1{$scopeFilter['sql']}
-                        GROUP BY centre_id, centre_name, centre_code
-                        HAVING course_count > 0 OR batch_count > 0 OR applications > 0 OR batch_enrolled > 0
-                        ORDER BY applications DESC, centre_name ASC";
-                $types = str_repeat('s', 12) . $scopeFilter['types'];
-                $values = array_merge(
-                    [$monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext],
-                    $scopeFilter['values']
-                );
-            } else {
-                $sql = "SELECT
-                            COALESCE(cen.id, 0) AS centre_id,
-                            COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
-                            COALESCE(cen.code, '') AS centre_code,
-                            COUNT(DISTINCT CASE
-                                WHEN (s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?)
-                                  OR (b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?)
-                                THEN c.id END) AS course_count,
-                            COUNT(DISTINCT CASE
-                                WHEN b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?
-                                THEN b.id END) AS batch_count,
-                            COUNT(DISTINCT CASE
-                                WHEN s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?
-                                THEN s.id END) AS applications,
-                            SUM(CASE
-                                WHEN {$batchCondition}
-                                AND s.created_at >= ?
-                                AND s.created_at < ?
-                                THEN 1 ELSE 0 END) AS batch_enrolled
-                        FROM courses c
-                        LEFT JOIN centres cen ON cen.id = c.centre_id
-                        LEFT JOIN batches b ON b.course_id = c.id
-                        LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
-                        WHERE 1=1{$scopeFilter['sql']}
-                        GROUP BY centre_id, centre_name, centre_code
-                        HAVING course_count > 0 OR batch_count > 0 OR applications > 0 OR batch_enrolled > 0
-                        ORDER BY applications DESC, centre_name ASC";
-                $types = str_repeat('s', 10) . $scopeFilter['types'];
-                $values = array_merge(
-                    [$monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext],
-                    $scopeFilter['values']
-                );
-            }
+            $sql = "SELECT
+                        COALESCE(cen.id, 0) AS centre_id,
+                        COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
+                        COALESCE(cen.code, '') AS centre_code,
+                        COUNT(DISTINCT CASE
+                            WHEN (s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?)
+                              OR (b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?)
+                            THEN c.id END) AS course_count,
+                        COUNT(DISTINCT CASE
+                            WHEN b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?
+                            THEN b.id END) AS batch_count,
+                        COUNT(DISTINCT CASE
+                            WHEN s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?
+                            THEN s.id END) AS applications,
+                        SUM(CASE
+                            WHEN s.id IS NOT NULL
+                            AND s.created_at >= ?
+                            AND s.created_at < ?
+                            AND {$batchCondition}
+                            THEN 1 ELSE 0 END) AS batch_enrolled
+                    FROM courses c
+                    LEFT JOIN centres cen ON cen.id = c.centre_id
+                    LEFT JOIN batches b ON b.course_id = c.id
+                    LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
+                    WHERE 1=1{$scopeFilter['sql']}
+                    GROUP BY centre_id, centre_name, centre_code
+                    HAVING course_count > 0 OR batch_count > 0 OR applications > 0 OR batch_enrolled > 0
+                    ORDER BY applications DESC, centre_name ASC";
+            $types = str_repeat('s', 10) . $scopeFilter['types'];
+            $values = array_merge(
+                [$monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext],
+                $scopeFilter['values']
+            );
 
             $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
         } else {
@@ -510,7 +484,6 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
         $batchMonthExpr = report_monitor_batch_month_column_sql('b');
-        $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
 
         if (!empty($monthFilter['active'])) {
             $monthStart = $monthFilter['start'];
@@ -529,48 +502,21 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $courseValues = array_merge([$monthStart, $monthNext, $monthStart, $monthNext], $scopeFilter['values']);
             $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $courseTypes, $courseValues);
 
-            if ($hasBatchStudents) {
-                $studentSql = "SELECT {$categoryExpr} AS raw_category,
-                                      COUNT(DISTINCT s.id) AS applications,
-                                      SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'pending' THEN 1 ELSE 0 END) AS pending,
-                                      SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'active' THEN 1 ELSE 0 END) AS approved,
-                                      0 AS batch_enrolled
-                               FROM students s
-                               INNER JOIN courses c ON c.id = s.course_id
-                               WHERE {$activeCondition}{$scopeFilter['sql']}
-                               AND s.created_at >= ? AND s.created_at < ?
-                               GROUP BY raw_category";
-                $studentTypes = 'ss' . $scopeFilter['types'];
-                $studentValues = array_merge([$monthStart, $monthNext], $scopeFilter['values']);
-                $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentTypes, $studentValues);
-
-                $enrollSql = "SELECT {$categoryExpr} AS raw_category,
-                                     COUNT(DISTINCT bs.id) AS batch_enrolled
-                              FROM batch_students bs
-                              INNER JOIN batches b ON b.id = bs.batch_id
-                              INNER JOIN courses c ON c.id = b.course_id
-                              WHERE COALESCE(bs.enrollment_date, b.created_at) >= ? AND COALESCE(bs.enrollment_date, b.created_at) < ?
-                              {$scopeFilter['sql']}
-                              GROUP BY raw_category";
-                $enrollTypes = 'ss' . $scopeFilter['types'];
-                $enrollValues = array_merge([$monthStart, $monthNext], $scopeFilter['values']);
-                $enrollResult = report_monitor_bind_and_execute($conn, $enrollSql, $enrollTypes, $enrollValues);
-            } else {
-                $studentSql = "SELECT {$categoryExpr} AS raw_category,
-                                      COUNT(DISTINCT s.id) AS applications,
-                                      SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'pending' THEN 1 ELSE 0 END) AS pending,
-                                      SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'active' THEN 1 ELSE 0 END) AS approved,
-                                      SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled
-                               FROM students s
-                               INNER JOIN courses c ON c.id = s.course_id
-                               WHERE {$activeCondition}{$scopeFilter['sql']}
-                               AND s.created_at >= ? AND s.created_at < ?
-                               GROUP BY raw_category";
-                $studentTypes = 'ss' . $scopeFilter['types'];
-                $studentValues = array_merge([$monthStart, $monthNext], $scopeFilter['values']);
-                $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentTypes, $studentValues);
-                $enrollResult = false;
-            }
+            // Monthly view: keep Applied/Approved/Pending/In Batches on the same registration cohort.
+            $studentSql = "SELECT {$categoryExpr} AS raw_category,
+                                  COUNT(DISTINCT s.id) AS applications,
+                                  SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'pending' THEN 1 ELSE 0 END) AS pending,
+                                  SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'active' THEN 1 ELSE 0 END) AS approved,
+                                  SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled
+                           FROM students s
+                           INNER JOIN courses c ON c.id = s.course_id
+                           WHERE {$activeCondition}{$scopeFilter['sql']}
+                           AND s.created_at >= ? AND s.created_at < ?
+                           GROUP BY raw_category";
+            $studentTypes = 'ss' . $scopeFilter['types'];
+            $studentValues = array_merge([$monthStart, $monthNext], $scopeFilter['values']);
+            $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentTypes, $studentValues);
+            $enrollResult = false;
         } else {
             $courseSql = "SELECT {$categoryExpr} AS raw_category, COUNT(*) AS total
                           FROM courses c WHERE 1=1{$scopeFilter['sql']}
@@ -693,12 +639,16 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         if (report_monitor_table_exists($conn, 'batch_students')) {
             $batchScope = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
-            $enrollSql = "SELECT DATE_FORMAT(COALESCE(bs.enrollment_date, b.created_at), '%Y-%m') AS month_key,
-                                 COUNT(DISTINCT bs.id) AS total
+            $enrollmentTs = report_monitor_enrollment_timestamp_sql($conn, 'bs', 'st');
+            $activeConditionSt = report_monitor_student_active_sql('st');
+            $enrollSql = "SELECT DATE_FORMAT({$enrollmentTs}, '%Y-%m') AS month_key,
+                                 COUNT(DISTINCT COALESCE(bs.student_record_id, bs.student_id, bs.id)) AS total
                           FROM batch_students bs
                           INNER JOIN batches b ON b.id = bs.batch_id
                           INNER JOIN courses c ON c.id = b.course_id
-                          WHERE COALESCE(bs.enrollment_date, b.created_at) >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
+                          INNER JOIN students st ON st.id = COALESCE(bs.student_record_id, bs.student_id)
+                          WHERE {$activeConditionSt}
+                          AND {$enrollmentTs} >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL ? MONTH), '%Y-%m-01')
                           {$batchScope['sql']}
                           GROUP BY month_key";
             $types = 'i' . $batchScope['types'];

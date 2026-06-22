@@ -195,7 +195,8 @@ $isScoped = ($adminRole === 'course_coordinator');
                     </form>
                     <?php if (!empty($monthFilter['active'])): ?>
                         <small class="text-muted d-block mt-2">
-                            Monthly view counts applications by registration date, batches by start/creation date, and enrollments by batch enrollment date for <?php echo htmlspecialchars($monthScopeLabel); ?>.
+                            Monthly view uses registrations in <?php echo htmlspecialchars($monthScopeLabel); ?>.
+                            In Batches counts those applicants who are already assigned to a batch (not all batch enrollments in the month).
                         </small>
                     <?php endif; ?>
                 </div>
