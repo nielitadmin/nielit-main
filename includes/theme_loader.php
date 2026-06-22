@@ -14,6 +14,8 @@ if (!defined('DB_CONFIG_LOADED')) {
     die('Direct access not permitted');
 }
 
+require_once __DIR__ . '/institute_branding.php';
+
 /**
  * Load the active theme from database with caching
  * 

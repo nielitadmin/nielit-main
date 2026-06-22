@@ -9,6 +9,7 @@ session_start();
 
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 // Check if the student is logged in
 if (!isset($_SESSION['student_id'])) {
@@ -127,7 +128,7 @@ $receipt_ext = strtolower(pathinfo($receipt_path, PATHINFO_EXTENSION));
                 <img src="bhubaneswar_logo.png" alt="Institute Logo" class="logo mr-3">
                 <div>
                     <h5 class="mb-0 hindi-text">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान , भुवनेश्वर</h5>
-                    <h6 class="mb-0">National Institute of Electronics & Information Technology, Bhubaneswar</h6>
+                    <h6 class="mb-0"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></h6>
                 </div>
             </div>
             <div class="col-md-4 text-right d-flex align-items-center justify-content-end">

@@ -1,4 +1,5 @@
 <!-- Header Section - Modern Navy & Gold Theme -->
+<?php require_once __DIR__ . '/institute_branding.php'; ?>
 <header class="header py-3" style="background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08);">
     <div class="container-fluid">
         <div class="row align-items-center">
@@ -7,7 +8,7 @@
                 <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="Institute Logo" class="logo" style="height: 48px; width: auto;">
                 <div>
                     <h5 class="mb-0 hindi-text" style="color: #0a1628; font-weight: 600; font-size: 0.82rem;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</h5>
-                    <h6 class="mb-0" style="color: #0a1628; font-weight: 700; font-size: 0.95rem;">National Institute of Electronics & Information Technology, Bhubaneswar</h6>
+                    <h6 class="mb-0" style="color: #0a1628; font-weight: 700; font-size: 0.95rem;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></h6>
                 </div>
             </div>
             <!-- Right Government Info and Emblem -->

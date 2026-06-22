@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/institute_branding.php';
+?>
 <!-- Footer Section - Modern Navy Theme -->
 <footer style="background: #050e1a; color: rgba(255,255,255,0.62); font-size: 0.9rem;">
     <div style="padding: 70px 0 50px;">
@@ -9,7 +12,7 @@
                         <div style="font-size: 0.8rem; color: rgba(255,255,255,0.45);">Bhubaneswar</div>
                     </div>
                     <p style="color: rgba(255,255,255,0.5); font-size: 0.85rem; line-height: 1.7; margin-top: 14px;">
-                        National Institute of Electronics & Information Technology under Ministry of Electronics & IT, Government of India.
+                        <?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?> under Ministry of Electronics & IT, Government of India.
                     </p>
                 </div>
                 <div class="col-md-4 mb-4 mb-md-0">

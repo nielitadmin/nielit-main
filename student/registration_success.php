@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 // Check if registration was successful
 if (!isset($_SESSION['success']) || !isset($_SESSION['student_id'])) {
@@ -321,7 +322,7 @@ unset(
                 <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                 <div>
                     <div class="fw-bold text-primary d-none d-sm-block">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                    <div class="fw-bold text-dark">National Institute of Electronics &amp; Information Technology, Bhubaneswar</div>
+                    <div class="fw-bold text-dark"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center">
@@ -505,7 +506,7 @@ unset(
             </div>
             <div class="col-lg-4 col-md-12">
                 <h5>Contact Info</h5>
-                <p class="small text-muted mb-3">National Institute of Electronics &amp; Information Technology, Bhubaneswar</p>
+                <p class="small text-muted mb-3"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></p>
                 <ul class="list-unstyled">
                     <li class="mb-2"><i class="fas fa-phone-alt me-2 text-warning"></i> 0674-2960354</li>
                     <li class="mb-2"><i class="fas fa-envelope me-2 text-warning"></i> dir-bbsr@nielit.gov.in</li>

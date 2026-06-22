@@ -1,3 +1,6 @@
+<?php
+require_once __DIR__ . '/../../includes/institute_branding.php';
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -37,7 +40,7 @@
                     <img src="../assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                     <div>
                         <div class="fw-bold text-primary d-none d-sm-block" style="font-size: 0.85rem;">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                        <div class="fw-bold text-dark" style="font-size: 0.9rem;">National Institute of Electronics & Information Technology, Bhubaneswar</div>
+                        <div class="fw-bold text-dark" style="font-size: 0.9rem;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                     </div>
                 </div>
                 <div class="col-md-4 d-flex justify-content-md-end justify-content-center">

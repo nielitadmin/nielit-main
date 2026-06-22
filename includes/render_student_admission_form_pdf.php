@@ -5,6 +5,10 @@
 require_once __DIR__ . '/student_form_helpers.php';
 require_once __DIR__ . '/tcpdf_devanagari_font.php';
 
+if (!defined('INSTITUTE_NAME_EN')) {
+    require_once __DIR__ . '/institute_branding.php';
+}
+
 if (!class_exists('NIELIT_PDF')) {
     require_once __DIR__ . '/../libraries/tcpdf/tcpdf.php';
 
@@ -163,8 +167,7 @@ if ($hindiFont) {
     $pdf->Cell(0, 7, $hindiTexts['institute_line'], 0, 1, 'C');
 }
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'National Institute of Electronics & Information Technology, Bhubaneswar', 0, 1, 'C');
-$pdf->Cell(0, 5, 'Bhubaneswar|Balasore|Raipur', 0, 1, 'C');
+$pdf->Cell(0, 6, INSTITUTE_NAME_EN, 0, 1, 'C');
 
 $pdf->SetY(35);
 $pdf->SetFont('helvetica', 'B', 16); 

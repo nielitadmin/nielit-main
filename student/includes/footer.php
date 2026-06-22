@@ -25,7 +25,7 @@
                 </div>
                 <div class="col-lg-4 col-md-12">
                     <h5>Contact Us</h5>
-                    <p class="small text-muted mb-3">National Institute of Electronics & Information Technology, Bhubaneswar</p>
+                    <p class="small text-muted mb-3"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></p>
                     <ul class="list-unstyled">
                         <li class="mb-2"><i class="fas fa-phone-alt me-2 text-warning"></i> 0674-2960354</li>
                         <li class="mb-2"><i class="fas fa-envelope me-2 text-warning"></i> dir-bbsr@nielit.gov.in</li>

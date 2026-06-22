@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 // LINK-ONLY ACCESS: Require course_id parameter
 $selected_course_id = $_GET['course_id'] ?? $_GET['course'] ?? '';
@@ -252,7 +253,7 @@ $selected_course = $course_details['course_name'];
                 <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" class="me-3" style="height: 50px;">
                 <div>
                     <div class="fw-bold text-primary d-none d-sm-block">राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, भुवनेश्वर</div>
-                    <div class="fw-bold text-dark">National Institute of Electronics & Information Technology, Bhubaneswar</div>
+                    <div class="fw-bold text-dark"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
