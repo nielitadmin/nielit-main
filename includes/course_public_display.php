@@ -61,6 +61,24 @@ if (!function_exists('renderCourseFeeDetailItem')) {
     }
 }
 
+if (!function_exists('course_registration_apply_url')) {
+    /**
+     * Build registration URL from APP_URL + token (ignores stale apply_link in DB).
+     */
+    function course_registration_apply_url(array $course): string {
+        if (!function_exists('app_url')) {
+            require_once __DIR__ . '/url_helper.php';
+        }
+
+        $token = trim((string) ($course['registration_token'] ?? ''));
+        if ($token === '') {
+            return '';
+        }
+
+        return app_url('student/register') . '?token=' . rawurlencode($token);
+    }
+}
+
 if (!function_exists('renderCourseProjectLevelHeader')) {
     function renderCourseProjectLevelHeader(array $row): string {
         $label = trim($row['project_level_label'] ?? '');

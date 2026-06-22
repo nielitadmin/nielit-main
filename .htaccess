@@ -1,9 +1,8 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Production (domain document root). For local XAMPP in /public_html/, use:
-    # RewriteBase /public_html/
-    RewriteBase /
+    # Omit RewriteBase so Apache uses the folder URL (/public_html/ locally, / on production).
+    # Do NOT set RewriteBase / when the app runs in a subdirectory on XAMPP.
 
     # Optional HTTPS redirect (uncomment on production if not handled by host panel)
     # RewriteCond %{HTTPS} off

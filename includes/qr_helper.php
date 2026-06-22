@@ -40,8 +40,11 @@ function generateCourseQRCode($course_id, $course_code = '', $registration_token
         }
 
         // Generate registration URL using token format (NEW FORMAT)
-        $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
-        $registration_url = $base_url . "/student/register.php?token=" . urlencode($registration_token);
+        $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : (
+            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+            . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+        );
+        $registration_url = $base_url . '/student/register.php?token=' . urlencode($registration_token);
 
         // Create filename
         $safe_name = !empty($course_code) ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $course_code) : 'course_' . $course_id;

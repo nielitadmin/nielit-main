@@ -612,9 +612,9 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-footer">
                                 <?php if (!empty($row["description_url"])): ?><a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-info-circle"></i> View Details</a><?php endif; ?>
                                 <?php if (!empty($row["description_pdf"])): ?><a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-file-pdf"></i> Download PDF</a><?php endif; ?>
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?><button class="btn-disabled btn-modern" disabled><i class="fas fa-times-circle"></i> Enrollment Closed</button>
-                                    <?php else: ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                    <?php else: ?><a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -698,9 +698,9 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-footer">
                                 <?php if (!empty($row["description_url"])): ?><a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-info-circle"></i> View Details</a><?php endif; ?>
                                 <?php if (!empty($row["description_pdf"])): ?><a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-file-pdf"></i> Download PDF</a><?php endif; ?>
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?><button class="btn-disabled btn-modern" disabled><i class="fas fa-times-circle"></i> Enrollment Closed</button>
-                                    <?php else: ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                    <?php else: ?><a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -784,9 +784,9 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-footer">
                                 <?php if (!empty($row["description_url"])): ?><a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-info-circle"></i> View Details</a><?php endif; ?>
                                 <?php if (!empty($row["description_pdf"])): ?><a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-file-pdf"></i> Download PDF</a><?php endif; ?>
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?><button class="btn-disabled btn-modern" disabled><i class="fas fa-times-circle"></i> Enrollment Closed</button>
-                                    <?php else: ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                    <?php else: ?><a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -931,13 +931,13 @@ $result_internship = $conn->query($sql_internship);
                                     </a>
                                 <?php endif; ?>
                                 
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?>
                                         <button class="btn-disabled btn-modern" disabled title="Enrollment is closed for this course">
                                             <i class="fas fa-times-circle"></i> Enrollment Closed
                                         </button>
                                     <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern">
+                                        <a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-success-modern btn-modern">
                                             <i class="fas fa-paper-plane"></i> Apply Now
                                         </a>
                                     <?php endif; ?>
@@ -1024,9 +1024,9 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-footer">
                                 <?php if (!empty($row["description_url"])): ?><a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-info-circle"></i> View Details</a><?php endif; ?>
                                 <?php if (!empty($row["description_pdf"])): ?><a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-file-pdf"></i> Download PDF</a><?php endif; ?>
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?><button class="btn-disabled btn-modern" disabled><i class="fas fa-times-circle"></i> Enrollment Closed</button>
-                                    <?php else: ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                    <?php else: ?><a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-primary-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -1110,9 +1110,9 @@ $result_internship = $conn->query($sql_internship);
                             <div class="course-card-footer">
                                 <?php if (!empty($row["description_url"])): ?><a href="<?php echo htmlspecialchars($row["description_url"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-info-circle"></i> View Details</a><?php endif; ?>
                                 <?php if (!empty($row["description_pdf"])): ?><a href="<?php echo APP_URL . '/' . htmlspecialchars($row["description_pdf"]); ?>" target="_blank" class="btn-outline-modern btn-modern"><i class="fas fa-file-pdf"></i> Download PDF</a><?php endif; ?>
-                                <?php if (!empty($row["apply_link"]) && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
+                                <?php $apply_url = course_registration_apply_url($row); if ($apply_url !== '' && (!isset($row["link_published"]) || $row["link_published"] == 1)): ?>
                                     <?php if ($is_closed): ?><button class="btn-disabled btn-modern" disabled><i class="fas fa-times-circle"></i> Enrollment Closed</button>
-                                    <?php else: ?><a href="<?php echo htmlspecialchars($row["apply_link"]); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
+                                    <?php else: ?><a href="<?php echo htmlspecialchars($apply_url); ?>" target="_blank" class="btn-success-modern btn-modern"><i class="fas fa-paper-plane"></i> Apply Now</a><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </div>

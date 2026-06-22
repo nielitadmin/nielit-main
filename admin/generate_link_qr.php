@@ -35,7 +35,7 @@ if ($course_id) {
     $registration_token = $token_row['registration_token'] ?? '';
     
     // Generate registration link using token format (NEW FORMAT)
-    $apply_link = $baseUrl . 'student/register.php?token=' . urlencode($registration_token);
+    $apply_link = rtrim(APP_URL, '/') . '/student/register.php?token=' . urlencode($registration_token);
     
     // Update the apply_link in database
     $stmt = $conn->prepare("UPDATE courses SET apply_link = ? WHERE id = ?");
