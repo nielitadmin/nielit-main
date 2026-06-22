@@ -28,10 +28,16 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
 // Always refresh role from DB to pick up any role changes made by master admin
 refresh_session_permissions();
 
-// Front Office Desk should go directly to students page - no dashboard access needed
-if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'front_office_desk') {
-    header("Location: students.php");
-    exit();
+// Role-specific landing pages — no full dashboard access
+if (isset($_SESSION['admin_role'])) {
+    if ($_SESSION['admin_role'] === 'front_office_desk') {
+        header('Location: students.php');
+        exit();
+    }
+    if ($_SESSION['admin_role'] === 'placement_coordinator') {
+        header('Location: ' . APP_URL . '/batch_module/admin/manage_batches.php');
+        exit();
+    }
 }
 
 // Load active theme
@@ -1780,24 +1786,7 @@ $dashboard_payload = [
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
-                        <span class="user-role">
-                            <?php 
-                            if (isset($_SESSION['admin_role'])) {
-                                switch ($_SESSION['admin_role']) {
-                                    case 'master_admin':
-                                        echo 'Master Administrator';
-                                        break;
-                                    case 'nsqf_course_manager':
-                                        echo 'NSQF Course Manager';
-                                        break;
-                                    default:
-                                        echo 'Course Coordinator';
-                                }
-                            } else {
-                                echo 'Administrator';
-                            }
-                            ?>
-                        </span>
+                        <span class="user-role"><?php echo htmlspecialchars(get_role_display_name()); ?></span>
                     </div>
                     <div class="user-avatar">
                         <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>

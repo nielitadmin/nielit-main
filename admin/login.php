@@ -124,8 +124,7 @@ if (isset($_POST['verify_otp'])) {
             // Clean up temporary session variables
             unset($_SESSION['login_otp'], $_SESSION['otp_generated_time'], $_SESSION['temp_admin_username'], $_SESSION['temp_admin_email']);
             
-            // Redirect to dashboard
-            header("Location: dashboard.php");
+            header('Location: ' . get_admin_post_login_url());
             exit();
         } else {
             // Session initialization failed

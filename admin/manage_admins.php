@@ -18,6 +18,7 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/session_manager.php';
 
 // Ensure front_office_desk role exists in enum (auto-migrate if needed)
 $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
@@ -244,6 +245,7 @@ if (isset($_POST['update_role'])) {
         
         if ($stmt->execute()) {
             $success_message = "Admin role updated successfully!";
+            invalidate_admin_session($admin_id);
         } else {
             // If update fails, likely the enum doesn't have this value yet
             if (strpos($conn->error, 'Data truncated') !== false || $stmt->affected_rows === 0) {
@@ -255,6 +257,7 @@ if (isset($_POST['update_role'])) {
                 $stmt2->bind_param("si", $new_role, $admin_id);
                 if ($stmt2->execute()) {
                     $success_message = "Admin role updated successfully!";
+                    invalidate_admin_session($admin_id);
                 } else {
                     $error_message = "Failed to update role: " . $conn->error;
                 }

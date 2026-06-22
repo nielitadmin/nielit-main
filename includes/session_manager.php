@@ -321,10 +321,31 @@ function get_role_display_name($role = null) {
     $role_names = [
         'master_admin' => 'Master Administrator',
         'course_coordinator' => 'Course Coordinator',
+        'nsqf_course_manager' => 'NSQF Course Manager',
+        'front_office_desk' => 'Front Office Desk',
+        'placement_coordinator' => 'Placement Coordinator',
         'data_entry_operator' => 'Data Entry Operator',
-        'report_viewer' => 'Report Viewer'
+        'report_viewer' => 'Report Viewer',
     ];
     
     return $role_names[$role] ?? 'Unknown Role';
+}
+
+/**
+ * Post-login landing page based on admin role.
+ */
+function get_admin_post_login_url($role = null) {
+    if ($role === null) {
+        $role = $_SESSION['admin_role'] ?? '';
+    }
+
+    switch ($role) {
+        case 'front_office_desk':
+            return APP_URL . '/admin/students.php';
+        case 'placement_coordinator':
+            return APP_URL . '/batch_module/admin/manage_batches.php';
+        default:
+            return APP_URL . '/admin/dashboard.php';
+    }
 }
 ?>

@@ -32,13 +32,23 @@ $current_page = basename($_SERVER['PHP_SELF']);
     
     <nav class="sidebar-nav">
         <!-- Core Features (All Roles) -->
+        <?php if (!$is_placement_coordinator): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> Dashboard
             </a>
         </div>
+        <?php endif; ?>
         
-        <?php if ($is_front_office): ?>
+        <?php if ($is_placement_coordinator): ?>
+        <!-- Placement Coordinator - Batches only (no course dashboard) -->
+        <div class="nav-item">
+            <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_batches.php', 'batch_details.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-layer-group"></i> Batches
+            </a>
+        </div>
+
+        <?php elseif ($is_front_office): ?>
         <!-- Front Office Desk - Students only -->
         <div class="nav-item">
             <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
@@ -46,14 +56,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
 
-        <?php elseif ($is_placement_coordinator): ?>
-        <!-- Placement Coordinator - Batches & placement tracking -->
-        <div class="nav-item">
-            <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_batches.php', 'batch_details.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-layer-group"></i> Batches
-            </a>
-        </div>
-        
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">

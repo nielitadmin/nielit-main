@@ -20,6 +20,7 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 // Database connection
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
+require_once __DIR__ . '/../includes/session_manager.php';
 
 // Ensure front_office_desk role exists in enum (auto-migrate if needed)
 $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
@@ -345,7 +346,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
-                        <span class="user-role"><?php echo $_SESSION['admin_role'] === 'master_admin' ? 'Master Administrator' : 'Course Coordinator'; ?></span>
+                        <span class="user-role"><?php echo htmlspecialchars(get_role_display_name()); ?></span>
                     </div>
                     <div class="user-avatar">
                         <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>

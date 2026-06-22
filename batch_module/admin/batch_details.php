@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/session_manager.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../includes/batch_certificate_helper.php';
 require_once __DIR__ . '/../includes/batch_placement_helper.php';
@@ -10,11 +11,22 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
+    if (!init_admin_session($_SESSION['admin'])) {
+        session_unset();
+        session_destroy();
+        header("Location: ../../admin/login_new.php");
+        exit();
+    }
+}
+
+refresh_session_permissions();
+
 $admin_role = $_SESSION['admin_role'] ?? '';
 $is_placement_coordinator = ($admin_role === 'placement_coordinator');
 
 if ($is_placement_coordinator && !canViewBatchPlacements($admin_role)) {
-    header('Location: ../../admin/dashboard.php');
+    header('Location: manage_batches.php');
     exit();
 }
 
@@ -917,7 +929,7 @@ function downloadScannedOrder(batchId) {
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
-                        <span class="user-role">Administrator</span>
+                        <span class="user-role"><?php echo htmlspecialchars(get_role_display_name()); ?></span>
                     </div>
                     <div class="user-avatar">
                         <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>
