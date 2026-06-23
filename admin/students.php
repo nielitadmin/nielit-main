@@ -1360,6 +1360,7 @@ if ($other_gender_count > 0) {
                                 <th>Name</th>
                                 <th>Email</th>
                                 <th>Mobile</th>
+                                <th>Category</th>
                                 <th>Course</th>
                                 <th>Scheme / Project</th>
                                 <th>Batch</th>
@@ -1507,6 +1508,24 @@ if ($other_gender_count > 0) {
                             <td><?php echo htmlspecialchars($row['name']); ?></td>
                             <td><?php echo htmlspecialchars($row['email']); ?></td>
                             <td><?php echo htmlspecialchars($row['mobile']); ?></td>
+                            <td>
+                                <?php
+                                $student_category = trim((string)($row['category'] ?? ''));
+                                $category_badge_map = [
+                                    'General' => 'badge-secondary',
+                                    'OBC'     => 'badge-info',
+                                    'SC'      => 'badge-warning',
+                                    'ST'      => 'badge-success',
+                                    'EWS'     => 'badge-primary',
+                                ];
+                                $category_badge = $category_badge_map[$student_category] ?? 'badge-secondary';
+                                ?>
+                                <?php if ($student_category !== ''): ?>
+                                    <span class="badge <?php echo $category_badge; ?>"><?php echo htmlspecialchars($student_category); ?></span>
+                                <?php else: ?>
+                                    <span class="text-muted small">—</span>
+                                <?php endif; ?>
+                            </td>
                             <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
                             <td>
                                 <?php if (!empty($all_student_schemes)): ?>
@@ -1636,7 +1655,7 @@ if ($other_gender_count > 0) {
                         else:
                         ?>
                         <tr>
-                            <td colspan="12" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+                            <td colspan="13" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
                                 <strong>No students found for the selected filters.</strong>
                             </td>
                         </tr>
