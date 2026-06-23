@@ -37,6 +37,7 @@ if (!function_exists('nielit_location_centre_label')) {
     }
 }
 
+if (!defined('MINISTRY_NAME_HI')) {
     define(
         'MINISTRY_NAME_HI',
         'इलेक्ट्रॉनिकी और सूचना प्रौद्योगिकी मंत्रालय'
