@@ -39,6 +39,37 @@ $admin_role = $_SESSION['admin_role'] ?? '';
 $is_course_coordinator = ($admin_role === 'course_coordinator');
 $is_front_office = ($admin_role === 'front_office_desk');
 
+$student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
+
+function studentsFilterRedirectParams(array $source): array {
+    $params = [];
+    if (!empty($source['filter_course']) && $source['filter_course'] !== 'All') {
+        $params[] = 'filter_course=' . urlencode($source['filter_course']);
+    }
+    if (!empty($source['filter_gender']) && $source['filter_gender'] !== 'All') {
+        $params[] = 'filter_gender=' . urlencode($source['filter_gender']);
+    }
+    if (!empty($source['filter_scheme']) && $source['filter_scheme'] !== 'All') {
+        $params[] = 'filter_scheme=' . urlencode($source['filter_scheme']);
+    }
+    if (!empty($source['filter_category']) && $source['filter_category'] !== 'All') {
+        $params[] = 'filter_category=' . urlencode($source['filter_category']);
+    }
+    if (!empty($source['start_date'])) {
+        $params[] = 'start_date=' . urlencode($source['start_date']);
+    }
+    if (!empty($source['end_date'])) {
+        $params[] = 'end_date=' . urlencode($source['end_date']);
+    }
+    if (!empty($source['page']) && (int)$source['page'] > 1) {
+        $params[] = 'page=' . (int)$source['page'];
+    }
+    if (!empty($source['per_page']) && (int)$source['per_page'] !== 25) {
+        $params[] = 'per_page=' . (int)$source['per_page'];
+    }
+    return $params;
+}
+
 // ─── HANDLE: Delete student ───────────────────────────────────────────────────
 if (isset($_GET['delete_id'])) {
     if ($is_front_office) {
@@ -58,19 +89,7 @@ if (isset($_GET['delete_id'])) {
         $_SESSION['message_type'] = "danger";
     }
     $stmt->close();
-    $redirect_params = [];
-    if (!empty($_GET['filter_course']) && $_GET['filter_course'] !== 'All') {
-        $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);
-    }
-    if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All') {
-        $redirect_params[] = 'filter_gender=' . urlencode($_GET['filter_gender']);
-    }
-    if (!empty($_GET['start_date'])) {
-        $redirect_params[] = 'start_date=' . urlencode($_GET['start_date']);
-    }
-    if (!empty($_GET['end_date'])) {
-        $redirect_params[] = 'end_date=' . urlencode($_GET['end_date']);
-    }
+    $redirect_params = studentsFilterRedirectParams($_GET);
     header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
@@ -87,19 +106,7 @@ if (isset($_GET['approve_id'])) {
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
     }
-    $redirect_params = [];
-    if (!empty($_GET['filter_course']) && $_GET['filter_course'] !== 'All') {
-        $redirect_params[] = 'filter_course=' . urlencode($_GET['filter_course']);
-    }
-    if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All') {
-        $redirect_params[] = 'filter_gender=' . urlencode($_GET['filter_gender']);
-    }
-    if (!empty($_GET['start_date'])) {
-        $redirect_params[] = 'start_date=' . urlencode($_GET['start_date']);
-    }
-    if (!empty($_GET['end_date'])) {
-        $redirect_params[] = 'end_date=' . urlencode($_GET['end_date']);
-    }
+    $redirect_params = studentsFilterRedirectParams($_GET);
     header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
@@ -133,11 +140,8 @@ if (isset($_POST['reject_student'])) {
         $_SESSION['message_type'] = "warning";
     }
 
-    $redirect = "students.php";
-    if (!empty($_POST['filter_course'])) {
-        $redirect .= "?filter_course=" . urlencode($_POST['filter_course']);
-    }
-    header("Location: $redirect");
+    $redirect_params = studentsFilterRedirectParams($_POST);
+    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
 
@@ -237,10 +241,7 @@ if (isset($_POST['assign_batch'])) {
         $_SESSION['message_type'] = 'warning';
     }
 
-    $redirect_params = [];
-    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
-    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
-    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    $redirect_params = studentsFilterRedirectParams($_POST);
     header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
@@ -268,10 +269,7 @@ if (isset($_POST['bulk_assign_batch'])) {
         $_SESSION['message_type'] = 'warning';
     }
 
-    $redirect_params = [];
-    if (!empty($_POST['filter_course'])) $redirect_params[] = 'filter_course=' . urlencode($_POST['filter_course']);
-    if (!empty($_POST['start_date']))    $redirect_params[] = 'start_date='    . urlencode($_POST['start_date']);
-    if (!empty($_POST['end_date']))      $redirect_params[] = 'end_date='      . urlencode($_POST['end_date']);
+    $redirect_params = studentsFilterRedirectParams($_POST);
     header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
@@ -284,15 +282,7 @@ if (isset($_GET['remove_record']) && isset($_GET['batch_id'])) {
     $_SESSION['message'] = $result['message'];
     $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
 
-    $redirect_params = [];
-    if (!empty($_GET['filter_course']))  $redirect_params[] = 'filter_course='  . urlencode($_GET['filter_course']);
-    if (!empty($_GET['filter_scheme']) && $_GET['filter_scheme'] !== 'All') {
-        $redirect_params[] = 'filter_scheme=' . urlencode($_GET['filter_scheme']);
-    }
-    if (!empty($_GET['filter_gender']) && $_GET['filter_gender'] !== 'All')
-                                         $redirect_params[] = 'filter_gender='  . urlencode($_GET['filter_gender']);
-    if (!empty($_GET['start_date']))     $redirect_params[] = 'start_date='     . urlencode($_GET['start_date']);
-    if (!empty($_GET['end_date']))       $redirect_params[] = 'end_date='       . urlencode($_GET['end_date']);
+    $redirect_params = studentsFilterRedirectParams($_GET);
     header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
     exit();
 }
@@ -417,8 +407,13 @@ if ($batches_load) {
 $selected_course  = $_GET['filter_course']  ?? 'All';
 $selected_gender  = $_GET['filter_gender']  ?? 'All';
 $selected_scheme  = $_GET['filter_scheme']  ?? 'All';
+$selected_category = $_GET['filter_category'] ?? 'All';
 $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
+
+if ($selected_category !== 'All' && !in_array($selected_category, $student_category_filter_options, true)) {
+    $selected_category = 'All';
+}
 
 $allowed_per_page = [10, 25, 50, 100];
 $per_page = (int)($_GET['per_page'] ?? 25);
@@ -434,6 +429,7 @@ function studentsListQueryParams(
     $selected_course,
     $selected_gender,
     $selected_scheme,
+    $selected_category,
     $start_date,
     $end_date,
     $page,
@@ -449,6 +445,9 @@ function studentsListQueryParams(
     }
     if ($selected_scheme !== 'All') {
         $params['filter_scheme'] = $selected_scheme;
+    }
+    if ($selected_category !== 'All') {
+        $params['filter_category'] = $selected_category;
     }
     if ($start_date !== '') {
         $params['start_date'] = $start_date;
@@ -469,6 +468,7 @@ function studentsListUrl(
     $selected_course,
     $selected_gender,
     $selected_scheme,
+    $selected_category,
     $start_date,
     $end_date,
     $page,
@@ -479,6 +479,7 @@ function studentsListUrl(
         $selected_course,
         $selected_gender,
         $selected_scheme,
+        $selected_category,
         $start_date,
         $end_date,
         $page,
@@ -536,6 +537,12 @@ if ($selected_scheme !== 'All') {
         $bind_types    .= 'i';
         $bind_values[]  = (int)$selected_scheme;
     }
+}
+
+if ($selected_category !== 'All') {
+    $where_parts[]  = 's.category = ?';
+    $bind_types    .= 's';
+    $bind_values[]  = $selected_category;
 }
 
 if (!empty($start_date) && !empty($end_date)) {
@@ -613,6 +620,7 @@ $list_query_suffix = studentsListQueryParams(
     $selected_course,
     $selected_gender,
     $selected_scheme,
+    $selected_category,
     $start_date,
     $end_date,
     $page,
@@ -653,6 +661,9 @@ if ($selected_scheme !== 'All') {
     } else {
         $stats_where_parts[] = 'scheme_id = ' . (int)$selected_scheme;
     }
+}
+if ($selected_category !== 'All') {
+    $stats_where_parts[] = "category = '" . $conn->real_escape_string($selected_category) . "'";
 }
 if (!empty($start_date) && !empty($end_date)) {
     $stats_where_parts[]  = "created_at BETWEEN '" . $conn->real_escape_string($start_date) . "' AND '" . $conn->real_escape_string($end_date) . "'";
@@ -1090,6 +1101,19 @@ if ($other_gender_count > 0) {
                         </div>
 
                         <div class="form-group">
+                            <label class="form-label">Filter by Category</label>
+                            <select name="filter_category" class="form-select">
+                                <option value="All" <?php if ($selected_category === 'All') echo 'selected'; ?>>All Categories</option>
+                                <?php foreach ($student_category_filter_options as $category_option): ?>
+                                    <option value="<?php echo htmlspecialchars($category_option); ?>"
+                                        <?php if ($selected_category === $category_option) echo 'selected'; ?>>
+                                        <?php echo htmlspecialchars($category_option); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
                             <label class="form-label">Filter by Scheme / Project</label>
                             <select name="filter_scheme" class="form-select">
                                 <option value="All" <?php if ($selected_scheme === 'All') echo 'selected'; ?>>All Schemes</option>
@@ -1341,6 +1365,7 @@ if ($other_gender_count > 0) {
                             if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
                             if ($selected_scheme !== 'All') $ep[] = 'filter_scheme=' . urlencode($selected_scheme);
                             if ($selected_gender !== 'All') $ep[] = 'filter_gender=' . urlencode($selected_gender);
+                            if ($selected_category !== 'All') $ep[] = 'filter_category=' . urlencode($selected_category);
                             if (!empty($start_date))         $ep[] = 'start_date='    . urlencode($start_date);
                             if (!empty($end_date))           $ep[] = 'end_date='      . urlencode($end_date);
                             echo !empty($ep) ? '?' . implode('&', $ep) : '';
@@ -1671,10 +1696,10 @@ if ($other_gender_count > 0) {
                     </div>
                     <nav class="students-pagination-nav" aria-label="Students pagination">
                         <?php if ($page > 1): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, 1, $per_page)); ?>">
                                 <i class="fas fa-angle-double-left"></i> First
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $page - 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $page - 1, $per_page)); ?>">
                                 <i class="fas fa-angle-left"></i> Prev
                             </a>
                         <?php endif; ?>
@@ -1690,7 +1715,7 @@ if ($other_gender_count > 0) {
                             $is_active = ($p === $page);
                         ?>
                             <a class="btn btn-sm <?php echo $is_active ? 'btn-primary' : 'btn-outline-secondary'; ?>"
-                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $p, $per_page)); ?>"
+                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $p, $per_page)); ?>"
                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
                                 <?php echo $p; ?>
                             </a>
@@ -1700,10 +1725,10 @@ if ($other_gender_count > 0) {
                         <?php endif; ?>
 
                         <?php if ($page < $total_pages): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $page + 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $page + 1, $per_page)); ?>">
                                 Next <i class="fas fa-angle-right"></i>
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $total_pages, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $total_pages, $per_page)); ?>">
                                 Last <i class="fas fa-angle-double-right"></i>
                             </a>
                         <?php endif; ?>
@@ -1732,8 +1757,13 @@ if ($other_gender_count > 0) {
         </div>
         <form method="POST" action="students.php" id="batch-assign-form">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
+            <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
+            <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
             <div id="batch-modal-enrollments"></div>
             <p id="batch-modal-empty" style="display:none;color:#b45309;font-size:13px;margin-top:8px;">
                 <i class="fas fa-exclamation-triangle"></i> No matching batches available for the selected scheme(s).
@@ -1765,8 +1795,13 @@ if ($other_gender_count > 0) {
         </div>
         <form method="POST" action="students.php" id="bulk-assign-form">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
+            <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
+            <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
             <div id="bulk-student-ids"></div>
             <div class="form-group">
                 <label class="form-label">Select Batch</label>
@@ -1814,6 +1849,13 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="reject_student" value="1">
             <input type="hidden" name="reject_id" id="rejectStudentId">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender ?? 'All'); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme ?? 'All'); ?>">
+            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category ?? 'All'); ?>">
+            <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date ?? ''); ?>">
+            <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date ?? ''); ?>">
+            <input type="hidden" name="page" value="<?php echo (int)($page ?? 1); ?>">
+            <input type="hidden" name="per_page" value="<?php echo (int)($per_page ?? 25); ?>">
             <div style="margin-bottom:16px;">
                 <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">Reason for Rejection *</label>
                 <div style="display:flex;flex-direction:column;gap:8px;">

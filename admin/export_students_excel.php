@@ -56,6 +56,11 @@ if ($is_course_coordinator) {
 
 $selected_course = $_GET['filter_course'] ?? 'All';
 $selected_gender = $_GET['filter_gender'] ?? 'All';
+$selected_category = $_GET['filter_category'] ?? 'All';
+$student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
+if ($selected_category !== 'All' && !in_array($selected_category, $student_category_filter_options, true)) {
+    $selected_category = 'All';
+}
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 
@@ -93,6 +98,12 @@ if ($selected_gender !== 'All') {
     $query .= ' AND s.gender = ?';
     $bind_types .= 's';
     $bind_values[] = $selected_gender;
+}
+
+if ($selected_category !== 'All') {
+    $query .= ' AND s.category = ?';
+    $bind_types .= 's';
+    $bind_values[] = $selected_category;
 }
 
 if (!empty($start_date) && !empty($end_date)) {
