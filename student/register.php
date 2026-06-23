@@ -2272,12 +2272,17 @@ if (isset($_SESSION['info'])) {
         <div class="container">
             <div class="row">
                 <div class="col-md-6 text-md-start">
-                    © 2025 NIELIT Bhubaneswar. All Rights Reserved.
+                    © <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.
                 </div>
                 <div class="col-md-6 text-md-end">
                     Designed & Developed by NIELIT Team
                 </div>
             </div>
+            <?php if (isset($conn) && $conn instanceof mysqli): ?>
+            <div class="mt-2" style="font-size: 0.78rem; opacity: 0.75;">
+                <?php renderVisitorCountFooter($conn); ?>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </footer>

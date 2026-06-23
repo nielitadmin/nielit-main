@@ -9,36 +9,36 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <?php 
-    require_once __DIR__ . '/includes/maintenance_check.php';
-    require_once __DIR__ . '/config/config.php';
-    require_once __DIR__ . '/includes/theme_loader.php';
-    require_once __DIR__ . '/includes/navigation_helper.php';
-    require_once __DIR__ . '/includes/url_helper.php';
-    
-    $active_theme = loadActiveTheme($conn);
-    $theme_logo = getThemeLogo($active_theme);
-    
-    $navigation_menu_html = '';
-    if (navigationMenuTableExists($conn)) {
-        $menu_items = getNavigationMenu($conn);
-        $menu_items = array_values(array_filter($menu_items, static function (array $item): bool {
-            return stripos((string)($item['label'] ?? ''), 'PM SHRI') === false;
-        }));
-        $current_page = basename($_SERVER['PHP_SELF']);
-        $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
-    }
-    if (empty($navigation_menu_html)) {
-        $navigation_menu_html = getFallbackNavigationMenu();
-    }
-    $job_fair_portal_url = getJobFairPortalUrl();
-    $mock_test_portal_url = getMockTestPortalUrl();
-    $nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
-    injectThemeCSS($active_theme);
-    echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
-    
-    $banners = []; $announcements_content = []; $featured_courses = [];
-    $text_blocks = []; $image_blocks = []; $news_items = [];
+<?php
+require_once __DIR__ . '/includes/maintenance_check.php';
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/includes/theme_loader.php';
+require_once __DIR__ . '/includes/navigation_helper.php';
+require_once __DIR__ . '/includes/url_helper.php';
+
+$active_theme = loadActiveTheme($conn);
+$theme_logo = getThemeLogo($active_theme);
+
+$navigation_menu_html = '';
+if (navigationMenuTableExists($conn)) {
+    $menu_items = getNavigationMenu($conn);
+    $menu_items = array_values(array_filter($menu_items, static function (array $item): bool {
+        return stripos((string)($item['label'] ?? ''), 'PM SHRI') === false;
+    }));
+    $current_page = basename($_SERVER['PHP_SELF']);
+    $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
+}
+if (empty($navigation_menu_html)) {
+    $navigation_menu_html = getFallbackNavigationMenu();
+}
+$job_fair_portal_url = getJobFairPortalUrl();
+$mock_test_portal_url = getMockTestPortalUrl();
+$nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
+injectThemeCSS($active_theme);
+echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
+
+$banners = []; $announcements_content = []; $featured_courses = [];
+$text_blocks = []; $image_blocks = []; $news_items = [];
     
     // Create news table if it doesn't exist
     $create_table_sql = "CREATE TABLE IF NOT EXISTS news (
@@ -1826,9 +1826,14 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
 
     <div class="footer-bottom">
         <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span>© 2025 NIELIT Bhubaneswar. All Rights Reserved.</span>
+            <span>© <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</span>
             <span>Designed & Developed by <a href="#">NIELIT Team</a></span>
         </div>
+        <?php if (isset($conn) && $conn instanceof mysqli): ?>
+        <div class="container text-center mt-2" style="font-size: 0.78rem; opacity: 0.75;">
+            <?php renderVisitorCountFooter($conn); ?>
+        </div>
+        <?php endif; ?>
     </div>
 </footer>
 
