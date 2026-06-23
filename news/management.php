@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <?php require_once __DIR__ . '/../config/config.php'; ?>
+    <?php
+    require_once __DIR__ . '/../config/config.php';
+    require_once __DIR__ . '/../includes/theme_loader.php';
+    $active_theme = loadActiveTheme($conn);
+    ?>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Management - NIELIT Bhubaneswar</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="<?php echo htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8'); ?>" type="image/x-icon">
 </head>
 <body>
 

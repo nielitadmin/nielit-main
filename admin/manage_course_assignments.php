@@ -170,7 +170,7 @@ $stats = $stats_result->fetch_assoc();
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin-theme.css" rel="stylesheet">
     <link href="../assets/css/toast-notifications.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
     <style>
         .modern-card { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); border: none; border-radius: 20px; color: white; transition: all 0.3s ease; position: relative; overflow: hidden; }
         .modern-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%); pointer-events: none; }

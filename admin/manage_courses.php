@@ -407,7 +407,7 @@ if (!empty($params)) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
     <style>
         .eligibility-textarea {
             resize: vertical;

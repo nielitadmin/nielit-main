@@ -369,6 +369,43 @@ function clearThemeCache() {
 }
 
 /**
+ * Project root for theme asset existence checks.
+ */
+function getThemeProjectRoot() {
+    static $root = null;
+    if ($root === null) {
+        $root = realpath(__DIR__ . '/..') ?: dirname(__DIR__);
+    }
+    return $root;
+}
+
+/**
+ * Check whether a theme asset exists relative to the project root.
+ */
+function themeAssetExists($relativePath) {
+    $relativePath = ltrim(str_replace('\\', '/', (string) $relativePath), '/');
+    if ($relativePath === '') {
+        return false;
+    }
+    $fullPath = getThemeProjectRoot() . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+    return file_exists($fullPath);
+}
+
+/**
+ * Build an absolute URL for a project asset path.
+ */
+function getThemeAssetUrl($relativePath) {
+    $relativePath = ltrim(str_replace('\\', '/', (string) $relativePath), '/');
+    if ($relativePath === '') {
+        return '';
+    }
+    if (defined('APP_URL') && APP_URL !== '') {
+        return rtrim(APP_URL, '/') . '/' . $relativePath;
+    }
+    return '/' . $relativePath;
+}
+
+/**
  * Get theme logo path
  * Returns the logo path with proper fallback
  * 
@@ -376,11 +413,10 @@ function clearThemeCache() {
  * @return string Logo file path
  */
 function getThemeLogo($theme) {
-    if (!empty($theme['logo_path']) && file_exists($theme['logo_path'])) {
-        return htmlspecialchars($theme['logo_path'], ENT_QUOTES, 'UTF-8');
+    if (!empty($theme['logo_path']) && themeAssetExists($theme['logo_path'])) {
+        return ltrim(str_replace('\\', '/', $theme['logo_path']), '/');
     }
     
-    // Fallback to default logo
     return 'assets/images/bhubaneswar_logo.png';
 }
 
@@ -392,12 +428,25 @@ function getThemeLogo($theme) {
  * @return string Favicon file path
  */
 function getThemeFavicon($theme) {
-    if (!empty($theme['favicon_path']) && file_exists($theme['favicon_path'])) {
-        return htmlspecialchars($theme['favicon_path'], ENT_QUOTES, 'UTF-8');
+    if (!empty($theme['favicon_path']) && themeAssetExists($theme['favicon_path'])) {
+        return ltrim(str_replace('\\', '/', $theme['favicon_path']), '/');
     }
     
-    // Fallback to default favicon
     return 'assets/images/favicon.ico';
+}
+
+/**
+ * Absolute URL for the active theme logo.
+ */
+function getThemeLogoUrl($theme) {
+    return getThemeAssetUrl(getThemeLogo($theme));
+}
+
+/**
+ * Absolute URL for the active theme favicon.
+ */
+function getThemeFaviconUrl($theme) {
+    return getThemeAssetUrl(getThemeFavicon($theme));
 }
 
 /**

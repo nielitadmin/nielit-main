@@ -10,6 +10,9 @@ session_start();
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+
+$active_theme = loadActiveTheme($conn);
 
 // Check if the student is logged in
 if (!isset($_SESSION['student_id'])) {
@@ -53,7 +56,7 @@ $receipt_ext = strtolower(pathinfo($receipt_path, PATHINFO_EXTENSION));
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Portal - NIELIT Bhubaneswar</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="icon" href="<?php echo htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8'); ?>" type="image/x-icon">
     <link href="style.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 

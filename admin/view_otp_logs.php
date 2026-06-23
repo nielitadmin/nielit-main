@@ -39,7 +39,7 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="../assets/css/admin-theme.css" rel="stylesheet">
     <link href="../assets/css/toast-notifications.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
     
     <style>
         :root {

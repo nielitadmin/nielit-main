@@ -35,6 +35,7 @@
     $mock_test_portal_url = getMockTestPortalUrl();
     $nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
     injectThemeCSS($active_theme);
+    echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
     
     $banners = []; $announcements_content = []; $featured_courses = [];
     $text_blocks = []; $image_blocks = []; $news_items = [];
@@ -1209,7 +1210,7 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-8 d-flex align-items-center gap-3">
-                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo">
+                <img src="<?php echo htmlspecialchars(getThemeLogoUrl($active_theme), ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Logo">
                 <div>
                     <div class="inst-name-hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
                     <div class="inst-name-en"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>

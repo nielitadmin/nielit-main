@@ -24,7 +24,7 @@
     injectThemeCSS($active_theme);
     ?>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/public-theme.css">
-    <link rel="icon" href="<?php echo APP_URL . '/' . getThemeFavicon($active_theme); ?>" type="image/x-icon">
+    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
 </head>
 <body>
 
