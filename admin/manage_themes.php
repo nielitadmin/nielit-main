@@ -1,14 +1,20 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/audit_logger.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+
 if (!isset($_SESSION['admin'])) {
-    header('Location: login_new.php');
+    header('Location: ' . relative_url('login_new.php'));
     exit();
 }
 
-require_once '../config/database.php';
-require_once '../config/config.php';
-require_once '../includes/theme_loader.php';
-require_once '../includes/audit_logger.php';
+if (($_SESSION['admin_role'] ?? '') !== 'master_admin') {
+    $_SESSION['message'] = 'Access denied. Theme management is available to Master Admin only.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: ' . relative_url('dashboard.php'));
+    exit();
+}
 
 // Generate CSRF token if it doesn't exist
 if (empty($_SESSION['csrf_token'])) {
@@ -58,10 +64,15 @@ function sanitizeThemeInput($data) {
     ];
 }
 
-// Function to handle logo upload
-function uploadLogo($file, $upload_dir = '../uploads/themes/') {
+// Function to handle logo/favicon upload
+function uploadThemeAsset($file, $upload_dir = '../uploads/themes/', $asset_type = 'logo') {
     $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
     $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
+
+    if ($asset_type === 'favicon') {
+        $allowed_types = array_merge($allowed_types, ['image/x-icon', 'image/vnd.microsoft.icon']);
+        $allowed_extensions[] = 'ico';
+    }
     $max_size = 2 * 1024 * 1024; // 2MB
     
     // Check if file was uploaded
@@ -80,13 +91,19 @@ function uploadLogo($file, $upload_dir = '../uploads/themes/') {
     finfo_close($finfo);
     
     if (!in_array($mime_type, $allowed_types)) {
-        return ['success' => false, 'message' => 'Invalid file type. Allowed: JPG, PNG, GIF, SVG'];
+        $allowed_label = $asset_type === 'favicon'
+            ? 'JPG, PNG, GIF, SVG, ICO'
+            : 'JPG, PNG, GIF, SVG';
+        return ['success' => false, 'message' => 'Invalid file type. Allowed: ' . $allowed_label];
     }
     
     // Validate file extension
     $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($file_extension, $allowed_extensions)) {
-        return ['success' => false, 'message' => 'Invalid file extension. Allowed: jpg, jpeg, png, gif, svg'];
+        $allowed_label = $asset_type === 'favicon'
+            ? 'jpg, jpeg, png, gif, svg, ico'
+            : 'jpg, jpeg, png, gif, svg';
+        return ['success' => false, 'message' => 'Invalid file extension. Allowed: ' . $allowed_label];
     }
     
     // Validate file size
@@ -95,7 +112,8 @@ function uploadLogo($file, $upload_dir = '../uploads/themes/') {
     }
     
     // Generate unique filename
-    $filename = uniqid('logo_') . '_' . time() . '.' . $file_extension;
+    $prefix = $asset_type === 'favicon' ? 'favicon_' : 'logo_';
+    $filename = uniqid($prefix) . '_' . time() . '.' . $file_extension;
     $filepath = $upload_dir . $filename;
     
     // Create directory if it doesn't exist
@@ -110,6 +128,14 @@ function uploadLogo($file, $upload_dir = '../uploads/themes/') {
     }
     
     return ['success' => false, 'message' => 'Failed to save file. Please try again.'];
+}
+
+function uploadLogo($file, $upload_dir = '../uploads/themes/') {
+    return uploadThemeAsset($file, $upload_dir, 'logo');
+}
+
+function uploadFavicon($file, $upload_dir = '../uploads/themes/') {
+    return uploadThemeAsset($file, $upload_dir, 'favicon');
 }
 
 // Function to delete old logo file
@@ -180,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         $_SESSION['message'] = "Invalid request. Please try again.";
         $_SESSION['message_type'] = "danger";
-        header('Location: manage_themes.php');
+        header('Location: ' . relative_url('manage_themes.php'));
         exit();
     }
     
@@ -204,20 +230,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $_SESSION['message'] = "Logo upload failed: " . $upload_result['message'];
                     $_SESSION['message_type'] = "danger";
-                    header('Location: manage_themes.php');
+                    header('Location: ' . relative_url('manage_themes.php'));
                     exit();
                 }
             }
             
             // Handle favicon upload
             if (isset($_FILES['favicon_file']) && $_FILES['favicon_file']['error'] !== UPLOAD_ERR_NO_FILE) {
-                $upload_result = uploadLogo($_FILES['favicon_file']);
+                $upload_result = uploadFavicon($_FILES['favicon_file']);
                 if ($upload_result['success']) {
                     $data['favicon_path'] = $upload_result['path'];
                 } else {
                     $_SESSION['message'] = "Favicon upload failed: " . $upload_result['message'];
                     $_SESSION['message_type'] = "danger";
-                    header('Location: manage_themes.php');
+                    header('Location: ' . relative_url('manage_themes.php'));
                     exit();
                 }
             }
@@ -245,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Validation errors: " . implode(", ", $errors);
             $_SESSION['message_type'] = "danger";
         }
-        header('Location: manage_themes.php');
+        header('Location: ' . relative_url('manage_themes.php'));
         exit();
     }
     
@@ -267,6 +293,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $result = $stmt->get_result();
             $existing_theme = $result->fetch_assoc();
+            if (!$existing_theme) {
+                $_SESSION['message'] = 'Theme not found.';
+                $_SESSION['message_type'] = 'danger';
+                header('Location: ' . relative_url('manage_themes.php'));
+                exit();
+            }
             
             // Handle logo upload
             if (isset($_FILES['logo_file']) && $_FILES['logo_file']['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -280,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $_SESSION['message'] = "Logo upload failed: " . $upload_result['message'];
                     $_SESSION['message_type'] = "danger";
-                    header('Location: manage_themes.php');
+                    header('Location: ' . relative_url('manage_themes.php'));
                     exit();
                 }
             } else {
@@ -290,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Handle favicon upload
             if (isset($_FILES['favicon_file']) && $_FILES['favicon_file']['error'] !== UPLOAD_ERR_NO_FILE) {
-                $upload_result = uploadLogo($_FILES['favicon_file']);
+                $upload_result = uploadFavicon($_FILES['favicon_file']);
                 if ($upload_result['success']) {
                     // Delete old favicon
                     if (!empty($existing_theme['favicon_path'])) {
@@ -300,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $_SESSION['message'] = "Favicon upload failed: " . $upload_result['message'];
                     $_SESSION['message_type'] = "danger";
-                    header('Location: manage_themes.php');
+                    header('Location: ' . relative_url('manage_themes.php'));
                     exit();
                 }
             } else {
@@ -331,7 +363,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Validation errors: " . implode(", ", $errors);
             $_SESSION['message_type'] = "danger";
         }
-        header('Location: manage_themes.php');
+        header('Location: ' . relative_url('manage_themes.php'));
         exit();
     }
     
@@ -364,7 +396,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['message'] = "Failed to activate theme. Please try again.";
             $_SESSION['message_type'] = "danger";
         }
-        header('Location: manage_themes.php');
+        header('Location: ' . relative_url('manage_themes.php'));
         exit();
     }
 }
@@ -570,6 +602,33 @@ $result = getAllThemes($conn);
                 width: 100%;
             }
         }
+
+        /* Modals on this page use .modal > .modal-content (no .modal-dialog) */
+        #addThemeModal > .modal-content,
+        #editThemeModal > .modal-content,
+        #previewThemeModal > .modal-content,
+        #activateConfirmModal > .modal-content {
+            max-width: 700px;
+            width: min(92vw, 700px);
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 12px;
+            border-top: 4px solid var(--accent-gold, #f59e0b);
+            box-shadow: 0 20px 60px rgba(10, 22, 40, 0.3);
+            max-height: calc(100vh - 80px);
+            height: auto;
+            overflow: hidden;
+        }
+
+        #previewThemeModal > .modal-content {
+            max-width: 900px;
+            width: min(96vw, 900px);
+        }
+
+        #activateConfirmModal > .modal-content {
+            max-width: 500px;
+            width: min(92vw, 500px);
+        }
     </style>
 </head>
 <body class="admin-body">
@@ -697,8 +756,10 @@ $result = getAllThemes($conn);
                                             <i class="fas fa-eye"></i> Preview
                                         </button>
                                         <?php if (!$theme['is_active']): ?>
-                                            <button class="btn btn-sm btn-success" 
-                                                    onclick="activateTheme(<?php echo $theme['id']; ?>, '<?php echo htmlspecialchars($theme['theme_name'], ENT_QUOTES); ?>')" 
+                                            <button type="button"
+                                                    class="btn btn-sm btn-success theme-activate-btn"
+                                                    data-theme-id="<?php echo (int) $theme['id']; ?>"
+                                                    data-theme-name="<?php echo htmlspecialchars($theme['theme_name'], ENT_QUOTES); ?>"
                                                     title="Activate Theme">
                                                 <i class="fas fa-check"></i> Activate
                                             </button>
@@ -733,7 +794,7 @@ $result = getAllThemes($conn);
                 <h5><i class="fas fa-plus"></i> Add New Theme</h5>
                 <button class="modal-close" onclick="closeAddModal()">&times;</button>
             </div>
-            <form method="POST" action="manage_themes.php" enctype="multipart/form-data">
+            <form method="POST" action="<?php echo htmlspecialchars(relative_url('manage_themes.php'), ENT_QUOTES, 'UTF-8'); ?>" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="add">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <div class="modal-body">
@@ -788,7 +849,7 @@ $result = getAllThemes($conn);
                 <h5><i class="fas fa-edit"></i> Edit Theme</h5>
                 <button class="modal-close" onclick="closeEditModal()">&times;</button>
             </div>
-            <form method="POST" action="manage_themes.php" enctype="multipart/form-data">
+            <form method="POST" action="<?php echo htmlspecialchars(relative_url('manage_themes.php'), ENT_QUOTES, 'UTF-8'); ?>" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" id="edit_id" name="id">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
@@ -937,13 +998,29 @@ $result = getAllThemes($conn);
 
     <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
     <script>
+        const themesPostUrl = <?php echo json_encode(relative_url('manage_themes.php')); ?>;
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('show');
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('show');
+            }
+        }
+
         // Modal functions
         function openAddModal() {
-            document.getElementById('addThemeModal').style.display = 'flex';
+            openModal('addThemeModal');
         }
 
         function closeAddModal() {
-            document.getElementById('addThemeModal').style.display = 'none';
+            closeModal('addThemeModal');
             document.querySelector('#addThemeModal form').reset();
         }
 
@@ -970,11 +1047,11 @@ $result = getAllThemes($conn);
                 faviconContainer.innerHTML = '<small style="color: #94a3b8;">No current favicon</small>';
             }
             
-            document.getElementById('editThemeModal').style.display = 'flex';
+            openModal('editThemeModal');
         }
 
         function closeEditModal() {
-            document.getElementById('editThemeModal').style.display = 'none';
+            closeModal('editThemeModal');
         }
 
         function openPreviewModal(theme) {
@@ -1014,26 +1091,26 @@ $result = getAllThemes($conn);
                 previewLogo.style.display = 'none';
             }
             
-            document.getElementById('previewThemeModal').style.display = 'flex';
+            openModal('previewThemeModal');
         }
 
         function closePreviewModal() {
-            document.getElementById('previewThemeModal').style.display = 'none';
+            closeModal('previewThemeModal');
         }
 
         // Store theme ID for activation confirmation
         let themeToActivate = null;
         let themeNameToActivate = '';
 
-        function activateTheme(id, themeName) {
+        function promptActivateTheme(id, themeName) {
             themeToActivate = id;
             themeNameToActivate = themeName || 'this theme';
             document.getElementById('confirm_theme_name').textContent = themeNameToActivate;
-            document.getElementById('activateConfirmModal').style.display = 'flex';
+            openModal('activateConfirmModal');
         }
 
         function closeActivateConfirmModal() {
-            document.getElementById('activateConfirmModal').style.display = 'none';
+            closeModal('activateConfirmModal');
             themeToActivate = null;
             themeNameToActivate = '';
         }
@@ -1042,7 +1119,7 @@ $result = getAllThemes($conn);
             if (themeToActivate) {
                 const form = document.createElement('form');
                 form.method = 'POST';
-                form.action = 'manage_themes.php';
+                form.action = themesPostUrl;
                 
                 const actionInput = document.createElement('input');
                 actionInput.type = 'hidden';
@@ -1067,26 +1144,31 @@ $result = getAllThemes($conn);
             }
         }
 
+        document.querySelectorAll('.theme-activate-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                promptActivateTheme(
+                    parseInt(button.dataset.themeId, 10),
+                    button.dataset.themeName || 'this theme'
+                );
+            });
+        });
+
         // Close modals when clicking outside
-        window.onclick = function(event) {
-            const addModal = document.getElementById('addThemeModal');
-            const editModal = document.getElementById('editThemeModal');
-            const previewModal = document.getElementById('previewThemeModal');
-            const confirmModal = document.getElementById('activateConfirmModal');
-            
-            if (event.target === addModal) {
-                closeAddModal();
-            }
-            if (event.target === editModal) {
-                closeEditModal();
-            }
-            if (event.target === previewModal) {
-                closePreviewModal();
-            }
-            if (event.target === confirmModal) {
-                closeActivateConfirmModal();
-            }
-        }
+        window.addEventListener('click', function(event) {
+            ['addThemeModal', 'editThemeModal', 'previewThemeModal', 'activateConfirmModal'].forEach(function(modalId) {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    closeModal(modalId);
+                    if (modalId === 'addThemeModal') {
+                        document.querySelector('#addThemeModal form').reset();
+                    }
+                    if (modalId === 'activateConfirmModal') {
+                        themeToActivate = null;
+                        themeNameToActivate = '';
+                    }
+                }
+            });
+        });
 
         // Display session messages as toast notifications
         <?php if (isset($_SESSION['message'])): ?>
