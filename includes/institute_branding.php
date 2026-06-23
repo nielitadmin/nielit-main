@@ -87,3 +87,5 @@ if (!defined('MINISTRY_NAME_EN')) {
         'Ministry of Electronics & Information Technology'
     );
 }
+
+require_once __DIR__ . '/visitor_counter.php';

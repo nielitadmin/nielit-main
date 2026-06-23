@@ -45,7 +45,7 @@
                         Student Portal v1.0
                     </div>
                 </div>
-                <?php if (isset($conn) && $conn instanceof mysqli): ?>
+                <?php if (isset($conn) && $conn instanceof mysqli && function_exists('renderVisitorCountFooter')): ?>
                 <div class="mt-2" style="font-size: 0.78rem; opacity: 0.75;">
                     <?php renderVisitorCountFooter($conn); ?>
                 </div>
