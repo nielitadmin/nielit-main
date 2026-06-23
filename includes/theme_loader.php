@@ -472,4 +472,8 @@ function applyTheme($conn) {
     injectThemeCSS($theme);
     return $theme;
 }
+
+if (function_exists('visitorCounterTrackIfReady')) {
+    visitorCounterTrackIfReady();
+}
 ?>

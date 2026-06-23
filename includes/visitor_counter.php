@@ -135,6 +135,40 @@ if (!function_exists('visitorCounterEnsureTables')) {
     }
 }
 
+if (!function_exists('visitorCounterConnectionIsUsable')) {
+    function visitorCounterConnectionIsUsable($conn): bool
+    {
+        if (!$conn instanceof mysqli) {
+            return false;
+        }
+
+        try {
+            return @$conn->ping();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('visitorCounterTrackIfReady')) {
+    function visitorCounterTrackIfReady($conn = null): void
+    {
+        if ($conn === null) {
+            global $conn;
+        }
+
+        if (!visitorCounterConnectionIsUsable($conn)) {
+            return;
+        }
+
+        try {
+            trackPageVisit($conn);
+        } catch (Throwable $e) {
+            error_log('Visitor counter tracking failed: ' . $e->getMessage());
+        }
+    }
+}
+
 if (!function_exists('trackPageVisit')) {
     function trackPageVisit($conn): void
     {
@@ -142,71 +176,80 @@ if (!function_exists('trackPageVisit')) {
         if ($tracked || !visitorCounterShouldTrack()) {
             return;
         }
-        $tracked = true;
 
-        if (!$conn || !visitorCounterEnsureTables($conn)) {
+        if (!$conn || !visitorCounterConnectionIsUsable($conn)) {
             return;
         }
 
-        $pagePath = visitorCounterNormalizePath();
-        $visitDate = date('Y-m-d');
-        $sessionKey = visitorCounterSessionKey();
-        $now = date('Y-m-d H:i:s');
+        try {
+            if (!visitorCounterEnsureTables($conn)) {
+                return;
+            }
 
-        $isNewPageVisitor = false;
-        $stmt = $conn->prepare(
-            'INSERT IGNORE INTO page_visit_uniques (page_path, visit_date, session_key, first_seen_at) VALUES (?, ?, ?, ?)'
-        );
-        if ($stmt) {
-            $stmt->bind_param('ssss', $pagePath, $visitDate, $sessionKey, $now);
-            $stmt->execute();
-            $isNewPageVisitor = $stmt->affected_rows > 0;
-            $stmt->close();
-        }
+            $tracked = true;
 
-        if ($isNewPageVisitor) {
-            $sql = 'INSERT INTO page_visit_daily (page_path, visit_date, page_views, unique_visitors)
-                    VALUES (?, ?, 1, 1)
-                    ON DUPLICATE KEY UPDATE page_views = page_views + 1, unique_visitors = unique_visitors + 1';
-        } else {
-            $sql = 'INSERT INTO page_visit_daily (page_path, visit_date, page_views, unique_visitors)
-                    VALUES (?, ?, 1, 0)
-                    ON DUPLICATE KEY UPDATE page_views = page_views + 1';
-        }
+            $pagePath = visitorCounterNormalizePath();
+            $visitDate = date('Y-m-d');
+            $sessionKey = visitorCounterSessionKey();
+            $now = date('Y-m-d H:i:s');
 
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param('ss', $pagePath, $visitDate);
-            $stmt->execute();
-            $stmt->close();
-        }
+            $isNewPageVisitor = false;
+            $stmt = $conn->prepare(
+                'INSERT IGNORE INTO page_visit_uniques (page_path, visit_date, session_key, first_seen_at) VALUES (?, ?, ?, ?)'
+            );
+            if ($stmt) {
+                $stmt->bind_param('ssss', $pagePath, $visitDate, $sessionKey, $now);
+                $stmt->execute();
+                $isNewPageVisitor = $stmt->affected_rows > 0;
+                $stmt->close();
+            }
 
-        $isNewSiteVisitor = false;
-        $stmt = $conn->prepare(
-            'INSERT IGNORE INTO site_visit_uniques (visit_date, session_key, first_seen_at) VALUES (?, ?, ?)'
-        );
-        if ($stmt) {
-            $stmt->bind_param('sss', $visitDate, $sessionKey, $now);
-            $stmt->execute();
-            $isNewSiteVisitor = $stmt->affected_rows > 0;
-            $stmt->close();
-        }
+            if ($isNewPageVisitor) {
+                $sql = 'INSERT INTO page_visit_daily (page_path, visit_date, page_views, unique_visitors)
+                        VALUES (?, ?, 1, 1)
+                        ON DUPLICATE KEY UPDATE page_views = page_views + 1, unique_visitors = unique_visitors + 1';
+            } else {
+                $sql = 'INSERT INTO page_visit_daily (page_path, visit_date, page_views, unique_visitors)
+                        VALUES (?, ?, 1, 0)
+                        ON DUPLICATE KEY UPDATE page_views = page_views + 1';
+            }
 
-        if ($isNewSiteVisitor) {
-            $sql = 'INSERT INTO site_visit_daily (visit_date, page_views, unique_visitors)
-                    VALUES (?, 1, 1)
-                    ON DUPLICATE KEY UPDATE page_views = page_views + 1, unique_visitors = unique_visitors + 1';
-        } else {
-            $sql = 'INSERT INTO site_visit_daily (visit_date, page_views, unique_visitors)
-                    VALUES (?, 1, 0)
-                    ON DUPLICATE KEY UPDATE page_views = page_views + 1';
-        }
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param('ss', $pagePath, $visitDate);
+                $stmt->execute();
+                $stmt->close();
+            }
 
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param('s', $visitDate);
-            $stmt->execute();
-            $stmt->close();
+            $isNewSiteVisitor = false;
+            $stmt = $conn->prepare(
+                'INSERT IGNORE INTO site_visit_uniques (visit_date, session_key, first_seen_at) VALUES (?, ?, ?)'
+            );
+            if ($stmt) {
+                $stmt->bind_param('sss', $visitDate, $sessionKey, $now);
+                $stmt->execute();
+                $isNewSiteVisitor = $stmt->affected_rows > 0;
+                $stmt->close();
+            }
+
+            if ($isNewSiteVisitor) {
+                $sql = 'INSERT INTO site_visit_daily (visit_date, page_views, unique_visitors)
+                        VALUES (?, 1, 1)
+                        ON DUPLICATE KEY UPDATE page_views = page_views + 1, unique_visitors = unique_visitors + 1';
+            } else {
+                $sql = 'INSERT INTO site_visit_daily (visit_date, page_views, unique_visitors)
+                        VALUES (?, 1, 0)
+                        ON DUPLICATE KEY UPDATE page_views = page_views + 1';
+            }
+
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param('s', $visitDate);
+                $stmt->execute();
+                $stmt->close();
+            }
+        } catch (Throwable $e) {
+            error_log('Visitor counter tracking failed: ' . $e->getMessage());
         }
     }
 }
@@ -303,6 +346,7 @@ if (!function_exists('getVisitorStatsByPage')) {
 if (!function_exists('renderVisitorCountFooter')) {
     function renderVisitorCountFooter($conn): void
     {
+        visitorCounterTrackIfReady($conn);
         $summary = getVisitorSummary($conn);
         echo '<span class="visitor-count-footer">';
         echo '<i class="fas fa-users me-1"></i>';
@@ -310,14 +354,4 @@ if (!function_exists('renderVisitorCountFooter')) {
         echo ' | Total Views: ' . formatVisitorCount($summary['total_page_views']);
         echo '</span>';
     }
-}
-
-if (!defined('VISITOR_COUNTER_SHUTDOWN_REGISTERED')) {
-    define('VISITOR_COUNTER_SHUTDOWN_REGISTERED', true);
-    register_shutdown_function(static function (): void {
-        global $conn;
-        if (isset($conn) && $conn instanceof mysqli) {
-            trackPageVisit($conn);
-        }
-    });
 }
