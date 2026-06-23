@@ -3,6 +3,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/audit_logger.php';
 require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/themes_schema.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: ' . relative_url('login_new.php'));
@@ -24,6 +25,11 @@ if (empty($_SESSION['csrf_token'])) {
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
+
+if (!ensureThemesSchema($conn)) {
+    $_SESSION['message'] = 'Theme database setup failed. Please run migrations/upgrade_themes_table.php or contact support.';
+    $_SESSION['message_type'] = 'danger';
+}
 
 // Function to validate theme input
 function validateThemeInput($data) {
@@ -149,19 +155,39 @@ function deleteOldLogo($logo_path) {
 // Function to create new theme
 function createTheme($conn, $data) {
     $stmt = $conn->prepare("INSERT INTO themes (theme_name, primary_color, secondary_color, accent_color, logo_path, favicon_path) VALUES (?, ?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        error_log('createTheme prepare failed: ' . $conn->error);
+        return false;
+    }
+
     $logo_path = $data['logo_path'] ?? null;
     $favicon_path = $data['favicon_path'] ?? null;
     $stmt->bind_param("ssssss", $data['theme_name'], $data['primary_color'], $data['secondary_color'], $data['accent_color'], $logo_path, $favicon_path);
-    return $stmt->execute();
+    $success = $stmt->execute();
+    if (!$success) {
+        error_log('createTheme execute failed: ' . $stmt->error);
+    }
+    $stmt->close();
+    return $success;
 }
 
 // Function to update existing theme
 function updateTheme($conn, $id, $data) {
     $stmt = $conn->prepare("UPDATE themes SET theme_name=?, primary_color=?, secondary_color=?, accent_color=?, logo_path=?, favicon_path=? WHERE id=?");
+    if (!$stmt) {
+        error_log('updateTheme prepare failed: ' . $conn->error);
+        return false;
+    }
+
     $logo_path = $data['logo_path'] ?? null;
     $favicon_path = $data['favicon_path'] ?? null;
     $stmt->bind_param("ssssssi", $data['theme_name'], $data['primary_color'], $data['secondary_color'], $data['accent_color'], $logo_path, $favicon_path, $id);
-    return $stmt->execute();
+    $success = $stmt->execute();
+    if (!$success) {
+        error_log('updateTheme execute failed: ' . $stmt->error);
+    }
+    $stmt->close();
+    return $success;
 }
 
 // Function to activate theme (deactivate others)
@@ -175,8 +201,12 @@ function activateTheme($conn, $id) {
         
         // Activate the selected theme
         $stmt = $conn->prepare("UPDATE themes SET is_active = 1 WHERE id = ?");
+        if (!$stmt) {
+            throw new Exception($conn->error ?: 'Failed to prepare theme activation query');
+        }
         $stmt->bind_param("i", $id);
         $stmt->execute();
+        $stmt->close();
         
         // Commit transaction
         $conn->commit();
@@ -264,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 logThemeAction($conn, $_SESSION['admin'], 'create', null, $data['theme_name'], 'failure', 
                     "Database error: " . $conn->error);
                 
-                $_SESSION['message'] = "Failed to add theme. Please try again.";
+                $_SESSION['message'] = "Failed to add theme: " . ($conn->error ?: 'Database error. Please try again.');
                 $_SESSION['message_type'] = "danger";
             }
         } else {
