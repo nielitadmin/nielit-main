@@ -146,7 +146,7 @@ $scheme_incharge = !empty($batch['scheme_incharge']) ? $batch['scheme_incharge']
 $class_time = !empty($batch['class_time']) ? $batch['class_time'] : '9:00 AM to 1:30 PM';
 
 // Get location
-$location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar';
+$location = normalize_nielit_batch_location(!empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar');
 
 // Determine extension centre name based on location
 $extension_centre = nielit_location_centre_label($location);

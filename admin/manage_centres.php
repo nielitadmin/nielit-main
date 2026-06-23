@@ -5,8 +5,8 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
-require_once '../config/database.php';
 require_once '../config/config.php';
+require_once '../includes/institute_branding.php';
 require_once '../includes/theme_loader.php';
 require_once '../includes/audit_logger.php';
 
@@ -329,7 +329,7 @@ $result = getAllCentres($conn);
                                 <?php while ($centre = $result->fetch_assoc()): ?>
                                     <tr>
                                         <td><strong><?php echo htmlspecialchars($centre['code']); ?></strong></td>
-                                        <td><?php echo htmlspecialchars($centre['name']); ?></td>
+                                        <td><?php echo htmlspecialchars(normalize_nielit_centre_name($centre['name'])); ?></td>
                                         <td><?php echo htmlspecialchars($centre['city'] ?? '-'); ?></td>
                                         <td><?php echo htmlspecialchars($centre['state'] ?? '-'); ?></td>
                                         <td><?php echo htmlspecialchars($centre['phone'] ?? '-'); ?></td>

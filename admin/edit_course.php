@@ -6,6 +6,7 @@ error_reporting(E_ALL);
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 
 // Function to generate short token
@@ -579,7 +580,7 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                                 if ($centres_result && $centres_result->num_rows > 0) {
                                     while ($centre = $centres_result->fetch_assoc()) {
                                         $selected = ($course['centre_id'] == $centre['id']) ? 'selected' : '';
-                                        echo '<option value="' . $centre['id'] . '" ' . $selected . '>' . htmlspecialchars($centre['name']) . '</option>';
+                                        echo '<option value="' . $centre['id'] . '" ' . $selected . '>' . htmlspecialchars(normalize_nielit_centre_name($centre['name'])) . '</option>';
                                     }
                                 }
                                 ?>

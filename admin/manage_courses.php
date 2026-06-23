@@ -8,6 +8,7 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 function findDuplicateCourseCode($conn, $course_code, $exclude_id = null) {
     $course_code = strtoupper(trim($course_code));
@@ -736,7 +737,7 @@ if (!empty($params)) {
                                 <select name="centre_id" class="form-control">
                                     <option value="">-- Select Centre --</option>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= $centre['id'] ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                        <option value="<?= $centre['id'] ?>"><?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                                 <small class="text-muted">Optional: Associate course with a training centre</small>
@@ -746,7 +747,7 @@ if (!empty($params)) {
                                 <select name="training_center" class="form-control" required>
                                     <option value="">-- Select Training Centre --</option>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                        <option value="<?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?>"><?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -868,7 +869,7 @@ if (!empty($params)) {
                                 <select name="centre_id" id="edit_centre_id" class="form-control">
                                     <option value="">-- Select Centre --</option>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= $centre['id'] ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                        <option value="<?= $centre['id'] ?>"><?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                                 <small class="text-muted">Optional: Associate course with a training centre</small>
@@ -878,7 +879,7 @@ if (!empty($params)) {
                                 <select name="training_center" id="edit_training_center" class="form-control" required>
                                     <option value="">-- Select Training Centre --</option>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= htmlspecialchars($centre['name']) ?>"><?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
+                                        <option value="<?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?>"><?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)</option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>

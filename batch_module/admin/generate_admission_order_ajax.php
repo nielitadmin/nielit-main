@@ -148,7 +148,7 @@ $scheme_incharge = !empty($batch['scheme_incharge']) ? $batch['scheme_incharge']
 $class_time = !empty($batch['class_time']) ? $batch['class_time'] : '9:00 AM to 1:30 PM';
 
 // Get location
-$location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar';
+$location = normalize_nielit_batch_location(!empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar');
 
 // Determine extension centre name based on location
 $extension_centre = nielit_location_centre_label($location);
@@ -340,7 +340,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     onchange="updateField('location', this.value)"
                     style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px;">
                 <option value="NIELIT Bhubaneswar" <?php echo ($location == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
-                <option value="NIELIT Baleshwar" <?php echo is_nielit_baleshwar_location($location) ? 'selected' : ''; ?>>NIELIT Baleshwar</option>
+                <option value="<?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?>" <?php echo is_nielit_baleshwar_location($location) ? 'selected' : ''; ?>><?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?></option>
             </select>
         </div>
         <div>

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/maintenance_check.php';
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 ensureCourseProjectLevelColumn($conn);
 
@@ -489,6 +490,7 @@ $result_internship = $conn->query($sql_internship);
                     if ($result_centres && $result_centres->num_rows > 0) {
                         $result_centres->data_seek(0);
                         while ($centre = $result_centres->fetch_assoc()) {
+                            $centre['name'] = normalize_nielit_centre_name($centre['name']);
                             if (stripos($centre['name'], 'bhubaneswar') !== false || stripos($centre['name'], 'bbsr') !== false) {
                                 $bhubaneswar_centre = $centre;
                             } else {
@@ -570,7 +572,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -611,7 +613,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item" style="grid-column:1/-1;"><i class="fas fa-info-circle"></i><div><span class="info-label">Description</span><span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span></div></div>
+                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
                                     <div class="info-item"><i class="fas fa-location-dot"></i><div><span class="info-label">Location</span><span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span></div></div>
@@ -656,7 +658,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -697,7 +699,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item" style="grid-column:1/-1;"><i class="fas fa-info-circle"></i><div><span class="info-label">Description</span><span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span></div></div>
+                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
                                     <div class="info-item"><i class="fas fa-location-dot"></i><div><span class="info-label">Location</span><span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span></div></div>
@@ -742,7 +744,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -783,7 +785,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item" style="grid-column:1/-1;"><i class="fas fa-info-circle"></i><div><span class="info-label">Description</span><span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span></div></div>
+                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
                                     <div class="info-item"><i class="fas fa-location-dot"></i><div><span class="info-label">Location</span><span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span></div></div>
@@ -828,7 +830,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -912,7 +914,7 @@ $result_internship = $conn->query($sql_internship);
                                         <i class="fas fa-map-marker-alt"></i>
                                         <div>
                                             <span class="info-label">Training Centre</span>
-                                            <span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                            <span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         </div>
                                     </div>
                                     <?php endif; ?>
@@ -982,7 +984,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1023,7 +1025,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item" style="grid-column:1/-1;"><i class="fas fa-info-circle"></i><div><span class="info-label">Description</span><span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span></div></div>
+                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
                                     <div class="info-item"><i class="fas fa-location-dot"></i><div><span class="info-label">Location</span><span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span></div></div>
@@ -1068,7 +1070,7 @@ $result_internship = $conn->query($sql_internship);
                                         <span><i class="fas fa-clock"></i> <?php echo htmlspecialchars($row["duration"]); ?></span>
                                         <?php echo renderCourseFeeQuickInfo($row); ?>
                                         <?php if (!empty($row["centre_name"])): ?>
-                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars($row["centre_name"]); ?></span>
+                                        <span><i class="fas fa-building"></i> <?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span>
                                         <?php endif; ?>
                                     </div>
                                 </div>
@@ -1109,7 +1111,7 @@ $result_internship = $conn->query($sql_internship);
                                     <div class="info-item" style="grid-column:1/-1;"><i class="fas fa-info-circle"></i><div><span class="info-label">Description</span><span class="info-value"><?php echo nl2br(htmlspecialchars($row["course_description"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_name"])): ?>
-                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars($row["centre_name"]); ?></span></div></div>
+                                    <div class="info-item"><i class="fas fa-map-marker-alt"></i><div><span class="info-label">Training Centre</span><span class="info-value"><?php echo htmlspecialchars(normalize_nielit_centre_name($row["centre_name"])); ?></span></div></div>
                                     <?php endif; ?>
                                     <?php if (!empty($row["centre_city"]) && !empty($row["centre_state"])): ?>
                                     <div class="info-item"><i class="fas fa-location-dot"></i><div><span class="info-label">Location</span><span class="info-value"><?php echo htmlspecialchars($row["centre_city"]) . ', ' . htmlspecialchars($row["centre_state"]); ?></span></div></div>

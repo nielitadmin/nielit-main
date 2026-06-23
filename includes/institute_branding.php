@@ -23,10 +23,47 @@ if (!defined('INSTITUTE_NAME_HI_FORMAL')) {
     );
 }
 
+if (!defined('NIELIT_BALESHWAR_EXTENSION')) {
+    define('NIELIT_BALESHWAR_EXTENSION', 'NIELIT Baleshwar Extension');
+}
+
 if (!function_exists('is_nielit_baleshwar_location')) {
     function is_nielit_baleshwar_location($location): bool
     {
-        return in_array((string) $location, ['NIELIT Balasore', 'NIELIT Baleshwar'], true);
+        return in_array((string) $location, [
+            'NIELIT Balasore',
+            'NIELIT Balasore Extension',
+            'NIELIT Baleshwar',
+            NIELIT_BALESHWAR_EXTENSION,
+        ], true);
+    }
+}
+
+if (!function_exists('normalize_nielit_centre_name')) {
+    function normalize_nielit_centre_name($name): string
+    {
+        $name = trim((string) $name);
+        $aliases = [
+            'NIELIT Balasore Extension' => NIELIT_BALESHWAR_EXTENSION,
+            'NIELIT Balasore Extension Centre' => NIELIT_BALESHWAR_EXTENSION,
+            'NIELIT Balasore' => NIELIT_BALESHWAR_EXTENSION,
+            'NIELIT Baleshwar' => NIELIT_BALESHWAR_EXTENSION,
+            'NIELIT Baleshwar Extension Centre' => NIELIT_BALESHWAR_EXTENSION,
+        ];
+
+        return $aliases[$name] ?? $name;
+    }
+}
+
+if (!function_exists('normalize_nielit_batch_location')) {
+    function normalize_nielit_batch_location($location): string
+    {
+        if (is_nielit_baleshwar_location($location)) {
+            return NIELIT_BALESHWAR_EXTENSION;
+        }
+
+        $location = trim((string) $location);
+        return $location !== '' ? $location : 'NIELIT Bhubaneswar';
     }
 }
 

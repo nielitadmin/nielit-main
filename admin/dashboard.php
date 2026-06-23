@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login_new.php");
@@ -423,7 +424,7 @@ $centre_name_labels = [];
 if ($centres_result) {
     while ($centre = $centres_result->fetch_assoc()) {
         $centres[] = $centre;
-        $centre_name_labels[] = $centre['name'];
+        $centre_name_labels[] = normalize_nielit_centre_name($centre['name']);
     }
 }
 
@@ -1835,7 +1836,7 @@ $dashboard_payload = [
                         <p class="stat-subtext" style="margin: 0.35rem 0 0; font-size: 0.72rem; line-height: 1.35; color: #64748b; font-weight: 500;">
                             <?php
                             $centre_summaries = array_map(function ($centre) {
-                                $label = $centre['name'];
+                                $label = normalize_nielit_centre_name($centre['name']);
                                 if (!empty($centre['city'])) {
                                     $label .= ' (' . $centre['city'] . ')';
                                 }
@@ -1875,7 +1876,7 @@ $dashboard_payload = [
                             <?php foreach ($centres as $centre): ?>
                                 <span style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.45rem 0.75rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:0.82rem; font-weight:600;">
                                     <i class="fas fa-building" style="font-size:0.75rem;"></i>
-                                    <?php echo htmlspecialchars($centre['name']); ?>
+                                    <?php echo htmlspecialchars(normalize_nielit_centre_name($centre['name'])); ?>
                                     <span style="opacity:0.75; font-weight:500;">(<?php echo htmlspecialchars($centre['code']); ?>)</span>
                                 </span>
                             <?php endforeach; ?>
@@ -1885,7 +1886,7 @@ $dashboard_payload = [
                         foreach ($centres as $centre) {
                             $location_parts = array_filter([$centre['city'] ?? '', $centre['state'] ?? '']);
                             if (!empty($location_parts)) {
-                                $centre_locations[] = $centre['name'] . ' — ' . implode(', ', $location_parts);
+                                $centre_locations[] = normalize_nielit_centre_name($centre['name']) . ' — ' . implode(', ', $location_parts);
                             }
                         }
                         if (!empty($centre_locations)):
@@ -2541,8 +2542,8 @@ $dashboard_payload = [
                                 <option value="">-- Select Training Centre --</option>
                                 <?php if (!empty($centres)): ?>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= htmlspecialchars($centre['name']) ?>">
-                                            <?= htmlspecialchars($centre['name']) ?> (<?= htmlspecialchars($centre['code']) ?>)
+                                        <option value="<?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?>">
+                                            <?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)
                                         </option>
                                     <?php endforeach; ?>
                                 <?php else: ?>

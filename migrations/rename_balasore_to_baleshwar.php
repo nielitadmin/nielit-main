@@ -27,7 +27,7 @@ if ($conn->query($sqlCentres)) {
 // Batch location values
 $checkBatches = $conn->query("SHOW COLUMNS FROM batches LIKE 'location'");
 if ($checkBatches && $checkBatches->num_rows > 0) {
-    $sqlBatches = "UPDATE batches SET location = 'NIELIT Baleshwar' WHERE location = 'NIELIT Balasore'";
+    $sqlBatches = "UPDATE batches SET location = 'NIELIT Baleshwar Extension' WHERE location IN ('NIELIT Balasore', 'NIELIT Baleshwar', 'NIELIT Balasore Extension')";
     if ($conn->query($sqlBatches)) {
         $steps[] = 'Batch locations updated: ' . $conn->affected_rows . ' row(s)';
     } else {
