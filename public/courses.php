@@ -264,7 +264,7 @@ $result_internship = $conn->query($sql_internship);
         }
 
         .course-card.expanded .course-card-footer {
-            max-height: 120px;
+            max-height: 400px;
             padding: 0.9rem 1.1rem;
             border-top-width: 1px;
             display: flex;
@@ -338,6 +338,94 @@ $result_internship = $conn->query($sql_internship);
             .course-card-header .enrollment-status-badge {
                 justify-self: start;
             }
+
+            .course-card-header h4 .badge {
+                white-space: normal;
+                display: inline-block;
+                margin-left: 0;
+                margin-top: 0.35rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            html, body {
+                overflow-x: hidden;
+            }
+
+            .top-bar .text-header-group {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.5rem;
+            }
+
+            .top-bar .text-header-group img {
+                height: 42px;
+                margin-right: 0 !important;
+            }
+
+            .top-bar .top-bar-text {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .top-bar .top-bar-text .fw-bold {
+                font-size: 0.72rem !important;
+                line-height: 1.35;
+                word-break: break-word;
+            }
+
+            .courses-centre-filter label {
+                display: block;
+                margin-bottom: 0.5rem;
+            }
+
+            .courses-centre-filter .btn,
+            .courses-quick-nav .btn {
+                width: 100%;
+                justify-content: flex-start;
+                white-space: normal;
+                text-align: left;
+                line-height: 1.35;
+            }
+
+            .courses-quick-nav {
+                justify-content: stretch !important;
+            }
+
+            .section-header {
+                padding: 1rem;
+            }
+
+            .section-header h3 {
+                font-size: 0.95rem;
+                flex-wrap: wrap;
+                line-height: 1.4;
+            }
+
+            .course-info-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            .info-value {
+                word-break: break-word;
+                overflow-wrap: anywhere;
+            }
+
+            .course-card.expanded .course-card-footer {
+                max-height: 520px;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .course-card-footer .btn-modern {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .copyright-bar .row > [class*="col-"] {
+                text-align: center !important;
+                margin-bottom: 0.35rem;
+            }
         }
 
         .section-header {
@@ -389,10 +477,10 @@ $result_internship = $conn->query($sql_internship);
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
-                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-3" style="height: 50px;">
-                <div>
+                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-md-3" style="height: 50px; flex-shrink: 0;">
+                <div class="top-bar-text" style="min-width: 0;">
                     <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
-                    <div class="fw-bold" style="color: var(--navy); font-size: 0.95rem; font-family: 'Sora', sans-serif;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
+                    <div class="fw-bold" style="color: var(--navy); font-size: 0.82rem; font-family: 'Sora', sans-serif; line-height: 1.35;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
@@ -477,7 +565,7 @@ $result_internship = $conn->query($sql_internship);
                     Training Centre:
                 </label>
             </div>
-            <div class="col-md-9">
+            <div class="col-md-9 courses-centre-filter">
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                     <button class="btn btn-sm <?php echo $centre_filter == 0 ? 'btn-primary' : 'btn-outline-secondary'; ?>" onclick="selectCentre(0)" style="border-radius: 20px; padding: 0.4rem 1rem; font-size: 0.85rem;">
                         <i class="fas fa-globe"></i> All Centres
@@ -524,7 +612,7 @@ $result_internship = $conn->query($sql_internship);
 <!-- Quick Navigation Buttons -->
 <section class="py-2" style="background: #fff; border-bottom: 1px solid #e2e8f0;">
     <div class="container">
-        <div class="d-flex flex-wrap gap-2 justify-content-center">
+        <div class="d-flex flex-wrap gap-2 justify-content-center courses-quick-nav">
             <a href="#skill-long" class="btn btn-sm btn-outline-primary" style="border-radius: 20px; font-size: 0.8rem;">
                 <i class="fas fa-laptop-code"></i> Skill Based (Long Term) >500 hrs
             </a>
@@ -562,7 +650,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_skill_long && $result_skill_long->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_skill_long->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -648,7 +736,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_skill_short && $result_skill_short->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_skill_short->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -734,7 +822,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_short_digital && $result_short_digital->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_short_digital->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -820,7 +908,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_internship && $result_internship->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_internship->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -974,7 +1062,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_degree_pg && $result_degree_pg->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_degree_pg->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
@@ -1060,7 +1148,7 @@ $result_internship = $conn->query($sql_internship);
             <?php if ($result_digital_lit && $result_digital_lit->num_rows > 0): ?>
                 <div class="row g-4">
                     <?php while ($row = $result_digital_lit->fetch_assoc()): ?>
-                    <div class="col-lg-4 col-md-6">
+                    <div class="col-12 col-md-6 col-lg-4">
                         <div class="course-card" onclick="toggleCourseCard(this)">
                             <div class="course-card-header">
                                 <div class="course-header-info">
