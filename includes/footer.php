@@ -49,7 +49,7 @@ require_once __DIR__ . '/visitor_counter.php';
 
     <!-- Footer Bottom -->
     <div style="border-top: 1px solid rgba(255,255,255,0.06); padding: 20px 0; font-size: 0.82rem; color: rgba(255,255,255,0.3); text-align: center;">
-        <p style="margin: 0 0 8px;">Design & Developed By NIELIT Bhubaneswar © <?php echo date('Y'); ?> | All Rights Reserved</p>
+        <p style="margin: 0 0 8px;">Designed & Developed by NIELIT Bhubaneswar IT Team © <?php echo date('Y'); ?> | All Rights Reserved</p>
         <?php if (isset($conn) && $conn instanceof mysqli): ?>
             <p style="margin: 0; color: rgba(255,255,255,0.45); font-size: 0.78rem;">
                 <?php renderVisitorCountFooter($conn); ?>

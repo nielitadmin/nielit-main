@@ -1827,7 +1827,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
     <div class="footer-bottom">
         <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
             <span>© <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</span>
-            <span>Designed & Developed by <a href="#">NIELIT Team</a></span>
+            <span>Designed & Developed by <a href="#">NIELIT Bhubaneswar IT Team</a></span>
         </div>
         <?php if (isset($conn) && $conn instanceof mysqli): ?>
         <div class="container text-center mt-2" style="font-size: 0.78rem; opacity: 0.75;">

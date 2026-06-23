@@ -519,7 +519,7 @@ unset(
         <div class="container">
             <div class="row">
                 <div class="col-md-6 text-md-start">© 2025 NIELIT Bhubaneswar. All Rights Reserved.</div>
-                <div class="col-md-6 text-md-end">Designed &amp; Developed by NIELIT Team</div>
+                <div class="col-md-6 text-md-end">Designed &amp; Developed by NIELIT Bhubaneswar IT Team</div>
             </div>
         </div>
     </div>

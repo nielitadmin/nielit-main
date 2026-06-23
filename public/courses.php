@@ -1181,7 +1181,7 @@ $result_internship = $conn->query($sql_internship);
                     © <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.
                 </div>
                 <div class="col-md-6 text-md-end text-center">
-                    Designed & Developed by NIELIT Team
+                    Designed & Developed by NIELIT Bhubaneswar IT Team
                 </div>
             </div>
             <?php if (isset($conn) && $conn instanceof mysqli): ?>
