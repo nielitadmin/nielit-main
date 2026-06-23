@@ -2161,7 +2161,7 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="passport_photo" accept="image/*" required>
+                                <input type="file" class="form-control" name="passport_photo" accept="image/*" required data-max-mb="5">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
                                     Recent passport size photo (JPG/PNG, max 5MB)
@@ -2176,7 +2176,7 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Signature <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="signature" accept="image/*" required>
+                                <input type="file" class="form-control" name="signature" accept="image/*" required data-max-mb="2">
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
                                     Clear signature image (JPG/PNG, max 2MB)
@@ -2199,7 +2199,7 @@ if (isset($_SESSION['info'])) {
 
                     <div class="form-group">
                         <label class="form-label">Thumb Impression</label>
-                        <input type="file" class="form-control" name="left_thumb_impression" accept="image/*">
+                        <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression" accept="image/*" data-max-mb="2">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
                             If available, upload a clear left hand thumb impression taken on plain white paper (JPG/PNG, max 2MB).
@@ -2434,22 +2434,80 @@ showStep(1);
 console.log('=== Initialization complete ===');
 
 (function restoreRegistrationAfterErrors() {
-    const savedData = <?php echo json_encode($registrationFormData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
-    const missingFields = <?php echo json_encode(array_values($registrationMissingFields), JSON_UNESCAPED_UNICODE); ?>;
-    if ((!savedData || Object.keys(savedData).length === 0) && missingFields.length === 0) {
-        return;
-    }
-
-    const fieldStepMap = {
+    const registrationFieldStepMap = {
         name: 1, father_name: 1, mother_name: 1, dob: 1, gender: 1, marital_status: 1, scheme_id: 1,
         mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
         address: 2, state: 2, city: 2, pincode: 2, pwd_status: 2, college_name: 2, apaar_id: 2,
         utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
-        aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3, graduation_certificate: 3
+        left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
+        graduation_certificate: 3, other_documents: 3
     };
+
+    const sessionData = <?php echo json_encode($registrationFormData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+    const missingFields = <?php echo json_encode(array_values($registrationMissingFields), JSON_UNESCAPED_UNICODE); ?>;
+    const tokenInput = document.querySelector('[name="registration_token"]');
+    const draftKey = 'reg_draft_' + (tokenInput ? tokenInput.value : 'default');
+
+    function loadDraft() {
+        try {
+            const raw = localStorage.getItem(draftKey);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function saveDraft(data) {
+        try {
+            localStorage.setItem(draftKey, JSON.stringify(data));
+        } catch (e) {}
+    }
+
+    window.clearRegistrationDraft = function() {
+        try {
+            localStorage.removeItem(draftKey);
+        } catch (e) {}
+    };
+
+    let savedData = (sessionData && Object.keys(sessionData).length > 0) ? sessionData : (loadDraft() || {});
+    if ((!savedData || Object.keys(savedData).length === 0) && missingFields.length === 0) {
+        return;
+    }
 
     const form = document.getElementById('registrationForm');
     if (!form) return;
+
+    function setFieldValue(field, value) {
+        if (field.type === 'file') {
+            return;
+        }
+        if (field.type === 'radio') {
+            field.checked = (field.value === value);
+            return;
+        }
+        if (field.type === 'checkbox') {
+            field.checked = Array.isArray(value)
+                ? value.indexOf(field.value) !== -1
+                : field.value === value || value === 'on' || value === '1';
+            return;
+        }
+        field.value = value;
+    }
+
+    function restoreEducationRows(data) {
+        const examPassed = data.exam_passed;
+        if (!Array.isArray(examPassed) || examPassed.length <= 1) {
+            return;
+        }
+        const table = document.getElementById('educationTable');
+        if (!table) return;
+        const tbody = table.getElementsByTagName('tbody')[0];
+        while (tbody.rows.length < examPassed.length && typeof addEducationRow === 'function') {
+            addEducationRow();
+        }
+    }
+
+    restoreEducationRows(savedData);
 
     Object.keys(savedData).forEach(function(key) {
         const value = savedData[key];
@@ -2458,17 +2516,42 @@ console.log('=== Initialization complete ===');
 
         if (Array.isArray(value)) {
             fields.forEach(function(field, index) {
-                if (value[index] !== undefined && value[index] !== null && field.type !== 'file') {
-                    field.value = value[index];
+                if (value[index] !== undefined && value[index] !== null) {
+                    setFieldValue(field, value[index]);
                 }
             });
             return;
         }
 
         fields.forEach(function(field) {
-            if (field.type === 'file') return;
-            field.value = value;
+            setFieldValue(field, value);
         });
+    });
+
+    const examPassedFields = form.querySelectorAll('select[name="exam_passed[]"]');
+    examPassedFields.forEach(function(selectEl) {
+        if (selectEl.value && typeof updateExamName === 'function') {
+            updateExamName(selectEl);
+            const row = selectEl.closest('tr');
+            if (!row) return;
+            const examNameSelect = row.querySelector('select[name="exam_name[]"]');
+            const savedNames = savedData.exam_name;
+            const rowIndex = Array.prototype.indexOf.call(examPassedFields, selectEl);
+            if (examNameSelect && Array.isArray(savedNames) && savedNames[rowIndex]) {
+                examNameSelect.value = savedNames[rowIndex];
+                if (typeof handleExamNameOther === 'function') {
+                    handleExamNameOther(examNameSelect);
+                }
+            }
+            const streamSelect = row.querySelector('select[name="stream[]"]');
+            const savedStreams = savedData.stream;
+            if (streamSelect && Array.isArray(savedStreams) && savedStreams[rowIndex]) {
+                streamSelect.value = savedStreams[rowIndex];
+                if (typeof handleStreamOther === 'function') {
+                    handleStreamOther(streamSelect);
+                }
+            }
+        }
     });
 
     if (savedData.dob && typeof calculateAge === 'function') {
@@ -2496,20 +2579,44 @@ console.log('=== Initialization complete ===');
         const field = form.querySelector('[name="' + fieldName + '"]');
         if (!field) return;
         field.classList.add('is-invalid');
-        const label = form.querySelector('label[for="' + field.id + '"]') || (field.closest('.mb-3') && field.closest('.mb-3').querySelector('.form-label'));
+        const label = form.querySelector('label[for="' + field.id + '"]') ||
+            (field.closest('.form-group') && field.closest('.form-group').querySelector('.form-label')) ||
+            (field.closest('.mb-3') && field.closest('.mb-3').querySelector('.form-label'));
         if (label) {
             label.classList.add('invalid-field-label');
+        }
+        if (field.type === 'file' && missingFields.indexOf(fieldName) !== -1) {
+            const errMsg = <?php echo json_encode($registrationErrors, JSON_UNESCAPED_UNICODE); ?>.find(function(msg) {
+                return msg.toLowerCase().indexOf(fieldName.replace(/_/g, ' ')) !== -1 ||
+                    (fieldName === 'left_thumb_impression' && msg.toLowerCase().indexOf('thumb') !== -1);
+            });
+            if (errMsg && typeof displayFileError === 'function') {
+                displayFileError(field, errMsg.replace(/^[^:]+:\s*/, ''));
+            }
         }
     });
 
     let targetStep = 1;
     missingFields.forEach(function(fieldName) {
-        const step = fieldStepMap[fieldName] || 1;
+        const step = registrationFieldStepMap[fieldName] || 1;
         if (step > targetStep) targetStep = step;
     });
+    if (targetStep === 1 && savedData && Object.keys(savedData).length > 0) {
+        Object.keys(savedData).forEach(function(key) {
+            const step = registrationFieldStepMap[key];
+            if (step && step > targetStep) targetStep = step;
+        });
+    }
 
     if (targetStep > 1) {
+        currentStep = targetStep;
         showStep(targetStep);
+    }
+
+    saveDraft(savedData);
+
+    if (typeof updateProgress === 'function') {
+        setTimeout(updateProgress, 600);
     }
 
     const summary = document.getElementById('registrationErrorSummary');
@@ -2528,6 +2635,44 @@ console.log('=== Initialization complete ===');
             }, 500);
         }
     }
+})();
+
+(function initRegistrationDraftAutosave() {
+    const form = document.getElementById('registrationForm');
+    if (!form) return;
+
+    const tokenInput = document.querySelector('[name="registration_token"]');
+    const draftKey = 'reg_draft_' + (tokenInput ? tokenInput.value : 'default');
+    let draftTimer = null;
+
+    if (typeof window.clearRegistrationDraft !== 'function') {
+        window.clearRegistrationDraft = function() {
+            try {
+                localStorage.removeItem(draftKey);
+            } catch (e) {}
+        };
+    }
+
+    form.addEventListener('input', function() {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(function() {
+            const draft = {};
+            const formData = new FormData(form);
+            formData.forEach(function(val, key) {
+                if (val instanceof File) return;
+                const plainKey = key.endsWith('[]') ? key.slice(0, -2) : key;
+                if (key.endsWith('[]')) {
+                    if (!draft[plainKey]) draft[plainKey] = [];
+                    draft[plainKey].push(val);
+                } else {
+                    draft[key] = val;
+                }
+            });
+            try {
+                localStorage.setItem(draftKey, JSON.stringify(draft));
+            } catch (e) {}
+        }, 400);
+    });
 })();
 
 }); // End DOMContentLoaded
@@ -2687,6 +2832,51 @@ document.querySelectorAll('input:not([type="file"]), select, textarea').forEach(
 });
 
 // ===== DOCUMENT UPLOAD VALIDATION =====
+function validateIdentityImage(inputElement, maxMb) {
+    const file = inputElement.files[0];
+    if (!file) {
+        if (!inputElement.hasAttribute('required')) {
+            return { valid: true };
+        }
+        return { valid: false, message: 'Please select a file to upload' };
+    }
+
+    const fileName = file.name.toLowerCase();
+    const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
+    const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+
+    if (!allowedExtensions.includes(fileExtension)) {
+        return {
+            valid: false,
+            message: 'Invalid file type. Only JPG and PNG images are allowed.'
+        };
+    }
+
+    const maxSize = maxMb * 1024 * 1024;
+    if (file.size > maxSize) {
+        return {
+            valid: false,
+            message: 'File size exceeds maximum limit of ' + maxMb + 'MB. Current size: ' + (file.size / (1024 * 1024)).toFixed(2) + 'MB'
+        };
+    }
+
+    return { valid: true };
+}
+
+function validateFileInput(inputElement) {
+    const category = inputElement.getAttribute('data-category');
+    if (category) {
+        return validateDocumentUpload(inputElement);
+    }
+
+    const maxMb = parseFloat(inputElement.getAttribute('data-max-mb'));
+    if (!isNaN(maxMb) && maxMb > 0) {
+        return validateIdentityImage(inputElement, maxMb);
+    }
+
+    return { valid: true };
+}
+
 /**
  * Validates document upload files for type and size
  * @param {HTMLInputElement} inputElement - The file input element
@@ -2781,28 +2971,21 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
         clearFileError(this);
         
         if (file) {
-            // Validate document uploads (only for categorized document fields)
-            const category = this.getAttribute('data-category');
-            if (category) {
-                const validation = validateDocumentUpload(this);
-                
-                if (!validation.valid) {
-                    // Display error and clear file selection
-                    displayFileError(this, validation.message);
-                    this.value = ''; // Clear the invalid file
-                    
-                    // Show toast notification
-                    if (typeof toast !== 'undefined') {
-                        toast.error(validation.message);
-                    }
-                    return;
+            const validation = validateFileInput(this);
+
+            if (!validation.valid) {
+                displayFileError(this, validation.message);
+                this.value = '';
+
+                if (typeof toast !== 'undefined') {
+                    toast.error(validation.message);
                 }
-                
-                // Mark as valid
-                this.classList.add('is-valid');
-                this.classList.remove('is-invalid');
+                return;
             }
-            
+
+            this.classList.add('is-valid');
+            this.classList.remove('is-invalid');
+
             // Show file name and size
             const fileName = file.name;
             const fileSize = (file.size / 1024).toFixed(2) + ' KB';
@@ -3642,7 +3825,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
             mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
             address: 2, state: 2, city: 2, pincode: 2,
             utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
-            aadhar_card: 3, tenth_marksheet: 3
+            left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3
         };
         if (fieldName && typeof window.showRegistrationStep === 'function') {
             window.showRegistrationStep(fieldStepMap[fieldName] || 1);
@@ -3679,6 +3862,29 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         if (!input || !input.files || !input.files[0]) {
             return failValidation('Please upload ' + fileName.replace(/_/g, ' ') + '.', fileName);
         }
+        const fileCheck = typeof validateFileInput === 'function' ? validateFileInput(input) : { valid: true };
+        if (!fileCheck.valid) {
+            if (typeof displayFileError === 'function') {
+                displayFileError(input, fileCheck.message);
+            }
+            return failValidation(fileCheck.message, fileName);
+        }
+    }
+
+    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'graduation_certificate', 'other_documents', 'payment_receipt'];
+    for (let i = 0; i < optionalFileFields.length; i++) {
+        const fileName = optionalFileFields[i];
+        const input = form.querySelector('[name="' + fileName + '"]');
+        if (!input || !input.files || !input.files[0]) {
+            continue;
+        }
+        const fileCheck = typeof validateFileInput === 'function' ? validateFileInput(input) : { valid: true };
+        if (!fileCheck.valid) {
+            if (typeof displayFileError === 'function') {
+                displayFileError(input, fileCheck.message);
+            }
+            return failValidation(fileCheck.message, fileName);
+        }
     }
 
     const utrInput = form.querySelector('[name="utr_number"]');
@@ -3714,6 +3920,10 @@ document.getElementById('registrationForm').addEventListener('submit', function(
     if (submitBtn) {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
         submitBtn.disabled = true;
+    }
+
+    if (typeof window.clearRegistrationDraft === 'function') {
+        window.clearRegistrationDraft();
     }
 });
 

@@ -70,7 +70,7 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     return ['success'=>false,'error'=>"move_uploaded_file failed. Dest: $dest | Writable: ".(is_writable($dir)?'YES':'NO')];
 }
 
-function validateThumbImpressionUpload($file) {
+function validateIdentityImageUpload($file, $maxBytes, $label) {
     $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     $allowedExtensions = ['jpg', 'jpeg', 'png'];
 
@@ -91,11 +91,70 @@ function validateThumbImpressionUpload($file) {
         return ['valid' => false, 'message' => "Invalid extension: .$ext"];
     }
 
-    if ($file['size'] > 2 * 1024 * 1024) {
-        return ['valid' => false, 'message' => 'Thumb impression must be 2MB or smaller'];
+    if ($file['size'] > $maxBytes) {
+        $maxMb = (int) round($maxBytes / (1024 * 1024));
+        return ['valid' => false, 'message' => $label . ' must be ' . $maxMb . 'MB or smaller'];
     }
 
     return ['valid' => true];
+}
+
+function validateSignatureUpload($file) {
+    return validateIdentityImageUpload($file, 2 * 1024 * 1024, 'Signature');
+}
+
+function validateThumbImpressionUpload($file) {
+    return validateIdentityImageUpload($file, 2 * 1024 * 1024, 'Thumb impression');
+}
+
+function registrationValidatePendingUploads(array $docCats) {
+    $errors = [];
+    $missingFields = [];
+
+    if (isset($_FILES['passport_photo']) && $_FILES['passport_photo']['error'] === UPLOAD_ERR_OK) {
+        $v = validateUploadedDocument($_FILES['passport_photo'], 'passport');
+        if (!$v['valid']) {
+            $missingFields[] = 'passport_photo';
+            $errors[] = 'Passport photo invalid: ' . $v['message'];
+        }
+    }
+
+    if (isset($_FILES['signature']) && $_FILES['signature']['error'] === UPLOAD_ERR_OK) {
+        $v = validateSignatureUpload($_FILES['signature']);
+        if (!$v['valid']) {
+            $missingFields[] = 'signature';
+            $errors[] = 'Signature invalid: ' . $v['message'];
+        }
+    }
+
+    if (isset($_FILES['left_thumb_impression']) && $_FILES['left_thumb_impression']['error'] === UPLOAD_ERR_OK) {
+        $v = validateThumbImpressionUpload($_FILES['left_thumb_impression']);
+        if (!$v['valid']) {
+            $missingFields[] = 'left_thumb_impression';
+            $errors[] = 'Thumb impression invalid: ' . $v['message'];
+        }
+    }
+
+    if (isset($_FILES['payment_receipt']) && $_FILES['payment_receipt']['error'] === UPLOAD_ERR_OK) {
+        $v = validateUploadedDocument($_FILES['payment_receipt'], 'payment');
+        if (!$v['valid']) {
+            $missingFields[] = 'payment_receipt';
+            $errors[] = 'Payment receipt invalid: ' . $v['message'];
+        }
+    }
+
+    foreach ($docCats as $field => $cat) {
+        if (!isset($_FILES[$field]) || $_FILES[$field]['error'] !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        $v = validateUploadedDocument($_FILES[$field], $cat);
+        if (!$v['valid']) {
+            $missingFields[] = $field;
+            $errors[] = ucwords(str_replace('_', ' ', $field)) . ' invalid: ' . $v['message'];
+        }
+    }
+
+    return ['errors' => $errors, 'missingFields' => $missingFields];
 }
 
 function handleThumbImpressionUpload($file, $student_id) {
@@ -474,6 +533,23 @@ if (!empty($validationErrors)) {
     registrationRedirectWithErrors($redirectBack, $validationErrors, $missingFields);
 }
 
+$docCats = [
+    'aadhar_card'            => 'aadhar',
+    'caste_certificate'      => 'caste',
+    'tenth_marksheet'        => 'tenth',
+    'twelfth_marksheet'      => 'twelfth',
+    'graduation_certificate' => 'graduation',
+    'other_documents'        => 'other'
+];
+$pendingUploadCheck = registrationValidatePendingUploads($docCats);
+if (!empty($pendingUploadCheck['errors'])) {
+    registrationRedirectWithErrors(
+        $redirectBack,
+        $pendingUploadCheck['errors'],
+        $pendingUploadCheck['missingFields']
+    );
+}
+
 // ----------------------------------------------------------
 // 5. Aadhar duplicate check + Student ID
 // ----------------------------------------------------------
@@ -556,7 +632,7 @@ if (!isset($_FILES['signature']) || $_FILES['signature']['error'] !== UPLOAD_ERR
         ['signature']
     );
 }
-$v = validateUploadedDocument($_FILES['signature'], 'signature');
+$v = validateSignatureUpload($_FILES['signature']);
 if (!$v['valid']) {
     registrationRedirectWithErrors($redirectBack, ['Signature invalid: ' . $v['message']], ['signature']);
 }
@@ -592,14 +668,6 @@ if (isset($_FILES['payment_receipt']) && $_FILES['payment_receipt']['error'] ===
 // ----------------------------------------------------------
 // 10. Categorized document uploads
 // ----------------------------------------------------------
-$docCats = [
-    'aadhar_card'            => 'aadhar',
-    'caste_certificate'      => 'caste',
-    'tenth_marksheet'        => 'tenth',
-    'twelfth_marksheet'      => 'twelfth',
-    'graduation_certificate' => 'graduation',
-    'other_documents'        => 'other'
-];
 $uploadedDocs = [];
 $uploadErrors = [];
 
