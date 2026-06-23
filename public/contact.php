@@ -77,7 +77,7 @@
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Courses Offered</a></li>
                             <li><a class="dropdown-item" href="<?php echo app_url('student/login'); ?>">Student Portal</a></li>
-                            <li><a class="dropdown-item" href="<?php echo app_url('student/register'); ?>">Registration</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Course Registration</a></li>
                             <li><a class="dropdown-item" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test Portal</a></li>
                         </ul>
                     </li>

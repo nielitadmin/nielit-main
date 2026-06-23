@@ -420,6 +420,74 @@ $selected_scheme  = $_GET['filter_scheme']  ?? 'All';
 $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
 
+$allowed_per_page = [10, 25, 50, 100];
+$per_page = (int)($_GET['per_page'] ?? 25);
+if (!in_array($per_page, $allowed_per_page, true)) {
+    $per_page = 25;
+}
+$page = max(1, (int)($_GET['page'] ?? 1));
+
+/**
+ * Build query-string params for students list links (filters + pagination).
+ */
+function studentsListQueryParams(
+    $selected_course,
+    $selected_gender,
+    $selected_scheme,
+    $start_date,
+    $end_date,
+    $page,
+    $per_page,
+    array $extra = []
+): array {
+    $params = [];
+    if ($selected_course !== 'All') {
+        $params['filter_course'] = $selected_course;
+    }
+    if ($selected_gender !== 'All') {
+        $params['filter_gender'] = $selected_gender;
+    }
+    if ($selected_scheme !== 'All') {
+        $params['filter_scheme'] = $selected_scheme;
+    }
+    if ($start_date !== '') {
+        $params['start_date'] = $start_date;
+    }
+    if ($end_date !== '') {
+        $params['end_date'] = $end_date;
+    }
+    if ($page > 1) {
+        $params['page'] = $page;
+    }
+    if ($per_page !== 25) {
+        $params['per_page'] = $per_page;
+    }
+    return array_merge($params, $extra);
+}
+
+function studentsListUrl(
+    $selected_course,
+    $selected_gender,
+    $selected_scheme,
+    $start_date,
+    $end_date,
+    $page,
+    $per_page,
+    array $extra = []
+): string {
+    $params = studentsListQueryParams(
+        $selected_course,
+        $selected_gender,
+        $selected_scheme,
+        $start_date,
+        $end_date,
+        $page,
+        $per_page,
+        $extra
+    );
+    return 'students.php' . ($params ? '?' . http_build_query($params) : '');
+}
+
 $filter_scheme_options = [];
 if ($selected_course !== 'All') {
     $filter_scheme_options = getSchemesForCourse($conn, (int)$selected_course);
@@ -432,76 +500,125 @@ if ($selected_course !== 'All') {
     }
 }
 
-// ─── MAIN STUDENTS QUERY ─────────────────────────────────────────────────────
-$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
-          FROM students s
-          LEFT JOIN batches b ON s.batch_id = b.id
-          LEFT JOIN courses c ON s.course_id = c.id
-          LEFT JOIN schemes sch ON sch.id = s.scheme_id
-          WHERE 1=1
-          AND LOWER(s.status) NOT IN ('rejected', 'inactive')";
-
+// ─── MAIN STUDENTS QUERY (paginated by student + course) ─────────────────────
+$where_parts = ["LOWER(s.status) NOT IN ('rejected', 'inactive')"];
 $bind_types  = '';
 $bind_values = [];
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query      .= " AND s.course_id IN ($ph)";
-        $bind_types  .= str_repeat('i', count($admin_course_ids));
-        $bind_values  = array_merge($bind_values, $admin_course_ids);
+        $where_parts[] = "s.course_id IN ($ph)";
+        $bind_types   .= str_repeat('i', count($admin_course_ids));
+        $bind_values   = array_merge($bind_values, $admin_course_ids);
     } else {
-        $query .= " AND 1=0";
+        $where_parts[] = '1=0';
     }
 }
 
 if ($selected_course !== 'All') {
-    $query        .= " AND s.course_id = ?";
-    $bind_types   .= 'i';
-    $bind_values[] = (int)$selected_course;
+    $where_parts[]  = 's.course_id = ?';
+    $bind_types    .= 'i';
+    $bind_values[]  = (int)$selected_course;
 }
 
 if ($selected_gender !== 'All') {
-    $query        .= " AND s.gender = ?";
-    $bind_types   .= 's';
-    $bind_values[] = $selected_gender;
+    $where_parts[]  = 's.gender = ?';
+    $bind_types    .= 's';
+    $bind_values[]  = $selected_gender;
 }
 
 if ($selected_scheme !== 'All') {
     if ($selected_scheme === 'none') {
-        $query .= " AND s.scheme_id IS NULL";
+        $where_parts[] = 's.scheme_id IS NULL';
     } else {
-        $query        .= " AND s.scheme_id = ?";
-        $bind_types   .= 'i';
-        $bind_values[] = (int)$selected_scheme;
+        $where_parts[]  = 's.scheme_id = ?';
+        $bind_types    .= 'i';
+        $bind_values[]  = (int)$selected_scheme;
     }
 }
 
 if (!empty($start_date) && !empty($end_date)) {
-    $query        .= " AND s.created_at BETWEEN ? AND ?";
-    $bind_types   .= 'ss';
-    $bind_values[] = $start_date;
-    $bind_values[] = $end_date;
+    $where_parts[]  = 's.created_at BETWEEN ? AND ?';
+    $bind_types    .= 'ss';
+    $bind_values[]  = $start_date;
+    $bind_values[]  = $end_date;
 }
 
-$query .= " ORDER BY s.created_at DESC";
+$where_sql = implode(' AND ', $where_parts);
+
+$count_sql = "SELECT COUNT(*) AS total FROM (
+    SELECT s.student_id, s.course_id
+    FROM students s
+    WHERE $where_sql
+    GROUP BY s.student_id, s.course_id
+) AS grouped_students";
+
+$count_stmt = $conn->prepare($count_sql);
+if ($count_stmt === false) {
+    die('Database Error preparing count query: ' . $conn->error);
+}
+if ($bind_types !== '') {
+    $count_stmt->bind_param($bind_types, ...$bind_values);
+}
+$count_stmt->execute();
+$count_row = $count_stmt->get_result()->fetch_assoc();
+$count_stmt->close();
+
+$total_filtered = (int)($count_row['total'] ?? 0);
+$total_pages = max(1, (int)ceil($total_filtered / $per_page));
+if ($page > $total_pages) {
+    $page = $total_pages;
+}
+$offset = ($page - 1) * $per_page;
+$showing_from = $total_filtered > 0 ? $offset + 1 : 0;
+$showing_to = min($offset + $per_page, $total_filtered);
+
+$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
+          FROM (
+              SELECT s.student_id, s.course_id, MIN(s.id) AS min_id
+              FROM students s
+              WHERE $where_sql
+              GROUP BY s.student_id, s.course_id
+              ORDER BY MIN(s.created_at) DESC
+              LIMIT ? OFFSET ?
+          ) AS page_groups
+          INNER JOIN students s ON s.id = page_groups.min_id
+          LEFT JOIN batches b ON s.batch_id = b.id
+          LEFT JOIN courses c ON s.course_id = c.id
+          LEFT JOIN schemes sch ON sch.id = s.scheme_id
+          ORDER BY s.created_at DESC";
+
+$paged_bind_types  = $bind_types . 'ii';
+$paged_bind_values = array_merge($bind_values, [$per_page, $offset]);
 
 $stmt = $conn->prepare($query);
 if ($stmt === false) {
-    die("Database Error preparing main query: " . $conn->error);
+    die('Database Error preparing main query: ' . $conn->error);
 }
-if (!empty($bind_values)) {
-    $stmt->bind_param($bind_types, ...$bind_values);
+if ($paged_bind_types !== '') {
+    $stmt->bind_param($paged_bind_types, ...$paged_bind_values);
 }
 if (!$stmt->execute()) {
-    die("Execute failed: " . $stmt->error);
+    die('Execute failed: ' . $stmt->error);
 }
 $students_result = $stmt->get_result();
 if ($students_result === false) {
-    die("get_result() failed: " . $stmt->error);
+    die('get_result() failed: ' . $stmt->error);
 }
 $students_result_count = $students_result->num_rows;
 $stmt->close();
+
+$list_query_suffix = studentsListQueryParams(
+    $selected_course,
+    $selected_gender,
+    $selected_scheme,
+    $start_date,
+    $end_date,
+    $page,
+    $per_page
+);
+$filter_suffix = $list_query_suffix ? '&' . http_build_query($list_query_suffix) : '';
 
 // ─── FILTER STATS (separate query — FIX: was overwriting $result) ───────────
 $stats = ['total' => 0, 'active' => 0, 'male' => 0, 'female' => 0];
@@ -830,6 +947,36 @@ if ($other_gender_count > 0) {
                 margin-left: auto;
             }
         }
+
+        .students-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1.5rem 1.25rem;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+            background: #f8fafc;
+        }
+
+        .students-pagination-info {
+            color: #64748b;
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .students-pagination-nav {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .students-pagination-ellipsis {
+            color: #94a3b8;
+            padding: 0 0.25rem;
+            user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -964,6 +1111,17 @@ if ($other_gender_count > 0) {
                         <div class="form-group">
                             <label class="form-label">End Date</label>
                             <input type="date" name="end_date" class="form-control" value="<?php echo htmlspecialchars($end_date); ?>">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Rows per page</label>
+                            <select name="per_page" class="form-select">
+                                <?php foreach ($allowed_per_page as $option): ?>
+                                    <option value="<?php echo $option; ?>" <?php echo $per_page === $option ? 'selected' : ''; ?>>
+                                        <?php echo $option; ?> per page
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <button type="submit" class="btn btn-primary" style="width:100%;">
@@ -1160,6 +1318,11 @@ if ($other_gender_count > 0) {
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-users"></i> All Students
+                        <?php if ($total_filtered > 0): ?>
+                            <small style="color:#64748b;font-weight:normal;">
+                                (<?php echo number_format($showing_from); ?>–<?php echo number_format($showing_to); ?> of <?php echo number_format($total_filtered); ?>)
+                            </small>
+                        <?php endif; ?>
                         <?php if ($is_course_coordinator && !empty($admin_courses)): ?>
                             <small style="color:#64748b;font-weight:normal;">
                                 (Showing: <?php echo implode(', ', array_map('htmlspecialchars', $admin_courses)); ?>)
@@ -1207,7 +1370,7 @@ if ($other_gender_count > 0) {
                         </thead>
                         <tbody>
                         <?php
-                        $sl_no = 1;
+                        $sl_no = $showing_from > 0 ? $showing_from : 1;
                         $course_schemes_cache = [];
                         $student_course_schemes_cache = [];
                         $batch_assign_enrollments_cache = [];
@@ -1304,13 +1467,6 @@ if ($other_gender_count > 0) {
                                 $assigned_batch_ids = array_map(function ($b) {
                                     return (int)$b['id'];
                                 }, $row_batches);
-
-                                $fp = [];
-                                if ($selected_course !== 'All') $fp[] = 'filter_course=' . urlencode($selected_course);
-                                if ($selected_scheme !== 'All')  $fp[] = 'filter_scheme='  . urlencode($selected_scheme);
-                                if (!empty($start_date))         $fp[] = 'start_date='    . urlencode($start_date);
-                                if (!empty($end_date))           $fp[] = 'end_date='      . urlencode($end_date);
-                                $filter_suffix = !empty($fp) ? '&' . implode('&', $fp) : '';
 
                                 $student_course_group_key = $row_course_id > 0
                                     ? ($row['student_id'] . ':' . $row_course_id)
@@ -1488,6 +1644,53 @@ if ($other_gender_count > 0) {
                         </tbody>
                     </table>
                 </div>
+
+                <?php if ($total_filtered > 0 && $total_pages > 1): ?>
+                <div class="students-pagination">
+                    <div class="students-pagination-info">
+                        Page <?php echo $page; ?> of <?php echo $total_pages; ?>
+                    </div>
+                    <nav class="students-pagination-nav" aria-label="Students pagination">
+                        <?php if ($page > 1): ?>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, 1, $per_page)); ?>">
+                                <i class="fas fa-angle-double-left"></i> First
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $page - 1, $per_page)); ?>">
+                                <i class="fas fa-angle-left"></i> Prev
+                            </a>
+                        <?php endif; ?>
+
+                        <?php
+                        $page_window = 2;
+                        $start_page = max(1, $page - $page_window);
+                        $end_page = min($total_pages, $page + $page_window);
+                        if ($start_page > 1) {
+                            echo '<span class="students-pagination-ellipsis">…</span>';
+                        }
+                        for ($p = $start_page; $p <= $end_page; $p++):
+                            $is_active = ($p === $page);
+                        ?>
+                            <a class="btn btn-sm <?php echo $is_active ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $p, $per_page)); ?>"
+                               <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
+                                <?php echo $p; ?>
+                            </a>
+                        <?php endfor; ?>
+                        <?php if ($end_page < $total_pages): ?>
+                            <span class="students-pagination-ellipsis">…</span>
+                        <?php endif; ?>
+
+                        <?php if ($page < $total_pages): ?>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $page + 1, $per_page)); ?>">
+                                Next <i class="fas fa-angle-right"></i>
+                            </a>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $start_date, $end_date, $total_pages, $per_page)); ?>">
+                                Last <i class="fas fa-angle-double-right"></i>
+                            </a>
+                        <?php endif; ?>
+                    </nav>
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>
@@ -1679,6 +1882,7 @@ document.addEventListener('DOMContentLoaded', function () {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
             cutout: '72%',
             plugins: {
                 legend: { display: false },

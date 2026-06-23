@@ -39,7 +39,6 @@ if (!function_exists('app_url')) {
                     <div class="dropdown-menu" aria-labelledby="navbarDropdown2">
                         <a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Courses Offered</a>
                         <a class="dropdown-item" href="<?php echo app_url('student/login'); ?>">Student Portal</a>
-                        <a class="dropdown-item" href="<?php echo app_url('student/register'); ?>">Registration</a>
                         <a class="dropdown-item" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test Portal</a>
                     </div>
                 </li>

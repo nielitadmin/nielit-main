@@ -13,6 +13,7 @@
 require_once __DIR__ . '/includes/maintenance_check.php';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/theme_loader.php';
+require_once __DIR__ . '/includes/homepage_loader.php';
 require_once __DIR__ . '/includes/navigation_helper.php';
 require_once __DIR__ . '/includes/url_helper.php';
 
@@ -37,9 +38,14 @@ $nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
 injectThemeCSS($active_theme);
 echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
 
-$banners = []; $announcements_content = []; $featured_courses = [];
-$text_blocks = []; $image_blocks = []; $news_items = [];
-    
+$banners = [];
+$announcements_content = [];
+$featured_courses = [];
+$text_blocks = [];
+$image_blocks = [];
+$news_items = [];
+$homepage_map = [];
+
     // Create news table if it doesn't exist
     $create_table_sql = "CREATE TABLE IF NOT EXISTS news (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -64,32 +70,9 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
         }
     }
     
-    $cache_duration = 3600; $cache_key = 'homepage_content_cache'; $cache_time_key = 'homepage_content_cache_time';
-    $use_cache = false;
-    if (isset($_SESSION[$cache_key]) && isset($_SESSION[$cache_time_key])) {
-        if (time() - $_SESSION[$cache_time_key] < $cache_duration) $use_cache = true;
-    }
-    if ($use_cache) {
-        $cached_data = $_SESSION[$cache_key];
-        extract($cached_data);
-    } else {
-        try {
-            $content_result = $conn->query("SELECT * FROM homepage_content WHERE is_active = 1 ORDER BY display_order ASC");
-            if ($content_result) {
-                while ($section = $content_result->fetch_assoc()) {
-                    switch ($section['section_type']) {
-                        case 'banner': $banners[] = $section; break;
-                        case 'announcement': $announcements_content[] = $section; break;
-                        case 'featured_course': $featured_courses[] = $section; break;
-                        case 'text_block': $text_blocks[] = $section; break;
-                        case 'image_block': $image_blocks[] = $section; break;
-                    }
-                }
-            }
-            $_SESSION[$cache_key] = compact('banners','announcements_content','featured_courses','text_blocks','image_blocks');
-            $_SESSION[$cache_time_key] = time();
-        } catch (Exception $e) { error_log("Homepage content query failed: " . $e->getMessage()); }
-    }
+    $homepage_sections = loadHomepagePageSections($conn);
+    extract($homepage_sections, EXTR_OVERWRITE);
+    $hero_typing_lines = homepageTypingLines($homepage_map);
     // Decorative background uses CSS gradients; no SVG asset needed
     ?>
 
@@ -236,7 +219,6 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             width: 100%;
             object-fit: cover;
             opacity: 0.45;
-            filter: saturate(0.6);
         }
         .hero-overlay {
             position: absolute;
@@ -324,8 +306,7 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             position: absolute;
             bottom: 0; left: 0; right: 0;
             z-index: 3;
-            background: rgba(255,255,255,0.06);
-            backdrop-filter: blur(20px);
+            background: rgba(10, 22, 40, 0.82);
             border-top: 1px solid rgba(255,255,255,0.12);
         }
         .hero-stat {
@@ -445,40 +426,15 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             font-weight: 600;
         }
         .stat-pill-main-site i { color: var(--gold-light); }
-        /* Decorative premium CSS background for white sections */
+        /* Lightweight section background (no heavy grid/blur during scroll) */
         .section-white-pattern {
             position: relative;
             overflow: hidden;
-            isolation: isolate;
-            background:
-                radial-gradient(circle at 15% 20%, rgba(26,86,219,0.07) 0, rgba(26,86,219,0) 33%),
-                radial-gradient(circle at 85% 30%, rgba(245,158,11,0.09) 0, rgba(245,158,11,0) 36%),
-                linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+            background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
         }
-        .section-white-pattern::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background-image:
-                linear-gradient(90deg, rgba(17,34,64,0.045) 1px, transparent 1px),
-                linear-gradient(0deg, rgba(17,34,64,0.045) 1px, transparent 1px);
-            background-size: 42px 42px;
-            opacity: 0.55;
-            pointer-events: none;
-            z-index: 0;
-        }
+        .section-white-pattern::before,
         .section-white-pattern::after {
-            content: '';
-            position: absolute;
-            left: 50%;
-            top: 44px;
-            width: min(820px, 88%);
-            height: 120px;
-            transform: translateX(-50%);
-            background: linear-gradient(180deg, rgba(16,44,93,0.08) 0%, rgba(16,44,93,0) 100%);
-            clip-path: polygon(0 100%, 7% 52%, 13% 72%, 21% 38%, 30% 66%, 39% 26%, 49% 62%, 60% 32%, 70% 66%, 80% 46%, 89% 76%, 100% 100%);
-            pointer-events: none;
-            z-index: 0;
+            display: none;
         }
         .section-white-pattern > * {
             position: relative;
@@ -548,11 +504,10 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
         }
         .jobfair-section > .container { position: relative; z-index: 1; }
         .jobfair-panel {
-            background: rgba(255,255,255,0.06);
+            background: rgba(10, 22, 40, 0.72);
             border: 1px solid rgba(255,255,255,0.12);
             border-radius: 28px;
             padding: 40px;
-            backdrop-filter: blur(14px);
         }
         .jobfair-eyebrow {
             display: inline-block;
@@ -1192,6 +1147,48 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             50%, 100% { opacity: 0; }
         }
 
+        /* Scroll reveal — CSS only, no inline style thrashing */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translate3d(0, 18px, 0);
+            transition: opacity 0.45s ease, transform 0.45s ease;
+        }
+        .scroll-reveal.is-visible {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+        }
+
+        /* Skip off-screen work until sections are near the viewport */
+        .perf-section {
+            content-visibility: auto;
+            contain-intrinsic-size: auto 520px;
+        }
+
+        .notice-bar.is-paused .notice-content {
+            animation-play-state: paused;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scroll-reveal {
+                opacity: 1;
+                transform: none;
+                transition: none;
+            }
+            .notice-content {
+                animation: none;
+            }
+            .typing-cursor {
+                animation: none;
+            }
+            .fade-up,
+            .fade-up-delay-1,
+            .fade-up-delay-2,
+            .fade-up-delay-3 {
+                animation: none;
+                opacity: 1;
+            }
+        }
+
         /* ===== MOBILE ===== */
         @media (max-width: 768px) {
             .hero-section { height: 70vh; }
@@ -1245,12 +1242,12 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </nav>
 
 <!-- ===== NOTICE TICKER ===== -->
-<div class="notice-bar">
+<div class="notice-bar" id="noticeBar">
     <div class="notice-content">
         <span class="notice-label">NOTICE</span>
-        Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Baleshwar Extension Center today. &nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;
+        <?php echo htmlspecialchars(homepageValue($homepage_map, 'notice_primary'), ENT_QUOTES, 'UTF-8'); ?> &nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;
         <span class="notice-label">NEW</span>
-        Online Registrations are now live — Apply before the deadline!
+        <?php echo htmlspecialchars(homepageValue($homepage_map, 'notice_secondary'), ENT_QUOTES, 'UTF-8'); ?>
     </div>
 </div>
 
@@ -1295,7 +1292,7 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             ?>
             <?php foreach ($banner_urls as $i => $url): ?>
             <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
-                <img src="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Banner <?php echo $i + 1; ?>">
+                <img src="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Banner <?php echo $i + 1; ?>"<?php echo $i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'; ?>>
             </div>
             <?php endforeach; ?>
         </div>
@@ -1317,7 +1314,7 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
     <div class="hero-overlay">
         <div class="container">
             <div class="hero-content">
-                <div class="hero-eyebrow fade-up">Ministry of Electronics & IT · Est. 2021</div>
+                <div class="hero-eyebrow fade-up"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></div>
                 <h1 class="hero-title fade-up fade-up-delay-1">
                     <div style="display: flex; align-items: flex-start; gap: 4px;">
                         <span id="typing-line1" class="typing-text"></span><span id="cursor1" class="typing-cursor"></span>
@@ -1327,7 +1324,7 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
                     </div>
                 </h1>
                 <p class="hero-sub fade-up fade-up-delay-2">
-                    NIELIT Bhubaneswar — your gateway to NSQF-aligned technology education across Odisha and Chhattisgarh. Skills that power India's future.
+                    <?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_subtitle'), ENT_QUOTES, 'UTF-8'); ?>
                 </p>
                 <div class="hero-btns fade-up fade-up-delay-3">
                     <a href="<?php echo relative_url('public/courses'); ?>" class="btn-hero-primary">
@@ -1351,20 +1348,20 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
         <div class="container">
             <div class="row g-0">
                 <div class="col-3 hero-stat">
-                    <span class="number">15+</span>
-                    <span class="label">Courses Offered</span>
+                    <span class="number"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_1', 'title'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="label"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_1'), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <div class="col-3 hero-stat">
-                    <span class="number">2</span>
-                    <span class="label">Centers Active</span>
+                    <span class="number"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_2', 'title'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="label"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_2'), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <div class="col-3 hero-stat">
-                    <span class="number">5000+</span>
-                    <span class="label">Students Trained</span>
+                    <span class="number"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_3', 'title'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="label"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_3'), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <div class="col-3 hero-stat">
-                    <span class="number">100%</span>
-                    <span class="label">Govt. Certified</span>
+                    <span class="number"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_4', 'title'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="label"><?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_stat_4'), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
             </div>
         </div>
@@ -1372,13 +1369,13 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </section>
 
 <!-- ===== WELCOME STRIP ===== -->
-<section class="welcome-strip">
+<section class="welcome-strip perf-section">
     <div class="container">
         <div class="row align-items-center g-5">
             <div class="col-lg-6">
-                <span class="section-eyebrow">Welcome to NIELIT Bhubaneswar</span>
-                <h2 class="section-title mb-4">Excellence in Technology Education Since 2021.</h2>
-                <p>We are a premier autonomous scientific society under MeitY, Government of India — dedicated to developing human resources in Information, Electronics, and Communication Technology (IECT) through industry-aligned programs.</p>
+                <span class="section-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'welcome_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+                <h2 class="section-title mb-4"><?php echo htmlspecialchars(homepageValue($homepage_map, 'welcome_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
+                <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'welcome_text'), ENT_QUOTES, 'UTF-8'); ?></p>
             </div>
             <div class="col-lg-6">
                 <div>
@@ -1406,20 +1403,20 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </section>
 
 <!-- ===== JOB FAIR PORTAL ===== -->
-<section class="jobfair-section" id="job-fair">
+<section class="jobfair-section perf-section" id="job-fair">
     <div class="container">
         <div class="jobfair-panel">
             <div class="row align-items-center g-4">
                 <div class="col-lg-7">
-                    <span class="jobfair-eyebrow">National Job Fair Initiative</span>
-                    <h2 class="jobfair-title">NIELIT Bhubaneswar Job Fair Portal</h2>
+                    <span class="jobfair-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <h2 class="jobfair-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
                     <p class="jobfair-lead">
-                        A centralized government platform for transparent, seamless, and large-scale recruitment drives across NIELIT regional centres. Empowering youth and connecting employers with skilled talent.
+                        <?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_lead'), ENT_QUOTES, 'UTF-8'); ?>
                     </p>
                     <div class="jobfair-alert">
                         <i class="fas fa-bullhorn mt-1"></i>
                         <div>
-                            Registration is open for upcoming Mega Job Fairs. Candidates can complete profiles and check in at the venue. Recruiters can upload offer letters directly through the portal.
+                            <?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_alert'), ENT_QUOTES, 'UTF-8'); ?>
                         </div>
                     </div>
                     <div class="jobfair-actions">
@@ -1457,15 +1454,15 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </section>
 
 <!-- ===== MOCK TEST PORTAL ===== -->
-<section class="mocktest-section" id="mock-test">
+<section class="mocktest-section perf-section" id="mock-test">
     <div class="container">
         <div class="mocktest-panel">
             <div class="row align-items-center g-4">
                 <div class="col-lg-7">
-                    <span class="mocktest-eyebrow">Exam Preparation</span>
-                    <h2 class="mocktest-title">NIELIT Mock Assessment Platform</h2>
+                    <span class="mocktest-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <h2 class="mocktest-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
                     <p class="mocktest-lead">
-                        A secure mock test platform for NIELIT Bhubaneswar candidates and authorized training partners. Practice NSQF-aligned assessments, download admit cards, and build exam readiness before official certification tests.
+                        <?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_lead'), ENT_QUOTES, 'UTF-8'); ?>
                     </p>
                     <div class="mocktest-features">
                         <div class="mocktest-feature">
@@ -1516,40 +1513,40 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </section>
 
 <!-- ===== FEATURES SECTION ===== -->
-<section class="features-section section-white-pattern">
+<section class="features-section section-white-pattern perf-section">
     <div class="container">
         <div class="text-center mb-5">
-            <span class="section-eyebrow">What We Offer</span>
-            <h2 class="section-title">Built for the Future of Work.</h2>
+            <span class="section-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'features_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2 class="section-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'features_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="section-divider mx-auto"></div>
         </div>
         <div class="row g-4">
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
                     <div class="feat-icon-wrap"><i class="fas fa-laptop-code"></i></div>
-                    <h5>Skill Development</h5>
-                    <p>NSQF-aligned courses to boost employability in the rapidly evolving technology sector.</p>
+                    <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_1', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_1'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
                     <div class="feat-icon-wrap"><i class="fas fa-map-marked-alt"></i></div>
-                    <h5>Regional Scope</h5>
-                    <p>Operating extensively across Odisha and Chhattisgarh to reach every aspiring student.</p>
+                    <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_2', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_2'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
                     <div class="feat-icon-wrap"><i class="fas fa-building"></i></div>
-                    <h5>Modern Facilities</h5>
-                    <p>State-of-the-art labs, smart classrooms, and conference halls at OCAC Tower.</p>
+                    <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_3', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_3'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
                     <div class="feat-icon-wrap"><i class="fas fa-network-wired"></i></div>
-                    <h5>Baleshwar Extension</h5>
-                    <p>Expanding our footprint to deliver quality education across the Baleshwar region.</p>
+                    <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_4', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_4'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
         </div>
@@ -1557,19 +1554,19 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
 </section>
 
 <!-- ===== INFO DETAILED SECTION ===== -->
-<section class="info-section section-white-pattern">
+<section class="info-section section-white-pattern perf-section">
     <div class="container">
         <div class="text-center mb-5">
-            <span class="section-eyebrow">Learn More</span>
-            <h2 class="section-title">Everything You Need to Know.</h2>
+            <span class="section-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'info_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2 class="section-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'info_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="section-divider mx-auto"></div>
         </div>
         <div class="row g-4">
             <div class="col-lg-4">
                 <div class="info-card">
                     <div class="info-icon-box"><i class="fas fa-university"></i></div>
-                    <h4>About NIELIT</h4>
-                    <p>An autonomous scientific society under MeitY, Govt. of India — focused on human resource development in IECT through quality education and practical training programs.</p>
+                    <h4><?php echo htmlspecialchars(homepageValue($homepage_map, 'about_title', 'title'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'about_title'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <ul class="check-list">
                         <li><i class="fas fa-check-circle"></i> Government of India Initiative</li>
                         <li><i class="fas fa-check-circle"></i> NSQF Aligned Programs</li>
@@ -1580,8 +1577,8 @@ $text_blocks = []; $image_blocks = []; $news_items = [];
             <div class="col-lg-4">
                 <div class="info-card">
                     <div class="info-icon-box"><i class="fas fa-bullseye"></i></div>
-                    <h4>Our Mission</h4>
-                    <p>To empower youth with cutting-edge technology skills, making them industry-ready and contributing to India's digital transformation through quality education and practical training.</p>
+                    <h4><?php echo htmlspecialchars(homepageValue($homepage_map, 'mission_title', 'title'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'mission_title'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <ul class="check-list">
                         <li><i class="fas fa-check-circle"></i> Skill Enhancement & Certification</li>
                         <li><i class="fas fa-check-circle"></i> Employment Generation</li>
@@ -1627,7 +1624,7 @@ $has_database_content = !empty($banners) || !empty($announcements_content) || !e
 if ($has_database_content):
     if (!empty($banners)):
         foreach ($banners as $banner): ?>
-<section class="dynamic-banner">
+<section class="dynamic-banner perf-section">
     <div class="container text-center">
         <h2 class="fw-bold mb-3"><?php echo htmlspecialchars($banner['section_title']); ?></h2>
         <div class="lead text-muted"><?php echo $banner['section_content']; ?></div>
@@ -1637,7 +1634,7 @@ if ($has_database_content):
     endif;
 
     if (!empty($featured_courses)): ?>
-<section class="dynamic-course section-white-pattern">
+<section class="dynamic-course section-white-pattern perf-section">
     <div class="container">
         <div class="text-center mb-5">
             <span class="section-eyebrow">Courses</span>
@@ -1661,7 +1658,7 @@ if ($has_database_content):
 
 <!-- ===== LATEST NEWS SECTION ===== -->
 <?php if (!empty($news_items)): ?>
-<section class="news-section section-white-pattern">
+<section class="news-section section-white-pattern perf-section">
     <div class="container news-container">
         <div class="text-center mb-5">
             <span class="section-eyebrow">Stay Informed</span>
@@ -1728,7 +1725,7 @@ $announcements_sql = "SELECT * FROM announcements WHERE is_active = 1 AND (targe
 $announcements_result = $conn->query($announcements_sql);
 
 if ($announcements_result && $announcements_result->num_rows > 0): ?>
-<section class="announcements-section">
+<section class="announcements-section perf-section">
     <div class="container">
         <div class="text-center mb-5">
             <span class="section-eyebrow" style="color:var(--gold-light);">Latest Updates</span>
@@ -1839,28 +1836,40 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // Scroll animation observer
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateY(0)';
-                entry.target.style.transition = 'all 0.6s ease';
-            }
-        });
-    }, { threshold: 0.1 });
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card, .news-card').forEach(el => {
-        el.style.opacity = '0';
-        el.style.transform = 'translateY(24px)';
-        observer.observe(el);
-    });
+    // Lightweight scroll reveal — class-based, unobserve after first show
+    if (!prefersReducedMotion) {
+        const revealTargets = document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card, .news-card');
+        revealTargets.forEach(el => el.classList.add('scroll-reveal'));
 
-    // Ensure hero carousel controls, keyboard navigation, and auto-slide work consistently
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('is-visible');
+                revealObserver.unobserve(entry.target);
+            });
+        }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+
+        revealTargets.forEach(el => revealObserver.observe(el));
+    } else {
+        document.querySelectorAll('.feat-card, .info-card, .course-card, .announce-card, .news-card')
+            .forEach(el => el.classList.add('is-visible'));
+    }
+
+    const noticeBar = document.getElementById('noticeBar');
+    if (noticeBar && !prefersReducedMotion) {
+        const noticeObserver = new IntersectionObserver(([entry]) => {
+            noticeBar.classList.toggle('is-paused', !entry.isIntersecting);
+        }, { threshold: 0 });
+        noticeObserver.observe(noticeBar);
+    }
+
     const heroCarouselEl = document.getElementById('heroCarousel');
+    let heroCarousel = null;
     if (heroCarouselEl && window.bootstrap && bootstrap.Carousel) {
-        const heroCarousel = bootstrap.Carousel.getOrCreateInstance(heroCarouselEl, {
-            interval: 3000,
+        heroCarousel = bootstrap.Carousel.getOrCreateInstance(heroCarouselEl, {
+            interval: 4000,
             ride: 'carousel',
             pause: false,
             touch: true,
@@ -1868,146 +1877,157 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
             wrap: true
         });
         heroCarousel.cycle();
+
+        const heroSection = document.querySelector('.hero-section');
+        if (heroSection && !prefersReducedMotion) {
+            const heroObserver = new IntersectionObserver(([entry]) => {
+                if (entry.isIntersecting) {
+                    heroCarousel.cycle();
+                } else {
+                    heroCarousel.pause();
+                }
+            }, { threshold: 0.05 });
+            heroObserver.observe(heroSection);
+        }
     }
 
-    // Typing Effect Animation - Multiple Pickup Lines
+    // Typing effect — pauses when hero scrolls off screen
     const line1El = document.getElementById('typing-line1');
     const line2El = document.getElementById('typing-line2');
     const cursor1 = document.getElementById('cursor1');
     const cursor2 = document.getElementById('cursor2');
     const line2Container = document.getElementById('line2-container');
     
-    // Array of pickup lines
-    const pickupLines = [
-        { line1: 'Code Tomorrow.', line2: 'Transform Today.' },
-        { line1: 'Learn Today.', line2: 'Lead Tomorrow.' },
-        { line1: 'Skills Today.', line2: 'Success Tomorrow.' },
-        { line1: 'Train Now.', line2: 'Transform Forever.' },
-        { line1: 'Build Skills.', line2: 'Change Futures.' },
-        { line1: 'Code Smart.', line2: 'Grow Strong.' },
-        { line1: 'Start Today.', line2: 'Thrive Tomorrow.' },
-        { line1: 'Master Tech.', line2: 'Master Life.' },
-        { line1: 'Learn Together.', line2: 'Grow Stronger.' },
-        { line1: 'Shape Future.', line2: 'Start Now.' },
-        { line1: 'Innovation Starts.', line2: 'Here & Now.' }
-    ];
-    
+    const pickupLines = <?php echo json_encode($hero_typing_lines, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?>;
+
+    let typingPaused = prefersReducedMotion;
+    let typingTimer = null;
     let currentLineSet = 0;
     let line1Index = 0;
     let line2Index = 0;
     let currentLine = 1;
     let isDeleting = false;
-    let typingSpeed = 80;
-    let pauseTime = 2000;
+    const typingSpeed = 80;
+    const pauseTime = 2000;
+
+    const heroSectionEl = document.querySelector('.hero-section');
+    if (heroSectionEl && !prefersReducedMotion) {
+        const typingObserver = new IntersectionObserver(([entry]) => {
+            typingPaused = !entry.isIntersecting;
+            if (!typingPaused && !typingTimer) {
+                typeEffect();
+            }
+        }, { threshold: 0.05 });
+        typingObserver.observe(heroSectionEl);
+    }
+
+    function scheduleTyping(delay) {
+        if (typingTimer) {
+            clearTimeout(typingTimer);
+        }
+        typingTimer = setTimeout(typeEffect, delay);
+    }
 
     function typeEffect() {
+        typingTimer = null;
+        if (typingPaused || !line1El || !line2El || !pickupLines.length) {
+            return;
+        }
+
         const currentSet = pickupLines[currentLineSet];
         const line1Text = currentSet.line1;
         const line2Text = currentSet.line2;
 
         if (!isDeleting) {
-            // Typing Phase
             if (currentLine === 1) {
                 if (line1Index <= line1Text.length) {
                     let displayText = line1Text.substring(0, line1Index);
-                    // Highlight last word in gold
                     const words = displayText.split(' ');
                     if (words.length > 0) {
                         words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
                         displayText = words.join(' ');
                     }
                     line1El.innerHTML = displayText;
-                    
+
                     if (line1Index === line1Text.length) {
-                        // Finished typing line 1, move to line 2
                         currentLine = 2;
                         cursor1.style.display = 'none';
                         line2Container.style.opacity = '1';
                         cursor2.style.display = 'inline-block';
                         line2Index = 0;
-                        setTimeout(typeEffect, 500);
+                        scheduleTyping(500);
                     } else {
                         line1Index++;
-                        setTimeout(typeEffect, typingSpeed);
+                        scheduleTyping(typingSpeed);
                     }
                 }
             } else if (currentLine === 2) {
                 if (line2Index <= line2Text.length) {
                     let displayText = line2Text.substring(0, line2Index);
-                    // Highlight last word in gold
                     const words = displayText.split(' ');
                     if (words.length > 0) {
                         words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
                         displayText = words.join(' ');
                     }
                     line2El.innerHTML = displayText;
-                    
+
                     if (line2Index === line2Text.length) {
-                        // Finished typing line 2, pause then delete
-                        setTimeout(() => {
+                        if (typingTimer) {
+                            clearTimeout(typingTimer);
+                        }
+                        typingTimer = setTimeout(() => {
+                            typingTimer = null;
                             isDeleting = true;
                             typeEffect();
                         }, pauseTime);
                     } else {
                         line2Index++;
-                        setTimeout(typeEffect, typingSpeed);
+                        scheduleTyping(typingSpeed);
                     }
                 }
             }
+        } else if (currentLine === 2) {
+            if (line2Index > 0) {
+                line2Index--;
+                let displayText = line2Text.substring(0, line2Index);
+                const words = displayText.split(' ');
+                if (words.length > 0) {
+                    words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                    displayText = words.join(' ');
+                }
+                line2El.innerHTML = displayText;
+                scheduleTyping(50);
+            } else {
+                currentLine = 1;
+                cursor1.style.display = 'inline-block';
+                cursor2.style.display = 'none';
+                line2Container.style.opacity = '0';
+                line1Index = line1Text.length;
+                scheduleTyping(50);
+            }
+        } else if (line1Index > 0) {
+            line1Index--;
+            let displayText = line1Text.substring(0, line1Index);
+            const words = displayText.split(' ');
+            if (words.length > 0) {
+                words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
+                displayText = words.join(' ');
+            }
+            line1El.innerHTML = displayText;
+            scheduleTyping(50);
         } else {
-            // Deleting Phase
-            if (currentLine === 2) {
-                if (line2Index > 0) {
-                    line2Index--;
-                    let displayText = line2Text.substring(0, line2Index);
-                    const words = displayText.split(' ');
-                    if (words.length > 0) {
-                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
-                        displayText = words.join(' ');
-                    }
-                    line2El.innerHTML = displayText;
-                    setTimeout(typeEffect, 50);
-                } else {
-                    // Move to line 1 delete
-                    currentLine = 1;
-                    cursor1.style.display = 'inline-block';
-                    cursor2.style.display = 'none';
-                    line2Container.style.opacity = '0';
-                    line1Index = line1Text.length;
-                    setTimeout(typeEffect, 50);
-                }
-            } else if (currentLine === 1) {
-                if (line1Index > 0) {
-                    line1Index--;
-                    let displayText = line1Text.substring(0, line1Index);
-                    const words = displayText.split(' ');
-                    if (words.length > 0) {
-                        words[words.length - 1] = '<em>' + words[words.length - 1] + '</em>';
-                        displayText = words.join(' ');
-                    }
-                    line1El.innerHTML = displayText;
-                    setTimeout(typeEffect, 50);
-                } else {
-                    // Move to next pickup line
-                    currentLineSet = (currentLineSet + 1) % pickupLines.length;
-                    isDeleting = false;
-                    currentLine = 1;
-                    line1Index = 0;
-                    line2Index = 0;
-                    line1El.innerHTML = '';
-                    line2El.innerHTML = '';
-                    setTimeout(typeEffect, 500);
-                }
-            }
+            currentLineSet = (currentLineSet + 1) % pickupLines.length;
+            isDeleting = false;
+            currentLine = 1;
+            line1Index = 0;
+            line2Index = 0;
+            line1El.innerHTML = '';
+            line2El.innerHTML = '';
+            scheduleTyping(500);
         }
     }
 
-    // Start typing effect when page loads
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            typeEffect();
-        });
-    } else {
+    if (!prefersReducedMotion && line1El && line2El) {
         typeEffect();
     }
 </script>

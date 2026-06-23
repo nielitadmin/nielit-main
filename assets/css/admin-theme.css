@@ -78,9 +78,9 @@
     --radius-lg: 1rem;
     --radius-full: 9999px;
     
-    /* Transitions */
-    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Transitions — avoid `all` (hurts scroll performance) */
+    --transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1), transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ============================================
@@ -94,9 +94,7 @@
 
 body {
     font-family: 'Sora', 'DM Sans', 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #fafaf8 0%, #f5f3f0 50%, #fafaf8 100%);
-    background-size: 400% 400%;
-    animation: gradientShift 15s ease infinite;
+    background: var(--bg-body);
     color: var(--text-primary);
     line-height: 1.6;
     font-size: 14px;
@@ -104,14 +102,7 @@ body {
     position: relative;
 }
 
-/* Animated gradient background */
-@keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-
-/* Subtle pattern overlay */
+/* Static subtle overlay — no animation (animated body bg caused admin scroll lag) */
 body::before {
     content: '';
     position: fixed;
@@ -119,7 +110,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: 
+    background-image:
         radial-gradient(circle at 20% 50%, rgba(10, 22, 40, 0.02) 0%, transparent 50%),
         radial-gradient(circle at 80% 80%, rgba(26, 86, 219, 0.02) 0%, transparent 50%);
     pointer-events: none;
@@ -139,9 +130,7 @@ body::before {
 /* Sidebar */
 .admin-sidebar {
     width: 260px;
-    background: linear-gradient(180deg, var(--primary-color, #0a1628) 0%, var(--secondary-color, #112240) 50%, var(--primary-color, #0a1628) 100%);
-    background-size: 100% 200%;
-    animation: sidebarGradient 10s ease infinite;
+    background: var(--bg-sidebar);
     position: fixed;
     top: 0;
     left: 0;
@@ -149,7 +138,8 @@ body::before {
     overflow-y: auto;
     z-index: 1000;
     box-shadow: var(--shadow-lg);
-    transition: var(--transition);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    contain: layout style paint;
 }
 
 .sidebar-toggle-btn {
@@ -179,6 +169,8 @@ body::before {
     0%, 100% { background-position: 0% 0%; }
     50% { background-position: 0% 100%; }
 }
+
+/* sidebarGradient kept for legacy references only — sidebar no longer animates */
 
 .admin-sidebar::-webkit-scrollbar {
     width: 6px;
@@ -711,7 +703,7 @@ html[data-mode="night"] .otp-empty-state {
     overflow: hidden;
     border: 1px solid rgba(15, 23, 42, 0.08);
     box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -816,7 +808,7 @@ html[data-mode="night"] .otp-empty-state {
     box-shadow: 0 2px 8px rgba(10, 22, 40, 0.06);
     margin-bottom: 1.5rem;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: box-shadow 0.3s ease;
 }
 
 .content-card:hover {
@@ -882,7 +874,7 @@ html[data-mode="night"] .otp-empty-state {
 
 .modern-table tbody tr {
     border-bottom: 1px solid rgba(15, 23, 42, 0.06);
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .modern-table tbody tr:hover {
@@ -1153,7 +1145,7 @@ html[data-mode="night"] .card-header {
     flex: 1;
     margin-left: 260px;
     min-height: 100vh;
-    transition: var(--transition);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Top Bar */
@@ -2213,4 +2205,32 @@ html[data-mode="night"] .toggle-switch-label input[type="checkbox"]:checked + .s
 
 .w-100 {
     width: 100%;
+}
+
+/* ============================================
+   SCROLL PERFORMANCE (admin panel)
+   ============================================ */
+.admin-topbar {
+    contain: layout style;
+}
+
+.admin-main {
+    contain: layout style;
+}
+
+.content-card,
+.stat-card,
+.modern-table tbody tr {
+    will-change: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
 }

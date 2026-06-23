@@ -79,6 +79,53 @@ if (!function_exists('course_registration_apply_url')) {
     }
 }
 
+if (!function_exists('setCoursesPageNotice')) {
+    function setCoursesPageNotice(string $message): void
+    {
+        $_SESSION['courses_notice'] = $message;
+    }
+}
+
+if (!function_exists('clearRegistrationFlashFromCoursesPage')) {
+    /**
+     * Registration errors belong on register.php — not the public courses listing.
+     */
+    function clearRegistrationFlashFromCoursesPage(): void
+    {
+        if (!empty($_SESSION['error'])) {
+            unset($_SESSION['error']);
+        }
+        unset(
+            $_SESSION['registration_errors'],
+            $_SESSION['registration_missing_fields'],
+            $_SESSION['registration_form_data']
+        );
+    }
+}
+
+if (!function_exists('resolveCourseIdFromRegistrationPost')) {
+    function resolveCourseIdFromRegistrationPost(mysqli $conn, array $post): int
+    {
+        $course_id = (int) ($post['course_id'] ?? 0);
+        $token = trim((string) ($post['registration_token'] ?? ''));
+
+        if ($course_id > 0 || $token === '') {
+            return $course_id;
+        }
+
+        $stmt = $conn->prepare('SELECT id FROM courses WHERE registration_token = ? LIMIT 1');
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return (int) ($row['id'] ?? 0);
+    }
+}
+
 if (!function_exists('renderCourseProjectLevelHeader')) {
     function renderCourseProjectLevelHeader(array $row): string {
         $label = trim($row['project_level_label'] ?? '');

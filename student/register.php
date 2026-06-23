@@ -12,12 +12,13 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // Require registration_token parameter for secure registration links
 $registration_token = $_GET['token'] ?? '';
 if (empty($registration_token)) {
-    $_SESSION['error'] = 'Invalid access! Registration is only available through secure registration links. Please use the link provided by the course administrator.';
+    setCoursesPageNotice('To register, open a course and tap Apply Now.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -25,7 +26,7 @@ if (empty($registration_token)) {
 // Fetch course details by registration_token
 $stmt = $conn->prepare("SELECT * FROM courses WHERE registration_token = ?");
 if (!$stmt) {
-    $_SESSION['error'] = 'Database error: ' . $conn->error;
+    setCoursesPageNotice('Unable to open registration right now. Please try again later.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -33,7 +34,7 @@ $stmt->bind_param("s", $registration_token);
 $stmt->execute();
 $result = $stmt->get_result();
 if ($result->num_rows === 0) {
-    $_SESSION['error'] = 'Invalid or expired registration link. Please use the link provided by the course administrator.';
+    setCoursesPageNotice('This registration link is invalid or expired. Please use Apply Now from the Courses Offered page.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -42,7 +43,7 @@ $course_details = $result->fetch_assoc();
 // Check if the registration link is active
 
 if (!isset($course_details['link_published']) || $course_details['link_published'] != 1) {
-    $_SESSION['error'] = 'Registration for this course is currently closed. Please contact the administration for more information.';
+    setCoursesPageNotice('Registration for this course is currently closed. Please contact the administration.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -56,7 +57,7 @@ if (
     ($status === 'closed') ||
     (!empty($closing_date) && $today > $closing_date)
 ) {
-    $_SESSION['error'] = 'Enrollment is closed for this course. Registration is not allowed.';
+    setCoursesPageNotice('Enrollment is closed for this course.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
@@ -1515,7 +1516,7 @@ if (isset($_SESSION['info'])) {
                         <label class="form-label">Select Course <span class="required-mark">*</span></label>
                         <!-- Locked Course -->
                         <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_details['course_name']); ?> (<?php echo htmlspecialchars($course_details['course_code']); ?>)" readonly style="background-color: #f0f9ff; cursor: not-allowed;">
-                        <input type="hidden" name="course_id" value="<?php echo htmlspecialchars($course_details['id']); ?>">
+                        <input type="hidden" name="course_id" id="course_id" value="<?php echo (int)$course_details['id']; ?>">
                         <input type="hidden" name="registration_token" value="<?php echo htmlspecialchars($registration_token); ?>">
                         <small class="text-muted"><i class="fas fa-lock"></i> Locked by registration link</small>
                     </div>
@@ -3703,6 +3704,11 @@ document.getElementById('registrationForm').addEventListener('submit', function(
     const emailInput = form.querySelector('input[name="email"]');
     if (emailInput && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value.trim())) {
         return failValidation('Please enter a valid email address.', 'email');
+    }
+
+    const courseIdInput = form.querySelector('[name="course_id"]');
+    if (!courseIdInput || parseInt(courseIdInput.value, 10) <= 0) {
+        return failValidation('Course information is missing. Please reopen the registration link from Courses Offered.', 'course_id');
     }
 
     if (submitBtn) {

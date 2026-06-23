@@ -658,7 +658,6 @@ $dashboard_payload = [
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(8px);
             animation: modalBackdropFadeIn 0.3s ease-out;
         }
         
@@ -1076,44 +1075,14 @@ $dashboard_payload = [
 
         body {
             font-family: 'Inter', 'Poppins', 'Segoe UI', sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 28%),
-                radial-gradient(circle at top right, rgba(124, 58, 237, 0.10), transparent 24%),
-                linear-gradient(180deg, #f8fbff 0%, var(--dash-bg) 100%);
+            background: linear-gradient(180deg, #f8fbff 0%, var(--dash-bg) 100%);
             color: var(--dash-text);
             overflow-x: hidden;
         }
 
         body::before,
         body::after {
-            content: '';
-            position: fixed;
-            width: 360px;
-            height: 360px;
-            border-radius: 50%;
-            filter: blur(12px);
-            opacity: 0.18;
-            z-index: 0;
-            pointer-events: none;
-            animation: blobFloat 18s ease-in-out infinite;
-        }
-
-        body::before {
-            top: -120px;
-            left: -80px;
-            background: radial-gradient(circle, rgba(37, 99, 235, 0.65), transparent 68%);
-        }
-
-        body::after {
-            bottom: -120px;
-            right: -80px;
-            background: radial-gradient(circle, rgba(124, 58, 237, 0.58), transparent 68%);
-            animation-delay: -6s;
-        }
-
-        @keyframes blobFloat {
-            0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-            50% { transform: translate3d(0, 18px, 0) scale(1.05); }
+            display: none;
         }
 
         ::-webkit-scrollbar {
@@ -1146,13 +1115,12 @@ $dashboard_payload = [
         }
 
         .admin-topbar {
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.90), rgba(248, 250, 252, 0.84));
+            background: #ffffff;
             border: 1px solid var(--dash-border);
             border-radius: 26px;
             padding: 1rem 1.25rem;
             margin-bottom: 1rem;
             box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-            backdrop-filter: blur(24px) saturate(160%);
         }
 
         .topbar-left h4 {
@@ -1234,11 +1202,10 @@ $dashboard_payload = [
         .glass-panel {
             position: relative;
             overflow: hidden;
-            background: var(--dash-surface);
+            background: #ffffff;
             border: 1px solid var(--dash-border);
             border-radius: var(--dash-radius);
             box-shadow: var(--dash-shadow);
-            backdrop-filter: blur(20px) saturate(150%);
         }
 
         .stat-card {
@@ -1417,14 +1384,6 @@ $dashboard_payload = [
             height: 8px;
             border-radius: 50%;
             background: #10b981;
-            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35);
-            animation: pulseDot 1.8s infinite;
-        }
-
-        @keyframes pulseDot {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
 
         .chart-wrap {
@@ -1553,7 +1512,7 @@ $dashboard_payload = [
             inset: 0;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
             transform: translateX(-100%);
-            animation: shimmer 2.4s infinite;
+            animation: shimmer 1.2s ease 2;
             pointer-events: none;
             opacity: 0.18;
         }
@@ -1634,7 +1593,7 @@ $dashboard_payload = [
         }
 
         .modal {
-            backdrop-filter: blur(10px);
+            background-color: rgba(15, 23, 42, 0.45);
         }
 
         .modal-dialog {
@@ -3026,6 +2985,7 @@ function initDashboardCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: { display: false },
@@ -3061,6 +3021,7 @@ function initDashboardCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 cutout: '68%',
                 plugins: {
                     legend: {
@@ -3099,6 +3060,7 @@ function initDashboardCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 plugins: {
                     legend: { position: 'bottom', labels: { color: '#475569', usePointStyle: true, pointStyle: 'circle' } },
                     tooltip: {
@@ -3134,6 +3096,7 @@ function initDashboardCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: false,
                 cutout: '60%',
                 plugins: {
                     legend: { display: false },

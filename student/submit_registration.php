@@ -5,7 +5,7 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../includes/student_id_helper.php';
+require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/email_helper.php';
 
@@ -265,7 +265,8 @@ error_log("course_id raw: " . ($_POST['course_id'] ?? 'NOT SET'));
 // ----------------------------------------------------------
 // 1. Collect fields
 // ----------------------------------------------------------
-$course_id        = intval($_POST['course_id'] ?? 0);
+$course_id        = resolveCourseIdFromRegistrationPost($conn, $_POST);
+$registration_token = trim($_POST['registration_token'] ?? '');
 $scheme_id        = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
 $training_center  = trim($_POST['training_center']  ?? '');
 $name             = trim($_POST['name']              ?? '');
@@ -314,11 +315,11 @@ $age = !empty($dob) ? (int)(new DateTime($dob))->diff(new DateTime())->y : 0;
 // 2. Validate course_id
 // ----------------------------------------------------------
 if ($course_id <= 0) {
-    $_SESSION['error'] = "Invalid course. Please use a valid registration link.";
-    $token = trim($_POST['registration_token'] ?? '');
-    if ($token !== '') {
-        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($token));
+    if ($registration_token !== '') {
+        $_SESSION['error'] = 'Course information was missing from the form. Please review and submit again.';
+        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));
     } else {
+        setCoursesPageNotice('Please tap Apply Now on a course to open the registration form.');
         header('Location: ' . APP_URL . '/public/courses.php');
     }
     exit();
@@ -346,16 +347,21 @@ if ($paymentColCheck && $paymentColCheck->num_rows > 0) {
 
 $s = $conn->prepare("SELECT course_name, course_code, registration_token, {$paymentColSql}, $feeColumn FROM courses WHERE id = ?");
 if (!$s) {
-    $_SESSION['error'] = "Database error loading course details: " . $conn->error;
-    header("Location: " . APP_URL . "/public/courses.php");
+    setCoursesPageNotice('Unable to load course details. Please try again from the courses page.');
+    header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 $s->bind_param("i", $course_id);
 $s->execute();
 $cr = $s->get_result();
 if ($cr->num_rows === 0) {
-    $_SESSION['error'] = "Course not found. Please use a valid registration link.";
-    header("Location: " . APP_URL . "/public/courses.php");
+    if ($registration_token !== '') {
+        setCoursesPageNotice('This registration link is no longer valid. Please choose the course again from Courses Offered.');
+        header('Location: ' . APP_URL . '/public/courses.php');
+    } else {
+        setCoursesPageNotice('Course not found. Please use Apply Now on the courses page.');
+        header('Location: ' . APP_URL . '/public/courses.php');
+    }
     exit();
 }
 $cRow         = $cr->fetch_assoc();

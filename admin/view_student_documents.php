@@ -16,26 +16,20 @@ if (!isset($_GET['id'])) {
 
 $student_id = $_GET['id'];
 
-// Get filter parameters to preserve them
-$filter_course = isset($_GET['filter_course']) ? $_GET['filter_course'] : '';
-$start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
-$end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
-
-// Build return URL with filters
-$return_url = 'students.php';
-$return_params = [];
-if (!empty($filter_course) && $filter_course != 'All') {
-    $return_params[] = 'filter_course=' . urlencode($filter_course);
+// Build return URL — preserve students list filters and pagination
+$return_query = [];
+$return_keys = ['filter_course', 'filter_gender', 'filter_scheme', 'start_date', 'end_date', 'page', 'per_page'];
+foreach ($return_keys as $key) {
+    if (!isset($_GET[$key]) || $_GET[$key] === '') {
+        continue;
+    }
+    $value = $_GET[$key];
+    if (in_array($key, ['filter_course', 'filter_gender', 'filter_scheme'], true) && $value === 'All') {
+        continue;
+    }
+    $return_query[$key] = $value;
 }
-if (!empty($start_date)) {
-    $return_params[] = 'start_date=' . urlencode($start_date);
-}
-if (!empty($end_date)) {
-    $return_params[] = 'end_date=' . urlencode($end_date);
-}
-if (!empty($return_params)) {
-    $return_url .= '?' . implode('&', $return_params);
-}
+$return_url = 'students.php' . ($return_query ? '?' . http_build_query($return_query) : '');
 
 // Fetch student data
 $sql = "SELECT * FROM students WHERE student_id = ?";

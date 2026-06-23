@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 
 ensureCourseProjectLevelColumn($conn);
+clearRegistrationFlashFromCoursesPage();
 
 // Load active theme
 $active_theme = loadActiveTheme($conn);
@@ -546,14 +547,14 @@ $result_internship = $conn->query($sql_internship);
     </div>
 </section>
 
-<?php if (!empty($_SESSION['error'])): ?>
+<?php if (!empty($_SESSION['courses_notice'])): ?>
 <div class="container mt-3">
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($_SESSION['error']); ?>
+    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+        <i class="fas fa-info-circle me-2"></i><?php echo htmlspecialchars($_SESSION['courses_notice']); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 </div>
-<?php unset($_SESSION['error']); endif; ?>
+<?php unset($_SESSION['courses_notice']); endif; ?>
 
 <!-- Filter Section - Compact Horizontal Layout -->
 <section class="py-2" style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">

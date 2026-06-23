@@ -1,14 +1,21 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/audit_logger.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/homepage_loader.php';
+
 if (!isset($_SESSION['admin'])) {
-    header('Location: login_new.php');
+    header('Location: ' . relative_url('login_new.php'));
     exit();
 }
 
-require_once '../config/database.php';
-require_once '../config/config.php';
-require_once '../includes/theme_loader.php';
-require_once '../includes/audit_logger.php';
+if (($_SESSION['admin_role'] ?? '') !== 'master_admin') {
+    $_SESSION['message'] = 'Access denied. Homepage management is available to Master Admin only.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: ' . relative_url('dashboard.php'));
+    exit();
+}
 
 // Generate CSRF token if it doesn't exist
 if (empty($_SESSION['csrf_token'])) {
@@ -18,6 +25,15 @@ if (empty($_SESSION['csrf_token'])) {
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
+
+if (!ensureHomepageContentSchema($conn)) {
+    $_SESSION['message'] = 'Homepage database setup failed. Please contact support.';
+    $_SESSION['message_type'] = 'danger';
+}
+
+seedIndexHomepageSections($conn);
+$index_section_keys = array_keys(getIndexHomepageSectionDefinitions());
+$index_sections_grouped = getIndexHomepageSectionsForAdmin($conn);
 
 // ============================================================================
 // AJAX REQUEST HANDLERS
@@ -55,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         
         if ($result) {
             // Clear cache after successful reorder
-            clearHomepageCache();
+            clearHomepageContentCache();
             
             // Log successful reorder
             logHomepageContentAction($conn, $_SESSION['admin'], 'reorder', null, 'multiple_sections', 'success', 
@@ -95,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         
         if ($result) {
             // Clear cache after successful status toggle
-            clearHomepageCache();
+            clearHomepageContentCache();
             
             $action_type = $status == 1 ? 'activate' : 'deactivate';
             $action_desc = $status == 1 ? 'Activated' : 'Deactivated';
@@ -126,6 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         
         $section_id = intval($_POST['section_id']);
         $stmt = $conn->prepare("SELECT * FROM homepage_content WHERE id = ?");
+        if (!$stmt) {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+            exit();
+        }
         $stmt->bind_param("i", $section_id);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -135,6 +155,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             echo json_encode(['success' => false, 'message' => 'Section not found']);
         }
+        $stmt->close();
+        exit();
+    }
+
+    if ($action === 'get_section_by_key') {
+        if (!isset($_POST['section_key'])) {
+            echo json_encode(['success' => false, 'message' => 'Missing section key']);
+            exit();
+        }
+
+        $section_key = strip_tags(trim($_POST['section_key']));
+        $stmt = $conn->prepare("SELECT * FROM homepage_content WHERE section_key = ? LIMIT 1");
+        if (!$stmt) {
+            echo json_encode(['success' => false, 'message' => 'Database error']);
+            exit();
+        }
+        $stmt->bind_param("s", $section_key);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($section = $result->fetch_assoc()) {
+            echo json_encode(['success' => true, 'section' => $section]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Section not found']);
+        }
+        $stmt->close();
         exit();
     }
     
@@ -149,7 +195,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_section'])) {
     if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
         $_SESSION['message'] = "Invalid request. Please try again.";
         $_SESSION['message_type'] = "danger";
-        header('Location: manage_homepage.php');
+        header('Location: ' . relative_url('manage_homepage.php'));
         exit();
     }
     
@@ -173,7 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_section'])) {
             $result = updateContentSection($conn, $section_id, $data);
             if ($result) {
                 // Clear cache after successful update
-                clearHomepageCache();
+                clearHomepageContentCache();
                 
                 // Log successful update
                 logHomepageContentAction($conn, $_SESSION['admin'], 'update', $section_id, $data['section_key'], 'success', 
@@ -197,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_section'])) {
                 $section_id = $conn->insert_id;
                 
                 // Clear cache after successful creation
-                clearHomepageCache();
+                clearHomepageContentCache();
                 
                 // Log successful creation
                 logHomepageContentAction($conn, $_SESSION['admin'], 'create', $section_id, $data['section_key'], 'success', 
@@ -226,32 +272,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_section'])) {
         $_SESSION['message_type'] = 'error';
     }
     
-    header('Location: manage_homepage.php');
+    header('Location: ' . relative_url('manage_homepage.php'));
     exit();
 }
 
-
-// ============================================================================
-// CACHE MANAGEMENT
-// ============================================================================
-
-/**
- * Clear homepage content cache
- * This function clears the cached homepage content stored in the session
- * to ensure users see updated content after any CRUD operations
- * @return void
- */
-function clearHomepageCache() {
-    // Unset cache data
-    if (isset($_SESSION['homepage_content_cache'])) {
-        unset($_SESSION['homepage_content_cache']);
-    }
-    
-    // Unset cache timestamp
-    if (isset($_SESSION['homepage_content_cache_time'])) {
-        unset($_SESSION['homepage_content_cache_time']);
-    }
-}
 
 // ============================================================================
 // CONTENT SECTION VALIDATION
@@ -390,12 +414,21 @@ function sanitizeContent($content) {
  * @return bool Success status
  */
 function createContentSection($conn, $data) {
-    // Sanitize content before saving
-    $data['section_content'] = sanitizeContent($data['section_content']);
-    
+    if (($data['section_key'] ?? '') === 'hero_typing_lines') {
+        $data['section_content'] = trim(strip_tags($data['section_content'] ?? ''));
+    } else {
+        $data['section_content'] = sanitizeContent($data['section_content'] ?? '');
+    }
+
     $stmt = $conn->prepare("INSERT INTO homepage_content (section_key, section_title, section_content, section_type, display_order) VALUES (?, ?, ?, ?, ?)");
+    if (!$stmt) {
+        error_log('createContentSection prepare failed: ' . $conn->error);
+        return false;
+    }
     $stmt->bind_param("ssssi", $data['section_key'], $data['section_title'], $data['section_content'], $data['section_type'], $data['display_order']);
-    return $stmt->execute();
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
 }
 
 /**
@@ -406,12 +439,21 @@ function createContentSection($conn, $data) {
  * @return bool Success status
  */
 function updateContentSection($conn, $id, $data) {
-    // Sanitize content before saving
-    $data['section_content'] = sanitizeContent($data['section_content']);
-    
+    if (($data['section_key'] ?? '') === 'hero_typing_lines') {
+        $data['section_content'] = trim(strip_tags($data['section_content'] ?? ''));
+    } else {
+        $data['section_content'] = sanitizeContent($data['section_content'] ?? '');
+    }
+
     $stmt = $conn->prepare("UPDATE homepage_content SET section_title=?, section_content=?, section_type=?, display_order=? WHERE id=?");
+    if (!$stmt) {
+        error_log('updateContentSection prepare failed: ' . $conn->error);
+        return false;
+    }
     $stmt->bind_param("sssii", $data['section_title'], $data['section_content'], $data['section_type'], $data['display_order'], $id);
-    return $stmt->execute();
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
 }
 
 /**
@@ -423,8 +465,14 @@ function updateContentSection($conn, $id, $data) {
  */
 function toggleSectionStatus($conn, $id, $status) {
     $stmt = $conn->prepare("UPDATE homepage_content SET is_active=? WHERE id=?");
+    if (!$stmt) {
+        error_log('toggleSectionStatus prepare failed: ' . $conn->error);
+        return false;
+    }
     $stmt->bind_param("ii", $status, $id);
-    return $stmt->execute();
+    $result = $stmt->execute();
+    $stmt->close();
+    return $result;
 }
 
 /**
@@ -503,8 +551,16 @@ function reorderSections($conn, $order_data) {
     }
 }
 
-// Fetch all content sections for display
+// Fetch dynamic content sections (exclude predefined index page keys)
 $content_sections = getAllContentSections($conn);
+$dynamic_sections = [];
+if ($content_sections) {
+    while ($row = $content_sections->fetch_assoc()) {
+        if (!in_array($row['section_key'], $index_section_keys, true)) {
+            $dynamic_sections[] = $row;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -727,94 +783,69 @@ $content_sections = getAllContentSections($conn);
             min-height: 200px;
             border: 2px dashed #cbd5e1;
         }
+
+        .index-sections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .index-section-group {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .index-section-group h6 {
+            color: #0f172a;
+            font-weight: 700;
+            margin-bottom: 14px;
+            font-size: 15px;
+        }
+
+        .index-section-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .index-section-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .index-section-item .item-meta {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .index-section-item .item-label {
+            font-weight: 600;
+            color: #334155;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .index-section-item .item-preview {
+            color: #64748b;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .index-section-item code {
+            font-size: 11px;
+            color: #475569;
+        }
     </style>
 </head>
 <body class="admin-body">
-    <!-- Sidebar Navigation -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-header">
-            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" class="sidebar-logo">
-            <h3>NIELIT Admin</h3>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-home"></i> Dashboard
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="students.php" class="nav-link">
-                    <i class="fas fa-users"></i> Students
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-book"></i> Courses
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
-                    <i class="fas fa-layer-group"></i> Batches
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link">
-                    <i class="fas fa-project-diagram"></i> Schemes/Projects
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            <div class="nav-section-title">System Settings</div>
-            
-            <div class="nav-item">
-                <a href="manage_centres.php" class="nav-link">
-                    <i class="fas fa-building"></i> Training Centres
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_themes.php" class="nav-link">
-                    <i class="fas fa-palette"></i> Themes
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_homepage.php" class="nav-link active">
-                    <i class="fas fa-home"></i> Homepage Content
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
-                    <i class="fas fa-user-check"></i> Approve Students
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="add_admin.php" class="nav-link">
-                    <i class="fas fa-user-shield"></i> Add Admin
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="reset_password.php" class="nav-link">
-                    <i class="fas fa-key"></i> Reset Password
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/index.php" class="nav-link">
-                    <i class="fas fa-globe"></i> View Website
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </nav>
-    </aside>
+    <?php include 'includes/sidebar.php'; ?>
 
     <!-- Main Content -->
     <main class="admin-content">
@@ -822,7 +853,7 @@ $content_sections = getAllContentSections($conn);
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-home"></i> Manage Homepage Content</h4>
-                <small>Control dynamic content sections displayed on the public homepage</small>
+                <small>Edit index.php sections and additional homepage blocks</small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -841,11 +872,57 @@ $content_sections = getAllContentSections($conn);
         <div class="admin-main">
             <!-- Toast notifications will appear here automatically -->
 
+            <!-- Index Page Sections -->
+            <div class="content-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-file-alt"></i> Index Page Sections
+                    </h5>
+                    <a href="<?php echo relative_url('../index.php'); ?>" class="btn btn-secondary" target="_blank" rel="noopener">
+                        <i class="fas fa-external-link-alt"></i> View Homepage
+                    </a>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Manage the main content on <code>index.php</code> — notice ticker, hero text, stats, welcome strip, job fair, mock test, features, and info cards.
+                        Hero carousel images are loaded from <code>assets/images/banners/</code>.
+                    </p>
+                    <div class="index-sections-grid">
+                        <?php foreach ($index_sections_grouped as $groupName => $items): ?>
+                            <div class="index-section-group">
+                                <h6><?php echo htmlspecialchars($groupName); ?></h6>
+                                <?php foreach ($items as $item): ?>
+                                    <?php
+                                    $preview = $item['section_key'] === 'hero_typing_lines'
+                                        ? 'JSON typing lines'
+                                        : ($item['section_content'] !== '' ? $item['section_content'] : $item['section_title']);
+                                    ?>
+                                    <div class="index-section-item">
+                                        <div class="item-meta">
+                                            <div class="item-label"><?php echo htmlspecialchars($item['label']); ?></div>
+                                            <div class="item-preview" title="<?php echo htmlspecialchars(strip_tags($preview)); ?>">
+                                                <?php echo htmlspecialchars(mb_strimwidth(strip_tags($preview), 0, 80, '...')); ?>
+                                            </div>
+                                            <code><?php echo htmlspecialchars($item['section_key']); ?></code>
+                                        </div>
+                                        <?php if (!empty($item['id'])): ?>
+                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndexSection('<?php echo htmlspecialchars($item['section_key'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($item['label'], ENT_QUOTES); ?>')">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+
             <!-- Content Sections Listing -->
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-list"></i> Homepage Content Sections
+                        <i class="fas fa-list"></i> Additional Homepage Blocks
                     </h5>
                     <div style="display: flex; gap: 12px;">
                         <a href="manage_announcements.php" class="btn btn-secondary">
@@ -861,7 +938,7 @@ $content_sections = getAllContentSections($conn);
                 </div>
                 
                 <div class="card-body">
-                    <?php if ($content_sections && $content_sections->num_rows > 0): ?>
+                    <?php if (!empty($dynamic_sections)): ?>
                         <div class="content-sections-table">
                             <table id="sectionsTable">
                                 <thead>
@@ -877,7 +954,7 @@ $content_sections = getAllContentSections($conn);
                                     </tr>
                                 </thead>
                                 <tbody id="sortableSections">
-                                    <?php while ($section = $content_sections->fetch_assoc()): ?>
+                                    <?php foreach ($dynamic_sections as $section): ?>
                                         <tr data-section-id="<?php echo $section['id']; ?>" data-order="<?php echo $section['display_order']; ?>">
                                             <td>
                                                 <i class="fas fa-grip-vertical drag-handle" title="Drag to reorder"></i>
@@ -921,7 +998,7 @@ $content_sections = getAllContentSections($conn);
                                                 </div>
                                             </td>
                                         </tr>
-                                    <?php endwhile; ?>
+                                    <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -948,7 +1025,7 @@ $content_sections = getAllContentSections($conn);
                     <h5 class="modal-title" id="sectionModalLabel">Add Content Section</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <form method="POST" action="manage_homepage.php" id="sectionForm">
+                <form method="POST" action="<?php echo relative_url('manage_homepage.php'); ?>" id="sectionForm">
                     <input type="hidden" name="section_id" id="section_id">
                     <input type="hidden" name="submit_section" value="1">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
@@ -992,7 +1069,7 @@ $content_sections = getAllContentSections($conn);
                         <div class="mb-3">
                             <label for="section_content" class="form-label">Content</label>
                             <textarea class="form-control" id="section_content" name="section_content" rows="10"></textarea>
-                            <small class="form-text text-muted">Rich HTML content for the section</small>
+                            <small class="form-text text-muted" id="section_content_help">Rich HTML content for the section. For hero stats and feature cards, use Title for the number/heading and Content for the label/description.</small>
                         </div>
                     </div>
                     
@@ -1103,6 +1180,11 @@ $content_sections = getAllContentSections($conn);
             document.getElementById('sectionForm').reset();
             document.getElementById('section_id').value = '';
             document.getElementById('section_key').readOnly = false;
+            document.getElementById('section_content_help').textContent = 'Rich HTML content for the section';
+
+            if (typeof tinymce !== 'undefined' && !editorInstance) {
+                initializeTinyMCE();
+            }
             
             // Reset TinyMCE
             if (editorInstance) {
@@ -1117,12 +1199,72 @@ $content_sections = getAllContentSections($conn);
             modal.show();
         }
         
+        function editIndexSection(sectionKey, sectionLabel) {
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'action=get_section_by_key&section_key=' + encodeURIComponent(sectionKey) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const section = data.section;
+                    document.getElementById('section_id').value = section.id;
+                    document.getElementById('section_key').value = section.section_key;
+                    document.getElementById('section_key').readOnly = true;
+                    document.getElementById('section_title').value = section.section_title;
+                    document.getElementById('section_type').value = section.section_type;
+                    document.getElementById('display_order').value = section.display_order;
+
+                    const helpEl = document.getElementById('section_content_help');
+                    if (section.section_key === 'hero_typing_lines') {
+                        helpEl.textContent = 'Enter a JSON array, e.g. [{"line1":"Code Tomorrow.","line2":"Transform Today."}]';
+                    } else if (section.section_key.startsWith('hero_stat_') || section.section_key.startsWith('feature_') || section.section_key.endsWith('_title')) {
+                        helpEl.textContent = 'Use Title for the heading/number and Content for the description text shown on index.php.';
+                    } else {
+                        helpEl.textContent = 'Plain text shown on index.php. HTML is stripped on the public page for these sections.';
+                    }
+
+                    if (section.section_key === 'hero_typing_lines' && typeof tinymce !== 'undefined') {
+                        if (editorInstance) {
+                            tinymce.remove('#section_content');
+                            editorInstance = null;
+                        }
+                        document.getElementById('section_content').value = section.section_content || '';
+                    } else if (editorInstance) {
+                        editorInstance.setContent(section.section_content || '');
+                    } else if (typeof tinymce !== 'undefined' && !editorInstance) {
+                        initializeTinyMCE();
+                        setTimeout(function() {
+                            if (editorInstance) {
+                                editorInstance.setContent(section.section_content || '');
+                            }
+                        }, 300);
+                    } else {
+                        document.getElementById('section_content').value = section.section_content || '';
+                    }
+
+                    document.getElementById('sectionModalLabel').textContent = 'Edit: ' + sectionLabel;
+                    const modal = new bootstrap.Modal(document.getElementById('sectionModal'));
+                    modal.show();
+                } else {
+                    showToast('Failed to load section: ' + (data.message || 'Unknown error'), 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading index section:', error);
+                showToast('Failed to load section. Please try again.', 'error');
+            });
+        }
+
         /**
          * Edit section - load section data and open modal
          */
         function editSection(sectionId) {
             // Fetch section data via AJAX
-            fetch('manage_homepage.php', {
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1143,8 +1285,21 @@ $content_sections = getAllContentSections($conn);
                     document.getElementById('display_order').value = section.display_order;
                     
                     // Set TinyMCE content
-                    if (editorInstance) {
+                    if (section.section_key === 'hero_typing_lines' && typeof tinymce !== 'undefined') {
+                        if (editorInstance) {
+                            tinymce.remove('#section_content');
+                            editorInstance = null;
+                        }
+                        document.getElementById('section_content').value = section.section_content || '';
+                    } else if (editorInstance) {
                         editorInstance.setContent(section.section_content || '');
+                    } else if (typeof tinymce !== 'undefined' && !editorInstance) {
+                        initializeTinyMCE();
+                        setTimeout(function() {
+                            if (editorInstance) {
+                                editorInstance.setContent(section.section_content || '');
+                            }
+                        }, 300);
                     } else {
                         document.getElementById('section_content').value = section.section_content || '';
                     }
@@ -1338,7 +1493,7 @@ $content_sections = getAllContentSections($conn);
             });
             
             // Send AJAX request to update order in database
-            fetch('manage_homepage.php', {
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -1375,7 +1530,7 @@ $content_sections = getAllContentSections($conn);
                 return;
             }
             
-            fetch('manage_homepage.php', {
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
