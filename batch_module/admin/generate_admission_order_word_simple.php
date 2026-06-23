@@ -194,7 +194,7 @@ header('Cache-Control: max-age=0');
 <div class="header">
     <div class="hindi-text"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></div>
     <div class="english-text">National Institute of Electronics and Information Technology (NIELIT)</div>
-    <div class="english-text">Bhubaneswar/Balasore Extension Centre</div>
+    <div class="english-text">Bhubaneswar/Baleshwar Extension Centre</div>
     <div class="sub-text">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</div>
 </div>
 

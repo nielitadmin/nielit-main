@@ -103,7 +103,7 @@ function insertDefaultCentres($conn) {
     
     $sql = "INSERT INTO centres (name, code, address, city, state, phone, email) VALUES
         ('NIELIT Bhubaneswar', 'BBSR', 'OCAC Tower, Acharya Vihar', 'Bhubaneswar', 'Odisha', '0674-2960354', 'dir-bbsr@nielit.gov.in'),
-        ('NIELIT Balasore Extension', 'BALA', 'Balasore', 'Balasore', 'Odisha', '', '')";
+        ('NIELIT Baleshwar Extension', 'BALA', 'Baleshwar', 'Baleshwar', 'Odisha', '', '')";
     
     if ($conn->query($sql)) {
         printMessage("✓ Default centres inserted successfully", COLOR_GREEN);

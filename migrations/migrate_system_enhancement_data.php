@@ -4,7 +4,7 @@
  * NIELIT Bhubaneswar Student Management System
  * 
  * This script populates initial data for:
- * - Training centres (NIELIT Bhubaneswar, NIELIT Balasore)
+ * - Training centres (NIELIT Bhubaneswar, NIELIT Baleshwar)
  * - Default centre assignment for existing courses
  * - Default theme from existing CSS values
  * 
@@ -75,10 +75,10 @@ function populateCentres($conn) {
             'email' => 'dir-bbsr@nielit.gov.in'
         ],
         [
-            'name' => 'NIELIT Balasore Extension',
+            'name' => 'NIELIT Baleshwar Extension',
             'code' => 'BALA',
-            'address' => 'Balasore Extension Centre',
-            'city' => 'Balasore',
+            'address' => 'Baleshwar Extension Centre',
+            'city' => 'Baleshwar',
             'state' => 'Odisha',
             'pincode' => '',
             'phone' => '',
@@ -333,7 +333,7 @@ function verifyMigration($conn) {
 function migrate($conn) {
     printMessage("\n🚀 Starting System Enhancement Module Data Migration...", COLOR_BLUE);
     printMessage("This migration will:", COLOR_BLUE);
-    printMessage("  1. Populate centres table with NIELIT Bhubaneswar and Balasore", COLOR_BLUE);
+    printMessage("  1. Populate centres table with NIELIT Bhubaneswar and Baleshwar", COLOR_BLUE);
     printMessage("  2. Update existing courses with default centre (NIELIT Bhubaneswar)", COLOR_BLUE);
     printMessage("  3. Create default theme from existing CSS values", COLOR_BLUE);
     printMessage("", COLOR_RESET);

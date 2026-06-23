@@ -9946,11 +9946,11 @@
     "OR": [
       {
         "id": "57704",
-        "name": "Angul"
+        "name": "Anugola"
       },
       {
         "id": "57705",
-        "name": "Angul District"
+        "name": "Anugola District"
       },
       {
         "id": "134465",
@@ -9958,7 +9958,7 @@
       },
       {
         "id": "134467",
-        "name": "Athagarh"
+        "name": "Athagada"
       },
       {
         "id": "57785",
@@ -9967,10 +9967,6 @@
       {
         "id": "57835",
         "name": "Balangir"
-      },
-      {
-        "id": "57823",
-        "name": "Balasore"
       },
       {
         "id": "58114",
@@ -9998,15 +9994,11 @@
       },
       {
         "id": "57862",
-        "name": "Baragarh"
+        "name": "Baragada"
       },
       {
         "id": "57866",
-        "name": "Barbil"
-      },
-      {
-        "id": "57869",
-        "name": "Bargarh"
+        "name": "Badabil"
       },
       {
         "id": "57886",
@@ -10042,7 +10034,7 @@
       },
       {
         "id": "57976",
-        "name": "Bhawanipatna"
+        "name": "Bhabanipatna"
       },
       {
         "id": "57999",
@@ -10054,7 +10046,7 @@
       },
       {
         "id": "58058",
-        "name": "Binka"
+        "name": "Binika"
       },
       {
         "id": "58060",
@@ -10102,7 +10094,7 @@
       },
       {
         "id": "131633",
-        "name": "Cuttack"
+        "name": "Kataka"
       },
       {
         "id": "131643",
@@ -10110,7 +10102,7 @@
       },
       {
         "id": "131683",
-        "name": "Deogarh"
+        "name": "Debagada"
       },
       {
         "id": "131735",
@@ -10166,7 +10158,7 @@
       },
       {
         "id": "132265",
-        "name": "Jeypore"
+        "name": "Jayapura"
       },
       {
         "id": "132269",
@@ -10190,7 +10182,7 @@
       },
       {
         "id": "132371",
-        "name": "Kandhamal"
+        "name": "Kandhamala"
       },
       {
         "id": "132387",
@@ -10202,7 +10194,7 @@
       },
       {
         "id": "132441",
-        "name": "Kendrapara"
+        "name": "Kendrapada"
       },
       {
         "id": "132444",
@@ -10223,10 +10215,6 @@
       {
         "id": "132501",
         "name": "Khordha"
-      },
-      {
-        "id": "132508",
-        "name": "Khurda"
       },
       {
         "id": "132527",
@@ -10266,19 +10254,19 @@
       },
       {
         "id": "133196",
-        "name": "Nayagarh"
+        "name": "Nayagada"
       },
       {
         "id": "133195",
-        "name": "Nayagarh District"
+        "name": "Nayagada District"
       },
       {
         "id": "133285",
-        "name": "Nilgiri"
+        "name": "Nilagiri"
       },
       {
         "id": "133219",
-        "name": "Nimaparha"
+        "name": "Nimapada"
       },
       {
         "id": "133245",
@@ -10350,7 +10338,7 @@
       },
       {
         "id": "133994",
-        "name": "Sonepur"
+        "name": "Sonpur"
       },
       {
         "id": "134002",
@@ -10358,7 +10346,7 @@
       },
       {
         "id": "134004",
-        "name": "Soro"
+        "name": "Sora"
       },
       {
         "id": "134034",
@@ -10366,11 +10354,11 @@
       },
       {
         "id": "134044",
-        "name": "Sundargarh"
+        "name": "Sundaragada"
       },
       {
         "id": "134232",
-        "name": "Talcher"
+        "name": "Talacher"
       },
       {
         "id": "134115",

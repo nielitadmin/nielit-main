@@ -51,7 +51,7 @@
 <!-- Sliding Information Section -->
 <div class="sliding-info">
     <div class="container">
-        <p>NIELIT Bhubaneswar, established in 2021, offers industry-standard NSQF-aligned courses. It provides modern facilities, excellent transport links, and extends outreach through its Balasore Extension Center.</p>
+        <p>NIELIT Bhubaneswar, established in 2021, offers industry-standard NSQF-aligned courses. It provides modern facilities, excellent transport links, and extends outreach through its Baleshwar Extension Center.</p>
     </div>
 </div>  
 

@@ -173,7 +173,7 @@ $titleCell->addText(INSTITUTE_NAME_HI_FORMAL,
     ['name' => 'Arial', 'size' => 11, 'bold' => true], ['alignment' => 'center']);
 $titleCell->addText('National Institute of Electronics and Information Technology (NIELIT)', 
     ['name' => 'Arial', 'size' => 10, 'bold' => true], ['alignment' => 'center']);
-$titleCell->addText('Bhubaneswar/Balasore Extension Centre', 
+$titleCell->addText('Bhubaneswar/Baleshwar Extension Centre', 
     ['name' => 'Arial', 'size' => 9], ['alignment' => 'center']);
 $titleCell->addText('(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)', 
     ['name' => 'Arial', 'size' => 8], ['alignment' => 'center']);

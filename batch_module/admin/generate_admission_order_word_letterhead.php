@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/institute_branding.php';
 
 /**
  * LogoAssetManager - Handles logo image loading and base64 encoding for letterhead documents
@@ -148,7 +149,7 @@ $class_time = !empty($batch['class_time']) ? $batch['class_time'] : '9:00 AM to 
 $location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar';
 
 // Determine extension centre name based on location
-$extension_centre = ($location == 'NIELIT Balasore') ? 'Balasore' : 'Bhubaneswar';
+$extension_centre = nielit_location_centre_label($location);
 
 // Get copy to list
 $default_copy_to = [
@@ -573,7 +574,7 @@ header('Cache-Control: max-age=0');
     <div class="header-text-section">
         <div class="hindi-institutional-name"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></div>
         <div class="english-institutional-name">National Institute of Electronics and Information Technology (NIELIT)</div>
-        <div class="extension-centre"><?php echo htmlspecialchars($extension_centre); ?>/Balasore Extension Centre</div>
+        <div class="extension-centre"><?php echo htmlspecialchars($extension_centre); ?> Extension Centre</div>
         <div class="government-affiliation">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</div>
     </div>
 </div>

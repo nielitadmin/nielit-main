@@ -3234,7 +3234,7 @@ function removeRow(button) {
 
 // Local cities database as fallback
 const citiesByState = {
-    'OR': ['Bhubaneswar', 'Cuttack', 'Rourkela', 'Brahmapur', 'Sambalpur', 'Puri', 'Balasore', 'Bhadrak', 'Baripada', 'Jharsuguda', 'Jeypore', 'Barbil', 'Khordha', 'Rayagada', 'Koraput', 'Kendujhar', 'Jagatsinghpur', 'Paradip', 'Bhawanipatna', 'Dhenkanal'],
+    'OR': ['Bhubaneswar', 'Kataka', 'Raurkela', 'Brahmapur', 'Sambalpur', 'Puri', 'Baleshwar', 'Bhadrak', 'Baripada', 'Jharsuguda', 'Jayapura', 'Badabil', 'Khordha', 'Rayagada', 'Koraput', 'Kendujhar', 'Jagatsinghpur', 'Paradip', 'Bhabanipatna', 'Dhenkanal'],
     'AN': ['Port Blair', 'Diglipur', 'Mayabunder', 'Rangat'],
     'AP': ['Visakhapatnam', 'Vijayawada', 'Guntur', 'Nellore', 'Kurnool', 'Rajahmundry', 'Tirupati', 'Kadapa', 'Anantapur'],
     'AR': ['Itanagar', 'Naharlagun', 'Pasighat', 'Tezpur', 'Bomdila'],

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/institute_branding.php';
 
 if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_id'])) {
     die('Unauthorized');
@@ -150,7 +151,7 @@ $class_time = !empty($batch['class_time']) ? $batch['class_time'] : '9:00 AM to 
 $location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswar';
 
 // Determine extension centre name based on location
-$extension_centre = ($location == 'NIELIT Balasore') ? 'Balasore' : 'Bhubaneswar';
+$extension_centre = nielit_location_centre_label($location);
 
 // Get copy to list
 $default_copy_to = [
@@ -339,7 +340,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     onchange="updateField('location', this.value)"
                     style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px;">
                 <option value="NIELIT Bhubaneswar" <?php echo ($location == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
-                <option value="NIELIT Balasore" <?php echo ($location == 'NIELIT Balasore') ? 'selected' : ''; ?>>NIELIT Balasore</option>
+                <option value="NIELIT Baleshwar" <?php echo is_nielit_baleshwar_location($location) ? 'selected' : ''; ?>>NIELIT Baleshwar</option>
             </select>
         </div>
         <div>
@@ -513,7 +514,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             <td class="ao-header-text">
                 <p class="ao-hindi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="ao-institute">National Institute of Electronics and Information Technology (NIELIT)</p>
-                <p class="ao-centre">Bhubaneswar/Balasore Extension Centre</p>
+                <p class="ao-centre">Bhubaneswar/Baleshwar Extension Centre</p>
                 <p class="ao-tagline">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>
             </td>
         </tr>

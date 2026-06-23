@@ -99,11 +99,11 @@ if ($has_data) {
 } else {
     $sql_insert_centres = "INSERT INTO centres (name, code, address, city, state, pincode, phone, email, is_active) VALUES
         ('NIELIT Bhubaneswar', 'BBSR', 'OCAC Tower, Acharya Vihar', 'Bhubaneswar', 'Odisha', '751013', '0674-2960354', 'dir-bbsr@nielit.gov.in', 1),
-        ('NIELIT Balasore Extension', 'BALA', 'Balasore', 'Balasore', 'Odisha', '', '', '', 1)";
+        ('NIELIT Baleshwar Extension', 'BALA', 'Baleshwar', 'Baleshwar', 'Odisha', '', '', '', 1)";
     
     if ($conn->query($sql_insert_centres)) {
         echo "<div class='success'>✓ Default centres inserted successfully!</div>";
-        echo "<div class='info'>Inserted 2 centres: NIELIT Bhubaneswar, NIELIT Balasore Extension</div>";
+        echo "<div class='info'>Inserted 2 centres: NIELIT Bhubaneswar, NIELIT Baleshwar Extension</div>";
         $success[] = "Default centres inserted";
     } else {
         echo "<div class='error'>✗ Failed to insert centres: " . $conn->error . "</div>";

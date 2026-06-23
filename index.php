@@ -1247,7 +1247,7 @@
 <div class="notice-bar">
     <div class="notice-content">
         <span class="notice-label">NOTICE</span>
-        Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Balasore Extension Center today. &nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;
+        Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Baleshwar Extension Center today. &nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp;
         <span class="notice-label">NEW</span>
         Online Registrations are now live — Apply before the deadline!
     </div>
@@ -1387,8 +1387,8 @@
                     <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar" target="_blank" rel="noopener" title="Open OCAC Tower in Google Maps" role="link">
                         <i class="fas fa-map-marker-alt"></i> OCAC Tower, Bhubaneswar
                     </a>
-                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=Balasore+Extension+Center+Balasore" target="_blank" rel="noopener" title="Open Balasore Extension Center in Google Maps" role="link">
-                        <i class="fas fa-map-marker-alt"></i> Balasore Extension Center
+                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=NIELIT+Baleshwar+Extension+Center+Baleshwar" target="_blank" rel="noopener" title="Open Baleshwar Extension Center in Google Maps" role="link">
+                        <i class="fas fa-map-marker-alt"></i> Baleshwar Extension Center
                     </a>
                     <div class="stat-pill"><i class="fas fa-clock"></i> Mon–Fri: 09:00 AM – 5:30 PM</div>
                     <div class="stat-pill"><i class="fas fa-phone-alt"></i> 0674-2960354</div>
@@ -1547,8 +1547,8 @@
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
                     <div class="feat-icon-wrap"><i class="fas fa-network-wired"></i></div>
-                    <h5>Balasore Extension</h5>
-                    <p>Expanding our footprint to deliver quality education across the Balasore region.</p>
+                    <h5>Baleshwar Extension</h5>
+                    <p>Expanding our footprint to deliver quality education across the Baleshwar region.</p>
                 </div>
             </div>
         </div>
@@ -1816,7 +1816,7 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                     <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Results</a>
                     <a href="#"><i class="fas fa-chevron-right"></i> Certificate Verification</a>
                     <div style="margin-top: 24px;">
-                        <div class="footer-badge"><span>●</span> Balasore Extension Active</div>
+                        <div class="footer-badge"><span>●</span> Baleshwar Extension Active</div>
                     </div>
                 </div>
             </div>

@@ -78,10 +78,10 @@ if ($row['count'] == 0) {
             'created_by' => 'admin'
         ],
         [
-            'title' => 'Balasore Extension Center Now Operational',
-            'content' => 'Great news! Our new training center in Balasore is now fully operational. This expansion allows us to reach more students across eastern Odisha. The Balasore center features modern labs, experienced faculty, and the same quality education as our main center. Admissions are open for all our popular courses. Visit our Balasore center or contact us for more information. (Recommended image: 800x400px)',
+            'title' => 'Baleshwar Extension Center Now Operational',
+            'content' => 'Great news! Our new training center in Baleshwar is now fully operational. This expansion allows us to reach more students across eastern Odisha. The Baleshwar center features modern labs, experienced faculty, and the same quality education as our main center. Admissions are open for all our popular courses. Visit our Baleshwar center or contact us for more information. (Recommended image: 800x400px)',
             'category' => 'Update',
-            'image_url' => 'https://via.placeholder.com/800x400?text=Balasore+Center',
+            'image_url' => 'https://via.placeholder.com/800x400?text=Baleshwar+Center',
             'is_featured' => 0,
             'is_active' => 1,
             'created_by' => 'admin'

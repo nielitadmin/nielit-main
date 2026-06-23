@@ -108,7 +108,7 @@
     <div class="notice-bar">
         <div class="notice-content">
             <span class="badge bg-warning text-dark me-2">NEW</span> 
-            Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Balasore Extension Center today.
+            Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Baleshwar Extension Center today.
         </div>
     </div>
 

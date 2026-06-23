@@ -60,8 +60,8 @@ echo "<h2>Step 2: Getting Training Centres</h2>";
 $sql_bbsr = "SELECT id, name FROM centres WHERE name LIKE '%NIELIT%Bhubaneswar%' OR code = 'BBSR' LIMIT 1";
 $result_bbsr = $conn->query($sql_bbsr);
 
-$sql_balasore = "SELECT id, name FROM centres WHERE name LIKE '%Balasore%' OR code = 'BALA' LIMIT 1";
-$result_balasore = $conn->query($sql_balasore);
+$sql_baleshwar = "SELECT id, name FROM centres WHERE name LIKE '%Baleshwar%' OR name LIKE '%Balasore%' OR code = 'BALA' LIMIT 1";
+$result_baleshwar = $conn->query($sql_baleshwar);
 
 if ($result_bbsr && $result_bbsr->num_rows > 0) {
     $centre_bbsr = $result_bbsr->fetch_assoc();
@@ -76,14 +76,14 @@ if ($result_bbsr && $result_bbsr->num_rows > 0) {
     exit;
 }
 
-if ($result_balasore && $result_balasore->num_rows > 0) {
-    $centre_balasore = $result_balasore->fetch_assoc();
-    $centre_id_balasore = $centre_balasore['id'];
-    $centre_name_balasore = $centre_balasore['name'];
+if ($result_baleshwar && $result_baleshwar->num_rows > 0) {
+    $centre_baleshwar = $result_baleshwar->fetch_assoc();
+    $centre_id_baleshwar = $centre_baleshwar['id'];
+    $centre_name_baleshwar = $centre_baleshwar['name'];
     
-    echo "<div class='success'>✓ Found NIELIT Balasore: <strong>" . htmlspecialchars($centre_name_balasore) . "</strong> (ID: $centre_id_balasore)</div>";
+    echo "<div class='success'>✓ Found NIELIT Baleshwar: <strong>" . htmlspecialchars($centre_name_baleshwar) . "</strong> (ID: $centre_id_baleshwar)</div>";
 } else {
-    echo "<div class='error'>✗ Could not find NIELIT Balasore Extension centre!</div>";
+    echo "<div class='error'>✗ Could not find NIELIT Baleshwar Extension centre!</div>";
     echo "<p>Please run the centres installation script first.</p>";
     echo "</body></html>";
     exit;
@@ -92,20 +92,20 @@ if ($result_balasore && $result_balasore->num_rows > 0) {
 // Step 3: Assign courses to appropriate centres
 echo "<h2>Step 3: Assigning Courses to Centres</h2>";
 
-// First, assign Balasore courses
-$sql_update_balasore = "UPDATE courses SET centre_id = ? WHERE centre_id IS NULL AND (course_name LIKE '%Balasore%' OR course_name LIKE '%balasore%')";
-$stmt_balasore = $conn->prepare($sql_update_balasore);
-$stmt_balasore->bind_param("i", $centre_id_balasore);
+// First, assign Baleshwar courses
+$sql_update_baleshwar = "UPDATE courses SET centre_id = ? WHERE centre_id IS NULL AND (course_name LIKE '%Baleshwar%' OR course_name LIKE '%baleshwar%' OR course_name LIKE '%Balasore%' OR course_name LIKE '%balasore%')";
+$stmt_baleshwar = $conn->prepare($sql_update_baleshwar);
+$stmt_baleshwar->bind_param("i", $centre_id_baleshwar);
 
-if ($stmt_balasore->execute()) {
-    $affected_balasore = $stmt_balasore->affected_rows;
-    if ($affected_balasore > 0) {
-        echo "<div class='success'>✓ Assigned <strong>$affected_balasore</strong> Balasore course(s) to " . htmlspecialchars($centre_name_balasore) . "!</div>";
+if ($stmt_baleshwar->execute()) {
+    $affected_baleshwar = $stmt_baleshwar->affected_rows;
+    if ($affected_baleshwar > 0) {
+        echo "<div class='success'>✓ Assigned <strong>$affected_baleshwar</strong> Baleshwar course(s) to " . htmlspecialchars($centre_name_baleshwar) . "!</div>";
     } else {
-        echo "<div class='info'>ℹ️ No Balasore courses found to assign.</div>";
+        echo "<div class='info'>ℹ️ No Baleshwar courses found to assign.</div>";
     }
 } else {
-    echo "<div class='error'>✗ Failed to assign Balasore courses: " . $conn->error . "</div>";
+    echo "<div class='error'>✗ Failed to assign Baleshwar courses: " . $conn->error . "</div>";
 }
 
 // Then, assign all remaining unassigned courses to Bhubaneswar
@@ -124,7 +124,7 @@ if ($stmt_bbsr->execute()) {
     echo "<div class='error'>✗ Failed to assign courses to Bhubaneswar: " . $conn->error . "</div>";
 }
 
-$total_assigned = $affected_balasore + $affected_bbsr;
+$total_assigned = $affected_baleshwar + $affected_bbsr;
 echo "<div class='success'><strong>Total courses assigned: $total_assigned</strong></div>";
 
 // Step 4: Verify the assignment
@@ -183,7 +183,7 @@ echo "<hr>";
 echo "<h2>✅ Assignment Complete!</h2>";
 echo "<p>Courses have been assigned to their respective training centres:</p>";
 echo "<ul>";
-echo "<li>Balasore courses → " . htmlspecialchars($centre_name_balasore) . "</li>";
+echo "<li>Baleshwar courses → " . htmlspecialchars($centre_name_baleshwar) . "</li>";
 echo "<li>All other courses → " . htmlspecialchars($centre_name_bbsr) . "</li>";
 echo "</ul>";
 

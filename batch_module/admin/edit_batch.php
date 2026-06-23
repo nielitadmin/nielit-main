@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 
 if (!isset($_SESSION['admin'])) {
@@ -373,7 +374,7 @@ if ($table_check && $table_check->num_rows > 0) {
                                 <label class="form-label">Location</label>
                                 <select class="form-control" name="location">
                                     <option value="NIELIT Bhubaneswar" <?php echo (($batch['location'] ?? 'NIELIT Bhubaneswar') == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
-                                    <option value="NIELIT Balasore" <?php echo (($batch['location'] ?? '') == 'NIELIT Balasore') ? 'selected' : ''; ?>>NIELIT Balasore</option>
+                                    <option value="NIELIT Baleshwar" <?php echo is_nielit_baleshwar_location($batch['location'] ?? '') ? 'selected' : ''; ?>>NIELIT Baleshwar</option>
                                 </select>
                                 <small class="text-muted">Training centre location</small>
                             </div>
