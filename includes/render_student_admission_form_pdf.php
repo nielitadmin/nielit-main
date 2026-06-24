@@ -155,22 +155,54 @@ $pdf->SetMargins(15, 20, 15);
 $pdf->SetAutoPageBreak(TRUE, 25);
 $pdf->AddPage();
 
-// --- 4. BRANDING HEADER (CENTERED) ---
+// --- 4. BRANDING HEADER (logo left, institute text beside it) ---
 $logo_path = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
-if (file_exists($logo_path)) { 
-    $pdf->Image($logo_path, 15, 15, 26, 0, 'PNG'); 
+$marginLeft = 15;
+$marginRight = 15;
+$headerY = 15;
+$logoWidth = 24;
+$logoGap = 5;
+$contentRight = 210 - $marginRight;
+$textX = $marginLeft;
+$textWidth = $contentRight - $marginLeft;
+$logoHeight = 0;
+
+if (file_exists($logo_path)) {
+    $imgSize = @getimagesize($logo_path);
+    $logoHeight = ($imgSize && !empty($imgSize[0]))
+        ? $logoWidth * ($imgSize[1] / $imgSize[0])
+        : 22;
+    $pdf->Image($logo_path, $marginLeft, $headerY, $logoWidth, 0, 'PNG');
+    $textX = $marginLeft + $logoWidth + $logoGap;
+    $textWidth = $contentRight - $textX;
 }
 
-$pdf->SetY(15);
+$hindiLineHeight = 0;
 if ($hindiFont) {
-    $pdf->SetFont($hindiFont, '', 11);
-    $pdf->Cell(0, 7, $hindiTexts['institute_line'], 0, 1, 'C');
+    $pdf->SetFont($hindiFont, '', 10);
+    $hindiLineHeight = max(5, $pdf->getStringHeight($textWidth, $hindiTexts['institute_line']));
 }
 $pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, INSTITUTE_NAME_EN, 0, 1, 'C');
+$englishLineHeight = max(5, $pdf->getStringHeight($textWidth, INSTITUTE_NAME_EN));
+$textBlockHeight = ($hindiFont ? $hindiLineHeight + 1 : 0) + $englishLineHeight;
 
-$pdf->SetY(35);
-$pdf->SetFont('helvetica', 'B', 16); 
+$textY = $headerY;
+if ($logoHeight > 0 && $logoHeight > $textBlockHeight) {
+    $textY = $headerY + (($logoHeight - $textBlockHeight) / 2);
+}
+
+$pdf->SetXY($textX, $textY);
+if ($hindiFont) {
+    $pdf->SetFont($hindiFont, '', 10);
+    $pdf->MultiCell($textWidth, 5, $hindiTexts['institute_line'], 0, 'C', false, 1, $textX, $textY);
+}
+$pdf->SetXY($textX, $pdf->GetY());
+$pdf->SetFont('helvetica', 'B', 10);
+$pdf->MultiCell($textWidth, 5, INSTITUTE_NAME_EN, 0, 'C', false, 1, $textX, $pdf->GetY());
+
+$headerBottomY = max($pdf->GetY(), $headerY + $logoHeight);
+$pdf->SetY($headerBottomY + 6);
+$pdf->SetFont('helvetica', 'B', 16);
 $pdf->SetTextColor(33, 150, 243);
 $pdf->Cell(0, 12, 'ADMISSION APPLICATION FORM', 0, 1, 'C');
 $pdf->SetTextColor(0, 0, 0);
