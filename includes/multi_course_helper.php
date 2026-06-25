@@ -1018,6 +1018,126 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Reject a student registration, sync enrollments, and notify the applicant by email.
+     */
+    function adminRejectStudent(
+        mysqli $conn,
+        string $studentIdStr,
+        string $rejectionReason,
+        string $rejectionNote = '',
+        bool $sendEmail = true
+    ): array {
+        $studentIdStr = trim($studentIdStr);
+        $rejectionReason = trim($rejectionReason);
+        $rejectionNote = trim($rejectionNote);
+
+        if ($studentIdStr === '') {
+            return ['success' => false, 'message' => 'Invalid student ID.'];
+        }
+        if ($rejectionReason === '') {
+            return ['success' => false, 'message' => 'Rejection reason is required.'];
+        }
+
+        $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(255) DEFAULT NULL");
+        $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_note TEXT DEFAULT NULL");
+
+        $stmt = $conn->prepare("UPDATE students SET status = 'rejected', rejection_reason = ?, rejection_note = ? WHERE student_id = ?");
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('sss', $rejectionReason, $rejectionNote, $studentIdStr);
+        if (!$stmt->execute()) {
+            $err = $stmt->error;
+            $stmt->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        $profileStmt = $conn->prepare("SELECT s.id, s.name, s.email,
+            GROUP_CONCAT(DISTINCT COALESCE(c.course_name, s.course) ORDER BY c.course_name SEPARATOR ', ') AS course_list
+            FROM students s
+            LEFT JOIN courses c ON c.id = s.course_id
+            WHERE s.student_id = ?
+            GROUP BY s.student_id, s.name, s.email
+            LIMIT 1");
+        $studentName = '';
+        $studentEmail = '';
+        $courseList = '';
+        $recordIds = [];
+        if ($profileStmt) {
+            $profileStmt->bind_param('s', $studentIdStr);
+            $profileStmt->execute();
+            $profile = $profileStmt->get_result()->fetch_assoc();
+            $profileStmt->close();
+            if ($profile) {
+                $studentName = (string)($profile['name'] ?? '');
+                $studentEmail = (string)($profile['email'] ?? '');
+                $courseList = trim((string)($profile['course_list'] ?? ''));
+            }
+        }
+
+        $recordStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ?');
+        if ($recordStmt) {
+            $recordStmt->bind_param('s', $studentIdStr);
+            $recordStmt->execute();
+            $res = $recordStmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $recordIds[] = (int)$row['id'];
+            }
+            $recordStmt->close();
+        }
+
+        foreach ($recordIds as $recordId) {
+            syncStudentEnrollmentRecord($conn, $recordId);
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $account = getAccountByStudentId($conn, $studentIdStr);
+            if ($account) {
+                $accountId = (int)$account['id'];
+                $enr = $conn->prepare("UPDATE student_enrollments SET status = 'rejected'
+                    WHERE account_id = ? AND LOWER(status) NOT IN ('rejected', 'cancelled')");
+                if ($enr) {
+                    $enr->bind_param('i', $accountId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+
+        if ($affected <= 0 && empty($recordIds)) {
+            return ['success' => false, 'message' => 'Student not found.'];
+        }
+
+        $message = 'Student registration rejected. Reason: ' . $rejectionReason;
+        $emailSent = false;
+
+        if ($sendEmail && $studentEmail !== '' && filter_var($studentEmail, FILTER_VALIDATE_EMAIL)) {
+            require_once __DIR__ . '/email_helper.php';
+            $emailSent = sendRegistrationRejectionEmail(
+                $studentEmail,
+                $studentName !== '' ? $studentName : $studentIdStr,
+                $studentIdStr,
+                $courseList !== '' ? $courseList : 'Registered course',
+                $rejectionReason,
+                $rejectionNote
+            );
+            $message .= $emailSent
+                ? ' A rejection email with reapply instructions was sent to the student.'
+                : ' Rejection saved, but the email could not be sent. Please contact the student manually.';
+        } elseif ($sendEmail) {
+            $message .= ' No valid email address was found, so the student was not notified automatically.';
+        }
+
+        return [
+            'success' => true,
+            'message' => $message,
+            'email_sent' => $emailSent,
+        ];
+    }
+
+    /**
      * Fix portal login block: students row is active but student_enrollments still pending.
      */
     function repairEnrollmentStatusMismatch(mysqli $conn): int {

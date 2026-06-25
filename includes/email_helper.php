@@ -273,6 +273,184 @@ function sendPasswordResetEmail($to_email, $student_name, $student_id, $new_pass
 }
 
 /**
+ * Send registration rejection email with reason and reapply instructions.
+ */
+function sendRegistrationRejectionEmail(
+    $to_email,
+    $student_name,
+    $student_id,
+    $course_label,
+    $rejection_reason,
+    $rejection_note = ''
+) {
+    if (!filter_var($to_email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+
+    $mail = new PHPMailer(true);
+
+    try {
+        $mail->isSMTP();
+        $mail->Host = SMTP_HOST;
+        $mail->SMTPAuth = true;
+        $mail->Username = SMTP_USERNAME;
+        $mail->Password = SMTP_PASSWORD;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = SMTP_PORT;
+
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addAddress($to_email, $student_name);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Registration Update - NIELIT Bhubaneswar';
+        $mail->Body = getRegistrationRejectionEmailTemplate(
+            $student_name,
+            $student_id,
+            $course_label,
+            $rejection_reason,
+            $rejection_note
+        );
+        $mail->AltBody = getRegistrationRejectionEmailPlainText(
+            $student_name,
+            $student_id,
+            $course_label,
+            $rejection_reason,
+            $rejection_note
+        );
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Rejection email failed: {$mail->ErrorInfo}");
+        return false;
+    }
+}
+
+function getRegistrationRejectionEmailTemplate(
+    $student_name,
+    $student_id,
+    $course_label,
+    $rejection_reason,
+    $rejection_note = ''
+) {
+    $current_year = date('Y');
+    $safe_name = htmlspecialchars($student_name, ENT_QUOTES, 'UTF-8');
+    $safe_id = htmlspecialchars($student_id, ENT_QUOTES, 'UTF-8');
+    $safe_course = htmlspecialchars($course_label, ENT_QUOTES, 'UTF-8');
+    $safe_reason = htmlspecialchars($rejection_reason, ENT_QUOTES, 'UTF-8');
+    $safe_note = htmlspecialchars(trim($rejection_note), ENT_QUOTES, 'UTF-8');
+    $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://nielitbhubaneswar.in';
+    $courses_url = htmlspecialchars($base_url . '/public/courses', ENT_QUOTES, 'UTF-8');
+    $contact_url = htmlspecialchars($base_url . '/public/contact', ENT_QUOTES, 'UTF-8');
+
+    $note_block = '';
+    if ($safe_note !== '') {
+        $note_block = <<<HTML
+                            <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px 0;">
+                                <strong>Additional details:</strong><br>{$safe_note}
+                            </p>
+HTML;
+    }
+
+    return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Update</title>
+</head>
+<body style="margin:0;padding:0;font-family:Arial,sans-serif;background-color:#f4f4f4;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <tr>
+                        <td style="background:linear-gradient(135deg,#991b1b 0%,#dc2626 100%);padding:28px;text-align:center;">
+                            <h1 style="color:#ffffff;margin:0;font-size:24px;font-weight:700;">Registration Not Approved</h1>
+                            <p style="color:#fee2e2;margin:10px 0 0 0;font-size:14px;">NIELIT Bhubaneswar</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px 28px;">
+                            <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+                                Dear <strong>{$safe_name}</strong>,
+                            </p>
+                            <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+                                Thank you for applying to NIELIT Bhubaneswar. After reviewing your registration, we are unable to approve your application at this time.
+                            </p>
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#fef2f2;border-left:4px solid #dc2626;border-radius:4px;margin:18px 0;">
+                                <tr>
+                                    <td style="padding:18px;">
+                                        <p style="margin:0 0 8px 0;color:#991b1b;font-size:14px;font-weight:700;">Application Details</p>
+                                        <p style="margin:0 0 6px 0;color:#374151;font-size:14px;"><strong>Student ID:</strong> {$safe_id}</p>
+                                        <p style="margin:0 0 6px 0;color:#374151;font-size:14px;"><strong>Course:</strong> {$safe_course}</p>
+                                        <p style="margin:0;color:#374151;font-size:14px;"><strong>Reason:</strong> {$safe_reason}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            {$note_block}
+                            <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
+                                You may submit a fresh application after correcting the issue mentioned above.
+                            </p>
+                            <p style="text-align:center;margin:24px 0;">
+                                <a href="{$courses_url}" style="display:inline-block;background:#0a1628;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;">
+                                    View Courses &amp; Reapply
+                                </a>
+                            </p>
+                            <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">
+                                Open the course page, tap <strong>Apply Now</strong>, and complete registration again with corrected documents/details.
+                                If you need help, visit our <a href="{$contact_url}" style="color:#1a56db;">contact page</a> or call 0674-2960354.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="background-color:#f5f5f5;padding:18px;text-align:center;border-top:1px solid #e0e0e0;">
+                            <p style="color:#666;font-size:12px;margin:0;">© {$current_year} NIELIT Bhubaneswar. All rights reserved.</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+HTML;
+}
+
+function getRegistrationRejectionEmailPlainText(
+    $student_name,
+    $student_id,
+    $course_label,
+    $rejection_reason,
+    $rejection_note = ''
+) {
+    $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://nielitbhubaneswar.in';
+    $note_text = trim($rejection_note) !== '' ? "\nAdditional details: {$rejection_note}\n" : '';
+
+    return <<<TEXT
+REGISTRATION UPDATE - NIELIT Bhubaneswar
+
+Dear {$student_name},
+
+Thank you for applying to NIELIT Bhubaneswar. After reviewing your registration, we are unable to approve your application at this time.
+
+Student ID: {$student_id}
+Course: {$course_label}
+Reason: {$rejection_reason}
+{$note_text}
+You may submit a fresh application after correcting the issue mentioned above.
+
+Reapply here: {$base_url}/public/courses
+Contact us: {$base_url}/public/contact
+Phone: 0674-2960354
+
+© NIELIT Bhubaneswar. All rights reserved.
+TEXT;
+}
+
+/**
  * Test email configuration
  * 
  * @param string $test_email Email address to send test email

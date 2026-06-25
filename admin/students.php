@@ -151,32 +151,13 @@ if (isset($_GET['deapprove_id'])) {
 
 // ─── HANDLE: Reject student (POST with reason) ────────────────────────────────
 if (isset($_POST['reject_student'])) {
-    $reject_id        = $_POST['reject_id'];
+    $reject_id        = trim($_POST['reject_id'] ?? '');
     $rejection_reason = trim($_POST['rejection_reason'] ?? '');
     $rejection_note   = trim($_POST['rejection_note']   ?? '');
 
-    $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(255) DEFAULT NULL");
-    $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS rejection_note TEXT DEFAULT NULL");
-
-    $stmt = $conn->prepare("UPDATE students SET status = 'rejected', rejection_reason = ?, rejection_note = ? WHERE student_id = ?");
-    if ($stmt) {
-        $stmt->bind_param("sss", $rejection_reason, $rejection_note, $reject_id);
-        if ($stmt->execute()) {
-            $_SESSION['message'] = "Student registration rejected. Reason: " . htmlspecialchars($rejection_reason);
-            $_SESSION['message_type'] = "warning";
-        } else {
-            $_SESSION['message'] = "Error rejecting student: " . $conn->error;
-            $_SESSION['message_type'] = "danger";
-        }
-        $stmt->close();
-    } else {
-        $stmt2 = $conn->prepare("UPDATE students SET status = 'rejected' WHERE student_id = ?");
-        $stmt2->bind_param("s", $reject_id);
-        $stmt2->execute();
-        $stmt2->close();
-        $_SESSION['message'] = "Student registration rejected.";
-        $_SESSION['message_type'] = "warning";
-    }
+    $result = adminRejectStudent($conn, $reject_id, $rejection_reason, $rejection_note, true);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'warning' : 'danger';
 
     header('Location: ' . studentsRedirectFromSource($_POST));
     exit();
@@ -184,15 +165,11 @@ if (isset($_POST['reject_student'])) {
 
 // ─── HANDLE: Reject student (legacy GET) ─────────────────────────────────────
 if (isset($_GET['reject_id'])) {
-    $reject_id = $_GET['reject_id'];
-    $stmt = $conn->prepare("UPDATE students SET status = 'rejected' WHERE student_id = ?");
-    $stmt->bind_param("s", $reject_id);
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Student registration rejected.";
-        $_SESSION['message_type'] = "warning";
-    }
-    $stmt->close();
-    header('Location: ' . adminStudentsPageUrl());
+    $reject_id = trim($_GET['reject_id'] ?? '');
+    $result = adminRejectStudent($conn, $reject_id, 'Registration rejected by administrator', '', true);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'warning' : 'danger';
+    header('Location: ' . studentsRedirectFromSource($_GET));
     exit();
 }
 
@@ -1941,7 +1918,8 @@ if ($other_gender_count > 0) {
                 <i class="fas fa-times-circle" style="font-size:32px;color:#dc2626;"></i>
             </div>
             <h3 style="margin:0 0 6px;font-size:20px;color:#1e293b;">Reject Student</h3>
-            <p style="margin:0;color:#64748b;font-size:14px;">Rejecting: <strong id="rejectStudentName"></strong></p>
+            <p style="margin:0 0 10px;color:#64748b;font-size:14px;">Rejecting: <strong id="rejectStudentName"></strong></p>
+            <p style="margin:0;color:#64748b;font-size:13px;">The student will receive an email with the rejection reason and instructions to reapply.</p>
         </div>
         <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="rejectForm">
             <input type="hidden" name="reject_student" value="1">
