@@ -955,6 +955,69 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Return an approved student to pending — blocks portal login until re-approved.
+     */
+    function adminDeapproveStudent(mysqli $conn, string $studentIdStr, string $adminName = 'Admin'): array {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return ['success' => false, 'message' => 'Invalid student ID.'];
+        }
+
+        $stmt = $conn->prepare("UPDATE students SET status = 'pending'
+            WHERE student_id = ? AND LOWER(status) IN ('active', 'approved')");
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('s', $studentIdStr);
+        if (!$stmt->execute()) {
+            $err = $stmt->error;
+            $stmt->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        $recordStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ?');
+        $recordIds = [];
+        if ($recordStmt) {
+            $recordStmt->bind_param('s', $studentIdStr);
+            $recordStmt->execute();
+            $res = $recordStmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $recordIds[] = (int)$row['id'];
+            }
+            $recordStmt->close();
+        }
+
+        foreach ($recordIds as $recordId) {
+            syncStudentEnrollmentRecord($conn, $recordId);
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $account = getAccountByStudentId($conn, $studentIdStr);
+            if ($account) {
+                $accountId = (int)$account['id'];
+                $enr = $conn->prepare("UPDATE student_enrollments SET status = 'pending'
+                    WHERE account_id = ? AND LOWER(status) IN ('active', 'approved')");
+                if ($enr) {
+                    $enr->bind_param('i', $accountId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+
+        if ($affected <= 0 && empty($recordIds)) {
+            return ['success' => false, 'message' => 'Student not found or is not currently approved.'];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Student de-approved. Status is now pending and portal login is disabled until re-approved.',
+        ];
+    }
+
+    /**
      * Fix portal login block: students row is active but student_enrollments still pending.
      */
     function repairEnrollmentStatusMismatch(mysqli $conn): int {

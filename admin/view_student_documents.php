@@ -1,16 +1,17 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/url_helper.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
-    header("Location: login_new.php");
+    header('Location: ' . relative_url('login_new.php'));
     exit();
 }
 
 // Get student ID
 if (!isset($_GET['id'])) {
-    header("Location: students.php");
+    header('Location: ' . relative_url('students.php'));
     exit();
 }
 
@@ -29,7 +30,7 @@ foreach ($return_keys as $key) {
     }
     $return_query[$key] = $value;
 }
-$return_url = 'students.php' . ($return_query ? '?' . http_build_query($return_query) : '');
+$return_url = relative_url('students.php') . ($return_query ? '?' . http_build_query($return_query) : '');
 
 // Fetch student data
 $sql = "SELECT * FROM students WHERE student_id = ?";
@@ -40,7 +41,7 @@ $result = $stmt->get_result();
 
 if ($result->num_rows == 0) {
     $_SESSION['message'] = "Student not found!";
-    header("Location: students.php");
+    header('Location: ' . relative_url('students.php'));
     exit();
 }
 

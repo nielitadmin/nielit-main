@@ -2,6 +2,7 @@
 // Start session and include the database connection
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
@@ -44,30 +45,42 @@ $student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
 function studentsFilterRedirectParams(array $source): array {
     $params = [];
     if (!empty($source['filter_course']) && $source['filter_course'] !== 'All') {
-        $params[] = 'filter_course=' . urlencode($source['filter_course']);
+        $params['filter_course'] = $source['filter_course'];
     }
     if (!empty($source['filter_gender']) && $source['filter_gender'] !== 'All') {
-        $params[] = 'filter_gender=' . urlencode($source['filter_gender']);
+        $params['filter_gender'] = $source['filter_gender'];
     }
     if (!empty($source['filter_scheme']) && $source['filter_scheme'] !== 'All') {
-        $params[] = 'filter_scheme=' . urlencode($source['filter_scheme']);
+        $params['filter_scheme'] = $source['filter_scheme'];
     }
     if (!empty($source['filter_category']) && $source['filter_category'] !== 'All') {
-        $params[] = 'filter_category=' . urlencode($source['filter_category']);
+        $params['filter_category'] = $source['filter_category'];
     }
     if (!empty($source['start_date'])) {
-        $params[] = 'start_date=' . urlencode($source['start_date']);
+        $params['start_date'] = $source['start_date'];
     }
     if (!empty($source['end_date'])) {
-        $params[] = 'end_date=' . urlencode($source['end_date']);
+        $params['end_date'] = $source['end_date'];
     }
     if (!empty($source['page']) && (int)$source['page'] > 1) {
-        $params[] = 'page=' . (int)$source['page'];
+        $params['page'] = (int)$source['page'];
     }
     if (!empty($source['per_page']) && (int)$source['per_page'] !== 25) {
-        $params[] = 'per_page=' . (int)$source['per_page'];
+        $params['per_page'] = (int)$source['per_page'];
     }
     return $params;
+}
+
+function adminStudentsPageUrl(array $queryParams = []): string {
+    $url = relative_url('students.php');
+    if (empty($queryParams)) {
+        return $url;
+    }
+    return $url . '?' . http_build_query($queryParams);
+}
+
+function studentsRedirectFromSource(array $source): string {
+    return adminStudentsPageUrl(studentsFilterRedirectParams($source));
 }
 
 // ─── HANDLE: Delete student ───────────────────────────────────────────────────
@@ -75,7 +88,7 @@ if (isset($_GET['delete_id'])) {
     if ($is_front_office) {
         $_SESSION['message'] = "Access denied. Front Office Desk cannot delete students.";
         $_SESSION['message_type'] = "danger";
-        header("Location: students.php");
+        header('Location: ' . adminStudentsPageUrl());
         exit();
     }
     $delete_id = $_GET['delete_id'];
@@ -89,8 +102,7 @@ if (isset($_GET['delete_id'])) {
         $_SESSION['message_type'] = "danger";
     }
     $stmt->close();
-    $redirect_params = studentsFilterRedirectParams($_GET);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_GET));
     exit();
 }
 
@@ -106,8 +118,30 @@ if (isset($_GET['approve_id'])) {
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
     }
-    $redirect_params = studentsFilterRedirectParams($_GET);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_GET));
+    exit();
+}
+
+// ─── HANDLE: De-approve student (return to pending) ───────────────────────────
+if (isset($_GET['deapprove_id'])) {
+    if ($is_front_office) {
+        $_SESSION['message'] = 'Access denied. Front Office Desk cannot de-approve students.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . adminStudentsPageUrl());
+        exit();
+    }
+
+    $deapprove_id = trim($_GET['deapprove_id'] ?? '');
+    $admin_name = $_SESSION['admin'] ?? 'Admin';
+    if ($deapprove_id === '') {
+        $_SESSION['message'] = 'Invalid student ID.';
+        $_SESSION['message_type'] = 'warning';
+    } else {
+        $result = adminDeapproveStudent($conn, $deapprove_id, $admin_name);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    }
+    header('Location: ' . studentsRedirectFromSource($_GET));
     exit();
 }
 
@@ -140,8 +174,7 @@ if (isset($_POST['reject_student'])) {
         $_SESSION['message_type'] = "warning";
     }
 
-    $redirect_params = studentsFilterRedirectParams($_POST);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_POST));
     exit();
 }
 
@@ -155,7 +188,7 @@ if (isset($_GET['reject_id'])) {
         $_SESSION['message_type'] = "warning";
     }
     $stmt->close();
-    header("Location: students.php");
+    header('Location: ' . adminStudentsPageUrl());
     exit();
 }
 
@@ -191,7 +224,7 @@ if (isset($_POST['update_student'])) {
         $_SESSION['message_type'] = "danger";
     }
     $stmt->close();
-    header("Location: students.php");
+    header('Location: ' . adminStudentsPageUrl());
     exit();
 }
 
@@ -241,8 +274,7 @@ if (isset($_POST['assign_batch'])) {
         $_SESSION['message_type'] = 'warning';
     }
 
-    $redirect_params = studentsFilterRedirectParams($_POST);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_POST));
     exit();
 }
 
@@ -269,8 +301,7 @@ if (isset($_POST['bulk_assign_batch'])) {
         $_SESSION['message_type'] = 'warning';
     }
 
-    $redirect_params = studentsFilterRedirectParams($_POST);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_POST));
     exit();
 }
 
@@ -282,8 +313,7 @@ if (isset($_GET['remove_record']) && isset($_GET['batch_id'])) {
     $_SESSION['message'] = $result['message'];
     $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
 
-    $redirect_params = studentsFilterRedirectParams($_GET);
-    header('Location: students.php' . (!empty($redirect_params) ? '?' . implode('&', $redirect_params) : ''));
+    header('Location: ' . studentsRedirectFromSource($_GET));
     exit();
 }
 
@@ -486,7 +516,7 @@ function studentsListUrl(
         $per_page,
         $extra
     );
-    return 'students.php' . ($params ? '?' . http_build_query($params) : '');
+    return adminStudentsPageUrl($params);
 }
 
 $filter_scheme_options = [];
@@ -1063,7 +1093,7 @@ if ($other_gender_count > 0) {
                     </div>
                 </div>
 
-                <form method="GET" action="students.php">
+                <form method="GET" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>">
                     <div class="filter-grid">
                         <div class="form-group">
                             <label class="form-label">Filter by Course</label>
@@ -1360,7 +1390,7 @@ if ($other_gender_count > 0) {
                         <button type="button" id="bulk-assign-btn" class="btn btn-primary" style="display:none;">
                             <i class="fas fa-layer-group"></i> Bulk Assign to Batch
                         </button>
-                        <a href="export_students_excel.php<?php
+                        <a href="<?php echo htmlspecialchars(relative_url('export_students_excel.php')); ?><?php
                             $ep = [];
                             if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
                             if ($selected_scheme !== 'All') $ep[] = 'filter_scheme=' . urlencode($selected_scheme);
@@ -1586,7 +1616,7 @@ if ($other_gender_count > 0) {
                                                title="Remove from <?php echo htmlspecialchars($rb['batch_name']); ?>"
                                                data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                                data-batch-name="<?php echo htmlspecialchars($rb['batch_name']); ?>"
-                                               data-url="students.php?remove_record=<?php echo $batch_record_id; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
+                                               data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?remove_record=<?php echo $batch_record_id; ?>&batch_id=<?php echo (int)$rb['id']; ?><?php echo $filter_suffix; ?>">
                                                 <i class="fas fa-times-circle"></i>
                                             </a>
                                             <?php endif; ?>
@@ -1613,7 +1643,7 @@ if ($other_gender_count > 0) {
                                            title="Approve"
                                            data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                           data-url="students.php?approve_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
+                                           data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?approve_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
                                             <i class="fas fa-check"></i> Approve
                                         </a>
                                         <a href="javascript:void(0);"
@@ -1623,13 +1653,24 @@ if ($other_gender_count > 0) {
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
                                             <i class="fas fa-times"></i> Reject
                                         </a>
-                                    <?php else: ?>
-                                        <a href="edit_student.php?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                    <?php elseif (in_array($status, ['active', 'approved'], true)): ?>
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <?php if ($status !== 'rejected'): ?>
-                                        <?php endif; ?>
+                                        <a href="javascript:void(0);"
+                                           class="btn btn-secondary btn-sm deapprove-student-btn"
+                                           title="De-Approve"
+                                           data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                           data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                           data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?deapprove_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
+                                            <i class="fas fa-undo"></i> De-Approve
+                                        </a>
+                                    <?php else: ?>
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                           class="btn btn-warning btn-sm" title="Edit Student">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
                                     <?php endif; ?>
 
                                     <?php if (!$is_front_office && $status !== 'rejected'): ?>
@@ -1648,17 +1689,17 @@ if ($other_gender_count > 0) {
                                     <?php endif; ?>
                                 <?php else: ?>
                                     <!-- Front Office: edit only -->
-                                    <a href="edit_student.php?id=<?php echo urlencode($row['student_id']); ?>"
+                                    <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>"
                                        class="btn btn-warning btn-sm" title="Edit Student">
                                         <i class="fas fa-edit"></i>
                                     </a>
                                 <?php endif; ?>
 
-                                <a href="view_student_documents.php?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                <a href="<?php echo htmlspecialchars(relative_url('view_student_documents.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
-                                <a href="download_student_form.php?record_id=<?php echo $primary_record_id; ?>"
+                                <a href="<?php echo htmlspecialchars(relative_url('download_student_form.php')); ?>?record_id=<?php echo $primary_record_id; ?>"
                                    class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                     <i class="fas fa-download"></i>
                                 </a>
@@ -1669,7 +1710,7 @@ if ($other_gender_count > 0) {
                                    title="Delete Student"
                                    data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                    data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
-                                   data-url="students.php?delete_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
+                                   data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?delete_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
                                     <i class="fas fa-trash"></i>
                                 </a>
                                 <?php endif; ?>
@@ -1755,7 +1796,7 @@ if ($other_gender_count > 0) {
                 <i class="fas fa-info-circle"></i> <span id="batch-modal-multi-hint-text"></span>
             </p>
         </div>
-        <form method="POST" action="students.php" id="batch-assign-form">
+        <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="batch-assign-form">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
@@ -1793,7 +1834,7 @@ if ($other_gender_count > 0) {
                 <i class="fas fa-info-circle"></i> All selected students will be assigned to the same batch
             </p>
         </div>
-        <form method="POST" action="students.php" id="bulk-assign-form">
+        <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="bulk-assign-form">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
@@ -1845,7 +1886,7 @@ if ($other_gender_count > 0) {
             <h3 style="margin:0 0 6px;font-size:20px;color:#1e293b;">Reject Student</h3>
             <p style="margin:0;color:#64748b;font-size:14px;">Rejecting: <strong id="rejectStudentName"></strong></p>
         </div>
-        <form method="POST" action="students.php" id="rejectForm">
+        <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="rejectForm">
             <input type="hidden" name="reject_student" value="1">
             <input type="hidden" name="reject_id" id="rejectStudentId">
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
@@ -2234,6 +2275,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 confirmText: 'Approve', cancelText: 'Cancel', type: 'warning'
             });
             if (confirmed) { toast.loading('Approving…'); window.location.href = this.dataset.url; }
+        });
+    });
+
+    // De-approve buttons
+    document.querySelectorAll('.deapprove-student-btn').forEach(btn => {
+        btn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            const confirmed = await showConfirm({
+                title: 'De-Approve Student',
+                message: `De-approve <strong>${this.dataset.studentName}</strong> (${this.dataset.studentId})? They will return to pending status and cannot log in until approved again.`,
+                confirmText: 'De-Approve', cancelText: 'Cancel', type: 'warning'
+            });
+            if (confirmed) { toast.loading('Updating status…'); window.location.href = this.dataset.url; }
         });
     });
 

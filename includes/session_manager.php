@@ -341,7 +341,7 @@ function get_admin_post_login_url($role = null) {
 
     switch ($role) {
         case 'front_office_desk':
-            return APP_URL . '/admin/students.php';
+            return APP_URL . '/admin/students';
         case 'placement_coordinator':
             return APP_URL . '/batch_module/admin/manage_batches.php';
         default:
