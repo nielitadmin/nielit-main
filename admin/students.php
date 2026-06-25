@@ -99,7 +99,7 @@ if (isset($_GET['delete_id'])) {
     $stmt = $conn->prepare("DELETE FROM students WHERE student_id = ?");
     $stmt->bind_param("s", $delete_id);
     if ($stmt->execute()) {
-        $_SESSION['message'] = "Student deleted successfully!";
+        $_SESSION['message'] = "Student deleted from all courses successfully!";
         $_SESSION['message_type'] = "success";
     } else {
         $_SESSION['message'] = "Error deleting student: " . $conn->error;
@@ -331,6 +331,33 @@ if ($is_course_coordinator) {
         }
         $tmp->close();
     }
+}
+
+// ─── HANDLE: Remove student from one course only ─────────────────────────────
+if (isset($_GET['remove_course_enrollment'])) {
+    if ($is_front_office) {
+        $_SESSION['message'] = 'Access denied. Front Office Desk cannot remove course enrollments.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . adminStudentsPageUrl());
+        exit();
+    }
+
+    $remove_student_id = trim($_GET['student_id'] ?? '');
+    $remove_course_id  = (int)($_GET['course_id'] ?? 0);
+
+    if ($is_course_coordinator && !empty($admin_course_ids) && !in_array($remove_course_id, $admin_course_ids, true)) {
+        $_SESSION['message'] = 'Access denied. You can only remove enrollments for your assigned courses.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . studentsRedirectFromSource($_GET));
+        exit();
+    }
+
+    $result = adminRemoveStudentFromCourse($conn, $remove_student_id, $remove_course_id);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+
+    header('Location: ' . studentsRedirectFromSource($_GET));
+    exit();
 }
 
 // ─── STAT CARDS ───────────────────────────────────────────────────────────────
@@ -1454,6 +1481,7 @@ if ($other_gender_count > 0) {
                         $student_course_batches_cache = [];
                         $displayed_student_course = [];
                         $student_course_meta_cache = [];
+                        $student_course_count_cache = [];
                         if ($students_result && $students_result_count > 0):
                             while ($row = $students_result->fetch_assoc()):
                                 $status     = strtolower($row['status']);
@@ -1574,6 +1602,24 @@ if ($other_gender_count > 0) {
                                 }
 
                                 $display_created_at = $course_meta['first_registered'] ?? $row['created_at'];
+
+                                if (!isset($student_course_count_cache[$row['student_id']])) {
+                                    $course_count = 0;
+                                    $cc_stmt = $conn->prepare("SELECT COUNT(DISTINCT course_id) AS total
+                                        FROM students
+                                        WHERE student_id = ?
+                                        AND LOWER(status) NOT IN ('inactive')");
+                                    if ($cc_stmt) {
+                                        $cc_stmt->bind_param('s', $row['student_id']);
+                                        $cc_stmt->execute();
+                                        $cc_row = $cc_stmt->get_result()->fetch_assoc();
+                                        $cc_stmt->close();
+                                        $course_count = (int)($cc_row['total'] ?? 0);
+                                    }
+                                    $student_course_count_cache[$row['student_id']] = $course_count;
+                                }
+                                $student_total_courses = $student_course_count_cache[$row['student_id']];
+                                $has_other_course_enrollments = $student_total_courses > 1;
                         ?>
                         <tr>
                             <td>
@@ -1736,12 +1782,23 @@ if ($other_gender_count > 0) {
                                     <i class="fas fa-download"></i>
                                 </a>
 
-                                <?php if (!$is_front_office): ?>
+                                <?php if (!$is_front_office && $row_course_id > 0): ?>
                                 <a href="javascript:void(0);"
-                                   class="btn btn-danger btn-sm delete-student-btn"
-                                   title="Delete Student"
+                                   class="btn btn-outline-danger btn-sm remove-course-btn"
+                                   title="Remove from this course only"
                                    data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                    data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                   data-course-name="<?php echo $course_display; ?>"
+                                   data-has-other-courses="<?php echo $has_other_course_enrollments ? '1' : '0'; ?>"
+                                   data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?remove_course_enrollment=1&amp;student_id=<?php echo urlencode($row['student_id']); ?>&amp;course_id=<?php echo $row_course_id; ?><?php echo $filter_suffix; ?>">
+                                    <i class="fas fa-user-minus"></i>
+                                </a>
+                                <a href="javascript:void(0);"
+                                   class="btn btn-danger btn-sm delete-student-btn"
+                                   title="Delete student from all courses"
+                                   data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                   data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                   data-has-other-courses="<?php echo $has_other_course_enrollments ? '1' : '0'; ?>"
                                    data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?delete_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
                                     <i class="fas fa-trash"></i>
                                 </a>
@@ -2288,14 +2345,33 @@ document.addEventListener('DOMContentLoaded', function () {
         if (confirmed) { toast.loading('Removing…'); window.location.href = btn.dataset.url; }
     });
 
+    // Remove from this course only
+    document.querySelectorAll('.remove-course-btn').forEach(btn => {
+        btn.addEventListener('click', async function (e) {
+            e.preventDefault();
+            const keepNote = this.dataset.hasOtherCourses === '1'
+                ? ' Other course enrollments will be kept.'
+                : '';
+            const confirmed = await showConfirm({
+                title: 'Remove From Course',
+                message: `Remove <strong>${this.dataset.studentName}</strong> from <strong>${this.dataset.courseName}</strong> only?${keepNote}`,
+                confirmText: 'Remove From Course', cancelText: 'Cancel', type: 'warning'
+            });
+            if (confirmed) { toast.loading('Removing from course…'); window.location.href = this.dataset.url; }
+        });
+    });
+
     // Delete buttons
     document.querySelectorAll('.delete-student-btn').forEach(btn => {
         btn.addEventListener('click', async function (e) {
             e.preventDefault();
+            const allCoursesNote = this.dataset.hasOtherCourses === '1'
+                ? ' This will delete the student from <strong>all courses</strong>, not just the one shown in this row.'
+                : '';
             const confirmed = await showConfirm({
-                title: 'Delete Student',
-                message: `Delete <strong>${this.dataset.studentName}</strong> (${this.dataset.studentId})? This cannot be undone.`,
-                confirmText: 'Delete', cancelText: 'Cancel', type: 'danger'
+                title: 'Delete From All Courses',
+                message: `Delete <strong>${this.dataset.studentName}</strong> (${this.dataset.studentId}) from every course?${allCoursesNote} This cannot be undone.`,
+                confirmText: 'Delete All', cancelText: 'Cancel', type: 'danger'
             });
             if (confirmed) { toast.loading('Deleting…'); window.location.href = this.dataset.url; }
         });

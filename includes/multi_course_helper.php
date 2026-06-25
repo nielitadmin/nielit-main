@@ -621,6 +621,151 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Remove batch links for one enrollment record before course/scheme deletion.
+     */
+    function clearEnrollmentRecordBatchLinks(mysqli $conn, int $recordId): void {
+        if ($recordId <= 0) {
+            return;
+        }
+
+        if (function_exists('getBatchesForStudentRecord') && function_exists('removeStudentFromBatch')) {
+            $batches = getBatchesForStudentRecord($conn, $recordId);
+            foreach ($batches as $batch) {
+                removeStudentFromBatch($recordId, (int)($batch['id'] ?? 0), $conn);
+            }
+        }
+
+        $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
+            $bs = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? OR student_id = ?');
+            if ($bs) {
+                $bs->bind_param('ii', $recordId, $recordId);
+                $bs->execute();
+                $bs->close();
+            }
+        } else {
+            $bs = $conn->prepare('DELETE FROM batch_students WHERE student_id = ?');
+            if ($bs) {
+                $bs->bind_param('i', $recordId);
+                $bs->execute();
+                $bs->close();
+            }
+        }
+
+        $upd = $conn->prepare('UPDATE students SET batch_id = NULL WHERE id = ?');
+        if ($upd) {
+            $upd->bind_param('i', $recordId);
+            $upd->execute();
+            $upd->close();
+        }
+    }
+
+    /**
+     * Remove a student from one course only; other course enrollments stay intact.
+     */
+    function adminRemoveStudentFromCourse(mysqli $conn, string $studentIdStr, int $courseId): array {
+        $studentIdStr = trim($studentIdStr);
+        $courseId = (int)$courseId;
+
+        if ($studentIdStr === '' || $courseId <= 0) {
+            return ['success' => false, 'message' => 'Invalid student or course.'];
+        }
+
+        $courseName = 'this course';
+        $courseStmt = $conn->prepare('SELECT course_name FROM courses WHERE id = ? LIMIT 1');
+        if ($courseStmt) {
+            $courseStmt->bind_param('i', $courseId);
+            $courseStmt->execute();
+            $courseRow = $courseStmt->get_result()->fetch_assoc();
+            $courseStmt->close();
+            if (!empty($courseRow['course_name'])) {
+                $courseName = (string)$courseRow['course_name'];
+            }
+        }
+
+        $recordIds = [];
+        $recordStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ? AND course_id = ?');
+        if (!$recordStmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $recordStmt->bind_param('si', $studentIdStr, $courseId);
+        $recordStmt->execute();
+        $res = $recordStmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $recordIds[] = (int)$row['id'];
+        }
+        $recordStmt->close();
+
+        if (empty($recordIds)) {
+            return ['success' => false, 'message' => 'No enrollment found for ' . $courseName . '.'];
+        }
+
+        foreach ($recordIds as $recordId) {
+            clearEnrollmentRecordBatchLinks($conn, $recordId);
+
+            if (isMultiCourseSystemInstalled($conn)) {
+                $enr = $conn->prepare('DELETE FROM student_enrollments WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('i', $recordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+
+            $del = $conn->prepare('DELETE FROM students WHERE id = ?');
+            if (!$del) {
+                return ['success' => false, 'message' => $conn->error];
+            }
+            $del->bind_param('i', $recordId);
+            if (!$del->execute()) {
+                $err = $del->error;
+                $del->close();
+                return ['success' => false, 'message' => $err ?: 'Could not remove course enrollment.'];
+            }
+            $del->close();
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $account = getAccountByStudentId($conn, $studentIdStr);
+            if ($account) {
+                $accountId = (int)$account['id'];
+                $sweep = $conn->prepare('DELETE FROM student_enrollments WHERE account_id = ? AND course_id = ?');
+                if ($sweep) {
+                    $sweep->bind_param('ii', $accountId, $courseId);
+                    $sweep->execute();
+                    $sweep->close();
+                }
+            }
+        }
+
+        $remainingCourses = 0;
+        $remainStmt = $conn->prepare("SELECT COUNT(DISTINCT course_id) AS total
+            FROM students
+            WHERE student_id = ?
+            AND LOWER(status) NOT IN ('inactive')");
+        if ($remainStmt) {
+            $remainStmt->bind_param('s', $studentIdStr);
+            $remainStmt->execute();
+            $remainRow = $remainStmt->get_result()->fetch_assoc();
+            $remainStmt->close();
+            $remainingCourses = (int)($remainRow['total'] ?? 0);
+        }
+
+        $message = 'Student removed from ' . $courseName . '.';
+        if ($remainingCourses > 0) {
+            $message .= ' The student still has ' . $remainingCourses . ' other course enrollment(s).';
+        } else {
+            $message .= ' No other active course enrollments remain for this student ID.';
+        }
+
+        return [
+            'success' => true,
+            'message' => $message,
+            'remaining_courses' => $remainingCourses,
+        ];
+    }
+
+    /**
      * Uncheck a scheme in Manage Schemes — clears to "Not set" or drops extra row; never hides the student.
      */
     function adminUnsetSchemeEnrollment(mysqli $conn, int $studentRecordId, int $schemeId, string $studentIdStr, int $courseId): array {
