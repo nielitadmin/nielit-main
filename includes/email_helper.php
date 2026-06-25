@@ -394,13 +394,25 @@ HTML;
                             <p style="color:#333;font-size:16px;line-height:1.6;margin:0 0 16px 0;">
                                 You may submit a fresh application after correcting the issue mentioned above.
                             </p>
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff;border-left:4px solid #2563eb;border-radius:4px;margin:0 0 18px 0;">
+                                <tr>
+                                    <td style="padding:16px;">
+                                        <p style="margin:0 0 8px 0;color:#1e40af;font-size:14px;font-weight:700;">How to reapply</p>
+                                        <p style="margin:0;color:#374151;font-size:14px;line-height:1.6;">
+                                            Use the <strong>same Aadhar number</strong> and <strong>same Student ID ({$safe_id})</strong> when you register again.
+                                            Upload corrected documents and update any details as needed.
+                                            If you already have a portal account, your <strong>existing login password</strong> will continue to work after approval.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
                             <p style="text-align:center;margin:24px 0;">
                                 <a href="{$courses_url}" style="display:inline-block;background:#0a1628;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:600;">
                                     View Courses &amp; Reapply
                                 </a>
                             </p>
                             <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">
-                                Open the course page, tap <strong>Apply Now</strong>, and complete registration again with corrected documents/details.
+                                Open the course page, tap <strong>Apply Now</strong>, and complete registration again.
                                 If you need help, visit our <a href="{$contact_url}" style="color:#1a56db;">contact page</a> or call 0674-2960354.
                             </p>
                         </td>
@@ -441,6 +453,11 @@ Course: {$course_label}
 Reason: {$rejection_reason}
 {$note_text}
 You may submit a fresh application after correcting the issue mentioned above.
+
+How to reapply:
+- Use the same Aadhar number and same Student ID ({$student_id})
+- Upload corrected documents and update details as needed
+- Your existing portal login password will continue to work after approval
 
 Reapply here: {$base_url}/public/courses
 Contact us: {$base_url}/public/contact

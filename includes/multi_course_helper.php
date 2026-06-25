@@ -1424,6 +1424,53 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return $id;
     }
 
+    function findStudentEnrollmentByAccountCourseScheme(
+        mysqli $conn,
+        int $accountId,
+        int $courseId,
+        ?int $schemeId = null
+    ): ?array {
+        if (!isMultiCourseSystemInstalled($conn)) {
+            return null;
+        }
+
+        if (hasSchemeEnrollmentColumns($conn)) {
+            if ($schemeId === null) {
+                $stmt = $conn->prepare(
+                    'SELECT id, status, student_record_id FROM student_enrollments
+                     WHERE account_id = ? AND course_id = ? AND scheme_id IS NULL LIMIT 1'
+                );
+                if (!$stmt) {
+                    return null;
+                }
+                $stmt->bind_param('ii', $accountId, $courseId);
+            } else {
+                $stmt = $conn->prepare(
+                    'SELECT id, status, student_record_id FROM student_enrollments
+                     WHERE account_id = ? AND course_id = ? AND scheme_id = ? LIMIT 1'
+                );
+                if (!$stmt) {
+                    return null;
+                }
+                $stmt->bind_param('iii', $accountId, $courseId, $schemeId);
+            }
+        } else {
+            $stmt = $conn->prepare(
+                'SELECT id, status, student_record_id FROM student_enrollments
+                 WHERE account_id = ? AND course_id = ? LIMIT 1'
+            );
+            if (!$stmt) {
+                return null;
+            }
+            $stmt->bind_param('ii', $accountId, $courseId);
+        }
+
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ?: null;
+    }
+
     function createStudentEnrollment(mysqli $conn, int $accountId, int $courseId, int $studentRecordId, string $status = 'pending', ?int $schemeId = null): ?int {
         if (!isMultiCourseSystemInstalled($conn)) {
             return null;
@@ -1431,6 +1478,50 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         ensureSchemeEnrollmentUniqueIndex($conn);
 
         $schemeId = normalizeEnrollmentSchemeId($schemeId);
+        $existing = findStudentEnrollmentByAccountCourseScheme($conn, $accountId, $courseId, $schemeId);
+        if ($existing) {
+            $enrollmentId = (int)$existing['id'];
+            $existingStatus = strtolower((string)($existing['status'] ?? ''));
+            $existingRecordId = (int)($existing['student_record_id'] ?? 0);
+
+            if (in_array($existingStatus, ['rejected', 'cancelled', 'inactive'], true)) {
+                $upd = $conn->prepare(
+                    'UPDATE student_enrollments
+                     SET student_record_id = ?, status = ?, registered_at = NOW()
+                     WHERE id = ?'
+                );
+                if (!$upd) {
+                    return null;
+                }
+                $upd->bind_param('isi', $studentRecordId, $status, $enrollmentId);
+                if (!$upd->execute()) {
+                    error_log('createStudentEnrollment reapply update: ' . $upd->error);
+                    $upd->close();
+                    return null;
+                }
+                $upd->close();
+                return $enrollmentId;
+            }
+
+            if ($existingRecordId === $studentRecordId) {
+                $upd = $conn->prepare('UPDATE student_enrollments SET status = ? WHERE id = ?');
+                if (!$upd) {
+                    return null;
+                }
+                $upd->bind_param('si', $status, $enrollmentId);
+                if (!$upd->execute()) {
+                    error_log('createStudentEnrollment status sync: ' . $upd->error);
+                    $upd->close();
+                    return null;
+                }
+                $upd->close();
+                return $enrollmentId;
+            }
+
+            error_log('createStudentEnrollment: enrollment already exists for account/course/scheme');
+            return null;
+        }
+
         if (hasSchemeEnrollmentColumns($conn)) {
             $sql = "INSERT INTO student_enrollments (account_id, course_id, scheme_id, student_record_id, status, registered_at)
                     VALUES (?, ?, ?, ?, ?, NOW())";
