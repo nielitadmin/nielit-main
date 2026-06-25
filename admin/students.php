@@ -644,14 +644,14 @@ $showing_to = min($offset + $per_page, $total_filtered);
 
 $query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
           FROM (
-              SELECT s.student_id, s.course_id, MIN(s.id) AS min_id
+              SELECT s.student_id, s.course_id, MAX(s.id) AS latest_id
               FROM students s
               WHERE $where_sql
               GROUP BY s.student_id, s.course_id
-              ORDER BY MIN(s.created_at) DESC
+              ORDER BY MAX(s.created_at) DESC
               LIMIT ? OFFSET ?
           ) AS page_groups
-          INNER JOIN students s ON s.id = page_groups.min_id
+          INNER JOIN students s ON s.id = page_groups.latest_id
           LEFT JOIN batches b ON s.batch_id = b.id
           LEFT JOIN courses c ON s.course_id = c.id
           LEFT JOIN schemes sch ON sch.id = s.scheme_id
@@ -1509,20 +1509,21 @@ if ($other_gender_count > 0) {
                                 if ($row_course_id > 0 && !isset($student_course_meta_cache[$batch_assign_key])) {
                                     $meta_stmt = $conn->prepare("SELECT MIN(id) AS primary_id,
                                         MIN(created_at) AS first_registered,
+                                        MAX(CASE WHEN LOWER(status) NOT IN ('rejected', 'inactive') THEN id ELSE NULL END) AS latest_active_id,
                                         SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS pending_count,
                                         SUM(CASE WHEN LOWER(status) = 'rejected' THEN 1 ELSE 0 END) AS rejected_count
                                         FROM students
-                                        WHERE student_id = ? AND course_id = ?
-                                        AND LOWER(status) NOT IN ('rejected', 'inactive')");
+                                        WHERE student_id = ? AND course_id = ?");
                                     if ($meta_stmt) {
                                         $meta_stmt->bind_param('si', $row['student_id'], $row_course_id);
                                         $meta_stmt->execute();
                                         $meta_row = $meta_stmt->get_result()->fetch_assoc();
                                         $meta_stmt->close();
                                         $student_course_meta_cache[$batch_assign_key] = [
-                                            'primary_id' => (int)($meta_row['primary_id'] ?? 0),
+                                            'primary_id' => (int)($meta_row['latest_active_id'] ?? $meta_row['primary_id'] ?? 0),
                                             'first_registered' => $meta_row['first_registered'] ?? $row['created_at'],
                                             'has_pending' => ((int)($meta_row['pending_count'] ?? 0) > 0),
+                                            'rejected_count' => (int)($meta_row['rejected_count'] ?? 0),
                                         ];
                                     }
                                 }
@@ -1597,9 +1598,11 @@ if ($other_gender_count > 0) {
                                     $badge_cls = 'badge-warning';
                                 }
 
-                                if ($status === 'rejected') {
-                                    $primary_record_id = $record_id;
-                                }
+                                $has_prior_rejection = ($status === 'pending' || $status === 'active')
+                                    && !empty($course_meta['rejected_count']);
+                                $prior_rejection_note = $has_prior_rejection
+                                    ? 'Reapplied after earlier rejection'
+                                    : '';
 
                                 $display_created_at = $course_meta['first_registered'] ?? $row['created_at'];
 
@@ -1704,6 +1707,10 @@ if ($other_gender_count > 0) {
                                 <?php if ($status === 'rejected' && !empty($row['rejection_reason'])): ?>
                                     <br><small style="color:#dc2626;font-size:11px;" title="<?php echo htmlspecialchars($row['rejection_note'] ?? ''); ?>">
                                         <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($row['rejection_reason']); ?>
+                                    </small>
+                                <?php elseif (!empty($prior_rejection_note)): ?>
+                                    <br><small style="color:#b45309;font-size:11px;">
+                                        <i class="fas fa-redo"></i> <?php echo htmlspecialchars($prior_rejection_note); ?>
                                     </small>
                                 <?php endif; ?>
                             </td>
