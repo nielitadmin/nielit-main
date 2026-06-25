@@ -18,6 +18,44 @@ require_once __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
 require_once __DIR__ . '/../config/email.php';
 
 /**
+ * Resolve a production-safe base URL for links inside outbound emails.
+ * Avoids broken links when APP_URL still points to localhost or /public_html.
+ */
+function getEmailBaseUrl(): string {
+    $fallback = 'https://nielitbhubaneswar.in';
+
+    if (!empty($_SERVER['HTTP_HOST'])) {
+        $host = strtolower((string) $_SERVER['HTTP_HOST']);
+        if (!in_array($host, ['localhost', '127.0.0.1'], true) && strpos($host, '.') !== false) {
+            $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443);
+            return ($https ? 'https' : 'http') . '://' . $host;
+        }
+    }
+
+    if (defined('APP_URL')) {
+        $base = rtrim((string) APP_URL, '/');
+        if ($base !== '') {
+            $base = preg_replace('#/public_html$#', '', $base);
+            $host = parse_url($base, PHP_URL_HOST);
+            if ($host && !in_array(strtolower((string) $host), ['localhost', '127.0.0.1'], true)) {
+                return $base;
+            }
+        }
+    }
+
+    return $fallback;
+}
+
+/**
+ * Build an absolute public page URL for email templates.
+ */
+function getEmailPublicPageUrl(string $path): string {
+    $path = ltrim(str_replace('\\', '/', trim($path)), '/');
+    return getEmailBaseUrl() . '/' . $path;
+}
+
+/**
  * Send registration confirmation email
  * 
  * @param string $to_email Recipient email address
@@ -340,9 +378,9 @@ function getRegistrationRejectionEmailTemplate(
     $safe_course = htmlspecialchars($course_label, ENT_QUOTES, 'UTF-8');
     $safe_reason = htmlspecialchars($rejection_reason, ENT_QUOTES, 'UTF-8');
     $safe_note = htmlspecialchars(trim($rejection_note), ENT_QUOTES, 'UTF-8');
-    $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://nielitbhubaneswar.in';
-    $courses_url = htmlspecialchars($base_url . '/public/courses', ENT_QUOTES, 'UTF-8');
-    $contact_url = htmlspecialchars($base_url . '/public/contact', ENT_QUOTES, 'UTF-8');
+    $courses_url = htmlspecialchars(getEmailPublicPageUrl('public/courses.php'), ENT_QUOTES, 'UTF-8');
+    $contact_url = htmlspecialchars(getEmailPublicPageUrl('public/contact.php'), ENT_QUOTES, 'UTF-8');
+    $courses_url_text = htmlspecialchars(getEmailPublicPageUrl('public/courses.php'), ENT_QUOTES, 'UTF-8');
 
     $note_block = '';
     if ($safe_note !== '') {
@@ -411,6 +449,10 @@ HTML;
                                     View Courses &amp; Reapply
                                 </a>
                             </p>
+                            <p style="color:#64748b;font-size:13px;line-height:1.6;margin:0 0 16px 0;text-align:center;word-break:break-all;">
+                                If the button does not work, open this link:<br>
+                                <a href="{$courses_url}" style="color:#1a56db;">{$courses_url_text}</a>
+                            </p>
                             <p style="color:#64748b;font-size:14px;line-height:1.6;margin:0;">
                                 Open the course page, tap <strong>Apply Now</strong>, and complete registration again.
                                 If you need help, visit our <a href="{$contact_url}" style="color:#1a56db;">contact page</a> or call 0674-2960354.
@@ -438,7 +480,8 @@ function getRegistrationRejectionEmailPlainText(
     $rejection_reason,
     $rejection_note = ''
 ) {
-    $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : 'https://nielitbhubaneswar.in';
+    $courses_url = getEmailPublicPageUrl('public/courses.php');
+    $contact_url = getEmailPublicPageUrl('public/contact.php');
     $note_text = trim($rejection_note) !== '' ? "\nAdditional details: {$rejection_note}\n" : '';
 
     return <<<TEXT
@@ -459,8 +502,8 @@ How to reapply:
 - Upload corrected documents and update details as needed
 - Your existing portal login password will continue to work after approval
 
-Reapply here: {$base_url}/public/courses
-Contact us: {$base_url}/public/contact
+Reapply here: {$courses_url}
+Contact us: {$contact_url}
 Phone: 0674-2960354
 
 © NIELIT Bhubaneswar. All rights reserved.
