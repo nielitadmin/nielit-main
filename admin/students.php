@@ -41,6 +41,7 @@ $is_course_coordinator = ($admin_role === 'course_coordinator');
 $is_front_office = ($admin_role === 'front_office_desk');
 
 $student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
+$student_status_filter_options = ['pending', 'active', 'rejected'];
 
 function studentsFilterRedirectParams(array $source): array {
     $params = [];
@@ -55,6 +56,9 @@ function studentsFilterRedirectParams(array $source): array {
     }
     if (!empty($source['filter_category']) && $source['filter_category'] !== 'All') {
         $params['filter_category'] = $source['filter_category'];
+    }
+    if (!empty($source['filter_status']) && $source['filter_status'] !== 'All') {
+        $params['filter_status'] = $source['filter_status'];
     }
     if (!empty($source['start_date'])) {
         $params['start_date'] = $source['start_date'];
@@ -374,7 +378,7 @@ if ($is_course_coordinator) {
         $types = str_repeat('i', count($admin_course_ids));
 
         $total_students_count  = runCount($conn,
-            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND LOWER(status) NOT IN ('rejected', 'inactive')",
+            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND LOWER(status) != 'inactive'",
             $types, $admin_course_ids);
 
         $pending_students_count = runCount($conn,
@@ -384,13 +388,18 @@ if ($is_course_coordinator) {
         $active_students_count  = runCount($conn,
             "SELECT COUNT(*) FROM students WHERE status='active' AND course_id IN ($ph)",
             $types, $admin_course_ids);
+
+        $rejected_students_count = runCount($conn,
+            "SELECT COUNT(*) FROM students WHERE status='rejected' AND course_id IN ($ph)",
+            $types, $admin_course_ids);
     } else {
-        $total_students_count = $pending_students_count = $active_students_count = 0;
+        $total_students_count = $pending_students_count = $active_students_count = $rejected_students_count = 0;
     }
 } else {
-    $total_students_count   = runCount($conn, "SELECT COUNT(*) FROM students");
+    $total_students_count   = runCount($conn, "SELECT COUNT(*) FROM students WHERE LOWER(status) != 'inactive'");
     $pending_students_count = runCount($conn, "SELECT COUNT(*) FROM students WHERE status='pending'");
     $active_students_count  = runCount($conn, "SELECT COUNT(*) FROM students WHERE status='active'");
+    $rejected_students_count = runCount($conn, "SELECT COUNT(*) FROM students WHERE status='rejected'");
 }
 
 // ─── COURSES DROPDOWN ─────────────────────────────────────────────────────────
@@ -438,11 +447,17 @@ $selected_course  = $_GET['filter_course']  ?? 'All';
 $selected_gender  = $_GET['filter_gender']  ?? 'All';
 $selected_scheme  = $_GET['filter_scheme']  ?? 'All';
 $selected_category = $_GET['filter_category'] ?? 'All';
+$selected_status   = $_GET['filter_status'] ?? 'All';
 $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
 
 if ($selected_category !== 'All' && !in_array($selected_category, $student_category_filter_options, true)) {
     $selected_category = 'All';
+}
+if ($selected_status !== 'All' && !in_array(strtolower($selected_status), $student_status_filter_options, true)) {
+    $selected_status = 'All';
+} else {
+    $selected_status = $selected_status === 'All' ? 'All' : strtolower($selected_status);
 }
 
 $allowed_per_page = [10, 25, 50, 100];
@@ -460,6 +475,7 @@ function studentsListQueryParams(
     $selected_gender,
     $selected_scheme,
     $selected_category,
+    $selected_status,
     $start_date,
     $end_date,
     $page,
@@ -478,6 +494,9 @@ function studentsListQueryParams(
     }
     if ($selected_category !== 'All') {
         $params['filter_category'] = $selected_category;
+    }
+    if ($selected_status !== 'All') {
+        $params['filter_status'] = $selected_status;
     }
     if ($start_date !== '') {
         $params['start_date'] = $start_date;
@@ -499,6 +518,7 @@ function studentsListUrl(
     $selected_gender,
     $selected_scheme,
     $selected_category,
+    $selected_status,
     $start_date,
     $end_date,
     $page,
@@ -510,6 +530,7 @@ function studentsListUrl(
         $selected_gender,
         $selected_scheme,
         $selected_category,
+        $selected_status,
         $start_date,
         $end_date,
         $page,
@@ -532,7 +553,7 @@ if ($selected_course !== 'All') {
 }
 
 // ─── MAIN STUDENTS QUERY (paginated by student + course) ─────────────────────
-$where_parts = ["LOWER(s.status) NOT IN ('rejected', 'inactive')"];
+$where_parts = ["LOWER(s.status) != 'inactive'"];
 $bind_types  = '';
 $bind_values = [];
 
@@ -573,6 +594,12 @@ if ($selected_category !== 'All') {
     $where_parts[]  = 's.category = ?';
     $bind_types    .= 's';
     $bind_values[]  = $selected_category;
+}
+
+if ($selected_status !== 'All') {
+    $where_parts[]  = 'LOWER(s.status) = ?';
+    $bind_types    .= 's';
+    $bind_values[]  = $selected_status;
 }
 
 if (!empty($start_date) && !empty($end_date)) {
@@ -651,6 +678,7 @@ $list_query_suffix = studentsListQueryParams(
     $selected_gender,
     $selected_scheme,
     $selected_category,
+    $selected_status,
     $start_date,
     $end_date,
     $page,
@@ -665,7 +693,7 @@ $stats_where_parts  = [];
 $stats_bind_types   = '';
 $stats_bind_values  = [];
 
-$stats_status_filter = "LOWER(status) NOT IN ('rejected', 'inactive')";
+$stats_status_filter = "LOWER(status) != 'inactive'";
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
@@ -1080,6 +1108,11 @@ if ($other_gender_count > 0) {
                     <h3 class="stat-value"><?php echo $active_students_count; ?></h3>
                     <p class="stat-label"><?php echo $is_course_coordinator ? 'Ready for Assignment' : 'Active Students'; ?></p>
                 </div>
+                <div class="stat-card danger">
+                    <div class="stat-icon"><i class="fas fa-ban"></i></div>
+                    <h3 class="stat-value"><?php echo $rejected_students_count; ?></h3>
+                    <p class="stat-label">Rejected</p>
+                </div>
             </div>
 
             <!-- Filter Section -->
@@ -1140,6 +1173,16 @@ if ($other_gender_count > 0) {
                                         <?php echo htmlspecialchars($category_option); ?>
                                     </option>
                                 <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Filter by Status</label>
+                            <select name="filter_status" class="form-select">
+                                <option value="All" <?php if ($selected_status === 'All') echo 'selected'; ?>>All Statuses</option>
+                                <option value="pending" <?php if ($selected_status === 'pending') echo 'selected'; ?>>Pending</option>
+                                <option value="active" <?php if ($selected_status === 'active') echo 'selected'; ?>>Active</option>
+                                <option value="rejected" <?php if ($selected_status === 'rejected') echo 'selected'; ?>>Rejected</option>
                             </select>
                         </div>
 
@@ -1354,7 +1397,7 @@ if ($other_gender_count > 0) {
                         <div>
                             <h6 style="margin:0;color:#1565c0;font-weight:600;">Course Coordinator View</h6>
                             <p style="margin:4px 0 0 0;color:#424242;font-size:14px;">
-                                Showing students from your assigned courses (not rejected).
+                                Showing students from your assigned courses (including rejected registrations).
                                 Students can be in <strong>multiple batches</strong> — use <strong>Add Batch</strong> to assign more.
                                 <?php if ($has_created_by_column): ?>
                                     You can only assign students to <strong>batches you created</strong>.
@@ -1396,6 +1439,7 @@ if ($other_gender_count > 0) {
                             if ($selected_scheme !== 'All') $ep[] = 'filter_scheme=' . urlencode($selected_scheme);
                             if ($selected_gender !== 'All') $ep[] = 'filter_gender=' . urlencode($selected_gender);
                             if ($selected_category !== 'All') $ep[] = 'filter_category=' . urlencode($selected_category);
+                            if ($selected_status !== 'All') $ep[] = 'filter_status=' . urlencode($selected_status);
                             if (!empty($start_date))         $ep[] = 'start_date='    . urlencode($start_date);
                             if (!empty($end_date))           $ep[] = 'end_date='      . urlencode($end_date);
                             echo !empty($ep) ? '?' . implode('&', $ep) : '';
@@ -1543,20 +1587,26 @@ if ($other_gender_count > 0) {
                                     $primary_record_id = min(array_column($batch_assign_enrollments, 'record_id'));
                                 }
 
-                                if (!empty($course_meta['has_pending'])) {
+                                if ($status !== 'rejected' && !empty($course_meta['has_pending'])) {
                                     $status = 'pending';
                                     $badge_cls = 'badge-warning';
+                                }
+
+                                if ($status === 'rejected') {
+                                    $primary_record_id = $record_id;
                                 }
 
                                 $display_created_at = $course_meta['first_registered'] ?? $row['created_at'];
                         ?>
                         <tr>
                             <td>
+                                <?php if ($status !== 'rejected'): ?>
                                 <input type="checkbox" class="student-checkbox"
                                        value="<?php echo $primary_record_id; ?>"
                                        data-course="<?php echo $course_display; ?>"
                                        data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                        data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
+                                <?php endif; ?>
                             </td>
                             <td><?php echo $sl_no++; ?></td>
                             <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
@@ -1666,6 +1716,11 @@ if ($other_gender_count > 0) {
                                            data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?deapprove_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
                                             <i class="fas fa-undo"></i> De-Approve
                                         </a>
+                                    <?php elseif ($status === 'rejected'): ?>
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                           class="btn btn-warning btn-sm" title="Edit Student">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
                                     <?php else: ?>
                                         <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
@@ -1737,10 +1792,10 @@ if ($other_gender_count > 0) {
                     </div>
                     <nav class="students-pagination-nav" aria-label="Students pagination">
                         <?php if ($page > 1): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, 1, $per_page)); ?>">
                                 <i class="fas fa-angle-double-left"></i> First
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $page - 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $page - 1, $per_page)); ?>">
                                 <i class="fas fa-angle-left"></i> Prev
                             </a>
                         <?php endif; ?>
@@ -1756,7 +1811,7 @@ if ($other_gender_count > 0) {
                             $is_active = ($p === $page);
                         ?>
                             <a class="btn btn-sm <?php echo $is_active ? 'btn-primary' : 'btn-outline-secondary'; ?>"
-                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $p, $per_page)); ?>"
+                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $p, $per_page)); ?>"
                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
                                 <?php echo $p; ?>
                             </a>
@@ -1766,10 +1821,10 @@ if ($other_gender_count > 0) {
                         <?php endif; ?>
 
                         <?php if ($page < $total_pages): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $page + 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $page + 1, $per_page)); ?>">
                                 Next <i class="fas fa-angle-right"></i>
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $start_date, $end_date, $total_pages, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $total_pages, $per_page)); ?>">
                                 Last <i class="fas fa-angle-double-right"></i>
                             </a>
                         <?php endif; ?>
@@ -1801,6 +1856,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
             <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
             <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
@@ -1839,6 +1895,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
             <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
             <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
@@ -1893,6 +1950,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender ?? 'All'); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme ?? 'All'); ?>">
             <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category ?? 'All'); ?>">
+            <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status ?? 'All'); ?>">
             <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date ?? ''); ?>">
             <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date ?? ''); ?>">
             <input type="hidden" name="page" value="<?php echo (int)($page ?? 1); ?>">

@@ -19,13 +19,13 @@ $student_id = $_GET['id'];
 
 // Build return URL — preserve students list filters and pagination
 $return_query = [];
-$return_keys = ['filter_course', 'filter_gender', 'filter_scheme', 'filter_category', 'start_date', 'end_date', 'page', 'per_page'];
+$return_keys = ['filter_course', 'filter_gender', 'filter_scheme', 'filter_category', 'filter_status', 'start_date', 'end_date', 'page', 'per_page'];
 foreach ($return_keys as $key) {
     if (!isset($_GET[$key]) || $_GET[$key] === '') {
         continue;
     }
     $value = $_GET[$key];
-    if (in_array($key, ['filter_course', 'filter_gender', 'filter_scheme', 'filter_category'], true) && $value === 'All') {
+    if (in_array($key, ['filter_course', 'filter_gender', 'filter_scheme', 'filter_category', 'filter_status'], true) && $value === 'All') {
         continue;
     }
     $return_query[$key] = $value;

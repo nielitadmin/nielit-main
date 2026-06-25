@@ -57,9 +57,16 @@ if ($is_course_coordinator) {
 $selected_course = $_GET['filter_course'] ?? 'All';
 $selected_gender = $_GET['filter_gender'] ?? 'All';
 $selected_category = $_GET['filter_category'] ?? 'All';
+$selected_status = $_GET['filter_status'] ?? 'All';
 $student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
+$student_status_filter_options = ['pending', 'active', 'rejected'];
 if ($selected_category !== 'All' && !in_array($selected_category, $student_category_filter_options, true)) {
     $selected_category = 'All';
+}
+if ($selected_status !== 'All' && !in_array(strtolower($selected_status), $student_status_filter_options, true)) {
+    $selected_status = 'All';
+} else {
+    $selected_status = $selected_status === 'All' ? 'All' : strtolower($selected_status);
 }
 $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
@@ -80,7 +87,7 @@ $bind_values = [];
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query .= " AND s.course_id IN ($ph) AND s.batch_id IS NULL AND s.status != 'rejected'";
+        $query .= " AND s.course_id IN ($ph) AND s.batch_id IS NULL AND LOWER(s.status) != 'inactive'";
         $bind_types .= str_repeat('i', count($admin_course_ids));
         $bind_values = array_merge($bind_values, $admin_course_ids);
     } else {
@@ -104,6 +111,12 @@ if ($selected_category !== 'All') {
     $query .= ' AND s.category = ?';
     $bind_types .= 's';
     $bind_values[] = $selected_category;
+}
+
+if ($selected_status !== 'All') {
+    $query .= ' AND LOWER(s.status) = ?';
+    $bind_types .= 's';
+    $bind_values[] = $selected_status;
 }
 
 if (!empty($start_date) && !empty($end_date)) {
