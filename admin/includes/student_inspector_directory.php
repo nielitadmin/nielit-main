@@ -11,6 +11,87 @@ if (!function_exists('inspectorDirectoryCategoryOptions')) {
     }
 }
 
+if (!function_exists('inspectorDirectoryStatusOptions')) {
+    /** @return array<string, string> */
+    function inspectorDirectoryStatusOptions(): array
+    {
+        return [
+            'all' => 'All (except inactive)',
+            'pending' => 'Pending',
+            'approved' => 'Approved / Active',
+            'rejected' => 'Rejected',
+        ];
+    }
+}
+
+if (!function_exists('inspectorDirectoryApplyStatusFilter')) {
+    /**
+     * @param array<int, string> $params
+     */
+    function inspectorDirectoryApplyStatusFilter(string $status, array &$where, string &$types, array &$params): void
+    {
+        $status = strtolower(trim($status));
+        if ($status === '' || $status === 'all') {
+            $where[] = "LOWER(s.status) NOT IN ('inactive')";
+            return;
+        }
+        if ($status === 'approved') {
+            $where[] = "LOWER(s.status) IN ('approved', 'active')";
+            return;
+        }
+        $where[] = 'LOWER(s.status) = ?';
+        $types .= 's';
+        $params[] = $status;
+    }
+}
+
+if (!function_exists('inspectorDirectoryEmptyHint')) {
+    function inspectorDirectoryEmptyHint(mysqli $conn, array $criteria): string
+    {
+        $courseId = (int)($criteria['course_id'] ?? 0);
+        if ($courseId <= 0) {
+            return 'Try changing filters or set Status to All (except inactive).';
+        }
+
+        $stmt = $conn->prepare(
+            "SELECT LOWER(TRIM(status)) AS st, COUNT(*) AS cnt
+             FROM students
+             WHERE course_id = ? AND LOWER(TRIM(status)) NOT IN ('inactive')
+             GROUP BY LOWER(TRIM(status))
+             ORDER BY cnt DESC"
+        );
+        if (!$stmt) {
+            return 'Try Status: All or Approved / Active — many students are stored as approved, not pending.';
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $parts = [];
+        while ($row = $res->fetch_assoc()) {
+            $label = (string)($row['st'] ?? '');
+            if ($label === 'approved' || $label === 'active') {
+                $label = 'approved/active';
+            }
+            $parts[] = (int)$row['cnt'] . ' ' . $label;
+        }
+        $stmt->close();
+
+        if ($parts === []) {
+            return 'No students exist for this course in the database.';
+        }
+
+        $selected = strtolower(trim((string)($criteria['status'] ?? 'all')));
+        $hint = 'This course has: ' . implode(', ', $parts) . '.';
+        if ($selected === 'pending') {
+            $hint .= ' None are pending — use Status <strong>Approved / Active</strong> or <strong>All</strong>.';
+        } elseif ($selected !== '' && $selected !== 'all') {
+            $hint .= ' Try a different status filter.';
+        }
+
+        return $hint;
+    }
+}
+
 if (!function_exists('inspectorFormatStudentAddress')) {
     function inspectorFormatStudentAddress(array $row): string
     {
@@ -28,22 +109,32 @@ if (!function_exists('inspectorFormatStudentAddress')) {
 if (!function_exists('inspectorStudentPhotoUrl')) {
     function inspectorStudentPhotoUrl(?string $relativePath): ?string
     {
-        $relativePath = trim((string)$relativePath);
+        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
         if ($relativePath === '') {
             return null;
         }
 
-        $fullPath = dirname(__DIR__, 2) . '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+        $projectRoot = dirname(__DIR__, 2);
+        $fullPath = $projectRoot . '/' . ltrim($relativePath, '/');
         if (!is_file($fullPath)) {
             return null;
         }
 
-        $base = defined('APP_URL') ? rtrim((string)APP_URL, '/') : '';
-        if ($base === '') {
-            return '../' . ltrim($relativePath, '/');
+        // Admin pages are under /admin — relative path works on localhost and production.
+        return '../' . ltrim($relativePath, '/');
+    }
+}
+
+if (!function_exists('inspectorStudentPhotoExists')) {
+    function inspectorStudentPhotoExists(?string $relativePath): bool
+    {
+        $relativePath = trim(str_replace('\\', '/', (string)$relativePath));
+        if ($relativePath === '') {
+            return false;
         }
 
-        return $base . '/' . ltrim($relativePath, '/');
+        $fullPath = dirname(__DIR__, 2) . '/' . ltrim($relativePath, '/');
+        return is_file($fullPath);
     }
 }
 
@@ -188,13 +279,7 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
                 $types .= 's';
                 $params[] = $criteria['category'];
             }
-            if (($criteria['status'] ?? '') !== '' && strtolower($criteria['status']) !== 'all') {
-                $where[] = 'LOWER(s.status) = ?';
-                $types .= 's';
-                $params[] = strtolower($criteria['status']);
-            } else {
-                $where[] = "LOWER(s.status) != 'inactive'";
-            }
+            inspectorDirectoryApplyStatusFilter((string)($criteria['status'] ?? 'all'), $where, $types, $params);
             if (($criteria['name'] ?? '') !== '') {
                 $where[] = 's.name LIKE ?';
                 $types .= 's';

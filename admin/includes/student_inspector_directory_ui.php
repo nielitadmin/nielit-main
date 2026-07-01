@@ -10,41 +10,163 @@ $directoryCategoryOptions = inspectorDirectoryCategoryOptions();
 $directoryBatches = ($directoryCriteria['course_id'] ?? 0) > 0
     ? inspectorGetDirectoryBatches($conn, (int)$directoryCriteria['course_id'])
     : [];
+
+$directoryPhotoCount = 0;
+foreach ($directoryRows as $dirRow) {
+    if (inspectorStudentPhotoExists($dirRow['passport_photo'] ?? null)) {
+        $directoryPhotoCount++;
+    }
+}
 ?>
 <style>
-.inspector-directory-photo {
-    width: 48px;
-    height: 60px;
-    object-fit: cover;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #f8fafc;
+.inspector-directory-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
-.inspector-directory-photo-placeholder {
-    width: 48px;
-    height: 60px;
-    border-radius: 6px;
-    border: 1px dashed #cbd5e1;
-    background: #f8fafc;
+.inspector-directory-card {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+.inspector-directory-card-photo {
+    flex: 0 0 180px;
+    width: 180px;
+    height: 230px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 3px solid #94a3b8;
+    background: #f1f5f9;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #94a3b8;
-    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
-.inspector-directory-address {
-    max-width: 260px;
-    white-space: normal;
+.inspector-directory-card-photo a {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: zoom-in;
+}
+.inspector-directory-card-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    display: block;
+}
+.inspector-directory-card-photo-placeholder {
+    color: #94a3b8;
+    text-align: center;
     font-size: 0.85rem;
     line-height: 1.35;
+    padding: 12px;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.inspector-directory-card-photo-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+.inspector-directory-card-body {
+    flex: 1;
+    min-width: 0;
+    padding-top: 4px;
+}
+.inspector-directory-field-label {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+.inspector-directory-field-value {
+    font-size: 0.92rem;
+    color: #0f172a;
+    line-height: 1.35;
+    word-break: break-word;
+}
+.inspector-directory-field-value.name {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+.inspector-directory-photo-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(15, 23, 42, 0.88);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+.inspector-directory-photo-modal.is-open {
+    display: flex;
+}
+.inspector-directory-photo-modal img {
+    max-width: min(420px, 92vw);
+    max-height: 92vh;
+    width: auto;
+    height: auto;
+    border-radius: 12px;
+    border: 4px solid #fff;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+    object-fit: contain;
+    background: #fff;
+}
+.inspector-directory-photo-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    border: none;
+    background: #fff;
+    color: #0f172a;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    cursor: pointer;
+}
+.inspector-directory-photo-modal-caption {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.95);
+    color: #0f172a;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    max-width: 90vw;
+    text-align: center;
+}
+@media (max-width: 767px) {
+    .inspector-directory-card {
+        flex-direction: column;
+        align-items: center;
+    }
+    .inspector-directory-card-photo {
+        width: 200px;
+        height: 255px;
+    }
 }
 </style>
 
 <div class="page-card p-4 mb-4 border border-info">
     <h2 class="h5 mb-2"><i class="fas fa-address-book text-info"></i> Student Quick Directory</h2>
     <p class="text-muted small mb-4">
-        View <strong>name, mobile, category, photo, address, course,</strong> and <strong>apply date</strong> only.
-        Filter by course or use the main search above — matching students also appear below after search.
+        Each student card shows a <strong>large passport photo</strong> (click to enlarge), plus name, course, address, category, mobile, and apply date.
+        Filter by course or search above — matches appear here automatically.
     </p>
 
     <form method="GET" class="row g-3 mb-4" id="inspector-directory-form">
@@ -101,11 +223,14 @@ $directoryBatches = ($directoryCriteria['course_id'] ?? 0) > 0
         <div class="col-md-3">
             <label class="form-label">Status</label>
             <select name="dir_status" class="form-select">
-                <option value="all">All (except inactive)</option>
-                <option value="pending" <?php echo ($directoryCriteria['status'] ?? '') === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                <option value="active" <?php echo ($directoryCriteria['status'] ?? '') === 'active' ? 'selected' : ''; ?>>Active</option>
-                <option value="rejected" <?php echo ($directoryCriteria['status'] ?? '') === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
+                <?php foreach (inspectorDirectoryStatusOptions() as $statusValue => $statusLabel): ?>
+                <option value="<?php echo htmlspecialchars($statusValue); ?>"
+                    <?php echo strtolower((string)($directoryCriteria['status'] ?? 'all')) === $statusValue ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($statusLabel); ?>
+                </option>
+                <?php endforeach; ?>
             </select>
+            <small class="text-muted">Most enrolled students are <strong>Approved</strong>, not Pending.</small>
         </div>
         <div class="col-md-3">
             <label class="form-label">Apply date from</label>
@@ -134,107 +259,189 @@ $directoryBatches = ($directoryCriteria['course_id'] ?? 0) > 0
     </form>
 
     <?php if ($directorySearched): ?>
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h3 class="h6 mb-0"><?php echo htmlspecialchars($directoryContextTitle); ?></h3>
-        <span class="badge bg-info text-dark"><?php echo count($directoryRows); ?> record(s)</span>
+        <div class="d-flex flex-wrap gap-2">
+            <span class="badge bg-info text-dark"><?php echo count($directoryRows); ?> student(s)</span>
+            <?php if (!empty($directoryRows)): ?>
+            <span class="badge bg-success"><?php echo (int)$directoryPhotoCount; ?> with photo</span>
+            <?php if ($directoryPhotoCount < count($directoryRows)): ?>
+            <span class="badge bg-secondary"><?php echo count($directoryRows) - $directoryPhotoCount; ?> no photo</span>
+            <?php endif; ?>
+            <?php endif; ?>
+        </div>
     </div>
 
     <?php if (empty($directoryRows)): ?>
-    <div class="alert alert-light border mb-0">No students found for these filters.</div>
+    <div class="alert alert-warning border mb-0">
+        <strong>No students found for these filters.</strong>
+        <div class="small mt-2"><?php echo inspectorDirectoryEmptyHint($conn, $directoryCriteria); ?></div>
+    </div>
     <?php else: ?>
-    <div class="table-responsive">
-        <table class="table table-hover table-bordered mb-0 align-middle">
-            <thead class="table-light">
-                <tr>
-                    <th style="width:60px;">Photo</th>
-                    <th>Name</th>
-                    <th>Mobile</th>
-                    <th>Category</th>
-                    <th>Address</th>
-                    <th>Course</th>
-                    <th>Apply Date</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($directoryRows as $row):
-                    $photoUrl = inspectorStudentPhotoUrl($row['passport_photo'] ?? null);
-                    $applyRaw = $row['apply_date'] ?? null;
-                    $applyLabel = !empty($applyRaw) ? date('d M Y', strtotime((string)$applyRaw)) : '—';
-                    $category = trim((string)($row['category'] ?? ''));
-                ?>
-                <tr>
-                    <td>
-                        <?php if ($photoUrl): ?>
-                        <a href="<?php echo htmlspecialchars($photoUrl); ?>" target="_blank" rel="noopener" title="View photo">
-                            <img src="<?php echo htmlspecialchars($photoUrl); ?>" alt="" class="inspector-directory-photo">
-                        </a>
-                        <?php else: ?>
-                        <div class="inspector-directory-photo-placeholder" title="No photo"><i class="fas fa-user"></i></div>
-                        <?php endif; ?>
-                    </td>
-                    <td>
-                        <strong><?php echo htmlspecialchars($row['name'] ?? '—'); ?></strong>
+    <div class="inspector-directory-list">
+        <?php foreach ($directoryRows as $row):
+            $photoUrl = inspectorStudentPhotoUrl($row['passport_photo'] ?? null);
+            $applyRaw = $row['apply_date'] ?? null;
+            $applyLabel = !empty($applyRaw) ? date('d M Y', strtotime((string)$applyRaw)) : '—';
+            $category = trim((string)($row['category'] ?? ''));
+            $courseLabel = trim((string)($row['course_name'] ?? ('Course ID ' . ($row['course_id'] ?? ''))));
+            if (!empty($row['course_code'])) {
+                $courseLabel .= ' (' . $row['course_code'] . ')';
+            }
+        ?>
+        <article class="inspector-directory-card">
+            <div class="inspector-directory-card-photo">
+                <?php if ($photoUrl): ?>
+                <a href="<?php echo htmlspecialchars($photoUrl); ?>"
+                   class="inspector-directory-photo-zoom"
+                   data-photo="<?php echo htmlspecialchars($photoUrl); ?>"
+                   data-name="<?php echo htmlspecialchars($row['name'] ?? 'Student'); ?>"
+                   title="Click to enlarge photo">
+                    <img src="<?php echo htmlspecialchars($photoUrl); ?>"
+                         alt="Photo of <?php echo htmlspecialchars($row['name'] ?? 'student'); ?>"
+                         loading="lazy">
+                </a>
+                <?php else: ?>
+                <div class="inspector-directory-card-photo-placeholder" title="No passport photo on file">
+                    <i class="fas fa-user"></i>
+                    No photo
+                </div>
+                <?php endif; ?>
+            </div>
+            <div class="inspector-directory-card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Name</div>
+                        <div class="inspector-directory-field-value name">
+                            <?php echo htmlspecialchars($row['name'] ?? '—'); ?>
+                        </div>
                         <?php if (!empty($row['student_id'])): ?>
-                        <br><small class="text-muted"><code><?php echo htmlspecialchars($row['student_id']); ?></code></small>
+                        <small class="text-muted"><code><?php echo htmlspecialchars($row['student_id']); ?></code></small>
                         <?php endif; ?>
-                    </td>
-                    <td><?php echo htmlspecialchars($row['mobile'] ?? '—'); ?></td>
-                    <td>
-                        <?php if ($category !== ''): ?>
-                        <span class="badge bg-secondary"><?php echo htmlspecialchars($category); ?></span>
-                        <?php else: ?>
-                        <span class="text-muted">—</span>
-                        <?php endif; ?>
-                    </td>
-                    <td class="inspector-directory-address"><?php echo htmlspecialchars(inspectorFormatStudentAddress($row)); ?></td>
-                    <td>
-                        <?php echo htmlspecialchars($row['course_name'] ?? ('ID ' . ($row['course_id'] ?? ''))); ?>
-                        <?php if (!empty($row['course_code'])): ?>
-                        <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
-                        <?php endif; ?>
-                    </td>
-                    <td><?php echo htmlspecialchars($applyLabel); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Course</div>
+                        <div class="inspector-directory-field-value"><?php echo htmlspecialchars($courseLabel); ?></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Address</div>
+                        <div class="inspector-directory-field-value"><?php echo htmlspecialchars(inspectorFormatStudentAddress($row)); ?></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Category</div>
+                        <div class="inspector-directory-field-value">
+                            <?php if ($category !== ''): ?>
+                            <span class="badge bg-secondary"><?php echo htmlspecialchars($category); ?></span>
+                            <?php else: ?>
+                            <span class="text-muted">—</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Mobile</div>
+                        <div class="inspector-directory-field-value"><?php echo htmlspecialchars($row['mobile'] ?? '—'); ?></div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="inspector-directory-field-label">Apply Date</div>
+                        <div class="inspector-directory-field-value"><?php echo htmlspecialchars($applyLabel); ?></div>
+                    </div>
+                </div>
+            </div>
+        </article>
+        <?php endforeach; ?>
     </div>
     <?php if (count($directoryRows) >= 300): ?>
-    <p class="small text-muted mt-2 mb-0">Showing first 300 records. Narrow filters to see more.</p>
+    <p class="small text-muted mt-3 mb-0">Showing first 300 records. Narrow filters to see more.</p>
     <?php endif; ?>
     <?php endif; ?>
     <?php endif; ?>
+</div>
+
+<div id="inspector-directory-photo-modal" class="inspector-directory-photo-modal" aria-hidden="true">
+    <button type="button" class="inspector-directory-photo-modal-close" aria-label="Close">&times;</button>
+    <img src="" alt="Student photo preview" id="inspector-directory-photo-modal-img">
+    <div class="inspector-directory-photo-modal-caption" id="inspector-directory-photo-modal-caption"></div>
 </div>
 
 <script>
 (function () {
     const courseSelect = document.getElementById('dir-course-id');
     const batchSelect = document.getElementById('dir-batch-id');
-    if (!courseSelect || !batchSelect) {
-        return;
+    if (courseSelect && batchSelect) {
+        courseSelect.addEventListener('change', function () {
+            const courseId = this.value;
+            batchSelect.innerHTML = '<option value="">-- All batches --</option>';
+            if (!courseId) {
+                return;
+            }
+
+            fetch('ajax_inspector_directory.php?action=batches&course_id=' + encodeURIComponent(courseId))
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        return;
+                    }
+                    (data.batches || []).forEach(b => {
+                        const opt = document.createElement('option');
+                        opt.value = b.id;
+                        opt.textContent = b.batch_name + (b.enrolled_count ? ' (' + b.enrolled_count + ')' : '');
+                        batchSelect.appendChild(opt);
+                    });
+                })
+                .catch(() => {});
+        });
     }
 
-    courseSelect.addEventListener('change', function () {
-        const courseId = this.value;
-        batchSelect.innerHTML = '<option value="">-- All batches --</option>';
-        if (!courseId) {
+    const modal = document.getElementById('inspector-directory-photo-modal');
+    const modalImg = document.getElementById('inspector-directory-photo-modal-img');
+    const modalCaption = document.getElementById('inspector-directory-photo-modal-caption');
+    const modalClose = modal ? modal.querySelector('.inspector-directory-photo-modal-close') : null;
+
+    function closePhotoModal() {
+        if (!modal) {
             return;
         }
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        if (modalImg) {
+            modalImg.src = '';
+        }
+    }
 
-        fetch('ajax_inspector_directory.php?action=batches&course_id=' + encodeURIComponent(courseId))
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) {
-                    return;
-                }
-                (data.batches || []).forEach(b => {
-                    const opt = document.createElement('option');
-                    opt.value = b.id;
-                    opt.textContent = b.batch_name + (b.enrolled_count ? ' (' + b.enrolled_count + ')' : '');
-                    batchSelect.appendChild(opt);
-                });
-            })
-            .catch(() => {});
+    function openPhotoModal(url, name) {
+        if (!modal || !modalImg) {
+            return;
+        }
+        modalImg.src = url;
+        modalImg.alt = 'Photo of ' + name;
+        if (modalCaption) {
+            modalCaption.textContent = name;
+        }
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    document.querySelectorAll('.inspector-directory-photo-zoom').forEach(link => {
+        link.addEventListener('click', function (event) {
+            event.preventDefault();
+            openPhotoModal(this.dataset.photo || this.href, this.dataset.name || 'Student');
+        });
+    });
+
+    if (modalClose) {
+        modalClose.addEventListener('click', closePhotoModal);
+    }
+    if (modal) {
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) {
+                closePhotoModal();
+            }
+        });
+    }
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closePhotoModal();
+        }
     });
 })();
 </script>
