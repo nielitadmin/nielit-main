@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/batch_functions.php';
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
-    header("Location: ../../admin/login_new.php");
+    header("Location: ../../admin/login.php");
     exit();
 }
 

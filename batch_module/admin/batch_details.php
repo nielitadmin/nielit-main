@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/batch_certificate_helper.php';
 require_once __DIR__ . '/../includes/batch_placement_helper.php';
 
 if (!isset($_SESSION['admin'])) {
-    header("Location: ../../admin/login_new.php");
+    header("Location: ../../admin/login.php");
     exit();
 }
 
@@ -15,7 +15,7 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
     if (!init_admin_session($_SESSION['admin'])) {
         session_unset();
         session_destroy();
-        header("Location: ../../admin/login_new.php");
+        header("Location: ../../admin/login.php");
         exit();
     }
 }

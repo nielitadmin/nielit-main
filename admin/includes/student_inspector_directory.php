@@ -1,0 +1,270 @@
+<?php
+/**
+ * Student Quick Directory — limited profile fields for Student Record Inspector.
+ */
+
+if (!function_exists('inspectorDirectoryCategoryOptions')) {
+    /** @return string[] */
+    function inspectorDirectoryCategoryOptions(): array
+    {
+        return ['General', 'OBC', 'SC', 'ST', 'EWS'];
+    }
+}
+
+if (!function_exists('inspectorFormatStudentAddress')) {
+    function inspectorFormatStudentAddress(array $row): string
+    {
+        $parts = array_filter([
+            trim((string)($row['address'] ?? '')),
+            trim((string)($row['city'] ?? '')),
+            trim((string)($row['state'] ?? '')),
+            trim((string)($row['pincode'] ?? '')),
+        ], static fn($v) => $v !== '');
+
+        return $parts !== [] ? implode(', ', $parts) : '—';
+    }
+}
+
+if (!function_exists('inspectorStudentPhotoUrl')) {
+    function inspectorStudentPhotoUrl(?string $relativePath): ?string
+    {
+        $relativePath = trim((string)$relativePath);
+        if ($relativePath === '') {
+            return null;
+        }
+
+        $fullPath = dirname(__DIR__, 2) . '/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+        if (!is_file($fullPath)) {
+            return null;
+        }
+
+        $base = defined('APP_URL') ? rtrim((string)APP_URL, '/') : '';
+        if ($base === '') {
+            return '../' . ltrim($relativePath, '/');
+        }
+
+        return $base . '/' . ltrim($relativePath, '/');
+    }
+}
+
+if (!function_exists('inspectorDirectoryCriteriaFromRequest')) {
+    /** @return array<string, mixed> */
+    function inspectorDirectoryCriteriaFromRequest(array $source): array
+    {
+        return [
+            'course_id' => max(0, (int)($source['dir_course_id'] ?? 0)),
+            'batch_id' => max(0, (int)($source['dir_batch_id'] ?? 0)),
+            'category' => trim((string)($source['dir_category'] ?? '')),
+            'status' => trim((string)($source['dir_status'] ?? '')),
+            'date_from' => trim((string)($source['dir_date_from'] ?? '')),
+            'date_to' => trim((string)($source['dir_date_to'] ?? '')),
+            'name' => trim((string)($source['dir_name'] ?? '')),
+            'mobile' => trim((string)($source['dir_mobile'] ?? '')),
+        ];
+    }
+}
+
+if (!function_exists('inspectorDirectoryHasCriteria')) {
+    function inspectorDirectoryHasCriteria(array $criteria): bool
+    {
+        if (($criteria['course_id'] ?? 0) > 0) {
+            return true;
+        }
+        if (($criteria['batch_id'] ?? 0) > 0) {
+            return true;
+        }
+        if (($criteria['category'] ?? '') !== '') {
+            return true;
+        }
+        if (($criteria['status'] ?? '') !== '' && strtolower($criteria['status']) !== 'all') {
+            return true;
+        }
+        if (($criteria['date_from'] ?? '') !== '' || ($criteria['date_to'] ?? '') !== '') {
+            return true;
+        }
+        if (($criteria['name'] ?? '') !== '') {
+            return true;
+        }
+        if (($criteria['mobile'] ?? '') !== '') {
+            return true;
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('inspectorDirectorySearchParams')) {
+    function inspectorDirectorySearchParams(array $criteria): string
+    {
+        $parts = [];
+        foreach ([
+            'dir_course_id' => (string)($criteria['course_id'] ?? 0),
+            'dir_batch_id' => (string)($criteria['batch_id'] ?? 0),
+            'dir_category' => (string)($criteria['category'] ?? ''),
+            'dir_status' => (string)($criteria['status'] ?? ''),
+            'dir_date_from' => (string)($criteria['date_from'] ?? ''),
+            'dir_date_to' => (string)($criteria['date_to'] ?? ''),
+            'dir_name' => (string)($criteria['name'] ?? ''),
+            'dir_mobile' => (string)($criteria['mobile'] ?? ''),
+        ] as $key => $value) {
+            if ($value === '' || $value === '0') {
+                continue;
+            }
+            $parts[] = rawurlencode($key) . '=' . rawurlencode($value);
+        }
+
+        return implode('&', $parts);
+    }
+}
+
+if (!function_exists('inspectorGetDirectoryBatches')) {
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    function inspectorGetDirectoryBatches(mysqli $conn, int $courseId): array
+    {
+        if ($courseId <= 0) {
+            return [];
+        }
+
+        $sql = "SELECT b.id, b.batch_name, b.batch_code,
+                       (SELECT COUNT(DISTINCT COALESCE(bs.student_record_id, bs.student_id))
+                        FROM batch_students bs WHERE bs.batch_id = b.id) AS enrolled_count
+                FROM batches b
+                WHERE b.course_id = ?
+                ORDER BY b.batch_name ASC";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+
+        return $rows;
+    }
+}
+
+if (!function_exists('inspectorFetchDirectoryProfiles')) {
+    /**
+     * @param array<string, mixed> $criteria
+     * @param int[] $recordIds
+     * @return array<int, array<string, mixed>>
+     */
+    function inspectorFetchDirectoryProfiles(mysqli $conn, array $criteria = [], array $recordIds = []): array
+    {
+        $where = ['1=1'];
+        $params = [];
+        $types = '';
+
+        if (!empty($recordIds)) {
+            $recordIds = array_values(array_unique(array_filter(array_map('intval', $recordIds))));
+            if ($recordIds === []) {
+                return [];
+            }
+            $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
+            $where[] = "s.id IN ({$placeholders})";
+            $types .= str_repeat('i', count($recordIds));
+            $params = array_merge($params, $recordIds);
+        } else {
+            if (($criteria['course_id'] ?? 0) > 0) {
+                $where[] = 's.course_id = ?';
+                $types .= 'i';
+                $params[] = (int)$criteria['course_id'];
+            }
+            if (($criteria['batch_id'] ?? 0) > 0) {
+                $where[] = 's.batch_id = ?';
+                $types .= 'i';
+                $params[] = (int)$criteria['batch_id'];
+            }
+            if (($criteria['category'] ?? '') !== '') {
+                $where[] = 's.category = ?';
+                $types .= 's';
+                $params[] = $criteria['category'];
+            }
+            if (($criteria['status'] ?? '') !== '' && strtolower($criteria['status']) !== 'all') {
+                $where[] = 'LOWER(s.status) = ?';
+                $types .= 's';
+                $params[] = strtolower($criteria['status']);
+            } else {
+                $where[] = "LOWER(s.status) != 'inactive'";
+            }
+            if (($criteria['name'] ?? '') !== '') {
+                $where[] = 's.name LIKE ?';
+                $types .= 's';
+                $params[] = '%' . $criteria['name'] . '%';
+            }
+            if (($criteria['mobile'] ?? '') !== '') {
+                $where[] = "REPLACE(REPLACE(s.mobile,' ',''),'-','') LIKE ?";
+                $types .= 's';
+                $params[] = '%' . preg_replace('/[\s\-]/', '', $criteria['mobile']) . '%';
+            }
+            if (($criteria['date_from'] ?? '') !== '') {
+                $where[] = 'DATE(COALESCE(s.registration_date, s.created_at)) >= ?';
+                $types .= 's';
+                $params[] = $criteria['date_from'];
+            }
+            if (($criteria['date_to'] ?? '') !== '') {
+                $where[] = 'DATE(COALESCE(s.registration_date, s.created_at)) <= ?';
+                $types .= 's';
+                $params[] = $criteria['date_to'];
+            }
+        }
+
+        $limit = empty($recordIds) ? 300 : max(50, count($recordIds));
+        $sql = "SELECT s.id, s.student_id, s.name, s.mobile, s.category, s.passport_photo,
+                       s.address, s.city, s.state, s.pincode, s.status,
+                       c.course_name, c.course_code,
+                       COALESCE(s.registration_date, s.created_at) AS apply_date
+                FROM students s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY apply_date DESC, s.id DESC
+                LIMIT " . (int)$limit;
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+
+        return $rows;
+    }
+}
+
+if (!function_exists('inspectorCollectDirectoryRecordIds')) {
+    /**
+     * @param array<int, array<string, mixed>> ...$rowSets
+     * @return int[]
+     */
+    function inspectorCollectDirectoryRecordIds(array ...$rowSets): array
+    {
+        $ids = [];
+        foreach ($rowSets as $rows) {
+            foreach ($rows as $row) {
+                if (!empty($row['id'])) {
+                    $ids[] = (int)$row['id'];
+                } elseif (!empty($row['student_record_id'])) {
+                    $ids[] = (int)$row['student_record_id'];
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($ids)));
+    }
+}

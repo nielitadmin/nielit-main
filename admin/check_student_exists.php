@@ -5,9 +5,10 @@ require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
+require_once __DIR__ . '/includes/student_inspector_directory.php';
 
 if (!isset($_SESSION['admin'])) {
-    header('Location: login_new.php');
+    header('Location: login.php');
     exit();
 }
 
@@ -99,6 +100,10 @@ $collectedIds = ['record_ids' => [], 'account_ids' => [], 'student_id_strings' =
 $enrollmentContext = ['primary_student_id' => '', 'primary_name' => '', 'course_items' => []];
 $courseFilterLabel = '';
 $searchParams = $searchCriteria;
+$directoryCriteria = inspectorDirectoryCriteriaFromRequest($_GET);
+$directoryRows = [];
+$directorySearched = false;
+$directoryContextTitle = 'Student directory';
 
 if ($searched) {
     $searchResult = inspectorRunSearch($conn, $searchCriteria);
@@ -161,6 +166,23 @@ if ($searched) {
         $enrollmentRows,
         $relatedRecords
     );
+}
+
+if (inspectorDirectoryHasCriteria($directoryCriteria)) {
+    $directorySearched = true;
+    $directoryRows = inspectorFetchDirectoryProfiles($conn, $directoryCriteria);
+    $directoryContextTitle = 'Directory — filtered list';
+} elseif ($searched && $exists) {
+    $directoryRecordIds = inspectorCollectDirectoryRecordIds(
+        $studentRows,
+        $hiddenStudentRows,
+        $relatedRecords['students_all'] ?? []
+    );
+    if (!empty($directoryRecordIds)) {
+        $directorySearched = true;
+        $directoryRows = inspectorFetchDirectoryProfiles($conn, [], $directoryRecordIds);
+        $directoryContextTitle = 'Directory — search matches';
+    }
 }
 
 $page_title = 'Student Record Inspector';
@@ -259,6 +281,8 @@ $page_title = 'Student Record Inspector';
     <?php if ($canManageEnrollment): ?>
     <?php include __DIR__ . '/includes/student_inspector_roster_ui.php'; ?>
     <?php endif; ?>
+
+    <?php include __DIR__ . '/includes/student_inspector_directory_ui.php'; ?>
 
     <?php if ($searched):
         $alertClass = 'status-missing';

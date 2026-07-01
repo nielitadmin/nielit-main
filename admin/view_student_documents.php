@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
-    header('Location: ' . relative_url('login_new.php'));
+    header('Location: ' . relative_url('login.php'));
     exit();
 }
 

@@ -11,7 +11,7 @@ require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 
 if (!isset($_SESSION['admin'])) {
-    header("Location: login_new.php");
+    header("Location: login.php");
     exit();
 }
 
@@ -21,7 +21,7 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
         // Session initialization failed, redirect to login
         session_unset();
         session_destroy();
-        header("Location: login_new.php");
+        header("Location: login.php");
         exit();
     }
 }

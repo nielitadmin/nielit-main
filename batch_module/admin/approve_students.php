@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../../includes/session_manager.php';
 
 if (!isset($_SESSION['admin'])) {
-    header("Location: ../../admin/login_new.php");
+    header("Location: ../../admin/login.php");
     exit();
 }
 
@@ -15,7 +15,7 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
         // Session initialization failed, redirect to login
         session_unset();
         session_destroy();
-        header("Location: ../../admin/login_new.php");
+        header("Location: ../../admin/login.php");
         exit();
     }
 }

@@ -7,7 +7,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 if (!isset($_SESSION['admin'])) {
-    header('Location: login_new.php');
+    header('Location: login.php');
     exit;
 }
 

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/themes_schema.php';
 
 if (!isset($_SESSION['admin'])) {
-    header('Location: ' . relative_url('login_new.php'));
+    header('Location: ' . relative_url('login.php'));
     exit();
 }
 

@@ -4,7 +4,7 @@ require_once __DIR__ . '/../config/config.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
-    header("Location: login_new.php");
+    header("Location: login.php");
     exit();
 }
 

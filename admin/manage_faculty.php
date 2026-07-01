@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/email_helper.php';
 
 if (!isset($_SESSION['admin'])) {
-    header('Location: login_new.php');
+    header('Location: login.php');
     exit();
 }
 
@@ -14,7 +14,7 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
     if (!init_admin_session($_SESSION['admin'])) {
         session_unset();
         session_destroy();
-        header('Location: login_new.php');
+        header('Location: login.php');
         exit();
     }
 }

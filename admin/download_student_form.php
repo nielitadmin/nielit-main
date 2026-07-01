@@ -14,7 +14,7 @@ if (!isset($_SESSION['admin'])) {
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
-    header('Location: login_new.php');
+    header('Location: login.php');
     exit();
 }
 

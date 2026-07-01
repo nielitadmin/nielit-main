@@ -137,7 +137,7 @@ if (!$conn) {
 
 // Redirect if admin not logged in
 if (!isset($_SESSION['admin'])) {
-    header("Location: login_new.php");
+    header("Location: login.php");
     exit();
 }
 

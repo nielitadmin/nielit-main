@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
-    header("Location: ../login_new.php");
+    header("Location: ../../admin/login.php");
     exit();
 }
 
