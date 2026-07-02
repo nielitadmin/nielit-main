@@ -223,7 +223,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                         <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG/PNG max 5MB</span>
                         <span class="field-hint d-block mb-2">Upload a clear photo of your <strong>Aadhar card only</strong> — must show Aadhaar / UIDAI text. Marksheet, certificate, or other documents are not accepted.</span>
                         <input type="file" name="aadhar_card" id="workshop_aadhar_card" class="form-control workshop-file-input"
-                               accept="image/jpeg,image/png,image/jpg" capture="environment" required
+                               accept="image/jpeg,image/png,image/jpg" required
                                data-max-image-mb="5" data-require-aadhar-card="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                     </div>
@@ -256,7 +256,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                         <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG or PNG · max 5MB</span>
                         <span class="field-hint d-block mb-2">Front-facing passport photo — one face, centred, plain background. Auto-checked before submit.</span>
                         <input type="file" name="passport_photo" id="workshop_passport_photo" class="form-control workshop-file-input workshop-passport-input"
-                               accept="image/jpeg,image/png,image/jpg" capture="user" required data-max-image-mb="5" data-require-face="1">
+                               accept="image/jpeg,image/png,image/jpg" required data-max-image-mb="5" data-require-face="1">
                         <div class="face-check-status" aria-live="polite"></div>
                     </div>
                 </div>
@@ -265,7 +265,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 
         <div class="workshop-info-note mobile-upload-tip" role="note">
             <i class="fas fa-mobile-screen-button"></i>
-            <p>On mobile, tap upload fields to open your camera. Use good light and wait for the green verified message before submitting.</p>
+            <p>On mobile, tap upload fields — choose <strong>Camera</strong> for a new photo or <strong>Gallery / Files</strong> for a saved image. Wait for the green verified message before submitting.</p>
         </div>
 
         <div id="workshopAiPreloadSkeleton" class="reg-skeleton-panel" aria-live="polite" aria-hidden="true">

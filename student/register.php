@@ -855,7 +855,9 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
         .education-table {
             margin-top: 20px;
             border-radius: 12px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
         }
         
@@ -1113,15 +1115,6 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
             .btn-register {
                 width: 100%;
                 justify-content: center;
-            }
-            
-            .education-table {
-                font-size: 12px;
-            }
-            
-            .education-table th,
-            .education-table td {
-                padding: 8px 4px;
             }
             
             /* Level Structure Mobile */
@@ -1822,7 +1815,7 @@ if (isset($_SESSION['info'])) {
 
             <div class="mobile-upload-tip" role="note">
                 <i class="fas fa-mobile-screen-button"></i>
-                <strong>On mobile?</strong> Tap each upload field to use your camera. Hold the phone straight, use good light, and wait for the green <em>verified</em> message before going to the next step.
+                <strong>On mobile?</strong> Tap each upload field — choose <strong>Camera</strong> to take a new photo, or <strong>Gallery / Files</strong> to upload a saved document. Wait for the green <em>verified</em> message before continuing.
             </div>
 
             <div id="regAiPreloadSkeleton" class="reg-skeleton-panel" aria-live="polite" aria-hidden="true">
@@ -2099,7 +2092,6 @@ if (isset($_SESSION['info'])) {
                                id="aadhar_card"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                               capture="environment"
                                required
                                data-category="aadhar"
                                data-require-aadhar-card="1">
@@ -2127,7 +2119,6 @@ if (isset($_SESSION['info'])) {
                                id="tenth_marksheet"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               capture="environment"
                                required
                                data-category="tenth"
                                data-require-marksheet="tenth">
@@ -2153,7 +2144,6 @@ if (isset($_SESSION['info'])) {
                                id="twelfth_marksheet"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               capture="environment"
                                data-category="twelfth"
                                data-require-marksheet="twelfth">
                         <div class="doc-check-status" aria-live="polite"></div>
@@ -2180,7 +2170,6 @@ if (isset($_SESSION['info'])) {
                                        id="caste_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                                       capture="environment"
                                        data-category="caste"
                                        data-require-certificate="caste">
                                 <div class="doc-check-status" aria-live="polite"></div>
@@ -2199,7 +2188,6 @@ if (isset($_SESSION['info'])) {
                                        id="graduation_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                                       capture="environment"
                                        data-category="graduation"
                                        data-require-certificate="graduation">
                                 <div class="doc-check-status" aria-live="polite"></div>
@@ -2237,7 +2225,7 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg" capture="user" required data-max-mb="5" data-require-face="1">
+                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg" required data-max-mb="5" data-require-face="1">
                                 <div class="face-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
@@ -2278,8 +2266,7 @@ if (isset($_SESSION['info'])) {
                     <div class="form-group">
                         <label class="form-label">Thumb Impression</label>
                         <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression"
-                               accept="image/jpeg,image/png,image/jpg" capture="environment"
-                               data-max-mb="2" data-require-thumb="1">
+                               accept="image/jpeg,image/png,image/jpg" data-max-mb="2" data-require-thumb="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
