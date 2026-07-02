@@ -293,7 +293,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </div>
 
         <div class="workshop-form-actions">
-            <button type="submit" class="btn btn-submit">
+            <button type="submit" class="btn btn-submit" id="workshopSubmitBtn">
                 <i class="fas fa-paper-plane"></i> Submit Registration
             </button>
             <a href="<?php echo APP_URL; ?>/public/courses.php" class="btn-back">
@@ -302,6 +302,27 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </div>
     </form>
 </div>
+</div>
+
+<div id="workshopSubmitSkeleton" class="reg-submit-skeleton-overlay" aria-live="polite" aria-hidden="true" aria-busy="false">
+    <div class="reg-submit-skeleton-card" role="status">
+        <div class="reg-submit-skeleton-icon" aria-hidden="true">
+            <i class="fas fa-paper-plane"></i>
+        </div>
+        <p class="reg-skeleton-panel-title">
+            <i class="fas fa-circle-notch fa-spin"></i>
+            Submitting your registration
+        </p>
+        <div class="reg-skeleton-panel-rows">
+            <div class="reg-skeleton-line reg-skeleton-shimmer"></div>
+            <div class="reg-skeleton-line reg-skeleton-line--md reg-skeleton-shimmer"></div>
+            <div class="reg-skeleton-line reg-skeleton-line--sm reg-skeleton-shimmer"></div>
+        </div>
+        <div class="reg-skeleton-progress" aria-hidden="true">
+            <div class="reg-skeleton-progress-bar"></div>
+        </div>
+        <p class="reg-skeleton-caption">Saving your details and uploads… Please wait and do not close this page.</p>
+    </div>
 </div>
 
 <?php renderStateCityPincodeScript($formData); ?>
@@ -639,6 +660,14 @@ document.querySelectorAll('.workshop-file-input').forEach(function (input) {
 });
 
 document.querySelector('.workshop-form').addEventListener('submit', function (e) {
+    const form = this;
+    const submitBtn = document.getElementById('workshopSubmitBtn');
+
+    if (form.dataset.submitting === '1') {
+        e.preventDefault();
+        return;
+    }
+
     const photo = document.getElementById('workshop_passport_photo');
     if (photo && photo.dataset.requireFace === '1' && photo.dataset.faceValid !== '1') {
         e.preventDefault();
@@ -653,6 +682,33 @@ document.querySelector('.workshop-form').addEventListener('submit', function (e)
         workshopShowFileError(aadhar, 'Upload a clear scan or photo of your Aadhar card before submitting.');
         workshopSetDocCheckStatus(aadhar, 'Aadhar card must be verified before submit', 'fail');
         aadhar.closest('.form-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    form.dataset.submitting = '1';
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    }
+    if (typeof RegistrationSkeleton !== 'undefined') {
+        RegistrationSkeleton.showSubmitOverlay('workshopSubmitSkeleton');
+    }
+});
+
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted) {
+        const form = document.querySelector('.workshop-form');
+        const submitBtn = document.getElementById('workshopSubmitBtn');
+        if (form) {
+            form.dataset.submitting = '0';
+        }
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Registration';
+        }
+        if (typeof RegistrationSkeleton !== 'undefined') {
+            RegistrationSkeleton.hideSubmitOverlay('workshopSubmitSkeleton');
+        }
     }
 });
 

@@ -118,6 +118,34 @@
             return global.RegistrationAiLoader.preload().finally(function () {
                 hidePanel(panelId);
             });
+        },
+
+        showSubmitOverlay: function (overlayId, caption) {
+            var el = typeof overlayId === 'string' ? document.getElementById(overlayId) : overlayId;
+            if (!el) {
+                return;
+            }
+            if (caption) {
+                var captionEl = el.querySelector('.reg-skeleton-caption');
+                if (captionEl) {
+                    captionEl.textContent = caption;
+                }
+            }
+            el.classList.add('is-visible');
+            el.setAttribute('aria-hidden', 'false');
+            el.setAttribute('aria-busy', 'true');
+            document.body.classList.add('reg-submit-skeleton-active');
+        },
+
+        hideSubmitOverlay: function (overlayId) {
+            var el = typeof overlayId === 'string' ? document.getElementById(overlayId) : overlayId;
+            if (!el) {
+                return;
+            }
+            el.classList.remove('is-visible');
+            el.setAttribute('aria-hidden', 'true');
+            el.setAttribute('aria-busy', 'false');
+            document.body.classList.remove('reg-submit-skeleton-active');
         }
     };
 })(window);
