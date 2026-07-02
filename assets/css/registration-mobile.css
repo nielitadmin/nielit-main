@@ -1,0 +1,168 @@
+/* Mobile-friendly registration form — document uploads & navigation */
+@media (max-width: 768px) {
+    .registration-container .form-control,
+    .registration-container input[type="file"],
+    .registration-container select,
+    .registration-container textarea {
+        font-size: 16px;
+        min-height: 48px;
+    }
+
+    .registration-container input[type="file"] {
+        padding: 10px 12px;
+    }
+
+    .registration-container .form-navigation {
+        position: sticky;
+        bottom: 0;
+        z-index: 120;
+        background: rgba(255, 255, 255, 0.97);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        margin-top: 16px;
+        margin-bottom: 0 !important;
+        padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+        box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.1);
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .registration-container .btn-nav,
+    .registration-container .btn-register {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+        padding: 14px 20px;
+    }
+
+    .registration-container .face-check-status,
+    .registration-container .doc-check-status {
+        font-size: 0.88rem;
+        line-height: 1.45;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+    }
+
+    .registration-container .face-check-status.checking,
+    .registration-container .doc-check-status.checking {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+    }
+
+    .registration-container .face-check-status.ok,
+    .registration-container .doc-check-status.ok {
+        background: #ecfdf5;
+        border-color: #a7f3d0;
+    }
+
+    .registration-container .face-check-status.fail,
+    .registration-container .doc-check-status.fail {
+        background: #fef2f2;
+        border-color: #fecaca;
+    }
+
+    .registration-container .file-preview-image-container img {
+        max-width: 100%;
+        max-height: min(280px, 55vh);
+        width: auto;
+        height: auto;
+    }
+
+    .registration-container .mobile-upload-tip {
+        display: block;
+        background: linear-gradient(135deg, #eff6ff 0%, #ecfdf5 100%);
+        border: 1px solid #bfdbfe;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 20px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: #1e3a5f;
+    }
+
+    .registration-container .mobile-upload-tip i {
+        color: #2563eb;
+        margin-right: 6px;
+    }
+
+    .registration-container .document-category {
+        margin-bottom: 18px;
+    }
+
+    .registration-container .file-error-message {
+        font-size: 0.88rem;
+        line-height: 1.4;
+    }
+}
+
+@media (min-width: 769px) {
+    .registration-container .mobile-upload-tip,
+    .workshop-reg .mobile-upload-tip {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .workshop-reg .form-control,
+    .workshop-reg input[type="file"],
+    .workshop-reg select,
+    .workshop-reg textarea {
+        font-size: 16px;
+        min-height: 48px;
+    }
+
+    .workshop-reg .workshop-file-input {
+        padding: 10px 12px;
+    }
+
+    .workshop-reg .workshop-form-actions {
+        position: sticky;
+        bottom: 0;
+        z-index: 120;
+        background: rgba(255, 255, 255, 0.97);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px));
+        margin-top: 8px;
+        box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.1);
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .workshop-reg .btn-submit,
+    .workshop-reg .btn-back {
+        width: 100%;
+        justify-content: center;
+        min-height: 48px;
+        text-align: center;
+    }
+
+    .workshop-reg .face-check-status,
+    .workshop-reg .doc-check-status {
+        font-size: 0.88rem;
+        line-height: 1.45;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        margin-top: 8px;
+    }
+
+    .workshop-reg .file-preview-image-container img {
+        max-width: 100%;
+        max-height: min(280px, 55vh);
+    }
+
+    .workshop-reg .mobile-upload-tip {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .workshop-reg .mobile-upload-tip p {
+        margin: 0;
+    }
+}

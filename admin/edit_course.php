@@ -8,6 +8,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
+require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 
 // Function to generate short token
 function generateShortToken($length = 8) {
@@ -50,6 +51,10 @@ if (isset($_POST['regenerate_token']) && isset($_GET['id'])) {
 // Check if payment_details_required column exists (needed throughout the script)
 $column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'payment_details_required'");
 $payment_column_exists = $column_check && $column_check->num_rows > 0;
+
+ensureWorkshopRegistrationSchema($conn);
+$registration_form_column_check = $conn->query("SHOW COLUMNS FROM courses LIKE 'registration_form'");
+$registration_form_column_exists = $registration_form_column_check && $registration_form_column_check->num_rows > 0;
 
 $course = [];
 ensureCourseProjectLevelColumn($conn);
@@ -173,6 +178,11 @@ if (isset($_POST['update_course'])) {
         $is_nsqf = 0; // These programs are typically non-NSQF
     }
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
+    if (sub_category_matches($nsqf_type, 'Workshop') || sub_category_matches($nsqf_type, 'Awareness Program')) {
+        $registration_form = (($_POST['registration_form'] ?? 'workshop') === 'workshop') ? 'workshop' : 'full';
+    } else {
+        $registration_form = 'full';
+    }
     $description_pdf    = $course['description_pdf'];
     $course_flyer       = $course['course_flyer'] ?? '';
 
@@ -265,6 +275,7 @@ if (isset($_POST['update_course'])) {
             link_published = ?,
             enrollment_status = ?,
             payment_details_required = ?,
+            registration_form = ?,
             is_nsqf = ?,
             course_description = ?,
             project_level_label = ?
@@ -272,7 +283,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("ssssssssssssssssiississi",
+            $stmt->bind_param("ssssssssssssssssiisssissi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -293,10 +304,11 @@ if (isset($_POST['update_course'])) {
                 $link_published,           // 18 i
                 $enrollment_status,        // 19 s
                 $payment_details_required, // 20 s
-                $is_nsqf,                  // 21 i
-                $course_description,       // 22 s
-                $project_level_label,      // 23 s
-                $course_id                 // 24 i
+                $registration_form,        // 21 s
+                $is_nsqf,                  // 22 i
+                $course_description,       // 23 s
+                $project_level_label,      // 24 s
+                $course_id                 // 25 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -327,6 +339,7 @@ if (isset($_POST['update_course'])) {
             centre_id = ?,
             link_published = ?,
             enrollment_status = ?,
+            registration_form = ?,
             is_nsqf = ?,
             course_description = ?,
             project_level_label = ?
@@ -334,7 +347,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("ssssssssssssssssiisissi",
+            $stmt->bind_param("ssssssssssssssssiississi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
@@ -354,10 +367,11 @@ if (isset($_POST['update_course'])) {
                 $centre_id,            // 17 i
                 $link_published,       // 18 i
                 $enrollment_status,    // 19 s
-                $is_nsqf,              // 20 i
-                $course_description,   // 21 s
-                $project_level_label,  // 22 s
-                $course_id             // 23 i
+                $registration_form,    // 20 s
+                $is_nsqf,              // 21 i
+                $course_description,   // 22 s
+                $project_level_label,  // 23 s
+                $course_id             // 24 i
             );
         } else {
             echo "Prepare failed: " . $conn->error;
@@ -422,6 +436,10 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
     $selected_sub_category = 'NSQF Course';
 } elseif (is_special_subcategory($course['category'] ?? '')) {
     $selected_sub_category = normalize_course_sub_category($course['category']);
+}
+$registration_form_display = (($course['registration_form'] ?? 'full') === 'workshop') ? 'workshop' : 'full';
+if ($registration_form_display === 'full' && (sub_category_matches($selected_sub_category, 'Workshop') || sub_category_matches($selected_sub_category, 'Awareness Program'))) {
+    $registration_form_display = 'workshop';
 }
 ?>
 <!DOCTYPE html>
@@ -670,6 +688,29 @@ if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
                     
                     <hr style="margin: 24px 0; border-color: #e3f2fd;">
                     <h6 style="color: #0d47a1; margin-bottom: 16px;"><i class="fas fa-link"></i> Registration Link & QR Code</h6>
+
+                    <?php if ($registration_form_column_exists): ?>
+                    <div class="form-group" id="registration_form_group" style="margin-bottom: 16px; <?php echo (sub_category_matches($selected_sub_category, 'Workshop') || sub_category_matches($selected_sub_category, 'Awareness Program')) ? '' : 'display: none;'; ?>">
+                        <label class="form-label">
+                            <i class="fas fa-clipboard-list"></i> Registration Form *
+                        </label>
+                        <select class="form-select" name="registration_form" id="edit_registration_form">
+                            <option value="full" <?php echo $registration_form_display === 'full' ? 'selected' : ''; ?>>
+                                Full form (regular 3-step registration)
+                            </option>
+                            <option value="workshop" <?php echo $registration_form_display === 'workshop' ? 'selected' : ''; ?>>
+                                Short form (Workshop / Awareness — Class 1–10 &amp; higher)
+                            </option>
+                        </select>
+                        <small class="text-muted" id="registration_form_help">
+                            <?php if ($registration_form_display === 'workshop'): ?>
+                                Students see the short workshop form (name, class, school, photo, etc.). Same Apply link — they are redirected automatically.
+                            <?php else: ?>
+                                Students use the full registration wizard.
+                            <?php endif; ?>
+                        </small>
+                    </div>
+                    <?php endif; ?>
                     
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                         <div class="form-group">
@@ -1290,15 +1331,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // NSQF category init
     const currentCategory = '<?php echo addslashes($course['category']); ?>';
-    const currentNsqfType = '<?php 
-        if ($course['category'] == 'Internship Program') {
-            echo 'Internship Program';
-        } elseif (!empty($course['is_nsqf']) && $course['is_nsqf'] == 1) {
-            echo 'NSQF Course';
-        } else {
-            echo addslashes(get_default_non_nsqf_sub_category());
-        }
-    ?>';
+    const currentNsqfType = '<?php echo addslashes($selected_sub_category); ?>';
+    const nsqfTypeSelectInit = document.getElementById('edit_nsqf_type');
+    if (nsqfTypeSelectInit && currentNsqfType) {
+        nsqfTypeSelectInit.value = currentNsqfType;
+    }
     if (currentNsqfType === 'NSQF Course') {
         handleCategoryChange(currentCategory);
     }
@@ -1343,13 +1380,13 @@ function handleCategoryChange(currentCategory) {
             eligibilityField.placeholder   = 'Enter eligibility criteria for internship';
         } else if (selectedNsqfType === 'Awareness Program') {
             courseNameInput.placeholder    = 'Enter awareness program name';
-            eligibilityField.placeholder   = 'Enter eligibility criteria for awareness program';
+            eligibilityField.placeholder   = 'e.g., Class 1–10 or open to all';
         } else if (selectedNsqfType === 'FDP Program') {
             courseNameInput.placeholder    = 'Enter FDP program name';
             eligibilityField.placeholder   = 'Enter eligibility criteria for FDP';
         } else if (selectedNsqfType === 'Workshop') {
             courseNameInput.placeholder    = 'Enter workshop name';
-            eligibilityField.placeholder   = 'Enter eligibility criteria for workshop';
+            eligibilityField.placeholder   = 'e.g., Class 1–10 or higher students';
         } else if (selectedNsqfType === 'Govt/Corporate Training') {
             courseNameInput.placeholder    = 'Enter training program name';
             eligibilityField.placeholder   = 'Enter eligibility criteria for training';
@@ -1423,9 +1460,45 @@ function handleSubcategoryChange() {
         categoryFieldGroup.style.display = 'block';
         categorySelect.required = true;
     }
+
+    updateRegistrationFormForSubcategory(false);
     
     // Call the original handler to update template options if needed
     handleCategoryChange(categorySelect.value);
+}
+
+function updateRegistrationFormForSubcategory(forceWorkshopDefault) {
+    const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
+    const regFormGroup = document.getElementById('registration_form_group');
+    const regFormSelect = document.getElementById('edit_registration_form');
+    const regFormHelp = document.getElementById('registration_form_help');
+    const eligibilityField = document.getElementById('edit_eligibility');
+
+    if (!regFormGroup || !regFormSelect) {
+        return;
+    }
+
+    const shortFormSubcategories = ['Workshop', 'Awareness Program'];
+    const usesShortForm = nsqfTypeSelect && shortFormSubcategories.includes(nsqfTypeSelect.value);
+
+    if (usesShortForm) {
+        regFormGroup.style.display = 'block';
+        if (forceWorkshopDefault) {
+            regFormSelect.value = 'workshop';
+        }
+        if (regFormHelp) {
+            regFormHelp.textContent = 'Students see the short form (Class 1–10 or higher, Aadhar upload, photo). Same Apply link — redirected automatically.';
+        }
+        if (eligibilityField && !eligibilityField.value.trim()) {
+            eligibilityField.placeholder = 'e.g., Class 1–10 students, or 11th/12th/Diploma/Graduation';
+        }
+    } else {
+        regFormGroup.style.display = 'none';
+        regFormSelect.value = 'full';
+        if (regFormHelp) {
+            regFormHelp.textContent = 'Students use the full registration wizard.';
+        }
+    }
 }
 
 // Add form submission handler to ensure category is set correctly
@@ -1447,9 +1520,26 @@ function prepareFormSubmission() {
 document.addEventListener('DOMContentLoaded', function() {
     const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
     if (nsqfTypeSelect) {
-        nsqfTypeSelect.addEventListener('change', handleSubcategoryChange);
-        // Call it once on page load to set the initial state
+        nsqfTypeSelect.addEventListener('change', function() {
+            handleSubcategoryChange();
+            updateRegistrationFormForSubcategory(true);
+        });
         handleSubcategoryChange();
+    }
+
+    const regFormSelect = document.getElementById('edit_registration_form');
+    if (regFormSelect) {
+        regFormSelect.addEventListener('change', function() {
+            const regFormHelp = document.getElementById('registration_form_help');
+            if (!regFormHelp) {
+                return;
+            }
+            if (this.value === 'workshop') {
+                regFormHelp.textContent = 'Students see the short workshop form (name, class, school, photo, etc.). Same Apply link — they are redirected automatically.';
+            } else {
+                regFormHelp.textContent = 'Students use the full registration wizard.';
+            }
+        });
     }
     
     // Add form submission handler

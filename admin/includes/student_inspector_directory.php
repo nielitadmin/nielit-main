@@ -303,7 +303,7 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
         }
 
         $limit = empty($recordIds) ? 300 : max(50, count($recordIds));
-        $sql = "SELECT s.id, s.student_id, s.name, s.mobile, s.category, s.passport_photo,
+        $sql = "SELECT s.id, s.student_id, s.name, s.mobile, s.category, s.class_standard, s.passport_photo,
                        s.address, s.city, s.state, s.pincode, s.status,
                        c.course_name, c.course_code,
                        COALESCE(s.registration_date, s.created_at) AS apply_date

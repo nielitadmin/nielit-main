@@ -17,6 +17,7 @@ $course_name          = $_SESSION['course_name'] ?? null;
 $training_center      = $_SESSION['training_center'] ?? null;
 $is_returning_student = !empty($_SESSION['is_returning_student']);
 $email_sent           = !empty($_SESSION['registration_email_sent']);
+$email_queued         = !empty($_SESSION['registration_email_queued']);
 
 // Clear session variables after reading them
 unset(
@@ -27,7 +28,8 @@ unset(
     $_SESSION['course_name'],
     $_SESSION['training_center'],
     $_SESSION['is_returning_student'],
-    $_SESSION['registration_email_sent']
+    $_SESSION['registration_email_sent'],
+    $_SESSION['registration_email_queued']
 );
 ?>
 <!DOCTYPE html>
@@ -445,6 +447,15 @@ unset(
                             <strong>Email Sent:</strong> A confirmation email with your credentials has been sent to
                             <strong><?php echo htmlspecialchars($student_email); ?></strong>.
                             Please check your inbox (and spam folder).
+                        </p>
+                    </div>
+                    <?php elseif ($email_queued && $student_email): ?>
+                    <div class="alert-box alert-success-box">
+                        <i class="fas fa-paper-plane" style="color:#10b981;"></i>
+                        <p style="color:#065f46;">
+                            <strong>Email on the way:</strong> Your confirmation is being sent to
+                            <strong><?php echo htmlspecialchars($student_email); ?></strong>.
+                            It may take a minute — your Student ID and password are shown below, so you do not need to wait.
                         </p>
                     </div>
                     <?php elseif ($is_returning_student && $student_email): ?>

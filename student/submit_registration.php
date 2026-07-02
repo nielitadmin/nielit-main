@@ -892,12 +892,18 @@ if (!empty($exam_passed) && is_array($exam_passed)) {
 // ----------------------------------------------------------
 if ($is_returning_student) {
     $email_sent = false;
+    $email_queued = false;
     $_SESSION['success'] = "Additional course enrollment submitted! Your Student ID remains <strong>$student_id</strong>. Use your <strong>existing password</strong> to login after approval.<br><strong>Course:</strong> $course_name<br><strong>Note:</strong> Pending admin approval.";
 } else {
-    $email_sent = sendRegistrationEmail($email, $name, $student_id, $password, $course_name, $training_center);
-    $_SESSION['success'] = $email_sent
-        ? "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Email sent to <strong>$email</strong>.<br><strong>Note:</strong> Account pending admin approval."
-        : "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. Save these credentials.<br><strong>Note:</strong> Account pending admin approval.";
+    $email_queued = dispatchRegistrationEmailAsync($email, $name, $student_id, $password, $course_name, $training_center);
+    $email_sent = false;
+    $_SESSION['success'] = "Registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>.";
+    if ($email_queued) {
+        $_SESSION['success'] .= " Confirmation email is being sent to <strong>$email</strong>.";
+    } else {
+        $_SESSION['success'] .= " Please save your credentials on the next screen.";
+    }
+    $_SESSION['success'] .= "<br><strong>Note:</strong> Account pending admin approval.";
 }
 $_SESSION['student_id']            = $student_id;
 $_SESSION['student_password']      = $password ?? '';
@@ -905,8 +911,8 @@ $_SESSION['student_email']         = $email;
 $_SESSION['course_name']           = $course_name;
 $_SESSION['training_center']       = $training_center;
 $_SESSION['is_returning_student']  = $is_returning_student;
-$_SESSION['registration_email_sent'] = !empty($email_sent);
+$_SESSION['registration_email_sent'] = false;
+$_SESSION['registration_email_queued'] = !empty($email_queued);
 
-header("Location: " . APP_URL . "/student/registration_success.php");
-exit();
+finalizeRegistrationRedirect(APP_URL . "/student/registration_success.php");
 ?>

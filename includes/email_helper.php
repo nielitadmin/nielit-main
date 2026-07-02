@@ -55,6 +55,120 @@ function getEmailPublicPageUrl(string $path): string {
     return getEmailBaseUrl() . '/' . $path;
 }
 
+function registrationEmailAsyncSecret(): string
+{
+    return hash('sha256', (defined('SMTP_USERNAME') ? SMTP_USERNAME : 'nielit') . '|registration|' . (defined('APP_URL') ? APP_URL : ''));
+}
+
+function isDeliverableRegistrationEmail(string $email): bool
+{
+    $email = trim($email);
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return false;
+    }
+    if (preg_match('/@(workshop\.nielit\.local|localhost)$/i', $email)) {
+        return false;
+    }
+    return true;
+}
+
+function buildRegistrationEmailJobToken(array $job): string
+{
+    $body = json_encode([
+        'email' => $job['email'] ?? '',
+        'student_id' => $job['student_id'] ?? '',
+        'ts' => $job['ts'] ?? 0,
+    ], JSON_UNESCAPED_UNICODE);
+    return hash_hmac('sha256', $body, registrationEmailAsyncSecret());
+}
+
+function verifyRegistrationEmailJobToken(array $job): bool
+{
+    $expected = buildRegistrationEmailJobToken($job);
+    $given = (string) ($job['token'] ?? '');
+    if ($given === '' || !hash_equals($expected, $given)) {
+        return false;
+    }
+    $ts = (int) ($job['ts'] ?? 0);
+    return $ts > 0 && (time() - $ts) <= 900;
+}
+
+/**
+ * Queue confirmation email without blocking the registration response.
+ */
+function dispatchRegistrationEmailAsync(
+    string $to_email,
+    string $student_name,
+    string $student_id,
+    string $password,
+    string $course_name,
+    string $training_center
+): bool {
+    if (!isDeliverableRegistrationEmail($to_email)) {
+        return false;
+    }
+
+    $job = [
+        'email' => $to_email,
+        'name' => $student_name,
+        'student_id' => $student_id,
+        'password' => $password,
+        'course_name' => $course_name,
+        'training_center' => $training_center,
+        'ts' => time(),
+    ];
+    $job['token'] = buildRegistrationEmailJobToken($job);
+    $encoded = base64_encode(json_encode($job, JSON_UNESCAPED_UNICODE));
+
+    if (function_exists('curl_init') && defined('APP_URL')) {
+        $url = rtrim(APP_URL, '/') . '/student/async_send_registration_email.php';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['payload' => $encoded]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT_MS => 300,
+            CURLOPT_TIMEOUT_MS => 500,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_HTTPHEADER => ['X-Registration-Email: 1'],
+        ]);
+        @curl_exec($ch);
+        curl_close($ch);
+        return true;
+    }
+
+    register_shutdown_function(static function () use ($job) {
+        sendRegistrationEmail(
+            $job['email'],
+            $job['name'],
+            $job['student_id'],
+            $job['password'],
+            $job['course_name'],
+            $job['training_center']
+        );
+    });
+    return true;
+}
+
+function finalizeRegistrationRedirect(string $url): void
+{
+    header('Location: ' . $url);
+    if (function_exists('session_write_close')) {
+        session_write_close();
+    }
+    if (function_exists('fastcgi_finish_request')) {
+        fastcgi_finish_request();
+    } else {
+        while (ob_get_level() > 0) {
+            @ob_end_flush();
+        }
+        @flush();
+    }
+    exit;
+}
+
 /**
  * Send registration confirmation email
  * 
@@ -78,6 +192,8 @@ function sendRegistrationEmail($to_email, $student_name, $student_id, $password,
         $mail->Password = SMTP_PASSWORD;
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
         $mail->Port = SMTP_PORT;
+        $mail->Timeout = 8;
+        $mail->SMTPKeepAlive = false;
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);

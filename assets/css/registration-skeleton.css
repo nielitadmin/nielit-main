@@ -1,0 +1,137 @@
+/* Skeleton loaders — registration & workshop forms */
+
+@keyframes regSkeletonShimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+}
+
+.reg-skeleton-shimmer {
+    background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 40%, #e2e8f0 80%);
+    background-size: 468px 100%;
+    animation: regSkeletonShimmer 1.25s ease-in-out infinite;
+    border-radius: 8px;
+}
+
+/* AI preload panel (Step 3 / workshop) */
+.reg-skeleton-panel {
+    display: none;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 22px;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+.reg-skeleton-panel.is-visible {
+    display: block;
+}
+
+.reg-skeleton-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: #1e3a5f;
+    margin: 0 0 14px;
+}
+
+.reg-skeleton-panel-title i {
+    color: #2563eb;
+}
+
+.reg-skeleton-panel-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.reg-skeleton-line {
+    height: 12px;
+    width: 100%;
+}
+
+.reg-skeleton-line--md {
+    width: 72%;
+}
+
+.reg-skeleton-line--sm {
+    width: 48%;
+}
+
+.reg-skeleton-progress {
+    height: 6px;
+    background: #e2e8f0;
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.reg-skeleton-progress-bar {
+    height: 100%;
+    width: 35%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #2563eb, #3b82f6, #2563eb);
+    background-size: 200% 100%;
+    animation: regSkeletonProgress 1.4s ease-in-out infinite;
+}
+
+@keyframes regSkeletonProgress {
+    0% { width: 18%; margin-left: 0; }
+    50% { width: 55%; margin-left: 25%; }
+    100% { width: 18%; margin-left: 82%; }
+}
+
+.reg-skeleton-caption {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+    line-height: 1.45;
+}
+
+/* Per-upload field skeleton */
+.reg-field-skeleton {
+    display: none;
+    align-items: center;
+    gap: 14px;
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    border-radius: 12px;
+}
+
+.reg-field-skeleton.is-visible {
+    display: flex;
+}
+
+.reg-skeleton-thumb {
+    flex-shrink: 0;
+    width: 56px;
+    height: 56px;
+    border-radius: 10px;
+}
+
+.reg-skeleton-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.reg-skeleton-lines .reg-skeleton-line {
+    height: 10px;
+}
+
+.reg-skeleton-lines .reg-skeleton-line--short {
+    width: 55%;
+}
+
+.reg-field-skeleton-label {
+    font-size: 0.8rem;
+    color: #475569;
+    margin-top: 2px;
+}

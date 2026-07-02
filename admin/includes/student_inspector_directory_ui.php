@@ -320,8 +320,16 @@ foreach ($directoryRows as $dirRow) {
                         <?php endif; ?>
                     </div>
                     <div class="col-md-6">
-                        <div class="inspector-directory-field-label">Course</div>
-                        <div class="inspector-directory-field-value"><?php echo htmlspecialchars($courseLabel); ?></div>
+                        <div class="inspector-directory-field-label">Class / Course</div>
+                        <div class="inspector-directory-field-value">
+                            <?php
+                            $classLabel = trim((string)($row['class_standard'] ?? ''));
+                            if ($classLabel !== '') {
+                                echo 'Class ' . htmlspecialchars($classLabel) . ' — ';
+                            }
+                            echo htmlspecialchars($courseLabel);
+                            ?>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <div class="inspector-directory-field-label">Address</div>

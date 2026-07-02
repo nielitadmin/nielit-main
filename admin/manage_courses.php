@@ -9,6 +9,9 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/workshop_registration_helper.php';
+
+ensureWorkshopRegistrationSchema($conn);
 
 function findDuplicateCourseCode($conn, $course_code, $exclude_id = null) {
     $course_code = strtoupper(trim($course_code));
@@ -80,14 +83,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
+        $registration_form = ($_POST['registration_form'] ?? 'full') === 'workshop' ? 'workshop' : 'full';
+        if ($course_type === 'Workshop' && empty($_POST['registration_form'])) {
+            $registration_form = 'workshop';
+        }
         // Generate registration link if provided
         if (!empty($custom_link)) {
             $registration_link = $custom_link;
         } else {
             $registration_link = '';
         }
-        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("issssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
+        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("issssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
@@ -194,10 +201,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $custom_link = $_POST['custom_link'] ?? '';
         $link_published = isset($_POST['link_published']) ? 1 : 0;
         $enrollment_closing_date = !empty($_POST['enrollment_closing_date']) ? $_POST['enrollment_closing_date'] : null;
+        $registration_form = ($_POST['registration_form'] ?? 'full') === 'workshop' ? 'workshop' : 'full';
         // Use provided link or keep existing
         $registration_link = !empty($custom_link) ? $custom_link : '';
-        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
-        $stmt->bind_param("issssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
+        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, registration_form=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
+        $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
         
         if ($stmt->execute()) {
             // Regenerate QR code if registration link exists
@@ -760,6 +768,16 @@ if (!empty($params)) {
 
                         <hr>
                         <h6 class="mb-3"><i class="fas fa-link"></i> Registration Link Settings</h6>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Registration form</label>
+                                <select name="registration_form" class="form-select" id="add_registration_form">
+                                    <option value="full">Full form (regular courses)</option>
+                                    <option value="workshop">Workshop — Class 7th/8th short form</option>
+                                </select>
+                            </div>
+                        </div>
                         
                         <div class="row mb-3">
                             <div class="col-md-8">
@@ -892,6 +910,16 @@ if (!empty($params)) {
 
                         <hr>
                         <h6 class="mb-3"><i class="fas fa-link"></i> Registration Link Settings</h6>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Registration form</label>
+                                <select name="registration_form" class="form-select" id="edit_registration_form">
+                                    <option value="full">Full form (regular courses)</option>
+                                    <option value="workshop">Workshop — Class 7th/8th short form</option>
+                                </select>
+                            </div>
+                        </div>
                         
                         <div class="row mb-3">
                             <div class="col-md-8">
@@ -1221,6 +1249,10 @@ if (!empty($params)) {
             document.getElementById('edit_description').value = course.description || '';
             document.getElementById('edit_eligibility').value = course.eligibility || '';
             document.getElementById('edit_is_nsqf').checked = (course.is_nsqf == 1 || course.is_nsqf === '1');
+            const editRegForm = document.getElementById('edit_registration_form');
+            if (editRegForm) {
+                editRegForm.value = (course.registration_form === 'workshop') ? 'workshop' : 'full';
+            }
             
             // Set registration link
             document.getElementById('edit_apply_link').value = course.registration_link || '';

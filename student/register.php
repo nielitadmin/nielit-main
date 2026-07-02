@@ -14,6 +14,7 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 
 // Require registration_token parameter for secure registration links
 $registration_token = $_GET['token'] ?? '';
@@ -39,6 +40,12 @@ if ($result->num_rows === 0) {
     exit();
 }
 $course_details = $result->fetch_assoc();
+ensureWorkshopRegistrationSchema($conn);
+
+if (workshopCourseUsesShortForm($course_details)) {
+    header('Location: ' . APP_URL . '/student/register_workshop.php?token=' . rawurlencode($registration_token));
+    exit();
+}
 
 // Check if the registration link is active
 
@@ -75,6 +82,16 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css" rel="stylesheet">
+    <?php
+    $regMobileCssVer = is_file(__DIR__ . '/../assets/css/registration-mobile.css')
+        ? filemtime(__DIR__ . '/../assets/css/registration-mobile.css')
+        : time();
+    $regSkeletonCssVer = is_file(__DIR__ . '/../assets/css/registration-skeleton.css')
+        ? filemtime(__DIR__ . '/../assets/css/registration-skeleton.css')
+        : time();
+    ?>
+    <link href="<?php echo APP_URL; ?>/assets/css/registration-mobile.css?v=<?php echo $regMobileCssVer; ?>" rel="stylesheet">
+    <link href="<?php echo APP_URL; ?>/assets/css/registration-skeleton.css?v=<?php echo $regSkeletonCssVer; ?>" rel="stylesheet">
     <style>
         :root {
             --primary-blue: #0a1628;
@@ -707,6 +724,29 @@ $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
             border: 2px solid #0a1628;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             object-fit: contain;
+        }
+
+        .face-check-status,
+        .doc-check-status {
+            margin-top: 8px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            min-height: 1.25rem;
+        }
+
+        .face-check-status.checking,
+        .doc-check-status.checking {
+            color: #1d4ed8;
+        }
+
+        .face-check-status.ok,
+        .doc-check-status.ok {
+            color: #059669;
+        }
+
+        .face-check-status.fail,
+        .doc-check-status.fail {
+            color: #dc2626;
         }
         
         /* ===== DOCUMENT CATEGORY STYLING ===== */
@@ -1779,6 +1819,27 @@ if (isset($_SESSION['info'])) {
                 <h2 class="level-title">Academic Details & Document Upload</h2>
                 <p class="level-subtitle">Educational qualifications, payment details, and required documents</p>
             </div>
+
+            <div class="mobile-upload-tip" role="note">
+                <i class="fas fa-mobile-screen-button"></i>
+                <strong>On mobile?</strong> Tap each upload field to use your camera. Hold the phone straight, use good light, and wait for the green <em>verified</em> message before going to the next step.
+            </div>
+
+            <div id="regAiPreloadSkeleton" class="reg-skeleton-panel" aria-live="polite" aria-hidden="true">
+                <p class="reg-skeleton-panel-title">
+                    <i class="fas fa-shield-halved"></i>
+                    Preparing document verification
+                </p>
+                <div class="reg-skeleton-panel-rows">
+                    <div class="reg-skeleton-line reg-skeleton-shimmer"></div>
+                    <div class="reg-skeleton-line reg-skeleton-line--md reg-skeleton-shimmer"></div>
+                    <div class="reg-skeleton-line reg-skeleton-line--sm reg-skeleton-shimmer"></div>
+                </div>
+                <div class="reg-skeleton-progress" aria-hidden="true">
+                    <div class="reg-skeleton-progress-bar"></div>
+                </div>
+                <p class="reg-skeleton-caption">Loading verification tools… This runs once and helps check your photos and documents automatically.</p>
+            </div>
             
             <!-- Academic Details Section -->
             <div class="form-section">
@@ -2037,12 +2098,15 @@ if (isset($_SESSION['info'])) {
                                name="aadhar_card" 
                                id="aadhar_card"
                                class="form-control" 
-                               accept=".jpg,.jpeg,.pdf"
+                               accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                               capture="environment"
                                required
-                               data-category="aadhar">
+                               data-category="aadhar"
+                               data-require-aadhar-card="1">
+                        <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            Accepted formats: JPG, JPEG, PDF (Max 5MB)
+                            Aadhar card photo only (JPG/PNG, max 5MB). Must show Aadhaar / UIDAI text — marksheet or certificate is not accepted.
                         </small>
                     </div>
                 </div>
@@ -2062,12 +2126,15 @@ if (isset($_SESSION['info'])) {
                                name="tenth_marksheet" 
                                id="tenth_marksheet"
                                class="form-control" 
-                               accept=".jpg,.jpeg,.pdf"
+                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                               capture="environment"
                                required
-                               data-category="tenth">
+                               data-category="tenth"
+                               data-require-marksheet="tenth">
+                        <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            Accepted formats: JPG, JPEG, PDF (Max 5MB)
+                            10th marksheet or certificate (JPG/PNG/PDF, max 5MB). Auto-checked for marksheet/certificate text in photos and PDFs.
                         </small>
                     </div>
                 </div>
@@ -2085,11 +2152,14 @@ if (isset($_SESSION['info'])) {
                                name="twelfth_marksheet" 
                                id="twelfth_marksheet"
                                class="form-control" 
-                               accept=".jpg,.jpeg,.pdf"
-                               data-category="twelfth">
+                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                               capture="environment"
+                               data-category="twelfth"
+                               data-require-marksheet="twelfth">
+                        <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            If applicable
+                            12th marksheet or diploma certificate (JPG/PNG/PDF). Verified when uploaded — including PDF text check.
                         </small>
                     </div>
                 </div>
@@ -2109,11 +2179,14 @@ if (isset($_SESSION['info'])) {
                                        name="caste_certificate" 
                                        id="caste_certificate"
                                        class="form-control" 
-                                       accept=".jpg,.jpeg,.pdf"
-                                       data-category="caste">
+                                       accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       capture="environment"
+                                       data-category="caste"
+                                       data-require-certificate="caste">
+                                <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    For applicable students only
+                                    Caste certificate (JPG/PNG/PDF). Auto-verified in photos and PDFs — wrong documents are rejected.
                                 </small>
                             </div>
                         </div>
@@ -2125,11 +2198,14 @@ if (isset($_SESSION['info'])) {
                                        name="graduation_certificate" 
                                        id="graduation_certificate"
                                        class="form-control" 
-                                       accept=".jpg,.jpeg,.pdf"
-                                       data-category="graduation">
+                                       accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       capture="environment"
+                                       data-category="graduation"
+                                       data-require-certificate="graduation">
+                                <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    If applicable
+                                    Graduation/degree certificate (JPG/PNG/PDF). Auto-verified in photos and PDFs.
                                 </small>
                             </div>
                         </div>
@@ -2161,10 +2237,11 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="passport_photo" accept="image/*" required data-max-mb="5">
+                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg" capture="user" required data-max-mb="5" data-require-face="1">
+                                <div class="face-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Recent passport size photo (JPG/PNG, max 5MB)
+                                    Front-facing passport photo (JPG/PNG, max 5MB). Auto face check before submit.
                                 </small>
                                 <small class="text-muted d-block mt-1" style="color: #10b981;">
                                     <i class="fas fa-check-circle"></i> 
@@ -2176,10 +2253,11 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Signature <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="signature" accept="image/*" required data-max-mb="2">
+                                <input type="file" class="form-control" name="signature" id="signature" accept="image/jpeg,image/png,image/jpg,image/webp,.jpg,.jpeg,.png,.webp" required data-max-mb="2" data-require-signature="1">
+                                <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Clear signature image (JPG/PNG, max 2MB)
+                                    Handwritten signature on white paper (JPG/PNG, max 2MB). Wait for “Signature verified” before submitting.
                                 </small>
                                 <small class="text-muted d-block mt-1" style="color: #10b981;">
                                     <i class="fas fa-check-circle"></i> 
@@ -2199,15 +2277,18 @@ if (isset($_SESSION['info'])) {
 
                     <div class="form-group">
                         <label class="form-label">Thumb Impression</label>
-                        <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression" accept="image/*" data-max-mb="2">
+                        <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression"
+                               accept="image/jpeg,image/png,image/jpg" capture="environment"
+                               data-max-mb="2" data-require-thumb="1">
+                        <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
                             If available, upload a clear left hand thumb impression taken on plain white paper (JPG/PNG, max 2MB).
-                            Leave this blank if you do not have one yet.
+                            Passbook, Aadhar, marksheet, or other documents are <strong>not accepted</strong> here.
                         </small>
                         <small class="text-muted d-block mt-1" style="color: #10b981;">
                             <i class="fas fa-check-circle"></i>
-                            Place your left thumb on a clean sheet, capture it clearly, then upload the image.
+                            Press thumb on white paper with ink/pad — wait for the green verified message before submitting.
                         </small>
                     </div>
                 </div>
@@ -2290,67 +2371,127 @@ if (isset($_SESSION['info'])) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-ai-loader.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-ai-loader.js') ? filemtime(__DIR__ . '/../assets/js/registration-ai-loader.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-skeleton.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-skeleton.js') ? filemtime(__DIR__ . '/../assets/js/registration-skeleton.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-pdf-ocr.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-pdf-ocr.js') ? filemtime(__DIR__ . '/../assets/js/registration-pdf-ocr.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/workshop-passport-photo-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/workshop-passport-photo-check.js') ? filemtime(__DIR__ . '/../assets/js/workshop-passport-photo-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/workshop-aadhar-card-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/workshop-aadhar-card-check.js') ? filemtime(__DIR__ . '/../assets/js/workshop-aadhar-card-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-marksheet-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-marksheet-check.js') ? filemtime(__DIR__ . '/../assets/js/registration-marksheet-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-signature-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-signature-check.js') ? filemtime(__DIR__ . '/../assets/js/registration-signature-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-thumb-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-thumb-check.js') ? filemtime(__DIR__ . '/../assets/js/registration-thumb-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-certificate-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-certificate-check.js') ? filemtime(__DIR__ . '/../assets/js/registration-certificate-check.js') : time(); ?>"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-document-checks.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-document-checks.js') ? filemtime(__DIR__ . '/../assets/js/registration-document-checks.js') : time(); ?>"></script>
 <script>
-// Wait for DOM to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== MULTI-STEP FORM DEBUG ===');
-    console.log('DOM Content Loaded - Starting initialization');
-    
 // ===== MULTI-STEP FORM NAVIGATION =====
 let currentStep = 1;
 const totalSteps = 3;
+const tokenInputEarly = document.querySelector('[name="registration_token"]');
+const registrationDraftKey = 'reg_draft_' + (tokenInputEarly ? tokenInputEarly.value : 'default');
 
-function showStep(step) {
-    console.log('=== showStep called with step:', step);
-    
-    // Check if all level elements exist
-    for (let i = 1; i <= 3; i++) {
-        const levelEl = document.getElementById('level' + i);
-        console.log('Level ' + i + ' element:', levelEl ? 'FOUND' : 'NOT FOUND');
-        if (levelEl) {
-            console.log('Level ' + i + ' current display:', window.getComputedStyle(levelEl).display);
-        }
+function hasMeaningfulDraftValue(value) {
+    if (value === null || value === undefined) {
+        return false;
     }
-    
-    // Hide all steps EXCEPT the one we want to show
-    document.querySelectorAll('.registration-level-section').forEach((section, index) => {
-        const levelNum = index + 1;
-        if (levelNum !== step) {
-            console.log('Hiding section:', section.id);
-            section.style.display = 'none';
+    if (typeof value === 'string') {
+        return value.trim() !== '';
+    }
+    if (Array.isArray(value)) {
+        return value.some(function (item) {
+            return hasMeaningfulDraftValue(item);
+        });
+    }
+    return true;
+}
+
+function persistRegistrationStep(step) {
+    try {
+        const raw = localStorage.getItem(registrationDraftKey);
+        const draft = raw ? JSON.parse(raw) : {};
+        draft.__currentStep = step;
+        localStorage.setItem(registrationDraftKey, JSON.stringify(draft));
+    } catch (e) {}
+}
+
+function resolveRestoreTargetStep(savedData, missingFields, fieldStepMap) {
+    let targetStep = 1;
+
+    missingFields.forEach(function (fieldName) {
+        const step = fieldStepMap[fieldName] || 1;
+        if (step > targetStep) {
+            targetStep = step;
         }
     });
-    
-    // Show current step - FORCE IT
-    const currentSection = document.getElementById('level' + step);
+
+    if (missingFields.length > 0) {
+        return targetStep;
+    }
+
+    const savedStep = savedData && savedData.__currentStep;
+    if (typeof savedStep === 'number' && savedStep >= 1 && savedStep <= totalSteps &&
+        hasMeaningfulDraftValue(savedData.name)) {
+        return savedStep;
+    }
+
+    Object.keys(savedData || {}).forEach(function (key) {
+        if (key.indexOf('__') === 0) {
+            return;
+        }
+        const step = fieldStepMap[key];
+        if (step && hasMeaningfulDraftValue(savedData[key]) && step > targetStep) {
+            targetStep = step;
+        }
+    });
+
+    return targetStep;
+}
+
+window.getRegistrationCurrentStep = function () {
+    return currentStep;
+};
+
+function preloadDocumentChecks(showSkeleton) {
+    if (typeof RegistrationAiLoader === 'undefined') {
+        return Promise.resolve();
+    }
+    if (showSkeleton && typeof RegistrationSkeleton !== 'undefined') {
+        RegistrationSkeleton.bindAiLoaderEvents('regAiPreloadSkeleton');
+        return RegistrationSkeleton.trackPreload('regAiPreloadSkeleton');
+    }
+    return RegistrationAiLoader.preload();
+}
+
+function showStep(step) {
+    step = Math.max(1, Math.min(totalSteps, parseInt(step, 10) || 1));
+    currentStep = step;
+
+    for (let i = 1; i <= totalSteps; i++) {
+        const section = document.getElementById('level' + i);
+        if (section) {
+            section.style.display = (i === step) ? 'block' : 'none';
+        }
+    }
+
+    var currentSection = document.getElementById('level' + step);
     if (currentSection) {
-        console.log('Showing level' + step);
-        currentSection.style.display = 'block';
         currentSection.style.visibility = 'visible';
         currentSection.style.opacity = '1';
-        console.log('Level' + step + ' display after setting:', window.getComputedStyle(currentSection).display);
-        
-        // FORCE all form sections inside to be visible
-        const formSections = currentSection.querySelectorAll('.form-section');
-        console.log('Form sections found in level' + step + ':', formSections.length);
-        formSections.forEach((section, index) => {
+        currentSection.querySelectorAll('.form-section').forEach(function (section) {
             section.style.display = 'block';
             section.style.visibility = 'visible';
             section.style.opacity = '1';
-            console.log('Form section ' + index + ' display:', window.getComputedStyle(section).display);
         });
-        
-        // Scroll to top smoothly
-        window.scrollTo({
-            top: 0,
-            behavior: 'smooth'
-        });
-    } else {
-        console.error('ERROR: Could not find level' + step + ' element!');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-    
-    // Update progress indicator
-    document.querySelectorAll('.progress-step').forEach((stepEl, index) => {
+
+    if (step >= 2) {
+        preloadDocumentChecks(false);
+    }
+    if (step === 3 && typeof RegistrationAiLoader !== 'undefined' && !RegistrationAiLoader.isReady()) {
+        preloadDocumentChecks(true);
+    }
+
+    document.querySelectorAll('.progress-step').forEach(function (stepEl, index) {
         if (index < step) {
             stepEl.classList.add('completed');
             stepEl.classList.remove('active');
@@ -2361,77 +2502,63 @@ function showStep(step) {
             stepEl.classList.remove('active', 'completed');
         }
     });
-    
-    // Update progress line
-    const progressLine = document.getElementById('progressLine');
-    const progressPercent = ((step - 1) / (totalSteps - 1)) * 100;
-    progressLine.style.width = progressPercent + '%';
-    console.log('Progress line width:', progressPercent + '%');
-    
-    // Update button visibility
-    const prevBtn = document.getElementById('prevBtn');
-    const nextBtn = document.getElementById('nextBtn');
-    const submitBtn = document.getElementById('submitBtn');
-    
-    console.log('Buttons found - Prev:', !!prevBtn, 'Next:', !!nextBtn, 'Submit:', !!submitBtn);
-    
-    if (step === 1) {
-        prevBtn.style.display = 'none';
-        nextBtn.style.display = 'inline-flex';
-        submitBtn.style.display = 'none';
-        console.log('Step 1: Showing Next button only');
-    } else if (step === totalSteps) {
-        prevBtn.style.display = 'inline-flex';
-        nextBtn.style.display = 'none';
-        submitBtn.style.display = 'inline-flex';
-        console.log('Step 3: Showing Prev and Submit buttons');
-    } else {
-        prevBtn.style.display = 'inline-flex';
-        nextBtn.style.display = 'inline-flex';
-        submitBtn.style.display = 'none';
-        console.log('Step 2: Showing Prev and Next buttons');
+
+    var progressLine = document.getElementById('progressLine');
+    if (progressLine) {
+        progressLine.style.width = (((step - 1) / (totalSteps - 1)) * 100) + '%';
     }
+
+    var prevBtn = document.getElementById('prevBtn');
+    var nextBtn = document.getElementById('nextBtn');
+    var submitBtn = document.getElementById('submitBtn');
+
+    if (prevBtn && nextBtn && submitBtn) {
+        if (step === 1) {
+            prevBtn.style.display = 'none';
+            nextBtn.style.display = 'inline-flex';
+            submitBtn.style.display = 'none';
+        } else if (step === totalSteps) {
+            prevBtn.style.display = 'inline-flex';
+            nextBtn.style.display = 'none';
+            submitBtn.style.display = 'inline-flex';
+        } else {
+            prevBtn.style.display = 'inline-flex';
+            nextBtn.style.display = 'inline-flex';
+            submitBtn.style.display = 'none';
+        }
+    }
+
+    persistRegistrationStep(step);
 }
 window.showRegistrationStep = showStep;
 
-// Next button
-const nextBtn = document.getElementById('nextBtn');
-console.log('Next button element:', nextBtn ? 'FOUND' : 'NOT FOUND');
+var nextBtn = document.getElementById('nextBtn');
 if (nextBtn) {
-    nextBtn.addEventListener('click', function(e) {
+    nextBtn.addEventListener('click', function (e) {
         e.preventDefault();
-        console.log('=== Next button clicked, current step:', currentStep);
-        
         if (currentStep < totalSteps) {
-            // SIMPLIFIED VALIDATION - Just move forward
-            console.log('Moving to step', currentStep + 1);
             currentStep++;
             showStep(currentStep);
         }
     });
-    console.log('Next button click listener attached');
 }
 
-// Previous button
-const prevBtn = document.getElementById('prevBtn');
-console.log('Previous button element:', prevBtn ? 'FOUND' : 'NOT FOUND');
+var prevBtn = document.getElementById('prevBtn');
 if (prevBtn) {
-    prevBtn.addEventListener('click', function(e) {
+    prevBtn.addEventListener('click', function (e) {
         e.preventDefault();
-        console.log('=== Previous button clicked, current step:', currentStep);
-        
         if (currentStep > 1) {
             currentStep--;
             showStep(currentStep);
         }
     });
-    console.log('Previous button click listener attached');
 }
 
-// Initialize - show first step
-console.log('=== Initializing multi-step form - calling showStep(1)');
 showStep(1);
-console.log('=== Initialization complete ===');
+
+if (typeof RegistrationSkeleton !== 'undefined') {
+    RegistrationSkeleton.bindAiLoaderEvents('regAiPreloadSkeleton');
+}
 
 (function restoreRegistrationAfterErrors() {
     const registrationFieldStepMap = {
@@ -2440,13 +2567,12 @@ console.log('=== Initialization complete ===');
         address: 2, state: 2, city: 2, pincode: 2, pwd_status: 2, college_name: 2, apaar_id: 2,
         utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
         left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
-        graduation_certificate: 3, other_documents: 3
+        graduation_certificate: 3, caste_certificate: 3, other_documents: 3
     };
 
     const sessionData = <?php echo json_encode($registrationFormData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
     const missingFields = <?php echo json_encode(array_values($registrationMissingFields), JSON_UNESCAPED_UNICODE); ?>;
-    const tokenInput = document.querySelector('[name="registration_token"]');
-    const draftKey = 'reg_draft_' + (tokenInput ? tokenInput.value : 'default');
+    const draftKey = registrationDraftKey;
 
     function loadDraft() {
         try {
@@ -2596,23 +2722,13 @@ console.log('=== Initialization complete ===');
         }
     });
 
-    let targetStep = 1;
-    missingFields.forEach(function(fieldName) {
-        const step = registrationFieldStepMap[fieldName] || 1;
-        if (step > targetStep) targetStep = step;
-    });
-    if (targetStep === 1 && savedData && Object.keys(savedData).length > 0) {
-        Object.keys(savedData).forEach(function(key) {
-            const step = registrationFieldStepMap[key];
-            if (step && step > targetStep) targetStep = step;
-        });
-    }
+    let targetStep = resolveRestoreTargetStep(savedData, missingFields, registrationFieldStepMap);
 
     if (targetStep > 1) {
-        currentStep = targetStep;
         showStep(targetStep);
     }
 
+    savedData.__currentStep = currentStep;
     saveDraft(savedData);
 
     if (typeof updateProgress === 'function') {
@@ -2641,8 +2757,7 @@ console.log('=== Initialization complete ===');
     const form = document.getElementById('registrationForm');
     if (!form) return;
 
-    const tokenInput = document.querySelector('[name="registration_token"]');
-    const draftKey = 'reg_draft_' + (tokenInput ? tokenInput.value : 'default');
+    const draftKey = registrationDraftKey;
     let draftTimer = null;
 
     if (typeof window.clearRegistrationDraft !== 'function') {
@@ -2656,16 +2771,23 @@ console.log('=== Initialization complete ===');
     form.addEventListener('input', function() {
         clearTimeout(draftTimer);
         draftTimer = setTimeout(function() {
-            const draft = {};
+            const draft = { __currentStep: currentStep };
             const formData = new FormData(form);
             formData.forEach(function(val, key) {
                 if (val instanceof File) return;
+                if (typeof val === 'string' && val.trim() === '') return;
                 const plainKey = key.endsWith('[]') ? key.slice(0, -2) : key;
                 if (key.endsWith('[]')) {
                     if (!draft[plainKey]) draft[plainKey] = [];
                     draft[plainKey].push(val);
                 } else {
                     draft[key] = val;
+                }
+            });
+            Object.keys(draft).forEach(function (key) {
+                if (key === '__currentStep') return;
+                if (Array.isArray(draft[key]) && !draft[key].some(hasMeaningfulDraftValue)) {
+                    delete draft[key];
                 }
             });
             try {
@@ -2677,44 +2799,63 @@ console.log('=== Initialization complete ===');
 
 }); // End DOMContentLoaded
 
+function fileUploadIsVerified(input) {
+    if (!input || input.type !== 'file' || !input.files || !input.files.length) {
+        return false;
+    }
+    if (input.dataset.requireFace === '1') {
+        return input.dataset.faceValid === '1';
+    }
+    if (input.dataset.requireAadharCard === '1') {
+        return input.dataset.cardValid === '1';
+    }
+    if (input.dataset.requireMarksheet) {
+        return input.dataset.marksheetValid === '1';
+    }
+    if (input.dataset.requireSignature === '1') {
+        return input.dataset.signatureValid === '1';
+    }
+    if (input.dataset.requireCertificate) {
+        return input.dataset.certificateValid === '1';
+    }
+    if (input.dataset.requireThumb === '1') {
+        return input.dataset.thumbValid === '1';
+    }
+    return true;
+}
+
 // ===== PROGRESS INDICATOR LOGIC =====
 function updateProgress() {
     const sections = document.querySelectorAll('.registration-level-section');
     const steps = document.querySelectorAll('.progress-step');
-    const progressLine = document.getElementById('progressLine');
-    
-    let completedSections = 0;
-    
+    const activeStep = typeof window.getRegistrationCurrentStep === 'function'
+        ? window.getRegistrationCurrentStep()
+        : 1;
+
     sections.forEach((section, index) => {
         const inputs = section.querySelectorAll('input[required], select[required], textarea[required]');
         let filledInputs = 0;
-        
+
         inputs.forEach(input => {
             if (input.type === 'file') {
-                if (input.files.length > 0) filledInputs++;
+                if (fileUploadIsVerified(input)) {
+                    filledInputs++;
+                }
             } else if (input.value.trim() !== '') {
                 filledInputs++;
             }
         });
-        
+
         const progress = inputs.length > 0 ? (filledInputs / inputs.length) : 0;
-        
-        if (progress > 0.5) {
-            steps[index].classList.add('active');
-            if (progress === 1) {
-                steps[index].classList.add('completed');
-                completedSections++;
-            } else {
-                steps[index].classList.remove('completed');
-            }
-        } else {
-            steps[index].classList.remove('active', 'completed');
+        const stepEl = steps[index];
+        if (!stepEl) return;
+
+        if (progress === 1 && index + 1 < activeStep) {
+            stepEl.classList.add('completed');
+        } else if (index + 1 < activeStep) {
+            stepEl.classList.remove('completed');
         }
     });
-    
-    // Update progress line
-    const progressPercent = (completedSections / sections.length) * 60; // 60% is the width between first and last step
-    progressLine.style.width = progressPercent + '%';
 }
 
 // Update progress on input change
@@ -2843,12 +2984,12 @@ function validateIdentityImage(inputElement, maxMb) {
 
     const fileName = file.name.toLowerCase();
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    const allowedExtensions = ['.jpg', '.jpeg', '.png'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
 
     if (!allowedExtensions.includes(fileExtension)) {
         return {
             valid: false,
-            message: 'Invalid file type. Only JPG and PNG images are allowed.'
+            message: 'Invalid file type. Only JPG, JPEG, PNG, and WEBP images are allowed.'
         };
     }
 
@@ -2899,18 +3040,23 @@ function validateDocumentUpload(inputElement) {
     // Get file extension
     const fileName = file.name.toLowerCase();
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    const allowedExtensions = ['.jpg', '.jpeg', '.pdf'];
+    const isVerifiedAadhar = inputElement.dataset.requireAadharCard === '1';
+    const allowedExtensions = isVerifiedAadhar
+        ? ['.jpg', '.jpeg', '.png']
+        : ['.jpg', '.jpeg', '.png', '.pdf'];
     
     // Validate file extension
     if (!allowedExtensions.includes(fileExtension)) {
         return {
             valid: false,
-            message: 'Invalid file type. Only JPG, JPEG, and PDF files are allowed.'
+            message: isVerifiedAadhar
+                ? 'Aadhar card must be JPG or PNG.'
+                : 'Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'
         };
     }
     
     // Validate file size based on type
-    const maxSize = fileExtension === '.pdf' ? 10 * 1024 * 1024 : 5 * 1024 * 1024; // 10MB for PDF, 5MB for images
+    const maxSize = fileExtension === '.pdf' ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
     const maxSizeMB = fileExtension === '.pdf' ? 10 : 5;
     
     if (file.size > maxSize) {
@@ -2963,13 +3109,113 @@ function clearFileError(inputElement) {
 }
 
 // ===== FILE UPLOAD PREVIEW WITH VALIDATION =====
+function renderFilePreviewForInput(input, file) {
+    const fileName = file.name;
+    const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+    const fieldName = input.getAttribute('name');
+
+    let preview = input.parentElement.querySelector('.file-preview');
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.className = 'file-preview';
+        input.parentElement.appendChild(preview);
+    }
+
+    const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
+    const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate');
+    const isImageFile = file.type.startsWith('image/');
+    const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo'
+        : (fieldName === 'signature' ? 'Signature'
+        : (fieldName === 'aadhar_card' ? 'Aadhar Card'
+        : (fieldName === 'tenth_marksheet' ? '10th Marksheet'
+        : (fieldName === 'twelfth_marksheet' ? '12th Marksheet'
+        : (fieldName === 'caste_certificate' ? 'Caste Certificate'
+        : (fieldName === 'graduation_certificate' ? 'Graduation Certificate' : 'Left Hand Thumb Impression'))))));
+
+    if (isImageField && isImageFile) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = `
+                <div class="file-preview-image-container" style="width: 100%; text-align: center; margin-bottom: 10px;">
+                    <img src="${e.target.result}" alt="${previewLabel}" 
+                         style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0a1628; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                </div>
+                <div class="file-preview-icon">
+                    <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                </div>
+                <div class="file-preview-info">
+                    <div class="file-preview-name">${fileName}</div>
+                    <div class="file-preview-size">${fileSize}</div>
+                </div>
+                <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
+                    <i class="fas fa-times"></i> Remove
+                </button>
+            `;
+            preview.classList.add('show');
+            preview.style.flexDirection = 'column';
+            preview.style.alignItems = 'center';
+        };
+        reader.readAsDataURL(file);
+        return;
+    }
+
+    preview.innerHTML = `
+        <div class="file-preview-icon">
+            <i class="fas ${fileIcon}"></i>
+        </div>
+        <div class="file-preview-info">
+            <div class="file-preview-name">${fileName}</div>
+            <div class="file-preview-size">${fileSize}</div>
+        </div>
+        <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
+            <i class="fas fa-times"></i> Remove
+        </button>
+    `;
+    preview.classList.add('show');
+    preview.style.flexDirection = 'row';
+}
+
+const registrationUploadDeps = {
+    validateFileInput: validateFileInput,
+    displayFileError: displayFileError,
+    clearFileError: clearFileError,
+    renderPreview: renderFilePreviewForInput,
+    onValidated: function(input) {
+        validateField(input);
+        updateProgress();
+    }
+};
+
 document.querySelectorAll('input[type="file"]').forEach(fileInput => {
     fileInput.addEventListener('change', function() {
+        if (this.dataset.requireFace === '1' && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handlePassportPhotoChange(this, registrationUploadDeps);
+            return;
+        }
+        if (this.dataset.requireAadharCard === '1' && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handleAadharCardChange(this, registrationUploadDeps);
+            return;
+        }
+        if (this.dataset.requireMarksheet && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handleMarksheetChange(this, registrationUploadDeps);
+            return;
+        }
+        if (this.dataset.requireSignature === '1' && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handleSignatureChange(this, registrationUploadDeps);
+            return;
+        }
+        if (this.dataset.requireCertificate && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handleCertificateChange(this, registrationUploadDeps);
+            return;
+        }
+        if (this.dataset.requireThumb === '1' && typeof RegistrationDocumentChecks !== 'undefined') {
+            RegistrationDocumentChecks.handleThumbImpressionChange(this, registrationUploadDeps);
+            return;
+        }
+
         const file = this.files[0];
-        
-        // Clear previous errors
         clearFileError(this);
-        
+
         if (file) {
             const validation = validateFileInput(this);
 
@@ -2985,71 +3231,7 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
 
             this.classList.add('is-valid');
             this.classList.remove('is-invalid');
-
-            // Show file name and size
-            const fileName = file.name;
-            const fileSize = (file.size / 1024).toFixed(2) + ' KB';
-            const fieldName = this.getAttribute('name');
-            
-            // Create or update preview
-            let preview = this.parentElement.querySelector('.file-preview');
-            if (!preview) {
-                preview = document.createElement('div');
-                preview.className = 'file-preview';
-                this.parentElement.appendChild(preview);
-            }
-            
-            const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
-            
-            // Check if this is an image-based document for image preview
-            const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression');
-            const isImageFile = file.type.startsWith('image/');
-            const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo' : (fieldName === 'signature' ? 'Signature' : 'Left Hand Thumb Impression');
-            
-            if (isImageField && isImageFile) {
-                // Show actual image preview for image-based identity documents
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    preview.innerHTML = `
-                        <div class="file-preview-image-container" style="width: 100%; text-align: center; margin-bottom: 10px;">
-                            <img src="${e.target.result}" alt="${previewLabel}" 
-                                 style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 2px solid #0a1628; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        </div>
-                        <div class="file-preview-icon">
-                            <i class="fas fa-check-circle" style="color: #10b981;"></i>
-                        </div>
-                        <div class="file-preview-info">
-                            <div class="file-preview-name">${fileName}</div>
-                            <div class="file-preview-size">${fileSize}</div>
-                        </div>
-                        <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
-                            <i class="fas fa-times"></i> Remove
-                        </button>
-                    `;
-                    preview.classList.add('show');
-                    preview.style.flexDirection = 'column';
-                    preview.style.alignItems = 'center';
-                };
-                reader.readAsDataURL(file);
-            } else {
-                // Standard file preview for other documents
-                preview.innerHTML = `
-                    <div class="file-preview-icon">
-                        <i class="fas ${fileIcon}"></i>
-                    </div>
-                    <div class="file-preview-info">
-                        <div class="file-preview-name">${fileName}</div>
-                        <div class="file-preview-size">${fileSize}</div>
-                    </div>
-                    <button type="button" class="file-preview-remove" onclick="clearFileInput(this)">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                preview.classList.add('show');
-                preview.style.flexDirection = 'row';
-            }
-            
-            // Validate field
+            renderFilePreviewForInput(this, file);
             validateField(this);
             updateProgress();
         }
@@ -3058,9 +3240,23 @@ document.querySelectorAll('input[type="file"]').forEach(fileInput => {
 
 function clearFileInput(button) {
     const preview = button.closest('.file-preview');
-    const fileInput = preview.previousElementSibling;
+    const fileInput = preview.parentElement.querySelector('input[type="file"]');
+    if (!fileInput) {
+        return;
+    }
     fileInput.value = '';
+    fileInput.dataset.faceValid = '0';
+    fileInput.dataset.cardValid = '0';
+    fileInput.dataset.marksheetValid = '0';
+    fileInput.dataset.signatureValid = '0';
+    fileInput.dataset.certificateValid = '0';
+    fileInput.dataset.thumbValid = '0';
+    fileInput.classList.remove('is-valid');
     preview.classList.remove('show');
+    if (typeof RegistrationDocumentChecks !== 'undefined') {
+        RegistrationDocumentChecks.clearStatuses(fileInput);
+    }
+    clearFileError(fileInput);
     validateField(fileInput);
     updateProgress();
 }
@@ -3825,7 +4021,8 @@ document.getElementById('registrationForm').addEventListener('submit', function(
             mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
             address: 2, state: 2, city: 2, pincode: 2,
             utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
-            left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3
+            left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
+            caste_certificate: 3, graduation_certificate: 3
         };
         if (fieldName && typeof window.showRegistrationStep === 'function') {
             window.showRegistrationStep(fieldStepMap[fieldName] || 1);
@@ -3855,6 +4052,22 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
+    if (typeof RegistrationDocumentChecks !== 'undefined') {
+        const docCheck = RegistrationDocumentChecks.validateBeforeSubmit(form);
+        if (!docCheck.valid) {
+            const docInput = form.querySelector('[name="' + docCheck.field + '"]');
+            if (docInput && typeof displayFileError === 'function') {
+                displayFileError(docInput, docCheck.message);
+            }
+            if (docInput && docCheck.field === 'passport_photo') {
+                RegistrationDocumentChecks.setFaceCheckStatus(docInput, docCheck.message, 'fail');
+            } else if (docInput) {
+                RegistrationDocumentChecks.setDocCheckStatus(docInput, docCheck.message, 'fail');
+            }
+            return failValidation(docCheck.message, docCheck.field);
+        }
+    }
+
     const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
     for (let i = 0; i < requiredFiles.length; i++) {
         const fileName = requiredFiles[i];
@@ -3871,7 +4084,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'graduation_certificate', 'other_documents', 'payment_receipt'];
+    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt'];
     for (let i = 0; i < optionalFileFields.length; i++) {
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');
@@ -3884,6 +4097,9 @@ document.getElementById('registrationForm').addEventListener('submit', function(
                 displayFileError(input, fileCheck.message);
             }
             return failValidation(fileCheck.message, fileName);
+        }
+        if (fileName === 'left_thumb_impression' && input.dataset.requireThumb === '1' && input.dataset.thumbValid !== '1') {
+            return failValidation('Upload a verified thumb impression on white paper, or remove the file if you do not have one.', fileName);
         }
     }
 
@@ -3959,20 +4175,6 @@ if (flyerImage) {
         this.style.transform = 'scale(1)';
     });
 }
-
-// ===== SMOOTH SCROLL TO SECTION ON FOCUS =====
-document.querySelectorAll('.registration-level-section').forEach((section, index) => {
-    const inputs = section.querySelectorAll('input, select, textarea');
-    inputs.forEach(input => {
-        input.addEventListener('focus', function() {
-            // Highlight current level
-            document.querySelectorAll('.progress-step').forEach(step => {
-                step.classList.remove('active');
-            });
-            document.querySelectorAll('.progress-step')[index].classList.add('active');
-        });
-    });
-});
 
 </script>
 
