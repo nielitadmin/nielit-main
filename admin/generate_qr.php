@@ -1,64 +1,57 @@
 <?php
 /**
  * AJAX Endpoint for QR Code Generation
- * Generates QR code for specific course registration link
  */
+declare(strict_types=1);
 
 session_start();
-header('Content-Type: application/json');
 
-// Check admin authentication
-if (!isset($_SESSION['admin_logged_in'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
-    exit();
+header('Content-Type: application/json; charset=utf-8');
+
+function qr_generate_json(array $payload, int $status = 200): void
+{
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
-require_once '../config/config.php';
-require_once '../includes/qr_helper.php';
+try {
+    if (!isset($_SESSION['admin']) && empty($_SESSION['admin_logged_in'])) {
+        qr_generate_json(['success' => false, 'message' => 'Unauthorized access'], 401);
+    }
 
-// Get course ID from POST
-$course_id = $_POST['course_id'] ?? 0;
+    require_once __DIR__ . '/../config/config.php';
+    require_once __DIR__ . '/../includes/qr_helper.php';
 
-if (empty($course_id) || !is_numeric($course_id)) {
-    echo json_encode(['success' => false, 'message' => 'Invalid course ID']);
-    exit();
-}
+    $course_id = (int) ($_POST['course_id'] ?? 0);
 
-// Fetch course details
-$stmt = $conn->prepare("SELECT id, course_name, course_code, registration_token, qr_code_path FROM courses WHERE id = ?");
-$stmt->bind_param("i", $course_id);
-$stmt->execute();
-$result = $stmt->get_result();
+    if ($course_id <= 0) {
+        qr_generate_json(['success' => false, 'message' => 'Invalid course ID'], 400);
+    }
 
-if ($result->num_rows === 0) {
-    echo json_encode(['success' => false, 'message' => 'Course not found']);
-    exit();
-}
+    if (!isset($conn) || !($conn instanceof mysqli)) {
+        qr_generate_json(['success' => false, 'message' => 'Database connection unavailable'], 500);
+    }
 
-$course = $result->fetch_assoc();
+    $sync = syncCourseRegistrationLinkAndQr($conn, $course_id, true);
 
-// Delete old QR code if exists
-if (!empty($course['qr_code_path'])) {
-    deleteQRCode($course['qr_code_path']);
-}
+    if (!empty($sync['success'])) {
+        qr_generate_json([
+            'success' => true,
+            'message' => 'QR Code generated successfully!',
+            'qr_path' => $sync['qr_code_path'] ?? '',
+            'registration_link' => $sync['apply_link'] ?? '',
+            'filename' => !empty($sync['qr_code_path']) ? basename($sync['qr_code_path']) : '',
+        ]);
+    }
 
-// Generate new QR code with token
-$sync = syncCourseRegistrationLinkAndQr($conn, (int) $course['id'], true);
-
-if (!empty($sync['success'])) {
-    echo json_encode([
-        'success' => true,
-        'message' => 'QR Code generated successfully!',
-        'qr_path' => $sync['qr_code_path'] ?? '',
-        'registration_link' => $sync['apply_link'] ?? '',
-        'filename' => !empty($sync['qr_code_path']) ? basename($sync['qr_code_path']) : '',
-    ]);
-} else {
-    echo json_encode([
+    qr_generate_json([
         'success' => false,
         'message' => $sync['message'] ?? 'QR Code generation failed',
-    ]);
+    ], 500);
+} catch (Throwable $e) {
+    qr_generate_json([
+        'success' => false,
+        'message' => 'Server error while generating QR code.',
+    ], 500);
 }
-
-$conn->close();
-?>

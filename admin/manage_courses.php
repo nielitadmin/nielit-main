@@ -1163,7 +1163,14 @@ if (!empty($params)) {
                 },
                 body: 'course_id=' + courseId
             })
-            .then(response => response.json())
+            .then(async function (response) {
+                const text = await response.text();
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server returned an invalid response. Please refresh and try again.');
+                }
+            })
             .then(data => {
                 if (data.success) {
                     // Show success message

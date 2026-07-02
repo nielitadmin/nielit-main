@@ -6,6 +6,9 @@
 
 // Include phpqrcode library
 require_once __DIR__ . '/../phpqrcode/qrlib.php';
+require_once __DIR__ . '/url_helper.php';
+require_once __DIR__ . '/course_public_display.php';
+require_once __DIR__ . '/workshop_registration_helper.php';
 
 /**
  * Resolve the canonical registration URL for a course (used by Apply links and QR codes).

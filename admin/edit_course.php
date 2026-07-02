@@ -1136,7 +1136,14 @@ window.regenerateQRCode = async function() {
     formData.append('force_regenerate', '1');
 
     fetch('generate_link_qr.php', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(async function (r) {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error('Server returned an invalid response. Please refresh and try again.');
+            }
+        })
         .then(data => {
             toast.remove(loadingToast);
             if (data.success) {
@@ -1183,7 +1190,14 @@ function generateApplyLinkEdit() {
     formData.append('course_code', courseCode);
 
     fetch('generate_link_qr.php', { method: 'POST', body: formData })
-        .then(r => r.json())
+        .then(async function (r) {
+            const text = await r.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error('Server returned an invalid response. Please refresh and try again.');
+            }
+        })
         .then(data => {
             toast.remove(loadingToast);
             if (data.success) {
