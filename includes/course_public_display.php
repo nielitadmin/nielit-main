@@ -87,6 +87,79 @@ if (!function_exists('course_registration_apply_url')) {
     }
 }
 
+if (!function_exists('normalizeRegistrationToken')) {
+    function normalizeRegistrationToken(string $token): string
+    {
+        $token = trim(rawurldecode($token));
+        return preg_replace('/[\x00-\x1F\x7F-\x9F\x{FEFF}\x{200B}]/u', '', $token) ?? '';
+    }
+}
+
+if (!function_exists('registration_url_for_qr')) {
+    /**
+     * Canonical URL embedded in QR PNG files (explicit .php for scanner compatibility).
+     */
+    function registration_url_for_qr(array $course): string
+    {
+        if (!function_exists('workshopCourseUsesShortForm')) {
+            require_once __DIR__ . '/workshop_registration_helper.php';
+        }
+
+        $token = normalizeRegistrationToken((string) ($course['registration_token'] ?? ''));
+        if ($token === '') {
+            return '';
+        }
+
+        $base = rtrim(defined('APP_URL') ? APP_URL : '', '/');
+        $script = workshopCourseUsesShortForm($course)
+            ? 'student/register_workshop.php'
+            : 'student/register.php';
+
+        return $base . '/' . $script . '?token=' . rawurlencode($token);
+    }
+}
+
+if (!function_exists('loadCourseByRegistrationParam')) {
+    /**
+     * Resolve a course from token and legacy ?course= links (old printed QR codes).
+     */
+    function loadCourseByRegistrationParam(mysqli $conn, string $tokenParam, string $courseCodeParam = ''): ?array
+    {
+        $token = normalizeRegistrationToken($tokenParam);
+        if ($token !== '') {
+            $stmt = $conn->prepare('SELECT * FROM courses WHERE registration_token = ? LIMIT 1');
+            if ($stmt) {
+                $stmt->bind_param('s', $token);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($row) {
+                    return $row;
+                }
+            }
+        }
+
+        $legacyCode = trim($courseCodeParam);
+        if ($legacyCode === '' && $token !== '') {
+            $legacyCode = $token;
+        }
+        if ($legacyCode === '') {
+            return null;
+        }
+
+        $stmt = $conn->prepare('SELECT * FROM courses WHERE UPPER(TRIM(course_code)) = UPPER(?) LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $legacyCode);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return $row ?: null;
+    }
+}
+
 if (!function_exists('setCoursesPageNotice')) {
     function setCoursesPageNotice(string $message): void
     {

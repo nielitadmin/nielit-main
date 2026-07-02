@@ -17,29 +17,22 @@ require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 
 // Require registration_token parameter for secure registration links
-$registration_token = trim((string)($_GET['token'] ?? ''));
-if (empty($registration_token)) {
+$registration_token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
+$legacy_course_code = trim((string) ($_GET['course'] ?? ''));
+if ($registration_token === '' && $legacy_course_code === '') {
     setCoursesPageNotice('To register, open a course and tap Apply Now.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 
-// Fetch course details by registration_token
-$stmt = $conn->prepare("SELECT * FROM courses WHERE registration_token = ?");
-if (!$stmt) {
-    setCoursesPageNotice('Unable to open registration right now. Please try again later.');
-    header('Location: ' . APP_URL . '/public/courses.php');
-    exit();
-}
-$stmt->bind_param("s", $registration_token);
-$stmt->execute();
-$result = $stmt->get_result();
-if ($result->num_rows === 0) {
+$course_details = loadCourseByRegistrationParam($conn, $registration_token, $legacy_course_code);
+if (!$course_details) {
     setCoursesPageNotice('This registration link is invalid or expired. Please use Apply Now from the Courses Offered page.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
-$course_details = $result->fetch_assoc();
+
+$registration_token = normalizeRegistrationToken((string) ($course_details['registration_token'] ?? $registration_token));
 ensureWorkshopRegistrationSchema($conn);
 
 if (workshopCourseUsesShortForm($course_details)) {

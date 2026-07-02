@@ -1121,18 +1121,8 @@ if (!empty($params)) {
                 if (courseCodeInput) courseCodeInput.focus();
                 return;
             }
-            
-            // Generate link based on course code (not course name)
-            const baseUrl = window.location.origin + window.location.pathname.replace('manage_courses.php', '');
-            const registrationLink = baseUrl + '../student/register.php?course=' + encodeURIComponent(courseCode);
-            
-            linkInput.value = registrationLink;
-            if (previewSpan) {
-                previewSpan.textContent = registrationLink;
-            }
-            
-            // Show success message
-            alert('Registration link generated! QR code will be created automatically when you save.');
+
+            alert('Save the course first, then open Edit Course to generate the token-based registration link and QR code.');
         }
 
         // Toggle publish status label

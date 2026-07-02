@@ -28,6 +28,7 @@ hostinger-deploy.log
 !/course_flyers/.gitkeep
 /assets/qr_codes/*
 !/assets/qr_codes/.gitkeep
+!/assets/qr_codes/.htaccess
 
 # Membership Form folders (legacy/test data)
 /Membership_Form/*

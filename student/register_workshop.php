@@ -6,25 +6,29 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/state_city_registration.php';
 
 ensureWorkshopRegistrationSchema($conn);
 
-$registration_token = trim($_GET['token'] ?? '');
-if ($registration_token === '') {
+$registration_token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
+$legacy_course_code = trim((string) ($_GET['course'] ?? ''));
+if ($registration_token === '' && $legacy_course_code === '') {
     setCoursesPageNotice('To register, open a workshop course and tap Apply Now.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 
-$course_details = workshopLoadCourseByToken($conn, $registration_token);
+$course_details = loadCourseByRegistrationParam($conn, $registration_token, $legacy_course_code);
 if (!$course_details) {
     setCoursesPageNotice('This registration link is invalid. Use Apply Now from the courses page.');
     header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
+
+$registration_token = normalizeRegistrationToken((string) ($course_details['registration_token'] ?? $registration_token));
 
 if (!workshopCourseUsesShortForm($course_details)) {
     header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));

@@ -52,6 +52,7 @@ try {
         'apply_link' => $result['apply_link'] ?? null,
         'qr_code_path' => $result['qr_code_path'] ?? null,
         'qr_code_url' => $result['qr_code_url'] ?? null,
+        'qr_target_url' => $result['qr_target_url'] ?? null,
     ]);
 } catch (Throwable $e) {
     qr_api_json([

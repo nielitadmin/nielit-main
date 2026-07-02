@@ -71,27 +71,33 @@ function syncCourseRegistrationLinkAndQr(mysqli $conn, int $course_id, bool $for
         return ['success' => false, 'message' => 'Course has no registration token'];
     }
 
-    $stored_link = trim((string) ($course['registration_link'] ?? ''));
-    $needsQr = $forceRegenerate
-        || empty($course['qr_code_path'])
-        || !qrCodeExists($course['qr_code_path'])
-        || ($stored_link !== '' && $stored_link !== $apply_link);
+    $old_qr_path = trim((string) ($course['qr_code_path'] ?? ''));
 
-    if ($needsQr && !empty($course['qr_code_path'])) {
-        deleteQRCode($course['qr_code_path']);
+    // Reload course row so QR always uses the latest token from DB.
+    $reload = $conn->prepare('SELECT * FROM courses WHERE id = ? LIMIT 1');
+    if ($reload) {
+        $reload->bind_param('i', $course_id);
+        $reload->execute();
+        $fresh = $reload->get_result()->fetch_assoc();
+        $reload->close();
+        if ($fresh) {
+            $course = $fresh;
+            $apply_link = course_registration_apply_url($course);
+        }
     }
 
-    $qr_path = $course['qr_code_path'] ?? '';
-    if ($needsQr) {
-        $qr_result = generateCourseQRCode($course, $course['course_code'] ?? '', $course['registration_token'] ?? '');
-        if (!$qr_result['success']) {
-            return [
-                'success' => false,
-                'message' => $qr_result['message'],
-                'apply_link' => $apply_link,
-            ];
-        }
-        $qr_path = $qr_result['path'];
+    $qr_result = generateCourseQRCode($course, $course['course_code'] ?? '', $course['registration_token'] ?? '');
+    if (!$qr_result['success']) {
+        return [
+            'success' => false,
+            'message' => $qr_result['message'],
+            'apply_link' => $apply_link,
+        ];
+    }
+    $qr_path = $qr_result['path'];
+
+    if ($old_qr_path !== '' && $old_qr_path !== $qr_path) {
+        deleteQRCode($old_qr_path);
     }
 
     $stmt_update = $conn->prepare(
@@ -110,6 +116,7 @@ function syncCourseRegistrationLinkAndQr(mysqli $conn, int $course_id, bool $for
         'apply_link' => $apply_link,
         'qr_code_path' => $qr_path,
         'qr_code_url' => $qr_path !== '' ? rtrim(APP_URL, '/') . '/' . ltrim($qr_path, '/') : '',
+        'qr_target_url' => $qr_result['url'] ?? registration_url_for_qr($course),
     ];
 }
 
@@ -125,30 +132,48 @@ function generateCourseQRCode($courseOrId, $course_code = '', $registration_toke
     try {
         global $conn;
 
-        // Create QR codes directory if it doesn't exist
-        $qr_dir = __DIR__ . '/../assets/qr_codes/';
-        if (!file_exists($qr_dir)) {
-            mkdir($qr_dir, 0777, true);
+        $dirCheck = ensureQrCodesDirectory();
+        if (!$dirCheck['ok']) {
+            return [
+                'success' => false,
+                'path' => '',
+                'url' => '',
+                'message' => $dirCheck['message'],
+            ];
         }
+        $qr_dir = $dirCheck['path'];
 
         $course_id = is_array($courseOrId) ? (int) ($courseOrId['id'] ?? 0) : (int) $courseOrId;
 
         if (is_array($courseOrId)) {
-            $registration_url = getCourseRegistrationUrl($courseOrId, $registration_token);
+            $course = $courseOrId;
+            if ($registration_token !== '') {
+                $course['registration_token'] = $registration_token;
+            }
+            $registration_url = registration_url_for_qr($course);
         } else {
-            if ($registration_token === '' && $conn instanceof mysqli && $course_id > 0) {
-                $token_query = $conn->prepare('SELECT registration_token FROM courses WHERE id = ?');
-                if ($token_query) {
-                    $token_query->bind_param('i', $course_id);
-                    $token_query->execute();
-                    $token_result = $token_query->get_result();
-                    if ($token_result && $token_row = $token_result->fetch_assoc()) {
-                        $registration_token = $token_row['registration_token'] ?? '';
-                    }
-                    $token_query->close();
+            $course = null;
+            if ($conn instanceof mysqli && $course_id > 0) {
+                $course_query = $conn->prepare('SELECT * FROM courses WHERE id = ? LIMIT 1');
+                if ($course_query) {
+                    $course_query->bind_param('i', $course_id);
+                    $course_query->execute();
+                    $course = $course_query->get_result()->fetch_assoc();
+                    $course_query->close();
                 }
             }
-            $registration_url = getCourseRegistrationUrl($course_id, $registration_token);
+            if (!is_array($course) || !$course) {
+                return [
+                    'success' => false,
+                    'path' => '',
+                    'url' => '',
+                    'message' => 'Course not found',
+                ];
+            }
+            if ($registration_token !== '') {
+                $course['registration_token'] = $registration_token;
+            }
+            $registration_url = registration_url_for_qr($course);
         }
 
         if ($registration_url === '') {
@@ -160,33 +185,41 @@ function generateCourseQRCode($courseOrId, $course_code = '', $registration_toke
             ];
         }
 
-        // Create filename
         $safe_name = !empty($course_code) ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $course_code) : 'course_' . $course_id;
-        $filename = 'qr_' . $safe_name . '_' . $course_id . '.png';
+        $filename = 'qr_' . $safe_name . '_' . $course_id . '_' . gmdate('YmdHis') . '.png';
         $qr_file_path = $qr_dir . $filename;
+        $tmp_path = $qr_dir . '.tmp_' . uniqid('', true) . '.png';
 
-        // Generate QR Code
-        // Parameters: data, filename, error_correction_level, pixel_size, margin
-        QRcode::png($registration_url, $qr_file_path, QR_ECLEVEL_L, 10, 2);
+        QRcode::png($registration_url, $tmp_path, QR_ECLEVEL_L, 10, 2);
 
-        // Verify file was created
-        if (file_exists($qr_file_path)) {
-            return [
-                'success' => true,
-                'path' => 'assets/qr_codes/' . $filename,
-                'full_path' => $qr_file_path,
-                'url' => $registration_url,
-                'filename' => $filename,
-                'message' => 'QR Code generated successfully'
-            ];
-        } else {
+        if (!is_file($tmp_path) || filesize($tmp_path) < 100) {
+            @unlink($tmp_path);
             return [
                 'success' => false,
                 'path' => '',
                 'url' => $registration_url,
-                'message' => 'QR Code file was not created'
+                'message' => 'QR PNG was not created. Check write permissions on assets/qr_codes/.',
             ];
         }
+
+        if (!@rename($tmp_path, $qr_file_path)) {
+            @unlink($tmp_path);
+            return [
+                'success' => false,
+                'path' => '',
+                'url' => $registration_url,
+                'message' => 'Could not save QR PNG. The assets/qr_codes/ folder may not be writable on the server.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'path' => 'assets/qr_codes/' . $filename,
+            'full_path' => $qr_file_path,
+            'url' => $registration_url,
+            'filename' => $filename,
+            'message' => 'QR Code generated successfully',
+        ];
 
     } catch (Exception $e) {
         return [
@@ -207,6 +240,33 @@ function generateCourseQRCode($courseOrId, $course_code = '', $registration_toke
 function generateRegistrationLink($course_code) {
     $base_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'];
     return $base_url . "/student/register.php?course=" . urlencode($course_code);
+}
+
+/**
+ * Ensure QR output directory exists and is writable.
+ *
+ * @return array{ok:bool,path:string,message:string}
+ */
+function ensureQrCodesDirectory(): array
+{
+    $qr_dir = __DIR__ . '/../assets/qr_codes/';
+    if (!file_exists($qr_dir)) {
+        if (!@mkdir($qr_dir, 0755, true) && !is_dir($qr_dir)) {
+            return [
+                'ok' => false,
+                'path' => $qr_dir,
+                'message' => 'Could not create assets/qr_codes/ folder on the server.',
+            ];
+        }
+    }
+    if (!is_writable($qr_dir)) {
+        return [
+            'ok' => false,
+            'path' => $qr_dir,
+            'message' => 'assets/qr_codes/ is not writable. Set folder permissions to 755 or 775 on the server, then try again.',
+        ];
+    }
+    return ['ok' => true, 'path' => $qr_dir, 'message' => ''];
 }
 
 /**

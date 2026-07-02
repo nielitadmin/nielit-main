@@ -38,9 +38,14 @@ if (isset($_POST['regenerate_token']) && isset($_GET['id'])) {
     
     if ($stmt_token->execute()) {
         require_once __DIR__ . '/../includes/qr_helper.php';
-        syncCourseRegistrationLinkAndQr($conn, (int) $course_id, true);
-        $_SESSION['message'] = 'Registration link and QR code regenerated successfully!';
-        $_SESSION['message_type'] = 'success';
+        $sync = syncCourseRegistrationLinkAndQr($conn, (int) $course_id, true);
+        if (!empty($sync['success'])) {
+            $_SESSION['message'] = 'Registration link and QR code regenerated successfully!';
+            $_SESSION['message_type'] = 'success';
+        } else {
+            $_SESSION['message'] = 'Token updated, but QR sync failed: ' . ($sync['message'] ?? 'unknown error');
+            $_SESSION['message_type'] = 'danger';
+        }
     } else {
         $_SESSION['message'] = "Error regenerating registration link.";
         $_SESSION['message_type'] = "danger";
@@ -410,7 +415,7 @@ if (isset($_POST['update_course'])) {
         // Keep registration link + QR image aligned with current token and form type
         if (!empty($course_code)) {
             require_once __DIR__ . '/../includes/qr_helper.php';
-            $sync = syncCourseRegistrationLinkAndQr($conn, (int) $course_id, false);
+            $sync = syncCourseRegistrationLinkAndQr($conn, (int) $course_id, true);
             $_SESSION['message'] = !empty($sync['success'])
                 ? ($sync['message'] ?? 'Course updated successfully!')
                 : 'Course updated, but QR sync failed: ' . ($sync['message'] ?? 'unknown error');
@@ -893,11 +898,19 @@ if ($registration_form_display === 'full' && (sub_category_matches($selected_sub
                                  style="max-width: 150px; border: 2px solid #0d47a1; border-radius: 4px;">
                         </div>
                         <small class="text-muted">Generated: <span id="qr_generated_time"><?php echo $course['qr_generated_at'] ? date('d M Y, h:i A', strtotime($course['qr_generated_at'])) : 'N/A'; ?></span></small>
+                        <?php $qr_target_url = registration_url_for_qr($course); ?>
+                        <?php if ($qr_target_url !== ''): ?>
+                        <div style="margin-top: 10px; font-size: 12px; word-break: break-all;">
+                            <strong>QR opens:</strong>
+                            <a href="<?php echo htmlspecialchars($qr_target_url); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars($qr_target_url); ?></a>
+                        </div>
+                        <small class="text-muted">Scan this link on your phone before printing. If it differs from Apply Now, click <strong>Regenerate QR</strong> and download again.</small>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                     
                     <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-top: 12px; border-left: 4px solid #ffc107;">
-                        <i class="fas fa-lightbulb"></i> <strong>Note:</strong> QR code will be automatically generated only if it doesn't exist. To regenerate, use the "Regenerate QR" button above.
+                        <i class="fas fa-lightbulb"></i> <strong>Note:</strong> After changing the registration token or deploying updates, click <strong>Regenerate QR</strong>, download the new PNG, and reprint posters/flyers. Old printed QR codes will not update automatically.
                     </div>
                     
                     <div class="form-group" style="margin-top: 16px;">
@@ -1080,22 +1093,33 @@ async function regenerateTokenLink() {
     
     if (confirmed) {
         const courseId = <?php echo intval($course['id']); ?>;
-        const loadingToast = toast.loading('Regenerating registration link...');
-        
+        const loadingToast = toast.loading('Regenerating registration link and QR code...');
+
         const formData = new FormData();
-        formData.append('regenerate_token', '1');
-        
-        fetch('edit_course.php?id=' + courseId, { 
-            method: 'POST', 
-            body: formData 
+        formData.append('course_id', courseId);
+
+        fetch('regenerate_course_token.php', { method: 'POST', body: formData })
+        .then(async function (response) {
+            const text = await response.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error('Server returned an invalid response. Please refresh and try again.');
+            }
         })
-        .then(response => {
+        .then(data => {
             toast.remove(loadingToast);
-            if (response.ok) {
-                toast.success('Registration link regenerated successfully!');
-                setTimeout(() => location.reload(), 1500);
+            if (data.success) {
+                const linkInput = document.getElementById('edit_apply_link');
+                const previewSpan = document.getElementById('link_preview_edit');
+                if (linkInput && data.apply_link) linkInput.value = data.apply_link;
+                if (previewSpan && data.apply_link) previewSpan.textContent = data.apply_link;
+                toast.success(data.qr_target_url
+                    ? 'Link and QR regenerated. Scan: ' + data.qr_target_url
+                    : (data.message || 'Registration link regenerated successfully!'));
+                setTimeout(() => location.reload(), 2000);
             } else {
-                toast.error('Error regenerating link. Please try again.');
+                toast.error('Error: ' + (data.message || 'Regeneration failed'));
             }
         })
         .catch(err => {
@@ -1147,16 +1171,23 @@ window.regenerateQRCode = async function() {
         .then(data => {
             toast.remove(loadingToast);
             if (data.success) {
-                toast.success('QR code regenerated successfully!');
+                const msg = data.qr_target_url
+                    ? 'QR regenerated. It should open: ' + data.qr_target_url
+                    : 'QR code regenerated successfully!';
+                toast.success(msg, 8000);
+                const linkInput = document.getElementById('edit_apply_link');
+                const previewSpan = document.getElementById('link_preview_edit');
+                if (linkInput && data.apply_link) linkInput.value = data.apply_link;
+                if (previewSpan && data.apply_link) previewSpan.textContent = data.apply_link;
                 const qrImage = document.getElementById('qr_code_image');
                 if (qrImage && data.qr_code_url) qrImage.src = data.qr_code_url + '?t=' + Date.now();
                 const timeSpan = document.getElementById('qr_generated_time');
                 if (timeSpan) timeSpan.textContent = new Date().toLocaleString('en-US', {
                     day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true
                 });
-                setTimeout(() => location.reload(), 1500);
+                setTimeout(() => location.reload(), 2500);
             } else {
-                toast.error('Error: ' + data.message);
+                toast.error('Error: ' + (data.message || 'QR regeneration failed'));
             }
         })
         .catch(err => { toast.remove(loadingToast); toast.error('Error: ' + err); })
