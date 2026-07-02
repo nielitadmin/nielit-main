@@ -17,7 +17,7 @@ require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 
 // Require registration_token parameter for secure registration links
-$registration_token = $_GET['token'] ?? '';
+$registration_token = trim((string)($_GET['token'] ?? ''));
 if (empty($registration_token)) {
     setCoursesPageNotice('To register, open a course and tap Apply Now.');
     header('Location: ' . APP_URL . '/public/courses.php');

@@ -75,7 +75,15 @@ if (!function_exists('course_registration_apply_url')) {
             return '';
         }
 
-        return app_url('student/register') . '?token=' . rawurlencode($token);
+        $path = 'student/register';
+        if (!function_exists('workshopCourseUsesShortForm')) {
+            require_once __DIR__ . '/workshop_registration_helper.php';
+        }
+        if (workshopCourseUsesShortForm($course)) {
+            $path = 'student/register_workshop';
+        }
+
+        return app_url($path) . '?token=' . rawurlencode($token);
     }
 }
 

@@ -8,43 +8,154 @@
 require_once __DIR__ . '/../phpqrcode/qrlib.php';
 
 /**
+ * Resolve the canonical registration URL for a course (used by Apply links and QR codes).
+ */
+function getCourseRegistrationUrl($courseOrId, $registration_token = '') {
+    require_once __DIR__ . '/url_helper.php';
+    require_once __DIR__ . '/course_public_display.php';
+
+    if (is_array($courseOrId)) {
+        $course = $courseOrId;
+    } else {
+        global $conn;
+        $course = null;
+        $course_id = (int) $courseOrId;
+        if ($course_id > 0 && $conn instanceof mysqli) {
+            $stmt = $conn->prepare('SELECT * FROM courses WHERE id = ? LIMIT 1');
+            if ($stmt) {
+                $stmt->bind_param('i', $course_id);
+                $stmt->execute();
+                $course = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+            }
+        }
+    }
+
+    if (is_array($course) && $course) {
+        if ($registration_token !== '') {
+            $course['registration_token'] = $registration_token;
+        }
+        return course_registration_apply_url($course);
+    }
+
+    $token = trim((string) $registration_token);
+    if ($token === '') {
+        return '';
+    }
+
+    return app_url('student/register') . '?token=' . rawurlencode($token);
+}
+
+/**
+ * Keep apply_link, registration_link, and QR image aligned with the current token.
+ */
+function syncCourseRegistrationLinkAndQr(mysqli $conn, int $course_id, bool $forceRegenerate = true) {
+    $stmt = $conn->prepare('SELECT * FROM courses WHERE id = ? LIMIT 1');
+    if (!$stmt) {
+        return ['success' => false, 'message' => 'Could not load course'];
+    }
+    $stmt->bind_param('i', $course_id);
+    $stmt->execute();
+    $course = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if (!$course) {
+        return ['success' => false, 'message' => 'Course not found'];
+    }
+
+    $apply_link = course_registration_apply_url($course);
+    if ($apply_link === '') {
+        return ['success' => false, 'message' => 'Course has no registration token'];
+    }
+
+    $stored_link = trim((string) ($course['registration_link'] ?? ''));
+    $needsQr = $forceRegenerate
+        || empty($course['qr_code_path'])
+        || !qrCodeExists($course['qr_code_path'])
+        || ($stored_link !== '' && $stored_link !== $apply_link);
+
+    if ($needsQr && !empty($course['qr_code_path'])) {
+        deleteQRCode($course['qr_code_path']);
+    }
+
+    $qr_path = $course['qr_code_path'] ?? '';
+    if ($needsQr) {
+        $qr_result = generateCourseQRCode($course, $course['course_code'] ?? '', $course['registration_token'] ?? '');
+        if (!$qr_result['success']) {
+            return [
+                'success' => false,
+                'message' => $qr_result['message'],
+                'apply_link' => $apply_link,
+            ];
+        }
+        $qr_path = $qr_result['path'];
+    }
+
+    $stmt_update = $conn->prepare(
+        'UPDATE courses SET apply_link = ?, registration_link = ?, qr_code_path = ?, qr_generated_at = NOW() WHERE id = ?'
+    );
+    if (!$stmt_update) {
+        return ['success' => false, 'message' => 'Could not update course links'];
+    }
+    $stmt_update->bind_param('sssi', $apply_link, $apply_link, $qr_path, $course_id);
+    $ok = $stmt_update->execute();
+    $stmt_update->close();
+
+    return [
+        'success' => $ok,
+        'message' => $ok ? 'Registration link and QR code synced.' : 'Database update failed',
+        'apply_link' => $apply_link,
+        'qr_code_path' => $qr_path,
+        'qr_code_url' => $qr_path !== '' ? rtrim(APP_URL, '/') . '/' . ltrim($qr_path, '/') : '',
+    ];
+}
+
+/**
  * Generate QR Code for Course Registration Link
  * 
- * @param int $course_id - Course ID from database
+ * @param array|int $courseOrId - Course row or course ID
  * @param string $course_code - Course code for filename (e.g., 'DBC', 'PPI')
  * @param string $registration_token - Registration token for URL (e.g., 'mmRWCOtf')
  * @return array - ['success' => bool, 'path' => string, 'url' => string, 'message' => string]
  */
-function generateCourseQRCode($course_id, $course_code = '', $registration_token = '') {
+function generateCourseQRCode($courseOrId, $course_code = '', $registration_token = '') {
     try {
+        global $conn;
+
         // Create QR codes directory if it doesn't exist
         $qr_dir = __DIR__ . '/../assets/qr_codes/';
         if (!file_exists($qr_dir)) {
             mkdir($qr_dir, 0777, true);
         }
 
-        // If no token is provided, fetch it from database
-        if (empty($registration_token)) {
-            global $conn;
-            if ($conn) {
-                $token_query = $conn->prepare("SELECT registration_token FROM courses WHERE id = ?");
+        $course_id = is_array($courseOrId) ? (int) ($courseOrId['id'] ?? 0) : (int) $courseOrId;
+
+        if (is_array($courseOrId)) {
+            $registration_url = getCourseRegistrationUrl($courseOrId, $registration_token);
+        } else {
+            if ($registration_token === '' && $conn instanceof mysqli && $course_id > 0) {
+                $token_query = $conn->prepare('SELECT registration_token FROM courses WHERE id = ?');
                 if ($token_query) {
-                    $token_query->bind_param("i", $course_id);
+                    $token_query->bind_param('i', $course_id);
                     $token_query->execute();
                     $token_result = $token_query->get_result();
                     if ($token_result && $token_row = $token_result->fetch_assoc()) {
-                        $registration_token = $token_row['registration_token'];
+                        $registration_token = $token_row['registration_token'] ?? '';
                     }
+                    $token_query->close();
                 }
             }
+            $registration_url = getCourseRegistrationUrl($course_id, $registration_token);
         }
 
-        // Generate registration URL using token format (NEW FORMAT)
-        $base_url = defined('APP_URL') ? rtrim(APP_URL, '/') : (
-            (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-            . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
-        );
-        $registration_url = $base_url . '/student/register.php?token=' . urlencode($registration_token);
+        if ($registration_url === '') {
+            return [
+                'success' => false,
+                'path' => '',
+                'url' => '',
+                'message' => 'Registration URL could not be built (missing token?)',
+            ];
+        }
 
         // Create filename
         $safe_name = !empty($course_code) ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $course_code) : 'course_' . $course_id;
@@ -164,6 +275,11 @@ function regenerateQRCode($course_id, $old_qr_path = '', $course_code = '', $reg
     // Delete old QR code if exists
     if (!empty($old_qr_path)) {
         deleteQRCode($old_qr_path);
+    }
+
+    global $conn;
+    if ($conn instanceof mysqli) {
+        return syncCourseRegistrationLinkAndQr($conn, (int) $course_id, true);
     }
 
     // Generate new QR code

@@ -37,8 +37,10 @@ if (isset($_POST['regenerate_token']) && isset($_GET['id'])) {
     $stmt_token->bind_param("si", $token, $course_id);
     
     if ($stmt_token->execute()) {
-        $_SESSION['message'] = "Registration link regenerated successfully!";
-        $_SESSION['message_type'] = "success";
+        require_once __DIR__ . '/../includes/qr_helper.php';
+        syncCourseRegistrationLinkAndQr($conn, (int) $course_id, true);
+        $_SESSION['message'] = 'Registration link and QR code regenerated successfully!';
+        $_SESSION['message_type'] = 'success';
     } else {
         $_SESSION['message'] = "Error regenerating registration link.";
         $_SESSION['message_type'] = "danger";
@@ -405,21 +407,15 @@ if (isset($_POST['update_course'])) {
             error_log("course_schemes table not found during update: " . $conn->error);
         }
         
-        // Auto-generate QR code ONLY if it doesn't exist yet
-        if (!empty($apply_link) && !empty($course_code) && empty($course['qr_code_path'])) {
+        // Keep registration link + QR image aligned with current token and form type
+        if (!empty($course_code)) {
             require_once __DIR__ . '/../includes/qr_helper.php';
-            $qr_result = generateCourseQRCode($course_id, $course_code, $course['registration_token']);
-            
-            if ($qr_result['success']) {
-                $stmt_update = $conn->prepare("UPDATE courses SET qr_code_path = ?, qr_generated_at = NOW() WHERE id = ?");
-                $stmt_update->bind_param("si", $qr_result['path'], $course_id);
-                $stmt_update->execute();
-                $_SESSION['message'] = "Course updated successfully! QR code generated.";
-            } else {
-                $_SESSION['message'] = "Course updated successfully! But QR code generation failed.";
-            }
+            $sync = syncCourseRegistrationLinkAndQr($conn, (int) $course_id, false);
+            $_SESSION['message'] = !empty($sync['success'])
+                ? ($sync['message'] ?? 'Course updated successfully!')
+                : 'Course updated, but QR sync failed: ' . ($sync['message'] ?? 'unknown error');
         } else {
-            $_SESSION['message'] = "Course updated successfully!";
+            $_SESSION['message'] = 'Course updated successfully!';
         }
         header("Location: edit_course.php?id=$course_id");
         exit();
@@ -716,7 +712,7 @@ if ($registration_form_display === 'full' && (sub_category_matches($selected_sub
                         <div class="form-group">
                             <label class="form-label">Apply Link</label>
                             <div style="display: flex; gap: 8px;">
-                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo APP_URL . '/student/register.php?token=' . htmlspecialchars($course['registration_token'] ?? ''); ?>" placeholder="https://..." readonly>
+                                <input type="url" class="form-control" name="apply_link" id="edit_apply_link" value="<?php echo htmlspecialchars(course_registration_apply_url($course)); ?>" placeholder="https://..." readonly>
                                 <button type="button" class="btn btn-warning" style="white-space: nowrap;" onclick="regenerateTokenLink()">
                                     <i class="fas fa-sync-alt"></i> Regenerate Link
                                 </button>

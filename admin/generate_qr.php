@@ -13,7 +13,7 @@ if (!isset($_SESSION['admin_logged_in'])) {
     exit();
 }
 
-require_once '../config/database.php';
+require_once '../config/config.php';
 require_once '../includes/qr_helper.php';
 
 // Get course ID from POST
@@ -43,31 +43,20 @@ if (!empty($course['qr_code_path'])) {
 }
 
 // Generate new QR code with token
-$qr_result = generateCourseQRCode($course_id, $course['course_code'], $course['registration_token']);
+$sync = syncCourseRegistrationLinkAndQr($conn, (int) $course['id'], true);
 
-if ($qr_result['success']) {
-    // Update database with QR path and registration link
-    $stmt_update = $conn->prepare("UPDATE courses SET qr_code_path = ?, registration_link = ?, qr_generated_at = NOW() WHERE id = ?");
-    $stmt_update->bind_param("ssi", $qr_result['path'], $qr_result['url'], $course_id);
-    
-    if ($stmt_update->execute()) {
-        echo json_encode([
-            'success' => true,
-            'message' => 'QR Code generated successfully!',
-            'qr_path' => $qr_result['path'],
-            'registration_link' => $qr_result['url'],
-            'filename' => $qr_result['filename']
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false,
-            'message' => 'QR Code generated but database update failed'
-        ]);
-    }
+if (!empty($sync['success'])) {
+    echo json_encode([
+        'success' => true,
+        'message' => 'QR Code generated successfully!',
+        'qr_path' => $sync['qr_code_path'] ?? '',
+        'registration_link' => $sync['apply_link'] ?? '',
+        'filename' => !empty($sync['qr_code_path']) ? basename($sync['qr_code_path']) : '',
+    ]);
 } else {
     echo json_encode([
         'success' => false,
-        'message' => $qr_result['message']
+        'message' => $sync['message'] ?? 'QR Code generation failed',
     ]);
 }
 
