@@ -16,6 +16,22 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return $installed;
     }
 
+    /** True when course_id exists in courses (required for student_enrollments FK). */
+    function enrollmentCourseExists(mysqli $conn, int $courseId): bool {
+        if ($courseId <= 0) {
+            return false;
+        }
+        $stmt = $conn->prepare('SELECT 1 FROM courses WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $ok = (bool)$stmt->get_result()->fetch_row();
+        $stmt->close();
+        return $ok;
+    }
+
     function normalizeAadhar(string $aadhar): string {
         return preg_replace('/\D/', '', trim($aadhar));
     }
@@ -448,6 +464,10 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         ensureSchemeEnrollmentUniqueIndex($conn);
         $courseId = (int)$row['course_id'];
+        if (!enrollmentCourseExists($conn, $courseId)) {
+            error_log("syncStudentEnrollmentRecord: skip student_record_id={$studentRecordId} invalid course_id={$courseId}");
+            return;
+        }
         $schemeId = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
         $status = (string)($row['status'] ?? 'pending');
 
@@ -1618,6 +1638,10 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
     function createStudentEnrollment(mysqli $conn, int $accountId, int $courseId, int $studentRecordId, string $status = 'pending', ?int $schemeId = null): ?int {
         if (!isMultiCourseSystemInstalled($conn)) {
+            return null;
+        }
+        if (!enrollmentCourseExists($conn, $courseId)) {
+            error_log("createStudentEnrollment: invalid course_id={$courseId} for student_record_id={$studentRecordId}");
             return null;
         }
         ensureSchemeEnrollmentUniqueIndex($conn);
