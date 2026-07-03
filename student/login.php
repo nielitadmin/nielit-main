@@ -81,22 +81,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         if (!empty($enrollments) && $all_rejected && !$has_active) {
             $error_message = "Your registration has been rejected. Please contact admin for more information.";
-        } elseif (!$has_active && !empty($enrollments)) {
-            $only_pending = true;
-            foreach ($enrollments as $enrollment) {
-                if (strtolower($enrollment['status'] ?? '') !== 'pending') {
-                    $only_pending = false;
-                    break;
-                }
-            }
-            if ($only_pending) {
-                $error_message = "Your account is pending admin approval. Please wait for approval before logging in.";
-            } else {
-                $_SESSION['student_id'] = $student_id;
-                $_SESSION['student_name'] = $display_name;
-                header("Location: dashboard.php");
-                exit;
-            }
         } else {
             $_SESSION['student_id'] = $student_id;
             $_SESSION['student_name'] = $display_name;

@@ -286,12 +286,12 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
 }
 
 if ($is_returning_student) {
-    $_SESSION['success'] = "Workshop registration submitted for <strong>$name</strong>. Student ID: <strong>$student_id</strong>. Use your existing password after approval.";
+    $_SESSION['success'] = "Workshop registration submitted for <strong>$name</strong>. Student ID: <strong>$student_id</strong>. Log in to your dashboard with your existing password. Enrollment will show <strong>Active</strong> after admin verifies your documents.";
     $_SESSION['registration_email_sent'] = false;
     $_SESSION['registration_email_queued'] = false;
 } else {
     $email_queued = dispatchRegistrationEmailAsync($email, $name, $student_id, $password, $course_name, $training_center);
-    $_SESSION['success'] = "Workshop registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>.";
+    $_SESSION['success'] = "Workshop registration successful! Student ID: <strong>$student_id</strong>, Password: <strong>$password</strong>. You can log in to your student dashboard now. Status will change to <strong>Active</strong> after admin verifies your documents.";
     if ($email_queued) {
         $_SESSION['success'] .= " Confirmation email is being sent to <strong>$email</strong>.";
     } else {

@@ -75,6 +75,20 @@ if (!$student) {
     exit;
 }
 
+$student_status = strtolower(trim((string)($student['status'] ?? 'pending')));
+$has_pending_enrollment = false;
+$has_active_enrollment = false;
+foreach ($enrollments as $enr) {
+    $enrStatus = strtolower(trim((string)($enr['status'] ?? 'pending')));
+    if ($enrStatus === 'pending') {
+        $has_pending_enrollment = true;
+    }
+    if (in_array($enrStatus, ['active', 'approved'], true)) {
+        $has_active_enrollment = true;
+    }
+}
+$show_pending_notice = ($student_status === 'pending' || $has_pending_enrollment) && !$has_active_enrollment;
+
 // Fetch announcements for this student (all + students + any enrolled course)
 $announcements_list = [];
 $course_codes = array_values(array_unique(array_filter(array_merge(
@@ -171,6 +185,25 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <?php if ($show_pending_notice): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-warning border-0 shadow-sm mb-0" role="status">
+                <div class="d-flex gap-3 align-items-start">
+                    <i class="fas fa-hourglass-half fa-lg mt-1"></i>
+                    <div>
+                        <strong>Registration under review</strong>
+                        <p class="mb-0 mt-1 small">
+                            You can use this dashboard now. Your enrollment status is <strong>Pending</strong> while admin verifies your documents.
+                            After approval, status will change to <strong>Active</strong> and you will be confirmed as a NIELIT student for this program.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if (count($enrollments) > 0): ?>
     <div class="row mb-4">
         <div class="col-12">
@@ -200,13 +233,22 @@ include 'includes/header.php';
                                     $sname = $enr['scheme_name'] ?? '';
                                     $bname = $enr['batch_name'] ?? ($enr['batch_code'] ?? 'Not assigned');
                                     $estatus = ucfirst($enr['status'] ?? 'pending');
+                                    $estatus_lc = strtolower($enr['status'] ?? 'pending');
+                                    $status_badge = 'bg-secondary';
+                                    if (in_array($estatus_lc, ['active', 'approved'], true)) {
+                                        $status_badge = 'bg-success';
+                                    } elseif ($estatus_lc === 'pending') {
+                                        $status_badge = 'bg-warning text-dark';
+                                    } elseif (in_array($estatus_lc, ['rejected', 'cancelled'], true)) {
+                                        $status_badge = 'bg-danger';
+                                    }
                                     $regDate = !empty($enr['registered_at']) ? $enr['registered_at'] : ($enr['registration_date'] ?? '');
                                 ?>
                                 <tr class="<?php echo ($recordId === $selected_record_id) ? 'table-primary' : ''; ?>">
                                     <td><?php echo htmlspecialchars($cname); ?></td>
                                     <td><?php echo $sname !== '' ? htmlspecialchars($sname) : '—'; ?></td>
                                     <td><?php echo htmlspecialchars($bname); ?></td>
-                                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($estatus); ?></span></td>
+                                    <td><span class="badge <?php echo $status_badge; ?>"><?php echo htmlspecialchars($estatus); ?></span></td>
                                     <td><?php echo $regDate ? date('M d, Y', strtotime($regDate)) : '—'; ?></td>
                                     <td>
                                         <?php if ($recordId > 0): ?>

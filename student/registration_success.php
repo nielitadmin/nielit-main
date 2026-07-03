@@ -383,10 +383,11 @@ unset(
                     <p class="success-message text-center">
                         <?php if ($is_returning_student): ?>
                         Your additional course enrollment has been submitted successfully.
-                        Use your <strong>existing Student ID and password</strong> to log in after admin approval.
+                        Use your <strong>existing Student ID and password</strong> to log in to your dashboard. Enrollment stays <strong>Pending</strong> until admin verifies your documents.
                         <?php else: ?>
                         Congratulations! Your registration has been completed successfully.
-                        Please save your credentials below for future login.
+                        Save your credentials below and log in to your <strong>student dashboard</strong>.
+                        Your status is <strong>Pending</strong> until admin verifies your documents — then it becomes <strong>Active</strong>.
                         <?php endif; ?>
                     </p>
                     <?php endif; ?>

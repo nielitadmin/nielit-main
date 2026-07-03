@@ -893,7 +893,7 @@ if (!empty($exam_passed) && is_array($exam_passed)) {
 if ($is_returning_student) {
     $email_sent = false;
     $email_queued = false;
-    $_SESSION['success'] = "Additional course enrollment submitted! Your Student ID remains <strong>$student_id</strong>. Use your <strong>existing password</strong> to login after approval.<br><strong>Course:</strong> $course_name<br><strong>Note:</strong> Pending admin approval.";
+    $_SESSION['success'] = "Additional course enrollment submitted! Your Student ID remains <strong>$student_id</strong>. Log in to your dashboard with your <strong>existing password</strong>.<br><strong>Course:</strong> $course_name<br><strong>Note:</strong> This enrollment is <strong>Pending</strong> until admin verifies your documents.";
 } else {
     $email_queued = dispatchRegistrationEmailAsync($email, $name, $student_id, $password, $course_name, $training_center);
     $email_sent = false;
@@ -903,7 +903,7 @@ if ($is_returning_student) {
     } else {
         $_SESSION['success'] .= " Please save your credentials on the next screen.";
     }
-    $_SESSION['success'] .= "<br><strong>Note:</strong> Account pending admin approval.";
+    $_SESSION['success'] .= "<br><strong>You can log in to your dashboard now.</strong> Status will become <strong>Active</strong> after admin verifies your documents.";
 }
 $_SESSION['student_id']            = $student_id;
 $_SESSION['student_password']      = $password ?? '';

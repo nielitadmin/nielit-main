@@ -1095,7 +1095,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         return [
             'success' => true,
-            'message' => 'Student approved successfully! They can now log in to the student portal.',
+            'message' => 'Student approved successfully! Documents verified — enrollment is now Active and the student is confirmed for this program.',
         ];
     }
 
