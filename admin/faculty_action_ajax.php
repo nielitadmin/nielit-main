@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/staff_profile_helper.php';
 
 header('Content-Type: application/json');
 
@@ -67,6 +68,16 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
         }
         $stmt->close();
+        break;
+
+    case 'regenerate_profile_link':
+        if ($admin_role !== 'master_admin') {
+            echo json_encode(['success' => false, 'message' => 'Only master admin can generate staff profile links']);
+            exit();
+        }
+
+        $result = regenerateStaffProfileToken($conn, $faculty_id);
+        echo json_encode($result);
         break;
 
     default:

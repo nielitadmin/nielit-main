@@ -14,11 +14,6 @@ if (!function_exists('facultyTableHasColumn')) {
 if (!function_exists('ensureStaffProfileSchema')) {
     function ensureStaffProfileSchema(mysqli $conn): void
     {
-        static $done = false;
-        if ($done) {
-            return;
-        }
-
         $columnDefinitions = [
             'nielit_centre'            => 'VARCHAR(255) DEFAULT NULL',
             'employment_type'          => 'VARCHAR(50) DEFAULT NULL',
@@ -75,18 +70,6 @@ if (!function_exists('ensureStaffProfileSchema')) {
             if ($idx && $idx->num_rows === 0) {
                 $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
             }
-        }
-
-        $allColumnsPresent = true;
-        foreach ($orderedColumns as $column) {
-            if (!facultyTableHasColumn($conn, $column)) {
-                $allColumnsPresent = false;
-                break;
-            }
-        }
-
-        if ($allColumnsPresent && facultyTableHasColumn($conn, 'profile_token')) {
-            $done = true;
         }
     }
 }
@@ -270,11 +253,18 @@ if (!function_exists('regenerateStaffProfileToken')) {
     {
         ensureStaffProfileSchema($conn);
 
+        if (!facultyTableHasColumn($conn, 'profile_token')) {
+            return [
+                'success' => false,
+                'message' => 'Database is missing profile_token column. Open /migrations/add_faculty_profile_fields.php once.',
+            ];
+        }
+
         do {
             $token = generateStaffProfileToken(8);
             $check = $conn->prepare('SELECT id FROM faculty WHERE profile_token = ? AND id <> ? LIMIT 1');
             if (!$check) {
-                return ['success' => false, 'message' => 'Could not validate token uniqueness.'];
+                return ['success' => false, 'message' => 'Could not validate token uniqueness: ' . $conn->error];
             }
             $check->bind_param('si', $token, $facultyId);
             $check->execute();
@@ -288,42 +278,50 @@ if (!function_exists('regenerateStaffProfileToken')) {
             } else {
                 $stmt = $conn->prepare('UPDATE faculty SET profile_token = ?, profile_token_expires_at = DATE_ADD(NOW(), INTERVAL 1 HOUR) WHERE id = ?');
             }
-            if (!$stmt) {
-                return ['success' => false, 'message' => 'Could not save profile link token.'];
-            }
-            $stmt->bind_param('si', $token, $facultyId);
         } elseif (facultyTableHasColumn($conn, 'profile_updated_at')) {
             $stmt = $conn->prepare('UPDATE faculty SET profile_token = ?, profile_updated_at = NOW() WHERE id = ?');
-            if (!$stmt) {
-                return ['success' => false, 'message' => 'Could not save profile link token.'];
-            }
-            $stmt->bind_param('si', $token, $facultyId);
         } else {
             $stmt = $conn->prepare('UPDATE faculty SET profile_token = ? WHERE id = ?');
-            if (!$stmt) {
-                return ['success' => false, 'message' => 'Could not save profile link token.'];
-            }
-            $stmt->bind_param('si', $token, $facultyId);
         }
+
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not save profile link token: ' . $conn->error];
+        }
+
+        $stmt->bind_param('si', $token, $facultyId);
         if (!$stmt->execute()) {
+            $error = $stmt->error ?: $conn->error;
             $stmt->close();
-            return ['success' => false, 'message' => 'Failed to generate profile link.'];
+            return ['success' => false, 'message' => 'Failed to generate profile link: ' . $error];
+        }
+
+        if ($stmt->affected_rows <= 0) {
+            $stmt->close();
+            return ['success' => false, 'message' => 'Staff record not found. Could not save profile link.'];
         }
         $stmt->close();
 
+        $expiresTs = time() + staffProfileLinkTtlSeconds();
+        $secondsRemaining = staffProfileLinkTtlSeconds();
         $meta = getStaffProfileLinkMeta($conn, $facultyId);
-        $expiresTs = (int) ($meta['expires_ts'] ?? 0);
-        $secondsRemaining = (int) ($meta['seconds_remaining'] ?? 0);
-        if ($expiresTs <= 0) {
-            $expiresTs = time() + staffProfileLinkTtlSeconds();
-            $secondsRemaining = staffProfileLinkTtlSeconds();
+        if ((int) ($meta['expires_ts'] ?? 0) > time()) {
+            $expiresTs = (int) $meta['expires_ts'];
+            $secondsRemaining = max(1, (int) ($meta['seconds_remaining'] ?? staffProfileLinkTtlSeconds()));
+        }
+
+        $url = getStaffProfilePublicUrl($token);
+        if ($url === '') {
+            return [
+                'success' => false,
+                'message' => 'Link token saved but URL is empty. Check APP_URL in config/app.php on the server.',
+            ];
         }
 
         return [
             'success' => true,
             'message' => 'New profile link generated. Link is valid for 1 hour.',
             'token' => $token,
-            'url' => getStaffProfilePublicUrl($token),
+            'url' => $url,
             'expires_at' => $meta['expires_at'],
             'expires_ts' => $expiresTs,
             'seconds_remaining' => $secondsRemaining,
@@ -341,7 +339,7 @@ if (!function_exists('loadStaffByProfileToken')) {
             return null;
         }
 
-        $stmt = $conn->prepare('SELECT *, UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
+        $stmt = $conn->prepare('SELECT * FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
         if (!$stmt) {
             return null;
         }
@@ -350,7 +348,25 @@ if (!function_exists('loadStaffByProfileToken')) {
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        if (!$row || isStaffProfileLinkExpired($row)) {
+        if (!$row) {
+            return null;
+        }
+
+        if (facultyTableHasColumn($conn, 'profile_token_expires_at')) {
+            $expStmt = $conn->prepare('SELECT UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE id = ? LIMIT 1');
+            if ($expStmt) {
+                $rowId = (int) $row['id'];
+                $expStmt->bind_param('i', $rowId);
+                $expStmt->execute();
+                $expRow = $expStmt->get_result()->fetch_assoc();
+                $expStmt->close();
+                if ($expRow && $expRow['expires_unix'] !== null) {
+                    $row['expires_unix'] = $expRow['expires_unix'];
+                }
+            }
+        }
+
+        if (isStaffProfileLinkExpired($row)) {
             return null;
         }
 
@@ -367,7 +383,7 @@ if (!function_exists('validateStaffProfileTokenAccess')) {
             return ['status' => 'invalid', 'staff' => null];
         }
 
-        $stmt = $conn->prepare('SELECT *, UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
+        $stmt = $conn->prepare('SELECT * FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
         if (!$stmt) {
             return ['status' => 'invalid', 'staff' => null];
         }
@@ -378,6 +394,20 @@ if (!function_exists('validateStaffProfileTokenAccess')) {
 
         if (!$row) {
             return ['status' => 'invalid', 'staff' => null];
+        }
+
+        if (facultyTableHasColumn($conn, 'profile_token_expires_at')) {
+            $expStmt = $conn->prepare('SELECT UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE id = ? LIMIT 1');
+            if ($expStmt) {
+                $rowId = (int) $row['id'];
+                $expStmt->bind_param('i', $rowId);
+                $expStmt->execute();
+                $expRow = $expStmt->get_result()->fetch_assoc();
+                $expStmt->close();
+                if ($expRow && $expRow['expires_unix'] !== null) {
+                    $row['expires_unix'] = $expRow['expires_unix'];
+                }
+            }
         }
 
         if (isStaffProfileLinkExpired($row)) {
