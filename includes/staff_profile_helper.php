@@ -117,8 +117,16 @@ if (!function_exists('staffProfileLinkSecondsRemaining')) {
             return 0;
         }
 
-        $expires = strtotime((string) $row['profile_token_expires_at']);
-        return max(0, $expires - time());
+        if (isset($row['expires_unix']) && $row['expires_unix'] !== null && $row['expires_unix'] !== '') {
+            return max(0, (int) $row['expires_unix'] - time());
+        }
+
+        $expires = trim((string) ($row['profile_token_expires_at'] ?? ''));
+        if ($expires === '') {
+            return 0;
+        }
+
+        return max(0, strtotime($expires) - time());
     }
 }
 

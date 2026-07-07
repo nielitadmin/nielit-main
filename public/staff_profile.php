@@ -9,17 +9,28 @@ $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
 $tokenAccess = ['status' => 'invalid', 'staff' => null];
 $pageError = null;
 $linkExpiresTs = 0;
+$linkSecondsRemaining = 0;
+$linkExpiresAtLabel = '';
 
 if ($token === '') {
     http_response_code(400);
-    $pageError = 'Invalid or missing profile link. Please contact NIELIT administration.';
+    $pageError = 'Invalid or missing profile link. Please open the full link sent by admin (it includes ?token= at the end).';
     $staff = null;
 } else {
     $tokenAccess = validateStaffProfileTokenAccess($conn, $token);
     if ($tokenAccess['status'] === 'valid') {
         $staff = $tokenAccess['staff'];
-        $secondsRemaining = staffProfileLinkSecondsRemaining($staff);
-        $linkExpiresTs = $secondsRemaining > 0 ? time() + $secondsRemaining : 0;
+        $linkMeta = getStaffProfileLinkMeta($conn, (int) $staff['id']);
+        $linkSecondsRemaining = (int) ($linkMeta['seconds_remaining'] ?? 0);
+        if ($linkSecondsRemaining <= 0) {
+            $linkSecondsRemaining = staffProfileLinkSecondsRemaining($staff);
+        }
+        if ($linkSecondsRemaining > 0) {
+            $linkExpiresTs = time() + $linkSecondsRemaining;
+            if (!empty($linkMeta['expires_at'])) {
+                $linkExpiresAtLabel = date('g:i A', strtotime((string) $linkMeta['expires_at']));
+            }
+        }
     } else {
         $staff = null;
         http_response_code($tokenAccess['status'] === 'expired' ? 410 : 404);
@@ -128,13 +139,22 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
             border: 1px solid #fdba74;
             color: #9a3412;
             border-radius: 8px;
-            padding: 0.75rem 1rem;
+            padding: 0.85rem 1rem;
             margin-bottom: 1rem;
             font-size: 0.95rem;
+            box-shadow: 0 2px 8px rgba(154, 52, 18, 0.08);
+        }
+        .link-timer .timer-countdown {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #c2410c;
         }
         .link-timer.is-expired {
             background: #fef2f2;
             border-color: #fca5a5;
+            color: #991b1b;
+        }
+        .link-timer.is-expired .timer-countdown {
             color: #991b1b;
         }
     </style>
@@ -162,14 +182,32 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
         </div>
     <?php endif; ?>
 
-    <?php if ($staff): ?>
-        <?php if (!$submitted || !empty($error_message)): ?>
-        <?php if ($linkExpiresTs > 0): ?>
-        <div class="link-timer" id="publicProfileLinkTimer" data-expires-ts="<?php echo $linkExpiresTs; ?>">
-            <i class="fas fa-clock me-2"></i>
-            Link active — expires in <strong data-timer-text>--:--</strong>
+    <?php if ($staff && (!$submitted || !empty($error_message))): ?>
+        <div class="link-timer" id="publicProfileLinkTimer" data-expires-ts="<?php echo (int) $linkExpiresTs; ?>">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                    <i class="fas fa-clock me-2"></i>
+                    <span>This link expires in</span>
+                    <strong class="timer-countdown ms-1" data-timer-text><?php echo $linkExpiresTs > 0 ? '--:--' : 'Soon'; ?></strong>
+                </div>
+                <?php if ($linkExpiresAtLabel !== ''): ?>
+                <div class="small opacity-75">
+                    Valid until <?php echo htmlspecialchars($linkExpiresAtLabel); ?> IST
+                </div>
+                <?php endif; ?>
+            </div>
+            <div class="small mt-1 opacity-75">Complete and submit your profile before the link expires.</div>
+        </div>
+        <?php if ($linkExpiresTs <= 0): ?>
+        <div class="alert alert-warning py-2">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            Expiry time could not be loaded. If the form stops working, ask admin to send a new link.
         </div>
         <?php endif; ?>
+    <?php endif; ?>
+
+    <?php if ($staff): ?>
+        <?php if (!$submitted || !empty($error_message)): ?>
         <div class="form-card" id="publicProfileFormCard">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                 <div>
@@ -277,15 +315,24 @@ function initStaffProfileLinkTimer(container, onExpire) {
     if (!container) return;
     const expiresTs = parseInt(container.getAttribute('data-expires-ts') || '0', 10);
     const textEl = container.querySelector('[data-timer-text]');
-    if (!expiresTs || !textEl) return;
+    if (!textEl) return;
+
+    if (!expiresTs) {
+        textEl.textContent = '1 hour from open';
+        return;
+    }
+
+    let expiredHandled = false;
 
     function tick() {
         const left = Math.max(0, expiresTs - Math.floor(Date.now() / 1000));
         if (left <= 0) {
-            textEl.textContent = 'Expired';
             container.classList.add('is-expired');
-            container.innerHTML = '<i class="fas fa-hourglass-end me-2"></i><strong>Link expired.</strong> Please ask admin to generate a new profile link.';
-            if (onExpire) onExpire();
+            container.innerHTML = '<i class="fas fa-hourglass-end me-2"></i><strong>Link expired.</strong> Please ask NIELIT admin to generate a new profile link for you.';
+            if (!expiredHandled) {
+                expiredHandled = true;
+                if (onExpire) onExpire();
+            }
             return true;
         }
         textEl.textContent = formatProfileLinkCountdown(left);
