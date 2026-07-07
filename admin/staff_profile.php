@@ -157,9 +157,12 @@ function staffFieldValue(array $staff, string $key, string $col): string
         </div>
 
         <div class="admin-main">
+            <form method="POST" id="staffProfileForm" enctype="multipart/form-data">
+                <input type="hidden" name="action" value="save_profile">
+
             <div class="profile-hero">
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                    <div>
+                    <div class="flex-grow-1">
                         <h3 class="mb-1"><?php echo htmlspecialchars($staff['name']); ?></h3>
                         <div class="opacity-75">
                             <?php echo htmlspecialchars($staff['designation'] ?: 'Staff Member'); ?>
@@ -170,48 +173,38 @@ function staffFieldValue(array $staff, string $key, string $col): string
                         <?php if (!empty($staff['staff_category'])): ?>
                             <span class="badge bg-light text-dark mt-2"><?php echo htmlspecialchars($staff['staff_category']); ?></span>
                         <?php endif; ?>
+                        <div class="mt-3 d-flex flex-wrap gap-2">
+                            <a href="generate_staff_profile_pdf.php?id=<?php echo $facultyId; ?>" target="_blank" class="btn btn-warning btn-sm">
+                                <i class="fas fa-file-pdf"></i> Download PDF
+                            </a>
+                        </div>
                     </div>
-                    <div style="min-width: 220px;">
-                        <div class="d-flex justify-content-between small mb-1">
+                    <div style="min-width: 260px;">
+                        <div class="border border-2 border-light rounded p-2 text-center bg-white bg-opacity-10" style="min-height: 150px;">
+                            <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
+                                <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Staff photo" class="img-fluid rounded mb-2" style="max-height: 120px;">
+                                <div class="small opacity-75">Photo saved — appears on PDF</div>
+                            <?php else: ?>
+                                <div class="text-white-50 py-3">
+                                    <i class="fas fa-camera fa-2x mb-2"></i><br>
+                                    <strong>Upload Photo</strong><br>
+                                    <small>Required for PDF (top-right box)</small>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <label class="form-label text-white mt-2 mb-1" for="profile_photo"><i class="fas fa-upload"></i> Upload passport photo</label>
+                        <input type="file" class="form-control form-control-sm" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg">
+                        <div class="small opacity-75 mt-1">JPG/PNG, max 5 MB. Save profile after selecting.</div>
+                        <div class="d-flex justify-content-between small mt-2 mb-1">
                             <span>Profile completion</span>
                             <strong><?php echo $completion; ?>%</strong>
                         </div>
                         <div class="completion-bar">
                             <div class="completion-bar-fill" style="width: <?php echo $completion; ?>%;"></div>
                         </div>
-                        <div class="mt-3">
-                            <a href="generate_staff_profile_pdf.php?id=<?php echo $facultyId; ?>" target="_blank" class="btn btn-warning btn-sm">
-                                <i class="fas fa-file-pdf"></i> Download PDF
-                            </a>
-                        </div>
                     </div>
                 </div>
             </div>
-
-            <form method="POST" id="staffProfileForm" enctype="multipart/form-data">
-                <input type="hidden" name="action" value="save_profile">
-
-                <div class="profile-section">
-                    <div class="profile-section-title">
-                        <i class="fas fa-camera me-2"></i> Passport-size Photo (for PDF)
-                    </div>
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-3">
-                            <div class="border rounded p-2 text-center bg-light" style="min-height: 140px;">
-                                <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
-                                    <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Staff photo" class="img-fluid" style="max-height: 130px;">
-                                <?php else: ?>
-                                    <div class="text-muted py-5"><i class="fas fa-user fa-2x"></i><br><small>Photo</small></div>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <div class="col-md-9">
-                            <label class="form-label" for="profile_photo">Upload photo (JPG/PNG, max 5 MB)</label>
-                            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg">
-                            <div class="form-text">This photo appears in the top-right box on the NIELIT Centre staff profile PDF.</div>
-                        </div>
-                    </div>
-                </div>
 
                 <?php foreach ($fieldGroups as $groupKey => $group): ?>
                 <div class="profile-section">
