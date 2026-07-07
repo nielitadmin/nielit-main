@@ -99,97 +99,411 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NIELIT Centre Staff Profile Form</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
     <style>
-        body { background: #f1f5f9; }
+        :root {
+            --nielit-navy: #0f2744;
+            --nielit-blue: #1e4a7a;
+            --nielit-sky: #3b82f6;
+            --nielit-gold: #f59e0b;
+            --surface: #ffffff;
+            --surface-muted: #f8fafc;
+            --border: #e2e8f0;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --radius: 16px;
+            --shadow: 0 10px 40px rgba(15, 39, 68, 0.08);
+            --shadow-sm: 0 4px 14px rgba(15, 39, 68, 0.06);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(180deg, #eef4fb 0%, #f8fafc 35%, #f1f5f9 100%);
+            color: var(--text);
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        h1, h2, h3, h4, h5, h6 { font-family: 'Poppins', sans-serif; }
+
+        .page-shell { max-width: 920px; margin: 0 auto; padding: 0 1rem 6rem; }
+
         .page-header {
-            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%);
+            background: linear-gradient(135deg, var(--nielit-navy) 0%, var(--nielit-blue) 55%, #2563eb 100%);
             color: #fff;
-            padding: 1.5rem 0;
-            margin-bottom: 1.5rem;
+            padding: 1.75rem 0 2.25rem;
+            margin-bottom: -1.5rem;
+            position: relative;
+            overflow: hidden;
         }
-        .form-card {
+
+        .page-header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 85% 15%, rgba(255,255,255,0.12) 0%, transparent 45%);
+            pointer-events: none;
+        }
+
+        .brand-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-logo {
+            height: 52px;
             background: #fff;
-            border: 1px solid #e2e8f0;
             border-radius: 12px;
-            padding: 1.25rem 1.5rem;
+            padding: 6px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+        }
+
+        .brand-title { font-size: 1.35rem; font-weight: 700; margin: 0; }
+        .brand-subtitle { font-size: 0.875rem; opacity: 0.88; margin: 0.15rem 0 0; }
+
+        .link-timer {
+            background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+            border: 1px solid #fdba74;
+            border-radius: var(--radius);
+            padding: 1rem 1.15rem;
             margin-bottom: 1.25rem;
+            box-shadow: var(--shadow-sm);
         }
-        .section-title {
-            font-size: 1.05rem;
+
+        .link-timer .timer-countdown {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.2rem;
             font-weight: 700;
-            color: #1e3a5f;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid #e2e8f0;
+            color: #c2410c;
         }
+
+        .link-timer.is-expired {
+            background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+
+        .profile-hero-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255,255,255,0.8);
+            padding: 1.5rem;
+            margin-bottom: 1.25rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-hero-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--nielit-gold), var(--nielit-sky));
+        }
+
+        .staff-name { font-size: 1.35rem; font-weight: 700; margin: 0 0 0.25rem; color: var(--nielit-navy); }
+        .staff-meta { color: var(--text-muted); font-size: 0.9rem; }
+
+        .category-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+            border-radius: 999px;
+            padding: 0.3rem 0.75rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-top: 0.65rem;
+        }
+
+        .completion-wrap {
+            min-width: 180px;
+            text-align: right;
+        }
+
+        .completion-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .completion-value {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--nielit-blue);
+            line-height: 1.1;
+        }
+
         .completion-bar {
             height: 8px;
             border-radius: 999px;
             background: #e2e8f0;
             overflow: hidden;
+            margin-top: 0.5rem;
         }
+
         .completion-bar-fill {
             height: 100%;
-            background: #f59e0b;
+            background: linear-gradient(90deg, var(--nielit-gold), #fbbf24);
             border-radius: 999px;
+            transition: width 0.4s ease;
         }
-        .link-timer {
-            background: #fff7ed;
-            border: 1px solid #fdba74;
-            color: #9a3412;
-            border-radius: 8px;
-            padding: 0.85rem 1rem;
-            margin-bottom: 1rem;
+
+        .form-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.35rem 1.5rem;
+            margin-bottom: 1.15rem;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.2s ease;
+        }
+
+        .form-card:hover { box-shadow: var(--shadow); }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--nielit-navy);
+            margin-bottom: 1.15rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            color: var(--nielit-blue);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             font-size: 0.95rem;
-            box-shadow: 0 2px 8px rgba(154, 52, 18, 0.08);
         }
-        .link-timer .timer-countdown {
-            font-size: 1.15rem;
-            font-weight: 700;
-            color: #c2410c;
+
+        .form-label {
+            font-size: 0.84rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 0.4rem;
         }
-        .link-timer.is-expired {
+
+        .form-control, .form-select {
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.92rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--nielit-sky);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+        }
+
+        textarea.form-control { min-height: 100px; resize: vertical; }
+
+        .photo-upload-zone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 14px;
+            background: var(--surface-muted);
+            padding: 1.25rem;
+            text-align: center;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .photo-upload-zone:hover {
+            border-color: var(--nielit-sky);
+            background: #f0f9ff;
+        }
+
+        .photo-preview-box {
+            width: 130px;
+            height: 160px;
+            margin: 0 auto 1rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .photo-preview-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .photo-placeholder {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .photo-placeholder i { font-size: 2rem; margin-bottom: 0.35rem; display: block; opacity: 0.5; }
+
+        .file-input-wrap input[type="file"] {
+            font-size: 0.85rem;
+        }
+
+        .alert-modern {
+            border: none;
+            border-radius: 12px;
+            padding: 1rem 1.15rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .alert-modern.alert-danger {
             background: #fef2f2;
-            border-color: #fca5a5;
             color: #991b1b;
+            border-left: 4px solid #ef4444;
         }
-        .link-timer.is-expired .timer-countdown {
-            color: #991b1b;
+
+        .alert-modern.alert-success {
+            background: #f0fdf4;
+            color: #166534;
+            border-left: 4px solid #22c55e;
+        }
+
+        .alert-modern.alert-warning {
+            background: #fffbeb;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .success-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+
+        .success-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #16a34a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .sticky-submit {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.92);
+            backdrop-filter: blur(12px);
+            border-top: 1px solid var(--border);
+            padding: 0.85rem 1rem;
+            z-index: 100;
+            box-shadow: 0 -8px 30px rgba(15, 39, 68, 0.08);
+        }
+
+        .sticky-submit-inner {
+            max-width: 920px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .sticky-hint {
+            font-size: 0.82rem;
+            color: var(--text-muted);
+        }
+
+        .btn-submit-modern {
+            background: linear-gradient(135deg, var(--nielit-blue) 0%, #2563eb 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.75rem;
+            font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+
+        .btn-submit-modern:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 28px rgba(37, 99, 235, 0.4);
+            background: linear-gradient(135deg, #1a3f6b 0%, #1d4ed8 100%);
+        }
+
+        .btn-submit-modern:disabled {
+            opacity: 0.65;
+            transform: none;
+            box-shadow: none;
+        }
+
+        @media (max-width: 576px) {
+            .completion-wrap { text-align: left; margin-top: 1rem; }
+            .sticky-submit-inner { justify-content: center; text-align: center; }
+            .sticky-hint { display: none; }
         }
     </style>
 </head>
 <body>
 <div class="page-header">
-    <div class="container">
-        <div class="d-flex align-items-center gap-3">
-            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT" style="height:48px;background:#fff;border-radius:8px;padding:4px;">
+    <div class="container page-shell px-3 px-md-4">
+        <div class="brand-row">
+            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT" class="brand-logo">
             <div>
-                <h1 class="h4 mb-1">NIELIT Centre Staff Profile</h1>
-                <div class="small opacity-75">Fill your details for the official staff profile & PDF</div>
+                <h1 class="brand-title">NIELIT Centre Staff Profile</h1>
+                <p class="brand-subtitle">Official profile form for PDF &amp; records</p>
             </div>
         </div>
     </div>
 </div>
 
-<div class="container pb-5">
+<div class="container page-shell">
     <?php if (!empty($pageError)): ?>
-        <div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($pageError); ?></div>
+        <div class="alert alert-modern alert-danger mt-4">
+            <i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($pageError); ?>
+        </div>
     <?php elseif ($submitted && empty($error_message)): ?>
-        <div class="alert alert-success">
-            <h5 class="alert-heading"><i class="fas fa-check-circle me-2"></i>Profile submitted successfully</h5>
-            <p class="mb-0">Thank you, <strong><?php echo htmlspecialchars($staff['name']); ?></strong>. Your NIELIT Centre staff profile has been saved. Admin can download the PDF from the staff panel.</p>
+        <div class="success-card mt-4">
+            <div class="success-icon"><i class="fas fa-check"></i></div>
+            <h2 class="h4 mb-2">Profile submitted successfully</h2>
+            <p class="text-muted mb-0">Thank you, <strong><?php echo htmlspecialchars($staff['name']); ?></strong>. Your NIELIT Centre staff profile has been saved. Admin can download the PDF from the staff panel.</p>
         </div>
     <?php endif; ?>
 
     <?php if ($staff && (!$submitted || !empty($error_message))): ?>
-        <div class="link-timer" id="publicProfileLinkTimer" data-expires-ts="<?php echo (int) $linkExpiresTs; ?>">
+        <div class="link-timer mt-4" id="publicProfileLinkTimer" data-expires-ts="<?php echo (int) $linkExpiresTs; ?>">
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <div>
                     <i class="fas fa-clock me-2"></i>
-                    <span>This link expires in</span>
+                    <span>Link expires in</span>
                     <strong class="timer-countdown ms-1" data-timer-text><?php echo $linkExpiresTs > 0 ? '--:--' : 'Soon'; ?></strong>
                 </div>
                 <?php if ($linkExpiresAtLabel !== ''): ?>
@@ -198,10 +512,10 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
                 </div>
                 <?php endif; ?>
             </div>
-            <div class="small mt-1 opacity-75">Complete and submit your profile before the link expires.</div>
+            <div class="small mt-1 opacity-75">Please complete and submit before the link expires.</div>
         </div>
         <?php if ($linkExpiresTs <= 0): ?>
-        <div class="alert alert-warning py-2">
+        <div class="alert alert-modern alert-warning py-2">
             <i class="fas fa-exclamation-triangle me-1"></i>
             Expiry time could not be loaded. If the form stops working, ask admin to send a new link.
         </div>
@@ -210,31 +524,33 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
 
     <?php if ($staff): ?>
         <?php if (!$submitted || !empty($error_message)): ?>
-        <div class="form-card" id="publicProfileFormCard">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+
+        <div class="profile-hero-card" id="publicProfileFormCard">
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                 <div>
-                    <h2 class="h5 mb-1"><?php echo htmlspecialchars($staff['name']); ?></h2>
+                    <h2 class="staff-name"><?php echo htmlspecialchars($staff['name']); ?></h2>
                     <?php if (!empty($staff['designation']) || !empty($staff['department'])): ?>
-                        <div class="text-muted small">
+                        <div class="staff-meta">
                             <?php echo htmlspecialchars(trim($staff['designation'] . ($staff['department'] ? ' · ' . $staff['department'] : ''))); ?>
                         </div>
                     <?php endif; ?>
                     <?php if (!empty($staff['staff_category'])): ?>
-                        <span class="badge bg-primary mt-2"><?php echo htmlspecialchars($staff['staff_category']); ?></span>
+                        <span class="category-pill"><i class="fas fa-id-badge"></i><?php echo htmlspecialchars($staff['staff_category']); ?></span>
                     <?php endif; ?>
                 </div>
-                <div style="min-width:200px;">
-                    <div class="small text-muted mb-1">Profile completion: <strong><?php echo $completion; ?>%</strong></div>
+                <div class="completion-wrap">
+                    <div class="completion-label">Profile completion</div>
+                    <div class="completion-value"><?php echo $completion; ?>%</div>
                     <div class="completion-bar"><div class="completion-bar-fill" style="width:<?php echo $completion; ?>%;"></div></div>
                 </div>
             </div>
         </div>
 
         <?php if ($error_message): ?>
-            <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
+            <div class="alert alert-modern alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
         <?php endif; ?>
         <?php if ($success_message && !$submitted): ?>
-            <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
+            <div class="alert alert-modern alert-success"><?php echo htmlspecialchars($success_message); ?></div>
         <?php endif; ?>
 
         <form method="POST" enctype="multipart/form-data" id="publicStaffProfileForm">
@@ -242,27 +558,49 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
             <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
 
             <div class="form-card">
-                <div class="section-title"><i class="fas fa-camera me-2"></i>Passport-size Photo (for PDF)</div>
-                <div class="row g-3 align-items-center">
-                    <div class="col-md-3">
-                        <div class="border rounded p-2 text-center bg-light" style="min-height:140px;">
-                            <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
-                                <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Photo" class="img-fluid" style="max-height:120px;">
-                            <?php else: ?>
-                                <div class="text-muted py-4"><i class="fas fa-user fa-2x"></i><br><small>Photo</small></div>
-                            <?php endif; ?>
+                <div class="section-title">
+                    <span class="section-icon"><i class="fas fa-camera"></i></span>
+                    Passport-size Photo
+                </div>
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-4">
+                        <div class="photo-upload-zone">
+                            <div class="photo-preview-box" id="photoPreviewBox">
+                                <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
+                                    <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Photo" id="photoPreviewImg">
+                                <?php else: ?>
+                                    <div class="photo-placeholder" id="photoPlaceholder">
+                                        <i class="fas fa-user"></i>
+                                        <span>Photo preview</span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="file-input-wrap">
+                                <label class="form-label" for="profile_photo">Upload photo (JPG/PNG, max 5 MB)</label>
+                                <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg">
+                            </div>
+                            <div class="small text-muted mt-2">Used on your official PDF profile</div>
                         </div>
                     </div>
-                    <div class="col-md-9">
-                        <label class="form-label" for="profile_photo">Upload passport photo (JPG/PNG, max 5 MB)</label>
-                        <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg">
+                    <div class="col-md-8">
+                        <div class="p-3 rounded-3" style="background:#f8fafc;border:1px solid var(--border);">
+                            <h6 class="fw-semibold mb-2"><i class="fas fa-lightbulb text-warning me-1"></i> Photo tips</h6>
+                            <ul class="small text-muted mb-0 ps-3">
+                                <li>Use a recent passport-size photo with plain background</li>
+                                <li>Face should be clearly visible, formal attire preferred</li>
+                                <li>Image will appear on the top-right of your PDF profile</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <?php foreach ($fieldGroups as $group): ?>
             <div class="form-card">
-                <div class="section-title"><i class="fas <?php echo htmlspecialchars($group['icon']); ?> me-2"></i><?php echo htmlspecialchars($group['title']); ?></div>
+                <div class="section-title">
+                    <span class="section-icon"><i class="fas <?php echo htmlspecialchars($group['icon']); ?>"></i></span>
+                    <?php echo htmlspecialchars($group['title']); ?>
+                </div>
                 <div class="row g-3">
                     <?php foreach ($group['fields'] as $key => $field):
                         $col = $field['col'];
@@ -285,7 +623,7 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
                         <?php elseif ($field['type'] === 'textarea'): ?>
                             <textarea class="form-control" id="field_<?php echo htmlspecialchars($key); ?>" name="<?php echo htmlspecialchars($key); ?>" rows="<?php echo (int) ($field['rows'] ?? 3); ?>" <?php echo $required ? 'required' : ''; ?> placeholder="<?php echo htmlspecialchars($field['placeholder'] ?? ''); ?>"><?php echo $value; ?></textarea>
                         <?php else: ?>
-                            <input type="<?php echo htmlspecialchars($field['type']); ?>" class="form-control" id="field_<?php echo htmlspecialchars($key); ?>" name="<?php echo htmlspecialchars($key); ?>" value="<?php echo $value; ?>" <?php echo $required ? 'required' : ''; ?>>
+                            <input type="<?php echo htmlspecialchars($field['type']); ?>" class="form-control" id="field_<?php echo htmlspecialchars($key); ?>" name="<?php echo htmlspecialchars($key); ?>" value="<?php echo $value; ?>" <?php echo $required ? 'required' : ''; ?> placeholder="<?php echo htmlspecialchars($field['placeholder'] ?? ''); ?>">
                         <?php endif; ?>
                     </div>
                     <?php endforeach; ?>
@@ -293,10 +631,13 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
             </div>
             <?php endforeach; ?>
 
-            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                <button type="submit" class="btn btn-primary btn-lg">
-                    <i class="fas fa-paper-plane me-2"></i>Submit Profile
-                </button>
+            <div class="sticky-submit">
+                <div class="sticky-submit-inner">
+                    <div class="sticky-hint"><i class="fas fa-shield-alt me-1"></i> Your data is saved securely with NIELIT Bhubaneswar</div>
+                    <button type="submit" class="btn btn-primary btn-submit-modern btn-lg" id="submitProfileBtn">
+                        <i class="fas fa-paper-plane me-2"></i>Submit Profile
+                    </button>
+                </div>
             </div>
         </form>
         <?php endif; ?>
@@ -356,6 +697,30 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
     });
+
+    const photoInput = document.getElementById('profile_photo');
+    if (photoInput) {
+        photoInput.addEventListener('change', function () {
+            const file = this.files && this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const box = document.getElementById('photoPreviewBox');
+                if (!box) return;
+                box.innerHTML = '<img src="' + e.target.result + '" alt="Preview" id="photoPreviewImg" style="width:100%;height:100%;object-fit:cover;">';
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const form = document.getElementById('publicStaffProfileForm');
+    const submitBtn = document.getElementById('submitProfileBtn');
+    if (form && submitBtn) {
+        form.addEventListener('submit', function () {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+        });
+    }
 });
 </script>
 </body>
