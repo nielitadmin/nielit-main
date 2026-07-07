@@ -415,15 +415,22 @@ if ($count_result) {
                                     <td>
                                         <?php
                                         $profilePct = staffProfileCompletionPercent($faculty);
-                                        $staffProfileUrl = getStaffProfilePublicUrl(ensureStaffProfileToken($conn, (int) $faculty['id']));
+                                        $shareLink = buildStaffProfileShareLink($conn, (int) $faculty['id']);
+                                        $staffProfileUrl = $shareLink['url'];
                                         ?>
                                         <a href="staff_profile.php?id=<?php echo (int)$faculty['id']; ?>" class="btn btn-sm btn-info" title="Edit full NIELIT Centre profile">
                                             <i class="fas fa-id-card"></i> Profile
                                         </a>
                                         <button type="button" class="btn btn-sm btn-outline-primary mt-1" title="Copy link for staff to fill profile"
-                                                onclick="copyStaffProfileLink(<?php echo json_encode($staffProfileUrl); ?>, <?php echo json_encode($faculty['name']); ?>)">
+                                                data-profile-url="<?php echo htmlspecialchars($staffProfileUrl, ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-staff-name="<?php echo htmlspecialchars($faculty['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                onclick="copyStaffProfileLink(this)"
+                                                <?php echo $staffProfileUrl === '' ? 'disabled' : ''; ?>>
                                             <i class="fas fa-link"></i> Copy Link
                                         </button>
+                                        <?php if ($staffProfileUrl === ''): ?>
+                                        <div class="small text-danger mt-1">Link not ready — open Profile to generate.</div>
+                                        <?php endif; ?>
                                         <div class="small text-muted mt-1"><?php echo $profilePct; ?>% complete</div>
                                         <a href="generate_staff_profile_pdf.php?id=<?php echo (int)$faculty['id']; ?>" target="_blank" class="btn btn-sm btn-outline-danger mt-1" title="Download profile PDF">
                                             <i class="fas fa-file-pdf"></i> PDF
@@ -614,22 +621,52 @@ if ($count_result) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
-function copyStaffProfileLink(url, staffName) {
+function copyStaffProfileLink(buttonOrUrl, staffName) {
+    let url = '';
+    let name = staffName || 'staff member';
+
+    if (buttonOrUrl && typeof buttonOrUrl === 'object' && buttonOrUrl.dataset) {
+        url = (buttonOrUrl.dataset.profileUrl || '').trim();
+        name = (buttonOrUrl.dataset.staffName || name).trim();
+    } else {
+        url = String(buttonOrUrl || '').trim();
+    }
+
     if (!url) {
-        toast.error('Profile link is not available.');
+        toast.error('Profile link is not available yet. Open Profile and click Generate link.');
         return;
     }
-    navigator.clipboard.writeText(url).then(function () {
-        toast.success('Profile link copied for ' + staffName);
-    }).catch(function () {
+
+    const copyFallback = function () {
         const tmp = document.createElement('textarea');
         tmp.value = url;
+        tmp.setAttribute('readonly', '');
+        tmp.style.position = 'fixed';
+        tmp.style.left = '-9999px';
         document.body.appendChild(tmp);
         tmp.select();
-        document.execCommand('copy');
+        tmp.setSelectionRange(0, tmp.value.length);
+        let copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (e) {
+            copied = false;
+        }
         document.body.removeChild(tmp);
-        toast.success('Profile link copied for ' + staffName);
-    });
+        if (copied) {
+            toast.success('Profile link copied for ' + name);
+        } else {
+            window.prompt('Copy this profile link:', url);
+        }
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(function () {
+            toast.success('Profile link copied for ' + name);
+        }).catch(copyFallback);
+    } else {
+        copyFallback();
+    }
 }
 
 function editStaff(staff) {

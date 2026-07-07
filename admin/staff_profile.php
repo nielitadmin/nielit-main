@@ -45,8 +45,10 @@ if (!$staff) {
 
 $fieldGroups = staffProfileFieldGroups($conn);
 $completion = staffProfileCompletionPercent($staff);
-$profileToken = ensureStaffProfileToken($conn, $facultyId);
-$profilePublicUrl = $profileToken !== '' ? getStaffProfilePublicUrl($profileToken) : '';
+$shareLink = buildStaffProfileShareLink($conn, $facultyId);
+$profileToken = $shareLink['token'];
+$profilePublicUrl = $shareLink['url'];
+$profileLinkError = $shareLink['success'] ? '' : ($shareLink['message'] ?? 'Could not create profile link.');
 $success_message = null;
 $error_message = null;
 
@@ -170,22 +172,28 @@ function staffFieldValue(array $staff, string $key, string $col): string
         </div>
 
         <div class="admin-main">
-            <?php if ($profilePublicUrl !== ''): ?>
             <div class="content-card mb-3">
                 <div class="card-body">
                     <h6 class="mb-2"><i class="fas fa-link text-primary"></i> Share profile link with staff</h6>
                     <p class="text-muted small mb-2">Send this link by WhatsApp or email. The staff member can open it and fill their profile without admin login.</p>
+                    <?php if ($profilePublicUrl !== ''): ?>
                     <div class="input-group mb-2">
                         <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
                         <button type="button" class="btn btn-outline-primary" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
                     </div>
-                    <form method="POST" class="d-inline" onsubmit="return confirm('Generate a new link? The old link will stop working.');">
+                    <?php else: ?>
+                    <div class="alert alert-warning py-2 mb-2">
+                        <?php echo htmlspecialchars($profileLinkError ?: 'Profile link could not be created yet.'); ?>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('<?php echo $profilePublicUrl !== '' ? 'Generate a new link? The old link will stop working.' : 'Generate profile link for this staff member?'; ?>');">
                         <input type="hidden" name="action" value="regenerate_profile_link">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-sync"></i> Regenerate link</button>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-sync"></i> <?php echo $profilePublicUrl !== '' ? 'Regenerate link' : 'Generate link'; ?>
+                        </button>
                     </form>
                 </div>
             </div>
-            <?php endif; ?>
 
             <form method="POST" id="staffProfileForm" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="save_profile">
@@ -318,15 +326,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
 function copyStaffProfileLink() {
     const input = document.getElementById('staffProfilePublicUrl');
-    if (!input) return;
-    input.select();
-    input.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(input.value).then(function () {
-        toast.success('Profile link copied to clipboard.');
-    }).catch(function () {
-        document.execCommand('copy');
-        toast.success('Profile link copied.');
-    });
+    const url = input ? input.value.trim() : '';
+    if (!url) {
+        toast.error('No profile link to copy. Click Generate link first.');
+        return;
+    }
+
+    const copyFallback = function () {
+        if (input) {
+            input.focus();
+            input.select();
+            input.setSelectionRange(0, input.value.length);
+        }
+        const tmp = document.createElement('textarea');
+        tmp.value = url;
+        tmp.setAttribute('readonly', '');
+        tmp.style.position = 'fixed';
+        tmp.style.left = '-9999px';
+        document.body.appendChild(tmp);
+        tmp.select();
+        tmp.setSelectionRange(0, tmp.value.length);
+        let copied = false;
+        try {
+            copied = document.execCommand('copy');
+        } catch (e) {
+            copied = false;
+        }
+        document.body.removeChild(tmp);
+        if (copied) {
+            toast.success('Profile link copied to clipboard.');
+        } else {
+            window.prompt('Copy this profile link:', url);
+        }
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(function () {
+            toast.success('Profile link copied to clipboard.');
+        }).catch(copyFallback);
+    } else {
+        copyFallback();
+    }
 }
 </script>
 </body>

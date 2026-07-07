@@ -3,6 +3,14 @@
  * NIELIT Centre staff profile — extended fields for Non S&T / faculty records.
  */
 
+if (!function_exists('facultyTableHasColumn')) {
+    function facultyTableHasColumn(mysqli $conn, string $column): bool
+    {
+        $check = $conn->query("SHOW COLUMNS FROM faculty LIKE '" . $conn->real_escape_string($column) . "'");
+        return $check && $check->num_rows > 0;
+    }
+}
+
 if (!function_exists('ensureStaffProfileSchema')) {
     function ensureStaffProfileSchema(mysqli $conn): void
     {
@@ -11,44 +19,63 @@ if (!function_exists('ensureStaffProfileSchema')) {
             return;
         }
 
-        $columns = [
-            'nielit_centre'            => "VARCHAR(255) DEFAULT NULL AFTER department",
-            'employment_type'          => "VARCHAR(50) DEFAULT NULL AFTER nielit_centre",
-            'date_of_joining'          => "DATE DEFAULT NULL AFTER employment_type",
-            'highest_qualification'    => "VARCHAR(255) DEFAULT NULL AFTER date_of_joining",
-            'university_institute'     => "VARCHAR(255) DEFAULT NULL AFTER highest_qualification",
-            'year_of_passing'          => "VARCHAR(10) DEFAULT NULL AFTER university_institute",
-            'specialization'           => "VARCHAR(255) DEFAULT NULL AFTER year_of_passing",
-            'areas_of_expertise'       => "TEXT DEFAULT NULL AFTER specialization",
-            'experience_years'         => "DECIMAL(5,1) DEFAULT NULL AFTER areas_of_expertise",
-            'research_interests'       => "TEXT DEFAULT NULL AFTER experience_years",
-            'research_publications'    => "TEXT DEFAULT NULL AFTER research_interests",
-            'books_chapters'           => "TEXT DEFAULT NULL AFTER research_publications",
-            'patents'                  => "TEXT DEFAULT NULL AFTER books_chapters",
-            'sponsored_projects'       => "TEXT DEFAULT NULL AFTER patents",
-            'consultancy_projects'     => "TEXT DEFAULT NULL AFTER sponsored_projects",
-            'technology_developed'       => "TEXT DEFAULT NULL AFTER consultancy_projects",
-            'research_guidance'        => "TEXT DEFAULT NULL AFTER technology_developed",
-            'awards_recognitions'      => "TEXT DEFAULT NULL AFTER research_guidance",
-            'professional_memberships' => "TEXT DEFAULT NULL AFTER awards_recognitions",
-            'profile_photo'            => "VARCHAR(255) DEFAULT NULL AFTER professional_memberships",
-            'profile_updated_at'       => "TIMESTAMP NULL DEFAULT NULL AFTER profile_photo",
-            'profile_token'            => "VARCHAR(32) DEFAULT NULL AFTER profile_updated_at",
+        $columnDefinitions = [
+            'nielit_centre'            => 'VARCHAR(255) DEFAULT NULL',
+            'employment_type'          => 'VARCHAR(50) DEFAULT NULL',
+            'date_of_joining'          => 'DATE DEFAULT NULL',
+            'highest_qualification'    => 'VARCHAR(255) DEFAULT NULL',
+            'university_institute'     => 'VARCHAR(255) DEFAULT NULL',
+            'year_of_passing'          => 'VARCHAR(10) DEFAULT NULL',
+            'specialization'           => 'VARCHAR(255) DEFAULT NULL',
+            'areas_of_expertise'       => 'TEXT DEFAULT NULL',
+            'experience_years'         => 'DECIMAL(5,1) DEFAULT NULL',
+            'research_interests'       => 'TEXT DEFAULT NULL',
+            'research_publications'    => 'TEXT DEFAULT NULL',
+            'books_chapters'           => 'TEXT DEFAULT NULL',
+            'patents'                  => 'TEXT DEFAULT NULL',
+            'sponsored_projects'       => 'TEXT DEFAULT NULL',
+            'consultancy_projects'     => 'TEXT DEFAULT NULL',
+            'technology_developed'     => 'TEXT DEFAULT NULL',
+            'research_guidance'        => 'TEXT DEFAULT NULL',
+            'awards_recognitions'      => 'TEXT DEFAULT NULL',
+            'professional_memberships' => 'TEXT DEFAULT NULL',
+            'profile_photo'            => 'VARCHAR(255) DEFAULT NULL',
+            'profile_updated_at'       => 'TIMESTAMP NULL DEFAULT NULL',
+            'profile_token'            => 'VARCHAR(32) DEFAULT NULL',
         ];
 
-        foreach ($columns as $col => $definition) {
-            $check = $conn->query("SHOW COLUMNS FROM faculty LIKE '" . $conn->real_escape_string($col) . "'");
-            if ($check && $check->num_rows === 0) {
-                $conn->query("ALTER TABLE faculty ADD COLUMN `$col` $definition");
+        $orderedColumns = array_keys($columnDefinitions);
+        $afterColumn = facultyTableHasColumn($conn, 'department') ? 'department' : '';
+
+        foreach ($orderedColumns as $column) {
+            if (facultyTableHasColumn($conn, $column)) {
+                $afterColumn = $column;
+                continue;
+            }
+
+            $definition = $columnDefinitions[$column];
+            $sql = "ALTER TABLE faculty ADD COLUMN `$column` $definition";
+            if ($afterColumn !== '') {
+                $sql .= " AFTER `$afterColumn`";
+            }
+            $conn->query($sql);
+
+            if (!facultyTableHasColumn($conn, $column)) {
+                $conn->query("ALTER TABLE faculty ADD COLUMN `$column` $definition");
+            }
+
+            if (facultyTableHasColumn($conn, $column)) {
+                $afterColumn = $column;
             }
         }
 
-        $idx = $conn->query("SHOW INDEX FROM faculty WHERE Key_name = 'uniq_profile_token'");
-        if ($idx && $idx->num_rows === 0) {
-            $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
+        if (facultyTableHasColumn($conn, 'profile_token')) {
+            $idx = $conn->query("SHOW INDEX FROM faculty WHERE Key_name = 'uniq_profile_token'");
+            if ($idx && $idx->num_rows === 0) {
+                $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
+            }
+            $done = true;
         }
-
-        $done = true;
     }
 }
 
@@ -68,7 +95,39 @@ if (!function_exists('generateStaffProfileToken')) {
 if (!function_exists('getStaffProfilePublicUrl')) {
     function getStaffProfilePublicUrl(string $token): string
     {
+        $token = trim($token);
+        if ($token === '') {
+            return '';
+        }
+
         return rtrim(APP_URL, '/') . '/public/staff_profile.php?token=' . rawurlencode($token);
+    }
+}
+
+if (!function_exists('buildStaffProfileShareLink')) {
+    function buildStaffProfileShareLink(mysqli $conn, int $facultyId): array
+    {
+        $token = ensureStaffProfileToken($conn, $facultyId);
+        if ($token === '') {
+            $regen = regenerateStaffProfileToken($conn, $facultyId);
+            if ($regen['success']) {
+                $token = (string) ($regen['token'] ?? '');
+            } else {
+                return [
+                    'success' => false,
+                    'token' => '',
+                    'url' => '',
+                    'message' => $regen['message'] ?? 'Could not create profile link. Run the staff profile migration once.',
+                ];
+            }
+        }
+
+        return [
+            'success' => true,
+            'token' => $token,
+            'url' => getStaffProfilePublicUrl($token),
+            'message' => '',
+        ];
     }
 }
 
@@ -76,6 +135,10 @@ if (!function_exists('ensureStaffProfileToken')) {
     function ensureStaffProfileToken(mysqli $conn, int $facultyId): string
     {
         ensureStaffProfileSchema($conn);
+
+        if (!facultyTableHasColumn($conn, 'profile_token')) {
+            return '';
+        }
 
         $stmt = $conn->prepare('SELECT profile_token FROM faculty WHERE id = ? LIMIT 1');
         if (!$stmt) {
@@ -113,11 +176,19 @@ if (!function_exists('regenerateStaffProfileToken')) {
             $check->close();
         } while ($exists);
 
-        $stmt = $conn->prepare('UPDATE faculty SET profile_token = ?, profile_updated_at = NOW() WHERE id = ?');
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Could not save profile link token.'];
+        if (facultyTableHasColumn($conn, 'profile_updated_at')) {
+            $stmt = $conn->prepare('UPDATE faculty SET profile_token = ?, profile_updated_at = NOW() WHERE id = ?');
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Could not save profile link token.'];
+            }
+            $stmt->bind_param('si', $token, $facultyId);
+        } else {
+            $stmt = $conn->prepare('UPDATE faculty SET profile_token = ? WHERE id = ?');
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Could not save profile link token.'];
+            }
+            $stmt->bind_param('si', $token, $facultyId);
         }
-        $stmt->bind_param('si', $token, $facultyId);
         if (!$stmt->execute()) {
             $stmt->close();
             return ['success' => false, 'message' => 'Failed to generate profile link.'];
