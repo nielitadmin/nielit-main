@@ -698,6 +698,10 @@ function initStaffProfileLinkTimers() {
                 container.classList.add('text-danger');
                 const copyBtn = container.parentElement.querySelector('[data-profile-url]');
                 if (copyBtn) copyBtn.disabled = true;
+                if (!container.dataset.expiredToastShown) {
+                    container.dataset.expiredToastShown = '1';
+                    toast.warning('Profile link expired. Open Profile to regenerate.', 5000);
+                }
                 return true;
             }
             textEl.textContent = formatProfileLinkCountdown(left);

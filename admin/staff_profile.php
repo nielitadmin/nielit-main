@@ -211,12 +211,16 @@ function staffFieldValue(array $staff, string $key, string $col): string
                         <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
                         <button type="button" class="btn btn-outline-primary" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
                     </div>
-                    <?php else: ?>
-                    <div class="alert alert-<?php echo $profileIsExpired ? 'danger' : 'warning'; ?> py-2 mb-2">
-                        <?php echo htmlspecialchars($profileLinkError ?: 'Profile link could not be created yet.'); ?>
+                    <?php elseif ($profileIsExpired): ?>
+                    <div class="text-muted small mb-2" id="profileLinkStatusHint">
+                        <i class="fas fa-hourglass-end text-danger me-1"></i> Previous link expired — generate a new one below.
+                    </div>
+                    <?php elseif ($profileLinkError !== ''): ?>
+                    <div class="text-muted small mb-2" id="profileLinkStatusHint">
+                        <i class="fas fa-info-circle me-1"></i> <?php echo htmlspecialchars($profileLinkError); ?>
                     </div>
                     <?php endif; ?>
-                    <form method="POST" class="d-inline" onsubmit="return confirm('<?php echo $profilePublicUrl !== '' ? 'Generate a new link? The old link will stop working immediately.' : 'Generate profile link for this staff member? It will be valid for 1 hour.'; ?>');">
+                    <form method="POST" class="d-inline" id="regenerateProfileLinkForm">
                         <input type="hidden" name="action" value="regenerate_profile_link">
                         <button type="submit" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-sync"></i> <?php echo $profilePublicUrl !== '' ? 'Regenerate link' : 'Generate link'; ?>
@@ -352,12 +356,50 @@ document.addEventListener('DOMContentLoaded', function () {
     <?php if ($error_message): ?>
     toast.error(<?php echo json_encode($error_message); ?>);
     <?php endif; ?>
+    <?php if ($profileIsExpired && $profilePublicUrl === ''): ?>
+    toast.warning('Profile link expired. Click Generate link to create a new one (valid for 1 hour).', 6000);
+    <?php elseif (!$shareLink['success'] && !$profileIsExpired && $profilePublicUrl === '' && $profileLinkError !== ''): ?>
+    toast.info(<?php echo json_encode($profileLinkError); ?>, 5000);
+    <?php endif; ?>
+
     initStaffProfileLinkTimer(document.getElementById('adminProfileLinkTimer'), function () {
         const input = document.getElementById('staffProfilePublicUrl');
         const copyBtn = input ? input.parentElement.querySelector('button') : null;
         if (input) input.value = '';
         if (copyBtn) copyBtn.disabled = true;
+        toast.warning('Profile link has expired. Click Generate link to create a new one.', 6000);
     });
+
+    const regenerateForm = document.getElementById('regenerateProfileLinkForm');
+    if (regenerateForm) {
+        let allowRegenerateSubmit = false;
+        const hasActiveLink = <?php echo $profilePublicUrl !== '' ? 'true' : 'false'; ?>;
+
+        regenerateForm.addEventListener('submit', function (e) {
+            if (allowRegenerateSubmit) {
+                return;
+            }
+            e.preventDefault();
+
+            showConfirm({
+                title: hasActiveLink ? 'Regenerate Profile Link?' : 'Generate Profile Link?',
+                message: hasActiveLink
+                    ? 'The current link will stop working immediately. The new link will be valid for <strong>1 hour</strong>.'
+                    : 'Generate a profile link for this staff member? It will be valid for <strong>1 hour</strong>.',
+                type: 'warning',
+                confirmText: hasActiveLink ? 'Regenerate Link' : 'Generate Link',
+                cancelText: 'Cancel'
+            }).then(function (confirmed) {
+                if (!confirmed) {
+                    toast.info('Link generation cancelled.');
+                    return;
+                }
+                const loadingToast = toast.loading('Generating profile link...');
+                allowRegenerateSubmit = true;
+                regenerateForm.submit();
+            });
+        });
+    }
 });
 
 function formatProfileLinkCountdown(totalSeconds) {
