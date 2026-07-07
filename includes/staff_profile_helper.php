@@ -33,6 +33,7 @@ if (!function_exists('ensureStaffProfileSchema')) {
             'professional_memberships' => "TEXT DEFAULT NULL AFTER awards_recognitions",
             'profile_photo'            => "VARCHAR(255) DEFAULT NULL AFTER professional_memberships",
             'profile_updated_at'       => "TIMESTAMP NULL DEFAULT NULL AFTER profile_photo",
+            'profile_token'            => "VARCHAR(32) DEFAULT NULL AFTER profile_updated_at",
         ];
 
         foreach ($columns as $col => $definition) {
@@ -42,7 +43,124 @@ if (!function_exists('ensureStaffProfileSchema')) {
             }
         }
 
+        $idx = $conn->query("SHOW INDEX FROM faculty WHERE Key_name = 'uniq_profile_token'");
+        if ($idx && $idx->num_rows === 0) {
+            $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
+        }
+
         $done = true;
+    }
+}
+
+if (!function_exists('generateStaffProfileToken')) {
+    function generateStaffProfileToken(int $length = 8): string
+    {
+        $chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        $token = '';
+        $max = strlen($chars) - 1;
+        for ($i = 0; $i < $length; $i++) {
+            $token .= $chars[random_int(0, $max)];
+        }
+        return $token;
+    }
+}
+
+if (!function_exists('getStaffProfilePublicUrl')) {
+    function getStaffProfilePublicUrl(string $token): string
+    {
+        return rtrim(APP_URL, '/') . '/public/staff_profile.php?token=' . rawurlencode($token);
+    }
+}
+
+if (!function_exists('ensureStaffProfileToken')) {
+    function ensureStaffProfileToken(mysqli $conn, int $facultyId): string
+    {
+        ensureStaffProfileSchema($conn);
+
+        $stmt = $conn->prepare('SELECT profile_token FROM faculty WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return '';
+        }
+        $stmt->bind_param('i', $facultyId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        $existing = trim((string) ($row['profile_token'] ?? ''));
+        if ($existing !== '') {
+            return $existing;
+        }
+
+        $result = regenerateStaffProfileToken($conn, $facultyId);
+        return $result['success'] ? (string) ($result['token'] ?? '') : '';
+    }
+}
+
+if (!function_exists('regenerateStaffProfileToken')) {
+    function regenerateStaffProfileToken(mysqli $conn, int $facultyId): array
+    {
+        ensureStaffProfileSchema($conn);
+
+        do {
+            $token = generateStaffProfileToken(8);
+            $check = $conn->prepare('SELECT id FROM faculty WHERE profile_token = ? AND id <> ? LIMIT 1');
+            if (!$check) {
+                return ['success' => false, 'message' => 'Could not validate token uniqueness.'];
+            }
+            $check->bind_param('si', $token, $facultyId);
+            $check->execute();
+            $exists = $check->get_result()->num_rows > 0;
+            $check->close();
+        } while ($exists);
+
+        $stmt = $conn->prepare('UPDATE faculty SET profile_token = ?, profile_updated_at = NOW() WHERE id = ?');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not save profile link token.'];
+        }
+        $stmt->bind_param('si', $token, $facultyId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return ['success' => false, 'message' => 'Failed to generate profile link.'];
+        }
+        $stmt->close();
+
+        return [
+            'success' => true,
+            'message' => 'New profile link generated.',
+            'token' => $token,
+            'url' => getStaffProfilePublicUrl($token),
+        ];
+    }
+}
+
+if (!function_exists('loadStaffByProfileToken')) {
+    function loadStaffByProfileToken(mysqli $conn, string $token): ?array
+    {
+        ensureStaffProfileSchema($conn);
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+
+        $stmt = $conn->prepare('SELECT * FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('staffProfilePublicFieldGroups')) {
+    function staffProfilePublicFieldGroups(mysqli $conn): array
+    {
+        $groups = staffProfileFieldGroups($conn);
+        unset($groups['basic']['fields']['staff_category']);
+        return $groups;
     }
 }
 

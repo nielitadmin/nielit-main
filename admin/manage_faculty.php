@@ -76,6 +76,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param("ssssssi", $name, $email, $phone, $designation, $department, $staff_category, $admin_id);
                 if ($stmt->execute()) {
                     $success_message = "Staff member added successfully!";
+                    $newFacultyId = (int) $conn->insert_id;
+                    if ($newFacultyId > 0) {
+                        ensureStaffProfileToken($conn, $newFacultyId);
+                    }
 
                     // Auto-send confirmation email if email is provided
                     if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -409,10 +413,17 @@ if ($count_result) {
                                         </span>
                                     </td>
                                     <td>
-                                        <?php $profilePct = staffProfileCompletionPercent($faculty); ?>
+                                        <?php
+                                        $profilePct = staffProfileCompletionPercent($faculty);
+                                        $staffProfileUrl = getStaffProfilePublicUrl(ensureStaffProfileToken($conn, (int) $faculty['id']));
+                                        ?>
                                         <a href="staff_profile.php?id=<?php echo (int)$faculty['id']; ?>" class="btn btn-sm btn-info" title="Edit full NIELIT Centre profile">
                                             <i class="fas fa-id-card"></i> Profile
                                         </a>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" title="Copy link for staff to fill profile"
+                                                onclick="copyStaffProfileLink(<?php echo json_encode($staffProfileUrl); ?>, <?php echo json_encode($faculty['name']); ?>)">
+                                            <i class="fas fa-link"></i> Copy Link
+                                        </button>
                                         <div class="small text-muted mt-1"><?php echo $profilePct; ?>% complete</div>
                                         <a href="generate_staff_profile_pdf.php?id=<?php echo (int)$faculty['id']; ?>" target="_blank" class="btn btn-sm btn-outline-danger mt-1" title="Download profile PDF">
                                             <i class="fas fa-file-pdf"></i> PDF
@@ -603,6 +614,24 @@ if ($count_result) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
+function copyStaffProfileLink(url, staffName) {
+    if (!url) {
+        toast.error('Profile link is not available.');
+        return;
+    }
+    navigator.clipboard.writeText(url).then(function () {
+        toast.success('Profile link copied for ' + staffName);
+    }).catch(function () {
+        const tmp = document.createElement('textarea');
+        tmp.value = url;
+        document.body.appendChild(tmp);
+        tmp.select();
+        document.execCommand('copy');
+        document.body.removeChild(tmp);
+        toast.success('Profile link copied for ' + staffName);
+    });
+}
+
 function editStaff(staff) {
     document.getElementById('edit_staff_id').value = staff.id;
     document.getElementById('edit_name').value = staff.name;

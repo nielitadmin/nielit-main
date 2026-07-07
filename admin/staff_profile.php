@@ -45,8 +45,21 @@ if (!$staff) {
 
 $fieldGroups = staffProfileFieldGroups($conn);
 $completion = staffProfileCompletionPercent($staff);
+$profileToken = ensureStaffProfileToken($conn, $facultyId);
+$profilePublicUrl = $profileToken !== '' ? getStaffProfilePublicUrl($profileToken) : '';
 $success_message = null;
 $error_message = null;
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regenerate_profile_link') {
+    $regen = regenerateStaffProfileToken($conn, $facultyId);
+    if ($regen['success']) {
+        $profileToken = $regen['token'];
+        $profilePublicUrl = $regen['url'];
+        $success_message = 'New profile link generated. Share the updated link with the staff member.';
+    } else {
+        $error_message = $regen['message'];
+    }
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_profile') {
     $result = saveStaffProfile($conn, $facultyId, $_POST);
@@ -157,6 +170,23 @@ function staffFieldValue(array $staff, string $key, string $col): string
         </div>
 
         <div class="admin-main">
+            <?php if ($profilePublicUrl !== ''): ?>
+            <div class="content-card mb-3">
+                <div class="card-body">
+                    <h6 class="mb-2"><i class="fas fa-link text-primary"></i> Share profile link with staff</h6>
+                    <p class="text-muted small mb-2">Send this link by WhatsApp or email. The staff member can open it and fill their profile without admin login.</p>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
+                        <button type="button" class="btn btn-outline-primary" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
+                    </div>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Generate a new link? The old link will stop working.');">
+                        <input type="hidden" name="action" value="regenerate_profile_link">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-sync"></i> Regenerate link</button>
+                    </form>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <form method="POST" id="staffProfileForm" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="save_profile">
 
@@ -285,6 +315,19 @@ document.addEventListener('DOMContentLoaded', function () {
     toast.error(<?php echo json_encode($error_message); ?>);
     <?php endif; ?>
 });
+
+function copyStaffProfileLink() {
+    const input = document.getElementById('staffProfilePublicUrl');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(function () {
+        toast.success('Profile link copied to clipboard.');
+    }).catch(function () {
+        document.execCommand('copy');
+        toast.success('Profile link copied.');
+    });
+}
 </script>
 </body>
 </html>
