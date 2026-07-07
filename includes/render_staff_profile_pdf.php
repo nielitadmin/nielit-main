@@ -1,6 +1,6 @@
 <?php
 /**
- * PDF renderer for NIELIT Centre staff profile (official single-page form).
+ * PDF renderer for NIELIT Centre staff profile (official form layout).
  */
 require_once __DIR__ . '/../libraries/tcpdf/tcpdf.php';
 require_once __DIR__ . '/tcpdf_devanagari_font.php';
@@ -22,7 +22,7 @@ if (!function_exists('renderStaffProfilePdf')) {
         $pdf->SetTitle('NIELIT Centre Staff Profile - ' . ($name !== '' ? $name : 'Staff'));
         $pdf->setPrintHeader(false);
         $pdf->setPrintFooter(false);
-        $pdf->SetAutoPageBreak(false);
+        $pdf->SetAutoPageBreak(true, 10);
         $pdf->SetMargins(10, 10, 10);
         $pdf->AddPage();
 
@@ -32,18 +32,19 @@ if (!function_exists('renderStaffProfilePdf')) {
 
         $headerBottom = staffPdfRenderLetterhead($pdf, $contentW);
         $pdf->SetY($headerBottom + 2);
-        staffPdfRenderCentrePhotoRow($pdf, $staff, $contentW);
+        staffPdfRenderPhotoBox($pdf, $staff, $contentW);
 
-        staffPdfSectionTitle($pdf, 'Basic Information');
+        staffPdfSectionTitle($pdf, 'Basic Information', $contentW);
         staffPdfFormRow($pdf, $labelW, $valueW, 'Name', $staff['name'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Designation', $staff['designation'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Department/School', $staff['department'] ?? '');
+        staffPdfFormRow($pdf, $labelW, $valueW, 'NIELIT Centre', $staff['nielit_centre'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Employment Type (Regular/Contractual/Project/Outsourced)', $staff['employment_type'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Date of Joining NIELIT', staffPdfFormatDate($staff['date_of_joining'] ?? ''));
         staffPdfFormRow($pdf, $labelW, $valueW, 'Official Email', $staff['email'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Mobile Number', $staff['phone'] ?? '');
 
-        staffPdfSectionTitle($pdf, 'Academic Profile');
+        staffPdfSectionTitle($pdf, 'Academic Profile', $contentW);
         staffPdfFormRow($pdf, $labelW, $valueW, 'Highest Qualification', $staff['highest_qualification'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'University/Institute', $staff['university_institute'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Year of Passing', $staff['year_of_passing'] ?? '');
@@ -51,7 +52,7 @@ if (!function_exists('renderStaffProfilePdf')) {
         staffPdfFormRow($pdf, $labelW, $valueW, 'Areas of Expertise (Top 5 Keywords)', $staff['areas_of_expertise'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Experience (Years)', $staff['experience_years'] ?? '');
 
-        staffPdfSectionTitle($pdf, 'Research & Professional Achievements');
+        staffPdfSectionTitle($pdf, 'Research & Professional Achievements', $contentW);
         staffPdfFormRow($pdf, $labelW, $valueW, 'Research Interests', $staff['research_interests'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Research Publications (Journals/Papers)', $staff['research_publications'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Books/Book Chapters', $staff['books_chapters'] ?? '');
@@ -115,18 +116,13 @@ if (!function_exists('staffPdfRenderLetterhead')) {
     }
 }
 
-if (!function_exists('staffPdfRenderCentrePhotoRow')) {
-    function staffPdfRenderCentrePhotoRow(TCPDF $pdf, array $staff, float $contentW): void
+if (!function_exists('staffPdfRenderPhotoBox')) {
+    function staffPdfRenderPhotoBox(TCPDF $pdf, array $staff, float $contentW): void
     {
         $startY = $pdf->GetY();
         $photoW = 28.0;
         $photoH = 32.0;
         $photoX = 10.0 + $contentW - $photoW;
-        $textW = $contentW - $photoW - 3;
-
-        $pdf->SetFont('times', 'B', 11);
-        $pdf->SetXY(10, $startY + 2);
-        $pdf->Cell($textW, 6, 'NIELIT Centre:', 0, 0, 'L');
 
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.25);
@@ -169,12 +165,17 @@ if (!function_exists('staffPdfResolvePhotoPath')) {
 }
 
 if (!function_exists('staffPdfSectionTitle')) {
-    function staffPdfSectionTitle(TCPDF $pdf, string $title): void
+    function staffPdfSectionTitle(TCPDF $pdf, string $title, float $contentW): void
     {
         $pdf->Ln(1.5);
         $pdf->SetFont('times', 'B', 9.5);
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Cell(0, 4.5, $title, 0, 1, 'L');
+        $y = $pdf->GetY();
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetLineWidth(0.2);
+        $pdf->Line(10.0, $y, 10.0 + $contentW, $y);
+        $pdf->Ln(0.5);
     }
 }
 
@@ -204,18 +205,24 @@ if (!function_exists('staffPdfFormRow')) {
     {
         $text = staffPdfFormatValue($value);
         $pdf->SetFont('times', '', 8);
-        $lineH = 3.8;
-        $valueLines = ($text !== '') ? max(1, $pdf->getNumLines($text, $valueW - 1.5)) : 1;
-        $labelLines = max(1, $pdf->getNumLines($label, $labelW - 1.5));
-        $rowH = max($minH, $lineH * max($valueLines, $labelLines));
+
+        $labelH = $pdf->getStringHeight($labelW - 2, $label);
+        $valueH = $pdf->getStringHeight($valueW - 2, $text !== '' ? $text : ' ');
+        $rowH = max($minH, $labelH + 0.6, $valueH + 0.6);
 
         $x = 10.0;
         $y = $pdf->GetY();
+        $pageBottom = 287.0;
+
+        if ($y + $rowH > $pageBottom) {
+            $pdf->AddPage();
+            $y = $pdf->GetY();
+        }
 
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.2);
         $pdf->SetFont('times', '', 8);
-        $pdf->MultiCell($labelW, $rowH, $label, 1, 'L', false, 0, $x, $y, true, 0, false, true, $rowH, 'M');
-        $pdf->MultiCell($valueW, $rowH, $text, 1, 'L', false, 1, $x + $labelW, $y, true, 0, false, true, $rowH, 'M');
+        $pdf->MultiCell($labelW, $rowH, $label, 1, 'L', false, 0, $x, $y);
+        $pdf->MultiCell($valueW, $rowH, $text, 1, 'L', false, 1, $x + $labelW, $y);
     }
 }

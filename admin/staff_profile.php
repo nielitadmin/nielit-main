@@ -43,7 +43,7 @@ if (!$staff) {
     exit();
 }
 
-$fieldGroups = staffProfileFieldGroups();
+$fieldGroups = staffProfileFieldGroups($conn);
 $completion = staffProfileCompletionPercent($staff);
 $success_message = null;
 $error_message = null;
@@ -227,7 +227,7 @@ function staffFieldValue(array $staff, string $key, string $col): string
 
                             <?php if ($field['type'] === 'select'): ?>
                                 <select class="form-select" id="field_<?php echo htmlspecialchars($key); ?>" name="<?php echo htmlspecialchars($key); ?>" <?php echo $required ? 'required' : ''; ?>>
-                                    <option value="">Select</option>
+                                    <option value=""><?php echo htmlspecialchars($field['placeholder'] ?? 'Select'); ?></option>
                                     <?php foreach ($field['options'] as $opt): ?>
                                         <option value="<?php echo htmlspecialchars($opt); ?>" <?php echo $value === $opt ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars($opt); ?>

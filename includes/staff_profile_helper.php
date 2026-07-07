@@ -12,7 +12,8 @@ if (!function_exists('ensureStaffProfileSchema')) {
         }
 
         $columns = [
-            'employment_type'          => "VARCHAR(50) DEFAULT NULL AFTER department",
+            'nielit_centre'            => "VARCHAR(255) DEFAULT NULL AFTER department",
+            'employment_type'          => "VARCHAR(50) DEFAULT NULL AFTER nielit_centre",
             'date_of_joining'          => "DATE DEFAULT NULL AFTER employment_type",
             'highest_qualification'    => "VARCHAR(255) DEFAULT NULL AFTER date_of_joining",
             'university_institute'     => "VARCHAR(255) DEFAULT NULL AFTER highest_qualification",
@@ -45,6 +46,53 @@ if (!function_exists('ensureStaffProfileSchema')) {
     }
 }
 
+if (!function_exists('getActiveTrainingCentres')) {
+    function getActiveTrainingCentres(mysqli $conn): array
+    {
+        if (!function_exists('normalize_nielit_centre_name')) {
+            require_once __DIR__ . '/institute_branding.php';
+        }
+
+        $centres = [];
+        $res = $conn->query('SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC');
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $centres[] = [
+                    'id' => (int) $row['id'],
+                    'name' => normalize_nielit_centre_name(trim((string) $row['name'])),
+                    'code' => trim((string) ($row['code'] ?? '')),
+                ];
+            }
+        }
+
+        if (empty($centres)) {
+            if (!defined('NIELIT_BALESHWAR_EXTENSION')) {
+                require_once __DIR__ . '/institute_branding.php';
+            }
+            $centres = [
+                ['id' => 0, 'name' => 'NIELIT Bhubaneswar', 'code' => 'BBSR'],
+                ['id' => 0, 'name' => NIELIT_BALESHWAR_EXTENSION, 'code' => 'BLSW'],
+                ['id' => 0, 'name' => 'NIELIT Raipur', 'code' => 'RPR'],
+            ];
+        }
+
+        return $centres;
+    }
+}
+
+if (!function_exists('staffTrainingCentreOptionNames')) {
+    function staffTrainingCentreOptionNames(mysqli $conn): array
+    {
+        $names = [];
+        foreach (getActiveTrainingCentres($conn) as $centre) {
+            if ($centre['name'] !== '') {
+                $names[] = $centre['name'];
+            }
+        }
+        return array_values(array_unique($names));
+    }
+}
+
 if (!function_exists('staffEmploymentTypeOptions')) {
     function staffEmploymentTypeOptions(): array
     {
@@ -53,9 +101,9 @@ if (!function_exists('staffEmploymentTypeOptions')) {
 }
 
 if (!function_exists('staffProfileFieldGroups')) {
-    function staffProfileFieldGroups(): array
+    function staffProfileFieldGroups(?mysqli $conn = null): array
     {
-        return [
+        $groups = [
             'basic' => [
                 'title' => 'Basic Information',
                 'icon'  => 'fa-id-card',
@@ -63,6 +111,7 @@ if (!function_exists('staffProfileFieldGroups')) {
                     'name'              => ['label' => 'Name', 'type' => 'text', 'required' => true, 'col' => 'name'],
                     'designation'       => ['label' => 'Designation', 'type' => 'text', 'required' => false, 'col' => 'designation'],
                     'department'        => ['label' => 'Department / School', 'type' => 'text', 'required' => false, 'col' => 'department'],
+                    'nielit_centre'     => ['label' => 'NIELIT Centre', 'type' => 'select', 'required' => false, 'col' => 'nielit_centre', 'options' => [], 'placeholder' => 'Select Training Centre'],
                     'employment_type'   => ['label' => 'Employment Type', 'type' => 'select', 'required' => false, 'col' => 'employment_type', 'options' => staffEmploymentTypeOptions()],
                     'date_of_joining'   => ['label' => 'Date of Joining NIELIT', 'type' => 'date', 'required' => false, 'col' => 'date_of_joining'],
                     'email'             => ['label' => 'Official Email', 'type' => 'email', 'required' => false, 'col' => 'email'],
@@ -101,6 +150,12 @@ if (!function_exists('staffProfileFieldGroups')) {
                 ],
             ],
         ];
+
+        if ($conn instanceof mysqli) {
+            $groups['basic']['fields']['nielit_centre']['options'] = staffTrainingCentreOptionNames($conn);
+        }
+
+        return $groups;
     }
 }
 
