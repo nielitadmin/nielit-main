@@ -32,13 +32,12 @@ if (!function_exists('renderStaffProfilePdf')) {
 
         $headerBottom = staffPdfRenderLetterhead($pdf, $contentW);
         $pdf->SetY($headerBottom + 2);
-        staffPdfRenderPhotoBox($pdf, $staff, $contentW);
+        staffPdfRenderCentrePhotoRow($pdf, $staff, $contentW);
 
         staffPdfSectionTitle($pdf, 'Basic Information', $contentW);
         staffPdfFormRow($pdf, $labelW, $valueW, 'Name', $staff['name'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Designation', $staff['designation'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Department/School', $staff['department'] ?? '');
-        staffPdfFormRow($pdf, $labelW, $valueW, 'NIELIT Centre', $staff['nielit_centre'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Employment Type (Regular/Contractual/Project/Outsourced)', $staff['employment_type'] ?? '');
         staffPdfFormRow($pdf, $labelW, $valueW, 'Date of Joining NIELIT', staffPdfFormatDate($staff['date_of_joining'] ?? ''));
         staffPdfFormRow($pdf, $labelW, $valueW, 'Official Email', $staff['email'] ?? '');
@@ -116,13 +115,15 @@ if (!function_exists('staffPdfRenderLetterhead')) {
     }
 }
 
-if (!function_exists('staffPdfRenderPhotoBox')) {
-    function staffPdfRenderPhotoBox(TCPDF $pdf, array $staff, float $contentW): void
+if (!function_exists('staffPdfRenderCentrePhotoRow')) {
+    function staffPdfRenderCentrePhotoRow(TCPDF $pdf, array $staff, float $contentW): void
     {
+        $marginLeft = 10.0;
         $startY = $pdf->GetY();
         $photoW = 28.0;
         $photoH = 32.0;
-        $photoX = 10.0 + $contentW - $photoW;
+        $photoX = $marginLeft + $contentW - $photoW;
+        $centreName = staffPdfFormatValue($staff['nielit_centre'] ?? '');
 
         $pdf->SetDrawColor(0, 0, 0);
         $pdf->SetLineWidth(0.25);
@@ -137,7 +138,24 @@ if (!function_exists('staffPdfRenderPhotoBox')) {
             $pdf->Cell($photoW, 5, 'Photo', 0, 0, 'C');
         }
 
+        $textW = $photoX - $marginLeft - 3;
+        $textY = $startY + ($photoH / 2) - 2.5;
+        $pdf->SetFont('times', 'B', 11);
+        $pdf->SetXY($marginLeft, $textY);
+        $label = 'NIELIT Centre:';
+        $labelW = $pdf->GetStringWidth($label) + 2;
+        $pdf->Cell($labelW, 5, $label, 0, 0, 'L');
+        $pdf->SetFont('times', '', 11);
+        $pdf->MultiCell($textW - $labelW, 5, $centreName, 0, 'L', false, 0, $marginLeft + $labelW, $textY);
+
         $pdf->SetY($startY + $photoH + 2);
+    }
+}
+
+if (!function_exists('staffPdfRenderPhotoBox')) {
+    function staffPdfRenderPhotoBox(TCPDF $pdf, array $staff, float $contentW): void
+    {
+        staffPdfRenderCentrePhotoRow($pdf, $staff, $contentW);
     }
 }
 
