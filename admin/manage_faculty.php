@@ -4,6 +4,9 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/email_helper.php';
+require_once __DIR__ . '/../includes/staff_profile_helper.php';
+
+ensureStaffProfileSchema($conn);
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
@@ -362,6 +365,7 @@ if ($count_result) {
                                     <th>Designation</th>
                                     <th>Department</th>
                                     <th>Status</th>
+                                    <th>Profile</th>
                                     <th>Send Email</th>
                                     <th>Actions</th>
                                 </tr>
@@ -405,6 +409,16 @@ if ($count_result) {
                                         </span>
                                     </td>
                                     <td>
+                                        <?php $profilePct = staffProfileCompletionPercent($faculty); ?>
+                                        <a href="staff_profile.php?id=<?php echo (int)$faculty['id']; ?>" class="btn btn-sm btn-info" title="Edit full NIELIT Centre profile">
+                                            <i class="fas fa-id-card"></i> Profile
+                                        </a>
+                                        <div class="small text-muted mt-1"><?php echo $profilePct; ?>% complete</div>
+                                        <a href="generate_staff_profile_pdf.php?id=<?php echo (int)$faculty['id']; ?>" target="_blank" class="btn btn-sm btn-outline-danger mt-1" title="Download profile PDF">
+                                            <i class="fas fa-file-pdf"></i> PDF
+                                        </a>
+                                    </td>
+                                    <td>
                                         <?php if (!empty($faculty['email'])): ?>
                                             <button class="btn btn-sm btn-warning"
                                                     onclick="resendStaffEmail(<?php echo (int)$faculty['id']; ?>, '<?php echo addslashes($faculty['name']); ?>', this)"
@@ -436,7 +450,7 @@ if ($count_result) {
                                 
                                 <?php if (empty($faculty_members)): ?>
                                 <tr>
-                                    <td colspan="9" class="text-center py-4">
+                                    <td colspan="10" class="text-center py-4">
                                         <div class="text-muted">
                                             <i class="fas fa-users" style="font-size: 3rem; opacity: 0.3; margin-bottom: 1rem; display: block;"></i>
                                             <p>No staff members found matching your criteria.</p>
@@ -485,13 +499,13 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
+                        <label for="email" class="form-label">Official Email</label>
                         <input type="email" class="form-control" id="email" name="email">
                     </div>
                     
                     <div class="mb-3">
-                        <label for="phone" class="form-label">Phone</label>
-                        <input type="text" class="form-control" id="phone" name="phone">
+                        <label for="phone" class="form-label">Mobile Number</label>
+                        <input type="text" class="form-control" id="phone" name="phone" maxlength="10" pattern="[0-9]{10}">
                     </div>
                     
                     <div class="mb-3">
@@ -500,9 +514,13 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="department" class="form-label">Department</label>
+                        <label for="department" class="form-label">Department / School</label>
                         <input type="text" class="form-control" id="department" name="department" placeholder="e.g., Computer Science, IT, Research">
                     </div>
+                    
+                    <p class="text-muted small mb-0">
+                        <i class="fas fa-info-circle"></i> After adding, open <strong>Profile</strong> to fill academic & research details and download PDF.
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -543,13 +561,13 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_email" class="form-label">Email</label>
+                        <label for="edit_email" class="form-label">Official Email</label>
                         <input type="email" class="form-control" id="edit_email" name="email">
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_phone" class="form-label">Phone</label>
-                        <input type="text" class="form-control" id="edit_phone" name="phone">
+                        <label for="edit_phone" class="form-label">Mobile Number</label>
+                        <input type="text" class="form-control" id="edit_phone" name="phone" maxlength="10">
                     </div>
                     
                     <div class="mb-3">
@@ -558,8 +576,14 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_department" class="form-label">Department</label>
+                        <label for="edit_department" class="form-label">Department / School</label>
                         <input type="text" class="form-control" id="edit_department" name="department">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <a href="#" id="edit_open_full_profile" class="btn btn-sm btn-outline-info" target="_blank">
+                            <i class="fas fa-id-card"></i> Open full profile (academic & research)
+                        </a>
                     </div>
                     
                     <div class="mb-3 form-check">
@@ -588,6 +612,10 @@ function editStaff(staff) {
     document.getElementById('edit_department').value = staff.department || '';
     document.getElementById('edit_staff_category').value = staff.staff_category || '';
     document.getElementById('edit_is_active').checked = staff.is_active == 1;
+    const profileLink = document.getElementById('edit_open_full_profile');
+    if (profileLink) {
+        profileLink.href = 'staff_profile.php?id=' + encodeURIComponent(staff.id);
+    }
     new bootstrap.Modal(document.getElementById('editStaffModal')).show();
 }
 
