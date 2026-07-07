@@ -27,9 +27,11 @@ if ($token === '') {
         }
         if ($linkSecondsRemaining > 0) {
             $linkExpiresTs = time() + $linkSecondsRemaining;
-            if (!empty($linkMeta['expires_at'])) {
-                $linkExpiresAtLabel = date('g:i A', strtotime((string) $linkMeta['expires_at']));
+            $expiresTsForLabel = (int) ($linkMeta['expires_ts'] ?? 0);
+            if ($expiresTsForLabel <= 0) {
+                $expiresTsForLabel = $linkExpiresTs;
             }
+            $linkExpiresAtLabel = formatStaffProfileExpiryIst($expiresTsForLabel);
         }
     } else {
         $staff = null;
@@ -192,7 +194,7 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
                 </div>
                 <?php if ($linkExpiresAtLabel !== ''): ?>
                 <div class="small opacity-75">
-                    Valid until <?php echo htmlspecialchars($linkExpiresAtLabel); ?> IST
+                    Valid until <?php echo htmlspecialchars($linkExpiresAtLabel); ?>
                 </div>
                 <?php endif; ?>
             </div>

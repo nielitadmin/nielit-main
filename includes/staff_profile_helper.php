@@ -14,6 +14,8 @@ if (!function_exists('facultyTableHasColumn')) {
 if (!function_exists('ensureStaffProfileSchema')) {
     function ensureStaffProfileSchema(mysqli $conn): void
     {
+        ensureMysqlIstTimezone($conn);
+
         $columnDefinitions = [
             'nielit_centre'            => 'VARCHAR(255) DEFAULT NULL',
             'employment_type'          => 'VARCHAR(50) DEFAULT NULL',
@@ -84,6 +86,43 @@ if (!function_exists('generateStaffProfileToken')) {
             $token .= $chars[random_int(0, $max)];
         }
         return $token;
+    }
+}
+
+if (!function_exists('staffProfileAppTimezone')) {
+    function staffProfileAppTimezone(): string
+    {
+        return 'Asia/Kolkata';
+    }
+}
+
+if (!function_exists('ensureMysqlIstTimezone')) {
+    function ensureMysqlIstTimezone(mysqli $conn): void
+    {
+        static $set = false;
+        if ($set) {
+            return;
+        }
+        $conn->query("SET time_zone = '+05:30'");
+        $set = true;
+    }
+}
+
+if (!function_exists('formatStaffProfileExpiryIst')) {
+    function formatStaffProfileExpiryIst(int $expiresTs, bool $includeDate = true): string
+    {
+        if ($expiresTs <= 0) {
+            return '';
+        }
+
+        $dt = new DateTime('@' . $expiresTs);
+        $dt->setTimezone(new DateTimeZone(staffProfileAppTimezone()));
+
+        if ($includeDate) {
+            return $dt->format('d M Y, g:i A') . ' IST';
+        }
+
+        return $dt->format('g:i A') . ' IST';
     }
 }
 
