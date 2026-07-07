@@ -6,15 +6,25 @@ require_once __DIR__ . '/../includes/staff_profile_helper.php';
 ensureStaffProfileSchema($conn);
 
 $token = trim($_GET['token'] ?? $_POST['token'] ?? '');
+$tokenAccess = ['status' => 'invalid', 'staff' => null];
+$pageError = null;
+$linkExpiresTs = 0;
+
 if ($token === '') {
     http_response_code(400);
     $pageError = 'Invalid or missing profile link. Please contact NIELIT administration.';
     $staff = null;
 } else {
-    $staff = loadStaffByProfileToken($conn, $token);
-    if (!$staff) {
-        http_response_code(404);
-        $pageError = 'This profile link is invalid or has expired. Please ask admin for a new link.';
+    $tokenAccess = validateStaffProfileTokenAccess($conn, $token);
+    if ($tokenAccess['status'] === 'valid') {
+        $staff = $tokenAccess['staff'];
+        $linkExpiresTs = (int) strtotime((string) ($staff['profile_token_expires_at'] ?? ''));
+    } else {
+        $staff = null;
+        http_response_code($tokenAccess['status'] === 'expired' ? 410 : 404);
+        $pageError = $tokenAccess['status'] === 'expired'
+            ? 'This profile link has expired after 1 hour. Please ask admin to generate a new link.'
+            : 'This profile link is invalid. Please ask admin for a new link.';
     }
 }
 
@@ -26,7 +36,13 @@ $error_message = null;
 $submitted = false;
 
 if ($staff && $_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_profile') {
-    if (trim($_POST['token'] ?? '') !== $token) {
+    $tokenAccess = validateStaffProfileTokenAccess($conn, $token);
+    if ($tokenAccess['status'] !== 'valid') {
+        $staff = null;
+        $pageError = $tokenAccess['status'] === 'expired'
+            ? 'This profile link has expired. Please ask admin to generate a new link.'
+            : 'This profile link is no longer valid. Please ask admin for a new link.';
+    } elseif (trim($_POST['token'] ?? '') !== $token) {
         $error_message = 'Invalid form token. Please refresh and try again.';
     } else {
         $result = saveStaffProfile($conn, $facultyId, $_POST);
@@ -106,6 +122,20 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
             background: #f59e0b;
             border-radius: 999px;
         }
+        .link-timer {
+            background: #fff7ed;
+            border: 1px solid #fdba74;
+            color: #9a3412;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+        }
+        .link-timer.is-expired {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
     </style>
 </head>
 <body>
@@ -133,7 +163,13 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
 
     <?php if ($staff): ?>
         <?php if (!$submitted || !empty($error_message)): ?>
-        <div class="form-card">
+        <?php if ($linkExpiresTs > 0): ?>
+        <div class="link-timer" id="publicProfileLinkTimer" data-expires-ts="<?php echo $linkExpiresTs; ?>">
+            <i class="fas fa-clock me-2"></i>
+            Link active — expires in <strong data-timer-text>--:--</strong>
+        </div>
+        <?php endif; ?>
+        <div class="form-card" id="publicProfileFormCard">
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
                 <div>
                     <h2 class="h5 mb-1"><?php echo htmlspecialchars($staff['name']); ?></h2>
@@ -160,7 +196,7 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
             <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
         <?php endif; ?>
 
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" enctype="multipart/form-data" id="publicStaffProfileForm">
             <input type="hidden" name="action" value="save_profile">
             <input type="hidden" name="token" value="<?php echo htmlspecialchars($token); ?>">
 
@@ -225,5 +261,52 @@ function publicStaffFieldValue(array $staff, string $key, string $col): string
         <?php endif; ?>
     <?php endif; ?>
 </div>
+<script>
+function formatProfileLinkCountdown(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) {
+        return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+    }
+    return String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+}
+
+function initStaffProfileLinkTimer(container, onExpire) {
+    if (!container) return;
+    const expiresTs = parseInt(container.getAttribute('data-expires-ts') || '0', 10);
+    const textEl = container.querySelector('[data-timer-text]');
+    if (!expiresTs || !textEl) return;
+
+    function tick() {
+        const left = Math.max(0, expiresTs - Math.floor(Date.now() / 1000));
+        if (left <= 0) {
+            textEl.textContent = 'Expired';
+            container.classList.add('is-expired');
+            container.innerHTML = '<i class="fas fa-hourglass-end me-2"></i><strong>Link expired.</strong> Please ask admin to generate a new profile link.';
+            if (onExpire) onExpire();
+            return true;
+        }
+        textEl.textContent = formatProfileLinkCountdown(left);
+        return false;
+    }
+
+    if (tick()) return;
+    const interval = setInterval(function () {
+        if (tick()) clearInterval(interval);
+    }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    initStaffProfileLinkTimer(document.getElementById('publicProfileLinkTimer'), function () {
+        const form = document.getElementById('publicStaffProfileForm');
+        if (form) {
+            form.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+                el.disabled = true;
+            });
+        }
+    });
+});
+</script>
 </body>
 </html>

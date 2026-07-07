@@ -49,15 +49,28 @@ $shareLink = buildStaffProfileShareLink($conn, $facultyId);
 $profileToken = $shareLink['token'];
 $profilePublicUrl = $shareLink['url'];
 $profileLinkError = $shareLink['success'] ? '' : ($shareLink['message'] ?? 'Could not create profile link.');
+$profileExpiresTs = (int) ($shareLink['expires_ts'] ?? 0);
+$profileIsExpired = !empty($shareLink['is_expired']);
 $success_message = null;
 $error_message = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regenerate_profile_link') {
     $regen = regenerateStaffProfileToken($conn, $facultyId);
     if ($regen['success']) {
+        $shareLink = [
+            'success' => true,
+            'token' => $regen['token'],
+            'url' => $regen['url'],
+            'expires_ts' => (int) ($regen['expires_ts'] ?? 0),
+            'is_expired' => false,
+            'message' => '',
+        ];
         $profileToken = $regen['token'];
         $profilePublicUrl = $regen['url'];
-        $success_message = 'New profile link generated. Share the updated link with the staff member.';
+        $profileExpiresTs = (int) ($regen['expires_ts'] ?? 0);
+        $profileIsExpired = false;
+        $profileLinkError = '';
+        $success_message = 'New profile link generated. It is valid for 1 hour — share it with the staff member now.';
     } else {
         $error_message = $regen['message'];
     }
@@ -152,6 +165,19 @@ function staffFieldValue(array $staff, string $key, string $col): string
             margin-top: 1rem;
             z-index: 10;
         }
+        .profile-link-timer {
+            background: #eff6ff;
+            border: 1px solid #93c5fd;
+            color: #1e40af;
+            border-radius: 8px;
+            padding: 0.65rem 0.85rem;
+            font-size: 0.9rem;
+        }
+        .profile-link-timer.is-expired {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
     </style>
 </head>
 <body>
@@ -175,18 +201,22 @@ function staffFieldValue(array $staff, string $key, string $col): string
             <div class="content-card mb-3">
                 <div class="card-body">
                     <h6 class="mb-2"><i class="fas fa-link text-primary"></i> Share profile link with staff</h6>
-                    <p class="text-muted small mb-2">Send this link by WhatsApp or email. The staff member can open it and fill their profile without admin login.</p>
+                    <p class="text-muted small mb-2">Each link is valid for <strong>1 hour</strong> only. Send it by WhatsApp or email so the staff member can fill their profile without admin login.</p>
                     <?php if ($profilePublicUrl !== ''): ?>
+                    <div class="profile-link-timer mb-2" id="adminProfileLinkTimer" data-expires-ts="<?php echo $profileExpiresTs; ?>">
+                        <i class="fas fa-clock me-1"></i>
+                        Link expires in <strong data-timer-text>--:--</strong>
+                    </div>
                     <div class="input-group mb-2">
                         <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
                         <button type="button" class="btn btn-outline-primary" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
                     </div>
                     <?php else: ?>
-                    <div class="alert alert-warning py-2 mb-2">
+                    <div class="alert alert-<?php echo $profileIsExpired ? 'danger' : 'warning'; ?> py-2 mb-2">
                         <?php echo htmlspecialchars($profileLinkError ?: 'Profile link could not be created yet.'); ?>
                     </div>
                     <?php endif; ?>
-                    <form method="POST" class="d-inline" onsubmit="return confirm('<?php echo $profilePublicUrl !== '' ? 'Generate a new link? The old link will stop working.' : 'Generate profile link for this staff member?'; ?>');">
+                    <form method="POST" class="d-inline" onsubmit="return confirm('<?php echo $profilePublicUrl !== '' ? 'Generate a new link? The old link will stop working immediately.' : 'Generate profile link for this staff member? It will be valid for 1 hour.'; ?>');">
                         <input type="hidden" name="action" value="regenerate_profile_link">
                         <button type="submit" class="btn btn-sm btn-outline-secondary">
                             <i class="fas fa-sync"></i> <?php echo $profilePublicUrl !== '' ? 'Regenerate link' : 'Generate link'; ?>
@@ -322,7 +352,47 @@ document.addEventListener('DOMContentLoaded', function () {
     <?php if ($error_message): ?>
     toast.error(<?php echo json_encode($error_message); ?>);
     <?php endif; ?>
+    initStaffProfileLinkTimer(document.getElementById('adminProfileLinkTimer'), function () {
+        const input = document.getElementById('staffProfilePublicUrl');
+        const copyBtn = input ? input.parentElement.querySelector('button') : null;
+        if (input) input.value = '';
+        if (copyBtn) copyBtn.disabled = true;
+    });
 });
+
+function formatProfileLinkCountdown(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) {
+        return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+    }
+    return String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+}
+
+function initStaffProfileLinkTimer(container, onExpire) {
+    if (!container) return;
+    const expiresTs = parseInt(container.getAttribute('data-expires-ts') || '0', 10);
+    const textEl = container.querySelector('[data-timer-text]');
+    if (!expiresTs || !textEl) return;
+
+    function tick() {
+        const left = Math.max(0, expiresTs - Math.floor(Date.now() / 1000));
+        if (left <= 0) {
+            container.classList.add('is-expired');
+            textEl.textContent = 'Expired — regenerate link';
+            if (onExpire) onExpire();
+            return true;
+        }
+        textEl.textContent = formatProfileLinkCountdown(left);
+        return false;
+    }
+
+    if (tick()) return;
+    const interval = setInterval(function () {
+        if (tick()) clearInterval(interval);
+    }, 1000);
+}
 
 function copyStaffProfileLink() {
     const input = document.getElementById('staffProfilePublicUrl');

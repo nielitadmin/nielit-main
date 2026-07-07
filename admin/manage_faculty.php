@@ -77,9 +77,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($stmt->execute()) {
                     $success_message = "Staff member added successfully!";
                     $newFacultyId = (int) $conn->insert_id;
-                    if ($newFacultyId > 0) {
-                        ensureStaffProfileToken($conn, $newFacultyId);
-                    }
 
                     // Auto-send confirmation email if email is provided
                     if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -417,6 +414,8 @@ if ($count_result) {
                                         $profilePct = staffProfileCompletionPercent($faculty);
                                         $shareLink = buildStaffProfileShareLink($conn, (int) $faculty['id']);
                                         $staffProfileUrl = $shareLink['url'];
+                                        $staffLinkExpiresTs = (int) ($shareLink['expires_ts'] ?? 0);
+                                        $staffLinkExpired = !empty($shareLink['is_expired']);
                                         ?>
                                         <a href="staff_profile.php?id=<?php echo (int)$faculty['id']; ?>" class="btn btn-sm btn-info" title="Edit full NIELIT Centre profile">
                                             <i class="fas fa-id-card"></i> Profile
@@ -428,8 +427,14 @@ if ($count_result) {
                                                 <?php echo $staffProfileUrl === '' ? 'disabled' : ''; ?>>
                                             <i class="fas fa-link"></i> Copy Link
                                         </button>
-                                        <?php if ($staffProfileUrl === ''): ?>
-                                        <div class="small text-danger mt-1">Link not ready — open Profile to generate.</div>
+                                        <?php if ($staffProfileUrl !== '' && $staffLinkExpiresTs > 0): ?>
+                                        <div class="small text-primary mt-1 staff-link-timer" data-expires-ts="<?php echo $staffLinkExpiresTs; ?>">
+                                            <i class="fas fa-clock"></i> Expires in <span data-timer-text>--:--</span>
+                                        </div>
+                                        <?php elseif ($staffLinkExpired): ?>
+                                        <div class="small text-danger mt-1">Link expired — open Profile to regenerate.</div>
+                                        <?php elseif ($staffProfileUrl === ''): ?>
+                                        <div class="small text-muted mt-1">No link — open Profile to generate.</div>
                                         <?php endif; ?>
                                         <div class="small text-muted mt-1"><?php echo $profilePct; ?>% complete</div>
                                         <a href="generate_staff_profile_pdf.php?id=<?php echo (int)$faculty['id']; ?>" target="_blank" class="btn btn-sm btn-outline-danger mt-1" title="Download profile PDF">
@@ -668,6 +673,45 @@ function copyStaffProfileLink(buttonOrUrl, staffName) {
         copyFallback();
     }
 }
+
+function formatProfileLinkCountdown(totalSeconds) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) {
+        return h + 'h ' + String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+    }
+    return String(m).padStart(2, '0') + 'm ' + String(s).padStart(2, '0') + 's';
+}
+
+function initStaffProfileLinkTimers() {
+    document.querySelectorAll('.staff-link-timer[data-expires-ts]').forEach(function (container) {
+        const expiresTs = parseInt(container.getAttribute('data-expires-ts') || '0', 10);
+        const textEl = container.querySelector('[data-timer-text]');
+        if (!expiresTs || !textEl) return;
+
+        function tick() {
+            const left = Math.max(0, expiresTs - Math.floor(Date.now() / 1000));
+            if (left <= 0) {
+                textEl.textContent = 'Expired';
+                container.classList.remove('text-primary');
+                container.classList.add('text-danger');
+                const copyBtn = container.parentElement.querySelector('[data-profile-url]');
+                if (copyBtn) copyBtn.disabled = true;
+                return true;
+            }
+            textEl.textContent = formatProfileLinkCountdown(left);
+            return false;
+        }
+
+        if (tick()) return;
+        const interval = setInterval(function () {
+            if (tick()) clearInterval(interval);
+        }, 1000);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', initStaffProfileLinkTimers);
 
 function editStaff(staff) {
     document.getElementById('edit_staff_id').value = staff.id;
