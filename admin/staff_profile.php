@@ -50,11 +50,21 @@ $error_message = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_profile') {
     $result = saveStaffProfile($conn, $facultyId, $_POST);
-    if ($result['success']) {
-        $success_message = $result['message'];
+    if ($result['success'] && !empty($_FILES['profile_photo']['name'])) {
+        $photoResult = uploadStaffProfilePhoto($conn, $facultyId, $_FILES['profile_photo']);
+        if (!$photoResult['success']) {
+            $error_message = $photoResult['message'];
+        } elseif ($photoResult['message'] !== '') {
+            $success_message = $result['message'] . ' ' . $photoResult['message'];
+        }
+    }
+    if ($result['success'] && empty($error_message)) {
+        if (empty($success_message)) {
+            $success_message = $result['message'];
+        }
         $staff = loadStaffProfileById($conn, $facultyId);
         $completion = staffProfileCompletionPercent($staff);
-    } else {
+    } elseif (!$result['success']) {
         $error_message = $result['message'];
     }
 }
@@ -178,8 +188,30 @@ function staffFieldValue(array $staff, string $key, string $col): string
                 </div>
             </div>
 
-            <form method="POST" id="staffProfileForm">
+            <form method="POST" id="staffProfileForm" enctype="multipart/form-data">
                 <input type="hidden" name="action" value="save_profile">
+
+                <div class="profile-section">
+                    <div class="profile-section-title">
+                        <i class="fas fa-camera me-2"></i> Passport-size Photo (for PDF)
+                    </div>
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-3">
+                            <div class="border rounded p-2 text-center bg-light" style="min-height: 140px;">
+                                <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
+                                    <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Staff photo" class="img-fluid" style="max-height: 130px;">
+                                <?php else: ?>
+                                    <div class="text-muted py-5"><i class="fas fa-user fa-2x"></i><br><small>Photo</small></div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="col-md-9">
+                            <label class="form-label" for="profile_photo">Upload photo (JPG/PNG, max 5 MB)</label>
+                            <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/jpg">
+                            <div class="form-text">This photo appears in the top-right box on the NIELIT Centre staff profile PDF.</div>
+                        </div>
+                    </div>
+                </div>
 
                 <?php foreach ($fieldGroups as $groupKey => $group): ?>
                 <div class="profile-section">

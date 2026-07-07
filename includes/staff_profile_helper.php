@@ -30,7 +30,8 @@ if (!function_exists('ensureStaffProfileSchema')) {
             'research_guidance'        => "TEXT DEFAULT NULL AFTER technology_developed",
             'awards_recognitions'      => "TEXT DEFAULT NULL AFTER research_guidance",
             'professional_memberships' => "TEXT DEFAULT NULL AFTER awards_recognitions",
-            'profile_updated_at'       => "TIMESTAMP NULL DEFAULT NULL AFTER professional_memberships",
+            'profile_photo'            => "VARCHAR(255) DEFAULT NULL AFTER professional_memberships",
+            'profile_updated_at'       => "TIMESTAMP NULL DEFAULT NULL AFTER profile_photo",
         ];
 
         foreach ($columns as $col => $definition) {
@@ -207,5 +208,59 @@ if (!function_exists('staffProfileCompletionPercent')) {
         }
 
         return $total > 0 ? (int) round(($filled / $total) * 100) : 0;
+    }
+}
+
+if (!function_exists('uploadStaffProfilePhoto')) {
+    function uploadStaffProfilePhoto(mysqli $conn, int $facultyId, array $file): array
+    {
+        ensureStaffProfileSchema($conn);
+
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return ['success' => true, 'message' => ''];
+        }
+
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            return ['success' => false, 'message' => 'Photo upload failed. Please try again.'];
+        }
+
+        $allowed = ['image/jpeg', 'image/jpg', 'image/png'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+
+        if (!in_array($mime, $allowed, true)) {
+            return ['success' => false, 'message' => 'Photo must be JPG or PNG.'];
+        }
+
+        if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
+            return ['success' => false, 'message' => 'Photo must be 5 MB or smaller.'];
+        }
+
+        $ext = $mime === 'image/png' ? 'png' : 'jpg';
+        $dir = __DIR__ . '/../uploads/staff_photos/';
+        if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+            return ['success' => false, 'message' => 'Could not create photo upload folder.'];
+        }
+
+        $filename = 'staff_' . $facultyId . '_' . time() . '.' . $ext;
+        $dest = $dir . $filename;
+        if (!move_uploaded_file($file['tmp_name'], $dest)) {
+            return ['success' => false, 'message' => 'Could not save uploaded photo.'];
+        }
+
+        $relative = 'uploads/staff_photos/' . $filename;
+        $stmt = $conn->prepare('UPDATE faculty SET profile_photo = ?, profile_updated_at = NOW() WHERE id = ?');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not update photo path.'];
+        }
+        $stmt->bind_param('si', $relative, $facultyId);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return ['success' => false, 'message' => 'Could not save photo to profile.'];
+        }
+        $stmt->close();
+
+        return ['success' => true, 'message' => 'Photo uploaded.', 'path' => $relative];
     }
 }
