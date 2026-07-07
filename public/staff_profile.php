@@ -18,7 +18,8 @@ if ($token === '') {
     $tokenAccess = validateStaffProfileTokenAccess($conn, $token);
     if ($tokenAccess['status'] === 'valid') {
         $staff = $tokenAccess['staff'];
-        $linkExpiresTs = (int) strtotime((string) ($staff['profile_token_expires_at'] ?? ''));
+        $secondsRemaining = staffProfileLinkSecondsRemaining($staff);
+        $linkExpiresTs = $secondsRemaining > 0 ? time() + $secondsRemaining : 0;
     } else {
         $staff = null;
         http_response_code($tokenAccess['status'] === 'expired' ? 410 : 404);

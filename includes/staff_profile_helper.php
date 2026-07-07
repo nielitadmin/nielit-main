@@ -75,6 +75,17 @@ if (!function_exists('ensureStaffProfileSchema')) {
             if ($idx && $idx->num_rows === 0) {
                 $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
             }
+        }
+
+        $allColumnsPresent = true;
+        foreach ($orderedColumns as $column) {
+            if (!facultyTableHasColumn($conn, $column)) {
+                $allColumnsPresent = false;
+                break;
+            }
+        }
+
+        if ($allColumnsPresent && facultyTableHasColumn($conn, 'profile_token')) {
             $done = true;
         }
     }
@@ -103,6 +114,10 @@ if (!function_exists('staffProfileLinkTtlSeconds')) {
 if (!function_exists('isStaffProfileLinkExpired')) {
     function isStaffProfileLinkExpired(array $row): bool
     {
+        if (isset($row['expires_unix']) && $row['expires_unix'] !== null && $row['expires_unix'] !== '') {
+            return (int) $row['expires_unix'] <= time();
+        }
+
         $expires = trim((string) ($row['profile_token_expires_at'] ?? ''));
         if ($expires === '') {
             return true;
@@ -144,7 +159,7 @@ if (!function_exists('getStaffProfileLinkMeta')) {
 
         $selectCols = 'profile_token';
         if (facultyTableHasColumn($conn, 'profile_token_expires_at')) {
-            $selectCols .= ', profile_token_expires_at';
+            $selectCols .= ', profile_token_expires_at, UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix';
         }
 
         $stmt = $conn->prepare("SELECT $selectCols FROM faculty WHERE id = ? LIMIT 1");
@@ -166,7 +181,9 @@ if (!function_exists('getStaffProfileLinkMeta')) {
         }
 
         $expiresAt = trim((string) ($row['profile_token_expires_at'] ?? ''));
-        $expiresTs = $expiresAt !== '' ? (int) strtotime($expiresAt) : 0;
+        $expiresTs = isset($row['expires_unix']) && $row['expires_unix'] !== null
+            ? (int) $row['expires_unix']
+            : ($expiresAt !== '' ? (int) strtotime($expiresAt) : 0);
         $isExpired = isStaffProfileLinkExpired($row);
 
         return [
@@ -295,6 +312,12 @@ if (!function_exists('regenerateStaffProfileToken')) {
         $stmt->close();
 
         $meta = getStaffProfileLinkMeta($conn, $facultyId);
+        $expiresTs = (int) ($meta['expires_ts'] ?? 0);
+        $secondsRemaining = (int) ($meta['seconds_remaining'] ?? 0);
+        if ($expiresTs <= 0) {
+            $expiresTs = time() + staffProfileLinkTtlSeconds();
+            $secondsRemaining = staffProfileLinkTtlSeconds();
+        }
 
         return [
             'success' => true,
@@ -302,8 +325,8 @@ if (!function_exists('regenerateStaffProfileToken')) {
             'token' => $token,
             'url' => getStaffProfilePublicUrl($token),
             'expires_at' => $meta['expires_at'],
-            'expires_ts' => $meta['expires_ts'],
-            'seconds_remaining' => $meta['seconds_remaining'],
+            'expires_ts' => $expiresTs,
+            'seconds_remaining' => $secondsRemaining,
             'is_expired' => false,
         ];
     }
@@ -318,7 +341,7 @@ if (!function_exists('loadStaffByProfileToken')) {
             return null;
         }
 
-        $stmt = $conn->prepare('SELECT * FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
+        $stmt = $conn->prepare('SELECT *, UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
         if (!$stmt) {
             return null;
         }
@@ -344,7 +367,7 @@ if (!function_exists('validateStaffProfileTokenAccess')) {
             return ['status' => 'invalid', 'staff' => null];
         }
 
-        $stmt = $conn->prepare('SELECT * FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
+        $stmt = $conn->prepare('SELECT *, UNIX_TIMESTAMP(profile_token_expires_at) AS expires_unix FROM faculty WHERE profile_token = ? AND is_active = 1 LIMIT 1');
         if (!$stmt) {
             return ['status' => 'invalid', 'staff' => null];
         }

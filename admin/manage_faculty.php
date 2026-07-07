@@ -414,7 +414,10 @@ if ($count_result) {
                                         $profilePct = staffProfileCompletionPercent($faculty);
                                         $shareLink = buildStaffProfileShareLink($conn, (int) $faculty['id']);
                                         $staffProfileUrl = $shareLink['url'];
-                                        $staffLinkExpiresTs = (int) ($shareLink['expires_ts'] ?? 0);
+                                        $staffLinkSecondsRemaining = (int) ($shareLink['seconds_remaining'] ?? 0);
+                                        $staffLinkExpiresTs = ($staffProfileUrl !== '' && $staffLinkSecondsRemaining > 0)
+                                            ? time() + $staffLinkSecondsRemaining
+                                            : 0;
                                         $staffLinkExpired = !empty($shareLink['is_expired']);
                                         ?>
                                         <a href="staff_profile.php?id=<?php echo (int)$faculty['id']; ?>" class="btn btn-sm btn-info" title="Edit full NIELIT Centre profile">
@@ -428,7 +431,7 @@ if ($count_result) {
                                             <i class="fas fa-link"></i> Copy Link
                                         </button>
                                         <?php if ($staffProfileUrl !== '' && $staffLinkExpiresTs > 0): ?>
-                                        <div class="small text-primary mt-1 staff-link-timer" data-expires-ts="<?php echo $staffLinkExpiresTs; ?>">
+                                        <div class="small text-primary mt-1 staff-link-timer" data-expires-ts="<?php echo (int) $staffLinkExpiresTs; ?>">
                                             <i class="fas fa-clock"></i> Expires in <span data-timer-text>--:--</span>
                                         </div>
                                         <?php elseif ($staffLinkExpired): ?>

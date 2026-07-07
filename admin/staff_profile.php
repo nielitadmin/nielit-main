@@ -50,7 +50,11 @@ $profileToken = $shareLink['token'];
 $profilePublicUrl = $shareLink['url'];
 $profileLinkError = $shareLink['success'] ? '' : ($shareLink['message'] ?? 'Could not create profile link.');
 $profileExpiresTs = (int) ($shareLink['expires_ts'] ?? 0);
+$profileSecondsRemaining = (int) ($shareLink['seconds_remaining'] ?? 0);
 $profileIsExpired = !empty($shareLink['is_expired']);
+$profileTimerExpiresTs = ($profilePublicUrl !== '' && $profileSecondsRemaining > 0)
+    ? time() + $profileSecondsRemaining
+    : 0;
 $success_message = null;
 $error_message = null;
 
@@ -68,6 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'regen
         $profileToken = $regen['token'];
         $profilePublicUrl = $regen['url'];
         $profileExpiresTs = (int) ($regen['expires_ts'] ?? 0);
+        $profileSecondsRemaining = (int) ($regen['seconds_remaining'] ?? staffProfileLinkTtlSeconds());
+        $profileTimerExpiresTs = time() + max(0, $profileSecondsRemaining);
         $profileIsExpired = false;
         $profileLinkError = '';
         $success_message = 'New profile link generated. It is valid for 1 hour — share it with the staff member now.';
@@ -203,13 +209,18 @@ function staffFieldValue(array $staff, string $key, string $col): string
                     <h6 class="mb-2"><i class="fas fa-link text-primary"></i> Share profile link with staff</h6>
                     <p class="text-muted small mb-2">Each link is valid for <strong>1 hour</strong> only. Send it by WhatsApp or email so the staff member can fill their profile without admin login.</p>
                     <?php if ($profilePublicUrl !== ''): ?>
-                    <div class="profile-link-timer mb-2" id="adminProfileLinkTimer" data-expires-ts="<?php echo $profileExpiresTs; ?>">
-                        <i class="fas fa-clock me-1"></i>
-                        Link expires in <strong data-timer-text>--:--</strong>
+                    <div id="profileLinkActiveBlock">
+                        <div class="profile-link-timer mb-2" id="adminProfileLinkTimer" data-expires-ts="<?php echo (int) $profileTimerExpiresTs; ?>">
+                            <i class="fas fa-clock me-1"></i>
+                            Link expires in <strong data-timer-text>--:--</strong>
+                        </div>
+                        <div class="input-group mb-2" id="profileLinkInputGroup">
+                            <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
+                            <button type="button" class="btn btn-outline-primary" id="copyProfileLinkBtn" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
+                        </div>
                     </div>
-                    <div class="input-group mb-2">
-                        <input type="text" class="form-control" id="staffProfilePublicUrl" readonly value="<?php echo htmlspecialchars($profilePublicUrl); ?>">
-                        <button type="button" class="btn btn-outline-primary" onclick="copyStaffProfileLink()"><i class="fas fa-copy"></i> Copy</button>
+                    <div class="text-muted small mb-2 d-none" id="profileLinkExpiredHint">
+                        <i class="fas fa-hourglass-end text-danger me-1"></i> Link expired — click <strong>Generate link</strong> below for a new 1-hour link.
                     </div>
                     <?php elseif ($profileIsExpired): ?>
                     <div class="text-muted small mb-2" id="profileLinkStatusHint">
@@ -222,8 +233,8 @@ function staffFieldValue(array $staff, string $key, string $col): string
                     <?php endif; ?>
                     <form method="POST" class="d-inline" id="regenerateProfileLinkForm">
                         <input type="hidden" name="action" value="regenerate_profile_link">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-sync"></i> <?php echo $profilePublicUrl !== '' ? 'Regenerate link' : 'Generate link'; ?>
+                        <button type="submit" class="btn btn-sm btn-outline-secondary" id="regenerateProfileLinkBtn">
+                            <i class="fas fa-sync"></i> <span id="regenerateProfileLinkBtnText"><?php echo $profilePublicUrl !== '' ? 'Regenerate link' : 'Generate link'; ?></span>
                         </button>
                     </form>
                 </div>
@@ -362,18 +373,12 @@ document.addEventListener('DOMContentLoaded', function () {
     toast.info(<?php echo json_encode($profileLinkError); ?>, 5000);
     <?php endif; ?>
 
-    initStaffProfileLinkTimer(document.getElementById('adminProfileLinkTimer'), function () {
-        const input = document.getElementById('staffProfilePublicUrl');
-        const copyBtn = input ? input.parentElement.querySelector('button') : null;
-        if (input) input.value = '';
-        if (copyBtn) copyBtn.disabled = true;
-        toast.warning('Profile link has expired. Click Generate link to create a new one.', 6000);
-    });
+    initStaffProfileLinkTimer(document.getElementById('adminProfileLinkTimer'), showProfileLinkExpiredState);
 
     const regenerateForm = document.getElementById('regenerateProfileLinkForm');
     if (regenerateForm) {
         let allowRegenerateSubmit = false;
-        const hasActiveLink = <?php echo $profilePublicUrl !== '' ? 'true' : 'false'; ?>;
+        let hasActiveLink = <?php echo $profilePublicUrl !== '' ? 'true' : 'false'; ?>;
 
         regenerateForm.addEventListener('submit', function (e) {
             if (allowRegenerateSubmit) {
@@ -394,13 +399,37 @@ document.addEventListener('DOMContentLoaded', function () {
                     toast.info('Link generation cancelled.');
                     return;
                 }
-                const loadingToast = toast.loading('Generating profile link...');
+                toast.loading('Generating profile link...');
                 allowRegenerateSubmit = true;
                 regenerateForm.submit();
             });
         });
+
+        window.setProfileLinkActiveState = function (active) {
+            hasActiveLink = active;
+        };
     }
 });
+
+function showProfileLinkExpiredState() {
+    const activeBlock = document.getElementById('profileLinkActiveBlock');
+    const expiredHint = document.getElementById('profileLinkExpiredHint');
+    const btnText = document.getElementById('regenerateProfileLinkBtnText');
+
+    if (activeBlock) {
+        activeBlock.classList.add('d-none');
+    }
+    if (expiredHint) {
+        expiredHint.classList.remove('d-none');
+    }
+    if (btnText) {
+        btnText.textContent = 'Generate link';
+    }
+    if (typeof window.setProfileLinkActiveState === 'function') {
+        window.setProfileLinkActiveState(false);
+    }
+    toast.warning('Profile link has expired. Click Generate link to create a new one.', 6000);
+}
 
 function formatProfileLinkCountdown(totalSeconds) {
     const h = Math.floor(totalSeconds / 3600);
@@ -418,12 +447,17 @@ function initStaffProfileLinkTimer(container, onExpire) {
     const textEl = container.querySelector('[data-timer-text]');
     if (!expiresTs || !textEl) return;
 
+    let expiredHandled = false;
+
     function tick() {
         const left = Math.max(0, expiresTs - Math.floor(Date.now() / 1000));
         if (left <= 0) {
             container.classList.add('is-expired');
-            textEl.textContent = 'Expired — regenerate link';
-            if (onExpire) onExpire();
+            textEl.textContent = 'Expired';
+            if (!expiredHandled) {
+                expiredHandled = true;
+                if (onExpire) onExpire();
+            }
             return true;
         }
         textEl.textContent = formatProfileLinkCountdown(left);
