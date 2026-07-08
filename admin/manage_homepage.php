@@ -1895,10 +1895,14 @@ if ($content_sections) {
             initializeHeroBannerDragDrop();
             initializeDragAndDrop();
             initializeHomepageNewsUi();
-            initializeHomepageAdminActions();
         });
 
         function initializeHomepageAdminActions() {
+            if (initializeHomepageAdminActions.initialized) {
+                return;
+            }
+            initializeHomepageAdminActions.initialized = true;
+
             document.addEventListener('click', function(event) {
                 const editIndexBtn = event.target.closest('.js-edit-index-section');
                 if (editIndexBtn) {
@@ -1964,6 +1968,8 @@ if ($content_sections) {
                 }
             });
         }
+
+        initializeHomepageAdminActions();
 
         function initializeHomepageNewsUi() {
             <?php if ($edit_news): ?>
