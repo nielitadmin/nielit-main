@@ -36,7 +36,9 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
                     <?php foreach ($rosterSourceBatches as $batch): ?>
                     <?php
                         $schemePart = !empty($batch['scheme_name']) ? ' — ' . $batch['scheme_name'] : '';
+                        $batchCodePart = !empty($batch['batch_code']) ? ' (' . $batch['batch_code'] . ')' : '';
                         $label = ($batch['batch_name'] ?? 'Batch')
+                            . $batchCodePart
                             . ' (' . ($batch['course_name'] ?? '') . $schemePart . ')'
                             . ' — ' . (int)($batch['enrolled_count'] ?? 0) . ' students';
                     ?>
@@ -150,7 +152,8 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
                 }
                 const b = data.batch || {};
                 sourceStudentCount = (data.students || []).length;
-                previewSummary.innerHTML = '<strong>' + rosterEsc(b.batch_name) + '</strong> — '
+                const batchCodeLabel = b.batch_code ? ' (' + rosterEsc(b.batch_code) + ')' : '';
+                previewSummary.innerHTML = '<strong>' + rosterEsc(b.batch_name) + batchCodeLabel + '</strong> — '
                     + rosterEsc(b.course_name)
                     + (b.scheme_name ? ' (' + rosterEsc(b.scheme_name) + ')' : '')
                     + ' — <strong>' + sourceStudentCount + '</strong> student(s) will be processed.';
