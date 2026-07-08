@@ -949,6 +949,7 @@ if ($content_sections) {
             text-decoration: none;
             font-size: 13px;
             font-weight: 600;
+            cursor: pointer;
         }
 
         .index-page-map a:hover {
@@ -1092,6 +1093,12 @@ if ($content_sections) {
             color: #475569;
             text-transform: uppercase;
             letter-spacing: 0.04em;
+        }
+
+        #hero-banners,
+        .index-category-card,
+        #additional-blocks {
+            scroll-margin-top: 110px;
         }
 
         .index-section-item {
@@ -1567,11 +1574,59 @@ if ($content_sections) {
             card.classList.toggle('is-open');
         }
 
+        function getAdminScrollOffset() {
+            const topbar = document.querySelector('.admin-topbar');
+            return (topbar ? topbar.offsetHeight : 80) + 20;
+        }
+
+        function scrollToIndexSection(targetId, updateHash) {
+            const target = document.getElementById(targetId);
+            if (!target) {
+                return false;
+            }
+
+            if (target.classList.contains('index-category-card')) {
+                target.classList.add('is-open');
+            }
+
+            window.requestAnimationFrame(function() {
+                const top = target.getBoundingClientRect().top + window.pageYOffset - getAdminScrollOffset();
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+
+                if (updateHash !== false) {
+                    history.replaceState(null, '', '#' + targetId);
+                }
+            });
+
+            return true;
+        }
+
+        function initializeIndexPageMap() {
+            document.querySelectorAll('.index-page-map a[href^="#"]').forEach(function(link) {
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const targetId = (this.getAttribute('href') || '').replace(/^#/, '');
+                    if (!targetId) {
+                        return;
+                    }
+                    scrollToIndexSection(targetId, true);
+                });
+            });
+
+            const initialHash = window.location.hash.replace(/^#/, '');
+            if (initialHash) {
+                window.setTimeout(function() {
+                    scrollToIndexSection(initialHash, false);
+                }, 150);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initializeDragAndDrop();
             initializeTinyMCE();
             initializeHeroBannerUpload();
             initializeHeroBannerDragDrop();
+            initializeIndexPageMap();
         });
         
         /**
