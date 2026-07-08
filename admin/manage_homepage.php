@@ -990,6 +990,7 @@ if ($content_sections) {
             padding: 18px 20px;
             background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             cursor: pointer;
+            user-select: none;
         }
 
         .index-category-header:hover {
@@ -1042,14 +1043,30 @@ if ($content_sections) {
             flex-shrink: 0;
         }
 
+        .index-category-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #dbe3ef;
+            background: #fff;
+            border-radius: 999px;
+            padding: 6px 12px;
+            cursor: pointer;
+            color: #475569;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .index-category-toggle-btn:hover {
+            border-color: var(--primary-color, #0d47a1);
+            color: var(--primary-color, #0d47a1);
+        }
+
         .index-category-count {
             font-size: 12px;
             font-weight: 600;
-            color: #475569;
-            background: #fff;
-            border: 1px solid #dbe3ef;
-            border-radius: 999px;
-            padding: 6px 10px;
+            color: inherit;
         }
 
         .index-category-toggle {
@@ -1283,7 +1300,7 @@ if ($content_sections) {
                             }
                             ?>
                             <div class="index-category-card <?php echo $categoryIndex === 0 ? 'is-open' : ''; ?>" id="index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <div class="index-category-header" onclick="toggleIndexCategory(this)">
+                                <div class="index-category-header">
                                     <div class="index-category-title-wrap">
                                         <span class="index-category-order"><?php echo (int) $category['order']; ?></span>
                                         <div>
@@ -1295,8 +1312,10 @@ if ($content_sections) {
                                         </div>
                                     </div>
                                     <div class="index-category-meta">
-                                        <span class="index-category-count"><?php echo (int) $itemCount; ?> fields</span>
-                                        <i class="fas fa-chevron-down index-category-toggle"></i>
+                                        <button type="button" class="index-category-toggle-btn" aria-expanded="<?php echo $categoryIndex === 0 ? 'true' : 'false'; ?>" aria-label="Toggle <?php echo htmlspecialchars($category['title'], ENT_QUOTES, 'UTF-8'); ?> section">
+                                            <span class="index-category-count"><?php echo (int) $itemCount; ?> fields</span>
+                                            <i class="fas fa-chevron-down index-category-toggle"></i>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="index-category-body">
@@ -1572,6 +1591,28 @@ if ($content_sections) {
             const card = headerEl.closest('.index-category-card');
             if (!card) return;
             card.classList.toggle('is-open');
+
+            const toggleBtn = headerEl.querySelector('.index-category-toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('aria-expanded', card.classList.contains('is-open') ? 'true' : 'false');
+            }
+        }
+
+        function initializeIndexCategoryToggles() {
+            const list = document.querySelector('.index-category-list');
+            if (!list) return;
+
+            list.addEventListener('click', function(event) {
+                const toggleBtn = event.target.closest('.index-category-toggle-btn');
+                const header = event.target.closest('.index-category-header');
+                if (!header) return;
+
+                if (toggleBtn) {
+                    event.preventDefault();
+                }
+
+                toggleIndexCategory(header);
+            });
         }
 
         function getAdminScrollOffset() {
@@ -1587,6 +1628,11 @@ if ($content_sections) {
 
             if (target.classList.contains('index-category-card')) {
                 target.classList.add('is-open');
+                const header = target.querySelector('.index-category-header');
+                const toggleBtn = header ? header.querySelector('.index-category-toggle-btn') : null;
+                if (toggleBtn) {
+                    toggleBtn.setAttribute('aria-expanded', 'true');
+                }
             }
 
             window.requestAnimationFrame(function() {
@@ -1627,6 +1673,7 @@ if ($content_sections) {
             initializeHeroBannerUpload();
             initializeHeroBannerDragDrop();
             initializeIndexPageMap();
+            initializeIndexCategoryToggles();
         });
         
         /**
