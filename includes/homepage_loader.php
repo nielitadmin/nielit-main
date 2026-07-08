@@ -1122,11 +1122,11 @@ if (!function_exists('getIndexHomepageCategoryDefinitions')) {
                 'order' => 10,
                 'title' => 'Latest News & Updates',
                 'icon' => 'fa-newspaper',
-                'description' => 'Section heading only. News articles are managed in News & Updates.',
+                'description' => 'Section heading text. Add and edit news cards in the Latest News Articles section on this page.',
                 'groups' => ['News Section'],
                 'manage_elsewhere' => [
                     'label' => 'Manage News Articles',
-                    'url' => 'manage_news.php',
+                    'url' => '#homepage-news',
                 ],
             ],
             [

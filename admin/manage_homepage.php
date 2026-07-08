@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/audit_logger.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/homepage_loader.php';
 require_once __DIR__ . '/../includes/hero_banner_helper.php';
+require_once __DIR__ . '/../includes/news_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: ' . relative_url('login.php'));
@@ -38,6 +39,47 @@ syncHeroBannersFromFilesystem($conn);
 $hero_banners = listHeroBanners($conn);
 $index_section_keys = array_keys(getIndexHomepageSectionDefinitions());
 $index_section_categories = getIndexHomepageSectionsForAdmin($conn);
+
+ensureNewsTable($conn);
+
+if (isset($_GET['delete_news'])) {
+    $deleteId = (int) $_GET['delete_news'];
+    $result = deleteNewsArticle($conn, $deleteId);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+    header('Location: ' . relative_url('manage_homepage.php#homepage-news'));
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_news']) || isset($_POST['edit_news']))) {
+    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        $_SESSION['message'] = 'Invalid request. Please try again.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . relative_url('manage_homepage.php#homepage-news'));
+        exit();
+    }
+
+    $result = saveNewsArticle($conn, [
+        'id' => isset($_POST['edit_news']) ? (int) ($_POST['id'] ?? 0) : 0,
+        'title' => $_POST['title'] ?? '',
+        'content' => $_POST['content'] ?? '',
+        'category' => $_POST['category'] ?? '',
+        'image_url' => $_POST['image_url'] ?? '',
+        'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
+        'is_active' => isset($_POST['is_active']) ? 1 : 0,
+    ], $_FILES['image_file'] ?? null, (string) $_SESSION['admin']);
+
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'success' : ($result['message'] === 'No file uploaded' ? 'warning' : 'danger');
+    header('Location: ' . relative_url('manage_homepage.php#homepage-news'));
+    exit();
+}
+
+$news_list = listAllNews($conn);
+$edit_news = null;
+if (isset($_GET['edit_news'])) {
+    $edit_news = getNewsArticle($conn, (int) $_GET['edit_news']);
+}
 
 // ============================================================================
 // AJAX REQUEST HANDLERS
@@ -1111,8 +1153,59 @@ if ($content_sections) {
 
         #hero-banners,
         details.index-category-card,
+        #homepage-news,
         #additional-blocks {
             scroll-margin-top: 110px;
+        }
+
+        .homepage-news-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 18px;
+        }
+
+        .homepage-news-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .homepage-news-card-header {
+            background: linear-gradient(135deg, #1a56db 0%, #1e40af 100%);
+            color: #fff;
+            padding: 16px;
+        }
+
+        .homepage-news-card-body {
+            padding: 16px;
+        }
+
+        .homepage-news-empty {
+            padding: 32px;
+            text-align: center;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
+        .news-status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .news-status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: #059669;
+        }
+
+        .news-status-inactive {
+            background: rgba(239, 68, 68, 0.15);
+            color: #dc2626;
         }
 
         .index-section-item {
@@ -1280,6 +1373,7 @@ if ($content_sections) {
 
                     <div class="index-page-map">
                         <a href="#hero-banners"><span class="map-order">↑</span> Hero Carousel Images</a>
+                        <a href="#homepage-news"><span class="map-order">10+</span> News Articles</a>
                         <?php foreach ($index_section_categories as $category): ?>
                             <a href="#index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>">
                                 <span class="map-order"><?php echo (int) $category['order']; ?></span>
@@ -1318,7 +1412,13 @@ if ($content_sections) {
                                 <div class="index-category-body">
                                     <?php if (!empty($category['manage_elsewhere'])): ?>
                                         <div class="index-category-actions">
-                                            <a href="<?php echo htmlspecialchars(relative_url($category['manage_elsewhere']['url']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary">
+                                            <?php
+                                            $elsewhereUrl = (string) $category['manage_elsewhere']['url'];
+                                            if ($elsewhereUrl !== '' && $elsewhereUrl[0] !== '#') {
+                                                $elsewhereUrl = relative_url($elsewhereUrl);
+                                            }
+                                            ?>
+                                            <a href="<?php echo htmlspecialchars($elsewhereUrl, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary">
                                                 <i class="fas fa-external-link-alt"></i>
                                                 <?php echo htmlspecialchars($category['manage_elsewhere']['label'], ENT_QUOTES, 'UTF-8'); ?>
                                             </a>
@@ -1357,6 +1457,69 @@ if ($content_sections) {
                             </details>
                         <?php endforeach; ?>
                     </div>
+                </div>
+            </div>
+
+            <!-- Latest News Articles -->
+            <div class="content-card mb-4" id="homepage-news">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-newspaper"></i> Latest News Articles
+                    </h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#homepageNewsModal">
+                        <i class="fas fa-plus"></i> Add News Article
+                    </button>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Manage the news cards shown in the <strong>Latest News &amp; Updates</strong> section on the homepage.
+                        Edit the section heading above in category <strong>10. Latest News &amp; Updates</strong>.
+                    </p>
+
+                    <?php if (empty($news_list)): ?>
+                        <div class="homepage-news-empty">
+                            <i class="fas fa-newspaper fa-2x mb-3"></i>
+                            <p class="mb-0">No news articles yet. Add your first article to show the news section on the homepage.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="homepage-news-grid">
+                            <?php foreach ($news_list as $news): ?>
+                                <div class="homepage-news-card">
+                                    <div class="homepage-news-card-header">
+                                        <h6 class="mb-1"><?php echo htmlspecialchars($news['title'], ENT_QUOTES, 'UTF-8'); ?></h6>
+                                        <small>
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <?php echo date('M d, Y', strtotime($news['created_at'])); ?>
+                                        </small>
+                                    </div>
+                                    <div class="homepage-news-card-body">
+                                        <p class="text-muted small mb-3">
+                                            <?php echo htmlspecialchars(mb_strimwidth(strip_tags($news['content']), 0, 120, '...'), ENT_QUOTES, 'UTF-8'); ?>
+                                        </p>
+                                        <div class="d-flex flex-wrap gap-2 mb-3">
+                                            <span class="news-status-badge <?php echo !empty($news['is_active']) ? 'news-status-active' : 'news-status-inactive'; ?>">
+                                                <?php echo !empty($news['is_active']) ? 'Active' : 'Hidden'; ?>
+                                            </span>
+                                            <?php if (!empty($news['is_featured'])): ?>
+                                                <span class="badge bg-warning text-dark">Featured</span>
+                                            <?php endif; ?>
+                                            <?php if (!empty($news['category'])): ?>
+                                                <span class="badge bg-info text-dark"><?php echo htmlspecialchars($news['category'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="<?php echo htmlspecialchars(relative_url('manage_homepage.php?edit_news=' . (int) $news['id'] . '#homepage-news'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-primary">
+                                                <i class="fas fa-edit"></i> Edit
+                                            </a>
+                                            <a href="<?php echo htmlspecialchars(relative_url('manage_homepage.php?delete_news=' . (int) $news['id']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-danger js-delete-news">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -1529,6 +1692,83 @@ if ($content_sections) {
         </div>
     </div>
 
+    <!-- Homepage News Modal -->
+    <div class="modal fade" id="homepageNewsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-newspaper"></i>
+                        <?php echo $edit_news ? 'Edit News Article' : 'Add News Article'; ?>
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data" action="<?php echo htmlspecialchars(relative_url('manage_homepage.php#homepage-news'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
+                    <?php if ($edit_news): ?>
+                        <input type="hidden" name="id" value="<?php echo (int) $edit_news['id']; ?>">
+                    <?php endif; ?>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Article Title *</label>
+                            <input type="text" class="form-control" name="title" required value="<?php echo $edit_news ? htmlspecialchars($edit_news['title'], ENT_QUOTES, 'UTF-8') : ''; ?>">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Category</label>
+                            <select class="form-select" name="category">
+                                <option value="">Select Category</option>
+                                <?php
+                                $newsCategories = ['Announcement', 'Achievement', 'Event', 'Update', 'Other'];
+                                foreach ($newsCategories as $newsCategory):
+                                ?>
+                                    <option value="<?php echo htmlspecialchars($newsCategory, ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($edit_news && ($edit_news['category'] ?? '') === $newsCategory) ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($newsCategory, ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">News Image</label>
+                            <input type="file" class="form-control" id="homepage_news_image_file" name="image_file" accept="image/*">
+                            <div class="form-text">Optional. JPG, PNG, WebP, GIF up to 5MB. Recommended 1200x600px.</div>
+                            <div id="homepage-news-image-preview" class="mt-3" style="<?php echo empty($edit_news['image_url']) ? 'display:none;' : ''; ?>">
+                                <img id="homepage-news-preview-img" src="<?php echo $edit_news ? htmlspecialchars((string) ($edit_news['image_url'] ?? ''), ENT_QUOTES, 'UTF-8') : ''; ?>" alt="News preview" style="max-width: 280px; border-radius: 8px;">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Or Image URL</label>
+                            <input type="url" class="form-control" name="image_url" value="<?php echo $edit_news ? htmlspecialchars((string) ($edit_news['image_url'] ?? ''), ENT_QUOTES, 'UTF-8') : ''; ?>" placeholder="https://example.com/image.jpg">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Article Content *</label>
+                            <textarea class="form-control" name="content" rows="8" required><?php echo $edit_news ? htmlspecialchars($edit_news['content'], ENT_QUOTES, 'UTF-8') : ''; ?></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_featured" id="homepage_news_featured" <?php echo ($edit_news && !empty($edit_news['is_featured'])) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="homepage_news_featured">Mark as Featured</label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_active" id="homepage_news_active" <?php echo (!$edit_news || !empty($edit_news['is_active'])) ? 'checked' : ''; ?>>
+                                    <label class="form-check-label" for="homepage_news_active">Active (visible on homepage)</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" name="<?php echo $edit_news ? 'edit_news' : 'add_news'; ?>" value="1" class="btn btn-primary">
+                            <i class="fas fa-save"></i> <?php echo $edit_news ? 'Update' : 'Save'; ?> Article
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Preview Modal -->
     <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl">
@@ -1637,7 +1877,43 @@ if ($content_sections) {
             initializeHeroBannerDragDrop();
             initializeDragAndDrop();
             initializeTinyMCE();
+            initializeHomepageNewsUi();
         });
+
+        function initializeHomepageNewsUi() {
+            <?php if ($edit_news): ?>
+            const newsModalEl = document.getElementById('homepageNewsModal');
+            if (newsModalEl && typeof bootstrap !== 'undefined') {
+                new bootstrap.Modal(newsModalEl).show();
+            }
+            <?php endif; ?>
+
+            const imageInput = document.getElementById('homepage_news_image_file');
+            const previewWrap = document.getElementById('homepage-news-image-preview');
+            const previewImg = document.getElementById('homepage-news-preview-img');
+            if (imageInput && previewWrap && previewImg) {
+                imageInput.addEventListener('change', function(event) {
+                    const file = event.target.files && event.target.files[0];
+                    if (!file) {
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(loadEvent) {
+                        previewImg.src = loadEvent.target.result;
+                        previewWrap.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            document.querySelectorAll('.js-delete-news').forEach(function(link) {
+                link.addEventListener('click', function(event) {
+                    if (!window.confirm('Delete this news article?')) {
+                        event.preventDefault();
+                    }
+                });
+            });
+        }
 
         document.addEventListener('click', function(event) {
             const editBtn = event.target.closest('.js-edit-index-section');
