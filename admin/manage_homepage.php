@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/audit_logger.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/homepage_loader.php';
+require_once __DIR__ . '/../includes/hero_banner_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: ' . relative_url('login.php'));
@@ -32,6 +33,9 @@ if (!ensureHomepageContentSchema($conn)) {
 }
 
 seedIndexHomepageSections($conn);
+ensureHeroBannersSchema($conn);
+syncHeroBannersFromFilesystem($conn);
+$hero_banners = listHeroBanners($conn);
 $index_section_keys = array_keys(getIndexHomepageSectionDefinitions());
 $index_sections_grouped = getIndexHomepageSectionsForAdmin($conn);
 
@@ -50,6 +54,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
     
     $action = $_POST['action'];
+
+    if ($action === 'upload_hero_banner') {
+        $altText = trim((string) ($_POST['alt_text'] ?? ''));
+        $result = uploadHeroBanner($conn, $_FILES['banner_file'] ?? null, $altText);
+        if ($result['success']) {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'create', $result['banner']['id'] ?? null, 'hero_banner', 'success', 'Uploaded hero banner');
+        } else {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'create', null, 'hero_banner', 'failure', $result['message'] ?? 'Upload failed');
+        }
+        echo json_encode($result);
+        exit();
+    }
+
+    if ($action === 'delete_hero_banner') {
+        $bannerId = (int) ($_POST['banner_id'] ?? 0);
+        $result = deleteHeroBanner($conn, $bannerId);
+        if ($result['success']) {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'delete', $bannerId, 'hero_banner', 'success', 'Deleted hero banner');
+        } else {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'delete', $bannerId, 'hero_banner', 'failure', $result['message'] ?? 'Delete failed');
+        }
+        echo json_encode($result);
+        exit();
+    }
+
+    if ($action === 'reorder_hero_banners') {
+        $orderData = json_decode((string) ($_POST['order_data'] ?? '[]'), true);
+        if (!is_array($orderData)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid order data']);
+            exit();
+        }
+        $result = reorderHeroBanners($conn, $orderData);
+        if ($result) {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'reorder', null, 'hero_banner', 'success', 'Reordered hero banners');
+            echo json_encode(['success' => true, 'message' => 'Banner order updated']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update banner order']);
+        }
+        exit();
+    }
+
+    if ($action === 'toggle_hero_banner') {
+        $bannerId = (int) ($_POST['banner_id'] ?? 0);
+        $status = (int) ($_POST['status'] ?? 0);
+        $result = toggleHeroBannerStatus($conn, $bannerId, $status);
+        if ($result) {
+            logHomepageContentAction($conn, $_SESSION['admin'], $status ? 'activate' : 'deactivate', $bannerId, 'hero_banner', 'success', 'Updated hero banner status');
+            echo json_encode(['success' => true, 'message' => 'Banner status updated']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to update banner status']);
+        }
+        exit();
+    }
+
+    if ($action === 'update_hero_banner_alt') {
+        $bannerId = (int) ($_POST['banner_id'] ?? 0);
+        $altText = (string) ($_POST['alt_text'] ?? '');
+        $result = updateHeroBannerAltText($conn, $bannerId, $altText);
+        if ($result['success']) {
+            logHomepageContentAction($conn, $_SESSION['admin'], 'update', $bannerId, 'hero_banner', 'success', 'Updated hero banner alt text');
+        }
+        echo json_encode($result);
+        exit();
+    }
     
     // Handle reorder sections request
     if ($action === 'reorder') {
@@ -414,8 +482,9 @@ function sanitizeContent($content) {
  * @return bool Success status
  */
 function createContentSection($conn, $data) {
-    if (($data['section_key'] ?? '') === 'hero_typing_lines') {
-        $data['section_content'] = trim(strip_tags($data['section_content'] ?? ''));
+    $sectionKey = (string) ($data['section_key'] ?? '');
+    if (homepageIsJsonSectionKey($sectionKey)) {
+        $data['section_content'] = trim((string) ($data['section_content'] ?? ''));
     } else {
         $data['section_content'] = sanitizeContent($data['section_content'] ?? '');
     }
@@ -439,8 +508,9 @@ function createContentSection($conn, $data) {
  * @return bool Success status
  */
 function updateContentSection($conn, $id, $data) {
-    if (($data['section_key'] ?? '') === 'hero_typing_lines') {
-        $data['section_content'] = trim(strip_tags($data['section_content'] ?? ''));
+    $sectionKey = (string) ($data['section_key'] ?? '');
+    if (homepageIsJsonSectionKey($sectionKey)) {
+        $data['section_content'] = trim((string) ($data['section_content'] ?? ''));
     } else {
         $data['section_content'] = sanitizeContent($data['section_content'] ?? '');
     }
@@ -784,6 +854,78 @@ if ($content_sections) {
             border: 2px dashed #cbd5e1;
         }
 
+        .hero-banner-upload {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 16px;
+            align-items: end;
+            padding: 20px;
+            background: #f8fafc;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            margin-bottom: 24px;
+        }
+
+        .hero-banner-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 18px;
+        }
+
+        .hero-banner-card {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .hero-banner-card.drag-over {
+            box-shadow: 0 0 0 2px var(--primary-color, #0d47a1);
+        }
+
+        .hero-banner-card[draggable="true"] {
+            cursor: move;
+        }
+
+        .hero-banner-preview {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            background: #0f172a;
+            display: block;
+        }
+
+        .hero-banner-body {
+            padding: 14px;
+        }
+
+        .hero-banner-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .hero-banner-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .hero-banner-empty {
+            padding: 28px;
+            text-align: center;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+            border-radius: 10px;
+            background: #f8fafc;
+        }
+
         .index-sections-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -872,6 +1014,85 @@ if ($content_sections) {
         <div class="admin-main">
             <!-- Toast notifications will appear here automatically -->
 
+            <!-- Hero Carousel Banners -->
+            <div class="content-card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-images"></i> Hero Carousel Banners
+                    </h5>
+                    <a href="<?php echo relative_url('../index.php'); ?>" class="btn btn-secondary" target="_blank" rel="noopener">
+                        <i class="fas fa-external-link-alt"></i> Preview Homepage
+                    </a>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Upload, reorder, and manage the images shown in the homepage hero carousel. Recommended size: 1920×900 px or similar wide banner ratio. Allowed formats: JPG, PNG, WebP, GIF, AVIF (max 8MB).
+                    </p>
+
+                    <form id="heroBannerUploadForm" class="hero-banner-upload" enctype="multipart/form-data">
+                        <div>
+                            <label for="hero_banner_file" class="form-label">Upload Banner Image</label>
+                            <input type="file" class="form-control" id="hero_banner_file" name="banner_file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif" required>
+                        </div>
+                        <div>
+                            <label for="hero_banner_alt" class="form-label">Alt Text (optional)</label>
+                            <input type="text" class="form-control" id="hero_banner_alt" name="alt_text" placeholder="NIELIT Bhubaneswar campus">
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="heroBannerUploadBtn">
+                            <i class="fas fa-upload"></i> Upload Banner
+                        </button>
+                    </form>
+
+                    <?php if (empty($hero_banners)): ?>
+                        <div class="hero-banner-empty">
+                            <i class="fas fa-image fa-2x mb-3"></i>
+                            <p class="mb-0">No hero banners yet. Upload your first banner image above.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="hero-banner-grid" id="heroBannerGrid">
+                            <?php foreach ($hero_banners as $banner): ?>
+                                <div class="hero-banner-card" draggable="true" data-banner-id="<?php echo (int) $banner['id']; ?>" data-order="<?php echo (int) $banner['display_order']; ?>">
+                                    <img
+                                        src="<?php echo htmlspecialchars(heroBannerAdminPreviewUrl((string) $banner['file_path']), ENT_QUOTES, 'UTF-8'); ?>"
+                                        alt="<?php echo htmlspecialchars((string) $banner['alt_text'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        class="hero-banner-preview"
+                                        loading="lazy"
+                                    >
+                                    <div class="hero-banner-body">
+                                        <div class="hero-banner-meta">
+                                            <span><i class="fas fa-grip-vertical"></i> Order <?php echo (int) $banner['display_order']; ?></span>
+                                            <span class="badge <?php echo !empty($banner['is_active']) ? 'bg-success' : 'bg-secondary'; ?>">
+                                                <?php echo !empty($banner['is_active']) ? 'Active' : 'Hidden'; ?>
+                                            </span>
+                                        </div>
+                                        <label class="form-label mb-1" for="hero-alt-<?php echo (int) $banner['id']; ?>">Alt Text</label>
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm hero-banner-alt-input"
+                                            id="hero-alt-<?php echo (int) $banner['id']; ?>"
+                                            data-banner-id="<?php echo (int) $banner['id']; ?>"
+                                            value="<?php echo htmlspecialchars((string) $banner['alt_text'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        >
+                                        <div class="hero-banner-actions">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveHeroBannerAlt(<?php echo (int) $banner['id']; ?>)">
+                                                <i class="fas fa-save"></i> Save Alt
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleHeroBanner(<?php echo (int) $banner['id']; ?>, <?php echo !empty($banner['is_active']) ? 0 : 1; ?>)">
+                                                <i class="fas fa-eye<?php echo !empty($banner['is_active']) ? '-slash' : ''; ?>"></i>
+                                                <?php echo !empty($banner['is_active']) ? 'Hide' : 'Show'; ?>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteHeroBanner(<?php echo (int) $banner['id']; ?>)">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
             <!-- Index Page Sections -->
             <div class="content-card mb-4">
                 <div class="card-header">
@@ -884,8 +1105,8 @@ if ($content_sections) {
                 </div>
                 <div class="card-body">
                     <p class="text-muted mb-4">
-                        Manage the main content on <code>index.php</code> — notice ticker, hero text, stats, welcome strip, job fair, mock test, features, and info cards.
-                        Hero carousel images are loaded from <code>assets/images/banners/</code>.
+                        Manage all content on <code>index.php</code> — page title, navbar, notice ticker, hero text, buttons, stats, welcome pills, job fair, mock test, features, info cards, section headings, footer links, and portal URLs.
+                        Use <code>__JOB_FAIR__</code>, <code>__MOCK_TEST__</code>, and <code>__MAIN_WEBSITE__</code> in URL fields to reference the Portal URLs group.
                     </p>
                     <div class="index-sections-grid">
                         <?php foreach ($index_sections_grouped as $groupName => $items): ?>
@@ -893,8 +1114,8 @@ if ($content_sections) {
                                 <h6><?php echo htmlspecialchars($groupName); ?></h6>
                                 <?php foreach ($items as $item): ?>
                                     <?php
-                                    $preview = $item['section_key'] === 'hero_typing_lines'
-                                        ? 'JSON typing lines'
+                                    $preview = homepageIsJsonSectionKey($item['section_key'])
+                                        ? 'JSON content'
                                         : ($item['section_content'] !== '' ? $item['section_content'] : $item['section_title']);
                                     ?>
                                     <div class="index-section-item">
@@ -1145,6 +1366,8 @@ if ($content_sections) {
         document.addEventListener('DOMContentLoaded', function() {
             initializeDragAndDrop();
             initializeTinyMCE();
+            initializeHeroBannerUpload();
+            initializeHeroBannerDragDrop();
         });
         
         /**
@@ -1175,6 +1398,41 @@ if ($content_sections) {
         /**
          * Open add modal for creating new content section
          */
+        const homepageJsonKeys = <?php echo json_encode(homepageJsonSectionKeys(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
+        function setIndexSectionHelp(sectionKey) {
+            const helpEl = document.getElementById('section_content_help');
+            if (homepageJsonKeys.includes(sectionKey)) {
+                if (sectionKey === 'hero_typing_lines') {
+                    helpEl.textContent = 'Enter a JSON array, e.g. [{"line1":"Code Tomorrow.","line2":"Transform Today."}]';
+                } else if (sectionKey.endsWith('_checklist')) {
+                    helpEl.textContent = 'Enter a JSON array of strings, e.g. ["Item one","Item two"]';
+                } else {
+                    helpEl.textContent = 'Enter valid JSON. For links use objects with label, url, icon, and optional external/link fields. Portal placeholders: __JOB_FAIR__, __MOCK_TEST__, __MAIN_WEBSITE__.';
+                }
+                return;
+            }
+            if (sectionKey.startsWith('hero_btn_') || sectionKey.startsWith('jobfair_btn_') || sectionKey.startsWith('mocktest_btn_')) {
+                helpEl.textContent = 'Title = button label. Content = URL path (/public/courses), full URL, or __JOB_FAIR__ / __MOCK_TEST__ / __MAIN_WEBSITE__.';
+            } else if (sectionKey.startsWith('portal_')) {
+                helpEl.textContent = 'Enter the full portal URL in Content (Title is for admin reference only).';
+            } else if (sectionKey.startsWith('hero_stat_') || sectionKey.startsWith('jobfair_stat_') || sectionKey.startsWith('mocktest_stat_')) {
+                helpEl.textContent = 'Title = number/value shown large. Content = label below it.';
+            } else if (sectionKey.startsWith('mocktest_feature_')) {
+                helpEl.textContent = 'Title = Font Awesome icon class (e.g. fa-user-graduate). Content = feature text.';
+            } else if (sectionKey.startsWith('feature_') && sectionKey.endsWith('_icon')) {
+                helpEl.textContent = 'Enter Font Awesome icon class in Content, e.g. fa-laptop-code';
+            } else if (sectionKey.startsWith('feature_') || sectionKey.endsWith('_title')) {
+                helpEl.textContent = 'Use Title for the heading/number and Content for the description text shown on index.php.';
+            } else {
+                helpEl.textContent = 'Plain text shown on index.php. HTML is stripped on the public page for these sections.';
+            }
+        }
+
+        function isIndexJsonSection(sectionKey) {
+            return homepageJsonKeys.includes(sectionKey);
+        }
+
         function openAddModal() {
             // Reset form
             document.getElementById('sectionForm').reset();
@@ -1218,16 +1476,9 @@ if ($content_sections) {
                     document.getElementById('section_type').value = section.section_type;
                     document.getElementById('display_order').value = section.display_order;
 
-                    const helpEl = document.getElementById('section_content_help');
-                    if (section.section_key === 'hero_typing_lines') {
-                        helpEl.textContent = 'Enter a JSON array, e.g. [{"line1":"Code Tomorrow.","line2":"Transform Today."}]';
-                    } else if (section.section_key.startsWith('hero_stat_') || section.section_key.startsWith('feature_') || section.section_key.endsWith('_title')) {
-                        helpEl.textContent = 'Use Title for the heading/number and Content for the description text shown on index.php.';
-                    } else {
-                        helpEl.textContent = 'Plain text shown on index.php. HTML is stripped on the public page for these sections.';
-                    }
+                    setIndexSectionHelp(section.section_key);
 
-                    if (section.section_key === 'hero_typing_lines' && typeof tinymce !== 'undefined') {
+                    if (isIndexJsonSection(section.section_key) && typeof tinymce !== 'undefined') {
                         if (editorInstance) {
                             tinymce.remove('#section_content');
                             editorInstance = null;
@@ -1549,6 +1800,214 @@ if ($content_sections) {
             .catch(error => {
                 console.error('Error updating section status:', error);
                 showToast('Failed to update section status. Please try again.', 'error');
+            });
+        }
+
+        }
+
+        // ============================================================================
+        // HERO BANNER MANAGEMENT
+        // ============================================================================
+
+        function initializeHeroBannerUpload() {
+            const form = document.getElementById('heroBannerUploadForm');
+            if (!form) return;
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const fileInput = document.getElementById('hero_banner_file');
+                const altInput = document.getElementById('hero_banner_alt');
+                const uploadBtn = document.getElementById('heroBannerUploadBtn');
+
+                if (!fileInput.files.length) {
+                    showToast('Please choose a banner image to upload', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('action', 'upload_hero_banner');
+                formData.append('csrf_token', '<?php echo $_SESSION['csrf_token']; ?>');
+                formData.append('banner_file', fileInput.files[0]);
+                formData.append('alt_text', altInput.value || '');
+
+                uploadBtn.disabled = true;
+                fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message || 'Banner uploaded successfully', 'success');
+                        setTimeout(() => location.reload(), 800);
+                    } else {
+                        showToast(data.message || 'Upload failed', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Hero banner upload failed:', error);
+                    showToast('Upload failed. Please try again.', 'error');
+                })
+                .finally(() => {
+                    uploadBtn.disabled = false;
+                });
+            });
+        }
+
+        function deleteHeroBanner(bannerId) {
+            if (!confirm('Delete this hero banner image? This cannot be undone.')) {
+                return;
+            }
+
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=delete_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || 'Banner deleted', 'success');
+                    setTimeout(() => location.reload(), 700);
+                } else {
+                    showToast(data.message || 'Delete failed', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Hero banner delete failed:', error);
+                showToast('Delete failed. Please try again.', 'error');
+            });
+        }
+
+        function toggleHeroBanner(bannerId, newStatus) {
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=toggle_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&status=' + encodeURIComponent(newStatus) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || 'Banner status updated', 'success');
+                    setTimeout(() => location.reload(), 700);
+                } else {
+                    showToast(data.message || 'Failed to update status', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Hero banner toggle failed:', error);
+                showToast('Failed to update banner status.', 'error');
+            });
+        }
+
+        function saveHeroBannerAlt(bannerId) {
+            const input = document.getElementById('hero-alt-' + bannerId);
+            if (!input) return;
+
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=update_hero_banner_alt&banner_id=' + encodeURIComponent(bannerId) + '&alt_text=' + encodeURIComponent(input.value) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message || 'Alt text saved', 'success');
+                } else {
+                    showToast(data.message || 'Failed to save alt text', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Hero banner alt save failed:', error);
+                showToast('Failed to save alt text.', 'error');
+            });
+        }
+
+        let draggedHeroBanner = null;
+
+        function initializeHeroBannerDragDrop() {
+            const grid = document.getElementById('heroBannerGrid');
+            if (!grid) return;
+
+            const cards = grid.querySelectorAll('.hero-banner-card');
+            cards.forEach(card => {
+                card.addEventListener('dragstart', function(e) {
+                    draggedHeroBanner = this;
+                    this.style.opacity = '0.6';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                card.addEventListener('dragend', function() {
+                    this.style.opacity = '1';
+                    cards.forEach(item => item.classList.remove('drag-over'));
+                });
+
+                card.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    this.classList.add('drag-over');
+                });
+
+                card.addEventListener('dragleave', function() {
+                    this.classList.remove('drag-over');
+                });
+
+                card.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    this.classList.remove('drag-over');
+                    if (!draggedHeroBanner || draggedHeroBanner === this) {
+                        return;
+                    }
+
+                    const allCards = Array.from(grid.querySelectorAll('.hero-banner-card'));
+                    const draggedIndex = allCards.indexOf(draggedHeroBanner);
+                    const targetIndex = allCards.indexOf(this);
+
+                    if (draggedIndex < targetIndex) {
+                        grid.insertBefore(draggedHeroBanner, this.nextSibling);
+                    } else {
+                        grid.insertBefore(draggedHeroBanner, this);
+                    }
+
+                    updateHeroBannerOrder();
+                });
+            });
+        }
+
+        function updateHeroBannerOrder() {
+            const grid = document.getElementById('heroBannerGrid');
+            if (!grid) return;
+
+            const orderData = [];
+            grid.querySelectorAll('.hero-banner-card').forEach((card, index) => {
+                orderData.push({
+                    id: parseInt(card.dataset.bannerId, 10),
+                    order: index + 1
+                });
+                card.dataset.order = index + 1;
+                const meta = card.querySelector('.hero-banner-meta span');
+                if (meta) {
+                    meta.innerHTML = '<i class="fas fa-grip-vertical"></i> Order ' + (index + 1);
+                }
+            });
+
+            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=reorder_hero_banners&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Banner order updated', 'success');
+                } else {
+                    showToast(data.message || 'Failed to update banner order', 'error');
+                    setTimeout(() => location.reload(), 1500);
+                }
+            })
+            .catch(error => {
+                console.error('Hero banner reorder failed:', error);
+                showToast('Failed to update banner order.', 'error');
+                setTimeout(() => location.reload(), 1500);
             });
         }
 

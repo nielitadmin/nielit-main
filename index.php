@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NIELIT Bhubaneswar | Ministry of Electronics & IT</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -14,6 +13,7 @@ require_once __DIR__ . '/includes/maintenance_check.php';
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/theme_loader.php';
 require_once __DIR__ . '/includes/homepage_loader.php';
+require_once __DIR__ . '/includes/hero_banner_helper.php';
 require_once __DIR__ . '/includes/navigation_helper.php';
 require_once __DIR__ . '/includes/url_helper.php';
 
@@ -32,9 +32,6 @@ if (navigationMenuTableExists($conn)) {
 if (empty($navigation_menu_html)) {
     $navigation_menu_html = getFallbackNavigationMenu();
 }
-$job_fair_portal_url = getJobFairPortalUrl();
-$mock_test_portal_url = getMockTestPortalUrl();
-$nielit_main_website_url = 'https://www.nielit.gov.in/NielitMain/BBS';
 injectThemeCSS($active_theme);
 echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
 
@@ -72,9 +69,38 @@ $homepage_map = [];
     
     $homepage_sections = loadHomepagePageSections($conn);
     extract($homepage_sections, EXTR_OVERWRITE);
+    $homepage_map = $map ?? [];
     $hero_typing_lines = homepageTypingLines($homepage_map);
+    $homepage_portals = homepagePortalUrls($homepage_map);
+    $job_fair_portal_url = $homepage_portals['jobfair'];
+    $mock_test_portal_url = $homepage_portals['mocktest'];
+    $nielit_main_website_url = $homepage_portals['main'];
+    $hero_btn_1 = homepageButton($homepage_map, 'hero_btn_1', $homepage_portals);
+    $hero_btn_2 = homepageButton($homepage_map, 'hero_btn_2', $homepage_portals);
+    $hero_btn_3 = homepageButton($homepage_map, 'hero_btn_3', $homepage_portals);
+    $hero_btn_4 = homepageButton($homepage_map, 'hero_btn_4', $homepage_portals);
+    $welcome_pills = homepageLinkItems($homepage_map, 'welcome_pills', [], $homepage_portals);
+    $jobfair_btn_primary = homepageButton($homepage_map, 'jobfair_btn_primary', $homepage_portals);
+    $jobfair_btn_secondary = homepageButton($homepage_map, 'jobfair_btn_secondary', $homepage_portals);
+    $mocktest_btn_primary = homepageButton($homepage_map, 'mocktest_btn_primary', $homepage_portals);
+    $mocktest_btn_secondary = homepageButton($homepage_map, 'mocktest_btn_secondary', $homepage_portals);
+    $about_checklist = homepageChecklist($homepage_map, 'about_checklist', [
+        'Government of India Initiative',
+        'NSQF Aligned Programs',
+        'Industry-Ready Training',
+    ]);
+    $mission_checklist = homepageChecklist($homepage_map, 'mission_checklist', [
+        'Skill Enhancement & Certification',
+        'Employment Generation',
+        'Digital India Mission Support',
+    ]);
+    $quickaccess_links = homepageLinkItems($homepage_map, 'quickaccess_links', [], $homepage_portals);
+    $footer_links_important = homepageLinkItems($homepage_map, 'footer_links_important', [], $homepage_portals);
+    $footer_links_quick = homepageLinkItems($homepage_map, 'footer_links_quick', [], $homepage_portals);
+    $footer_links_student = homepageLinkItems($homepage_map, 'footer_links_student', [], $homepage_portals);
     // Decorative background uses CSS gradients; no SVG asset needed
     ?>
+    <title><?php echo htmlspecialchars(homepageValue($homepage_map, 'page_title'), ENT_QUOTES, 'UTF-8'); ?></title>
 
     <style>
         :root {
@@ -1228,7 +1254,7 @@ $homepage_map = [];
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">
         <a class="navbar-brand" href="<?php echo relative_url(); ?>">
-            <i class="fas fa-university me-2" style="color:var(--gold);"></i> NIELIT <span>Bhubaneswar</span>
+            <i class="fas fa-university me-2" style="color:var(--gold);"></i> <?php echo htmlspecialchars(homepageValue($homepage_map, 'navbar_brand'), ENT_QUOTES, 'UTF-8'); ?>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav">
             <span class="navbar-toggler-icon"></span>
@@ -1256,49 +1282,25 @@ $homepage_map = [];
     <div id="heroCarousel" class="carousel slide carousel-fade hero-carousel" data-bs-ride="carousel" data-bs-interval="3000" data-bs-wrap="true" data-bs-touch="true">
         <div class="carousel-inner">
             <?php
-            // Load all banner images from assets/images/banners (including subfolders)
-            $banner_dir = __DIR__ . '/assets/images/banners';
-            $banner_files = [];
-            $allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'];
-            if (is_dir($banner_dir)) {
-                $iterator = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator($banner_dir, FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($iterator as $file_info) {
-                    if (!$file_info->isFile()) {
-                        continue;
-                    }
-                    $ext = strtolower($file_info->getExtension());
-                    if (in_array($ext, $allowed_extensions, true)) {
-                        $banner_files[] = $file_info->getPathname();
-                    }
-                }
-                natsort($banner_files);
-                $banner_files = array_values($banner_files);
-            }
+            $hero_banner_slides = getHeroBannerSlidesForIndex($conn);
 
-            // Build encoded relative URLs so names with spaces/special chars work correctly
-            $banner_urls = [];
-            foreach ($banner_files as $file_path) {
-                $relative_path = str_replace('\\', '/', substr($file_path, strlen(__DIR__) + 1));
-                $banner_urls[] = implode('/', array_map('rawurlencode', explode('/', $relative_path)));
-            }
-
-            // Fallback slide (inline SVG) if no local banner files exist
-            if (empty($banner_urls)) {
+            if ($hero_banner_slides === []) {
                 $fallback_svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 900'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%' stop-color='#0a1628'/><stop offset='100%' stop-color='#112240'/></linearGradient></defs><rect width='1920' height='900' fill='url(#g)'/><text x='50%' y='50%' fill='#fcd34d' text-anchor='middle' font-family='Arial,sans-serif' font-size='72' font-weight='700'>NIELIT Bhubaneswar</text></svg>";
-                $banner_urls[] = 'data:image/svg+xml,' . rawurlencode($fallback_svg);
+                $hero_banner_slides[] = [
+                    'url' => 'data:image/svg+xml,' . rawurlencode($fallback_svg),
+                    'alt' => 'NIELIT Bhubaneswar',
+                ];
             }
             ?>
-            <?php foreach ($banner_urls as $i => $url): ?>
+            <?php foreach ($hero_banner_slides as $i => $slide): ?>
             <div class="carousel-item <?php echo $i === 0 ? 'active' : ''; ?>">
-                <img src="<?php echo htmlspecialchars($url, ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Banner <?php echo $i + 1; ?>"<?php echo $i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'; ?>>
+                <img src="<?php echo htmlspecialchars($slide['url'], ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($slide['alt'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo $i === 0 ? ' fetchpriority="high"' : ' loading="lazy" decoding="async"'; ?>>
             </div>
             <?php endforeach; ?>
         </div>
-        <?php if (count($banner_urls) > 1): ?>
+        <?php if (count($hero_banner_slides) > 1): ?>
         <div class="carousel-indicators">
-            <?php foreach ($banner_urls as $i => $url): ?>
+            <?php foreach ($hero_banner_slides as $i => $slide): ?>
             <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="<?php echo $i; ?>" class="<?php echo $i === 0 ? 'active' : ''; ?>" aria-current="<?php echo $i === 0 ? 'true' : 'false'; ?>" aria-label="Slide <?php echo $i + 1; ?>"></button>
             <?php endforeach; ?>
         </div>
@@ -1327,17 +1329,17 @@ $homepage_map = [];
                     <?php echo htmlspecialchars(homepageValue($homepage_map, 'hero_subtitle'), ENT_QUOTES, 'UTF-8'); ?>
                 </p>
                 <div class="hero-btns fade-up fade-up-delay-3">
-                    <a href="<?php echo relative_url('public/courses'); ?>" class="btn-hero-primary">
-                        Explore Courses <i class="fas fa-arrow-right fa-sm"></i>
+                    <a href="<?php echo htmlspecialchars($hero_btn_1['url'], ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-primary">
+                        <?php echo htmlspecialchars($hero_btn_1['label'], ENT_QUOTES, 'UTF-8'); ?> <i class="fas fa-arrow-right fa-sm"></i>
                     </a>
-                    <a href="<?php echo relative_url('student/login'); ?>" class="btn-hero-outline">
-                        Student Portal
+                    <a href="<?php echo htmlspecialchars($hero_btn_2['url'], ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-outline">
+                        <?php echo htmlspecialchars($hero_btn_2['label'], ENT_QUOTES, 'UTF-8'); ?>
                     </a>
-                    <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
-                        Job Fair Portal
+                    <a href="<?php echo htmlspecialchars($hero_btn_3['url'], ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
+                        <?php echo htmlspecialchars($hero_btn_3['label'], ENT_QUOTES, 'UTF-8'); ?>
                     </a>
-                    <a href="<?php echo htmlspecialchars($nielit_main_website_url); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
-                        <i class="fas fa-globe fa-sm"></i> Main Website
+                    <a href="<?php echo htmlspecialchars($hero_btn_4['url'], ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
+                        <i class="fas fa-globe fa-sm"></i> <?php echo htmlspecialchars($hero_btn_4['label'], ENT_QUOTES, 'UTF-8'); ?>
                     </a>
                 </div>
             </div>
@@ -1379,23 +1381,24 @@ $homepage_map = [];
             </div>
             <div class="col-lg-6">
                 <div>
-                    <a class="stat-pill stat-pill-main-site" href="<?php echo htmlspecialchars($nielit_main_website_url); ?>" target="_blank" rel="noopener" title="NIELIT India official website — Bhubaneswar centre" role="link">
-                        <i class="fas fa-globe"></i> Go to Main Website
-                    </a>
-                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar" target="_blank" rel="noopener" title="Open OCAC Tower in Google Maps" role="link">
-                        <i class="fas fa-map-marker-alt"></i> OCAC Tower, Bhubaneswar
-                    </a>
-                    <a class="stat-pill" href="https://www.google.com/maps/search/?api=1&query=NIELIT+Baleshwar+Extension+Center+Baleshwar" target="_blank" rel="noopener" title="Open Baleshwar Extension Center in Google Maps" role="link">
-                        <i class="fas fa-map-marker-alt"></i> Baleshwar Extension Center
-                    </a>
-                    <div class="stat-pill"><i class="fas fa-clock"></i> Mon–Fri: 09:00 AM – 5:30 PM</div>
-                    <div class="stat-pill"><i class="fas fa-phone-alt"></i> 0674-2960354</div>
-                    <a class="stat-pill" href="mailto:dir-bbsr@nielit.gov.in" title="Send email to NIELIT Bhubaneswar">
-                        <i class="fas fa-envelope"></i> dir-bbsr@nielit.gov.in
-                    </a>
-                    <a class="stat-pill" href="https://www.nielit.gov.in/content/nsqf-it" target="_blank" rel="noopener" title="NSQF information on NIELIT" role="link">
-                        <i class="fas fa-shield-alt"></i> NSQF Aligned Programs
-                    </a>
+                    <?php foreach ($welcome_pills as $pillIndex => $pill): ?>
+                        <?php
+                        $pillClass = 'stat-pill' . ($pillIndex === 0 ? ' stat-pill-main-site' : '');
+                        $pillIcon = htmlspecialchars($pill['icon'], ENT_QUOTES, 'UTF-8');
+                        $pillLabel = htmlspecialchars($pill['label'], ENT_QUOTES, 'UTF-8');
+                        $pillUrl = htmlspecialchars($pill['url'], ENT_QUOTES, 'UTF-8');
+                        $isLink = !empty($pill['link']) && $pill['url'] !== '';
+                        ?>
+                        <?php if ($isLink): ?>
+                            <a class="<?php echo $pillClass; ?>" href="<?php echo $pillUrl; ?>"<?php echo !empty($pill['external']) ? ' target="_blank" rel="noopener"' : ''; ?> role="link">
+                                <i class="fas <?php echo $pillIcon; ?>"></i> <?php echo $pillLabel; ?>
+                            </a>
+                        <?php else: ?>
+                            <div class="<?php echo $pillClass; ?>">
+                                <i class="fas <?php echo $pillIcon; ?>"></i> <?php echo $pillLabel; ?>
+                            </div>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
@@ -1420,32 +1423,22 @@ $homepage_map = [];
                         </div>
                     </div>
                     <div class="jobfair-actions">
-                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="jobfair-btn-primary" target="_blank" rel="noopener">
-                            <i class="fas fa-briefcase"></i> Visit Job Fair Portal
+                        <a href="<?php echo htmlspecialchars($jobfair_btn_primary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="jobfair-btn-primary" target="_blank" rel="noopener">
+                            <i class="fas fa-briefcase"></i> <?php echo htmlspecialchars($jobfair_btn_primary['label'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
-                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="jobfair-btn-secondary" target="_blank" rel="noopener">
-                            <i class="fas fa-sign-in-alt"></i> Login to Portal
+                        <a href="<?php echo htmlspecialchars($jobfair_btn_secondary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="jobfair-btn-secondary" target="_blank" rel="noopener">
+                            <i class="fas fa-sign-in-alt"></i> <?php echo htmlspecialchars($jobfair_btn_secondary['label'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                     </div>
                 </div>
                 <div class="col-lg-5">
                     <div class="jobfair-stats">
+                        <?php for ($jf = 1; $jf <= 4; $jf++): ?>
                         <div class="jobfair-stat">
-                            <strong>1+</strong>
-                            <span>Centers</span>
+                            <strong><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_stat_' . $jf, 'title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                            <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_stat_' . $jf), ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
-                        <div class="jobfair-stat">
-                            <strong>10+</strong>
-                            <span>Youth Enrolled</span>
-                        </div>
-                        <div class="jobfair-stat">
-                            <strong>4+</strong>
-                            <span>Corporates</span>
-                        </div>
-                        <div class="jobfair-stat">
-                            <strong>Live</strong>
-                            <span>Active Drives</span>
-                        </div>
+                        <?php endfor; ?>
                     </div>
                 </div>
             </div>
@@ -1465,46 +1458,30 @@ $homepage_map = [];
                         <?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_lead'), ENT_QUOTES, 'UTF-8'); ?>
                     </p>
                     <div class="mocktest-features">
+                        <?php for ($mt = 1; $mt <= 4; $mt++): ?>
                         <div class="mocktest-feature">
-                            <i class="fas fa-user-graduate"></i>
-                            <span>Candidate portal for mock exams, admit cards, and digital scorecards</span>
+                            <i class="fas <?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_feature_' . $mt, 'title', 'fa-star'), ENT_QUOTES, 'UTF-8'); ?>"></i>
+                            <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_feature_' . $mt), ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
-                        <div class="mocktest-feature">
-                            <i class="fas fa-school"></i>
-                            <span>Training partner dashboard for batch scheduling and exam slots</span>
-                        </div>
-                        <div class="mocktest-feature">
-                            <i class="fas fa-shield-alt"></i>
-                            <span>Secure examination environment with transparent evaluation</span>
-                        </div>
-                        <div class="mocktest-feature">
-                            <i class="fas fa-chart-line"></i>
-                            <span>Performance analytics to identify weak areas before the real exam</span>
-                        </div>
+                        <?php endfor; ?>
                     </div>
                     <div class="mocktest-actions">
-                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="mocktest-btn-primary" target="_blank" rel="noopener">
-                            <i class="fas fa-laptop-code"></i> Open Mock Test Portal
+                        <a href="<?php echo htmlspecialchars($mocktest_btn_primary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="mocktest-btn-primary" target="_blank" rel="noopener">
+                            <i class="fas fa-laptop-code"></i> <?php echo htmlspecialchars($mocktest_btn_primary['label'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
-                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="mocktest-btn-secondary" target="_blank" rel="noopener">
-                            <i class="fas fa-sign-in-alt"></i> Candidate Login
+                        <a href="<?php echo htmlspecialchars($mocktest_btn_secondary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="mocktest-btn-secondary" target="_blank" rel="noopener">
+                            <i class="fas fa-sign-in-alt"></i> <?php echo htmlspecialchars($mocktest_btn_secondary['label'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
                     </div>
                 </div>
                 <div class="col-lg-5">
                     <div class="mocktest-stats">
+                        <?php for ($ms = 1; $ms <= 3; $ms++): ?>
                         <div class="mocktest-stat">
-                            <strong>50K+</strong>
-                            <span>Candidates</span>
+                            <strong><?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_stat_' . $ms, 'title'), ENT_QUOTES, 'UTF-8'); ?></strong>
+                            <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'mocktest_stat_' . $ms), ENT_QUOTES, 'UTF-8'); ?></span>
                         </div>
-                        <div class="mocktest-stat">
-                            <strong>200+</strong>
-                            <span>Exam Sessions</span>
-                        </div>
-                        <div class="mocktest-stat">
-                            <strong>99.9%</strong>
-                            <span>System Uptime</span>
-                        </div>
+                        <?php endfor; ?>
                     </div>
                 </div>
             </div>
@@ -1523,28 +1500,28 @@ $homepage_map = [];
         <div class="row g-4">
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
-                    <div class="feat-icon-wrap"><i class="fas fa-laptop-code"></i></div>
+                    <div class="feat-icon-wrap"><i class="fas <?php echo htmlspecialchars(homepageFeatureIcon($homepage_map, 1, 'fa-laptop-code'), ENT_QUOTES, 'UTF-8'); ?>"></i></div>
                     <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_1', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_1'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
-                    <div class="feat-icon-wrap"><i class="fas fa-map-marked-alt"></i></div>
+                    <div class="feat-icon-wrap"><i class="fas <?php echo htmlspecialchars(homepageFeatureIcon($homepage_map, 2, 'fa-map-marked-alt'), ENT_QUOTES, 'UTF-8'); ?>"></i></div>
                     <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_2', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_2'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
-                    <div class="feat-icon-wrap"><i class="fas fa-building"></i></div>
+                    <div class="feat-icon-wrap"><i class="fas <?php echo htmlspecialchars(homepageFeatureIcon($homepage_map, 3, 'fa-building'), ENT_QUOTES, 'UTF-8'); ?>"></i></div>
                     <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_3', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_3'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
             </div>
             <div class="col-md-6 col-lg-3">
                 <div class="feat-card">
-                    <div class="feat-icon-wrap"><i class="fas fa-network-wired"></i></div>
+                    <div class="feat-icon-wrap"><i class="fas <?php echo htmlspecialchars(homepageFeatureIcon($homepage_map, 4, 'fa-network-wired'), ENT_QUOTES, 'UTF-8'); ?>"></i></div>
                     <h5><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_4', 'title'), ENT_QUOTES, 'UTF-8'); ?></h5>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'feature_4'), ENT_QUOTES, 'UTF-8'); ?></p>
                 </div>
@@ -1568,9 +1545,9 @@ $homepage_map = [];
                     <h4><?php echo htmlspecialchars(homepageValue($homepage_map, 'about_title', 'title'), ENT_QUOTES, 'UTF-8'); ?></h4>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'about_title'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <ul class="check-list">
-                        <li><i class="fas fa-check-circle"></i> Government of India Initiative</li>
-                        <li><i class="fas fa-check-circle"></i> NSQF Aligned Programs</li>
-                        <li><i class="fas fa-check-circle"></i> Industry-Ready Training</li>
+                        <?php foreach ($about_checklist as $aboutItem): ?>
+                        <li><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($aboutItem, ENT_QUOTES, 'UTF-8'); ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </div>
             </div>
@@ -1580,36 +1557,23 @@ $homepage_map = [];
                     <h4><?php echo htmlspecialchars(homepageValue($homepage_map, 'mission_title', 'title'), ENT_QUOTES, 'UTF-8'); ?></h4>
                     <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'mission_title'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <ul class="check-list">
-                        <li><i class="fas fa-check-circle"></i> Skill Enhancement & Certification</li>
-                        <li><i class="fas fa-check-circle"></i> Employment Generation</li>
-                        <li><i class="fas fa-check-circle"></i> Digital India Mission Support</li>
+                        <?php foreach ($mission_checklist as $missionItem): ?>
+                        <li><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($missionItem, ENT_QUOTES, 'UTF-8'); ?></li>
+                        <?php endforeach; ?>
                     </ul>
                 </div>
             </div>
             <div class="col-lg-4">
                 <div class="info-card">
                     <div class="info-icon-box"><i class="fas fa-link"></i></div>
-                    <h4>Quick Access</h4>
-                    <p>Explore our offerings and start your learning journey. Access courses, register online, and connect with us for queries.</p>
+                    <h4><?php echo htmlspecialchars(homepageValue($homepage_map, 'quickaccess_title'), ENT_QUOTES, 'UTF-8'); ?></h4>
+                    <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'quickaccess_text'), ENT_QUOTES, 'UTF-8'); ?></p>
                     <div class="quick-grid">
-                        <a href="<?php echo relative_url('public/courses'); ?>" class="quick-btn">
-                            <i class="fas fa-book"></i> View Courses
+                        <?php foreach ($quickaccess_links as $quickLink): ?>
+                        <a href="<?php echo htmlspecialchars($quickLink['url'], ENT_QUOTES, 'UTF-8'); ?>" class="quick-btn"<?php echo !empty($quickLink['external']) ? ' target="_blank" rel="noopener"' : ''; ?>>
+                            <i class="fas <?php echo htmlspecialchars($quickLink['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i> <?php echo htmlspecialchars($quickLink['label'], ENT_QUOTES, 'UTF-8'); ?>
                         </a>
-                        <a href="<?php echo relative_url('student/login'); ?>" class="quick-btn">
-                            <i class="fas fa-sign-in-alt"></i> Student Portal
-                        </a>
-                        <a href="<?php echo relative_url('public/contact'); ?>" class="quick-btn">
-                            <i class="fas fa-envelope"></i> Contact Us
-                        </a>
-                        <a href="<?php echo relative_url('public/news'); ?>" class="quick-btn">
-                            <i class="fas fa-newspaper"></i> News & Events
-                        </a>
-                        <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
-                            <i class="fas fa-briefcase"></i> Job Fair Portal
-                        </a>
-                        <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" class="quick-btn" target="_blank" rel="noopener">
-                            <i class="fas fa-laptop-code"></i> Mock Test Portal
-                        </a>
+                        <?php endforeach; ?>
                     </div>
                 </div>
             </div>
@@ -1637,8 +1601,8 @@ if ($has_database_content):
 <section class="dynamic-course section-white-pattern perf-section">
     <div class="container">
         <div class="text-center mb-5">
-            <span class="section-eyebrow">Courses</span>
-            <h2 class="section-title">Featured Courses.</h2>
+            <span class="section-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'featured_courses_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2 class="section-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'featured_courses_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="section-divider mx-auto"></div>
         </div>
         <div class="row g-4">
@@ -1661,8 +1625,8 @@ if ($has_database_content):
 <section class="news-section section-white-pattern perf-section">
     <div class="container news-container">
         <div class="text-center mb-5">
-            <span class="section-eyebrow">Stay Informed</span>
-            <h2 class="section-title">Latest News & Updates.</h2>
+            <span class="section-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'news_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2 class="section-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'news_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="section-divider mx-auto"></div>
         </div>
         
@@ -1728,8 +1692,8 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
 <section class="announcements-section perf-section">
     <div class="container">
         <div class="text-center mb-5">
-            <span class="section-eyebrow" style="color:var(--gold-light);">Latest Updates</span>
-            <h2 class="section-title">Announcements.</h2>
+            <span class="section-eyebrow" style="color:var(--gold-light);"><?php echo htmlspecialchars(homepageValue($homepage_map, 'announcements_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
+            <h2 class="section-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'announcements_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
             <div class="section-divider mx-auto"></div>
         </div>
         <div class="row g-4">
@@ -1763,58 +1727,49 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
             <div class="row gy-5">
                 <div class="col-lg-4">
                     <div class="footer-brand">
-                        <span class="brand-name">NIELIT Bhubaneswar</span>
+                        <span class="brand-name"><?php echo htmlspecialchars(homepageValue($homepage_map, 'navbar_brand'), ENT_QUOTES, 'UTF-8'); ?></span>
                         <span class="brand-sub"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></span>
-                        <p>An autonomous scientific society under <?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?> — dedicated to technology education and skill development.</p>
+                        <p><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_tagline'), ENT_QUOTES, 'UTF-8'); ?></p>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-map-marker-alt mt-1"></i>
-                        <span>OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha</span>
+                        <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_address'), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-phone-alt"></i>
-                        <span>0674-2960354</span>
+                        <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_phone'), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-envelope"></i>
-                        <span>dir-bbsr@nielit.gov.in</span>
+                        <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_email'), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-clock"></i>
-                        <span>Mon–Fri: 09:00 AM – 5:30 PM</span>
+                        <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_hours'), ENT_QUOTES, 'UTF-8'); ?></span>
                     </div>
                 </div>
 
                 <div class="col-6 col-lg-2">
                     <h5>Important Links</h5>
-                    <a href="https://india.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> National Portal</a>
-                    <a href="https://www.mygov.in/" target="_blank"><i class="fas fa-chevron-right"></i> MyGov</a>
-                    <a href="https://rtionline.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> RTI Online</a>
-                    <a href="http://meity.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> MeitY</a>
-                    <a href="https://www.nielit.gov.in/" target="_blank"><i class="fas fa-chevron-right"></i> NIELIT HQ</a>
+                    <?php foreach ($footer_links_important as $footerLink): ?>
+                    <a href="<?php echo htmlspecialchars($footerLink['url'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo !empty($footerLink['external']) ? ' target="_blank" rel="noopener"' : ''; ?>><i class="fas fa-chevron-right"></i> <?php echo htmlspecialchars($footerLink['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php endforeach; ?>
                 </div>
 
                 <div class="col-6 col-lg-2">
                     <h5>Quick Links</h5>
-                    <a href="#"><i class="fas fa-chevron-right"></i> About Us</a>
-                    <a href="<?php echo relative_url('public/courses'); ?>"><i class="fas fa-chevron-right"></i> Courses</a>
-                    <a href="<?php echo relative_url('public/news'); ?>"><i class="fas fa-chevron-right"></i> News & Events</a>
-                    <a href="<?php echo relative_url('public/contact'); ?>"><i class="fas fa-chevron-right"></i> Contact Us</a>
-                    <a href="<?php echo htmlspecialchars($job_fair_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Job Fair Portal</a>
-                    <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
-                    <a href="#"><i class="fas fa-chevron-right"></i> Privacy Policy</a>
-                    <a href="#"><i class="fas fa-chevron-right"></i> Terms & Conditions</a>
+                    <?php foreach ($footer_links_quick as $footerLink): ?>
+                    <a href="<?php echo htmlspecialchars($footerLink['url'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo !empty($footerLink['external']) ? ' target="_blank" rel="noopener"' : ''; ?>><i class="fas fa-chevron-right"></i> <?php echo htmlspecialchars($footerLink['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php endforeach; ?>
                 </div>
 
                 <div class="col-lg-4">
                     <h5>Student Access</h5>
-                    <a href="<?php echo relative_url('student/login'); ?>"><i class="fas fa-chevron-right"></i> Student Login</a>
-                    <a href="<?php echo htmlspecialchars($mock_test_portal_url); ?>" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Mock Test Portal</a>
-                    <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Admit Card</a>
-                    <a href="https://student.nielit.gov.in/" target="_blank" rel="noopener"><i class="fas fa-chevron-right"></i> Results</a>
-                    <a href="#"><i class="fas fa-chevron-right"></i> Certificate Verification</a>
+                    <?php foreach ($footer_links_student as $footerLink): ?>
+                    <a href="<?php echo htmlspecialchars($footerLink['url'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo !empty($footerLink['external']) ? ' target="_blank" rel="noopener"' : ''; ?>><i class="fas fa-chevron-right"></i> <?php echo htmlspecialchars($footerLink['label'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php endforeach; ?>
                     <div style="margin-top: 24px;">
-                        <div class="footer-badge"><span>●</span> Baleshwar Extension Active</div>
+                        <div class="footer-badge"><span>●</span> <?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_badge'), ENT_QUOTES, 'UTF-8'); ?></div>
                     </div>
                 </div>
             </div>
@@ -1823,8 +1778,8 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
 
     <div class="footer-bottom">
         <div class="container d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <span>© <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</span>
-            <span>Designed & Developed by <a href="#">NIELIT Bhubaneswar IT Team</a></span>
+            <span>© <?php echo date('Y'); ?> <?php echo htmlspecialchars(homepageValue($homepage_map, 'navbar_brand'), ENT_QUOTES, 'UTF-8'); ?>. All Rights Reserved.</span>
+            <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_credits'), ENT_QUOTES, 'UTF-8'); ?></span>
         </div>
         <?php if (isset($conn) && $conn instanceof mysqli): ?>
         <div class="container text-center mt-2" style="font-size: 0.78rem; opacity: 0.75;">
