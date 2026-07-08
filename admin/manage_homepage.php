@@ -1694,7 +1694,7 @@ if ($content_sections) {
     </div>
 
     <!-- Homepage News Modal -->
-    <div class="modal fade" id="homepageNewsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade<?php echo $edit_news ? ' show' : ''; ?>" id="homepageNewsModal" tabindex="-1"<?php echo $edit_news ? ' style="display:block;" aria-modal="true" role="dialog"' : ' aria-hidden="true"'; ?>>
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1732,7 +1732,7 @@ if ($content_sections) {
                             <label class="form-label">News Image</label>
                             <input type="file" class="form-control" id="homepage_news_image_file" name="image_file" accept="image/*">
                             <div class="form-text">Optional. JPG, PNG, WebP, GIF up to 5MB. Recommended 1200x600px.</div>
-                            <div id="homepage-news-image-preview" class="mt-3" style="<?php echo empty($edit_news['image_url']) ? 'display:none;' : ''; ?>">
+                            <div id="homepage-news-image-preview" class="mt-3" style="<?php echo (!$edit_news || empty($edit_news['image_url'])) ? 'display:none;' : ''; ?>">
                                 <img id="homepage-news-preview-img" src="<?php echo $edit_news ? htmlspecialchars((string) ($edit_news['image_url'] ?? ''), ENT_QUOTES, 'UTF-8') : ''; ?>" alt="News preview" style="max-width: 280px; border-radius: 8px;">
                             </div>
                         </div>
@@ -1769,6 +1769,9 @@ if ($content_sections) {
             </div>
         </div>
     </div>
+    <?php if ($edit_news): ?>
+        <div class="modal-backdrop fade show"></div>
+    <?php endif; ?>
 
     <!-- Preview Modal -->
     <div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
@@ -1972,9 +1975,18 @@ if ($content_sections) {
         initializeHomepageAdminActions();
 
         function initializeHomepageNewsUi() {
-            <?php if ($edit_news): ?>
             const newsModalEl = document.getElementById('homepageNewsModal');
-            if (newsModalEl && typeof bootstrap !== 'undefined') {
+            if (newsModalEl && typeof bootstrap !== 'undefined' && !newsModalEl.classList.contains('show')) {
+                newsModalEl.addEventListener('hidden.bs.modal', function() {
+                    if (window.location.search.indexOf('edit_news=') !== -1) {
+                        const cleanUrl = window.location.pathname + '#homepage-news';
+                        window.history.replaceState(null, '', cleanUrl);
+                    }
+                });
+            }
+
+            <?php if ($edit_news): ?>
+            if (newsModalEl && typeof bootstrap !== 'undefined' && !newsModalEl.classList.contains('show')) {
                 new bootstrap.Modal(newsModalEl).show();
             }
             <?php endif; ?>
@@ -2065,7 +2077,7 @@ if ($content_sections) {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=get_section_by_key&section_key=' + encodeURIComponent(sectionKey) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=get_section_by_key&section_key=' + encodeURIComponent(sectionKey) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2104,7 +2116,7 @@ if ($content_sections) {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=get_section&section_id=' + sectionId + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=get_section&section_id=' + sectionId + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2307,7 +2319,7 @@ if ($content_sections) {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=reorder&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=reorder&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2344,7 +2356,7 @@ if ($content_sections) {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=toggle_status&section_id=' + sectionId + '&status=' + newStatus + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=toggle_status&section_id=' + sectionId + '&status=' + newStatus + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2418,7 +2430,7 @@ if ($content_sections) {
             fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=delete_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=delete_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2439,7 +2451,7 @@ if ($content_sections) {
             fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=toggle_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&status=' + encodeURIComponent(newStatus) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=toggle_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&status=' + encodeURIComponent(newStatus) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2463,7 +2475,7 @@ if ($content_sections) {
             fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=update_hero_banner_alt&banner_id=' + encodeURIComponent(bannerId) + '&alt_text=' + encodeURIComponent(input.value) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=update_hero_banner_alt&banner_id=' + encodeURIComponent(bannerId) + '&alt_text=' + encodeURIComponent(input.value) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2549,7 +2561,7 @@ if ($content_sections) {
             fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=reorder_hero_banners&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
+                body: 'action=reorder_hero_banners&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)
             })
             .then(response => response.json())
             .then(data => {
@@ -2568,13 +2580,15 @@ if ($content_sections) {
         }
 
         // Display session messages as toast notifications
-        <?php if (isset($_SESSION['message'])): ?>
+        document.addEventListener('DOMContentLoaded', function() {
+            <?php if (isset($_SESSION['message'])): ?>
             notifyAdmin(<?php echo json_encode((string) $_SESSION['message'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>, <?php echo json_encode((string) ($_SESSION['message_type'] ?? 'info'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
             <?php 
             unset($_SESSION['message']);
             unset($_SESSION['message_type']);
             ?>
-        <?php endif; ?>
+            <?php endif; ?>
+        });
     </script>
 </body>
 </html>
