@@ -679,7 +679,7 @@ if ($content_sections) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tiny.cloud; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; script-src-attr 'unsafe-inline'; object-src 'none';">
     <title>Manage Homepage Content - NIELIT Bhubaneswar</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -1336,14 +1336,14 @@ if ($content_sections) {
                                             value="<?php echo htmlspecialchars((string) $banner['alt_text'], ENT_QUOTES, 'UTF-8'); ?>"
                                         >
                                         <div class="hero-banner-actions">
-                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="saveHeroBannerAlt(<?php echo (int) $banner['id']; ?>)">
+                                            <button type="button" class="btn btn-sm btn-outline-primary js-save-hero-alt" data-banner-id="<?php echo (int) $banner['id']; ?>">
                                                 <i class="fas fa-save"></i> Save Alt
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleHeroBanner(<?php echo (int) $banner['id']; ?>, <?php echo !empty($banner['is_active']) ? 0 : 1; ?>)">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary js-toggle-hero-banner" data-banner-id="<?php echo (int) $banner['id']; ?>" data-status="<?php echo !empty($banner['is_active']) ? 0 : 1; ?>">
                                                 <i class="fas fa-eye<?php echo !empty($banner['is_active']) ? '-slash' : ''; ?>"></i>
                                                 <?php echo !empty($banner['is_active']) ? 'Hide' : 'Show'; ?>
                                             </button>
-                                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="deleteHeroBanner(<?php echo (int) $banner['id']; ?>)">
+                                            <button type="button" class="btn btn-sm btn-outline-danger js-delete-hero-banner" data-banner-id="<?php echo (int) $banner['id']; ?>">
                                                 <i class="fas fa-trash"></i> Delete
                                             </button>
                                         </div>
@@ -1536,7 +1536,7 @@ if ($content_sections) {
                         <a href="manage_navigation.php" class="btn btn-secondary">
                             <i class="fas fa-bars"></i> Edit Navigation Menu
                         </a>
-                        <button class="btn btn-primary" onclick="openAddModal()">
+                        <button type="button" class="btn btn-primary js-open-add-section">
                             <i class="fas fa-plus"></i> Add Content Section
                         </button>
                     </div>
@@ -1592,11 +1592,12 @@ if ($content_sections) {
                                             </td>
                                             <td>
                                                 <div class="btn-group">
-                                                    <button class="btn btn-sm btn-info" onclick="editSection(<?php echo $section['id']; ?>)" title="Edit">
+                                                    <button type="button" class="btn btn-sm btn-info js-edit-section" data-section-id="<?php echo (int) $section['id']; ?>" title="Edit">
                                                         <i class="fas fa-edit"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-<?php echo $section['is_active'] ? 'warning' : 'success'; ?>" 
-                                                            onclick="toggleStatus(<?php echo $section['id']; ?>, <?php echo $section['is_active'] ? 0 : 1; ?>)" 
+                                                    <button type="button" class="btn btn-sm btn-<?php echo $section['is_active'] ? 'warning' : 'success'; ?> js-toggle-section-status"
+                                                            data-section-id="<?php echo (int) $section['id']; ?>"
+                                                            data-status="<?php echo $section['is_active'] ? 0 : 1; ?>"
                                                             title="<?php echo $section['is_active'] ? 'Deactivate' : 'Activate'; ?>">
                                                         <i class="fas fa-<?php echo $section['is_active'] ? 'eye-slash' : 'eye'; ?>"></i>
                                                     </button>
@@ -1612,7 +1613,7 @@ if ($content_sections) {
                             <i class="fas fa-file-alt"></i>
                             <h5>No Content Sections Found</h5>
                             <p>Create your first content section to customize the homepage.</p>
-                            <button class="btn btn-primary" onclick="openAddModal()">
+                            <button type="button" class="btn btn-primary js-open-add-section">
                                 <i class="fas fa-plus"></i> Add Content Section
                             </button>
                         </div>
@@ -1674,13 +1675,13 @@ if ($content_sections) {
                         <div class="mb-3">
                             <label for="section_content" class="form-label">Content</label>
                             <textarea class="form-control" id="section_content" name="section_content" rows="10"></textarea>
-                            <small class="form-text text-muted" id="section_content_help">Rich HTML content for the section. For hero stats and feature cards, use Title for the number/heading and Content for the label/description.</small>
+                            <small class="form-text text-muted" id="section_content_help">Plain text, HTML, or JSON depending on the field. See the hint below the box after you pick a section key.</small>
                         </div>
                     </div>
                     
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-info" onclick="previewSection()">
+                        <button type="button" class="btn btn-info js-preview-section">
                             <i class="fas fa-eye"></i> Preview
                         </button>
                         <button type="submit" class="btn btn-primary">
@@ -1801,7 +1802,7 @@ if ($content_sections) {
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" class="btn btn-primary" onclick="closePreviewAndSave()">
+                    <button type="button" class="btn btn-primary js-close-preview-save">
                         <i class="fas fa-save"></i> Save Section
                     </button>
                 </div>
@@ -1812,18 +1813,35 @@ if ($content_sections) {
     <!-- Bootstrap JS (required for modals) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- TinyMCE WYSIWYG Editor -->
-    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
-    
     <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
     <script>
-        // ============================================================================
-        // TINYMCE INITIALIZATION
-        // ============================================================================
+        const HOMEPAGE_ADMIN_AJAX_URL = window.location.pathname;
+        const HOMEPAGE_CSRF_TOKEN = <?php echo json_encode($_SESSION['csrf_token'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         
-        let editorInstance = null;
-        
-        // Initialize TinyMCE when document is ready
+        function getSectionContentField() {
+            return document.getElementById('section_content');
+        }
+
+        function getSectionContentValue() {
+            const field = getSectionContentField();
+            return field ? field.value : '';
+        }
+
+        function setSectionContentValue(value) {
+            const field = getSectionContentField();
+            if (field) {
+                field.value = value || '';
+            }
+        }
+
+        function notifyAdmin(message, type) {
+            if (typeof showToast === 'function') {
+                showToast(message, type || 'info');
+                return;
+            }
+            window.alert(message);
+        }
+
         function getAdminScrollOffset() {
             const topbar = document.querySelector('.admin-topbar');
             return (topbar ? topbar.offsetHeight : 80) + 20;
@@ -1876,9 +1894,76 @@ if ($content_sections) {
             initializeHeroBannerUpload();
             initializeHeroBannerDragDrop();
             initializeDragAndDrop();
-            initializeTinyMCE();
             initializeHomepageNewsUi();
+            initializeHomepageAdminActions();
         });
+
+        function initializeHomepageAdminActions() {
+            document.addEventListener('click', function(event) {
+                const editIndexBtn = event.target.closest('.js-edit-index-section');
+                if (editIndexBtn) {
+                    event.preventDefault();
+                    editIndexSection(editIndexBtn.dataset.sectionKey, editIndexBtn.dataset.sectionLabel || '');
+                    return;
+                }
+
+                const openAddBtn = event.target.closest('.js-open-add-section');
+                if (openAddBtn) {
+                    event.preventDefault();
+                    openAddModal();
+                    return;
+                }
+
+                const editSectionBtn = event.target.closest('.js-edit-section');
+                if (editSectionBtn) {
+                    event.preventDefault();
+                    editSection(editSectionBtn.dataset.sectionId);
+                    return;
+                }
+
+                const toggleStatusBtn = event.target.closest('.js-toggle-section-status');
+                if (toggleStatusBtn) {
+                    event.preventDefault();
+                    toggleStatus(toggleStatusBtn.dataset.sectionId, parseInt(toggleStatusBtn.dataset.status, 10));
+                    return;
+                }
+
+                const previewBtn = event.target.closest('.js-preview-section');
+                if (previewBtn) {
+                    event.preventDefault();
+                    previewSection();
+                    return;
+                }
+
+                const closePreviewBtn = event.target.closest('.js-close-preview-save');
+                if (closePreviewBtn) {
+                    event.preventDefault();
+                    closePreviewAndSave();
+                    return;
+                }
+
+                const saveAltBtn = event.target.closest('.js-save-hero-alt');
+                if (saveAltBtn) {
+                    event.preventDefault();
+                    saveHeroBannerAlt(saveAltBtn.dataset.bannerId);
+                    return;
+                }
+
+                const toggleHeroBtn = event.target.closest('.js-toggle-hero-banner');
+                if (toggleHeroBtn) {
+                    event.preventDefault();
+                    toggleHeroBanner(toggleHeroBtn.dataset.bannerId, toggleHeroBtn.dataset.status);
+                    return;
+                }
+
+                const deleteHeroBtn = event.target.closest('.js-delete-hero-banner');
+                if (deleteHeroBtn) {
+                    event.preventDefault();
+                    deleteHeroBanner(deleteHeroBtn.dataset.bannerId);
+                    return;
+                }
+            });
+        }
 
         function initializeHomepageNewsUi() {
             <?php if ($edit_news): ?>
@@ -1915,41 +2000,6 @@ if ($content_sections) {
             });
         }
 
-        document.addEventListener('click', function(event) {
-            const editBtn = event.target.closest('.js-edit-index-section');
-            if (!editBtn) {
-                return;
-            }
-            event.preventDefault();
-            editIndexSection(editBtn.dataset.sectionKey || '', editBtn.dataset.sectionLabel || '');
-        });
-        
-        /**
-         * Initialize TinyMCE WYSIWYG editor
-         */
-        function initializeTinyMCE() {
-            if (typeof tinymce === 'undefined') {
-                console.warn('TinyMCE is unavailable. Rich text editing is disabled for this page.');
-                return;
-            }
-
-            tinymce.init({
-                selector: '#section_content',
-                height: 400,
-                menubar: false,
-                plugins: [
-                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                    'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                    'insertdatetime', 'media', 'table', 'help', 'wordcount'
-                ],
-                toolbar: 'undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image | removeformat code | help',
-                content_style: 'body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; font-size: 14px; }',
-                setup: function(editor) {
-                    editorInstance = editor;
-                }
-            });
-        }
-        
         // ============================================================================
         // MODAL FUNCTIONS
         // ============================================================================
@@ -1993,36 +2043,23 @@ if ($content_sections) {
         }
 
         function openAddModal() {
-            // Reset form
             document.getElementById('sectionForm').reset();
             document.getElementById('section_id').value = '';
             document.getElementById('section_key').readOnly = false;
-            document.getElementById('section_content_help').textContent = 'Rich HTML content for the section';
-
-            if (typeof tinymce !== 'undefined' && !editorInstance) {
-                initializeTinyMCE();
-            }
-            
-            // Reset TinyMCE
-            if (editorInstance) {
-                editorInstance.setContent('');
-            }
-            
-            // Update modal title
+            document.getElementById('section_content_help').textContent = 'Plain text, HTML, or JSON depending on the field.';
+            setSectionContentValue('');
             document.getElementById('sectionModalLabel').textContent = 'Add Content Section';
-            
-            // Show modal
             const modal = new bootstrap.Modal(document.getElementById('sectionModal'));
             modal.show();
         }
         
         function editIndexSection(sectionKey, sectionLabel) {
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=get_section_by_key&section_key=' + encodeURIComponent(sectionKey) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=get_section_by_key&section_key=' + encodeURIComponent(sectionKey) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2036,36 +2073,18 @@ if ($content_sections) {
                     document.getElementById('display_order').value = section.display_order;
 
                     setIndexSectionHelp(section.section_key);
-
-                    if (isIndexJsonSection(section.section_key) && typeof tinymce !== 'undefined') {
-                        if (editorInstance) {
-                            tinymce.remove('#section_content');
-                            editorInstance = null;
-                        }
-                        document.getElementById('section_content').value = section.section_content || '';
-                    } else if (editorInstance) {
-                        editorInstance.setContent(section.section_content || '');
-                    } else if (typeof tinymce !== 'undefined' && !editorInstance) {
-                        initializeTinyMCE();
-                        setTimeout(function() {
-                            if (editorInstance) {
-                                editorInstance.setContent(section.section_content || '');
-                            }
-                        }, 300);
-                    } else {
-                        document.getElementById('section_content').value = section.section_content || '';
-                    }
+                    setSectionContentValue(section.section_content || '');
 
                     document.getElementById('sectionModalLabel').textContent = 'Edit: ' + sectionLabel;
                     const modal = new bootstrap.Modal(document.getElementById('sectionModal'));
                     modal.show();
                 } else {
-                    showToast('Failed to load section: ' + (data.message || 'Unknown error'), 'error');
+                    notifyAdmin('Failed to load section: ' + (data.message || 'Unknown error'), 'error');
                 }
             })
             .catch(error => {
                 console.error('Error loading index section:', error);
-                showToast('Failed to load section. Please try again.', 'error');
+                notifyAdmin('Failed to load section. Please try again.', 'error');
             });
         }
 
@@ -2074,12 +2093,12 @@ if ($content_sections) {
          */
         function editSection(sectionId) {
             // Fetch section data via AJAX
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=get_section&section_id=' + sectionId + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=get_section&section_id=' + sectionId + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2093,28 +2112,8 @@ if ($content_sections) {
                     document.getElementById('section_title').value = section.section_title;
                     document.getElementById('section_type').value = section.section_type;
                     document.getElementById('display_order').value = section.display_order;
+                    setSectionContentValue(section.section_content || '');
                     
-                    // Set TinyMCE content
-                    if (section.section_key === 'hero_typing_lines' && typeof tinymce !== 'undefined') {
-                        if (editorInstance) {
-                            tinymce.remove('#section_content');
-                            editorInstance = null;
-                        }
-                        document.getElementById('section_content').value = section.section_content || '';
-                    } else if (editorInstance) {
-                        editorInstance.setContent(section.section_content || '');
-                    } else if (typeof tinymce !== 'undefined' && !editorInstance) {
-                        initializeTinyMCE();
-                        setTimeout(function() {
-                            if (editorInstance) {
-                                editorInstance.setContent(section.section_content || '');
-                            }
-                        }, 300);
-                    } else {
-                        document.getElementById('section_content').value = section.section_content || '';
-                    }
-                    
-                    // Update modal title
                     document.getElementById('sectionModalLabel').textContent = 'Edit Content Section';
                     
                     // Show modal
@@ -2140,13 +2139,7 @@ if ($content_sections) {
             const key = document.getElementById('section_key').value;
             const order = document.getElementById('display_order').value;
             
-            // Get content from TinyMCE
-            let content = '';
-            if (editorInstance) {
-                content = editorInstance.getContent();
-            } else {
-                content = document.getElementById('section_content').value;
-            }
+            const content = getSectionContentValue();
             
             // Validate required fields
             if (!title || !type || !key) {
@@ -2303,12 +2296,12 @@ if ($content_sections) {
             });
             
             // Send AJAX request to update order in database
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=reorder&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=reorder&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2340,12 +2333,12 @@ if ($content_sections) {
                 return;
             }
             
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: 'action=toggle_status&section_id=' + sectionId + '&status=' + newStatus + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=toggle_status&section_id=' + sectionId + '&status=' + newStatus + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2360,8 +2353,6 @@ if ($content_sections) {
                 console.error('Error updating section status:', error);
                 showToast('Failed to update section status. Please try again.', 'error');
             });
-        }
-
         }
 
         // ============================================================================
@@ -2385,12 +2376,12 @@ if ($content_sections) {
 
                 const formData = new FormData();
                 formData.append('action', 'upload_hero_banner');
-                formData.append('csrf_token', '<?php echo $_SESSION['csrf_token']; ?>');
+                formData.append('csrf_token', HOMEPAGE_CSRF_TOKEN);
                 formData.append('banner_file', fileInput.files[0]);
                 formData.append('alt_text', altInput.value || '');
 
                 uploadBtn.disabled = true;
-                fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+                fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                     method: 'POST',
                     body: formData
                 })
@@ -2418,10 +2409,10 @@ if ($content_sections) {
                 return;
             }
 
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=delete_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=delete_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2439,10 +2430,10 @@ if ($content_sections) {
         }
 
         function toggleHeroBanner(bannerId, newStatus) {
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=toggle_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&status=' + encodeURIComponent(newStatus) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=toggle_hero_banner&banner_id=' + encodeURIComponent(bannerId) + '&status=' + encodeURIComponent(newStatus) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2463,10 +2454,10 @@ if ($content_sections) {
             const input = document.getElementById('hero-alt-' + bannerId);
             if (!input) return;
 
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=update_hero_banner_alt&banner_id=' + encodeURIComponent(bannerId) + '&alt_text=' + encodeURIComponent(input.value) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=update_hero_banner_alt&banner_id=' + encodeURIComponent(bannerId) + '&alt_text=' + encodeURIComponent(input.value) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2549,10 +2540,10 @@ if ($content_sections) {
                 }
             });
 
-            fetch('<?php echo relative_url('manage_homepage.php'); ?>', {
+            fetch(HOMEPAGE_ADMIN_AJAX_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'action=reorder_hero_banners&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=<?php echo $_SESSION['csrf_token']; ?>'
+                body: 'action=reorder_hero_banners&order_data=' + encodeURIComponent(JSON.stringify(orderData)) + '&csrf_token=' + encodeURIComponent(HOMEPAGE_CSRF_TOKEN)'
             })
             .then(response => response.json())
             .then(data => {
@@ -2572,7 +2563,7 @@ if ($content_sections) {
 
         // Display session messages as toast notifications
         <?php if (isset($_SESSION['message'])): ?>
-            showToast('<?php echo addslashes($_SESSION['message']); ?>', '<?php echo $_SESSION['message_type'] ?? 'info'; ?>');
+            notifyAdmin(<?php echo json_encode((string) $_SESSION['message'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>, <?php echo json_encode((string) ($_SESSION['message_type'] ?? 'info'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>);
             <?php 
             unset($_SESSION['message']);
             unset($_SESSION['message_type']);
