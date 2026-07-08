@@ -250,7 +250,7 @@ $sl_no = 1;
 foreach ($students as $student) {
     $studentsTable->addRow();
     $studentsTable->addCell(400)->addText($sl_no++, ['name' => 'Arial', 'size' => 6], ['alignment' => 'center']);
-    $studentsTable->addCell(1100)->addText($student['nielit_registration_no'] ?? $student['id'], ['name' => 'Arial', 'size' => 6]);
+    $studentsTable->addCell(1100)->addText(trim((string)($student['nielit_registration_no'] ?? '')), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1900)->addText(strtoupper($student['full_name']), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1700)->addText(strtoupper($student['father_name'] ?? ''), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1000)->addText($student['mobile'], ['name' => 'Arial', 'size' => 6], ['alignment' => 'center']);

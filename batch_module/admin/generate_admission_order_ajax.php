@@ -595,7 +595,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             ?>
             <tr>
                 <td class="ao-sl"><?php echo $sl_no++; ?></td>
-                <td class="ao-reg"><?php echo htmlspecialchars($student['nielit_registration_no'] ?? $student['id']); ?></td>
+                <td class="ao-reg"><?php echo htmlspecialchars(trim((string)($student['nielit_registration_no'] ?? ''))); ?></td>
                 <td class="ao-name"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
                 <td class="ao-father"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
                 <td class="ao-mobile"><?php echo htmlspecialchars($student['mobile']); ?></td>

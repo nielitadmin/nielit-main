@@ -653,7 +653,7 @@ header('Cache-Control: max-age=0');
         ?>
         <tr>
             <td><?php echo $sl_no++; ?></td>
-            <td><?php echo htmlspecialchars($student['nielit_registration_no'] ?? ($student['id'] ?? '001')); ?></td>
+            <td><?php echo htmlspecialchars(trim((string)($student['nielit_registration_no'] ?? ''))); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
             <td><?php echo htmlspecialchars($student['mobile']); ?></td>
