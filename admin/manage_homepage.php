@@ -637,7 +637,7 @@ if ($content_sections) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; object-src 'none';">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://cdn.tiny.cloud; object-src 'none';">
     <title>Manage Homepage Content - NIELIT Bhubaneswar</title>
     <?php injectThemeCSS($active_theme); ?>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -982,6 +982,14 @@ if ($content_sections) {
             background: #fff;
         }
 
+        .index-category-card > summary.index-category-header {
+            list-style: none;
+        }
+
+        .index-category-card > summary.index-category-header::-webkit-details-marker {
+            display: none;
+        }
+
         .index-category-header {
             display: flex;
             justify-content: space-between;
@@ -1051,16 +1059,10 @@ if ($content_sections) {
             background: #fff;
             border-radius: 999px;
             padding: 6px 12px;
-            cursor: pointer;
             color: #475569;
             font-size: 12px;
             font-weight: 600;
             line-height: 1;
-        }
-
-        .index-category-toggle-btn:hover {
-            border-color: var(--primary-color, #0d47a1);
-            color: var(--primary-color, #0d47a1);
         }
 
         .index-category-count {
@@ -1074,17 +1076,12 @@ if ($content_sections) {
             transition: transform 0.2s ease;
         }
 
-        .index-category-card.is-open .index-category-toggle {
+        .index-category-card[open] .index-category-toggle {
             transform: rotate(180deg);
         }
 
         .index-category-body {
-            display: none;
             padding: 0 20px 20px;
-        }
-
-        .index-category-card.is-open .index-category-body {
-            display: block;
         }
 
         .index-category-actions {
@@ -1113,7 +1110,7 @@ if ($content_sections) {
         }
 
         #hero-banners,
-        .index-category-card,
+        details.index-category-card,
         #additional-blocks {
             scroll-margin-top: 110px;
         }
@@ -1299,8 +1296,8 @@ if ($content_sections) {
                                 $itemCount += count($groupItems);
                             }
                             ?>
-                            <div class="index-category-card <?php echo $categoryIndex === 0 ? 'is-open' : ''; ?>" id="index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>">
-                                <div class="index-category-header">
+                            <details class="index-category-card" id="index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo $categoryIndex === 0 ? ' open' : ''; ?>>
+                                <summary class="index-category-header">
                                     <div class="index-category-title-wrap">
                                         <span class="index-category-order"><?php echo (int) $category['order']; ?></span>
                                         <div>
@@ -1312,12 +1309,12 @@ if ($content_sections) {
                                         </div>
                                     </div>
                                     <div class="index-category-meta">
-                                        <button type="button" class="index-category-toggle-btn" aria-expanded="<?php echo $categoryIndex === 0 ? 'true' : 'false'; ?>" aria-label="Toggle <?php echo htmlspecialchars($category['title'], ENT_QUOTES, 'UTF-8'); ?> section">
+                                        <span class="index-category-toggle-btn">
                                             <span class="index-category-count"><?php echo (int) $itemCount; ?> fields</span>
                                             <i class="fas fa-chevron-down index-category-toggle"></i>
-                                        </button>
+                                        </span>
                                     </div>
-                                </div>
+                                </summary>
                                 <div class="index-category-body">
                                     <?php if (!empty($category['manage_elsewhere'])): ?>
                                         <div class="index-category-actions">
@@ -1348,7 +1345,7 @@ if ($content_sections) {
                                                         <code><?php echo htmlspecialchars($item['section_key'], ENT_QUOTES, 'UTF-8'); ?></code>
                                                     </div>
                                                     <?php if (!empty($item['id'])): ?>
-                                                        <button type="button" class="btn btn-sm btn-primary" onclick="editIndexSection('<?php echo htmlspecialchars($item['section_key'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($item['label'], ENT_QUOTES); ?>')">
+                                                        <button type="button" class="btn btn-sm btn-primary js-edit-index-section" data-section-key="<?php echo htmlspecialchars($item['section_key'], ENT_QUOTES, 'UTF-8'); ?>" data-section-label="<?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?>">
                                                             <i class="fas fa-edit"></i> Edit
                                                         </button>
                                                     <?php endif; ?>
@@ -1357,7 +1354,7 @@ if ($content_sections) {
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
-                            </div>
+                            </details>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -1587,34 +1584,6 @@ if ($content_sections) {
         let editorInstance = null;
         
         // Initialize TinyMCE when document is ready
-        function toggleIndexCategory(headerEl) {
-            const card = headerEl.closest('.index-category-card');
-            if (!card) return;
-            card.classList.toggle('is-open');
-
-            const toggleBtn = headerEl.querySelector('.index-category-toggle-btn');
-            if (toggleBtn) {
-                toggleBtn.setAttribute('aria-expanded', card.classList.contains('is-open') ? 'true' : 'false');
-            }
-        }
-
-        function initializeIndexCategoryToggles() {
-            const list = document.querySelector('.index-category-list');
-            if (!list) return;
-
-            list.addEventListener('click', function(event) {
-                const toggleBtn = event.target.closest('.index-category-toggle-btn');
-                const header = event.target.closest('.index-category-header');
-                if (!header) return;
-
-                if (toggleBtn) {
-                    event.preventDefault();
-                }
-
-                toggleIndexCategory(header);
-            });
-        }
-
         function getAdminScrollOffset() {
             const topbar = document.querySelector('.admin-topbar');
             return (topbar ? topbar.offsetHeight : 80) + 20;
@@ -1626,13 +1595,8 @@ if ($content_sections) {
                 return false;
             }
 
-            if (target.classList.contains('index-category-card')) {
-                target.classList.add('is-open');
-                const header = target.querySelector('.index-category-header');
-                const toggleBtn = header ? header.querySelector('.index-category-toggle-btn') : null;
-                if (toggleBtn) {
-                    toggleBtn.setAttribute('aria-expanded', 'true');
-                }
+            if (target.matches('details.index-category-card')) {
+                target.open = true;
             }
 
             window.requestAnimationFrame(function() {
@@ -1668,18 +1632,31 @@ if ($content_sections) {
         }
 
         document.addEventListener('DOMContentLoaded', function() {
-            initializeDragAndDrop();
-            initializeTinyMCE();
+            initializeIndexPageMap();
             initializeHeroBannerUpload();
             initializeHeroBannerDragDrop();
-            initializeIndexPageMap();
-            initializeIndexCategoryToggles();
+            initializeDragAndDrop();
+            initializeTinyMCE();
+        });
+
+        document.addEventListener('click', function(event) {
+            const editBtn = event.target.closest('.js-edit-index-section');
+            if (!editBtn) {
+                return;
+            }
+            event.preventDefault();
+            editIndexSection(editBtn.dataset.sectionKey || '', editBtn.dataset.sectionLabel || '');
         });
         
         /**
          * Initialize TinyMCE WYSIWYG editor
          */
         function initializeTinyMCE() {
+            if (typeof tinymce === 'undefined') {
+                console.warn('TinyMCE is unavailable. Rich text editing is disabled for this page.');
+                return;
+            }
+
             tinymce.init({
                 selector: '#section_content',
                 height: 400,
