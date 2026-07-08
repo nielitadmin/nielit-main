@@ -37,7 +37,7 @@ ensureHeroBannersSchema($conn);
 syncHeroBannersFromFilesystem($conn);
 $hero_banners = listHeroBanners($conn);
 $index_section_keys = array_keys(getIndexHomepageSectionDefinitions());
-$index_sections_grouped = getIndexHomepageSectionsForAdmin($conn);
+$index_section_categories = getIndexHomepageSectionsForAdmin($conn);
 
 // ============================================================================
 // AJAX REQUEST HANDLERS
@@ -926,24 +926,172 @@ if ($content_sections) {
             background: #f8fafc;
         }
 
-        .index-sections-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
-        }
-
-        .index-section-group {
+        .index-page-map {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 24px;
+            padding: 16px;
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 10px;
-            padding: 18px;
         }
 
-        .index-section-group h6 {
-            color: #0f172a;
+        .index-page-map a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: #fff;
+            border: 1px solid #dbe3ef;
+            color: #334155;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .index-page-map a:hover {
+            border-color: var(--primary-color, #0d47a1);
+            color: var(--primary-color, #0d47a1);
+        }
+
+        .index-page-map .map-order {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary-color, #0d47a1);
+            color: #fff;
+            font-size: 11px;
+        }
+
+        .index-category-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .index-category-card {
+            border: 1px solid #dbe3ef;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .index-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 18px 20px;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+            cursor: pointer;
+        }
+
+        .index-category-header:hover {
+            background: #eef2ff;
+        }
+
+        .index-category-title-wrap {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            flex: 1;
+        }
+
+        .index-category-order {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: var(--primary-color, #0d47a1);
+            color: #fff;
             font-weight: 700;
-            margin-bottom: 14px;
-            font-size: 15px;
+            font-size: 14px;
+        }
+
+        .index-category-title {
+            margin: 0 0 6px;
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .index-category-title i {
+            color: var(--primary-color, #0d47a1);
+            margin-right: 8px;
+        }
+
+        .index-category-description {
+            margin: 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .index-category-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .index-category-count {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            background: #fff;
+            border: 1px solid #dbe3ef;
+            border-radius: 999px;
+            padding: 6px 10px;
+        }
+
+        .index-category-toggle {
+            color: #64748b;
+            transition: transform 0.2s ease;
+        }
+
+        .index-category-card.is-open .index-category-toggle {
+            transform: rotate(180deg);
+        }
+
+        .index-category-body {
+            display: none;
+            padding: 0 20px 20px;
+        }
+
+        .index-category-card.is-open .index-category-body {
+            display: block;
+        }
+
+        .index-category-actions {
+            margin-bottom: 16px;
+        }
+
+        .index-subgroup {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .index-subgroup:first-child {
+            margin-top: 0;
+            padding-top: 0;
+            border-top: none;
+        }
+
+        .index-subgroup h6 {
+            margin: 0 0 12px;
+            font-size: 13px;
+            font-weight: 700;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
         }
 
         .index-section-item {
@@ -1015,7 +1163,7 @@ if ($content_sections) {
             <!-- Toast notifications will appear here automatically -->
 
             <!-- Hero Carousel Banners -->
-            <div class="content-card mb-4">
+            <div class="content-card mb-4" id="hero-banners">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-images"></i> Hero Carousel Banners
@@ -1104,35 +1252,85 @@ if ($content_sections) {
                     </a>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-4">
-                        Manage all content on <code>index.php</code> — page title, navbar, notice ticker, hero text, buttons, stats, welcome pills, job fair, mock test, features, info cards, section headings, footer links, and portal URLs.
-                        Use <code>__JOB_FAIR__</code>, <code>__MOCK_TEST__</code>, and <code>__MAIN_WEBSITE__</code> in URL fields to reference the Portal URLs group.
+                    <p class="text-muted mb-3">
+                        Sections are grouped in the same top-to-bottom order as <code>index.php</code>, so you can easily find what you are editing.
+                        Use <code>__JOB_FAIR__</code>, <code>__MOCK_TEST__</code>, and <code>__MAIN_WEBSITE__</code> in URL fields to reference Global Portal URLs.
                     </p>
-                    <div class="index-sections-grid">
-                        <?php foreach ($index_sections_grouped as $groupName => $items): ?>
-                            <div class="index-section-group">
-                                <h6><?php echo htmlspecialchars($groupName); ?></h6>
-                                <?php foreach ($items as $item): ?>
-                                    <?php
-                                    $preview = homepageIsJsonSectionKey($item['section_key'])
-                                        ? 'JSON content'
-                                        : ($item['section_content'] !== '' ? $item['section_content'] : $item['section_title']);
-                                    ?>
-                                    <div class="index-section-item">
-                                        <div class="item-meta">
-                                            <div class="item-label"><?php echo htmlspecialchars($item['label']); ?></div>
-                                            <div class="item-preview" title="<?php echo htmlspecialchars(strip_tags($preview)); ?>">
-                                                <?php echo htmlspecialchars(mb_strimwidth(strip_tags($preview), 0, 80, '...')); ?>
-                                            </div>
-                                            <code><?php echo htmlspecialchars($item['section_key']); ?></code>
+
+                    <div class="index-page-map">
+                        <a href="#hero-banners"><span class="map-order">↑</span> Hero Carousel Images</a>
+                        <?php foreach ($index_section_categories as $category): ?>
+                            <a href="#index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <span class="map-order"><?php echo (int) $category['order']; ?></span>
+                                <?php echo htmlspecialchars($category['title'], ENT_QUOTES, 'UTF-8'); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="index-category-list">
+                        <?php foreach ($index_section_categories as $categoryIndex => $category): ?>
+                            <?php
+                            $itemCount = 0;
+                            foreach ($category['groups'] as $groupItems) {
+                                $itemCount += count($groupItems);
+                            }
+                            ?>
+                            <div class="index-category-card <?php echo $categoryIndex === 0 ? 'is-open' : ''; ?>" id="index-category-<?php echo htmlspecialchars($category['key'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <div class="index-category-header" onclick="toggleIndexCategory(this)">
+                                    <div class="index-category-title-wrap">
+                                        <span class="index-category-order"><?php echo (int) $category['order']; ?></span>
+                                        <div>
+                                            <h6 class="index-category-title">
+                                                <i class="fas <?php echo htmlspecialchars($category['icon'], ENT_QUOTES, 'UTF-8'); ?>"></i>
+                                                <?php echo htmlspecialchars($category['title'], ENT_QUOTES, 'UTF-8'); ?>
+                                            </h6>
+                                            <p class="index-category-description"><?php echo htmlspecialchars($category['description'], ENT_QUOTES, 'UTF-8'); ?></p>
                                         </div>
-                                        <?php if (!empty($item['id'])): ?>
-                                            <button type="button" class="btn btn-sm btn-primary" onclick="editIndexSection('<?php echo htmlspecialchars($item['section_key'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($item['label'], ENT_QUOTES); ?>')">
-                                                <i class="fas fa-edit"></i> Edit
-                                            </button>
-                                        <?php endif; ?>
                                     </div>
-                                <?php endforeach; ?>
+                                    <div class="index-category-meta">
+                                        <span class="index-category-count"><?php echo (int) $itemCount; ?> fields</span>
+                                        <i class="fas fa-chevron-down index-category-toggle"></i>
+                                    </div>
+                                </div>
+                                <div class="index-category-body">
+                                    <?php if (!empty($category['manage_elsewhere'])): ?>
+                                        <div class="index-category-actions">
+                                            <a href="<?php echo htmlspecialchars(relative_url($category['manage_elsewhere']['url']), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-external-link-alt"></i>
+                                                <?php echo htmlspecialchars($category['manage_elsewhere']['label'], ENT_QUOTES, 'UTF-8'); ?>
+                                            </a>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <?php foreach ($category['groups'] as $groupName => $items): ?>
+                                        <div class="index-subgroup">
+                                            <?php if (count($category['groups']) > 1): ?>
+                                                <h6><?php echo htmlspecialchars($groupName, ENT_QUOTES, 'UTF-8'); ?></h6>
+                                            <?php endif; ?>
+                                            <?php foreach ($items as $item): ?>
+                                                <?php
+                                                $preview = homepageIsJsonSectionKey($item['section_key'])
+                                                    ? 'JSON content'
+                                                    : ($item['section_content'] !== '' ? $item['section_content'] : $item['section_title']);
+                                                ?>
+                                                <div class="index-section-item">
+                                                    <div class="item-meta">
+                                                        <div class="item-label"><?php echo htmlspecialchars($item['label'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                                        <div class="item-preview" title="<?php echo htmlspecialchars(strip_tags($preview), ENT_QUOTES, 'UTF-8'); ?>">
+                                                            <?php echo htmlspecialchars(mb_strimwidth(strip_tags($preview), 0, 80, '...'), ENT_QUOTES, 'UTF-8'); ?>
+                                                        </div>
+                                                        <code><?php echo htmlspecialchars($item['section_key'], ENT_QUOTES, 'UTF-8'); ?></code>
+                                                    </div>
+                                                    <?php if (!empty($item['id'])): ?>
+                                                        <button type="button" class="btn btn-sm btn-primary" onclick="editIndexSection('<?php echo htmlspecialchars($item['section_key'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($item['label'], ENT_QUOTES); ?>')">
+                                                            <i class="fas fa-edit"></i> Edit
+                                                        </button>
+                                                    <?php endif; ?>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
                         <?php endforeach; ?>
                     </div>
@@ -1140,7 +1338,7 @@ if ($content_sections) {
             </div>
 
             <!-- Content Sections Listing -->
-            <div class="content-card">
+            <div class="content-card" id="additional-blocks">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-list"></i> Additional Homepage Blocks
@@ -1363,6 +1561,12 @@ if ($content_sections) {
         let editorInstance = null;
         
         // Initialize TinyMCE when document is ready
+        function toggleIndexCategory(headerEl) {
+            const card = headerEl.closest('.index-category-card');
+            if (!card) return;
+            card.classList.toggle('is-open');
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             initializeDragAndDrop();
             initializeTinyMCE();

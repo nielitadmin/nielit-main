@@ -1037,8 +1037,132 @@ if (!function_exists('loadHomepagePageSections')) {
     }
 }
 
-if (!function_exists('getIndexHomepageSectionsForAdmin')) {
-    function getIndexHomepageSectionsForAdmin($conn): array
+if (!function_exists('getIndexHomepageCategoryDefinitions')) {
+    function getIndexHomepageCategoryDefinitions(): array
+    {
+        return [
+            [
+                'key' => 'site_meta',
+                'order' => 1,
+                'title' => 'Page Title & Navbar',
+                'icon' => 'fa-window-maximize',
+                'description' => 'Browser tab title and navbar brand at the very top of the homepage.',
+                'groups' => ['Site Meta'],
+            ],
+            [
+                'key' => 'notice',
+                'order' => 2,
+                'title' => 'Notice Ticker',
+                'icon' => 'fa-bell',
+                'description' => 'Scrolling notice bar directly below the navigation menu.',
+                'groups' => ['Notice Ticker'],
+            ],
+            [
+                'key' => 'hero',
+                'order' => 3,
+                'title' => 'Hero Section',
+                'icon' => 'fa-star',
+                'description' => 'Main hero overlay — headline, subtitle, buttons, and stats on top of the carousel. Carousel images are managed in the Hero Carousel Banners card above.',
+                'groups' => ['Hero Banner', 'Hero Buttons', 'Hero Stats'],
+            ],
+            [
+                'key' => 'welcome',
+                'order' => 4,
+                'title' => 'Welcome Strip',
+                'icon' => 'fa-hand-sparkles',
+                'description' => 'Welcome message with contact and location pills on the right side.',
+                'groups' => ['Welcome Strip'],
+            ],
+            [
+                'key' => 'jobfair',
+                'order' => 5,
+                'title' => 'Job Fair Portal Block',
+                'icon' => 'fa-briefcase',
+                'description' => 'Job Fair promotion section with description, alert, stats, and portal buttons.',
+                'groups' => ['Job Fair Portal'],
+            ],
+            [
+                'key' => 'mocktest',
+                'order' => 6,
+                'title' => 'Mock Test Portal Block',
+                'icon' => 'fa-laptop-code',
+                'description' => 'Mock Test section with features, stats, and portal login buttons.',
+                'groups' => ['Mock Test Portal'],
+            ],
+            [
+                'key' => 'features',
+                'order' => 7,
+                'title' => 'Features Section',
+                'icon' => 'fa-th-large',
+                'description' => 'Four feature cards with icons shown below the portal blocks.',
+                'groups' => ['Features Section'],
+            ],
+            [
+                'key' => 'info',
+                'order' => 8,
+                'title' => 'About / Mission / Quick Access',
+                'icon' => 'fa-info-circle',
+                'description' => 'Three info cards — About NIELIT, Our Mission, and Quick Access links.',
+                'groups' => ['Info Section'],
+            ],
+            [
+                'key' => 'featured_courses',
+                'order' => 9,
+                'title' => 'Featured Courses Heading',
+                'icon' => 'fa-graduation-cap',
+                'description' => 'Section heading only. Actual course cards are added in Additional Homepage Blocks at the bottom of this page.',
+                'groups' => ['Featured Courses'],
+                'manage_elsewhere' => [
+                    'label' => 'Add course blocks',
+                    'url' => 'manage_homepage.php#additional-blocks',
+                ],
+            ],
+            [
+                'key' => 'news',
+                'order' => 10,
+                'title' => 'Latest News & Updates',
+                'icon' => 'fa-newspaper',
+                'description' => 'Section heading only. News articles are managed in News & Updates.',
+                'groups' => ['News Section'],
+                'manage_elsewhere' => [
+                    'label' => 'Manage News Articles',
+                    'url' => 'manage_news.php',
+                ],
+            ],
+            [
+                'key' => 'announcements',
+                'order' => 11,
+                'title' => 'Announcements',
+                'icon' => 'fa-bullhorn',
+                'description' => 'Section heading only. Announcement cards are managed separately.',
+                'groups' => ['Announcements Section'],
+                'manage_elsewhere' => [
+                    'label' => 'Manage Announcements',
+                    'url' => 'manage_announcements.php',
+                ],
+            ],
+            [
+                'key' => 'footer',
+                'order' => 12,
+                'title' => 'Footer',
+                'icon' => 'fa-shoe-prints',
+                'description' => 'Bottom of the page — contact details, link columns, badge, and credits.',
+                'groups' => ['Footer'],
+            ],
+            [
+                'key' => 'portal_urls',
+                'order' => 13,
+                'title' => 'Global Portal URLs',
+                'icon' => 'fa-link',
+                'description' => 'Shared portal links used across buttons and footer (__JOB_FAIR__, __MOCK_TEST__, __MAIN_WEBSITE__).',
+                'groups' => ['Portal URLs'],
+            ],
+        ];
+    }
+}
+
+if (!function_exists('getIndexHomepageSectionsGroupedByGroup')) {
+    function getIndexHomepageSectionsGroupedByGroup($conn): array
     {
         seedIndexHomepageSections($conn);
         $map = loadHomepageContentMap($conn, false);
@@ -1061,5 +1185,59 @@ if (!function_exists('getIndexHomepageSectionsForAdmin')) {
         }
 
         return $grouped;
+    }
+}
+
+if (!function_exists('getIndexHomepageSectionsForAdmin')) {
+    function getIndexHomepageSectionsForAdmin($conn): array
+    {
+        $grouped = getIndexHomepageSectionsGroupedByGroup($conn);
+        $categories = [];
+        $assignedGroups = [];
+
+        foreach (getIndexHomepageCategoryDefinitions() as $category) {
+            $categoryGroups = [];
+            foreach ($category['groups'] as $groupName) {
+                if (!empty($grouped[$groupName])) {
+                    $categoryGroups[$groupName] = $grouped[$groupName];
+                    $assignedGroups[$groupName] = true;
+                }
+            }
+
+            if ($categoryGroups === []) {
+                continue;
+            }
+
+            $categories[] = [
+                'key' => $category['key'],
+                'order' => $category['order'],
+                'title' => $category['title'],
+                'icon' => $category['icon'],
+                'description' => $category['description'],
+                'manage_elsewhere' => $category['manage_elsewhere'] ?? null,
+                'groups' => $categoryGroups,
+            ];
+        }
+
+        $uncategorized = [];
+        foreach ($grouped as $groupName => $items) {
+            if (empty($assignedGroups[$groupName])) {
+                $uncategorized[$groupName] = $items;
+            }
+        }
+
+        if ($uncategorized !== []) {
+            $categories[] = [
+                'key' => 'other',
+                'order' => 99,
+                'title' => 'Other Sections',
+                'icon' => 'fa-folder-open',
+                'description' => 'Additional homepage fields not mapped to a main index section.',
+                'manage_elsewhere' => null,
+                'groups' => $uncategorized,
+            ];
+        }
+
+        return $categories;
     }
 }
