@@ -1702,7 +1702,7 @@ if ($content_sections) {
                         <i class="fas fa-newspaper"></i>
                         <?php echo $edit_news ? 'Edit News Article' : 'Add News Article'; ?>
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close js-close-homepage-news-modal" aria-label="Close"></button>
                 </div>
                 <form method="POST" enctype="multipart/form-data" action="<?php echo htmlspecialchars(relative_url('manage_homepage.php#homepage-news'), ENT_QUOTES, 'UTF-8'); ?>">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8'); ?>">
@@ -1760,7 +1760,7 @@ if ($content_sections) {
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-secondary js-close-homepage-news-modal">Cancel</button>
                         <button type="submit" name="<?php echo $edit_news ? 'edit_news' : 'add_news'; ?>" value="1" class="btn btn-primary">
                             <i class="fas fa-save"></i> <?php echo $edit_news ? 'Update' : 'Save'; ?> Article
                         </button>
@@ -1820,6 +1820,7 @@ if ($content_sections) {
     <script>
         const HOMEPAGE_ADMIN_AJAX_URL = window.location.pathname;
         const HOMEPAGE_CSRF_TOKEN = <?php echo json_encode($_SESSION['csrf_token'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+        const HOMEPAGE_NEWS_CLOSE_URL = <?php echo json_encode(relative_url('manage_homepage.php#homepage-news'), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
         
         function getSectionContentField() {
             return document.getElementById('section_content');
@@ -1974,22 +1975,66 @@ if ($content_sections) {
 
         initializeHomepageAdminActions();
 
-        function initializeHomepageNewsUi() {
-            const newsModalEl = document.getElementById('homepageNewsModal');
-            if (newsModalEl && typeof bootstrap !== 'undefined' && !newsModalEl.classList.contains('show')) {
-                newsModalEl.addEventListener('hidden.bs.modal', function() {
-                    if (window.location.search.indexOf('edit_news=') !== -1) {
-                        const cleanUrl = window.location.pathname + '#homepage-news';
-                        window.history.replaceState(null, '', cleanUrl);
-                    }
-                });
+        function closeHomepageNewsModal() {
+            if (window.location.search.indexOf('edit_news=') !== -1) {
+                window.location.href = HOMEPAGE_NEWS_CLOSE_URL;
+                return;
             }
 
-            <?php if ($edit_news): ?>
-            if (newsModalEl && typeof bootstrap !== 'undefined' && !newsModalEl.classList.contains('show')) {
-                new bootstrap.Modal(newsModalEl).show();
+            const newsModalEl = document.getElementById('homepageNewsModal');
+            if (!newsModalEl) {
+                return;
             }
-            <?php endif; ?>
+
+            if (typeof bootstrap !== 'undefined') {
+                const instance = bootstrap.Modal.getInstance(newsModalEl) || new bootstrap.Modal(newsModalEl);
+                instance.hide();
+                return;
+            }
+
+            newsModalEl.classList.remove('show');
+            newsModalEl.style.display = 'none';
+            newsModalEl.setAttribute('aria-hidden', 'true');
+            newsModalEl.removeAttribute('aria-modal');
+            newsModalEl.removeAttribute('role');
+            document.body.classList.remove('modal-open');
+            document.body.style.removeProperty('padding-right');
+            document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                backdrop.remove();
+            });
+        }
+
+        function initializeHomepageNewsUi() {
+            const newsModalEl = document.getElementById('homepageNewsModal');
+
+            document.querySelectorAll('.js-close-homepage-news-modal').forEach(function(button) {
+                button.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    closeHomepageNewsModal();
+                });
+            });
+
+            if (newsModalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getOrCreateInstance(newsModalEl);
+
+                newsModalEl.addEventListener('hidden.bs.modal', function() {
+                    document.querySelectorAll('.modal-backdrop').forEach(function(backdrop) {
+                        backdrop.remove();
+                    });
+                    document.body.classList.remove('modal-open');
+                    document.body.style.removeProperty('padding-right');
+
+                    if (window.location.search.indexOf('edit_news=') !== -1) {
+                        window.history.replaceState(null, '', HOMEPAGE_NEWS_CLOSE_URL);
+                    }
+                });
+
+                <?php if ($edit_news): ?>
+                if (newsModalEl.classList.contains('show')) {
+                    document.body.classList.add('modal-open');
+                }
+                <?php endif; ?>
+            }
 
             const imageInput = document.getElementById('homepage_news_image_file');
             const previewWrap = document.getElementById('homepage-news-image-preview');
