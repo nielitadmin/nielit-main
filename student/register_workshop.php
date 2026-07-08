@@ -223,13 +223,12 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                     <label class="form-label">Upload Aadhar card <span class="required-mark">*</span></label>
                     <div class="file-upload-zone" id="zone_aadhar_card">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="file-upload-label">JPG or PNG only (verified automatically)</div>
+                        <div class="file-upload-label">JPG or PNG only</div>
                         <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG/PNG max 5MB</span>
-                        <span class="field-hint d-block mb-2">Upload a clear photo of your <strong>Aadhar card only</strong> — must show Aadhaar / UIDAI text. Marksheet, certificate, or other documents are not accepted.</span>
+                        <span class="field-hint d-block mb-2">Upload a clear photo or scan of your <strong>Aadhar card</strong>.</span>
                         <input type="file" name="aadhar_card" id="workshop_aadhar_card" class="form-control workshop-file-input"
                                accept="image/jpeg,image/png,image/jpg" required
-                               data-max-image-mb="5" data-require-aadhar-card="1">
-                        <div class="doc-check-status" aria-live="polite"></div>
+                               data-max-image-mb="5">
                     </div>
                 </div>
             </div>
@@ -258,10 +257,9 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                         <i class="fas fa-portrait upload-icon"></i>
                         <div class="file-upload-label">Passport-size photo <span class="required-mark">*</span></div>
                         <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG or PNG · max 5MB</span>
-                        <span class="field-hint d-block mb-2">Front-facing passport photo — one face, centred, plain background. Auto-checked before submit.</span>
+                        <span class="field-hint d-block mb-2">Upload a clear front-facing passport-size photo (JPG or PNG, max 5MB).</span>
                         <input type="file" name="passport_photo" id="workshop_passport_photo" class="form-control workshop-file-input workshop-passport-input"
-                               accept="image/jpeg,image/png,image/jpg" required data-max-image-mb="5" data-require-face="1">
-                        <div class="face-check-status" aria-live="polite"></div>
+                               accept="image/jpeg,image/png,image/jpg" required data-max-image-mb="5">
                     </div>
                 </div>
             </div>
@@ -269,22 +267,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 
         <div class="workshop-info-note mobile-upload-tip" role="note">
             <i class="fas fa-mobile-screen-button"></i>
-            <p>On mobile, tap upload fields — choose <strong>Camera</strong> for a new photo or <strong>Gallery / Files</strong> for a saved image. Wait for the green verified message before submitting.</p>
-        </div>
-
-        <div id="workshopAiPreloadSkeleton" class="reg-skeleton-panel" aria-live="polite" aria-hidden="true">
-            <p class="reg-skeleton-panel-title">
-                <i class="fas fa-shield-halved"></i>
-                Preparing photo &amp; document verification
-            </p>
-            <div class="reg-skeleton-panel-rows">
-                <div class="reg-skeleton-line reg-skeleton-shimmer"></div>
-                <div class="reg-skeleton-line reg-skeleton-line--md reg-skeleton-shimmer"></div>
-            </div>
-            <div class="reg-skeleton-progress" aria-hidden="true">
-                <div class="reg-skeleton-progress-bar"></div>
-            </div>
-            <p class="reg-skeleton-caption">Loading verification tools… Please wait a moment before uploading.</p>
+            <p>On mobile, tap upload fields — choose <strong>Camera</strong> for a new photo or <strong>Gallery / Files</strong> for a saved image.</p>
         </div>
 
         <div class="workshop-info-note">
@@ -326,21 +309,8 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 </div>
 
 <?php renderStateCityPincodeScript($formData); ?>
-<script src="<?php echo APP_URL; ?>/assets/js/registration-ai-loader.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-ai-loader.js') ? filemtime(__DIR__ . '/../assets/js/registration-ai-loader.js') : time(); ?>"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/registration-skeleton.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-skeleton.js') ? filemtime(__DIR__ . '/../assets/js/registration-skeleton.js') : time(); ?>"></script>
-<script src="<?php echo APP_URL; ?>/assets/js/workshop-passport-photo-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/workshop-passport-photo-check.js') ? filemtime(__DIR__ . '/../assets/js/workshop-passport-photo-check.js') : time(); ?>"></script>
-<script src="<?php echo APP_URL; ?>/assets/js/workshop-aadhar-card-check.js?v=<?php echo is_file(__DIR__ . '/../assets/js/workshop-aadhar-card-check.js') ? filemtime(__DIR__ . '/../assets/js/workshop-aadhar-card-check.js') : time(); ?>"></script>
 <script>
-if (typeof RegistrationAiLoader !== 'undefined') {
-    RegistrationAiLoader.configure({ needPdf: false });
-}
-
-function workshopEnsureAi() {
-    if (typeof RegistrationAiLoader !== 'undefined') {
-        return RegistrationAiLoader.ensureReady();
-    }
-    return Promise.resolve();
-}
 function calculateWorkshopAge() {
     const dobInput = document.getElementById('workshop_dob');
     const ageInput = document.getElementById('workshop_age');
@@ -416,24 +386,6 @@ function workshopShowFileError(input, message) {
     input.classList.add('is-invalid');
 }
 
-function workshopSetFaceCheckStatus(input, message, type) {
-    if (!input) return;
-    const zone = input.closest('.file-upload-zone');
-    const el = zone && zone.querySelector('.face-check-status');
-    if (!el) return;
-    el.className = 'face-check-status' + (type ? ' ' + type : '');
-    el.innerHTML = message ? '<i class="fas fa-' + (type === 'ok' ? 'check-circle' : type === 'fail' ? 'times-circle' : 'spinner fa-spin') + ' me-1"></i>' + message : '';
-}
-
-function workshopSetDocCheckStatus(input, message, type) {
-    if (!input) return;
-    const zone = input.closest('.file-upload-zone');
-    const el = zone && zone.querySelector('.doc-check-status');
-    if (!el) return;
-    el.className = 'doc-check-status' + (type ? ' ' + type : '');
-    el.innerHTML = message ? '<i class="fas fa-' + (type === 'ok' ? 'check-circle' : type === 'fail' ? 'times-circle' : 'spinner fa-spin') + ' me-1"></i>' + message : '';
-}
-
 function workshopClearFilePreview(button) {
     const preview = button.closest('.file-preview');
     const zone = button.closest('.file-upload-zone');
@@ -442,18 +394,10 @@ function workshopClearFilePreview(button) {
     if (input) {
         input.value = '';
         input.classList.remove('is-valid');
-        input.dataset.faceValid = '0';
-        input.dataset.cardValid = '0';
     }
     if (preview) preview.remove();
     zone.classList.remove('has-preview');
     workshopClearFileError(input);
-    if (input && input.dataset.requireFace === '1') {
-        workshopSetFaceCheckStatus(input, '', '');
-    }
-    if (input && input.dataset.requireAadharCard === '1') {
-        workshopSetDocCheckStatus(input, '', '');
-    }
 }
 
 function workshopRenderFilePreview(input, file) {
@@ -511,134 +455,8 @@ function workshopRenderFilePreview(input, file) {
     preview.classList.add('show');
 }
 
-function workshopHandlePassportPhotoChange(input) {
-    workshopClearFileError(input);
-    input.dataset.faceValid = '0';
-    const file = input.files[0];
-    if (!file) {
-        const zone = input.closest('.file-upload-zone');
-        const preview = zone && zone.querySelector('.file-preview');
-        if (preview) preview.remove();
-        if (zone) zone.classList.remove('has-preview');
-        workshopSetFaceCheckStatus(input, '', '');
-        return;
-    }
-    const validation = workshopValidateFileInput(input);
-    if (!validation.valid) {
-        input.value = '';
-        workshopShowFileError(input, validation.message);
-        workshopSetFaceCheckStatus(input, validation.message, 'fail');
-        return;
-    }
-    workshopSetFaceCheckStatus(input, 'Loading verification… please wait', 'checking');
-    if (typeof RegistrationSkeleton !== 'undefined') {
-        RegistrationSkeleton.showFieldCheck(input, 'Checking face in photo…');
-    }
-    workshopEnsureAi().then(function () {
-        if (typeof WorkshopPassportPhotoCheck === 'undefined') {
-            throw new Error('Face check could not start. Refresh the page and try again.');
-        }
-        workshopSetFaceCheckStatus(input, 'Checking face in photo… please wait', 'checking');
-        return WorkshopPassportPhotoCheck.validate(file);
-    }).then(function (result) {
-        if (typeof RegistrationSkeleton !== 'undefined') {
-            RegistrationSkeleton.hideFieldCheck(input);
-        }
-        if (!result.valid) {
-            input.value = '';
-            const zone = input.closest('.file-upload-zone');
-            const preview = zone && zone.querySelector('.file-preview');
-            if (preview) preview.remove();
-            if (zone) zone.classList.remove('has-preview');
-            workshopShowFileError(input, result.message);
-            workshopSetFaceCheckStatus(input, result.message, 'fail');
-            return;
-        }
-        input.dataset.faceValid = '1';
-        input.classList.add('is-valid');
-        workshopSetFaceCheckStatus(input, 'Face detected — photo accepted', 'ok');
-        workshopRenderFilePreview(input, file);
-    }).catch(function (err) {
-        if (typeof RegistrationSkeleton !== 'undefined') {
-            RegistrationSkeleton.hideFieldCheck(input);
-        }
-        input.value = '';
-        const detail = err && err.message ? err.message : '';
-        const message = detail.indexOf('internet') !== -1 || detail.indexOf('load') !== -1
-            ? detail
-            : (detail || 'Could not verify the photo. Upload a clear front-facing passport photo and try again.');
-        workshopShowFileError(input, message);
-        workshopSetFaceCheckStatus(input, 'Face check failed — try again', 'fail');
-    });
-}
-
-function workshopHandleAadharCardChange(input) {
-    workshopClearFileError(input);
-    input.dataset.cardValid = '0';
-    const file = input.files[0];
-    if (!file) {
-        const zone = input.closest('.file-upload-zone');
-        const preview = zone && zone.querySelector('.file-preview');
-        if (preview) preview.remove();
-        if (zone) zone.classList.remove('has-preview');
-        workshopSetDocCheckStatus(input, '', '');
-        return;
-    }
-    const validation = workshopValidateFileInput(input);
-    if (!validation.valid) {
-        input.value = '';
-        workshopShowFileError(input, validation.message);
-        workshopSetDocCheckStatus(input, validation.message, 'fail');
-        return;
-    }
-    workshopSetDocCheckStatus(input, 'Checking Aadhar card document… this may take a few seconds', 'checking');
-    if (typeof RegistrationSkeleton !== 'undefined') {
-        RegistrationSkeleton.showFieldCheck(input, 'Verifying Aadhar card…');
-    }
-    workshopEnsureAi().then(function () {
-        if (typeof WorkshopAadharCardCheck === 'undefined') {
-            throw new Error('Document check could not start. Refresh the page and try again.');
-        }
-        return WorkshopAadharCardCheck.validate(file);
-    }).then(function (result) {
-        if (typeof RegistrationSkeleton !== 'undefined') {
-            RegistrationSkeleton.hideFieldCheck(input);
-        }
-        if (!result.valid) {
-            input.value = '';
-            const zone = input.closest('.file-upload-zone');
-            const preview = zone && zone.querySelector('.file-preview');
-            if (preview) preview.remove();
-            if (zone) zone.classList.remove('has-preview');
-            workshopShowFileError(input, result.message);
-            workshopSetDocCheckStatus(input, result.message, 'fail');
-            return;
-        }
-        input.dataset.cardValid = '1';
-        input.classList.add('is-valid');
-        workshopSetDocCheckStatus(input, result.message, 'ok');
-        workshopRenderFilePreview(input, file);
-    }).catch(function (err) {
-        if (typeof RegistrationSkeleton !== 'undefined') {
-            RegistrationSkeleton.hideFieldCheck(input);
-        }
-        input.value = '';
-        const detail = err && err.message ? err.message : '';
-        workshopShowFileError(input, detail || 'Could not verify the Aadhar card. Upload a clear scan or photo of the card.');
-        workshopSetDocCheckStatus(input, 'Document check failed — try again', 'fail');
-    });
-}
-
 document.querySelectorAll('.workshop-file-input').forEach(function (input) {
     input.addEventListener('change', function () {
-        if (this.dataset.requireFace === '1') {
-            workshopHandlePassportPhotoChange(this);
-            return;
-        }
-        if (this.dataset.requireAadharCard === '1') {
-            workshopHandleAadharCardChange(this);
-            return;
-        }
         workshopClearFileError(this);
         const file = this.files[0];
         if (!file) {
@@ -646,11 +464,13 @@ document.querySelectorAll('.workshop-file-input').forEach(function (input) {
             const preview = zone && zone.querySelector('.file-preview');
             if (preview) preview.remove();
             if (zone) zone.classList.remove('has-preview');
+            this.classList.remove('is-valid');
             return;
         }
         const validation = workshopValidateFileInput(this);
         if (!validation.valid) {
             this.value = '';
+            this.classList.remove('is-valid');
             workshopShowFileError(this, validation.message);
             return;
         }
@@ -665,23 +485,6 @@ document.querySelector('.workshop-form').addEventListener('submit', function (e)
 
     if (form.dataset.submitting === '1') {
         e.preventDefault();
-        return;
-    }
-
-    const photo = document.getElementById('workshop_passport_photo');
-    if (photo && photo.dataset.requireFace === '1' && photo.dataset.faceValid !== '1') {
-        e.preventDefault();
-        workshopShowFileError(photo, 'Upload a valid passport photo with one clear front-facing face before submitting.');
-        workshopSetFaceCheckStatus(photo, 'Photo must pass face check before submit', 'fail');
-        photo.closest('.form-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-    }
-    const aadhar = document.getElementById('workshop_aadhar_card');
-    if (aadhar && aadhar.dataset.requireAadharCard === '1' && aadhar.dataset.cardValid !== '1') {
-        e.preventDefault();
-        workshopShowFileError(aadhar, 'Upload a clear scan or photo of your Aadhar card before submitting.');
-        workshopSetDocCheckStatus(aadhar, 'Aadhar card must be verified before submit', 'fail');
-        aadhar.closest('.form-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
     }
 
@@ -710,18 +513,6 @@ window.addEventListener('pageshow', function (event) {
             RegistrationSkeleton.hideSubmitOverlay('workshopSubmitSkeleton');
         }
     }
-});
-
-document.querySelectorAll('.workshop-file-input').forEach(function (input) {
-    input.addEventListener('focus', function preloadOnFocus() {
-        if (typeof RegistrationSkeleton !== 'undefined') {
-            RegistrationSkeleton.bindAiLoaderEvents('workshopAiPreloadSkeleton');
-            RegistrationSkeleton.trackPreload('workshopAiPreloadSkeleton');
-        } else if (typeof RegistrationAiLoader !== 'undefined') {
-            RegistrationAiLoader.preload();
-        }
-        input.removeEventListener('focus', preloadOnFocus);
-    });
 });
 </script>
 <?php require __DIR__ . '/includes/registration_site_footer.php'; ?>
