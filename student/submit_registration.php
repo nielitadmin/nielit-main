@@ -46,6 +46,7 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
         'caste' => 'caste_certificates',
         'tenth' => 'marksheets/10th',
         'twelfth' => 'marksheets/12th',
+        'twelfth_certificate' => 'marksheets/12th/certificate',
         'graduation' => 'marksheets/graduation',
         'bank_passbook' => 'dge/bank_passbook',
         'income_certificate' => 'dge/income_certificate',
@@ -263,9 +264,10 @@ function registrationFieldLabels() {
         'signature' => 'Signature',
         'aadhar_card' => 'Aadhar Card Document',
         'tenth_marksheet' => '10th Certificate / Marksheet',
-        'twelfth_marksheet' => '12th Certificate / Marksheet / Diploma',
+        'twelfth_marksheet' => '12th Marksheet / Diploma',
+        'twelfth_certificate' => '12th Certificate / Diploma',
         'bank_passbook' => 'Bank Passbook',
-        'income_certificate' => 'Income Certificate',
+        'income_certificate' => 'Income Certificate (latest)',
         'aadhaar_bank_seeding_proof' => 'Aadhaar Bank Seeding Proof',
     ];
 }
@@ -535,7 +537,7 @@ foreach (['passport_photo' => 'Passport photo', 'signature' => 'Signature'] as $
     }
 }
 
-foreach (['aadhar_card' => 'Aadhar card document'] as $fileField => $fileLabel) {
+foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th certificate / marksheet'] as $fileField => $fileLabel) {
     $fileErr = registrationFileUploadError($fileField);
     if ($fileErr !== '') {
         $missingFields[] = $fileField;
@@ -544,11 +546,12 @@ foreach (['aadhar_card' => 'Aadhar card document'] as $fileField => $fileLabel) 
 }
 
 ensureDgeRegistrationDocumentColumns($conn);
+ensureTwelfthCertificateDocColumn($conn);
 $isDgeProject = isDgeProjectScheme($conn, $scheme_id);
 if ($isDgeProject) {
     foreach ([
         'bank_passbook' => 'Bank passbook',
-        'income_certificate' => 'Income certificate',
+        'income_certificate' => 'Latest income certificate',
         'aadhaar_bank_seeding_proof' => 'Aadhaar bank seeding proof',
     ] as $fileField => $fileLabel) {
         $fileErr = registrationFileUploadError($fileField);
@@ -567,6 +570,7 @@ $docCats = [
     'aadhar_card'            => 'aadhar',
     'caste_certificate'      => 'caste',
     'tenth_marksheet'        => 'tenth',
+    'twelfth_certificate'    => 'twelfth_certificate',
     'twelfth_marksheet'      => 'twelfth',
     'graduation_certificate' => 'graduation',
     'bank_passbook'          => 'bank_passbook',
@@ -709,7 +713,7 @@ foreach ($docCats as $field => $cat) {
         $r = handleCategorizedUpload($_FILES[$field], $cat, $student_id);
         if ($r['success']) $uploadedDocs[$field] = $r['path'];
         else               $uploadErrors[$field] = $r['error'];
-    } elseif (in_array($field, ['aadhar_card'], true)) {
+    } elseif (in_array($field, ['aadhar_card', 'tenth_marksheet'], true)) {
         $code = $_FILES[$field]['error'] ?? 4;
         if ($code !== UPLOAD_ERR_OK) {
             $uploadErrors[$field] = "Required document missing (error code: $code)";
@@ -741,6 +745,7 @@ if (!empty($uploadErrors)) {
 $aadhar_card_path            = $uploadedDocs['aadhar_card']            ?? '';
 $caste_certificate_path      = $uploadedDocs['caste_certificate']      ?? '';
 $tenth_marksheet_path        = $uploadedDocs['tenth_marksheet']        ?? '';
+$twelfth_certificate_path    = $uploadedDocs['twelfth_certificate']    ?? '';
 $twelfth_marksheet_path      = $uploadedDocs['twelfth_marksheet']      ?? '';
 $graduation_certificate_path = $uploadedDocs['graduation_certificate'] ?? '';
 $other_documents_path        = $uploadedDocs['other_documents']        ?? '';
@@ -748,6 +753,9 @@ $bank_passbook_path          = $uploadedDocs['bank_passbook']          ?? '';
 $income_certificate_path     = $uploadedDocs['income_certificate']     ?? '';
 $aadhaar_bank_seeding_path   = $uploadedDocs['aadhaar_bank_seeding_proof'] ?? '';
 
+$hasTwelfthCertCol = hasTwelfthCertificateDocColumn($conn);
+$twelfthCertColSql = $hasTwelfthCertCol ? ', twelfth_certificate_doc' : '';
+$twelfthCertValSql = $hasTwelfthCertCol ? ', ?' : '';
 $hasDgeDocCols = hasDgeRegistrationDocumentColumns($conn);
 $dgeDocColSql = $hasDgeDocCols ? ', bank_passbook_doc, income_certificate_doc, aadhaar_bank_seeding_doc' : '';
 $dgeDocValSql = $hasDgeDocCols ? ', ?, ?, ?' : '';
@@ -786,14 +794,14 @@ $sql = "INSERT INTO students (
     state, city, pincode, address, college_name, education_details,
     passport_photo, signature, left_thumb_impression, payment_receipt, utr_number, payment_date,
     student_id, password,
-    aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc,
+    aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc{$twelfthCertColSql},
     twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc{$dgeDocColSql},
     status{$schemeColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
-    ?,?,?,?,?,?,?,?,?,?{$dgeDocValSql},
+    ?,?,?,?,?,?,?,?,?,?{$twelfthCertValSql}{$dgeDocValSql},
     'pending'{$schemeValSql}, NOW()
 )";
 
@@ -804,6 +812,9 @@ if (!$stmt) {
 }
 
 $bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 32);
+if ($hasTwelfthCertCol) {
+    $bindTypes .= 's';
+}
 if ($hasDgeDocCols) {
     $bindTypes .= 'sss';
 }
@@ -819,8 +830,13 @@ $bindArgs = [
     $passport_photo_path, $signature_path, $left_thumb_impression_path, $payment_receipt_path, $utr_number, $payment_date_db,
     $student_id, $hashed_password,
     $aadhar_card_path, $caste_certificate_path, $tenth_marksheet_path,
-    $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path,
 ];
+if ($hasTwelfthCertCol) {
+    $bindArgs[] = $twelfth_certificate_path;
+}
+$bindArgs[] = $twelfth_marksheet_path;
+$bindArgs[] = $graduation_certificate_path;
+$bindArgs[] = $other_documents_path;
 if ($hasDgeDocCols) {
     $bindArgs[] = $bank_passbook_path;
     $bindArgs[] = $income_certificate_path;

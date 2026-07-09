@@ -474,7 +474,8 @@ if ($stmt_education) {
                 <div class="card-header" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6; padding: 16px; border-radius: 8px 8px 0 0; margin: -24px -24px 24px -24px;">
                     <h5 class="card-title" style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-graduation-cap"></i> Educational Qualifications
-                        <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Optional</span>
+                        <span style="background: #dc2626; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-right: 8px;">10th Required</span>
+                        <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">12th Optional</span>
                     </h5>
                 </div>
                 
@@ -521,9 +522,51 @@ if ($stmt_education) {
                         <?php endif; ?>
                     </div>
 
+                    <!-- 12th Certificate -->
+                    <div class="document-card">
+                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 12th Certificate / Diploma</h5>
+                        <?php if (!empty($student['twelfth_certificate_doc']) && file_exists(__DIR__ . '/../' . $student['twelfth_certificate_doc'])):
+                            $twelfth_cert_ext = strtolower(pathinfo($student['twelfth_certificate_doc'], PATHINFO_EXTENSION));
+                        ?>
+                            <span class="doc-status uploaded"><i class="fas fa-check-circle"></i> Uploaded</span>
+                            <br>
+                            <?php if (in_array($twelfth_cert_ext, ['jpg', 'jpeg', 'png'], true)): ?>
+                                <img src="../<?php echo htmlspecialchars($student['twelfth_certificate_doc']); ?>"
+                                     alt="12th Certificate"
+                                     class="document-preview">
+                                <br>
+                                <a href="../<?php echo htmlspecialchars($student['twelfth_certificate_doc']); ?>"
+                                   target="_blank"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> View Full Size
+                                </a>
+                            <?php elseif ($twelfth_cert_ext === 'pdf'): ?>
+                                <i class="fas fa-file-pdf document-icon pdf-icon"></i>
+                                <p style="font-weight: 600; color: #1e293b; margin: 12px 0;">PDF Document</p>
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <a href="../<?php echo htmlspecialchars($student['twelfth_certificate_doc']); ?>"
+                                       target="_blank"
+                                       class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="../<?php echo htmlspecialchars($student['twelfth_certificate_doc']); ?>"
+                                       download
+                                       class="btn btn-success btn-sm">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span class="doc-status missing"><i class="fas fa-times-circle"></i> Not Uploaded</span>
+                            <br>
+                            <i class="fas fa-certificate document-icon no-doc-icon"></i>
+                            <p style="color: #64748b; margin-top: 12px;">No 12th certificate uploaded</p>
+                        <?php endif; ?>
+                    </div>
+
                     <!-- 12th Marksheet -->
                     <div class="document-card">
-                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 12th Certificate / Marksheet / Diploma</h5>
+                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 12th Marksheet / Diploma</h5>
                         <?php if (!empty($student['twelfth_marksheet_doc']) && file_exists(__DIR__ . '/../' . $student['twelfth_marksheet_doc'])): 
                             $twelfth_ext = strtolower(pathinfo($student['twelfth_marksheet_doc'], PATHINFO_EXTENSION));
                         ?>
@@ -706,7 +749,7 @@ if ($stmt_education) {
             <?php
             $dge_docs = [
                 'bank_passbook_doc' => ['label' => 'Bank Passbook', 'icon' => 'fa-university'],
-                'income_certificate_doc' => ['label' => 'Income Certificate', 'icon' => 'fa-file-invoice-dollar'],
+                'income_certificate_doc' => ['label' => 'Income Certificate (Latest)', 'icon' => 'fa-file-invoice-dollar'],
                 'aadhaar_bank_seeding_doc' => ['label' => 'Aadhaar Bank Seeding Proof', 'icon' => 'fa-link'],
             ];
             $has_any_dge_doc = false;

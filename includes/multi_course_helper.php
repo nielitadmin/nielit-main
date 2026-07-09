@@ -246,6 +246,28 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
     }
 
+    function hasTwelfthCertificateDocColumn(mysqli $conn): bool {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        $has = studentsTableHasColumn($conn, 'twelfth_certificate_doc');
+        return $has;
+    }
+
+    function ensureTwelfthCertificateDocColumn(mysqli $conn): void {
+        if (hasTwelfthCertificateDocColumn($conn)) {
+            return;
+        }
+        if (!studentsTableHasColumn($conn, 'twelfth_marksheet_doc')) {
+            throw new RuntimeException('twelfth_marksheet_doc column is missing. Run document categories migration first.');
+        }
+        $sql = "ALTER TABLE students ADD COLUMN twelfth_certificate_doc VARCHAR(255) NULL DEFAULT NULL COMMENT 'Path to 12th certificate' AFTER tenth_marksheet_doc";
+        if (!$conn->query($sql)) {
+            throw new RuntimeException('Failed to add twelfth_certificate_doc column: ' . $conn->error);
+        }
+    }
+
     function getSchemesForCourse(mysqli $conn, int $courseId): array {
         if ($courseId <= 0) {
             return [];

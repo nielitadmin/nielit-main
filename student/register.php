@@ -2103,34 +2103,55 @@ if (isset($_SESSION['info'])) {
                     </div>
                 </div>
                 
-                <!-- Optional Documents: Educational Qualifications -->
-                <div class="document-category optional">
+                <!-- Educational Qualifications -->
+                <div class="document-category">
                     <h4 class="category-title">
                         <i class="fas fa-graduation-cap"></i> Educational Qualifications
-                        <span class="optional-badge">Optional</span>
                     </h4>
-                    
+
+                    <div class="form-group mb-4">
+                        <label class="form-label">
+                            10th Certificate / Marksheet <span class="required-mark">*</span>
+                        </label>
+                        <input type="file" 
+                               name="tenth_marksheet" 
+                               id="tenth_marksheet"
+                               class="form-control" 
+                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                               required
+                               data-category="tenth"
+                               data-require-marksheet="tenth">
+                        <div class="doc-check-status" aria-live="polite"></div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i> 
+                            Upload <strong>10th certificate</strong> or <strong>10th marksheet</strong> (JPG/PNG/PDF, max 5MB). <strong>Required.</strong>
+                        </small>
+                    </div>
+
+                    <p class="text-muted mb-2" style="font-size: 0.9rem;">
+                        <i class="fas fa-info-circle"></i> 12th documents below are <strong>optional</strong>.
+                    </p>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">10th Certificate / Marksheet</label>
+                                <label class="form-label">12th Certificate / Diploma</label>
                                 <input type="file" 
-                                       name="tenth_marksheet" 
-                                       id="tenth_marksheet"
+                                       name="twelfth_certificate" 
+                                       id="twelfth_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                                       data-category="tenth"
-                                       data-require-marksheet="tenth">
+                                       data-category="twelfth_certificate"
+                                       data-require-marksheet="twelfth">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Upload <strong>10th certificate</strong> or <strong>10th marksheet</strong> (JPG/PNG/PDF, max 5MB). One file is enough — optional.
+                                    Upload <strong>12th certificate</strong> or <strong>diploma certificate</strong> (JPG/PNG/PDF). Optional.
                                 </small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">12th Certificate / Marksheet / Diploma</label>
+                                <label class="form-label">12th Marksheet / Diploma</label>
                                 <input type="file" 
                                        name="twelfth_marksheet" 
                                        id="twelfth_marksheet"
@@ -2141,7 +2162,7 @@ if (isset($_SESSION['info'])) {
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Upload <strong>12th certificate</strong>, <strong>12th marksheet</strong>, or <strong>diploma certificate</strong> (JPG/PNG/PDF). One file is enough — optional.
+                                    Upload <strong>12th marksheet</strong> or <strong>diploma marksheet</strong> (JPG/PNG/PDF). Optional.
                                 </small>
                             </div>
                         </div>
@@ -2197,7 +2218,7 @@ if (isset($_SESSION['info'])) {
                     <div id="dgeProjectDocumentsBlock" class="mt-3" style="display:none;">
                         <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.9rem;">
                             <i class="fas fa-info-circle"></i>
-                            <strong>DGE project registration:</strong> upload bank passbook, income certificate, and Aadhaar bank seeding proof.
+                            <strong>DGE project registration:</strong> upload bank passbook, latest income certificate, and Aadhaar bank seeding proof.
                         </div>
                         <div class="row">
                             <div class="col-md-6">
@@ -2228,7 +2249,7 @@ if (isset($_SESSION['info'])) {
                                     <div class="doc-check-status" aria-live="polite"></div>
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i>
-                                        Income certificate issued by competent authority (JPG/PNG/PDF).
+                                        Upload the <strong>latest income certificate</strong> (JPG/PNG/PDF). Required for DGE project — must match your Aadhaar bank seeding details.
                                     </small>
                                 </div>
                             </div>
@@ -2650,7 +2671,7 @@ if (typeof RegistrationSkeleton !== 'undefined') {
         mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
         address: 2, state: 2, city: 2, pincode: 2, pwd_status: 2, college_name: 2, apaar_id: 2,
         utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
-        left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
+        left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_certificate: 3, twelfth_marksheet: 3,
         graduation_certificate: 3, caste_certificate: 3, other_documents: 3,
         bank_passbook: 3, income_certificate: 3, aadhaar_bank_seeding_proof: 3
     };
@@ -3207,13 +3228,14 @@ function renderFilePreviewForInput(input, file) {
     }
 
     const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
-    const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate' || fieldName === 'bank_passbook' || fieldName === 'income_certificate' || fieldName === 'aadhaar_bank_seeding_proof');
+    const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_certificate' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate' || fieldName === 'bank_passbook' || fieldName === 'income_certificate' || fieldName === 'aadhaar_bank_seeding_proof');
     const isImageFile = file.type.startsWith('image/');
     const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo'
         : (fieldName === 'signature' ? 'Signature'
         : (fieldName === 'aadhar_card' ? 'Aadhar Card'
         : (fieldName === 'tenth_marksheet' ? '10th Certificate / Marksheet'
-        : (fieldName === 'twelfth_marksheet' ? '12th Certificate / Marksheet / Diploma'
+        : (fieldName === 'twelfth_certificate' ? '12th Certificate / Diploma'
+        : (fieldName === 'twelfth_marksheet' ? '12th Marksheet / Diploma'
         : (fieldName === 'caste_certificate' ? 'Caste Certificate'
         : (fieldName === 'graduation_certificate' ? 'Graduation Certificate'
         : (fieldName === 'bank_passbook' ? 'Bank Passbook'
@@ -4110,7 +4132,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
             mobile: 2, email: 2, aadhar: 2, nationality: 2, religion: 2, category: 2, position: 2,
             address: 2, state: 2, city: 2, pincode: 2,
             utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
-            left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
+            left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_certificate: 3, twelfth_marksheet: 3,
             caste_certificate: 3, graduation_certificate: 3,
             bank_passbook: 3, income_certificate: 3, aadhaar_bank_seeding_proof: 3
         };
@@ -4158,7 +4180,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card'];
+    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
     for (let i = 0; i < requiredFiles.length; i++) {
         const fileName = requiredFiles[i];
         const input = form.querySelector('[name="' + fileName + '"]');
@@ -4174,7 +4196,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const optionalFileFields = ['left_thumb_impression', 'tenth_marksheet', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
+    const optionalFileFields = ['left_thumb_impression', 'twelfth_certificate', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
     for (let i = 0; i < optionalFileFields.length; i++) {
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');

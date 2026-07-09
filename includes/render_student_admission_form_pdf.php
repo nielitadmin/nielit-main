@@ -386,8 +386,8 @@ $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 6. DOCUMENT SUBMISSION CHECKLIST', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 11);
 $docs_checklist = [
-    'Aadhar Card' => 'aadhar_card_doc', '10th Certificate' => 'tenth_marksheet_doc', 
-    '12th/Diploma Cert' => 'twelfth_marksheet_doc', 'Graduation Certificate' => 'graduation_certificate_doc', 
+    'Aadhar Card' => 'aadhar_card_doc', '10th Certificate' => 'tenth_marksheet_doc',
+    '12th Certificate / Diploma' => 'twelfth_certificate_doc', '12th Marksheet / Diploma' => 'twelfth_marksheet_doc', 'Graduation Certificate' => 'graduation_certificate_doc',
     'Caste Certificate' => 'caste_certificate_doc', 'Payment Receipt' => 'payment_receipt'
 ];
 $j = 0;
