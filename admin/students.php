@@ -286,6 +286,73 @@ if (isset($_POST['bulk_assign_batch'])) {
     exit();
 }
 
+// ─── HANDLE: Bulk approve students ───────────────────────────────────────────
+if (isset($_POST['bulk_approve_students'])) {
+    if ($is_front_office) {
+        $_SESSION['message'] = 'Access denied. Front Office Desk cannot approve students.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . studentsRedirectFromSource($_POST));
+        exit();
+    }
+
+    $studentIds = $_POST['bulk_approve_student_ids'] ?? [];
+    if (!is_array($studentIds)) {
+        $studentIds = [];
+    }
+    $studentIds = array_values(array_unique(array_filter(array_map('trim', $studentIds))));
+    $admin_name = $_SESSION['admin'] ?? 'Admin';
+
+    if ($studentIds === []) {
+        $_SESSION['message']      = 'Please select at least one student.';
+        $_SESSION['message_type'] = 'warning';
+        header('Location: ' . studentsRedirectFromSource($_POST));
+        exit();
+    }
+
+    $approved = 0;
+    $skipped = 0;
+    $failed = [];
+
+    foreach ($studentIds as $studentIdStr) {
+        $result = adminApproveStudent($conn, $studentIdStr, $admin_name);
+        if (!empty($result['success'])) {
+            $approved++;
+            continue;
+        }
+        $msg = (string)($result['message'] ?? 'Approval failed.');
+        if (stripos($msg, 'already') !== false || stripos($msg, 'not found') !== false) {
+            $skipped++;
+            continue;
+        }
+        $failed[] = $studentIdStr . ': ' . $msg;
+    }
+
+    $parts = [];
+    if ($approved > 0) {
+        $parts[] = $approved . ' student(s) approved';
+    }
+    if ($skipped > 0) {
+        $parts[] = $skipped . ' skipped (already active or not pending)';
+    }
+    if ($failed !== []) {
+        $parts[] = count($failed) . ' failed';
+    }
+
+    $message = $parts !== [] ? implode('. ', $parts) . '.' : 'No students were approved.';
+    if ($failed !== []) {
+        $message .= ' ' . implode(' | ', array_slice($failed, 0, 3));
+        if (count($failed) > 3) {
+            $message .= ' …';
+        }
+    }
+
+    $_SESSION['message']      = $message;
+    $_SESSION['message_type'] = $approved > 0 ? 'success' : ($failed !== [] ? 'danger' : 'warning');
+
+    header('Location: ' . studentsRedirectFromSource($_POST));
+    exit();
+}
+
 // ─── HANDLE: Remove student from batch ───────────────────────────────────────
 if (isset($_GET['remove_record']) && isset($_GET['batch_id'])) {
     $student_record_id = (int)$_GET['remove_record'];
@@ -357,6 +424,89 @@ if (isset($_GET['remove_course_enrollment'])) {
     $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
 
     header('Location: ' . studentsRedirectFromSource($_GET));
+    exit();
+}
+
+// ─── HANDLE: Bulk remove students from course ─────────────────────────────────
+if (isset($_POST['bulk_remove_course_enrollment'])) {
+    if ($is_front_office) {
+        $_SESSION['message'] = 'Access denied. Front Office Desk cannot remove course enrollments.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . studentsRedirectFromSource($_POST));
+        exit();
+    }
+
+    $studentIds = $_POST['bulk_remove_student_ids'] ?? [];
+    $courseIds  = $_POST['bulk_remove_course_ids'] ?? [];
+    if (!is_array($studentIds)) {
+        $studentIds = [];
+    }
+    if (!is_array($courseIds)) {
+        $courseIds = [];
+    }
+
+    $pairs = [];
+    $pairCount = min(count($studentIds), count($courseIds));
+    for ($i = 0; $i < $pairCount; $i++) {
+        $studentIdStr = trim((string)$studentIds[$i]);
+        $courseId = (int)$courseIds[$i];
+        if ($studentIdStr === '' || $courseId <= 0) {
+            continue;
+        }
+        $pairs[$studentIdStr . ':' . $courseId] = [
+            'student_id' => $studentIdStr,
+            'course_id' => $courseId,
+        ];
+    }
+
+    if ($pairs === []) {
+        $_SESSION['message']      = 'Please select at least one student.';
+        $_SESSION['message_type'] = 'warning';
+        header('Location: ' . studentsRedirectFromSource($_POST));
+        exit();
+    }
+
+    $removed = 0;
+    $skipped_access = 0;
+    $failed = [];
+
+    foreach ($pairs as $pair) {
+        if ($is_course_coordinator && !empty($admin_course_ids) && !in_array($pair['course_id'], $admin_course_ids, true)) {
+            $skipped_access++;
+            continue;
+        }
+
+        $result = adminRemoveStudentFromCourse($conn, $pair['student_id'], $pair['course_id']);
+        if (!empty($result['success'])) {
+            $removed++;
+            continue;
+        }
+        $failed[] = $pair['student_id'] . ': ' . ($result['message'] ?? 'Removal failed.');
+    }
+
+    $parts = [];
+    if ($removed > 0) {
+        $parts[] = $removed . ' student(s) removed from their course';
+    }
+    if ($skipped_access > 0) {
+        $parts[] = $skipped_access . ' skipped (not your assigned course)';
+    }
+    if ($failed !== []) {
+        $parts[] = count($failed) . ' failed';
+    }
+
+    $message = $parts !== [] ? implode('. ', $parts) . '.' : 'No students were removed.';
+    if ($failed !== []) {
+        $message .= ' ' . implode(' | ', array_slice($failed, 0, 3));
+        if (count($failed) > 3) {
+            $message .= ' …';
+        }
+    }
+
+    $_SESSION['message']      = $message;
+    $_SESSION['message_type'] = $removed > 0 ? 'success' : ($failed !== [] ? 'danger' : 'warning');
+
+    header('Location: ' . studentsRedirectFromSource($_POST));
     exit();
 }
 
@@ -1032,6 +1182,29 @@ if ($other_gender_count > 0) {
             background: #f8fafc;
         }
 
+        .students-table-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .students-actions-cell {
+            min-width: 320px;
+            white-space: normal;
+            vertical-align: top;
+        }
+
+        .students-actions-cell .btn {
+            margin: 2px 4px 4px 0;
+        }
+
+        .content-card > .card-header {
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
         .students-pagination-info {
             color: #64748b;
             font-size: 0.92rem;
@@ -1430,13 +1603,21 @@ if ($other_gender_count > 0) {
                             </small>
                         <?php endif; ?>
                     </h5>
-                    <div style="display:flex;gap:10px;align-items:center;">
+                    <div class="students-table-toolbar">
                         <span id="selected-count" style="color:#64748b;font-size:14px;display:none;">
                             <i class="fas fa-check-square"></i> <span id="count-number">0</span> selected
                         </span>
                         <button type="button" id="bulk-assign-btn" class="btn btn-primary" style="display:none;">
                             <i class="fas fa-layer-group"></i> Bulk Assign to Batch
                         </button>
+                        <?php if (!$is_front_office): ?>
+                        <button type="button" id="bulk-approve-btn" class="btn btn-success" style="display:none;">
+                            <i class="fas fa-check"></i> Approve Selected
+                        </button>
+                        <button type="button" id="bulk-remove-course-btn" class="btn btn-danger" style="display:none;">
+                            <i class="fas fa-user-minus"></i> Remove Selected from Course
+                        </button>
+                        <?php endif; ?>
                         <a href="<?php echo htmlspecialchars(relative_url('export_students_excel.php')); ?><?php
                             $ep = [];
                             if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
@@ -1629,6 +1810,9 @@ if ($other_gender_count > 0) {
                                 <?php if ($status !== 'rejected'): ?>
                                 <input type="checkbox" class="student-checkbox"
                                        value="<?php echo $primary_record_id; ?>"
+                                       data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                       data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
+                                       data-status="<?php echo htmlspecialchars($status); ?>"
                                        data-course="<?php echo $course_display; ?>"
                                        data-course-id="<?php echo (int)($row['course_id'] ?? 0); ?>"
                                        data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>">
@@ -1715,7 +1899,7 @@ if ($other_gender_count > 0) {
                                 <?php endif; ?>
                             </td>
                             <td><?php echo date('d M Y', strtotime($display_created_at)); ?></td>
-                            <td>
+                            <td class="students-actions-cell">
                                 <?php if (!$is_front_office): ?>
                                     <?php if ($status === 'pending'): ?>
                                         <a href="javascript:void(0);"
@@ -1798,7 +1982,7 @@ if ($other_gender_count > 0) {
                                    data-course-name="<?php echo $course_display; ?>"
                                    data-has-other-courses="<?php echo $has_other_course_enrollments ? '1' : '0'; ?>"
                                    data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?remove_course_enrollment=1&amp;student_id=<?php echo urlencode($row['student_id']); ?>&amp;course_id=<?php echo $row_course_id; ?><?php echo $filter_suffix; ?>">
-                                    <i class="fas fa-user-minus"></i>
+                                    <i class="fas fa-user-minus"></i> Remove
                                 </a>
                                 <a href="javascript:void(0);"
                                    class="btn btn-danger btn-sm delete-student-btn"
@@ -1973,6 +2157,62 @@ if ($other_gender_count > 0) {
         </form>
     </div>
 </div>
+
+<!-- Bulk approve (hidden POST form) -->
+<?php if (!$is_front_office): ?>
+<form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="bulk-approve-form" style="display:none;">
+    <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+    <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+    <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+    <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+    <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
+    <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
+    <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
+    <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
+    <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
+    <div id="bulk-approve-student-fields"></div>
+    <button type="submit" name="bulk_approve_students" value="1" id="bulk-approve-submit"></button>
+</form>
+<?php endif; ?>
+
+<!-- Bulk Remove From Course Modal -->
+<?php if (!$is_front_office): ?>
+<div id="bulkRemoveCourseModal" class="batch-modal">
+    <div class="batch-modal-content">
+        <div class="batch-modal-header">
+            <h3><i class="fas fa-user-minus"></i> Remove Selected From Course</h3>
+            <button class="close-modal" onclick="closeBulkRemoveCourseModal()">&times;</button>
+        </div>
+        <div class="batch-info">
+            <p><strong>Selected students:</strong> <span id="bulk-remove-modal-count">0</span></p>
+            <ul id="bulk-remove-modal-list" style="font-size:13px;color:#64748b;margin:8px 0 0 0;padding-left:18px;max-height:160px;overflow-y:auto;"></ul>
+            <p style="font-size:12px;color:#64748b;margin-top:10px;">
+                <i class="fas fa-info-circle"></i> Each student is removed from the <strong>course shown in their row</strong> only. Other course enrollments are kept.
+            </p>
+        </div>
+        <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="bulk-remove-course-form">
+            <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
+            <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
+            <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
+            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
+            <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
+            <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
+            <input type="hidden" name="page"          value="<?php echo (int)$page; ?>">
+            <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
+            <div id="bulk-remove-course-fields"></div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button type="submit" name="bulk_remove_course_enrollment" class="btn btn-danger" style="flex:1;">
+                    <i class="fas fa-user-minus"></i> Remove From Course
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeBulkRemoveCourseModal()" style="flex:1;">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Rejection Reason Modal -->
 <div id="rejectModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:center;">
@@ -2299,6 +2539,61 @@ function closeBulkBatchModal() {
     document.getElementById('bulkBatchModal').style.display = 'none';
 }
 
+// ── Bulk remove from course modal ─────────────────────────────────────────────
+function openBulkRemoveCourseModal() {
+    const checked = document.querySelectorAll('.student-checkbox:checked');
+    if (!checked.length) {
+        toast.warning('Please select at least one student');
+        return;
+    }
+
+    document.getElementById('bulk-remove-modal-count').textContent = checked.length;
+
+    const list = document.getElementById('bulk-remove-modal-list');
+    const fields = document.getElementById('bulk-remove-course-fields');
+    list.innerHTML = '';
+    fields.innerHTML = '';
+
+    checked.forEach(cb => {
+        const studentId = cb.dataset.studentId || '';
+        const studentName = cb.dataset.studentName || 'Student';
+        const courseName = cb.dataset.course || 'course';
+        const courseId = parseInt(cb.dataset.courseId, 10) || 0;
+        if (!studentId || courseId <= 0) {
+            return;
+        }
+
+        const li = document.createElement('li');
+        li.textContent = studentName + ' (' + studentId + ') — ' + courseName;
+        list.appendChild(li);
+
+        const sidInput = document.createElement('input');
+        sidInput.type = 'hidden';
+        sidInput.name = 'bulk_remove_student_ids[]';
+        sidInput.value = studentId;
+        fields.appendChild(sidInput);
+
+        const cidInput = document.createElement('input');
+        cidInput.type = 'hidden';
+        cidInput.name = 'bulk_remove_course_ids[]';
+        cidInput.value = String(courseId);
+        fields.appendChild(cidInput);
+    });
+
+    if (!fields.children.length) {
+        toast.warning('Selected students are missing course details.');
+        return;
+    }
+
+    document.getElementById('bulkRemoveCourseModal').style.display = 'block';
+}
+function closeBulkRemoveCourseModal() {
+    const modal = document.getElementById('bulkRemoveCourseModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
 // ── Rejection modal ───────────────────────────────────────────────────────────
 function closeRejectModal() {
     document.getElementById('rejectModal').style.display = 'none';
@@ -2314,10 +2609,55 @@ function highlightReason(radio) {
 
 // ── Selection UI update ───────────────────────────────────────────────────────
 function updateSelectionUI() {
-    const count = document.querySelectorAll('.student-checkbox:checked').length;
+    const checked = document.querySelectorAll('.student-checkbox:checked');
+    const count = checked.length;
+    const pendingCount = Array.from(checked).filter(cb => (cb.dataset.status || '') === 'pending').length;
+
     document.getElementById('selected-count').style.display = count ? 'inline' : 'none';
     document.getElementById('bulk-assign-btn').style.display = count ? 'inline-block' : 'none';
+    const bulkApproveBtn = document.getElementById('bulk-approve-btn');
+    if (bulkApproveBtn) {
+        bulkApproveBtn.style.display = pendingCount ? 'inline-block' : 'none';
+    }
+    const bulkRemoveBtn = document.getElementById('bulk-remove-course-btn');
+    if (bulkRemoveBtn) {
+        bulkRemoveBtn.style.display = count ? 'inline-block' : 'none';
+    }
     document.getElementById('count-number').textContent = count;
+}
+
+async function submitBulkApproveSelected() {
+    const checked = Array.from(document.querySelectorAll('.student-checkbox:checked'))
+        .filter(cb => (cb.dataset.status || '') === 'pending');
+    if (!checked.length) {
+        toast.warning('Select at least one pending student to approve.');
+        return;
+    }
+
+    const studentIds = [...new Set(checked.map(cb => cb.dataset.studentId).filter(Boolean))];
+    const confirmed = await showConfirm({
+        title: 'Approve Selected Students',
+        message: `Approve <strong>${studentIds.length}</strong> pending student(s)? They will become Active and can log in.`,
+        confirmText: 'Approve Selected',
+        cancelText: 'Cancel',
+        type: 'warning'
+    });
+    if (!confirmed) {
+        return;
+    }
+
+    const fields = document.getElementById('bulk-approve-student-fields');
+    fields.innerHTML = '';
+    studentIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'bulk_approve_student_ids[]';
+        input.value = id;
+        fields.appendChild(input);
+    });
+
+    toast.loading('Approving students…');
+    document.getElementById('bulk-approve-submit').click();
 }
 
 // ── DOMContentLoaded wiring ───────────────────────────────────────────────────
@@ -2452,10 +2792,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const bulkBtn = document.getElementById('bulk-assign-btn');
     if (bulkBtn) bulkBtn.addEventListener('click', openBulkBatchModal);
 
+    const bulkRemoveBtn = document.getElementById('bulk-remove-course-btn');
+    if (bulkRemoveBtn) bulkRemoveBtn.addEventListener('click', openBulkRemoveCourseModal);
+
+    const bulkApproveBtn = document.getElementById('bulk-approve-btn');
+    if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', submitBulkApproveSelected);
+
     // Close modals on outside click
     window.addEventListener('click', function (e) {
         if (e.target === document.getElementById('batchModal'))     closeBatchModal();
         if (e.target === document.getElementById('bulkBatchModal')) closeBulkBatchModal();
+        if (e.target === document.getElementById('bulkRemoveCourseModal')) closeBulkRemoveCourseModal();
     });
 });
 </script>
