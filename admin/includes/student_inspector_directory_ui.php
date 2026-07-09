@@ -35,6 +35,26 @@ foreach ($directoryRows as $dirRow) {
     background: #fff;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
+.inspector-directory-card-check {
+    flex: 0 0 auto;
+    padding-top: 6px;
+}
+.inspector-directory-card-check .form-check-input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+.inspector-directory-bulk-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    margin-bottom: 16px;
+}
 .inspector-directory-card-photo {
     flex: 0 0 180px;
     width: 180px;
@@ -281,6 +301,18 @@ foreach ($directoryRows as $dirRow) {
         <div class="small mt-2"><?php echo inspectorDirectoryEmptyHint($conn, $directoryCriteria); ?></div>
     </div>
     <?php else: ?>
+    <?php if (!empty($canManageEnrollment)): ?>
+    <div class="inspector-directory-bulk-bar" id="inspector-directory-bulk-bar">
+        <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="inspector-directory-select-all">
+            <label class="form-check-label" for="inspector-directory-select-all">Select all on this page</label>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="inspector-directory-clear-selection">Clear</button>
+        <button type="button" class="btn btn-sm btn-primary" id="inspector-directory-bulk-assign-btn" disabled>
+            <i class="fas fa-users"></i> Assign Course to Selected (<span id="inspector-directory-selected-count">0</span>)
+        </button>
+    </div>
+    <?php endif; ?>
     <div class="inspector-directory-list">
         <?php foreach ($directoryRows as $row):
             $photoUrl = inspectorStudentPhotoUrl($row['passport_photo'] ?? null);
@@ -300,6 +332,15 @@ foreach ($directoryRows as $dirRow) {
             }
         ?>
         <article class="inspector-directory-card">
+            <?php if (!empty($canManageEnrollment) && !empty($row['student_id'])): ?>
+            <div class="inspector-directory-card-check">
+                <input type="checkbox"
+                       class="form-check-input inspector-directory-student-check"
+                       value="<?php echo htmlspecialchars((string)$row['student_id']); ?>"
+                       data-student-name="<?php echo htmlspecialchars((string)($row['name'] ?? 'Student')); ?>"
+                       aria-label="Select <?php echo htmlspecialchars((string)($row['name'] ?? 'Student')); ?>">
+            </div>
+            <?php endif; ?>
             <div class="inspector-directory-card-photo">
                 <?php if ($photoUrl): ?>
                 <a href="<?php echo htmlspecialchars($photoUrl); ?>"

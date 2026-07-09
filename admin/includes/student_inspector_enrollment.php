@@ -165,6 +165,60 @@ if (!function_exists('inspectorHandleEnrollmentPost')) {
             ];
         }
 
+        if (isset($_POST['assign_course_bulk'])) {
+            $studentIds = $_POST['student_ids'] ?? [];
+            if (!is_array($studentIds)) {
+                $studentIds = array_filter(array_map('trim', explode(',', (string)$studentIds)));
+            }
+            $studentIds = array_values(array_unique(array_filter(array_map('trim', $studentIds))));
+            $courseId = (int)($_POST['course_id'] ?? 0);
+            $schemeId = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
+
+            if ($studentIds === [] || $courseId <= 0) {
+                return ['message' => 'Please select at least one student and a course.', 'type' => 'warning'];
+            }
+
+            $assigned = 0;
+            $skipped = 0;
+            $failed = [];
+
+            foreach ($studentIds as $studentIdStr) {
+                $result = adminAssignCourseToStudent($conn, $studentIdStr, $courseId, null, $adminName, $schemeId);
+                if ($result['success']) {
+                    $assigned++;
+                    continue;
+                }
+                $msg = (string)($result['message'] ?? 'Assignment failed.');
+                if (stripos($msg, 'already enrolled') !== false) {
+                    $skipped++;
+                    continue;
+                }
+                $failed[] = $studentIdStr . ': ' . $msg;
+            }
+
+            $parts = [];
+            if ($assigned > 0) {
+                $parts[] = $assigned . ' student(s) assigned (status: Pending)';
+            }
+            if ($skipped > 0) {
+                $parts[] = $skipped . ' already enrolled — skipped';
+            }
+            if ($failed !== []) {
+                $parts[] = count($failed) . ' failed';
+            }
+
+            $message = $parts !== [] ? implode('. ', $parts) . '.' : 'No students were assigned.';
+            if ($failed !== []) {
+                $message .= ' ' . implode(' | ', array_slice($failed, 0, 3));
+                if (count($failed) > 3) {
+                    $message .= ' …';
+                }
+            }
+
+            $type = $assigned > 0 ? 'success' : ($failed !== [] ? 'danger' : 'warning');
+            return ['message' => $message, 'type' => $type];
+        }
+
         if (isset($_POST['assign_scheme'])) {
             $studentRecordId = (int)($_POST['student_record_id'] ?? 0);
             $schemeId = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);

@@ -50,13 +50,19 @@ $inspectorCombinedHiddenFields = inspectorHiddenSearchFields($searchParams)
             <h3><i class="fas fa-book"></i> Assign Course</h3>
             <button type="button" class="inspector-close" onclick="inspectorCloseCourseModal()">&times;</button>
         </div>
-        <div class="inspector-info">
+        <div class="inspector-info" id="inspector-course-single-info">
             <p><strong>Student:</strong> <span id="inspector-course-student-name"></span></p>
             <p><strong>Student ID:</strong> <span id="inspector-course-student-id-label"></span></p>
             <p class="text-muted small mb-0">Same Student ID is reused. New course enrollments are created as <strong>Pending</strong> until approved in Manage Students (or when added to a batch).</p>
         </div>
+        <div class="inspector-info" id="inspector-course-bulk-info" style="display:none;">
+            <p><strong>Selected students:</strong> <span id="inspector-course-bulk-count">0</span></p>
+            <ul id="inspector-course-bulk-names" class="small mb-0 ps-3 text-muted" style="max-height:120px;overflow-y:auto;"></ul>
+            <p class="text-muted small mb-0 mt-2">Each student gets a separate <strong>Pending</strong> enrollment. Students already in this course are skipped.</p>
+        </div>
         <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars($inspectorPageQuery); ?>" id="inspector-course-form">
             <input type="hidden" name="student_id" id="inspector-course-student-id-input">
+            <div id="inspector-course-bulk-ids"></div>
             <?php echo $inspectorCombinedHiddenFields; ?>
             <div class="mb-3">
                 <label class="form-label">Select Course</label>
@@ -77,8 +83,11 @@ $inspectorCombinedHiddenFields = inspectorHiddenSearchFields($searchParams)
                 <small id="inspector-course-scheme-hint" class="text-muted d-block mt-1"></small>
             </div>
             <div class="d-flex gap-2">
-                <button type="submit" name="assign_course" value="1" class="btn btn-primary flex-fill">
+                <button type="submit" name="assign_course" value="1" id="inspector-course-submit-single" class="btn btn-primary flex-fill">
                     <i class="fas fa-check"></i> Assign Course
+                </button>
+                <button type="submit" name="assign_course_bulk" value="1" id="inspector-course-submit-bulk" class="btn btn-primary flex-fill" style="display:none;">
+                    <i class="fas fa-check"></i> Assign to Selected
                 </button>
                 <button type="button" class="btn btn-secondary flex-fill" onclick="inspectorCloseCourseModal()">Cancel</button>
             </div>
@@ -126,15 +135,32 @@ $inspectorCombinedHiddenFields = inspectorHiddenSearchFields($searchParams)
 </div>
 
 <script>
-async function inspectorLoadCourseSchemes(studentId, courseId) {
+let inspectorCourseModalBulkMode = false;
+
+function inspectorResetCourseSchemeFields() {
     const group = document.getElementById('inspector-course-scheme-group');
     const select = document.getElementById('inspector-course-scheme-select');
     const hint = document.getElementById('inspector-course-scheme-hint');
+    if (!group || !select || !hint) {
+        return;
+    }
     select.innerHTML = '<option value="">-- Select Scheme / Project --</option>';
-    group.style.display = 'none';
+    select.value = '';
     select.required = false;
+    group.style.display = 'none';
     hint.textContent = '';
-    if (!courseId) return;
+}
+
+async function inspectorLoadCourseSchemes(studentId, courseId, options) {
+    const opts = options || {};
+    const bulkMode = !!opts.bulk;
+    const group = document.getElementById('inspector-course-scheme-group');
+    const select = document.getElementById('inspector-course-scheme-select');
+    const hint = document.getElementById('inspector-course-scheme-hint');
+    inspectorResetCourseSchemeFields();
+    if (!courseId) {
+        return;
+    }
 
     try {
         const res = await fetch('get_course_schemes_for_student.php?student_id=' + encodeURIComponent(studentId) + '&course_id=' + encodeURIComponent(courseId));
@@ -144,15 +170,20 @@ async function inspectorLoadCourseSchemes(studentId, courseId) {
             return;
         }
         const requiresScheme = !!(data.requires_scheme || ((data.course_schemes || []).length > 0));
-        const availableSchemes = data.schemes || (data.course_schemes || []).filter(s => !s.enrolled);
+        const courseSchemes = data.course_schemes || [];
         if (requiresScheme) {
             group.style.display = 'block';
-            if (data.already_enrolled_null) {
+            if (!bulkMode && data.already_enrolled_null) {
                 hint.textContent = 'Student already has a general enrollment. Use Manage Schemes instead.';
                 return;
             }
+            const availableSchemes = bulkMode
+                ? courseSchemes
+                : (data.schemes || courseSchemes.filter(s => !s.enrolled));
             if (availableSchemes.length === 0) {
-                hint.textContent = 'Already enrolled in all schemes for this course.';
+                hint.textContent = bulkMode
+                    ? 'No schemes linked to this course.'
+                    : 'Already enrolled in all schemes for this course.';
                 return;
             }
             availableSchemes.forEach(s => {
@@ -162,7 +193,9 @@ async function inspectorLoadCourseSchemes(studentId, courseId) {
                 select.appendChild(opt);
             });
             select.required = true;
-            hint.textContent = 'Select a scheme/project before assigning.';
+            hint.textContent = bulkMode
+                ? 'Select a scheme/project — it will be applied to all selected students who need it.'
+                : 'Select a scheme/project before assigning.';
         } else {
             hint.textContent = 'No schemes linked — assign without selecting a scheme.';
         }
@@ -171,16 +204,134 @@ async function inspectorLoadCourseSchemes(studentId, courseId) {
     }
 }
 
+function inspectorSetCourseModalMode(bulkMode) {
+    inspectorCourseModalBulkMode = bulkMode;
+    const singleInfo = document.getElementById('inspector-course-single-info');
+    const bulkInfo = document.getElementById('inspector-course-bulk-info');
+    const studentInput = document.getElementById('inspector-course-student-id-input');
+    const bulkIds = document.getElementById('inspector-course-bulk-ids');
+    const submitSingle = document.getElementById('inspector-course-submit-single');
+    const submitBulk = document.getElementById('inspector-course-submit-bulk');
+    const title = document.querySelector('#inspectorCourseModal .inspector-modal-header h3');
+
+    if (singleInfo) {
+        singleInfo.style.display = bulkMode ? 'none' : 'block';
+    }
+    if (bulkInfo) {
+        bulkInfo.style.display = bulkMode ? 'block' : 'none';
+    }
+    if (studentInput) {
+        studentInput.disabled = bulkMode;
+        if (bulkMode) {
+            studentInput.value = '';
+        }
+    }
+    if (bulkIds) {
+        bulkIds.innerHTML = '';
+    }
+    if (submitSingle) {
+        submitSingle.style.display = bulkMode ? 'none' : '';
+        submitSingle.disabled = bulkMode;
+    }
+    if (submitBulk) {
+        submitBulk.style.display = bulkMode ? '' : 'none';
+        submitBulk.disabled = !bulkMode;
+    }
+    if (title) {
+        title.innerHTML = bulkMode
+            ? '<i class="fas fa-users"></i> Assign Course to Selected'
+            : '<i class="fas fa-book"></i> Assign Course';
+    }
+}
+
 function inspectorOpenCourseModal(studentId, studentName) {
+    inspectorSetCourseModalMode(false);
     document.getElementById('inspector-course-student-id-input').value = studentId;
     document.getElementById('inspector-course-student-id-label').textContent = studentId;
     document.getElementById('inspector-course-student-name').textContent = studentName;
-    document.getElementById('inspector-course-select').value = '';
-    document.getElementById('inspector-course-scheme-group').style.display = 'none';
+    const courseSelect = document.getElementById('inspector-course-select');
+    if (courseSelect) {
+        courseSelect.value = '';
+    }
+    inspectorResetCourseSchemeFields();
     document.getElementById('inspectorCourseModal').style.display = 'block';
 }
+
+function inspectorOpenBulkCourseModal(selectedStudents) {
+    if (!selectedStudents || !selectedStudents.length) {
+        alert('Please select at least one student.');
+        return;
+    }
+    inspectorSetCourseModalMode(true);
+    const bulkIds = document.getElementById('inspector-course-bulk-ids');
+    const bulkNames = document.getElementById('inspector-course-bulk-names');
+    const bulkCount = document.getElementById('inspector-course-bulk-count');
+    if (bulkIds) {
+        selectedStudents.forEach(s => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'student_ids[]';
+            input.value = s.id;
+            bulkIds.appendChild(input);
+        });
+    }
+    if (bulkCount) {
+        bulkCount.textContent = String(selectedStudents.length);
+    }
+    if (bulkNames) {
+        bulkNames.innerHTML = '';
+        selectedStudents.slice(0, 12).forEach(s => {
+            const li = document.createElement('li');
+            li.textContent = (s.name || 'Student') + ' (' + s.id + ')';
+            bulkNames.appendChild(li);
+        });
+        if (selectedStudents.length > 12) {
+            const li = document.createElement('li');
+            li.textContent = '… and ' + (selectedStudents.length - 12) + ' more';
+            bulkNames.appendChild(li);
+        }
+    }
+    const courseSelect = document.getElementById('inspector-course-select');
+    if (courseSelect) {
+        courseSelect.value = '';
+    }
+    inspectorResetCourseSchemeFields();
+    document.getElementById('inspectorCourseModal').style.display = 'block';
+}
+
 function inspectorCloseCourseModal() {
     document.getElementById('inspectorCourseModal').style.display = 'none';
+    inspectorSetCourseModalMode(false);
+    inspectorResetCourseSchemeFields();
+    const courseSelect = document.getElementById('inspector-course-select');
+    if (courseSelect) {
+        courseSelect.value = '';
+    }
+}
+
+function inspectorGetSelectedDirectoryStudents() {
+    return Array.from(document.querySelectorAll('.inspector-directory-student-check:checked')).map(cb => ({
+        id: cb.value,
+        name: cb.dataset.studentName || 'Student',
+    }));
+}
+
+function inspectorUpdateDirectorySelectionUi() {
+    const checks = document.querySelectorAll('.inspector-directory-student-check');
+    const checked = document.querySelectorAll('.inspector-directory-student-check:checked');
+    const countEl = document.getElementById('inspector-directory-selected-count');
+    const bulkBtn = document.getElementById('inspector-directory-bulk-assign-btn');
+    const selectAll = document.getElementById('inspector-directory-select-all');
+    if (countEl) {
+        countEl.textContent = String(checked.length);
+    }
+    if (bulkBtn) {
+        bulkBtn.disabled = checked.length === 0;
+    }
+    if (selectAll && checks.length) {
+        selectAll.checked = checked.length === checks.length;
+        selectAll.indeterminate = checked.length > 0 && checked.length < checks.length;
+    }
 }
 
 async function inspectorOpenSchemeModal(studentId, studentRecordId, studentName, courseId, courseName) {
@@ -251,8 +402,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const courseSelect = document.getElementById('inspector-course-select');
     if (courseSelect) {
         courseSelect.addEventListener('change', function () {
-            const studentId = document.getElementById('inspector-course-student-id-input').value;
-            inspectorLoadCourseSchemes(studentId, this.value);
+            const courseId = this.value;
+            if (!courseId) {
+                inspectorResetCourseSchemeFields();
+                return;
+            }
+            let studentId = document.getElementById('inspector-course-student-id-input').value;
+            if (inspectorCourseModalBulkMode) {
+                const firstBulk = document.querySelector('#inspector-course-bulk-ids input[name="student_ids[]"]');
+                studentId = firstBulk ? firstBulk.value : studentId;
+            }
+            if (!studentId) {
+                inspectorResetCourseSchemeFields();
+                return;
+            }
+            inspectorLoadCourseSchemes(studentId, courseId, { bulk: inspectorCourseModalBulkMode });
         });
     }
     const courseForm = document.getElementById('inspector-course-form');
@@ -267,21 +431,58 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-    document.querySelectorAll('.inspector-assign-course-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            inspectorOpenCourseModal(this.dataset.studentId, this.dataset.studentName);
-        });
-    });
-    document.querySelectorAll('.inspector-assign-scheme-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
+
+    document.addEventListener('click', function (event) {
+        const assignBtn = event.target.closest('.inspector-assign-course-btn');
+        if (assignBtn) {
+            inspectorOpenCourseModal(assignBtn.dataset.studentId, assignBtn.dataset.studentName);
+            return;
+        }
+        const schemeBtn = event.target.closest('.inspector-assign-scheme-btn');
+        if (schemeBtn) {
             inspectorOpenSchemeModal(
-                this.dataset.studentId,
-                this.dataset.studentRecordId,
-                this.dataset.studentName,
-                this.dataset.courseId,
-                this.dataset.courseName
+                schemeBtn.dataset.studentId,
+                schemeBtn.dataset.studentRecordId,
+                schemeBtn.dataset.studentName,
+                schemeBtn.dataset.courseId,
+                schemeBtn.dataset.courseName
             );
-        });
+        }
     });
+
+    document.addEventListener('change', function (event) {
+        if (event.target.classList && event.target.classList.contains('inspector-directory-student-check')) {
+            inspectorUpdateDirectorySelectionUi();
+        }
+    });
+
+    const selectAll = document.getElementById('inspector-directory-select-all');
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            document.querySelectorAll('.inspector-directory-student-check').forEach(cb => {
+                cb.checked = selectAll.checked;
+            });
+            inspectorUpdateDirectorySelectionUi();
+        });
+    }
+
+    const clearBtn = document.getElementById('inspector-directory-clear-selection');
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            document.querySelectorAll('.inspector-directory-student-check').forEach(cb => {
+                cb.checked = false;
+            });
+            inspectorUpdateDirectorySelectionUi();
+        });
+    }
+
+    const bulkAssignBtn = document.getElementById('inspector-directory-bulk-assign-btn');
+    if (bulkAssignBtn) {
+        bulkAssignBtn.addEventListener('click', function () {
+            inspectorOpenBulkCourseModal(inspectorGetSelectedDirectoryStudents());
+        });
+    }
+
+    inspectorUpdateDirectorySelectionUi();
 });
 </script>
