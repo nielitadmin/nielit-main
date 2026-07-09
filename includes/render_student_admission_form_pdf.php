@@ -122,21 +122,40 @@ function ensurePdfVerticalSpace($pdf, $neededHeight) {
 }
 }
 
-if (!function_exists('renderDocumentChecklistRow')) {
-function renderDocumentChecklistRow($pdf, $label, $status, $labelWidth = 90, $statusWidth = 90) {
-    $labelText = ' ' . trim((string) $label);
-    $statusText = trim((string) $status);
+if (!function_exists('renderDocumentChecklistPairRow')) {
+function renderDocumentChecklistPairRow($pdf, $leftLabel, $leftStatus, $rightLabel = '', $rightStatus = '', $colW = 45) {
+    $leftLabelText = ' ' . trim((string) $leftLabel);
+    $leftStatusText = ' ' . trim((string) $leftStatus);
     $rowHeight = max(
         9,
-        $pdf->getStringHeight($labelWidth - 2, $labelText),
-        $pdf->getStringHeight($statusWidth - 2, ' ' . $statusText)
+        $pdf->getStringHeight($colW - 2, $leftLabelText),
+        $pdf->getStringHeight($colW - 2, $leftStatusText)
     );
+
+    if ($rightLabel !== '') {
+        $rightLabelText = ' ' . trim((string) $rightLabel);
+        $rightStatusText = ' ' . trim((string) $rightStatus);
+        $rowHeight = max(
+            $rowHeight,
+            $pdf->getStringHeight($colW - 2, $rightLabelText),
+            $pdf->getStringHeight($colW - 2, $rightStatusText)
+        );
+    }
 
     $startX = $pdf->GetX();
     $startY = $pdf->GetY();
 
-    $pdf->MultiCell($labelWidth, $rowHeight, $labelText, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
-    $pdf->Cell($statusWidth, $rowHeight, ' ' . $statusText, 1, 1, 'C');
+    $pdf->MultiCell($colW, $rowHeight, $leftLabelText, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+    $pdf->Cell($colW, $rowHeight, $leftStatusText, 1, 0, 'C');
+
+    if ($rightLabel !== '') {
+        $pdf->MultiCell($colW, $rowHeight, $rightLabelText, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+        $pdf->Cell($colW, $rowHeight, $rightStatusText, 1, 1, 'C');
+    } else {
+        $pdf->Cell($colW, $rowHeight, '', 1, 0);
+        $pdf->Cell($colW, $rowHeight, '', 1, 1);
+    }
+
     $pdf->SetXY($startX, $startY + $rowHeight);
 }
 }
@@ -420,9 +439,23 @@ $docs_checklist = [
     '12th Certificate / Diploma' => 'twelfth_certificate_doc', '12th Marksheet / Diploma' => 'twelfth_marksheet_doc', 'Graduation Certificate' => 'graduation_certificate_doc',
     'Caste Certificate' => 'caste_certificate_doc', 'Payment Receipt' => 'payment_receipt'
 ];
+$doc_items = [];
 foreach ($docs_checklist as $label => $key) {
-    $status = !empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]';
-    renderDocumentChecklistRow($pdf, $label, $status, 90, 90);
+    $doc_items[] = [
+        'label' => $label,
+        'status' => !empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]',
+    ];
+}
+for ($i = 0; $i < count($doc_items); $i += 2) {
+    $left = $doc_items[$i];
+    $right = $doc_items[$i + 1] ?? null;
+    renderDocumentChecklistPairRow(
+        $pdf,
+        $left['label'],
+        $left['status'],
+        $right['label'] ?? '',
+        $right['status'] ?? ''
+    );
 }
 $pdf->Ln(4);
 
