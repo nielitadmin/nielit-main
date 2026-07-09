@@ -2617,7 +2617,7 @@ showStep(1);
 
 const REGISTRATION_DGE_SCHEME_IDS = <?php echo json_encode(array_values($dge_scheme_ids), JSON_UNESCAPED_UNICODE); ?>;
 
-function registrationIsDgeSchemeSelected() {
+window.registrationIsDgeSchemeSelected = function registrationIsDgeSchemeSelected() {
     const form = document.getElementById('registrationForm');
     if (!form) {
         return false;
@@ -2631,7 +2631,7 @@ function registrationIsDgeSchemeSelected() {
         return !!(opt && opt.dataset.isDge === '1');
     }
     return schemeEl.dataset.isDge === '1';
-}
+};
 
 function syncDgeDocumentRequirements() {
     const isDge = registrationIsDgeSchemeSelected();
@@ -3230,18 +3230,21 @@ function renderFilePreviewForInput(input, file) {
     const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
     const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_certificate' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate' || fieldName === 'bank_passbook' || fieldName === 'income_certificate' || fieldName === 'aadhaar_bank_seeding_proof');
     const isImageFile = file.type.startsWith('image/');
-    const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo'
-        : (fieldName === 'signature' ? 'Signature'
-        : (fieldName === 'aadhar_card' ? 'Aadhar Card'
-        : (fieldName === 'tenth_marksheet' ? '10th Certificate / Marksheet'
-        : (fieldName === 'twelfth_certificate' ? '12th Certificate / Diploma'
-        : (fieldName === 'twelfth_marksheet' ? '12th Marksheet / Diploma'
-        : (fieldName === 'caste_certificate' ? 'Caste Certificate'
-        : (fieldName === 'graduation_certificate' ? 'Graduation Certificate'
-        : (fieldName === 'bank_passbook' ? 'Bank Passbook'
-        : (fieldName === 'income_certificate' ? 'Income Certificate'
-        : (fieldName === 'aadhaar_bank_seeding_proof' ? 'Aadhaar Bank Seeding Proof'
-        : 'Left Hand Thumb Impression')))))))));
+    const previewLabels = {
+        passport_photo: 'Passport Photo',
+        signature: 'Signature',
+        aadhar_card: 'Aadhar Card',
+        tenth_marksheet: '10th Certificate / Marksheet',
+        twelfth_certificate: '12th Certificate / Diploma',
+        twelfth_marksheet: '12th Marksheet / Diploma',
+        caste_certificate: 'Caste Certificate',
+        graduation_certificate: 'Graduation Certificate',
+        bank_passbook: 'Bank Passbook',
+        income_certificate: 'Income Certificate',
+        aadhaar_bank_seeding_proof: 'Aadhaar Bank Seeding Proof',
+        left_thumb_impression: 'Left Hand Thumb Impression'
+    };
+    const previewLabel = previewLabels[fieldName] || 'Uploaded Document';
 
     if (isImageField && isImageFile) {
         const reader = new FileReader();
