@@ -36,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'course_name' => trim($_POST['course_name'] ?? ''),
         'course_id' => (int)($_POST['course_id'] ?? 0),
     ];
-    $redirectQs = inspectorSearchParams($searchParams);
+    $directoryCriteria = inspectorDirectoryCriteriaFromRequest($_POST);
+    $redirectQs = inspectorPageQueryString($searchParams, $directoryCriteria);
     $redirectUrl = 'check_student_exists.php' . ($redirectQs !== '' ? '?' . $redirectQs : '');
 
     $enrollmentResult = inspectorHandleEnrollmentPost($conn, $adminRole);

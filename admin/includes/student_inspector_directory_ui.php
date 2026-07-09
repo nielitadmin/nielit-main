@@ -5,6 +5,7 @@
 /** @var bool $directorySearched */
 /** @var array<int, array<string, mixed>> $directoryRows */
 /** @var string $directoryContextTitle */
+/** @var bool $canManageEnrollment */
 
 $directoryCategoryOptions = inspectorDirectoryCategoryOptions();
 $directoryBatches = ($directoryCriteria['course_id'] ?? 0) > 0
@@ -345,6 +346,27 @@ foreach ($directoryRows as $dirRow) {
                             echo htmlspecialchars($assignedCourses);
                             ?>
                         </div>
+                        <?php if (!empty($canManageEnrollment) && !empty($row['student_id'])): ?>
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            <button type="button"
+                                    class="btn btn-sm btn-primary inspector-assign-course-btn"
+                                    data-student-id="<?php echo htmlspecialchars((string)$row['student_id']); ?>"
+                                    data-student-name="<?php echo htmlspecialchars((string)($row['name'] ?? 'Student')); ?>">
+                                <i class="fas fa-book"></i> Assign Course
+                            </button>
+                            <?php if (!empty($row['course_id']) && (int)$row['id'] > 0): ?>
+                            <button type="button"
+                                    class="btn btn-sm btn-outline-primary inspector-assign-scheme-btn"
+                                    data-student-id="<?php echo htmlspecialchars((string)$row['student_id']); ?>"
+                                    data-student-record-id="<?php echo (int)$row['id']; ?>"
+                                    data-student-name="<?php echo htmlspecialchars((string)($row['name'] ?? 'Student')); ?>"
+                                    data-course-id="<?php echo (int)$row['course_id']; ?>"
+                                    data-course-name="<?php echo htmlspecialchars($courseLabel); ?>">
+                                <i class="fas fa-project-diagram"></i> Manage Schemes
+                            </button>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <div class="col-md-6">
                         <div class="inspector-directory-field-label">Address</div>

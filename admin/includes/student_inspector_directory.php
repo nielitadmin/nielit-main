@@ -253,6 +253,47 @@ if (!function_exists('inspectorDirectoryHasCriteria')) {
     }
 }
 
+if (!function_exists('inspectorDirectoryHiddenFields')) {
+    function inspectorDirectoryHiddenFields(array $criteria): string
+    {
+        $html = '';
+        foreach ([
+            'dir_course_id' => (string)($criteria['course_id'] ?? 0),
+            'dir_batch_id' => (string)($criteria['batch_id'] ?? 0),
+            'dir_category' => (string)($criteria['category'] ?? ''),
+            'dir_status' => (string)($criteria['status'] ?? ''),
+            'dir_date_from' => (string)($criteria['date_from'] ?? ''),
+            'dir_date_to' => (string)($criteria['date_to'] ?? ''),
+            'dir_name' => (string)($criteria['name'] ?? ''),
+            'dir_mobile' => (string)($criteria['mobile'] ?? ''),
+        ] as $key => $value) {
+            if ($value === '' || $value === '0') {
+                continue;
+            }
+            $html .= '<input type="hidden" name="' . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . '" value="'
+                . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '">';
+        }
+
+        return $html;
+    }
+}
+
+if (!function_exists('inspectorPageQueryString')) {
+    function inspectorPageQueryString(array $searchParams, array $directoryCriteria = []): string
+    {
+        $searchQs = function_exists('inspectorSearchParams') ? inspectorSearchParams($searchParams) : '';
+        $dirQs = inspectorDirectorySearchParams($directoryCriteria);
+        if ($searchQs === '') {
+            return $dirQs;
+        }
+        if ($dirQs === '') {
+            return $searchQs;
+        }
+
+        return $searchQs . '&' . $dirQs;
+    }
+}
+
 if (!function_exists('inspectorDirectorySearchParams')) {
     function inspectorDirectorySearchParams(array $criteria): string
     {

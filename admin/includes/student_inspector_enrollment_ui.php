@@ -1,10 +1,14 @@
 <?php
 /** @var array $searchParams */
 /** @var array $assignCoursesList */
+/** @var array $directoryCriteria */
 /** @var bool $canManageEnrollment */
 if (empty($canManageEnrollment)) {
     return;
 }
+$inspectorPageQuery = inspectorPageQueryString($searchParams, $directoryCriteria ?? []);
+$inspectorCombinedHiddenFields = inspectorHiddenSearchFields($searchParams)
+    . inspectorDirectoryHiddenFields($directoryCriteria ?? []);
 ?>
 <style>
 .inspector-modal {
@@ -51,9 +55,9 @@ if (empty($canManageEnrollment)) {
             <p><strong>Student ID:</strong> <span id="inspector-course-student-id-label"></span></p>
             <p class="text-muted small mb-0">Same Student ID is reused. Same course is allowed under a different scheme/project.</p>
         </div>
-        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars(inspectorSearchParams($searchParams)); ?>" id="inspector-course-form">
+        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars($inspectorPageQuery); ?>" id="inspector-course-form">
             <input type="hidden" name="student_id" id="inspector-course-student-id-input">
-            <?php echo inspectorHiddenSearchFields($searchParams); ?>
+            <?php echo $inspectorCombinedHiddenFields; ?>
             <div class="mb-3">
                 <label class="form-label">Select Course</label>
                 <select name="course_id" id="inspector-course-select" class="form-select" required>
@@ -93,10 +97,10 @@ if (empty($canManageEnrollment)) {
             <p><strong>Course:</strong> <span id="inspector-scheme-course-name"></span></p>
             <p class="text-muted small mb-0">Tick to assign, untick to clear. Remove from batch first if needed.</p>
         </div>
-        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars(inspectorSearchParams($searchParams)); ?>" id="inspector-scheme-form">
+        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars($inspectorPageQuery); ?>" id="inspector-scheme-form">
             <input type="hidden" name="student_id" id="inspector-scheme-student-id">
             <input type="hidden" name="course_id" id="inspector-scheme-course-id">
-            <?php echo inspectorHiddenSearchFields($searchParams); ?>
+            <?php echo $inspectorCombinedHiddenFields; ?>
             <div class="mb-3">
                 <label class="form-label">Scheme / Project enrollments</label>
                 <div id="inspector-scheme-checkboxes" class="border rounded p-3 bg-light" style="max-height:220px;overflow-y:auto;"></div>
@@ -110,10 +114,10 @@ if (empty($canManageEnrollment)) {
                 <button type="button" class="btn btn-secondary flex-fill" onclick="inspectorCloseSchemeModal()">Close</button>
             </div>
         </form>
-        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars(inspectorSearchParams($searchParams)); ?>" id="inspector-scheme-orphan-form" class="mt-2" style="display:none;">
+        <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars($inspectorPageQuery); ?>" id="inspector-scheme-orphan-form" class="mt-2" style="display:none;">
             <input type="hidden" name="student_id" id="inspector-orphan-student-id">
             <input type="hidden" name="course_id" id="inspector-orphan-course-id">
-            <?php echo inspectorHiddenSearchFields($searchParams); ?>
+            <?php echo $inspectorCombinedHiddenFields; ?>
             <button type="submit" name="cleanup_orphan_schemes" value="1" class="btn btn-outline-warning btn-sm w-100">
                 <i class="fas fa-broom"></i> Remove empty duplicate rows
             </button>
