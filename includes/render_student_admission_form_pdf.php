@@ -112,6 +112,35 @@ function renderCompactAddressRow($pdf, $labelWidth, $valueWidth, $addressParts) 
 }
 }
 
+if (!function_exists('ensurePdfVerticalSpace')) {
+function ensurePdfVerticalSpace($pdf, $neededHeight) {
+    $pageHeight = $pdf->getPageHeight();
+    $bottomMargin = $pdf->getBreakMargin();
+    if ($pdf->GetY() + $neededHeight > $pageHeight - $bottomMargin) {
+        $pdf->AddPage();
+    }
+}
+}
+
+if (!function_exists('renderDocumentChecklistRow')) {
+function renderDocumentChecklistRow($pdf, $label, $status, $labelWidth = 90, $statusWidth = 90) {
+    $labelText = ' ' . trim((string) $label);
+    $statusText = trim((string) $status);
+    $rowHeight = max(
+        9,
+        $pdf->getStringHeight($labelWidth - 2, $labelText),
+        $pdf->getStringHeight($statusWidth - 2, ' ' . $statusText)
+    );
+
+    $startX = $pdf->GetX();
+    $startY = $pdf->GetY();
+
+    $pdf->MultiCell($labelWidth, $rowHeight, $labelText, 1, 'L', false, 0, '', '', true, 0, false, true, $rowHeight, 'M');
+    $pdf->Cell($statusWidth, $rowHeight, ' ' . $statusText, 1, 1, 'C');
+    $pdf->SetXY($startX, $startY + $rowHeight);
+}
+}
+
 if (!function_exists('renderWrappedEducationRow')) {
 function renderWrappedEducationRow($pdf, $widths, $serial, $exam, $institute, $year, $stream, $percentage) {
     $exam = ' ' . trim((string) $exam);
@@ -382,23 +411,23 @@ if (!empty($education_records)) {
 $pdf->Ln(4);
 
 // Section 6: Document Checklist
+ensurePdfVerticalSpace($pdf, 95);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 6. DOCUMENT SUBMISSION CHECKLIST', 0, 1, 'L', true);
-$pdf->SetFont('helvetica', '', 11);
+$pdf->SetFont('helvetica', '', 10);
 $docs_checklist = [
     'Aadhar Card' => 'aadhar_card_doc', '10th Certificate' => 'tenth_marksheet_doc',
     '12th Certificate / Diploma' => 'twelfth_certificate_doc', '12th Marksheet / Diploma' => 'twelfth_marksheet_doc', 'Graduation Certificate' => 'graduation_certificate_doc',
     'Caste Certificate' => 'caste_certificate_doc', 'Payment Receipt' => 'payment_receipt'
 ];
-$j = 0;
 foreach ($docs_checklist as $label => $key) {
-    $pdf->Cell(45, 9, ' '.$label, 1, 0);
-    $pdf->Cell(45, 9, (!empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]'), 1, ($j % 2 == 1 ? 1 : 0), 'C');
-    $j++;
+    $status = !empty($student[$key]) ? '[ SUBMITTED ]' : '[ PENDING ]';
+    renderDocumentChecklistRow($pdf, $label, $status, 90, 90);
 }
 $pdf->Ln(4);
 
 // Section 7: Office Use
+ensurePdfVerticalSpace($pdf, 75);
 $pdf->SetFont('helvetica', 'B', 11);
 $pdf->Cell($full_w, 9, ' 7. FOR OFFICE USE ONLY', 0, 1, 'L', true);
 $pdf->SetFont('helvetica', '', 10);
