@@ -53,7 +53,7 @@ $inspectorCombinedHiddenFields = inspectorHiddenSearchFields($searchParams)
         <div class="inspector-info">
             <p><strong>Student:</strong> <span id="inspector-course-student-name"></span></p>
             <p><strong>Student ID:</strong> <span id="inspector-course-student-id-label"></span></p>
-            <p class="text-muted small mb-0">Same Student ID is reused. Same course is allowed under a different scheme/project.</p>
+            <p class="text-muted small mb-0">Same Student ID is reused. New course enrollments are created as <strong>Pending</strong> until approved in Manage Students (or when added to a batch).</p>
         </div>
         <form method="POST" action="check_student_exists.php?<?php echo htmlspecialchars($inspectorPageQuery); ?>" id="inspector-course-form">
             <input type="hidden" name="student_id" id="inspector-course-student-id-input">

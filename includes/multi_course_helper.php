@@ -2328,7 +2328,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             return ['success' => false, 'message' => 'Course not found.'];
         }
 
-        $status = 'active';
+        // New admin-assigned enrollments start as pending (same as self-registration).
+        // assignEnrollmentToBatch() promotes to active when the student is placed in a batch.
+        $status = 'pending';
         $hasAccountCol = $conn->query("SHOW COLUMNS FROM students LIKE 'account_id'");
         $accountColSql = ($hasAccountCol && $hasAccountCol->num_rows > 0) ? ', account_id' : '';
         $accountValSql = ($hasAccountCol && $hasAccountCol->num_rows > 0) ? ', ?' : '';
@@ -2421,9 +2423,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             }
         }
 
-        $msg = 'Student assigned to course successfully.';
+        $msg = 'Student assigned to course successfully (status: Pending — approve from Manage Students when ready).';
         if ($schemeName !== '') {
-            $msg = "Student assigned to {$courseRow['course_name']} ({$schemeName}) successfully.";
+            $msg = "Student assigned to {$courseRow['course_name']} ({$schemeName}) successfully (status: Pending).";
         }
         return ['success' => true, 'message' => $msg];
     }
