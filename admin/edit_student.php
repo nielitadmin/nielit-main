@@ -1282,7 +1282,7 @@ $courses_result = $conn->query($sql_courses);
                     <div class="form-grid-3">
                         <!-- 10th Marksheet -->
                         <div class="form-group">
-                            <label class="form-label">10th Certificate *</label>
+                            <label class="form-label">10th Certificate / Marksheet</label>
                             <?php if (!empty($student['tenth_marksheet_doc'])): ?>
                                 <div class="photo-preview">
                                     <?php 
@@ -1302,17 +1302,17 @@ $courses_result = $conn->query($sql_courses);
                                     </a>
                                 </div>
                             <?php else: ?>
-                                <div class="alert alert-warning">
-                                    <i class="fas fa-exclamation-triangle"></i> Not uploaded
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> Not uploaded (Optional)
                                 </div>
                             <?php endif; ?>
                             <input type="file" name="tenth_marksheet_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                            <small class="file-info">Upload new 10th certificate (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
+                            <small class="file-info">Upload 10th certificate or 10th marksheet (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
                         </div>
 
                         <!-- 12th Marksheet -->
                         <div class="form-group">
-                            <label class="form-label">12th Certificate / Diploma Certificate<?php echo !empty($is_dge_student) ? ' *' : ''; ?></label>
+                            <label class="form-label">12th Certificate / Marksheet / Diploma</label>
                             <?php if (!empty($student['twelfth_marksheet_doc'])): ?>
                                 <div class="photo-preview">
                                     <?php 
@@ -1332,13 +1332,12 @@ $courses_result = $conn->query($sql_courses);
                                     </a>
                                 </div>
                             <?php else: ?>
-                                <div class="alert <?php echo !empty($is_dge_student) ? 'alert-warning' : 'alert-info'; ?>">
-                                    <i class="fas <?php echo !empty($is_dge_student) ? 'fa-exclamation-triangle' : 'fa-info-circle'; ?>"></i>
-                                    Not uploaded<?php echo !empty($is_dge_student) ? ' (Required for DGE project)' : ' (Optional)'; ?>
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> Not uploaded (Optional)
                                 </div>
                             <?php endif; ?>
                             <input type="file" name="twelfth_marksheet_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                            <small class="file-info">Upload new 12th certificate or diploma (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
+                            <small class="file-info">Upload 12th certificate, 12th marksheet, or diploma certificate (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
                         </div>
 
                         <!-- Graduation Certificate -->

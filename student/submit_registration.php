@@ -262,8 +262,8 @@ function registrationFieldLabels() {
         'passport_photo' => 'Passport Photo',
         'signature' => 'Signature',
         'aadhar_card' => 'Aadhar Card Document',
-        'tenth_marksheet' => '10th Certificate',
-        'twelfth_marksheet' => '12th Certificate / Diploma Certificate',
+        'tenth_marksheet' => '10th Certificate / Marksheet',
+        'twelfth_marksheet' => '12th Certificate / Marksheet / Diploma',
         'bank_passbook' => 'Bank Passbook',
         'income_certificate' => 'Income Certificate',
         'aadhaar_bank_seeding_proof' => 'Aadhaar Bank Seeding Proof',
@@ -535,7 +535,7 @@ foreach (['passport_photo' => 'Passport photo', 'signature' => 'Signature'] as $
     }
 }
 
-foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th certificate'] as $fileField => $fileLabel) {
+foreach (['aadhar_card' => 'Aadhar card document'] as $fileField => $fileLabel) {
     $fileErr = registrationFileUploadError($fileField);
     if ($fileErr !== '') {
         $missingFields[] = $fileField;
@@ -547,7 +547,6 @@ ensureDgeRegistrationDocumentColumns($conn);
 $isDgeProject = isDgeProjectScheme($conn, $scheme_id);
 if ($isDgeProject) {
     foreach ([
-        'twelfth_marksheet' => '12th certificate / diploma certificate',
         'bank_passbook' => 'Bank passbook',
         'income_certificate' => 'Income certificate',
         'aadhaar_bank_seeding_proof' => 'Aadhaar bank seeding proof',
@@ -710,12 +709,12 @@ foreach ($docCats as $field => $cat) {
         $r = handleCategorizedUpload($_FILES[$field], $cat, $student_id);
         if ($r['success']) $uploadedDocs[$field] = $r['path'];
         else               $uploadErrors[$field] = $r['error'];
-    } elseif (in_array($field, ['aadhar_card','tenth_marksheet'], true)) {
+    } elseif (in_array($field, ['aadhar_card'], true)) {
         $code = $_FILES[$field]['error'] ?? 4;
         if ($code !== UPLOAD_ERR_OK) {
             $uploadErrors[$field] = "Required document missing (error code: $code)";
         }
-    } elseif ($isDgeProject && in_array($field, ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'], true)) {
+    } elseif ($isDgeProject && in_array($field, ['bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'], true)) {
         $code = $_FILES[$field]['error'] ?? 4;
         if ($code !== UPLOAD_ERR_OK) {
             $uploadErrors[$field] = "Required DGE document missing (error code: $code)";

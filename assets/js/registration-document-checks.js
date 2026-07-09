@@ -223,7 +223,7 @@
         },
         handleMarksheetChange: function (input, deps) {
             var level = input.dataset.requireMarksheet || 'tenth';
-            var label = level === 'twelfth' ? '12th marksheet/certificate' : '10th marksheet/certificate';
+            var label = level === 'twelfth' ? '12th certificate, marksheet, or diploma' : '10th certificate or marksheet';
             runAsyncCheck(input, deps, {
                 flagName: 'marksheetValid',
                 checker: global.RegistrationMarksheetCheck,
@@ -288,8 +288,8 @@
                 { name: 'passport_photo', enabled: function (el) { return el.dataset.requireFace === '1'; }, flag: 'faceValid', message: 'Upload a valid passport photo with one clear front-facing face before submitting.' },
                 { name: 'aadhar_card', enabled: function (el) { return el.dataset.requireAadharCard === '1'; }, flag: 'cardValid', message: 'Upload a verified Aadhar card photo before submitting.' },
                 { name: 'signature', enabled: function (el) { return el.dataset.requireSignature === '1'; }, flag: 'signatureValid', message: 'Upload a verified signature image before submitting.' },
-                { name: 'tenth_marksheet', enabled: function (el) { return !!el.dataset.requireMarksheet; }, flag: 'marksheetValid', message: 'Upload a verified 10th marksheet or certificate before submitting.' },
-                { name: 'twelfth_marksheet', enabled: function (el) { return !!el.dataset.requireMarksheet; }, flag: 'marksheetValid', message: 'Upload a verified 12th marksheet or certificate before submitting.', optional: true },
+                { name: 'tenth_marksheet', enabled: function (el) { return !!el.dataset.requireMarksheet; }, flag: 'marksheetValid', message: 'Upload a verified 10th certificate or marksheet before submitting.', optional: true },
+                { name: 'twelfth_marksheet', enabled: function (el) { return !!el.dataset.requireMarksheet; }, flag: 'marksheetValid', message: 'Upload a verified 12th certificate, marksheet, or diploma before submitting.', optional: true },
                 { name: 'caste_certificate', enabled: function (el) { return !!el.dataset.requireCertificate; }, flag: 'certificateValid', message: 'Upload a verified caste certificate before submitting.', optional: true },
                 { name: 'graduation_certificate', enabled: function (el) { return !!el.dataset.requireCertificate; }, flag: 'certificateValid', message: 'Upload a verified graduation certificate before submitting.', optional: true },
                 { name: 'left_thumb_impression', enabled: function (el) { return el.dataset.requireThumb === '1'; }, flag: 'thumbValid', message: 'Upload a verified thumb impression image before submitting, or remove the file if you do not have one.', optional: true }

@@ -474,15 +474,14 @@ if ($stmt_education) {
                 <div class="card-header" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6; padding: 16px; border-radius: 8px 8px 0 0; margin: -24px -24px 24px -24px;">
                     <h5 class="card-title" style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 10px;">
                         <i class="fas fa-graduation-cap"></i> Educational Qualifications
-                        <span style="background: #dc2626; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-left: 8px;">10th Required</span>
-                        <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Others Optional</span>
+                        <span style="background: #3b82f6; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">Optional</span>
                     </h5>
                 </div>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
                     <!-- 10th Marksheet -->
                     <div class="document-card">
-                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 10th Marksheet</h5>
+                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 10th Certificate / Marksheet</h5>
                         <?php if (!empty($student['tenth_marksheet_doc']) && file_exists(__DIR__ . '/../' . $student['tenth_marksheet_doc'])): 
                             $tenth_ext = strtolower(pathinfo($student['tenth_marksheet_doc'], PATHINFO_EXTENSION));
                         ?>
@@ -518,13 +517,13 @@ if ($stmt_education) {
                             <span class="doc-status missing"><i class="fas fa-times-circle"></i> Not Uploaded</span>
                             <br>
                             <i class="fas fa-certificate document-icon no-doc-icon"></i>
-                            <p style="color: #64748b; margin-top: 12px;">No 10th marksheet available</p>
+                            <p style="color: #64748b; margin-top: 12px;">No 10th certificate or marksheet uploaded</p>
                         <?php endif; ?>
                     </div>
 
                     <!-- 12th Marksheet -->
                     <div class="document-card">
-                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 12th Marksheet/Diploma</h5>
+                        <h5 class="doc-title"><i class="fas fa-certificate"></i> 12th Certificate / Marksheet / Diploma</h5>
                         <?php if (!empty($student['twelfth_marksheet_doc']) && file_exists(__DIR__ . '/../' . $student['twelfth_marksheet_doc'])): 
                             $twelfth_ext = strtolower(pathinfo($student['twelfth_marksheet_doc'], PATHINFO_EXTENSION));
                         ?>

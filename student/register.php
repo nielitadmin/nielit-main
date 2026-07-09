@@ -2103,54 +2103,48 @@ if (isset($_SESSION['info'])) {
                     </div>
                 </div>
                 
-                <!-- Mandatory Documents: Educational Qualifications -->
-                <div class="document-category mandatory">
-                    <h4 class="category-title">
-                        <i class="fas fa-graduation-cap"></i> Educational Qualifications
-                        <span class="required-badge">Required</span>
-                    </h4>
-                    
-                    <div class="form-group">
-                        <label class="form-label">
-                            10th Certificate <span class="required-mark">*</span>
-                        </label>
-                        <input type="file" 
-                               name="tenth_marksheet" 
-                               id="tenth_marksheet"
-                               class="form-control" 
-                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               required
-                               data-category="tenth"
-                               data-require-marksheet="tenth">
-                        <div class="doc-check-status" aria-live="polite"></div>
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            10th certificate (JPG/PNG/PDF, max 5MB). Auto-checked for certificate/marksheet text in photos and PDFs.
-                        </small>
-                    </div>
-                </div>
-                
-                <!-- Optional Documents: 12th Marksheet -->
+                <!-- Optional Documents: Educational Qualifications -->
                 <div class="document-category optional">
                     <h4 class="category-title">
-                        <i class="fas fa-graduation-cap"></i> Higher Education
+                        <i class="fas fa-graduation-cap"></i> Educational Qualifications
                         <span class="optional-badge">Optional</span>
                     </h4>
                     
-                    <div class="form-group">
-                        <label class="form-label">12th Certificate / Diploma Certificate <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
-                        <input type="file" 
-                               name="twelfth_marksheet" 
-                               id="twelfth_marksheet"
-                               class="form-control" 
-                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               data-category="twelfth"
-                               data-require-marksheet="twelfth">
-                        <div class="doc-check-status" aria-live="polite"></div>
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            12th certificate or diploma certificate (JPG/PNG/PDF). Required only for DGE project registration.
-                        </small>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">10th Certificate / Marksheet</label>
+                                <input type="file" 
+                                       name="tenth_marksheet" 
+                                       id="tenth_marksheet"
+                                       class="form-control" 
+                                       accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       data-category="tenth"
+                                       data-require-marksheet="tenth">
+                                <div class="doc-check-status" aria-live="polite"></div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Upload <strong>10th certificate</strong> or <strong>10th marksheet</strong> (JPG/PNG/PDF, max 5MB). One file is enough — optional.
+                                </small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label class="form-label">12th Certificate / Marksheet / Diploma</label>
+                                <input type="file" 
+                                       name="twelfth_marksheet" 
+                                       id="twelfth_marksheet"
+                                       class="form-control" 
+                                       accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       data-category="twelfth"
+                                       data-require-marksheet="twelfth">
+                                <div class="doc-check-status" aria-live="polite"></div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle"></i> 
+                                    Upload <strong>12th certificate</strong>, <strong>12th marksheet</strong>, or <strong>diploma certificate</strong> (JPG/PNG/PDF). One file is enough — optional.
+                                </small>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 
@@ -2203,7 +2197,7 @@ if (isset($_SESSION['info'])) {
                     <div id="dgeProjectDocumentsBlock" class="mt-3" style="display:none;">
                         <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.9rem;">
                             <i class="fas fa-info-circle"></i>
-                            <strong>DGE project registration:</strong> upload 10th certificate, 12th certificate/diploma, bank passbook, income certificate, and Aadhaar bank seeding proof.
+                            <strong>DGE project registration:</strong> upload bank passbook, income certificate, and Aadhaar bank seeding proof.
                         </div>
                         <div class="row">
                             <div class="col-md-6">
@@ -2627,7 +2621,7 @@ function syncDgeDocumentRequirements() {
     document.querySelectorAll('.dge-required-mark').forEach(function(mark) {
         mark.style.display = isDge ? 'inline' : 'none';
     });
-    ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].forEach(function(name) {
+    ['bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].forEach(function(name) {
         const input = document.querySelector('[name="' + name + '"]');
         if (!input) {
             return;
@@ -3218,8 +3212,8 @@ function renderFilePreviewForInput(input, file) {
     const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo'
         : (fieldName === 'signature' ? 'Signature'
         : (fieldName === 'aadhar_card' ? 'Aadhar Card'
-        : (fieldName === 'tenth_marksheet' ? '10th Certificate'
-        : (fieldName === 'twelfth_marksheet' ? '12th Certificate / Diploma'
+        : (fieldName === 'tenth_marksheet' ? '10th Certificate / Marksheet'
+        : (fieldName === 'twelfth_marksheet' ? '12th Certificate / Marksheet / Diploma'
         : (fieldName === 'caste_certificate' ? 'Caste Certificate'
         : (fieldName === 'graduation_certificate' ? 'Graduation Certificate'
         : (fieldName === 'bank_passbook' ? 'Bank Passbook'
@@ -4164,7 +4158,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
+    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card'];
     for (let i = 0; i < requiredFiles.length; i++) {
         const fileName = requiredFiles[i];
         const input = form.querySelector('[name="' + fileName + '"]');
@@ -4180,12 +4174,12 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
+    const optionalFileFields = ['left_thumb_impression', 'tenth_marksheet', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
     for (let i = 0; i < optionalFileFields.length; i++) {
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');
         if (!input || !input.files || !input.files[0]) {
-            if (registrationIsDgeSchemeSelected() && ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].indexOf(fileName) !== -1) {
+            if (registrationIsDgeSchemeSelected() && ['bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].indexOf(fileName) !== -1) {
                 return failValidation('Please upload ' + fileName.replace(/_/g, ' ') + ' for DGE project registration.', fileName);
             }
             continue;
