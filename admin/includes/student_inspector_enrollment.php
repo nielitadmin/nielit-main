@@ -49,11 +49,25 @@ if (!function_exists('inspectorBuildEnrollmentContext')) {
             if ($courseId <= 0 || $recordId <= 0) {
                 continue;
             }
-            $key = $primaryStudentId . ':' . $courseId . ':' . $recordId;
+            $sid = (string)($row['student_id'] ?? $primaryStudentId);
+            $key = $sid . ':' . $courseId . ':' . (int)($row['scheme_id'] ?? 0);
             if (isset($seen[$key])) {
+                $existingIdx = $seen[$key];
+                if ($recordId > (int)($items[$existingIdx]['student_record_id'] ?? 0)) {
+                    $linkedSchemes = getSchemesForCourse($conn, $courseId);
+                    $items[$existingIdx] = [
+                        'student_id' => $sid,
+                        'student_record_id' => $recordId,
+                        'course_id' => $courseId,
+                        'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
+                        'scheme_id' => (int)($row['scheme_id'] ?? 0),
+                        'has_linked_schemes' => !empty($linkedSchemes),
+                        'status' => (string)($row['status'] ?? ''),
+                    ];
+                }
                 continue;
             }
-            $seen[$key] = true;
+            $seen[$key] = count($items);
             $linkedSchemes = getSchemesForCourse($conn, $courseId);
             $items[] = [
                 'student_id' => (string)$row['student_id'],
@@ -82,11 +96,26 @@ if (!function_exists('inspectorBuildEnrollmentContext')) {
                 continue;
             }
             $sid = (string)($row['student_id'] ?? $primaryStudentId);
-            $key = $sid . ':' . $courseId . ':' . $recordId;
+            $schemeKey = (int)($row['scheme_id'] ?? 0);
+            $key = $sid . ':' . $courseId . ':' . $schemeKey;
             if (isset($seen[$key])) {
+                $existingIdx = $seen[$key];
+                if ($recordId > (int)($items[$existingIdx]['student_record_id'] ?? 0)) {
+                    $linkedSchemes = getSchemesForCourse($conn, $courseId);
+                    $items[$existingIdx] = [
+                        'student_id' => $sid,
+                        'student_record_id' => $recordId,
+                        'course_id' => $courseId,
+                        'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
+                        'scheme_id' => $schemeKey,
+                        'has_linked_schemes' => !empty($linkedSchemes),
+                        'status' => (string)($row['status'] ?? 'orphan'),
+                        'is_orphan' => $recordId <= 0,
+                    ];
+                }
                 continue;
             }
-            $seen[$key] = true;
+            $seen[$key] = count($items);
             $linkedSchemes = getSchemesForCourse($conn, $courseId);
             $items[] = [
                 'student_id' => $sid,

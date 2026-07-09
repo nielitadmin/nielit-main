@@ -168,6 +168,7 @@ foreach ($directoryRows as $dirRow) {
     <p class="text-muted small mb-4">
         Each student card shows a <strong>large passport photo</strong> (click to enlarge), plus name, <strong>status</strong>, assigned course(s), address, category, mobile, and apply date.
         Use <strong>Assigned Course</strong> and <strong>Status</strong> to narrow the list, then click <strong>Show Directory</strong>.
+        When you use <strong>Filter by Course</strong> above, the directory lists <strong>all students</strong> in that course (one card per student).
     </p>
 
     <form method="GET" class="row g-3 mb-4" id="inspector-directory-form">

@@ -171,8 +171,22 @@ if ($searched) {
 
 if (inspectorDirectoryHasCriteria($directoryCriteria)) {
     $directorySearched = true;
-    $directoryRows = inspectorFetchDirectoryProfiles($conn, $directoryCriteria);
+    $directoryRows = inspectorDedupeDirectoryRowsByStudentId(
+        inspectorFetchDirectoryProfiles($conn, $directoryCriteria)
+    );
     $directoryContextTitle = 'Directory — filtered list';
+} elseif ($searched && inspectorHasCourseCriteria($searchCriteria) && !inspectorHasIdentityCriteria($searchCriteria)) {
+    $directorySearched = true;
+    $courseDirectoryCriteria = array_merge($directoryCriteria, [
+        'course_id' => (int)$searchCriteria['course_id'],
+    ]);
+    if (($courseDirectoryCriteria['status'] ?? '') === '') {
+        $courseDirectoryCriteria['status'] = 'all';
+    }
+    $directoryRows = inspectorDedupeDirectoryRowsByStudentId(
+        inspectorFetchDirectoryProfiles($conn, $courseDirectoryCriteria)
+    );
+    $directoryContextTitle = 'Directory — all students in selected course';
 } elseif ($searched && $exists) {
     $directoryRecordIds = inspectorCollectDirectoryRecordIds(
         $studentRows,
@@ -181,9 +195,19 @@ if (inspectorDirectoryHasCriteria($directoryCriteria)) {
     );
     if (!empty($directoryRecordIds)) {
         $directorySearched = true;
-        $directoryRows = inspectorFetchDirectoryProfiles($conn, [], $directoryRecordIds);
+        $directoryRows = inspectorDedupeDirectoryRowsByStudentId(
+            inspectorFetchDirectoryProfiles($conn, [], $directoryRecordIds)
+        );
         $directoryContextTitle = 'Directory — search matches';
     }
+}
+
+// When using top "Filter by Course" only, mirror it in the directory course dropdown.
+if ($searched
+    && inspectorHasCourseCriteria($searchCriteria)
+    && !inspectorHasIdentityCriteria($searchCriteria)
+    && (int)($directoryCriteria['course_id'] ?? 0) === 0) {
+    $directoryCriteria['course_id'] = (int)$searchCriteria['course_id'];
 }
 
 $page_title = 'Student Record Inspector';

@@ -79,6 +79,42 @@ if (!function_exists('inspectorDirectoryApplyStatusFilter')) {
     }
 }
 
+if (!function_exists('inspectorStudentCourseFilterSql')) {
+    /**
+     * SQL condition: student row matches a course (primary course_id or student_enrollments).
+     *
+     * @param array<int, int> $params
+     */
+    function inspectorStudentCourseFilterSql(mysqli $conn, int $courseId, string $studentAlias, array &$params, string &$types): string
+    {
+        if ($courseId <= 0) {
+            return '';
+        }
+
+        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
+            $params[] = $courseId;
+            $params[] = $courseId;
+            $params[] = $courseId;
+            $types .= 'iii';
+
+            return "({$studentAlias}.course_id = ? OR {$studentAlias}.id IN (
+                SELECT se.student_record_id
+                FROM student_enrollments se
+                WHERE se.course_id = ? AND se.student_record_id IS NOT NULL
+            ) OR ({$studentAlias}.account_id IS NOT NULL AND {$studentAlias}.account_id IN (
+                SELECT se.account_id
+                FROM student_enrollments se
+                WHERE se.course_id = ? AND se.account_id IS NOT NULL
+            )))";
+        }
+
+        $params[] = $courseId;
+        $types .= 'i';
+
+        return "{$studentAlias}.course_id = ?";
+    }
+}
+
 if (!function_exists('inspectorDirectoryApplyCourseFilter')) {
     /**
      * Match primary course on students row and any assigned course via student_enrollments.
@@ -91,26 +127,7 @@ if (!function_exists('inspectorDirectoryApplyCourseFilter')) {
             return;
         }
 
-        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
-            $where[] = "(s.course_id = ? OR s.id IN (
-                SELECT se.student_record_id
-                FROM student_enrollments se
-                WHERE se.course_id = ? AND se.student_record_id IS NOT NULL
-            ) OR (s.account_id IS NOT NULL AND s.account_id IN (
-                SELECT se.account_id
-                FROM student_enrollments se
-                WHERE se.course_id = ? AND se.account_id IS NOT NULL
-            )))";
-            $types .= 'iii';
-            $params[] = $courseId;
-            $params[] = $courseId;
-            $params[] = $courseId;
-            return;
-        }
-
-        $where[] = 's.course_id = ?';
-        $types .= 'i';
-        $params[] = $courseId;
+        $where[] = inspectorStudentCourseFilterSql($conn, $courseId, 's', $params, $types);
     }
 }
 
@@ -455,6 +472,35 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
         $stmt->close();
 
         return $rows;
+    }
+}
+
+if (!function_exists('inspectorDedupeDirectoryRowsByStudentId')) {
+    /**
+     * One directory card per Student ID — keeps the latest enrollment record.
+     *
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<int, array<string, mixed>>
+     */
+    function inspectorDedupeDirectoryRowsByStudentId(array $rows): array
+    {
+        $byStudent = [];
+        foreach ($rows as $row) {
+            $studentId = trim((string)($row['student_id'] ?? ''));
+            $key = $studentId !== '' ? $studentId : ('record:' . (int)($row['id'] ?? 0));
+            if (!isset($byStudent[$key])) {
+                $byStudent[$key] = $row;
+                continue;
+            }
+            $existing = $byStudent[$key];
+            $existingTs = strtotime((string)($existing['apply_date'] ?? '')) ?: 0;
+            $rowTs = strtotime((string)($row['apply_date'] ?? '')) ?: 0;
+            if ($rowTs > $existingTs || (int)($row['id'] ?? 0) > (int)($existing['id'] ?? 0)) {
+                $byStudent[$key] = $row;
+            }
+        }
+
+        return array_values($byStudent);
     }
 }
 

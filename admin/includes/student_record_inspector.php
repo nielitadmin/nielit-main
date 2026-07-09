@@ -585,6 +585,7 @@ if (!function_exists('inspectorAppendCourseFilter')) {
      * @param array<int, mixed> $params
      */
     function inspectorAppendCourseFilter(
+        mysqli $conn,
         array $criteria,
         string $courseIdColumn,
         string $courseTableAlias,
@@ -595,6 +596,9 @@ if (!function_exists('inspectorAppendCourseFilter')) {
         $courseName = (string)($criteria['course_name'] ?? '');
 
         if ($courseId > 0) {
+            if (strpos($courseIdColumn, 's.') === 0) {
+                return inspectorStudentCourseFilterSql($conn, $courseId, 's', $params, $types);
+            }
             $params[] = $courseId;
             $types .= 'i';
             return "{$courseIdColumn} = ?";
@@ -703,7 +707,7 @@ if (!function_exists('inspectorRunSearch')) {
                 $types .= $identityTypes;
             }
             if ($hasCourse) {
-                $courseSql = inspectorAppendCourseFilter($criteria, 's.course_id', 'c', $params, $types);
+                $courseSql = inspectorAppendCourseFilter($conn, $criteria, 's.course_id', 'c', $params, $types);
                 if ($courseSql !== '') {
                     $where[] = $courseSql;
                 }
@@ -772,7 +776,7 @@ if (!function_exists('inspectorRunSearch')) {
                         $params = array_merge($params, $accountParams);
                         $types .= $accountTypes;
                     }
-                    $courseSql = inspectorAppendCourseFilter($criteria, 'se.course_id', 'c', $params, $types);
+                    $courseSql = inspectorAppendCourseFilter($conn, $criteria, 'se.course_id', 'c', $params, $types);
                     if ($courseSql !== '') {
                         $where[] = $courseSql;
                     }
@@ -855,7 +859,7 @@ if (!function_exists('inspectorRunSearch')) {
                 $types .= $enrTypes;
             }
             if ($hasCourse) {
-                $courseSql = inspectorAppendCourseFilter($criteria, 'se.course_id', 'c', $params, $types);
+                $courseSql = inspectorAppendCourseFilter($conn, $criteria, 'se.course_id', 'c', $params, $types);
                 if ($courseSql !== '') {
                     $where[] = $courseSql;
                 }
