@@ -41,7 +41,17 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
     $v = validateUploadedDocument($file, $docCategory);
     if (!$v['valid']) return ['success'=>false,'error'=>$v['message']];
 
-    $subdirs = ['aadhar'=>'aadhar','caste'=>'caste_certificates','tenth'=>'marksheets/10th','twelfth'=>'marksheets/12th','graduation'=>'marksheets/graduation','other'=>'other'];
+    $subdirs = [
+        'aadhar' => 'aadhar',
+        'caste' => 'caste_certificates',
+        'tenth' => 'marksheets/10th',
+        'twelfth' => 'marksheets/12th',
+        'graduation' => 'marksheets/graduation',
+        'bank_passbook' => 'dge/bank_passbook',
+        'income_certificate' => 'dge/income_certificate',
+        'aadhaar_bank_seeding' => 'dge/aadhaar_bank_seeding',
+        'other' => 'other',
+    ];
     $subdir  = $subdirs[$docCategory] ?? 'other';
     $dir     = __DIR__ . '/uploads/' . $subdir . '/';
 
@@ -252,7 +262,11 @@ function registrationFieldLabels() {
         'passport_photo' => 'Passport Photo',
         'signature' => 'Signature',
         'aadhar_card' => 'Aadhar Card Document',
-        'tenth_marksheet' => '10th Marksheet/Certificate',
+        'tenth_marksheet' => '10th Certificate',
+        'twelfth_marksheet' => '12th Certificate / Diploma Certificate',
+        'bank_passbook' => 'Bank Passbook',
+        'income_certificate' => 'Income Certificate',
+        'aadhaar_bank_seeding_proof' => 'Aadhaar Bank Seeding Proof',
     ];
 }
 
@@ -521,11 +535,28 @@ foreach (['passport_photo' => 'Passport photo', 'signature' => 'Signature'] as $
     }
 }
 
-foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th marksheet/certificate'] as $fileField => $fileLabel) {
+foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th certificate'] as $fileField => $fileLabel) {
     $fileErr = registrationFileUploadError($fileField);
     if ($fileErr !== '') {
         $missingFields[] = $fileField;
         $validationErrors[] = $fileLabel . ' is required' . ($fileErr !== 'missing' ? ' (' . $fileErr . ')' : '') . '.';
+    }
+}
+
+ensureDgeRegistrationDocumentColumns($conn);
+$isDgeProject = isDgeProjectScheme($conn, $scheme_id);
+if ($isDgeProject) {
+    foreach ([
+        'twelfth_marksheet' => '12th certificate / diploma certificate',
+        'bank_passbook' => 'Bank passbook',
+        'income_certificate' => 'Income certificate',
+        'aadhaar_bank_seeding_proof' => 'Aadhaar bank seeding proof',
+    ] as $fileField => $fileLabel) {
+        $fileErr = registrationFileUploadError($fileField);
+        if ($fileErr !== '') {
+            $missingFields[] = $fileField;
+            $validationErrors[] = $fileLabel . ' is required for DGE project registration' . ($fileErr !== 'missing' ? ' (' . $fileErr . ')' : '') . '.';
+        }
     }
 }
 
@@ -539,6 +570,9 @@ $docCats = [
     'tenth_marksheet'        => 'tenth',
     'twelfth_marksheet'      => 'twelfth',
     'graduation_certificate' => 'graduation',
+    'bank_passbook'          => 'bank_passbook',
+    'income_certificate'     => 'income_certificate',
+    'aadhaar_bank_seeding_proof' => 'aadhaar_bank_seeding',
     'other_documents'        => 'other'
 ];
 $pendingUploadCheck = registrationValidatePendingUploads($docCats);
@@ -676,10 +710,15 @@ foreach ($docCats as $field => $cat) {
         $r = handleCategorizedUpload($_FILES[$field], $cat, $student_id);
         if ($r['success']) $uploadedDocs[$field] = $r['path'];
         else               $uploadErrors[$field] = $r['error'];
-    } elseif (in_array($field, ['aadhar_card','tenth_marksheet'])) {
+    } elseif (in_array($field, ['aadhar_card','tenth_marksheet'], true)) {
         $code = $_FILES[$field]['error'] ?? 4;
         if ($code !== UPLOAD_ERR_OK) {
             $uploadErrors[$field] = "Required document missing (error code: $code)";
+        }
+    } elseif ($isDgeProject && in_array($field, ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'], true)) {
+        $code = $_FILES[$field]['error'] ?? 4;
+        if ($code !== UPLOAD_ERR_OK) {
+            $uploadErrors[$field] = "Required DGE document missing (error code: $code)";
         }
     }
 }
@@ -706,6 +745,13 @@ $tenth_marksheet_path        = $uploadedDocs['tenth_marksheet']        ?? '';
 $twelfth_marksheet_path      = $uploadedDocs['twelfth_marksheet']      ?? '';
 $graduation_certificate_path = $uploadedDocs['graduation_certificate'] ?? '';
 $other_documents_path        = $uploadedDocs['other_documents']        ?? '';
+$bank_passbook_path          = $uploadedDocs['bank_passbook']          ?? '';
+$income_certificate_path     = $uploadedDocs['income_certificate']     ?? '';
+$aadhaar_bank_seeding_path   = $uploadedDocs['aadhaar_bank_seeding_proof'] ?? '';
+
+$hasDgeDocCols = hasDgeRegistrationDocumentColumns($conn);
+$dgeDocColSql = $hasDgeDocCols ? ', bank_passbook_doc, income_certificate_doc, aadhaar_bank_seeding_doc' : '';
+$dgeDocValSql = $hasDgeDocCols ? ', ?, ?, ?' : '';
 
 // ----------------------------------------------------------
 // 11. Password & education data
@@ -742,13 +788,13 @@ $sql = "INSERT INTO students (
     passport_photo, signature, left_thumb_impression, payment_receipt, utr_number, payment_date,
     student_id, password,
     aadhar_card_doc, caste_certificate_doc, tenth_marksheet_doc,
-    twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc,
+    twelfth_marksheet_doc, graduation_certificate_doc, other_documents_doc{$dgeDocColSql},
     status{$schemeColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
-    ?,?,?,?,?,?,?,?,?,?,
+    ?,?,?,?,?,?,?,?,?,?{$dgeDocValSql},
     'pending'{$schemeValSql}, NOW()
 )";
 
@@ -759,6 +805,9 @@ if (!$stmt) {
 }
 
 $bindTypes = 'si' . str_repeat('s', 5) . 'i' . str_repeat('s', 32);
+if ($hasDgeDocCols) {
+    $bindTypes .= 'sss';
+}
 if ($hasSchemeCol) {
     $bindTypes .= 'i';
 }
@@ -773,6 +822,11 @@ $bindArgs = [
     $aadhar_card_path, $caste_certificate_path, $tenth_marksheet_path,
     $twelfth_marksheet_path, $graduation_certificate_path, $other_documents_path,
 ];
+if ($hasDgeDocCols) {
+    $bindArgs[] = $bank_passbook_path;
+    $bindArgs[] = $income_certificate_path;
+    $bindArgs[] = $aadhaar_bank_seeding_path;
+}
 if ($hasSchemeCol) {
     $bindArgs[] = $scheme_id;
 }

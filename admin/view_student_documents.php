@@ -704,6 +704,71 @@ if ($stmt_education) {
                 </div>
             </div>
 
+            <?php
+            $dge_docs = [
+                'bank_passbook_doc' => ['label' => 'Bank Passbook', 'icon' => 'fa-university'],
+                'income_certificate_doc' => ['label' => 'Income Certificate', 'icon' => 'fa-file-invoice-dollar'],
+                'aadhaar_bank_seeding_doc' => ['label' => 'Aadhaar Bank Seeding Proof', 'icon' => 'fa-link'],
+            ];
+            $has_any_dge_doc = false;
+            foreach ($dge_docs as $field => $meta) {
+                if (!empty($student[$field])) {
+                    $has_any_dge_doc = true;
+                    break;
+                }
+            }
+            ?>
+            <?php if ($has_any_dge_doc): ?>
+            <div class="content-card" style="margin-bottom: 24px;">
+                <div class="card-header" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6; padding: 16px; border-radius: 8px 8px 0 0; margin: -24px -24px 24px -24px;">
+                    <h5 class="card-title" style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-briefcase"></i> DGE Project Documents
+                    </h5>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px;">
+                    <?php foreach ($dge_docs as $field => $meta): ?>
+                    <div class="document-card">
+                        <h5 class="doc-title"><i class="fas <?php echo $meta['icon']; ?>"></i> <?php echo htmlspecialchars($meta['label']); ?></h5>
+                        <?php if (!empty($student[$field]) && file_exists(__DIR__ . '/../' . $student[$field])):
+                            $doc_ext = strtolower(pathinfo($student[$field], PATHINFO_EXTENSION));
+                        ?>
+                            <span class="doc-status uploaded"><i class="fas fa-check-circle"></i> Uploaded</span>
+                            <br>
+                            <?php if (in_array($doc_ext, ['jpg', 'jpeg', 'png'], true)): ?>
+                                <img src="../<?php echo htmlspecialchars($student[$field]); ?>"
+                                     alt="<?php echo htmlspecialchars($meta['label']); ?>"
+                                     class="document-preview">
+                                <br>
+                                <a href="../<?php echo htmlspecialchars($student[$field]); ?>"
+                                   target="_blank"
+                                   class="btn btn-primary btn-sm">
+                                    <i class="fas fa-eye"></i> View Full Size
+                                </a>
+                            <?php elseif ($doc_ext === 'pdf'): ?>
+                                <i class="fas fa-file-pdf document-icon pdf-icon"></i>
+                                <p style="font-weight: 600; color: #1e293b; margin: 12px 0;">PDF Document</p>
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <a href="../<?php echo htmlspecialchars($student[$field]); ?>"
+                                       target="_blank"
+                                       class="btn btn-primary btn-sm">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="../<?php echo htmlspecialchars($student[$field]); ?>"
+                                       download
+                                       class="btn btn-success btn-sm">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span class="doc-status missing"><i class="fas fa-times-circle"></i> Not Uploaded</span>
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- Payment Information Section (Optional) -->
             <div class="content-card" style="margin-bottom: 24px;">
                 <div class="card-header" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6; padding: 16px; border-radius: 8px 8px 0 0; margin: -24px -24px 24px -24px;">

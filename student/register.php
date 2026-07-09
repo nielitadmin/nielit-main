@@ -64,6 +64,13 @@ if (
 
 $selected_course = $course_details['course_name'];
 $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
+$dge_scheme_ids = [];
+foreach ($course_schemes as $sch) {
+    if (schemeRowIsDgeProject($sch)) {
+        $dge_scheme_ids[] = (int) $sch['id'];
+    }
+}
+$has_dge_scheme_option = !empty($dge_scheme_ids);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1554,12 +1561,12 @@ if (isset($_SESSION['info'])) {
                         <label class="form-label">Scheme / Project <?php echo count($course_schemes) > 1 ? '<span class="required-mark">*</span>' : ''; ?></label>
                         <?php if (count($course_schemes) === 1): ?>
                             <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_schemes[0]['scheme_name'] . ' (' . $course_schemes[0]['scheme_code'] . ')'); ?>" readonly style="background-color:#f0f9ff;">
-                            <input type="hidden" name="scheme_id" value="<?php echo (int)$course_schemes[0]['id']; ?>">
+                            <input type="hidden" name="scheme_id" value="<?php echo (int)$course_schemes[0]['id']; ?>" data-is-dge="<?php echo schemeRowIsDgeProject($course_schemes[0]) ? '1' : '0'; ?>">
                         <?php else: ?>
                             <select class="form-control" name="scheme_id" required>
                                 <option value="">-- Select Scheme / Project --</option>
                                 <?php foreach ($course_schemes as $sch): ?>
-                                <option value="<?php echo (int)$sch['id']; ?>">
+                                <option value="<?php echo (int)$sch['id']; ?>" data-is-dge="<?php echo schemeRowIsDgeProject($sch) ? '1' : '0'; ?>">
                                     <?php echo htmlspecialchars($sch['scheme_name'] . ' (' . $sch['scheme_code'] . ')'); ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -2105,7 +2112,7 @@ if (isset($_SESSION['info'])) {
                     
                     <div class="form-group">
                         <label class="form-label">
-                            10th Marksheet/Certificate <span class="required-mark">*</span>
+                            10th Certificate <span class="required-mark">*</span>
                         </label>
                         <input type="file" 
                                name="tenth_marksheet" 
@@ -2118,7 +2125,7 @@ if (isset($_SESSION['info'])) {
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            10th marksheet or certificate (JPG/PNG/PDF, max 5MB). Auto-checked for marksheet/certificate text in photos and PDFs.
+                            10th certificate (JPG/PNG/PDF, max 5MB). Auto-checked for certificate/marksheet text in photos and PDFs.
                         </small>
                     </div>
                 </div>
@@ -2131,7 +2138,7 @@ if (isset($_SESSION['info'])) {
                     </h4>
                     
                     <div class="form-group">
-                        <label class="form-label">12th Marksheet/Diploma Certificate</label>
+                        <label class="form-label">12th Certificate / Diploma Certificate <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
                         <input type="file" 
                                name="twelfth_marksheet" 
                                id="twelfth_marksheet"
@@ -2142,7 +2149,7 @@ if (isset($_SESSION['info'])) {
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            12th marksheet or diploma certificate (JPG/PNG/PDF). Verified when uploaded — including PDF text check.
+                            12th certificate or diploma certificate (JPG/PNG/PDF). Required only for DGE project registration.
                         </small>
                     </div>
                 </div>
@@ -2191,6 +2198,63 @@ if (isset($_SESSION['info'])) {
                             </div>
                         </div>
                     </div>
+
+                    <?php if ($has_dge_scheme_option): ?>
+                    <div id="dgeProjectDocumentsBlock" class="mt-3" style="display:none;">
+                        <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.9rem;">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>DGE project registration:</strong> upload 10th certificate, 12th certificate/diploma, bank passbook, income certificate, and Aadhaar bank seeding proof.
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Bank Passbook <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                                    <input type="file"
+                                           name="bank_passbook"
+                                           id="bank_passbook"
+                                           class="form-control"
+                                           accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                           data-category="bank_passbook">
+                                    <div class="doc-check-status" aria-live="polite"></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i>
+                                        Bank passbook page linked to Aadhaar bank seeding (JPG/PNG/PDF).
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Income Certificate <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                                    <input type="file"
+                                           name="income_certificate"
+                                           id="income_certificate"
+                                           class="form-control"
+                                           accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                           data-category="income_certificate">
+                                    <div class="doc-check-status" aria-live="polite"></div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i>
+                                        Income certificate issued by competent authority (JPG/PNG/PDF).
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Aadhaar Bank Seeding Proof <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                            <input type="file"
+                                   name="aadhaar_bank_seeding_proof"
+                                   id="aadhaar_bank_seeding_proof"
+                                   class="form-control"
+                                   accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                   data-category="aadhaar_bank_seeding">
+                            <div class="doc-check-status" aria-live="polite"></div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Proof of Aadhaar linked with bank account (JPG/PNG/PDF).
+                            </small>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     
                     <div class="form-group">
                         <label class="form-label">Other Supporting Documents</label>
@@ -2536,6 +2600,52 @@ if (prevBtn) {
 
 showStep(1);
 
+const REGISTRATION_DGE_SCHEME_IDS = <?php echo json_encode(array_values($dge_scheme_ids), JSON_UNESCAPED_UNICODE); ?>;
+
+function registrationIsDgeSchemeSelected() {
+    const form = document.getElementById('registrationForm');
+    if (!form) {
+        return false;
+    }
+    const schemeEl = form.querySelector('[name="scheme_id"]');
+    if (!schemeEl) {
+        return false;
+    }
+    if (schemeEl.tagName === 'SELECT') {
+        const opt = schemeEl.options[schemeEl.selectedIndex];
+        return !!(opt && opt.dataset.isDge === '1');
+    }
+    return schemeEl.dataset.isDge === '1';
+}
+
+function syncDgeDocumentRequirements() {
+    const isDge = registrationIsDgeSchemeSelected();
+    const block = document.getElementById('dgeProjectDocumentsBlock');
+    if (block) {
+        block.style.display = isDge ? 'block' : 'none';
+    }
+    document.querySelectorAll('.dge-required-mark').forEach(function(mark) {
+        mark.style.display = isDge ? 'inline' : 'none';
+    });
+    ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].forEach(function(name) {
+        const input = document.querySelector('[name="' + name + '"]');
+        if (!input) {
+            return;
+        }
+        if (isDge) {
+            input.setAttribute('required', 'required');
+        } else {
+            input.removeAttribute('required');
+        }
+    });
+}
+
+syncDgeDocumentRequirements();
+const registrationSchemeField = document.querySelector('[name="scheme_id"]');
+if (registrationSchemeField && registrationSchemeField.tagName === 'SELECT') {
+    registrationSchemeField.addEventListener('change', syncDgeDocumentRequirements);
+}
+
 if (typeof RegistrationSkeleton !== 'undefined') {
     RegistrationSkeleton.bindAiLoaderEvents('regAiPreloadSkeleton');
 }
@@ -2547,7 +2657,8 @@ if (typeof RegistrationSkeleton !== 'undefined') {
         address: 2, state: 2, city: 2, pincode: 2, pwd_status: 2, college_name: 2, apaar_id: 2,
         utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
         left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
-        graduation_certificate: 3, caste_certificate: 3, other_documents: 3
+        graduation_certificate: 3, caste_certificate: 3, other_documents: 3,
+        bank_passbook: 3, income_certificate: 3, aadhaar_bank_seeding_proof: 3
     };
 
     const sessionData = <?php echo json_encode($registrationFormData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
@@ -3102,15 +3213,19 @@ function renderFilePreviewForInput(input, file) {
     }
 
     const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
-    const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate');
+    const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate' || fieldName === 'bank_passbook' || fieldName === 'income_certificate' || fieldName === 'aadhaar_bank_seeding_proof');
     const isImageFile = file.type.startsWith('image/');
     const previewLabel = fieldName === 'passport_photo' ? 'Passport Photo'
         : (fieldName === 'signature' ? 'Signature'
         : (fieldName === 'aadhar_card' ? 'Aadhar Card'
-        : (fieldName === 'tenth_marksheet' ? '10th Marksheet'
-        : (fieldName === 'twelfth_marksheet' ? '12th Marksheet'
+        : (fieldName === 'tenth_marksheet' ? '10th Certificate'
+        : (fieldName === 'twelfth_marksheet' ? '12th Certificate / Diploma'
         : (fieldName === 'caste_certificate' ? 'Caste Certificate'
-        : (fieldName === 'graduation_certificate' ? 'Graduation Certificate' : 'Left Hand Thumb Impression'))))));
+        : (fieldName === 'graduation_certificate' ? 'Graduation Certificate'
+        : (fieldName === 'bank_passbook' ? 'Bank Passbook'
+        : (fieldName === 'income_certificate' ? 'Income Certificate'
+        : (fieldName === 'aadhaar_bank_seeding_proof' ? 'Aadhaar Bank Seeding Proof'
+        : 'Left Hand Thumb Impression')))))))));
 
     if (isImageField && isImageFile) {
         const reader = new FileReader();
@@ -4002,7 +4117,8 @@ document.getElementById('registrationForm').addEventListener('submit', function(
             address: 2, state: 2, city: 2, pincode: 2,
             utr_number: 3, payment_date: 3, payment_receipt: 3, passport_photo: 3, signature: 3,
             left_thumb_impression: 3, aadhar_card: 3, tenth_marksheet: 3, twelfth_marksheet: 3,
-            caste_certificate: 3, graduation_certificate: 3
+            caste_certificate: 3, graduation_certificate: 3,
+            bank_passbook: 3, income_certificate: 3, aadhaar_bank_seeding_proof: 3
         };
         if (fieldName && typeof window.showRegistrationStep === 'function') {
             window.showRegistrationStep(fieldStepMap[fieldName] || 1);
@@ -4064,11 +4180,14 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         }
     }
 
-    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt'];
+    const optionalFileFields = ['left_thumb_impression', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
     for (let i = 0; i < optionalFileFields.length; i++) {
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');
         if (!input || !input.files || !input.files[0]) {
+            if (registrationIsDgeSchemeSelected() && ['twelfth_marksheet', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].indexOf(fileName) !== -1) {
+                return failValidation('Please upload ' + fileName.replace(/_/g, ' ') + ' for DGE project registration.', fileName);
+            }
             continue;
         }
         const fileCheck = typeof validateFileInput === 'function' ? validateFileInput(input) : { valid: true };

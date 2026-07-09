@@ -179,6 +179,73 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return $id > 0 ? $id : null;
     }
 
+    function schemeRowIsDgeProject(array $schemeRow): bool {
+        $code = strtoupper(trim((string)($schemeRow['scheme_code'] ?? '')));
+        $name = strtoupper(trim((string)($schemeRow['scheme_name'] ?? '')));
+        return strpos($code, 'DGE') !== false || strpos($name, 'DGE') !== false;
+    }
+
+    function isDgeProjectScheme(mysqli $conn, ?int $schemeId): bool {
+        if ($schemeId === null || $schemeId <= 0) {
+            return false;
+        }
+        $stmt = $conn->prepare('SELECT scheme_code, scheme_name FROM schemes WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $schemeId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ? schemeRowIsDgeProject($row) : false;
+    }
+
+    function studentsTableHasColumn(mysqli $conn, string $column): bool {
+        $stmt = $conn->prepare(
+            "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'students' AND COLUMN_NAME = ?
+             LIMIT 1"
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('s', $column);
+        $stmt->execute();
+        $exists = $stmt->get_result()->num_rows > 0;
+        $stmt->close();
+        return $exists;
+    }
+
+    function hasDgeRegistrationDocumentColumns(mysqli $conn): bool {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        $has = studentsTableHasColumn($conn, 'bank_passbook_doc');
+        return $has;
+    }
+
+    function ensureDgeRegistrationDocumentColumns(mysqli $conn): void {
+        if (hasDgeRegistrationDocumentColumns($conn)) {
+            return;
+        }
+
+        $columns = [
+            'bank_passbook_doc' => "VARCHAR(255) NULL DEFAULT NULL COMMENT 'Path to bank passbook (Aadhaar bank seeding)' AFTER other_documents_doc",
+            'income_certificate_doc' => "VARCHAR(255) NULL DEFAULT NULL COMMENT 'Path to income certificate' AFTER bank_passbook_doc",
+            'aadhaar_bank_seeding_doc' => "VARCHAR(255) NULL DEFAULT NULL COMMENT 'Path to Aadhaar bank seeding proof' AFTER income_certificate_doc",
+        ];
+
+        foreach ($columns as $name => $definition) {
+            if (studentsTableHasColumn($conn, $name)) {
+                continue;
+            }
+            if (!$conn->query("ALTER TABLE students ADD COLUMN $name $definition")) {
+                throw new RuntimeException('Failed to add column ' . $name . ': ' . $conn->error);
+            }
+        }
+    }
+
     function getSchemesForCourse(mysqli $conn, int $courseId): array {
         if ($courseId <= 0) {
             return [];

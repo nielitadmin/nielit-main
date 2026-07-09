@@ -7,6 +7,7 @@ error_reporting(E_ALL);
 
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // ============================================================
 // DOCUMENT UPLOAD HELPER FUNCTIONS (from submit_registration.php)
@@ -43,7 +44,17 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
         return ['success'=>false,'error'=>$v['message']];
     }
 
-    $subdirs = ['aadhar'=>'aadhar','caste'=>'caste_certificates','tenth'=>'marksheets/10th','twelfth'=>'marksheets/12th','graduation'=>'marksheets/graduation','other'=>'other'];
+    $subdirs = [
+        'aadhar' => 'aadhar',
+        'caste' => 'caste_certificates',
+        'tenth' => 'marksheets/10th',
+        'twelfth' => 'marksheets/12th',
+        'graduation' => 'marksheets/graduation',
+        'bank_passbook' => 'dge/bank_passbook',
+        'income_certificate' => 'dge/income_certificate',
+        'aadhaar_bank_seeding' => 'dge/aadhaar_bank_seeding',
+        'other' => 'other',
+    ];
     $subdir  = $subdirs[$docCategory] ?? 'other';
     $dir     = __DIR__ . '/../student/uploads/' . $subdir . '/';
 
@@ -161,6 +172,9 @@ if (isset($_GET['id'])) {
     $result = $stmt->get_result();
     if ($result->num_rows > 0) {
         $student = $result->fetch_assoc();
+        ensureDgeRegistrationDocumentColumns($conn);
+        $has_dge_doc_cols = hasDgeRegistrationDocumentColumns($conn);
+        $is_dge_student = isDgeProjectScheme($conn, normalizeEnrollmentSchemeId($student['scheme_id'] ?? null));
     } else {
         $_SESSION['message'] = "Student not found!";
         $_SESSION['message_type'] = "danger";
@@ -357,6 +371,9 @@ if (isset($_POST['update_student'])) {
     $caste_certificate_doc = $student['caste_certificate_doc'] ?? '';
     $graduation_certificate_doc = $student['graduation_certificate_doc'] ?? '';
     $other_documents_doc = $student['other_documents_doc'] ?? '';
+    $bank_passbook_doc = $student['bank_passbook_doc'] ?? '';
+    $income_certificate_doc = $student['income_certificate_doc'] ?? '';
+    $aadhaar_bank_seeding_doc = $student['aadhaar_bank_seeding_doc'] ?? '';
     
     // Document category mapping
     $docCats = [
@@ -365,6 +382,9 @@ if (isset($_POST['update_student'])) {
         'twelfth_marksheet_doc' => 'twelfth',
         'caste_certificate_doc' => 'caste',
         'graduation_certificate_doc' => 'graduation',
+        'bank_passbook_doc' => 'bank_passbook',
+        'income_certificate_doc' => 'income_certificate',
+        'aadhaar_bank_seeding_doc' => 'aadhaar_bank_seeding',
         'other_documents_doc' => 'other'
     ];
     
@@ -413,6 +433,7 @@ if (isset($_POST['update_student'])) {
     }
 
     // Update student table
+    $dgeDocSql = $has_dge_doc_cols ? ', bank_passbook_doc=?, income_certificate_doc=?, aadhaar_bank_seeding_doc=?' : '';
     $update_sql = "UPDATE students SET 
         name=?, father_name=?, mother_name=?, dob=?, age=?, mobile=?, email=?, 
         course=?, status=?, address=?, city=?, state=?, pincode=?, aadhar=?, apaar_id=?,
@@ -420,7 +441,7 @@ if (isset($_POST['update_student'])) {
         college_name=?, utr_number=?, training_center=?,
         passport_photo=?, signature=?, left_thumb_impression=?, documents=?, payment_receipt=?,
         aadhar_card_doc=?, tenth_marksheet_doc=?, twelfth_marksheet_doc=?,
-        caste_certificate_doc=?, graduation_certificate_doc=?, other_documents_doc=?
+        caste_certificate_doc=?, graduation_certificate_doc=?, other_documents_doc=?{$dgeDocSql}
         WHERE student_id=?";
     
     $stmt = $conn->prepare($update_sql);
@@ -428,8 +449,8 @@ if (isset($_POST['update_student'])) {
         die("Statement preparation failed: " . $conn->error);
     }
     
-    $bindTypes = str_repeat('s', 38);
-    $stmt->bind_param($bindTypes, 
+    $bindTypes = str_repeat('s', 38) . ($has_dge_doc_cols ? 'sss' : '') . 's';
+    $bindArgs = [
         $name, $father_name, $mother_name, $dob, $age, $mobile, $email,
         $course, $status, $address, $city, $state, $pincode, $aadhar, $apaar_id,
         $gender, $religion, $marital_status, $category, $pwd_status, $distinguishing_marks, $position, $nationality,
@@ -437,7 +458,14 @@ if (isset($_POST['update_student'])) {
         $passport_photo, $signature, $left_thumb_impression, $documents, $payment_receipt,
         $aadhar_card_doc, $tenth_marksheet_doc, $twelfth_marksheet_doc,
         $caste_certificate_doc, $graduation_certificate_doc, $other_documents_doc,
-        $student_id);
+    ];
+    if ($has_dge_doc_cols) {
+        $bindArgs[] = $bank_passbook_doc;
+        $bindArgs[] = $income_certificate_doc;
+        $bindArgs[] = $aadhaar_bank_seeding_doc;
+    }
+    $bindArgs[] = $student_id;
+    $stmt->bind_param($bindTypes, ...$bindArgs);
 
     if ($stmt->execute()) {
         // Log successful database update
@@ -1254,7 +1282,7 @@ $courses_result = $conn->query($sql_courses);
                     <div class="form-grid-3">
                         <!-- 10th Marksheet -->
                         <div class="form-group">
-                            <label class="form-label">10th Marksheet/Certificate *</label>
+                            <label class="form-label">10th Certificate *</label>
                             <?php if (!empty($student['tenth_marksheet_doc'])): ?>
                                 <div class="photo-preview">
                                     <?php 
@@ -1279,12 +1307,12 @@ $courses_result = $conn->query($sql_courses);
                                 </div>
                             <?php endif; ?>
                             <input type="file" name="tenth_marksheet_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                            <small class="file-info">Upload new 10th marksheet (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
+                            <small class="file-info">Upload new 10th certificate (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
                         </div>
 
                         <!-- 12th Marksheet -->
                         <div class="form-group">
-                            <label class="form-label">12th Marksheet/Diploma</label>
+                            <label class="form-label">12th Certificate / Diploma Certificate<?php echo !empty($is_dge_student) ? ' *' : ''; ?></label>
                             <?php if (!empty($student['twelfth_marksheet_doc'])): ?>
                                 <div class="photo-preview">
                                     <?php 
@@ -1304,12 +1332,13 @@ $courses_result = $conn->query($sql_courses);
                                     </a>
                                 </div>
                             <?php else: ?>
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> Not uploaded (Optional)
+                                <div class="alert <?php echo !empty($is_dge_student) ? 'alert-warning' : 'alert-info'; ?>">
+                                    <i class="fas <?php echo !empty($is_dge_student) ? 'fa-exclamation-triangle' : 'fa-info-circle'; ?>"></i>
+                                    Not uploaded<?php echo !empty($is_dge_student) ? ' (Required for DGE project)' : ' (Optional)'; ?>
                                 </div>
                             <?php endif; ?>
                             <input type="file" name="twelfth_marksheet_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                            <small class="file-info">Upload new 12th marksheet (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
+                            <small class="file-info">Upload new 12th certificate or diploma (JPG/PNG/PDF, max 5MB for images, 10MB for PDF)</small>
                         </div>
 
                         <!-- Graduation Certificate -->
@@ -1412,6 +1441,110 @@ $courses_result = $conn->query($sql_courses);
                         </div>
                     </div>
                 </div>
+
+                <?php if (!empty($has_dge_doc_cols)): ?>
+                <div class="form-section">
+                    <h5 class="section-title">
+                        <i class="fas fa-briefcase"></i> DGE Project Documents
+                        <span class="badge <?php echo !empty($is_dge_student) ? 'bg-warning text-dark' : 'bg-info'; ?> ms-2">
+                            <?php echo !empty($is_dge_student) ? 'Required for DGE' : 'Optional'; ?>
+                        </span>
+                    </h5>
+                    <?php if (!empty($is_dge_student)): ?>
+                        <p class="text-muted mb-3" style="font-size: 0.9rem;">
+                            This student is registered under a DGE project. Upload bank passbook, income certificate, and Aadhaar bank seeding proof.
+                        </p>
+                    <?php endif; ?>
+                    <div class="form-grid-3">
+                        <div class="form-group">
+                            <label class="form-label">Bank Passbook<?php echo !empty($is_dge_student) ? ' *' : ''; ?></label>
+                            <?php if (!empty($student['bank_passbook_doc'])): ?>
+                                <div class="photo-preview">
+                                    <?php
+                                    $ext = pathinfo($student['bank_passbook_doc'], PATHINFO_EXTENSION);
+                                    if (in_array(strtolower($ext), ['jpg', 'jpeg', 'png'])):
+                                    ?>
+                                        <img src="<?php echo APP_URL . '/' . $student['bank_passbook_doc']; ?>" alt="Bank Passbook">
+                                    <?php else: ?>
+                                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #dc3545;"></i><br>
+                                    <?php endif; ?>
+                                    <a href="<?php echo APP_URL . '/' . $student['bank_passbook_doc']; ?>" target="_blank" class="btn btn-sm btn-primary mt-2">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="<?php echo APP_URL . '/' . $student['bank_passbook_doc']; ?>" download class="btn btn-sm btn-success mt-2">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert <?php echo !empty($is_dge_student) ? 'alert-warning' : 'alert-info'; ?>">
+                                    <i class="fas <?php echo !empty($is_dge_student) ? 'fa-exclamation-triangle' : 'fa-info-circle'; ?>"></i>
+                                    Not uploaded<?php echo !empty($is_dge_student) ? ' (Required for DGE project)' : ' (Optional)'; ?>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" name="bank_passbook_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <small class="file-info">Bank passbook page linked to Aadhaar bank seeding</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Income Certificate<?php echo !empty($is_dge_student) ? ' *' : ''; ?></label>
+                            <?php if (!empty($student['income_certificate_doc'])): ?>
+                                <div class="photo-preview">
+                                    <?php
+                                    $ext = pathinfo($student['income_certificate_doc'], PATHINFO_EXTENSION);
+                                    if (in_array(strtolower($ext), ['jpg', 'jpeg', 'png'])):
+                                    ?>
+                                        <img src="<?php echo APP_URL . '/' . $student['income_certificate_doc']; ?>" alt="Income Certificate">
+                                    <?php else: ?>
+                                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #dc3545;"></i><br>
+                                    <?php endif; ?>
+                                    <a href="<?php echo APP_URL . '/' . $student['income_certificate_doc']; ?>" target="_blank" class="btn btn-sm btn-primary mt-2">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="<?php echo APP_URL . '/' . $student['income_certificate_doc']; ?>" download class="btn btn-sm btn-success mt-2">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert <?php echo !empty($is_dge_student) ? 'alert-warning' : 'alert-info'; ?>">
+                                    <i class="fas <?php echo !empty($is_dge_student) ? 'fa-exclamation-triangle' : 'fa-info-circle'; ?>"></i>
+                                    Not uploaded<?php echo !empty($is_dge_student) ? ' (Required for DGE project)' : ' (Optional)'; ?>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" name="income_certificate_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <small class="file-info">Income certificate from competent authority</small>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Aadhaar Bank Seeding Proof<?php echo !empty($is_dge_student) ? ' *' : ''; ?></label>
+                            <?php if (!empty($student['aadhaar_bank_seeding_doc'])): ?>
+                                <div class="photo-preview">
+                                    <?php
+                                    $ext = pathinfo($student['aadhaar_bank_seeding_doc'], PATHINFO_EXTENSION);
+                                    if (in_array(strtolower($ext), ['jpg', 'jpeg', 'png'])):
+                                    ?>
+                                        <img src="<?php echo APP_URL . '/' . $student['aadhaar_bank_seeding_doc']; ?>" alt="Aadhaar Bank Seeding Proof">
+                                    <?php else: ?>
+                                        <i class="fas fa-file-pdf" style="font-size: 48px; color: #dc3545;"></i><br>
+                                    <?php endif; ?>
+                                    <a href="<?php echo APP_URL . '/' . $student['aadhaar_bank_seeding_doc']; ?>" target="_blank" class="btn btn-sm btn-primary mt-2">
+                                        <i class="fas fa-eye"></i> View
+                                    </a>
+                                    <a href="<?php echo APP_URL . '/' . $student['aadhaar_bank_seeding_doc']; ?>" download class="btn btn-sm btn-success mt-2">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <div class="alert <?php echo !empty($is_dge_student) ? 'alert-warning' : 'alert-info'; ?>">
+                                    <i class="fas <?php echo !empty($is_dge_student) ? 'fa-exclamation-triangle' : 'fa-info-circle'; ?>"></i>
+                                    Not uploaded<?php echo !empty($is_dge_student) ? ' (Required for DGE project)' : ' (Optional)'; ?>
+                                </div>
+                            <?php endif; ?>
+                            <input type="file" name="aadhaar_bank_seeding_doc" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
+                            <small class="file-info">Proof of Aadhaar linked with bank account</small>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Action Buttons -->
                 <div class="action-buttons">
