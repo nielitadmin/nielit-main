@@ -2591,14 +2591,85 @@ function showStep(step) {
 }
 window.showRegistrationStep = showStep;
 
+function validateRegistrationStep(step) {
+    const section = document.getElementById('level' + step);
+    if (!section) {
+        return { valid: true };
+    }
+
+    const fields = section.querySelectorAll('input[required], select[required], textarea[required]');
+    let firstInvalid = null;
+
+    fields.forEach(function (field) {
+        field.classList.remove('is-invalid');
+    });
+
+    fields.forEach(function (field) {
+        if (field.type === 'file' || field.type === 'hidden') {
+            return;
+        }
+
+        let isEmpty = false;
+        if (field.type === 'radio') {
+            isEmpty = !section.querySelector('input[name="' + field.name + '"]:checked');
+        } else {
+            isEmpty = !String(field.value || '').trim();
+        }
+
+        if (isEmpty) {
+            field.classList.add('is-invalid');
+            if (!firstInvalid) {
+                firstInvalid = field;
+            }
+            return;
+        }
+
+        if (typeof validateField === 'function' && validateField(field) === false) {
+            field.classList.add('is-invalid');
+            if (!firstInvalid) {
+                firstInvalid = field;
+            }
+        }
+    });
+
+    if (firstInvalid) {
+        const prettyName = (firstInvalid.name || 'field').replace(/_/g, ' ');
+        return {
+            valid: false,
+            field: firstInvalid,
+            message: 'Please complete all required fields on this step before continuing (missing: ' + prettyName + ').'
+        };
+    }
+
+    return { valid: true };
+}
+
 var nextBtn = document.getElementById('nextBtn');
 if (nextBtn) {
     nextBtn.addEventListener('click', function (e) {
         e.preventDefault();
-        if (currentStep < totalSteps) {
-            currentStep++;
-            showStep(currentStep);
+        if (currentStep >= totalSteps) {
+            return;
         }
+
+        const validation = validateRegistrationStep(currentStep);
+        if (!validation.valid) {
+            if (typeof toast !== 'undefined' && toast.error) {
+                toast.error(validation.message);
+            } else {
+                alert(validation.message);
+            }
+            if (validation.field) {
+                validation.field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (typeof validation.field.focus === 'function') {
+                    validation.field.focus();
+                }
+            }
+            return;
+        }
+
+        currentStep++;
+        showStep(currentStep);
     });
 }
 
@@ -4105,7 +4176,9 @@ document.getElementById('training_center').addEventListener('change', function()
 <?php endif; ?>
 
 // Form validation before submit (novalidate on form avoids hidden-step HTML5 blocking)
-document.getElementById('registrationForm').addEventListener('submit', function(e) {
+const registrationFormEl = document.getElementById('registrationForm');
+if (registrationFormEl) {
+registrationFormEl.addEventListener('submit', function(e) {
     const form = this;
     const submitBtn = document.getElementById('submitBtn');
     const defaultBtnHtml = '<i class="fas fa-paper-plane me-2"></i>Submit Registration';
@@ -4204,7 +4277,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');
         if (!input || !input.files || !input.files[0]) {
-            if (registrationIsDgeSchemeSelected() && ['bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].indexOf(fileName) !== -1) {
+            if (typeof window.registrationIsDgeSchemeSelected === 'function' && window.registrationIsDgeSchemeSelected() && ['bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].indexOf(fileName) !== -1) {
                 return failValidation('Please upload ' + fileName.replace(/_/g, ' ') + ' for DGE project registration.', fileName);
             }
             continue;
@@ -4260,6 +4333,7 @@ document.getElementById('registrationForm').addEventListener('submit', function(
         window.clearRegistrationDraft();
     }
 });
+}
 
 // ===== FLYER MODAL FUNCTIONS =====
 function openFlyerModal(imageSrc) {
