@@ -165,8 +165,8 @@ foreach ($directoryRows as $dirRow) {
 <div class="page-card p-4 mb-4 border border-info">
     <h2 class="h5 mb-2"><i class="fas fa-address-book text-info"></i> Student Quick Directory</h2>
     <p class="text-muted small mb-4">
-        Each student card shows a <strong>large passport photo</strong> (click to enlarge), plus name, course, address, category, mobile, and apply date.
-        Filter by course or search above — matches appear here automatically.
+        Each student card shows a <strong>large passport photo</strong> (click to enlarge), plus name, <strong>status</strong>, assigned course(s), address, category, mobile, and apply date.
+        Use <strong>Assigned Course</strong> and <strong>Status</strong> to narrow the list, then click <strong>Show Directory</strong>.
     </p>
 
     <form method="GET" class="row g-3 mb-4" id="inspector-directory-form">
@@ -185,9 +185,9 @@ foreach ($directoryRows as $dirRow) {
         <?php endif; ?>
 
         <div class="col-md-4">
-            <label class="form-label">Course</label>
+            <label class="form-label">Assigned Course</label>
             <select name="dir_course_id" id="dir-course-id" class="form-select">
-                <option value="">-- All courses --</option>
+                <option value="">-- All assigned courses --</option>
                 <?php foreach ($assignCoursesList as $course): ?>
                 <option value="<?php echo (int)$course['id']; ?>"
                     <?php echo (int)($directoryCriteria['course_id'] ?? 0) === (int)$course['id'] ? ' selected' : ''; ?>>
@@ -195,6 +195,7 @@ foreach ($directoryRows as $dirRow) {
                 </option>
                 <?php endforeach; ?>
             </select>
+            <small class="text-muted">Includes students assigned to this course via enrollment.</small>
         </div>
         <div class="col-md-4">
             <label class="form-label">Batch</label>
@@ -230,7 +231,7 @@ foreach ($directoryRows as $dirRow) {
                 </option>
                 <?php endforeach; ?>
             </select>
-            <small class="text-muted">Most enrolled students are <strong>Approved</strong>, not Pending.</small>
+            <small class="text-muted">Pending, Active, Rejected, or Inactive.</small>
         </div>
         <div class="col-md-3">
             <label class="form-label">Apply date from</label>
@@ -284,9 +285,16 @@ foreach ($directoryRows as $dirRow) {
             $applyRaw = $row['apply_date'] ?? null;
             $applyLabel = !empty($applyRaw) ? date('d M Y', strtotime((string)$applyRaw)) : '—';
             $category = trim((string)($row['category'] ?? ''));
+            $statusRaw = trim((string)($row['status'] ?? ''));
+            $statusLabel = inspectorDirectoryStatusLabel($statusRaw);
+            $statusBadgeClass = inspectorDirectoryStatusBadgeClass($statusRaw);
             $courseLabel = trim((string)($row['course_name'] ?? ('Course ID ' . ($row['course_id'] ?? ''))));
             if (!empty($row['course_code'])) {
                 $courseLabel .= ' (' . $row['course_code'] . ')';
+            }
+            $assignedCourses = trim((string)($row['assigned_courses'] ?? ''));
+            if ($assignedCourses === '') {
+                $assignedCourses = $courseLabel;
             }
         ?>
         <article class="inspector-directory-card">
@@ -315,19 +323,26 @@ foreach ($directoryRows as $dirRow) {
                         <div class="inspector-directory-field-value name">
                             <?php echo htmlspecialchars($row['name'] ?? '—'); ?>
                         </div>
-                        <?php if (!empty($row['student_id'])): ?>
-                        <small class="text-muted"><code><?php echo htmlspecialchars($row['student_id']); ?></code></small>
-                        <?php endif; ?>
+                        <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                            <?php if (!empty($row['student_id'])): ?>
+                            <small class="text-muted"><code><?php echo htmlspecialchars($row['student_id']); ?></code></small>
+                            <?php endif; ?>
+                            <?php if ($statusRaw !== ''): ?>
+                            <span class="badge <?php echo htmlspecialchars($statusBadgeClass); ?>">
+                                <?php echo htmlspecialchars($statusLabel); ?>
+                            </span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="col-md-6">
-                        <div class="inspector-directory-field-label">Class / Course</div>
+                        <div class="inspector-directory-field-label">Assigned Course(s)</div>
                         <div class="inspector-directory-field-value">
                             <?php
                             $classLabel = trim((string)($row['class_standard'] ?? ''));
                             if ($classLabel !== '') {
                                 echo 'Class ' . htmlspecialchars($classLabel) . ' — ';
                             }
-                            echo htmlspecialchars($courseLabel);
+                            echo htmlspecialchars($assignedCourses);
                             ?>
                         </div>
                     </div>

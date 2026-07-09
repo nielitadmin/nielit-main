@@ -18,9 +18,39 @@ if (!function_exists('inspectorDirectoryStatusOptions')) {
         return [
             'all' => 'All (except inactive)',
             'pending' => 'Pending',
-            'approved' => 'Approved / Active',
+            'active' => 'Active / Approved',
             'rejected' => 'Rejected',
+            'inactive' => 'Inactive / Removed',
         ];
+    }
+}
+
+if (!function_exists('inspectorDirectoryStatusBadgeClass')) {
+    function inspectorDirectoryStatusBadgeClass(string $status): string
+    {
+        $status = strtolower(trim($status));
+        return match ($status) {
+            'active', 'approved' => 'bg-success',
+            'pending' => 'bg-warning text-dark',
+            'rejected' => 'bg-danger',
+            'inactive' => 'bg-secondary',
+            default => 'bg-light text-dark border',
+        };
+    }
+}
+
+if (!function_exists('inspectorDirectoryStatusLabel')) {
+    function inspectorDirectoryStatusLabel(string $status): string
+    {
+        $status = strtolower(trim($status));
+        if ($status === '') {
+            return 'Unknown';
+        }
+        if ($status === 'approved') {
+            return 'Approved';
+        }
+
+        return ucfirst($status);
     }
 }
 
@@ -35,13 +65,52 @@ if (!function_exists('inspectorDirectoryApplyStatusFilter')) {
             $where[] = "LOWER(s.status) NOT IN ('inactive')";
             return;
         }
-        if ($status === 'approved') {
+        if ($status === 'active' || $status === 'approved') {
             $where[] = "LOWER(s.status) IN ('approved', 'active')";
+            return;
+        }
+        if ($status === 'inactive') {
+            $where[] = "LOWER(s.status) IN ('inactive')";
             return;
         }
         $where[] = 'LOWER(s.status) = ?';
         $types .= 's';
         $params[] = $status;
+    }
+}
+
+if (!function_exists('inspectorDirectoryApplyCourseFilter')) {
+    /**
+     * Match primary course on students row and any assigned course via student_enrollments.
+     *
+     * @param array<int, string|int> $params
+     */
+    function inspectorDirectoryApplyCourseFilter(mysqli $conn, int $courseId, array &$where, string &$types, array &$params): void
+    {
+        if ($courseId <= 0) {
+            return;
+        }
+
+        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
+            $where[] = "(s.course_id = ? OR s.id IN (
+                SELECT se.student_record_id
+                FROM student_enrollments se
+                WHERE se.course_id = ? AND se.student_record_id IS NOT NULL
+            ) OR (s.account_id IS NOT NULL AND s.account_id IN (
+                SELECT se.account_id
+                FROM student_enrollments se
+                WHERE se.course_id = ? AND se.account_id IS NOT NULL
+            )))";
+            $types .= 'iii';
+            $params[] = $courseId;
+            $params[] = $courseId;
+            $params[] = $courseId;
+            return;
+        }
+
+        $where[] = 's.course_id = ?';
+        $types .= 'i';
+        $params[] = $courseId;
     }
 }
 
@@ -61,7 +130,7 @@ if (!function_exists('inspectorDirectoryEmptyHint')) {
              ORDER BY cnt DESC"
         );
         if (!$stmt) {
-            return 'Try Status: All or Approved / Active — many students are stored as approved, not pending.';
+            return 'Try Status: All or Active / Approved — many students are stored as active, not pending.';
         }
         $stmt->bind_param('i', $courseId);
         $stmt->execute();
@@ -83,7 +152,7 @@ if (!function_exists('inspectorDirectoryEmptyHint')) {
         $selected = strtolower(trim((string)($criteria['status'] ?? 'all')));
         $hint = 'This course has: ' . implode(', ', $parts) . '.';
         if ($selected === 'pending') {
-            $hint .= ' None are pending — use Status <strong>Approved / Active</strong> or <strong>All</strong>.';
+            $hint .= ' None are pending — use Status <strong>Active / Approved</strong> or <strong>All</strong>.';
         } elseif ($selected !== '' && $selected !== 'all') {
             $hint .= ' Try a different status filter.';
         }
@@ -264,11 +333,13 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
             $types .= str_repeat('i', count($recordIds));
             $params = array_merge($params, $recordIds);
         } else {
-            if (($criteria['course_id'] ?? 0) > 0) {
-                $where[] = 's.course_id = ?';
-                $types .= 'i';
-                $params[] = (int)$criteria['course_id'];
-            }
+            inspectorDirectoryApplyCourseFilter(
+                $conn,
+                (int)($criteria['course_id'] ?? 0),
+                $where,
+                $types,
+                $params
+            );
             if (($criteria['batch_id'] ?? 0) > 0) {
                 $where[] = 's.batch_id = ?';
                 $types .= 'i';
@@ -302,11 +373,25 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
             }
         }
 
+        $assignedCoursesSelect = '';
+        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
+            $assignedCoursesSelect = ", (
+                SELECT GROUP_CONCAT(DISTINCT CONCAT(c2.course_name, ' (', c2.course_code, ')')
+                    ORDER BY c2.course_name SEPARATOR ' | ')
+                FROM student_enrollments se2
+                INNER JOIN courses c2 ON c2.id = se2.course_id
+                WHERE (se2.student_record_id = s.id
+                    OR (s.account_id IS NOT NULL AND se2.account_id = s.account_id))
+                  AND LOWER(COALESCE(se2.status, 'active')) NOT IN ('inactive')
+            ) AS assigned_courses";
+        }
+
         $limit = empty($recordIds) ? 300 : max(50, count($recordIds));
         $sql = "SELECT s.id, s.student_id, s.name, s.mobile, s.category, s.class_standard, s.passport_photo,
-                       s.address, s.city, s.state, s.pincode, s.status,
+                       s.address, s.city, s.state, s.pincode, s.status, s.course_id,
                        c.course_name, c.course_code,
                        COALESCE(s.registration_date, s.created_at) AS apply_date
+                       {$assignedCoursesSelect}
                 FROM students s
                 LEFT JOIN courses c ON c.id = s.course_id
                 WHERE " . implode(' AND ', $where) . "
