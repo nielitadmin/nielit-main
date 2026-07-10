@@ -299,9 +299,10 @@ h1, h2, h3, .brand-title {
     justify-content: center;
     padding: clamp(1.25rem, 3vw, 2.5rem);
     background:
-        radial-gradient(ellipse 120% 80% at 50% 0%, rgba(245, 158, 11, 0.08) 0%, transparent 55%),
-        radial-gradient(ellipse 80% 60% at 100% 100%, rgba(10, 22, 40, 0.06) 0%, transparent 50%),
-        linear-gradient(160deg, #faf9f7 0%, #f0ece4 45%, #f7f5f1 100%);
+        radial-gradient(ellipse 130% 90% at 30% 10%, rgba(245, 158, 11, 0.22) 0%, transparent 50%),
+        radial-gradient(ellipse 100% 70% at 90% 90%, rgba(10, 22, 40, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 70% 40%, rgba(252, 211, 77, 0.15) 0%, transparent 40%),
+        linear-gradient(155deg, #f5f0e8 0%, #ebe4d8 40%, #f3efe9 100%);
     overflow: hidden;
     perspective: 1200px;
 }
@@ -312,11 +313,11 @@ h1, h2, h3, .brand-title {
     inset: 0;
     pointer-events: none;
     background:
-        linear-gradient(125deg, transparent 30%, rgba(245, 158, 11, 0.06) 45%, transparent 60%),
-        linear-gradient(235deg, transparent 40%, rgba(10, 22, 40, 0.04) 55%, transparent 70%);
-    background-size: 200% 200%;
-    animation: auroraShift 12s ease-in-out infinite;
-    opacity: 0.9;
+        linear-gradient(125deg, transparent 20%, rgba(245, 158, 11, 0.14) 42%, rgba(252, 211, 77, 0.08) 50%, transparent 65%),
+        linear-gradient(235deg, transparent 30%, rgba(10, 22, 40, 0.08) 50%, transparent 72%);
+    background-size: 220% 220%;
+    animation: auroraShift 10s ease-in-out infinite;
+    opacity: 1;
 }
 
 @keyframes auroraShift {
@@ -330,14 +331,14 @@ h1, h2, h3, .brand-title {
     inset: 0;
     pointer-events: none;
     background-image:
-        radial-gradient(circle at center, rgba(245, 158, 11, 0.35) 1px, transparent 1px);
-    background-size: 32px 32px;
-    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.35) 70%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.15) 30%, rgba(0,0,0,0.35) 70%, transparent 100%);
-    animation: gridPulse 8s ease-in-out infinite;
-    transform: perspective(500px) rotateX(60deg) scale(2.2);
-    transform-origin: center 80%;
-    opacity: 0.5;
+        radial-gradient(circle at center, rgba(245, 158, 11, 0.55) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 25%, rgba(0,0,0,0.55) 65%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.25) 25%, rgba(0,0,0,0.55) 65%, transparent 100%);
+    animation: gridPulse 6s ease-in-out infinite;
+    transform: perspective(500px) rotateX(58deg) scale(2.4);
+    transform-origin: center 85%;
+    opacity: 0.75;
 }
 
 @keyframes gridPulse {
@@ -360,52 +361,52 @@ h1, h2, h3, .brand-title {
 }
 
 .mesh-blob-1 {
-    width: 480px;
-    height: 480px;
-    background: radial-gradient(circle, rgba(245, 158, 11, 0.38) 0%, transparent 68%);
-    top: -15%;
-    right: -10%;
-    opacity: 0.75;
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(circle, rgba(245, 158, 11, 0.55) 0%, rgba(245, 158, 11, 0.15) 45%, transparent 70%);
+    top: -18%;
+    right: -12%;
+    opacity: 0.95;
     animation-delay: 0s;
 }
 
 .mesh-blob-2 {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(10, 22, 40, 0.14) 0%, transparent 68%);
-    bottom: 5%;
-    left: -12%;
-    opacity: 0.7;
+    width: 440px;
+    height: 440px;
+    background: radial-gradient(circle, rgba(10, 22, 40, 0.22) 0%, transparent 68%);
+    bottom: 0%;
+    left: -15%;
+    opacity: 0.85;
     animation-delay: -6s;
 }
 
 .mesh-blob-3 {
-    width: 320px;
-    height: 320px;
-    background: radial-gradient(circle, rgba(217, 119, 6, 0.28) 0%, transparent 68%);
-    top: 35%;
-    left: 25%;
-    opacity: 0.65;
+    width: 360px;
+    height: 360px;
+    background: radial-gradient(circle, rgba(217, 119, 6, 0.42) 0%, transparent 68%);
+    top: 32%;
+    left: 20%;
+    opacity: 0.9;
     animation-delay: -12s;
 }
 
 .mesh-blob-4 {
-    width: 260px;
-    height: 260px;
-    background: radial-gradient(circle, rgba(252, 211, 77, 0.25) 0%, transparent 68%);
-    bottom: 25%;
-    right: 15%;
-    opacity: 0.6;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(252, 211, 77, 0.4) 0%, transparent 68%);
+    bottom: 20%;
+    right: 10%;
+    opacity: 0.85;
     animation-delay: -3s;
 }
 
 .mesh-blob-5 {
-    width: 350px;
-    height: 350px;
-    background: radial-gradient(circle, rgba(10, 22, 40, 0.1) 0%, rgba(245, 158, 11, 0.12) 40%, transparent 70%);
-    top: 55%;
-    right: -5%;
-    opacity: 0.55;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(10, 22, 40, 0.15) 0%, rgba(245, 158, 11, 0.25) 40%, transparent 70%);
+    top: 50%;
+    right: -8%;
+    opacity: 0.8;
     animation-delay: -8s;
 }
 
@@ -434,29 +435,30 @@ h1, h2, h3, .brand-title {
 }
 
 .float-orb-1 {
-    width: 56px;
-    height: 56px;
-    top: 12%;
-    left: 8%;
+    width: 72px;
+    height: 72px;
+    top: 10%;
+    left: 6%;
     animation-delay: 0s;
+    opacity: 0.9;
 }
 
 .float-orb-2 {
-    width: 36px;
-    height: 36px;
-    top: 28%;
-    right: 10%;
+    width: 48px;
+    height: 48px;
+    top: 26%;
+    right: 8%;
     animation-delay: -4s;
-    opacity: 0.75;
+    opacity: 0.85;
 }
 
 .float-orb-3 {
-    width: 24px;
-    height: 24px;
-    bottom: 22%;
-    left: 15%;
+    width: 32px;
+    height: 32px;
+    bottom: 20%;
+    left: 12%;
     animation-delay: -8s;
-    opacity: 0.6;
+    opacity: 0.8;
 }
 
 @keyframes orbFloat3d {
@@ -608,9 +610,9 @@ h1, h2, h3, .brand-title {
     background: linear-gradient(
         105deg,
         transparent 42%,
-        rgba(255, 255, 255, 0.04) 48%,
-        rgba(245, 158, 11, 0.08) 50%,
-        rgba(255, 255, 255, 0.04) 52%,
+        rgba(255, 255, 255, 0.06) 48%,
+        rgba(245, 158, 11, 0.16) 50%,
+        rgba(255, 255, 255, 0.06) 52%,
         transparent 58%
     );
     animation: lightSweep 9s ease-in-out infinite;
@@ -1078,9 +1080,9 @@ h1, h2, h3, .brand-title {
 
 .form-control:focus {
     outline: none;
-    border-color: var(--gold);
+    border-color: var(--gold-dark);
     background: #fff;
-    box-shadow: 0 0 0 4px var(--gold-glow), 0 4px 16px rgba(245, 158, 11, 0.08);
+    box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.35), 0 4px 20px rgba(245, 158, 11, 0.15);
 }
 
 .password-wrap {

@@ -216,7 +216,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo htmlspecialchars(app_url('assets/css/admin-login.css'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(asset_url('assets/css/admin-login.css'), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
     <?php if (GOOGLE_OAUTH_ENABLED): ?>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -446,7 +446,7 @@ window.ADMIN_LOGIN_CONFIG = {
     showOtpForm: <?php echo json_encode($show_otp_form); ?>
 };
 </script>
-<script src="<?php echo htmlspecialchars(app_url('assets/js/admin-login.js'), ENT_QUOTES, 'UTF-8'); ?>"></script>
+<script src="<?php echo htmlspecialchars(asset_url('assets/js/admin-login.js'), ENT_QUOTES, 'UTF-8'); ?>"></script>
 
 </body>
 </html>

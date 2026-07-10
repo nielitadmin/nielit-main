@@ -42,6 +42,22 @@ if (!function_exists('clean_url_path')) {
     }
 
     /**
+     * Asset URL with filemtime cache-buster for CSS/JS.
+     */
+    function asset_url($path = '') {
+        $url = app_url($path);
+        $relative = ltrim(str_replace('\\', '/', (string) $path), '/');
+        $root = dirname(__DIR__);
+        $fullPath = $root . '/' . $relative;
+
+        if (is_file($fullPath)) {
+            return $url . '?v=' . filemtime($fullPath);
+        }
+
+        return $url;
+    }
+
+    /**
      * Build a root-relative URL without the .php extension.
      */
     function relative_url($path = '') {
