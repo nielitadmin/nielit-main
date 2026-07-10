@@ -13,6 +13,7 @@ composer.lock
 .env.local
 .env.*.local
 /config/
+config/google.local.php
 client_secret*.json
 client_secret_*.json
 

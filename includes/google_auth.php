@@ -3,6 +3,13 @@
  * Verify Google Identity Services ID tokens for admin login.
  */
 
+$googleLocalOverride = dirname(__DIR__) . '/config/google.local.php';
+if (is_file($googleLocalOverride)) {
+    require_once $googleLocalOverride;
+}
+
+require_once __DIR__ . '/google_config.php';
+
 if (!function_exists('getGoogleOAuthJavaScriptOrigins')) {
     /**
      * Origins that must be registered in Google Cloud Console for Sign-In to work.
