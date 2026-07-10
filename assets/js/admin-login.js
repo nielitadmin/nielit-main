@@ -22,10 +22,21 @@
     function initBannerCarousel() {
         const slides = document.querySelectorAll('.banner-slide');
         const dots = document.querySelectorAll('.banner-dot');
+        const progressBar = document.getElementById('bannerProgressBar');
         if (slides.length <= 1) return;
 
         let current = 0;
         let timer = null;
+        let progressTimer = null;
+        const intervalMs = 6000;
+        let progressStart = 0;
+
+        function updateProgress() {
+            if (!progressBar) return;
+            const elapsed = Date.now() - progressStart;
+            const pct = Math.min(100, (elapsed / intervalMs) * 100);
+            progressBar.style.width = pct + '%';
+        }
 
         function goTo(index) {
             slides[current].classList.remove('active');
@@ -33,6 +44,8 @@
             current = (index + slides.length) % slides.length;
             slides[current].classList.add('active');
             if (dots[current]) dots[current].classList.add('active');
+            progressStart = Date.now();
+            if (progressBar) progressBar.style.width = '0%';
         }
 
         function next() {
@@ -41,11 +54,15 @@
 
         function start() {
             stop();
-            timer = setInterval(next, 5500);
+            progressStart = Date.now();
+            if (progressBar) progressBar.style.width = '0%';
+            progressTimer = setInterval(updateProgress, 50);
+            timer = setInterval(next, intervalMs);
         }
 
         function stop() {
             if (timer) clearInterval(timer);
+            if (progressTimer) clearInterval(progressTimer);
         }
 
         dots.forEach((dot, index) => {
@@ -56,6 +73,47 @@
         });
 
         start();
+    }
+
+    function initBannerParallax() {
+        const panel = document.getElementById('bannerPanel');
+        if (!panel) return;
+
+        panel.addEventListener('mousemove', function (e) {
+            const rect = panel.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width - 0.5;
+            const y = (e.clientY - rect.top) / rect.height - 0.5;
+
+            panel.querySelectorAll('.banner-slide.active .banner-parallax-layer').forEach(function (layer) {
+                layer.style.transform = 'translate(' + (x * 18) + 'px, ' + (y * 12) + 'px)';
+            });
+        });
+
+        panel.addEventListener('mouseleave', function () {
+            panel.querySelectorAll('.banner-parallax-layer').forEach(function (layer) {
+                layer.style.transform = '';
+            });
+        });
+    }
+
+    function initParticles() {
+        const container = document.getElementById('panelParticles');
+        if (!container) return;
+
+        const count = window.matchMedia('(max-width: 768px)').matches ? 12 : 22;
+
+        for (let i = 0; i < count; i++) {
+            const p = document.createElement('span');
+            p.className = 'particle';
+            const size = Math.random() * 4 + 2;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.left = Math.random() * 100 + '%';
+            p.style.animationDuration = (Math.random() * 12 + 14) + 's';
+            p.style.animationDelay = (Math.random() * 10) + 's';
+            p.style.opacity = (Math.random() * 0.35 + 0.15).toString();
+            container.appendChild(p);
+        }
     }
 
     function submitGoogleCredential(credential) {
@@ -230,6 +288,8 @@
 
     document.addEventListener('DOMContentLoaded', function () {
         initBannerCarousel();
+        initBannerParallax();
+        initParticles();
         initMascot();
         initFormLoading();
 

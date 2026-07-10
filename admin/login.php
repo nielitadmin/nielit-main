@@ -225,22 +225,27 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
 <body>
 
 <div class="login-page">
-    <aside class="banner-panel" aria-label="Institute highlights">
-        <div class="banner-carousel">
+    <aside class="banner-panel" aria-label="Institute highlights" id="bannerPanel">
+        <div class="banner-carousel" id="bannerCarousel">
             <?php foreach ($hero_slides as $i => $slide): ?>
-            <div class="banner-slide<?php echo $i === 0 ? ' active' : ''; ?>">
-                <img
-                    src="<?php echo htmlspecialchars((string) $slide['url'], ENT_QUOTES, 'UTF-8'); ?>"
-                    alt="<?php echo htmlspecialchars((string) $slide['alt'], ENT_QUOTES, 'UTF-8'); ?>"
-                    <?php echo $i === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?>
-                >
+            <div class="banner-slide<?php echo $i === 0 ? ' active' : ''; ?>" data-index="<?php echo $i; ?>">
+                <div class="banner-parallax-layer">
+                    <img
+                        src="<?php echo htmlspecialchars((string) $slide['url'], ENT_QUOTES, 'UTF-8'); ?>"
+                        alt="<?php echo htmlspecialchars((string) $slide['alt'], ENT_QUOTES, 'UTF-8'); ?>"
+                        <?php echo $i === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?>
+                    >
+                </div>
             </div>
             <?php endforeach; ?>
         </div>
 
+        <div class="banner-vignette" aria-hidden="true"></div>
+
         <div class="banner-shapes" aria-hidden="true">
             <div class="shape shape-1"></div>
             <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
         </div>
 
         <div class="banner-overlay">
@@ -266,18 +271,31 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
         </div>
 
         <?php if (count($hero_slides) > 1): ?>
-        <div class="banner-dots" aria-label="Banner navigation">
-            <?php foreach ($hero_slides as $i => $slide): ?>
-            <button type="button" class="banner-dot<?php echo $i === 0 ? ' active' : ''; ?>" aria-label="Show banner <?php echo $i + 1; ?>"></button>
-            <?php endforeach; ?>
+        <div class="banner-controls">
+            <div class="banner-progress" aria-hidden="true"><span class="banner-progress-bar" id="bannerProgressBar"></span></div>
+            <div class="banner-dots" aria-label="Banner navigation">
+                <?php foreach ($hero_slides as $i => $slide): ?>
+                <button type="button" class="banner-dot<?php echo $i === 0 ? ' active' : ''; ?>" aria-label="Show banner <?php echo $i + 1; ?>"></button>
+                <?php endforeach; ?>
+            </div>
         </div>
         <?php endif; ?>
     </aside>
 
     <main class="login-panel">
+        <div class="gradient-mesh" aria-hidden="true">
+            <span class="mesh-blob mesh-blob-1"></span>
+            <span class="mesh-blob mesh-blob-2"></span>
+            <span class="mesh-blob mesh-blob-3"></span>
+            <span class="mesh-blob mesh-blob-4"></span>
+        </div>
+        <div class="panel-particles" id="panelParticles" aria-hidden="true"></div>
+
         <div class="login-panel-inner">
             <div class="login-card">
+                <div class="login-card-accent" aria-hidden="true"></div>
                 <div class="login-header">
+                    <span class="security-badge"><i class="fas fa-lock"></i> OTP Secured</span>
                     <div class="mascot-container">
                         <div class="mascot">
                             <div class="mascot-face">
@@ -394,7 +412,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                 </div>
 
                 <div class="login-footer">
-                    <p><i class="fas fa-shield-alt"></i> Secure Admin Access with OTP Verification</p>
+                    <p class="footer-security"><span class="footer-security-icon"><i class="fas fa-shield-alt"></i></span> Secure Admin Access with OTP Verification</p>
                     <p>&copy; <?php echo date('Y'); ?> NIELIT Bhubaneswar. All rights reserved.</p>
                 </div>
             </div>
