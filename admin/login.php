@@ -282,16 +282,31 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
         <?php endif; ?>
     </aside>
 
-    <main class="login-panel">
+    <main class="login-panel" id="loginPanel">
+        <div class="panel-aurora" aria-hidden="true"></div>
+        <div class="panel-grid" aria-hidden="true"></div>
         <div class="gradient-mesh" aria-hidden="true">
             <span class="mesh-blob mesh-blob-1"></span>
             <span class="mesh-blob mesh-blob-2"></span>
             <span class="mesh-blob mesh-blob-3"></span>
             <span class="mesh-blob mesh-blob-4"></span>
+            <span class="mesh-blob mesh-blob-5"></span>
+        </div>
+        <div class="panel-3d-scene" aria-hidden="true">
+            <div class="float-orb float-orb-1"></div>
+            <div class="float-orb float-orb-2"></div>
+            <div class="float-orb float-orb-3"></div>
+            <div class="float-ring float-ring-1"></div>
+            <div class="float-ring float-ring-2"></div>
+            <div class="float-cube float-cube-1"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="float-cube float-cube-2"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+            <div class="float-diamond float-diamond-1"></div>
+            <div class="float-diamond float-diamond-2"></div>
         </div>
         <div class="panel-particles" id="panelParticles" aria-hidden="true"></div>
+        <div class="panel-light-beam" aria-hidden="true"></div>
 
-        <div class="login-panel-inner">
+        <div class="login-panel-inner" id="loginPanelInner">
             <div class="login-card">
                 <div class="login-card-accent" aria-hidden="true"></div>
                 <div class="login-header">

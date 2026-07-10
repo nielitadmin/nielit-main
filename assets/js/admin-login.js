@@ -100,20 +100,76 @@
         const container = document.getElementById('panelParticles');
         if (!container) return;
 
-        const count = window.matchMedia('(max-width: 768px)').matches ? 12 : 22;
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+        const count = isMobile ? 18 : 35;
 
         for (let i = 0; i < count; i++) {
             const p = document.createElement('span');
-            p.className = 'particle';
-            const size = Math.random() * 4 + 2;
-            p.style.width = size + 'px';
-            p.style.height = size + 'px';
+            const roll = Math.random();
+            if (roll > 0.82) {
+                p.className = 'particle particle-ring';
+                const size = Math.random() * 12 + 8;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+            } else if (roll > 0.65) {
+                p.className = 'particle particle-navy';
+                const size = Math.random() * 3 + 2;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+            } else {
+                p.className = 'particle particle-gold';
+                const size = Math.random() * 5 + 2;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+            }
+
             p.style.left = Math.random() * 100 + '%';
-            p.style.animationDuration = (Math.random() * 12 + 14) + 's';
-            p.style.animationDelay = (Math.random() * 10) + 's';
-            p.style.opacity = (Math.random() * 0.35 + 0.15).toString();
+            p.style.animationDuration = (Math.random() * 14 + 12) + 's';
+            p.style.animationDelay = (Math.random() * 12) + 's';
             container.appendChild(p);
         }
+    }
+
+    function initCardTilt() {
+        const panel = document.getElementById('loginPanel');
+        const inner = document.getElementById('loginPanelInner');
+        if (!panel || !inner) return;
+
+        if (window.matchMedia('(max-width: 1024px)').matches) return;
+
+        panel.addEventListener('mousemove', function (e) {
+            const rect = panel.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width - 0.5;
+            const y = (e.clientY - rect.top) / rect.height - 0.5;
+
+            inner.style.transform =
+                'perspective(900px) rotateY(' + (x * 6) + 'deg) rotateX(' + (-y * 5) + 'deg) translateZ(10px)';
+        });
+
+        panel.addEventListener('mouseleave', function () {
+            inner.style.transform = '';
+        });
+    }
+
+    function initPanelParallax() {
+        const panel = document.getElementById('loginPanel');
+        const scene = panel && panel.querySelector('.panel-3d-scene');
+        if (!panel || !scene) return;
+
+        if (window.matchMedia('(max-width: 1024px)').matches) return;
+
+        panel.addEventListener('mousemove', function (e) {
+            const rect = panel.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width - 0.5;
+            const y = (e.clientY - rect.top) / rect.height - 0.5;
+
+            scene.style.transform =
+                'translate(' + (x * -12) + 'px, ' + (y * -8) + 'px)';
+        });
+
+        panel.addEventListener('mouseleave', function () {
+            scene.style.transform = '';
+        });
     }
 
     function submitGoogleCredential(credential) {
@@ -290,6 +346,8 @@
         initBannerCarousel();
         initBannerParallax();
         initParticles();
+        initCardTilt();
+        initPanelParallax();
         initMascot();
         initFormLoading();
 
