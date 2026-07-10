@@ -721,7 +721,7 @@ if (!function_exists('homepageResolveUrl')) {
         if ($url === '' || $url === '#') {
             return $url;
         }
-        if (preg_match('/^https?:\/\//i', $url) || str_starts_with($url, 'mailto:')) {
+        if (preg_match('/^https?:\/\//i', $url) || strpos($url, 'mailto:') === 0) {
             return $url;
         }
         if (function_exists('relative_url')) {

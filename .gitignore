@@ -13,6 +13,8 @@ composer.lock
 .env.local
 .env.*.local
 /config/
+client_secret*.json
+client_secret_*.json
 
 # Hostinger / local deploy artifacts
 .deploy-cache/

@@ -11,6 +11,9 @@
     # Block direct web access to sensitive directories
     RewriteRule ^(?:config|includes|migrations|libraries)(?:/|$) - [F,L]
 
+    # Block Google OAuth credential JSON if accidentally placed in web root
+    RewriteRule ^client_secret_.*\.json$ - [F,L]
+
     # Serve existing files and directories as-is
     RewriteCond %{REQUEST_FILENAME} -f [OR]
     RewriteCond %{REQUEST_FILENAME} -d
