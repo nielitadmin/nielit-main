@@ -345,20 +345,6 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                     <?php else: ?>
 
                     <?php if (GOOGLE_OAUTH_ENABLED): ?>
-                    <div class="alert alert-info google-setup-hint" id="googleSetupHint">
-                        <i class="fas fa-info-circle"></i>
-                        <div>
-                            <strong>Google Sign-In setup</strong><br>
-                            Your browser origin is <code id="browserOrigin">…</code>.
-                            If you see <em>origin_mismatch</em>, add that exact origin in
-                            <a href="<?php echo htmlspecialchars(GOOGLE_CLOUD_CREDENTIALS_URL, ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Google Cloud Console</a>
-                            → OAuth Client → <strong>Authorized JavaScript origins</strong> (no path, no trailing slash).<br>
-                            Required origins:
-                            <?php foreach (getGoogleOAuthJavaScriptOrigins() as $origin): ?>
-                                <code class="origin-chip"><?php echo htmlspecialchars($origin, ENT_QUOTES, 'UTF-8'); ?></code>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
                     <form method="POST" action="login.php" id="googleLoginForm" class="google-signin-wrap">
                         <input type="hidden" name="google_credential" id="googleCredentialInput">
                         <div id="googleSignInContainer"></div>
@@ -418,8 +404,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
 window.ADMIN_LOGIN_CONFIG = {
     googleClientId: <?php echo json_encode(GOOGLE_CLIENT_ID); ?>,
     googleEnabled: <?php echo json_encode(GOOGLE_OAUTH_ENABLED); ?>,
-    showOtpForm: <?php echo json_encode($show_otp_form); ?>,
-    appOriginHint: <?php echo json_encode(getAppUrlOriginHint()); ?>
+    showOtpForm: <?php echo json_encode($show_otp_form); ?>
 };
 </script>
 <script src="<?php echo htmlspecialchars(app_url('assets/js/admin-login.js'), ENT_QUOTES, 'UTF-8'); ?>"></script>

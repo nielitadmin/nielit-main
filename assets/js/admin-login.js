@@ -226,11 +226,6 @@
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        const originEl = document.getElementById('browserOrigin');
-        if (originEl && window.location && window.location.origin) {
-            originEl.textContent = window.location.origin;
-        }
-
         initBannerCarousel();
         initMascot();
         initFormLoading();

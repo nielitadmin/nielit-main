@@ -552,28 +552,6 @@ h1, h2, h3, .brand-title {
     width: 100% !important;
 }
 
-.origin-chip {
-    display: inline-block;
-    margin: 0.15rem 0.25rem 0 0;
-    padding: 0.1rem 0.35rem;
-    background: #fff;
-    border-radius: 6px;
-    font-size: 0.75rem;
-}
-
-.google-setup-hint code#browserOrigin {
-    background: #fff;
-    padding: 0.1rem 0.35rem;
-    border-radius: 6px;
-    font-weight: 700;
-    color: #1d4ed8;
-}
-
-.google-setup-hint a {
-    color: #1d4ed8;
-    font-weight: 600;
-}
-
 #googleSignInContainer {
     display: flex;
     justify-content: center;
