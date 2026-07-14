@@ -1258,6 +1258,8 @@ Q4 (Jan–Mar)
 
                     <th>Status</th>
 
+                    <th>Scanned Order</th>
+
                 </tr>
 
                 </thead>
@@ -1268,7 +1270,7 @@ Q4 (Jan–Mar)
 
                 <tr>
 
-                    <td colspan="8" class="text-center">
+                    <td colspan="9" class="text-center">
 
                         No Batch Found
 
@@ -1347,6 +1349,32 @@ Q4 (Jan–Mar)
                             <?php echo htmlspecialchars($batch['status']);?>
 
                         </span>
+
+                    </td>
+
+                    <td>
+
+                        <?php if (!empty($batch['scanned_admission_order'])): ?>
+
+                            <form method="post" action="<?php echo APP_URL; ?>/batch_module/admin/upload_scanned_admission_order.php" style="display:inline;">
+
+                                <input type="hidden" name="action" value="download">
+
+                                <input type="hidden" name="batch_id" value="<?php echo (int) $batch['id']; ?>">
+
+                                <button type="submit" class="btn btn-sm btn-outline-primary">
+
+                                    <i class="fas fa-download"></i> Download
+
+                                </button>
+
+                            </form>
+
+                        <?php else: ?>
+
+                            <span class="text-muted">—</span>
+
+                        <?php endif; ?>
 
                     </td>
 

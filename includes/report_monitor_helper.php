@@ -1063,6 +1063,13 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 
+    function report_monitor_table_has_column($conn, $table, $column) {
+        $safeTable = $conn->real_escape_string($table);
+        $safeColumn = $conn->real_escape_string($column);
+        $result = $conn->query("SHOW COLUMNS FROM `{$safeTable}` LIKE '{$safeColumn}'");
+        return $result && $result->num_rows > 0;
+    }
+
     function report_monitor_get_batch_details($conn, array $courseIds = [], $centreId = 0) {
         if (!report_monitor_table_exists($conn, 'batches')) {
             return [];
@@ -1078,6 +1085,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $facultySelect = $hasBatchFaculty
             ? report_monitor_batch_faculty_names_sql('b') . ' AS faculty_names'
             : "COALESCE(NULLIF(TRIM(b.batch_coordinator), ''), NULLIF(TRIM(b.batch_coordinator), '0')) AS faculty_names";
+        $hasScannedColumn = report_monitor_table_has_column($conn, 'batches', 'scanned_admission_order');
+        $scannedSelect = $hasScannedColumn
+            ? 'b.scanned_admission_order AS scanned_admission_order'
+            : 'NULL AS scanned_admission_order';
 
         $sql = "SELECT
                     b.id,
@@ -1094,7 +1105,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     c.course_name,
                     {$categoryExpr} AS course_category,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
-                    {$facultySelect}
+                    {$facultySelect},
+                    {$scannedSelect}
                 FROM batches b
                 INNER JOIN courses c ON c.id = b.course_id
                 LEFT JOIN centres cen ON cen.id = c.centre_id
@@ -1130,6 +1142,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 'fill_rate' => $seatsTotal > 0 ? round(($enrolled / $seatsTotal) * 100, 1) : 0,
                 'status' => $row['status'] ?? 'active',
                 'created_at' => $row['created_at'],
+                'scanned_admission_order' => $row['scanned_admission_order'] ?? '',
             ];
         }
 
