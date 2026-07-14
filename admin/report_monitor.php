@@ -149,6 +149,13 @@ $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $selectedYear
 );
 
+$internshipCourseSummary = report_monitor_get_internship_course_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+
 $categoryStats = report_monitor_get_category_stats(
     $conn,
     $scopedCourseIds,
@@ -1061,6 +1068,50 @@ Q4 (Jan–Mar)
         </div>
     </div>
 </div>
+
+<?php if (!empty($internshipCourseSummary)): ?>
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <strong>Internship / Bootcamp Course Admissions</strong>
+            <div class="text-muted">Internship course-level admissions details for FY <?php echo htmlspecialchars($selectedYear); ?></div>
+        </div>
+        <span class="badge bg-primary"><?php echo number_format(array_sum(array_column($internshipCourseSummary, 'total'))); ?> Admissions</span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Course</th>
+                    <th>Code</th>
+                    <th>Centre</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($internshipCourseSummary as $courseRow): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($courseRow['course_name']); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['course_code']); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['centre_name']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($courseRow['total']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- CENTRE WISE TABLE -->
 
