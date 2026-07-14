@@ -131,7 +131,8 @@ $monthFilter = [
 $overallStats = report_monitor_get_overall_stats(
     $conn,
     $scopedCourseIds,
-    $centreId
+    $centreId,
+    $monthFilter
 );
 
 $centreStats = report_monitor_get_centre_stats(

@@ -328,7 +328,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $stmt->get_result();
     }
 
-    function report_monitor_get_overall_stats($conn, array $courseIds = [], $centreId = 0) {
+    function report_monitor_get_overall_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
         $stats = [
             'total_courses' => 0,
             'active_courses' => 0,
@@ -361,7 +361,15 @@ if (!function_exists('get_report_monitor_category_groups')) {
                          FROM batches b
                          INNER JOIN courses c ON c.id = b.course_id
                          WHERE 1=1{$batchScope['sql']}";
-            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchScope['types'], $batchScope['values']);
+
+            $batchTypes = $batchScope['types'];
+            $batchValues = $batchScope['values'];
+
+            // Apply month/quarter filter to batches (by start_date/created_at expression)
+            $batchMonthExpr = report_monitor_batch_month_column_sql('b');
+            report_monitor_append_month_between($batchSql, $batchTypes, $batchValues, $batchMonthExpr, $monthFilter);
+
+            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchTypes, $batchValues);
             if ($batchResult && $row = $batchResult->fetch_assoc()) {
                 $stats['total_batches'] = (int) ($row['total'] ?? 0);
                 $stats['active_batches'] = (int) ($row['active'] ?? 0);
