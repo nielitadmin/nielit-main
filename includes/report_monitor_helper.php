@@ -1162,6 +1162,64 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $rows;
     }
 
+    /**
+     * Return number of students (registered in the given monthFilter) grouped by batch.
+     * Students counted are those active and assigned to a batch (via students.batch_id or batch_students mapping).
+     */
+    function report_monitor_get_admissions_by_batch($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        $rows = [];
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+
+        $activeCondition = report_monitor_student_active_sql('s');
+
+        // Count students who registered in the selected period and are assigned to a batch
+        $sql = "SELECT
+                    COALESCE(b.id, 0) AS batch_id,
+                    COALESCE(b.batch_name, 'Unassigned Batch') AS batch_name,
+                    COALESCE(b.batch_code, '') AS batch_code,
+                    c.course_name,
+                    COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
+                    COUNT(DISTINCT COALESCE(bs.student_record_id, bs.student_id, s.id)) AS admissions
+                FROM students s
+                LEFT JOIN batch_students bs ON (bs.student_record_id = s.id OR bs.student_id = s.id)
+                LEFT JOIN batches b ON b.id = COALESCE(bs.batch_id, s.batch_id)
+                LEFT JOIN courses c ON c.id = COALESCE(b.course_id, s.course_id)
+                LEFT JOIN centres cen ON cen.id = c.centre_id
+                WHERE {$activeCondition} AND COALESCE(bs.batch_id, s.batch_id) IS NOT NULL";
+
+        // Apply month filter to student registration timestamp
+        if (!empty($monthFilter['active'])) {
+            $sql .= " AND s.created_at >= ? AND s.created_at < ?";
+            $types = $types . 'ss';
+            $values = array_merge($values, [$monthFilter['start'], $monthFilter['next_start']]);
+        }
+
+        // Apply scope filter (courses/centre)
+        $sql .= " {$scopeFilter['sql']} GROUP BY batch_id, batch_name, batch_code, c.course_name, centre_name ORDER BY admissions DESC, batch_name ASC";
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = [
+                    'batch_id' => (int) $row['batch_id'],
+                    'batch_name' => $row['batch_name'],
+                    'batch_code' => $row['batch_code'],
+                    'course_name' => $row['course_name'],
+                    'centre_name' => $row['centre_name'],
+                    'admissions' => (int) $row['admissions'],
+                ];
+            }
+        }
+
+        return $rows;
+    }
+
     function report_monitor_get_faculty_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
         if (!report_monitor_table_exists($conn, 'batch_faculty') || !report_monitor_table_exists($conn, 'faculty')) {
             return [];

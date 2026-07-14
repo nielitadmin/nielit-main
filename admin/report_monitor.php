@@ -191,6 +191,13 @@ $batchDetails = report_monitor_get_batch_details(
     $monthFilter
 );
 
+$admissionsByBatch = report_monitor_get_admissions_by_batch(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter
+);
+
 /*------------------------------------------------------------
 | KPI
 -------------------------------------------------------------*/
@@ -723,6 +730,51 @@ Q4 (Jan–Mar)
 
     </div>
 
+</div>
+
+<!-- ADMISSIONS BY BATCH (for selected quarter) -->
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>
+            Admissions by Batch (<?php echo htmlspecialchars($monthScopeLabel); ?>)
+        </strong>
+        <span class="badge bg-primary">
+            <?php echo array_sum(array_column($admissionsByBatch, 'admissions')); ?> Admissions
+        </span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Batch</th>
+                    <th>Course</th>
+                    <th>Centre</th>
+                    <th class="text-end">Admissions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($admissionsByBatch)): ?>
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">No admissions found for this period</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($admissionsByBatch as $row): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
+                                <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
+                            </td>
+                            <td><?php echo htmlspecialchars($row['course_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
+                            <td class="text-end"><?php echo number_format($row['admissions']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- CHARTS -->
