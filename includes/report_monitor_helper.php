@@ -905,9 +905,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
         $quarterCase .= "    ELSE '' END";
 
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $sql = "SELECT {$quarterCase} AS quarter_key,
                        {$categoryExpr} AS raw_category,
-                       COUNT(DISTINCT s.id) AS total
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
                 FROM students s
                 INNER JOIN courses c ON c.id = s.course_id
                 WHERE {$activeCondition}

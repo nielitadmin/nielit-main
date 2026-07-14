@@ -1025,11 +1025,11 @@ Q4 (Jan–Mar)
 
 </div>
 
-<!-- CATEGORY QUARTERLY SUMMARY -->
+<!-- CATEGORY QUARTERLY ADMISSIONS SUMMARY -->
 
 <div class="card table-card mb-4">
     <div class="card-header">
-        <strong>Category Quarterly Summary</strong>
+        <strong>Category Quarterly Admissions Summary</strong>
         <span class="badge bg-primary">FY <?php echo htmlspecialchars($selectedYear); ?></span>
     </div>
     <div class="card-body p-0">
