@@ -854,6 +854,89 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 
+    function report_monitor_get_category_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $categoryKeys = array_keys(get_report_monitor_category_groups());
+        $rows = [];
+        foreach ($categoryKeys as $key) {
+            $rows[$key] = [
+                'key' => $key,
+                'label' => report_monitor_category_label($key),
+                'Q1' => 0,
+                'Q2' => 0,
+                'Q3' => 0,
+                'Q4' => 0,
+                'total' => 0,
+            ];
+        }
+        $rows['uncategorized'] = [
+            'key' => 'uncategorized',
+            'label' => 'Uncategorized',
+            'Q1' => 0,
+            'Q2' => 0,
+            'Q3' => 0,
+            'Q4' => 0,
+            'total' => 0,
+        ];
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $categoryExpr = report_monitor_course_category_sql('c');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       {$categoryExpr} AS raw_category,
+                       COUNT(DISTINCT s.id) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_category";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = $row['quarter_key'];
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $categoryKey = report_monitor_resolve_category_group($row['raw_category']);
+                if (!isset($rows[$categoryKey])) {
+                    $categoryKey = 'uncategorized';
+                }
+                $count = (int) $row['total'];
+                $rows[$categoryKey][$quarter] += $count;
+                $rows[$categoryKey]['total'] += $count;
+            }
+        }
+
+        return array_values($rows);
+    }
+
     /** Course-wise monthly registered / admission / batch counts for an FY period. */
     function report_monitor_get_course_monthly_progress($conn, array $courseIds = [], $centreId = 0, array $monthFilter = [], array $graphMonths = [], $chartLimit = 8) {
         $axis = report_monitor_build_graph_month_axis($graphMonths);

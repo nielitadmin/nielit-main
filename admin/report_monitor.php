@@ -142,6 +142,13 @@ $centreStats = report_monitor_get_centre_stats(
     $monthFilter
 );
 
+$categoryQuarterSummary = report_monitor_get_category_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+
 $categoryStats = report_monitor_get_category_stats(
     $conn,
     $scopedCourseIds,
@@ -1016,6 +1023,43 @@ Q4 (Jan–Mar)
 
     </div>
 
+</div>
+
+<!-- CATEGORY QUARTERLY SUMMARY -->
+
+<div class="card table-card mb-4">
+    <div class="card-header">
+        <strong>Category Quarterly Summary</strong>
+        <span class="badge bg-primary">FY <?php echo htmlspecialchars($selectedYear); ?></span>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Category</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
+                        <td class="text-end"><?php echo number_format($categoryRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($categoryRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($categoryRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($categoryRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($categoryRow['total']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- CENTRE WISE TABLE -->
