@@ -1070,7 +1070,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $result && $result->num_rows > 0;
     }
 
-    function report_monitor_get_batch_details($conn, array $courseIds = [], $centreId = 0) {
+    function report_monitor_get_batch_details($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
         if (!report_monitor_table_exists($conn, 'batches')) {
             return [];
         }
@@ -1080,6 +1080,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $types = $scopeFilter['types'];
         $values = $scopeFilter['values'];
+        $batchMonthExpr = report_monitor_batch_month_column_sql('b');
 
         $hasBatchFaculty = report_monitor_table_exists($conn, 'batch_faculty') && report_monitor_table_exists($conn, 'faculty');
         $facultySelect = $hasBatchFaculty
@@ -1110,9 +1111,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 FROM batches b
                 INNER JOIN courses c ON c.id = b.course_id
                 LEFT JOIN centres cen ON cen.id = c.centre_id
-                WHERE 1=1{$scopeFilter['sql']}
-                ORDER BY b.created_at DESC, b.id DESC
-                LIMIT 100";
+                WHERE 1=1{$scopeFilter['sql']}";
+
+        report_monitor_append_month_between($sql, $types, $values, $batchMonthExpr, $monthFilter);
+        $sql .= " ORDER BY b.created_at DESC, b.id DESC LIMIT 100";
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
         if (!$result) {

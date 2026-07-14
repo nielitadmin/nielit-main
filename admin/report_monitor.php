@@ -186,7 +186,8 @@ $centresList = report_monitor_get_centres_list(
 $batchDetails = report_monitor_get_batch_details(
     $conn,
     $scopedCourseIds,
-    $centreId
+    $centreId,
+    $monthFilter
 );
 
 /*------------------------------------------------------------
