@@ -2091,14 +2091,14 @@ if (isset($_SESSION['info'])) {
                                name="aadhar_card" 
                                id="aadhar_card"
                                class="form-control" 
-                               accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                               accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
                                required
                                data-category="aadhar"
                                data-require-aadhar-card="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            Aadhar card photo only (JPG/PNG, max 5MB). Must show Aadhaar / UIDAI text — marksheet or certificate is not accepted.
+                            Aadhar card scan or photo (JPG, PNG, or PDF — max 5MB for images, 10MB for PDF). Must show Aadhaar / UIDAI text — marksheet or certificate is not accepted.
                         </small>
                     </div>
                 </div>
@@ -2277,7 +2277,7 @@ if (isset($_SESSION['info'])) {
                                name="other_documents" 
                                id="other_documents"
                                class="form-control" 
-                               accept=".jpg,.jpeg,.pdf"
+                               accept=".jpg,.jpeg,.png,.pdf"
                                data-category="other">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
@@ -2297,11 +2297,11 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg" required data-max-mb="5" data-require-face="1">
+                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" required data-max-mb="5" data-require-face="1">
                                 <div class="face-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Front-facing passport photo (JPG/PNG, max 5MB). Auto face check before submit.
+                                    Front-facing passport photo (JPG, PNG, or PDF — max 5MB for images, 10MB for PDF). Auto face check before submit.
                                 </small>
                                 <small class="text-muted d-block mt-1" style="color: #10b981;">
                                     <i class="fas fa-check-circle"></i> 
@@ -2313,11 +2313,11 @@ if (isset($_SESSION['info'])) {
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label class="form-label">Signature <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="signature" id="signature" accept="image/jpeg,image/png,image/jpg,image/webp,.jpg,.jpeg,.png,.webp" required data-max-mb="2" data-require-signature="1">
+                                <input type="file" class="form-control" name="signature" id="signature" accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf" required data-max-mb="2" data-require-signature="1">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Handwritten signature on white paper (JPG/PNG, max 2MB). Wait for “Signature verified” before submitting.
+                                    Handwritten signature on white paper (JPG, PNG, or PDF — max 2MB for images, 10MB for PDF). Wait for “Signature verified” before submitting.
                                 </small>
                                 <small class="text-muted d-block mt-1" style="color: #10b981;">
                                     <i class="fas fa-check-circle"></i> 
@@ -2338,11 +2338,11 @@ if (isset($_SESSION['info'])) {
                     <div class="form-group">
                         <label class="form-label">Thumb Impression</label>
                         <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression"
-                               accept="image/jpeg,image/png,image/jpg" data-max-mb="2" data-require-thumb="1">
+                               accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" data-max-mb="2" data-require-thumb="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
-                            If available, upload a clear left hand thumb impression taken on plain white paper (JPG/PNG, max 2MB).
+                            If available, upload a clear left hand thumb impression on plain white paper (JPG, PNG, or PDF — max 2MB for images, 10MB for PDF).
                             Passbook, Aadhar, marksheet, or other documents are <strong>not accepted</strong> here.
                         </small>
                         <small class="text-muted d-block mt-1" style="color: #10b981;">
@@ -3161,20 +3161,21 @@ function validateIdentityImage(inputElement, maxMb) {
 
     const fileName = file.name.toLowerCase();
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.webp', '.pdf'];
 
     if (!allowedExtensions.includes(fileExtension)) {
         return {
             valid: false,
-            message: 'Invalid file type. Only JPG, JPEG, PNG, and WEBP images are allowed.'
+            message: 'Invalid file type. Only JPG, JPEG, PNG, WEBP, and PDF files are allowed.'
         };
     }
 
-    const maxSize = maxMb * 1024 * 1024;
+    const maxSize = fileExtension === '.pdf' ? 10 * 1024 * 1024 : maxMb * 1024 * 1024;
+    const maxSizeMB = fileExtension === '.pdf' ? 10 : maxMb;
     if (file.size > maxSize) {
         return {
             valid: false,
-            message: 'File size exceeds maximum limit of ' + maxMb + 'MB. Current size: ' + (file.size / (1024 * 1024)).toFixed(2) + 'MB'
+            message: 'File size exceeds maximum limit of ' + maxSizeMB + 'MB. Current size: ' + (file.size / (1024 * 1024)).toFixed(2) + 'MB'
         };
     }
 
@@ -3217,18 +3218,13 @@ function validateDocumentUpload(inputElement) {
     // Get file extension
     const fileName = file.name.toLowerCase();
     const fileExtension = fileName.substring(fileName.lastIndexOf('.'));
-    const isVerifiedAadhar = inputElement.dataset.requireAadharCard === '1';
-    const allowedExtensions = isVerifiedAadhar
-        ? ['.jpg', '.jpeg', '.png']
-        : ['.jpg', '.jpeg', '.png', '.pdf'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.pdf'];
     
     // Validate file extension
     if (!allowedExtensions.includes(fileExtension)) {
         return {
             valid: false,
-            message: isVerifiedAadhar
-                ? 'Aadhar card must be JPG or PNG.'
-                : 'Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'
+            message: 'Invalid file type. Only JPG, JPEG, PNG, and PDF files are allowed.'
         };
     }
     

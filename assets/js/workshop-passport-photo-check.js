@@ -188,13 +188,30 @@
         return { valid: true };
     }
 
+    function isPdfFile(file) {
+        return !!(file && (file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf')));
+    }
+
+    function loadImageForValidation(file) {
+        if (isPdfFile(file)) {
+            if (typeof RegistrationPdfOcr === 'undefined') {
+                return Promise.reject(new Error('PDF verification could not start. Refresh the page or upload JPG/PNG.'));
+            }
+            return RegistrationPdfOcr.loadFirstPageAsImage(file);
+        }
+        if (!file.type.startsWith('image/')) {
+            return Promise.reject(new Error('Photo must be JPG, PNG, or PDF.'));
+        }
+        return loadImageFromFile(file);
+    }
+
     global.WorkshopPassportPhotoCheck = {
         loadModel: loadModel,
         validate: function (file) {
-            if (!file || !file.type.startsWith('image/')) {
-                return Promise.resolve({ valid: false, message: 'Photo must be JPG or PNG.' });
+            if (!file) {
+                return Promise.resolve({ valid: false, message: 'Please select a passport photo file.' });
             }
-            return loadImageFromFile(file).then(function (img) {
+            return loadImageForValidation(file).then(function (img) {
                 var dim = validateDimensions(img);
                 if (!dim.valid) {
                     return dim;
@@ -205,6 +222,11 @@
                         return validatePassportFaceGeometry(faces, prepared.width, prepared.height);
                     });
                 });
+            }).catch(function (err) {
+                return {
+                    valid: false,
+                    message: (err && err.message) ? err.message : 'Could not verify the photo. Upload a clear front-facing passport photo and try again.'
+                };
             });
         }
     };

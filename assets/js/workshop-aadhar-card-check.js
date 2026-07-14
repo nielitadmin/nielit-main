@@ -363,14 +363,30 @@
 
             var isPdf = file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
             if (isPdf) {
-                return Promise.resolve({
-                    valid: false,
-                    message: 'Upload your Aadhar card as a JPG or PNG photo for verification. PDF cannot be auto-checked — take a clear photo of the card instead.'
+                if (typeof RegistrationPdfOcr === 'undefined') {
+                    return Promise.resolve({
+                        valid: false,
+                        message: 'PDF verification could not start. Refresh the page or upload JPG/PNG.'
+                    });
+                }
+                return RegistrationPdfOcr.extractText(file, 2).then(function (text) {
+                    var result = analyzeOcrText(text);
+                    if (result.valid) {
+                        result.message = 'Aadhar card PDF verified — document text detected.';
+                    } else if (result.message.indexOf('Could not read') !== -1) {
+                        result.message = 'Could not read the PDF. Upload a clearer scan or use JPG/PNG.';
+                    }
+                    return result;
+                }).catch(function (err) {
+                    return {
+                        valid: false,
+                        message: (err && err.message) ? err.message : 'Could not verify the PDF. Upload a clearer file or use JPG/PNG.'
+                    };
                 });
             }
 
             if (!file.type.startsWith('image/')) {
-                return Promise.resolve({ valid: false, message: 'Aadhar card must be JPG or PNG.' });
+                return Promise.resolve({ valid: false, message: 'Aadhar card must be JPG, PNG, or PDF.' });
             }
 
             return loadImageFromFile(file).then(validateImage);

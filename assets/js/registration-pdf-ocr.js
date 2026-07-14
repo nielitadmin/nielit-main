@@ -88,18 +88,48 @@
         });
     }
 
+    function isPdfFile(file) {
+        return !!(file && (file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf')));
+    }
+
+    function canvasToImage(canvas) {
+        return new Promise(function (resolve, reject) {
+            var img = new Image();
+            img.onload = function () { resolve(img); };
+            img.onerror = function () { reject(new Error('Could not convert the PDF page to an image.')); };
+            img.src = canvas.toDataURL('image/png');
+        });
+    }
+
+    function loadFirstPageAsImage(file) {
+        if (!isPdfFile(file)) {
+            return Promise.reject(new Error('File is not a PDF.'));
+        }
+        return ensurePdfJs().then(function () {
+            return file.arrayBuffer();
+        }).then(function (buffer) {
+            return pdfjsLib.getDocument({ data: buffer }).promise;
+        }).then(function (pdf) {
+            if (!pdf.numPages) {
+                return Promise.reject(new Error('The PDF has no pages.'));
+            }
+            return renderPageToCanvas(pdf, 1);
+        }).then(canvasToImage);
+    }
+
     global.RegistrationPdfOcr = {
+        isPdf: isPdfFile,
         extractText: function (file, maxPages) {
             if (!file) {
                 return Promise.reject(new Error('No PDF file provided.'));
             }
-            var isPdf = file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf');
-            if (!isPdf) {
+            if (!isPdfFile(file)) {
                 return Promise.reject(new Error('File is not a PDF.'));
             }
             return ocrPdfFile(file, maxPages).then(function (text) {
                 return (text || '').replace(/\s+/g, ' ').trim();
             });
-        }
+        },
+        loadFirstPageAsImage: loadFirstPageAsImage
     };
 })(window);

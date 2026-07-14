@@ -82,12 +82,17 @@ function handleCategorizedUpload($file, $docCategory, $student_id) {
 }
 
 function validateIdentityImageUpload($file, $maxBytes, $label) {
-    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    $allowedExtensions = ['jpg', 'jpeg', 'png'];
-
     if ($file['error'] !== UPLOAD_ERR_OK) {
         return ['valid' => false, 'message' => 'Upload error: ' . $file['error']];
     }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if ($ext === 'pdf') {
+        return validateUploadedDocument($file, 'identity');
+    }
+
+    $allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    $allowedExtensions = ['jpg', 'jpeg', 'png'];
 
     $finfo = finfo_open(FILEINFO_MIME_TYPE);
     $mimeType = finfo_file($finfo, $file['tmp_name']);
@@ -97,7 +102,6 @@ function validateIdentityImageUpload($file, $maxBytes, $label) {
         return ['valid' => false, 'message' => "Invalid file type: $mimeType"];
     }
 
-    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowedExtensions, true)) {
         return ['valid' => false, 'message' => "Invalid extension: .$ext"];
     }

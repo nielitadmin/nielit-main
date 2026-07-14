@@ -204,16 +204,30 @@
         return (text || '').replace(/\s+/g, ' ').toLowerCase().trim();
     }
 
+    function isPdfFile(file) {
+        return !!(file && (file.type === 'application/pdf' || (file.name || '').toLowerCase().endsWith('.pdf')));
+    }
+
+    function loadSignatureImage(file) {
+        if (isPdfFile(file)) {
+            if (typeof RegistrationPdfOcr === 'undefined') {
+                return Promise.reject(new Error('PDF verification could not start. Refresh the page or upload JPG/PNG.'));
+            }
+            return RegistrationPdfOcr.loadFirstPageAsImage(file);
+        }
+        if (!file.type.startsWith('image/')) {
+            return Promise.reject(new Error('Signature must be JPG, PNG, or PDF.'));
+        }
+        return loadImageFromFile(file);
+    }
+
     global.RegistrationSignatureCheck = {
         validate: function (file) {
             if (!file) {
                 return Promise.resolve({ valid: false, message: 'Please select your signature image.' });
             }
-            if (!file.type.startsWith('image/')) {
-                return Promise.resolve({ valid: false, message: 'Signature must be a JPG or PNG image.' });
-            }
 
-            return loadImageFromFile(file).then(function (img) {
+            return loadSignatureImage(file).then(function (img) {
                 if (img.naturalWidth < 80 || img.naturalHeight < 40) {
                     return {
                         valid: false,
