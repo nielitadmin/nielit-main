@@ -1536,9 +1536,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 break;
         }
 
+        $nextStart = date('Y-m-d', strtotime($endDate . ' +1 day'));
+
         return [
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'next_start' => $nextStart,
             'quarter_label' => $quarterLabel,
             'scope_label' => $fyLabel . ' · ' . $quarterLabel,
             'graph_months' => $graphMonths,
