@@ -200,6 +200,8 @@ $kpiAdmission = 0;
 
 $kpiBatches = 0;
 
+$kpiCompleted = 0;
+
 foreach ($categoryStats as $row) {
 
     $kpiRegistered +=
@@ -216,6 +218,8 @@ foreach ($centreStats as $row) {
         (int)$row['batch_count'];
 
 }
+
+$kpiCompleted = $overallStats['completed_batches'] ?? 0;
 /*------------------------------------------------------------
 | Course Wise Figures
 -------------------------------------------------------------*/
@@ -658,7 +662,7 @@ Q4 (Jan–Mar)
 
     </div>
 
-    <div class="col-md-4 mb-3">
+    <div class="col-md-3 mb-3">
 
         <div class="card kpi-card bg-batch">
 
@@ -679,6 +683,36 @@ Q4 (Jan–Mar)
                 <small>
 
                     Running Batches
+
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3 mb-3">
+
+        <div class="card kpi-card bg-secondary">
+
+            <div class="card-body">
+
+                <small>
+
+                    Total Completed Batches
+
+                </small>
+
+                <div class="kpi-value">
+
+                    <?php echo number_format($kpiCompleted);?>
+
+                </div>
+
+                <small>
+
+                    Completed Batches
 
                 </small>
 

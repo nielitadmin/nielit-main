@@ -334,6 +334,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             'active_courses' => 0,
             'total_batches' => 0,
             'active_batches' => 0,
+            'completed_batches' => 0,
             'total_applications' => 0,
             'pending_applications' => 0,
             'approved_students' => 0,
@@ -355,7 +356,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
         if (report_monitor_table_exists($conn, 'batches')) {
             $batchScope = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
             $batchSql = "SELECT COUNT(*) AS total,
-                                SUM(CASE WHEN LOWER(COALESCE(b.status, 'active')) IN ('active', 'ongoing', 'open') THEN 1 ELSE 0 END) AS active
+                                SUM(CASE WHEN LOWER(COALESCE(b.status, 'active')) IN ('active', 'ongoing', 'open') THEN 1 ELSE 0 END) AS active,
+                                SUM(CASE WHEN LOWER(COALESCE(b.status, 'active')) IN ('completed', 'closed', 'finished', 'cancelled') THEN 1 ELSE 0 END) AS completed
                          FROM batches b
                          INNER JOIN courses c ON c.id = b.course_id
                          WHERE 1=1{$batchScope['sql']}";
@@ -363,6 +365,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             if ($batchResult && $row = $batchResult->fetch_assoc()) {
                 $stats['total_batches'] = (int) ($row['total'] ?? 0);
                 $stats['active_batches'] = (int) ($row['active'] ?? 0);
+                $stats['completed_batches'] = (int) ($row['completed'] ?? 0);
             }
         }
 
