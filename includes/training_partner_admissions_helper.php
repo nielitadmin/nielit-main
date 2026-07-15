@@ -46,12 +46,24 @@ if (!function_exists('tp_admissions_ensure_table')) {
         return $options;
     }
 
+    function tp_admissions_detect_quarter_counts($q1, $q2, $q3, $q4) {
+        foreach (['Q1' => $q1, 'Q2' => $q2, 'Q3' => $q3, 'Q4' => $q4] as $quarter => $count) {
+            if ((int) $count > 0) {
+                return ['quarter' => $quarter, 'students_trained' => (int) $count];
+            }
+        }
+
+        return ['quarter' => '', 'students_trained' => 0];
+    }
+
     function tp_admissions_validate_entry(array $data) {
         $errors = [];
         $partnerName = trim((string) ($data['partner_name'] ?? ''));
         $courseName = trim((string) ($data['course_name'] ?? ''));
         $categoryKey = trim((string) ($data['category_key'] ?? ''));
         $fyStartYear = (int) ($data['financial_year_start'] ?? 0);
+        $quarter = strtoupper(trim((string) ($data['quarter'] ?? '')));
+        $studentsTrained = max(0, (int) ($data['students_trained'] ?? 0));
 
         if ($partnerName === '') {
             $errors[] = 'Training partner name is required.';
@@ -68,13 +80,23 @@ if (!function_exists('tp_admissions_ensure_table')) {
             $errors[] = 'Please select a valid category.';
         }
 
-        $q1 = max(0, (int) ($data['q1_students'] ?? 0));
-        $q2 = max(0, (int) ($data['q2_students'] ?? 0));
-        $q3 = max(0, (int) ($data['q3_students'] ?? 0));
-        $q4 = max(0, (int) ($data['q4_students'] ?? 0));
+        if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+            $errors[] = 'Please select a quarter (Q1, Q2, Q3, or Q4).';
+        }
 
-        if (($q1 + $q2 + $q3 + $q4) <= 0) {
-            $errors[] = 'Enter students trained in at least one quarter.';
+        if ($studentsTrained <= 0) {
+            $errors[] = 'Enter the number of students trained.';
+        }
+
+        $q1 = $q2 = $q3 = $q4 = 0;
+        if ($quarter === 'Q1') {
+            $q1 = $studentsTrained;
+        } elseif ($quarter === 'Q2') {
+            $q2 = $studentsTrained;
+        } elseif ($quarter === 'Q3') {
+            $q3 = $studentsTrained;
+        } elseif ($quarter === 'Q4') {
+            $q4 = $studentsTrained;
         }
 
         return [
@@ -85,11 +107,13 @@ if (!function_exists('tp_admissions_ensure_table')) {
                 'course_name' => $courseName,
                 'category_key' => $categoryKey,
                 'financial_year_start' => $fyStartYear,
+                'quarter' => $quarter,
+                'students_trained' => $studentsTrained,
                 'q1_students' => $q1,
                 'q2_students' => $q2,
                 'q3_students' => $q3,
                 'q4_students' => $q4,
-                'remarks' => trim((string) ($data['remarks'] ?? '')),
+                'remarks' => '',
             ],
         ];
     }
@@ -99,6 +123,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
         $q2 = (int) ($row['q2_students'] ?? 0);
         $q3 = (int) ($row['q3_students'] ?? 0);
         $q4 = (int) ($row['q4_students'] ?? 0);
+        $detected = tp_admissions_detect_quarter_counts($q1, $q2, $q3, $q4);
 
         return [
             'id' => (int) ($row['id'] ?? 0),
@@ -107,6 +132,8 @@ if (!function_exists('tp_admissions_ensure_table')) {
             'category_key' => (string) ($row['category_key'] ?? ''),
             'category_label' => report_monitor_category_label($row['category_key'] ?? ''),
             'financial_year_start' => (int) ($row['financial_year_start'] ?? 0),
+            'quarter' => $detected['quarter'],
+            'students_trained' => $detected['students_trained'],
             'Q1' => $q1,
             'Q2' => $q2,
             'Q3' => $q3,

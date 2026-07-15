@@ -92,7 +92,7 @@ $pageTitle = 'Training Partner Admissions';
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="fas fa-handshake me-2"></i><?php echo htmlspecialchars($pageTitle); ?></h2>
-        <p class="text-muted mb-0">Manually record quarterly admissions reported by training partners (TP). Figures are merged into Report Monitor.</p>
+        <p class="text-muted mb-0">Add training partner admissions: partner name, course, category, quarter, and students trained.</p>
     </div>
     <div class="d-flex gap-2">
         <a href="<?php echo app_url('admin/report_monitor'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-outline-secondary">
@@ -128,7 +128,7 @@ $pageTitle = 'Training Partner Admissions';
             <div class="col-md-8">
                 <div class="alert alert-info mb-0 py-2">
                     <i class="fas fa-info-circle me-1"></i>
-                    Add one row per TP course. Enter students trained in Q1–Q4. Data appears in <strong>Report Monitor</strong> under each selected category and in the Training Partner detail table.
+                    Add one entry per quarter. Select Q1, Q2, Q3, or Q4 and enter students trained. Same course in another quarter = add another entry.
                 </div>
             </div>
         </form>
@@ -148,18 +148,15 @@ $pageTitle = 'Training Partner Admissions';
                     <th>Training Partner</th>
                     <th>Course</th>
                     <th>Category</th>
-                    <th class="text-end">Q1</th>
-                    <th class="text-end">Q2</th>
-                    <th class="text-end">Q3</th>
-                    <th class="text-end">Q4</th>
-                    <th class="text-end">Total</th>
+                    <th>Quarter</th>
+                    <th class="text-end">Students</th>
                     <th class="text-end" style="width:120px;">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php if (empty($entries)): ?>
                 <tr>
-                    <td colspan="9" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                         No training partner entries for FY <?php echo (int) $selectedYear; ?>.
                         Click <strong>Add Entry</strong> to record TP admissions manually.
                     </td>
@@ -170,11 +167,8 @@ $pageTitle = 'Training Partner Admissions';
                     <td><strong><?php echo htmlspecialchars($entry['partner_name']); ?></strong></td>
                     <td><?php echo htmlspecialchars($entry['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($entry['category_label']); ?></small></td>
-                    <td class="text-end"><?php echo number_format($entry['Q1']); ?></td>
-                    <td class="text-end"><?php echo number_format($entry['Q2']); ?></td>
-                    <td class="text-end"><?php echo number_format($entry['Q3']); ?></td>
-                    <td class="text-end"><?php echo number_format($entry['Q4']); ?></td>
-                    <td class="text-end fw-bold"><?php echo number_format($entry['total']); ?></td>
+                    <td><span class="badge bg-primary"><?php echo htmlspecialchars($entry['quarter'] ?: '—'); ?></span></td>
+                    <td class="text-end fw-bold"><?php echo number_format($entry['students_trained']); ?></td>
                     <td class="text-end">
                         <button type="button" class="btn btn-sm btn-outline-primary"
                                 onclick='openTpEntryModal(<?php echo json_encode($entry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
@@ -195,13 +189,14 @@ $pageTitle = 'Training Partner Admissions';
                 <?php if (!empty($entries)): ?>
                 <tfoot class="table-light">
                 <tr>
-                    <th colspan="3">Grand Total</th>
-                    <th class="text-end"><?php echo number_format($grandQ1); ?></th>
-                    <th class="text-end"><?php echo number_format($grandQ2); ?></th>
-                    <th class="text-end"><?php echo number_format($grandQ3); ?></th>
-                    <th class="text-end"><?php echo number_format($grandQ4); ?></th>
+                    <th colspan="4">Quarterly totals</th>
                     <th class="text-end"><?php echo number_format($grandTotal); ?></th>
                     <th></th>
+                </tr>
+                <tr>
+                    <td colspan="4" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
+                    <td></td>
+                    <td></td>
                 </tr>
                 </tfoot>
                 <?php endif; ?>
@@ -216,7 +211,7 @@ $pageTitle = 'Training Partner Admissions';
 </div>
 
 <div class="modal fade" id="tpEntryModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form method="post" id="tpEntryForm">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
@@ -224,53 +219,45 @@ $pageTitle = 'Training Partner Admissions';
                 <input type="hidden" name="entry_id" id="tp_entry_id" value="">
                 <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="tpEntryModalTitle">Add Training Partner Entry</h5>
+                    <h5 class="modal-title" id="tpEntryModalTitle">Add Entry</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Training Partner Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="partner_name" id="tp_partner_name" required maxlength="200" placeholder="e.g. ABC Skills Pvt Ltd">
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Course Name <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" name="course_name" id="tp_course_name" required maxlength="255" placeholder="e.g. Web Development with PHP">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Category <span class="text-danger">*</span></label>
-                            <select class="form-select" name="category_key" id="tp_category_key" required>
-                                <option value="">Select category</option>
-                                <?php foreach ($categoryOptions as $key => $label): ?>
-                                <option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($label); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Q1 Students</label>
-                            <input type="number" class="form-control text-end" name="q1_students" id="tp_q1" min="0" step="1" value="0">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Q2 Students</label>
-                            <input type="number" class="form-control text-end" name="q2_students" id="tp_q2" min="0" step="1" value="0">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Q3 Students</label>
-                            <input type="number" class="form-control text-end" name="q3_students" id="tp_q3" min="0" step="1" value="0">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Q4 Students</label>
-                            <input type="number" class="form-control text-end" name="q4_students" id="tp_q4" min="0" step="1" value="0">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Remarks (optional)</label>
-                            <textarea class="form-control" name="remarks" id="tp_remarks" rows="2" maxlength="1000" placeholder="Batch code, location, or source document reference"></textarea>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Training Partner Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="partner_name" id="tp_partner_name" required maxlength="200" placeholder="e.g. ABC Skills Pvt Ltd">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Course Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="course_name" id="tp_course_name" required maxlength="255" placeholder="e.g. Web Development">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Category <span class="text-danger">*</span></label>
+                        <select class="form-select" name="category_key" id="tp_category_key" required>
+                            <option value="">Select category</option>
+                            <?php foreach ($categoryOptions as $key => $label): ?>
+                            <option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quarter <span class="text-danger">*</span></label>
+                        <select class="form-select" name="quarter" id="tp_quarter" required>
+                            <option value="">Select quarter</option>
+                            <option value="Q1">Q1 (Apr–Jun)</option>
+                            <option value="Q2">Q2 (Jul–Sep)</option>
+                            <option value="Q3">Q3 (Oct–Dec)</option>
+                            <option value="Q4">Q4 (Jan–Mar)</option>
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Students Trained <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control text-end" name="students_trained" id="tp_students_trained" min="1" step="1" required placeholder="e.g. 50">
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Entry</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Add</button>
                 </div>
             </form>
         </div>
@@ -281,17 +268,20 @@ $pageTitle = 'Training Partner Admissions';
 <script>
 function openTpEntryModal(entry) {
     const title = document.getElementById('tpEntryModalTitle');
+    const submitBtn = document.querySelector('#tpEntryForm button[type="submit"]');
     document.getElementById('tp_entry_id').value = entry && entry.id ? entry.id : '';
     document.getElementById('tp_partner_name').value = entry && entry.partner_name ? entry.partner_name : '';
     document.getElementById('tp_course_name').value = entry && entry.course_name ? entry.course_name : '';
     document.getElementById('tp_category_key').value = entry && entry.category_key ? entry.category_key : '';
-    document.getElementById('tp_q1').value = entry ? entry.Q1 : 0;
-    document.getElementById('tp_q2').value = entry ? entry.Q2 : 0;
-    document.getElementById('tp_q3').value = entry ? entry.Q3 : 0;
-    document.getElementById('tp_q4').value = entry ? entry.Q4 : 0;
-    document.getElementById('tp_remarks').value = entry && entry.remarks ? entry.remarks : '';
+    document.getElementById('tp_quarter').value = entry && entry.quarter ? entry.quarter : '';
+    document.getElementById('tp_students_trained').value = entry && entry.students_trained ? entry.students_trained : '';
     if (title) {
-        title.textContent = entry && entry.id ? 'Edit Training Partner Entry' : 'Add Training Partner Entry';
+        title.textContent = entry && entry.id ? 'Edit Entry' : 'Add Entry';
+    }
+    if (submitBtn) {
+        submitBtn.innerHTML = entry && entry.id
+            ? '<i class="fas fa-save me-1"></i> Update'
+            : '<i class="fas fa-save me-1"></i> Add';
     }
 }
 </script>

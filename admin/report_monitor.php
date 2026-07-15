@@ -1207,11 +1207,8 @@ Q4 (Jan–Mar)
                     <th>Training Partner</th>
                     <th>Course</th>
                     <th>Category</th>
-                    <th class="text-end">Q1</th>
-                    <th class="text-end">Q2</th>
-                    <th class="text-end">Q3</th>
-                    <th class="text-end">Q4</th>
-                    <th class="text-end">Total</th>
+                    <th>Quarter</th>
+                    <th class="text-end">Students</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -1220,11 +1217,8 @@ Q4 (Jan–Mar)
                     <td><?php echo htmlspecialchars($tpRow['partner_name']); ?></td>
                     <td><?php echo htmlspecialchars($tpRow['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($tpRow['category_label']); ?></small></td>
-                    <td class="text-end"><?php echo number_format($tpRow['Q1']); ?></td>
-                    <td class="text-end"><?php echo number_format($tpRow['Q2']); ?></td>
-                    <td class="text-end"><?php echo number_format($tpRow['Q3']); ?></td>
-                    <td class="text-end"><?php echo number_format($tpRow['Q4']); ?></td>
-                    <td class="text-end fw-bold"><?php echo number_format($tpRow['total']); ?></td>
+                    <td><span class="badge bg-primary"><?php echo htmlspecialchars($tpRow['quarter'] ?: '—'); ?></span></td>
+                    <td class="text-end fw-bold"><?php echo number_format($tpRow['students_trained']); ?></td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
