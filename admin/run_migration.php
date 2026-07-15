@@ -89,6 +89,7 @@ try {
     }
 
     echo json_encode($ajaxResult);
+    exit;
 } catch (InvalidArgumentException $e) {
     $responseSent = true;
     while (ob_get_level() > 0) {
@@ -96,6 +97,7 @@ try {
     }
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    exit;
 } catch (Throwable $e) {
     $responseSent = true;
     while (ob_get_level() > 0) {
@@ -103,4 +105,5 @@ try {
     }
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    exit;
 }

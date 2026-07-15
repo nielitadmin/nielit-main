@@ -1780,30 +1780,31 @@ if (!function_exists('get_report_monitor_category_groups')) {
         report_monitor_ensure_category_targets_table($conn);
 
         $allowedKeys = report_monitor_get_category_target_keys();
-        $stmt = $conn->prepare(
-            'INSERT INTO report_category_admission_targets
-                (financial_year_start, centre_id, category_key, annual_target, updated_by)
-             VALUES (?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-                annual_target = VALUES(annual_target),
-                updated_by = VALUES(updated_by),
-                updated_at = CURRENT_TIMESTAMP'
-        );
+        $updatedBy = ($adminId !== null && $adminId > 0) ? (int) $adminId : 0;
+        $sql = 'INSERT INTO report_category_admission_targets
+                    (financial_year_start, centre_id, category_key, annual_target, updated_by)
+                 VALUES (?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    annual_target = VALUES(annual_target),
+                    updated_by = VALUES(updated_by),
+                    updated_at = CURRENT_TIMESTAMP';
 
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Could not prepare target save query.'];
-        }
-
-        foreach ($allowedKeys as $key) {
-            $target = max(0, (int) ($targetsByCategory[$key] ?? 0));
-            $stmt->bind_param('iisii', $fyStartYear, $centreId, $key, $target, $adminId);
-            if (!$stmt->execute()) {
-                $stmt->close();
-                return ['success' => false, 'message' => 'Failed to save category targets.'];
+        foreach ($allowedKeys as $categoryKey) {
+            $target = max(0, (int) ($targetsByCategory[$categoryKey] ?? 0));
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Could not prepare target save query.'];
             }
+
+            $stmt->bind_param('iisii', $fyStartYear, $centreId, $categoryKey, $target, $updatedBy);
+            if (!$stmt->execute()) {
+                $error = $stmt->error;
+                $stmt->close();
+                return ['success' => false, 'message' => 'Failed to save category targets: ' . $error];
+            }
+            $stmt->close();
         }
 
-        $stmt->close();
         return ['success' => true, 'message' => 'Category admission targets saved successfully.'];
     }
 

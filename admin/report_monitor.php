@@ -86,45 +86,11 @@ if ($centreId > 0) {
 }
 
 /*------------------------------------------------------------
-| Save category admission targets (POST)
+| Targets flash message (after AJAX save reload)
 -------------------------------------------------------------*/
 $targetsFlashMessage = $_SESSION['report_targets_flash'] ?? null;
 $targetsFlashType = $_SESSION['report_targets_flash_type'] ?? 'success';
 unset($_SESSION['report_targets_flash'], $_SESSION['report_targets_flash_type']);
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_category_targets') {
-    $postYear = isset($_POST['financial_year_start']) ? (int) $_POST['financial_year_start'] : $selectedYear;
-    $postCentre = isset($_POST['centre_id']) ? (int) $_POST['centre_id'] : $centreId;
-    $targetsInput = [];
-
-    foreach (report_monitor_get_category_target_keys() as $targetKey) {
-        $targetsInput[$targetKey] = isset($_POST['targets'][$targetKey])
-            ? max(0, (int) $_POST['targets'][$targetKey])
-            : 0;
-    }
-
-    $saveResult = report_monitor_save_category_targets(
-        $conn,
-        $postYear,
-        $postCentre,
-        $targetsInput,
-        isset($_SESSION['admin_id']) ? (int) $_SESSION['admin_id'] : null
-    );
-
-    $_SESSION['report_targets_flash'] = $saveResult['message'] ?? 'Category targets updated.';
-    $_SESSION['report_targets_flash_type'] = !empty($saveResult['success']) ? 'success' : 'danger';
-
-    $redirectParams = [
-        'year' => $postYear,
-        'quarter' => $selectedQuarter,
-    ];
-    if ($postCentre > 0) {
-        $redirectParams['centre_id'] = $postCentre;
-    }
-
-    header('Location: report_monitor.php?' . http_build_query($redirectParams));
-    exit;
-}
 
 /*------------------------------------------------------------
 | Financial year quarter date range (Apr–Mar)
@@ -1177,7 +1143,7 @@ Q4 (Jan–Mar)
 <div class="modal fade" id="categoryTargetsModal" tabindex="-1" aria-labelledby="categoryTargetsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <form method="post" action="report_monitor.php">
+            <form id="categoryTargetsForm" method="post" action="ajax_report_category_targets.php">
                 <input type="hidden" name="action" value="save_category_targets">
                 <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
                 <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
@@ -1186,6 +1152,7 @@ Q4 (Jan–Mar)
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <div id="categoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
                     <p class="text-muted small mb-3">
                         Annual admission targets for <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>
                         <?php if ($centreId > 0): ?>
@@ -2392,6 +2359,71 @@ instance.resize();
 });
 
 });
+
+/*==================================================
+CATEGORY TARGETS SAVE (AJAX)
+==================================================*/
+
+const categoryTargetsForm = document.getElementById('categoryTargetsForm');
+if (categoryTargetsForm) {
+    categoryTargetsForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const submitBtn = categoryTargetsForm.querySelector('button[type="submit"]');
+        const errorBox = document.getElementById('categoryTargetsError');
+        const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
+
+        if (errorBox) {
+            errorBox.classList.add('d-none');
+            errorBox.textContent = '';
+        }
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
+        }
+
+        try {
+            const formData = new FormData(categoryTargetsForm);
+            const response = await fetch('ajax_report_category_targets.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const rawText = await response.text();
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (parseError) {
+                throw new Error('Server returned an invalid response. Please refresh the page and try again.');
+            }
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || 'Could not save targets.');
+            }
+
+            const modalEl = document.getElementById('categoryTargetsModal');
+            if (modalEl && typeof bootstrap !== 'undefined') {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+            }
+
+            window.location.reload();
+        } catch (err) {
+            const message = err && err.message ? err.message : 'Could not save targets.';
+            if (errorBox) {
+                errorBox.textContent = message;
+                errorBox.classList.remove('d-none');
+            } else {
+                alert('Request failed: ' + message);
+            }
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+            }
+        }
+    });
+}
 
 </script>
 
