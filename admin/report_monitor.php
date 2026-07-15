@@ -157,6 +157,12 @@ $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $centreId,
     $selectedYear
 );
+$categoryCourseQuarterSummary = report_monitor_get_category_course_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
 
 $trainingPartnerEntries = tp_admissions_list($conn, $selectedYear, true);
 $tpCategoryQuarterSummary = tp_admissions_get_category_quarter_summary($conn, $selectedYear);
@@ -1186,13 +1192,15 @@ Q4 (Jan–Mar)
                             $achievementClass = 'text-danger';
                         }
                     }
+                    $categoryKey = (string) ($categoryRow['key'] ?? '');
+                    $categoryCourseRows = $categoryCourseQuarterSummary[$categoryKey] ?? [];
                     ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
-                        <td class="text-end"><?php echo number_format($categoryRow['Q1']); ?></td>
-                        <td class="text-end"><?php echo number_format($categoryRow['Q2']); ?></td>
-                        <td class="text-end"><?php echo number_format($categoryRow['Q3']); ?></td>
-                        <td class="text-end"><?php echo number_format($categoryRow['Q4']); ?></td>
+                    <tr class="table-light">
+                        <td class="fw-semibold"><?php echo htmlspecialchars($categoryRow['label']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q1']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q2']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q3']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q4']); ?></td>
                         <td class="text-end fw-bold"><?php echo number_format($categoryRow['total']); ?></td>
                         <td class="text-end">
                             <?php if (($categoryRow['target'] ?? 0) > 0): ?>
@@ -1205,6 +1213,24 @@ Q4 (Jan–Mar)
                             <?php echo $achievement !== null ? number_format($achievement, 1) . '%' : '—'; ?>
                         </td>
                     </tr>
+                    <?php foreach ($categoryCourseRows as $courseRow): ?>
+                    <tr>
+                        <td class="ps-4">
+                            <span class="text-muted me-1">↳</span>
+                            <?php echo htmlspecialchars($courseRow['course_name']); ?>
+                            <?php if (!empty($courseRow['course_code'])): ?>
+                                <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q4']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($courseRow['total']); ?></td>
+                        <td class="text-end text-muted">—</td>
+                        <td class="text-end text-muted">—</td>
+                    </tr>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
                 </tbody>
                 <tfoot class="table-light">
