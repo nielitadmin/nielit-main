@@ -1877,14 +1877,6 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return array_values($rows);
     }
 
-    function report_monitor_tp_target_centre_id() {
-        return -1;
-    }
-
-    function report_monitor_tp_social_target_centre_id() {
-        return -2;
-    }
-
     function report_monitor_get_targets_by_keys($conn, int $fyStartYear, int $centreId, array $allowedKeys) {
         report_monitor_ensure_category_targets_table($conn);
 

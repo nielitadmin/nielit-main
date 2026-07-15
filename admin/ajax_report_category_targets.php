@@ -46,14 +46,7 @@ $centreId = isset($_POST['centre_id']) ? (int) $_POST['centre_id'] : 0;
 $allowedKeys = report_monitor_get_category_target_keys();
 $flashMessage = 'Category admission targets saved successfully.';
 
-if ($targetScope === 'training_partner') {
-    $centreId = report_monitor_tp_target_centre_id();
-    $flashMessage = 'Training partner category targets saved successfully.';
-} elseif ($targetScope === 'training_partner_social') {
-    $centreId = report_monitor_tp_social_target_centre_id();
-    $allowedKeys = report_monitor_get_social_category_target_keys();
-    $flashMessage = 'Training partner social category targets saved successfully.';
-} elseif ($targetScope === 'nielit_social') {
+if ($targetScope === 'nielit_social') {
     $allowedKeys = report_monitor_get_social_category_target_keys();
     $flashMessage = 'Social category admission targets saved successfully.';
 }
