@@ -455,7 +455,6 @@ if (isset($_POST['update_student'])) {
         die("Statement preparation failed: " . $conn->error);
     }
     
-    $bindTypes = str_repeat('s', 38) . (!empty($has_twelfth_cert_col) ? 's' : '') . (!empty($has_dge_doc_cols) ? 'sss' : '') . 's';
     $bindArgs = [
         $name, $father_name, $mother_name, $dob, $age, $mobile, $email,
         $course, $status, $address, $city, $state, $pincode, $aadhar, $apaar_id,
@@ -477,6 +476,7 @@ if (isset($_POST['update_student'])) {
         $bindArgs[] = $aadhaar_bank_seeding_doc;
     }
     $bindArgs[] = $student_id;
+    $bindTypes = str_repeat('s', count($bindArgs));
     $stmt->bind_param($bindTypes, ...$bindArgs);
 
     if ($stmt->execute()) {
