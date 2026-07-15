@@ -1715,4 +1715,121 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         return $rows;
     }
+
+    function report_monitor_ensure_category_targets_table($conn) {
+        if (report_monitor_table_exists($conn, 'report_category_admission_targets')) {
+            return true;
+        }
+
+        $sql = "CREATE TABLE IF NOT EXISTS report_category_admission_targets (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            financial_year_start INT NOT NULL,
+            centre_id INT NOT NULL DEFAULT 0,
+            category_key VARCHAR(64) NOT NULL,
+            annual_target INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            updated_by INT NULL DEFAULT NULL,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_report_cat_target_scope (financial_year_start, centre_id, category_key),
+            KEY idx_report_cat_target_year (financial_year_start),
+            KEY idx_report_cat_target_centre (centre_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+        return (bool) $conn->query($sql);
+    }
+
+    function report_monitor_get_category_target_keys() {
+        $keys = array_keys(get_report_monitor_category_groups());
+        $keys[] = 'uncategorized';
+        return $keys;
+    }
+
+    function report_monitor_get_category_targets($conn, int $fyStartYear, int $centreId = 0) {
+        report_monitor_ensure_category_targets_table($conn);
+
+        $targets = [];
+        foreach (report_monitor_get_category_target_keys() as $key) {
+            $targets[$key] = 0;
+        }
+
+        $stmt = $conn->prepare(
+            'SELECT category_key, annual_target
+             FROM report_category_admission_targets
+             WHERE financial_year_start = ? AND centre_id = ?'
+        );
+        if (!$stmt) {
+            return $targets;
+        }
+
+        $stmt->bind_param('ii', $fyStartYear, $centreId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $key = (string) ($row['category_key'] ?? '');
+            if ($key !== '' && array_key_exists($key, $targets)) {
+                $targets[$key] = max(0, (int) ($row['annual_target'] ?? 0));
+            }
+        }
+        $stmt->close();
+
+        return $targets;
+    }
+
+    function report_monitor_save_category_targets($conn, int $fyStartYear, int $centreId, array $targetsByCategory, ?int $adminId = null) {
+        report_monitor_ensure_category_targets_table($conn);
+
+        $allowedKeys = report_monitor_get_category_target_keys();
+        $stmt = $conn->prepare(
+            'INSERT INTO report_category_admission_targets
+                (financial_year_start, centre_id, category_key, annual_target, updated_by)
+             VALUES (?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                annual_target = VALUES(annual_target),
+                updated_by = VALUES(updated_by),
+                updated_at = CURRENT_TIMESTAMP'
+        );
+
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not prepare target save query.'];
+        }
+
+        foreach ($allowedKeys as $key) {
+            $target = max(0, (int) ($targetsByCategory[$key] ?? 0));
+            $stmt->bind_param('iisii', $fyStartYear, $centreId, $key, $target, $adminId);
+            if (!$stmt->execute()) {
+                $stmt->close();
+                return ['success' => false, 'message' => 'Failed to save category targets.'];
+            }
+        }
+
+        $stmt->close();
+        return ['success' => true, 'message' => 'Category admission targets saved successfully.'];
+    }
+
+    function report_monitor_apply_category_targets(array $summaryRows, array $targetsMap) {
+        $grandTotal = 0;
+        $grandTarget = 0;
+
+        foreach ($summaryRows as &$row) {
+            $key = (string) ($row['key'] ?? '');
+            $target = max(0, (int) ($targetsMap[$key] ?? 0));
+            $total = (int) ($row['total'] ?? 0);
+
+            $row['target'] = $target;
+            $row['achievement_pct'] = $target > 0 ? round(($total / $target) * 100, 1) : null;
+            $row['remaining'] = $target > 0 ? max(0, $target - $total) : null;
+
+            $grandTotal += $total;
+            $grandTarget += $target;
+        }
+        unset($row);
+
+        return [
+            'rows' => $summaryRows,
+            'grand_total' => $grandTotal,
+            'grand_target' => $grandTarget,
+            'grand_achievement_pct' => $grandTarget > 0 ? round(($grandTotal / $grandTarget) * 100, 1) : null,
+        ];
+    }
 }
