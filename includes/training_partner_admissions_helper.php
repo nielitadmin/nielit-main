@@ -335,62 +335,44 @@ if (!function_exists('tp_admissions_ensure_table')) {
         return $totals;
     }
 
-    function tp_admissions_get_partner_summary_row($conn, int $fyStartYear) {
-        $entries = tp_admissions_list($conn, $fyStartYear, true);
-        $row = [
-            'key' => 'training_partner_programs',
-            'label' => 'Training Partner Programs (Manual Entry)',
-            'Q1' => 0,
-            'Q2' => 0,
-            'Q3' => 0,
-            'Q4' => 0,
-            'total' => 0,
-            'is_training_partner_row' => true,
+    function tp_admissions_get_category_quarter_summary($conn, int $fyStartYear) {
+        $tpTotals = tp_admissions_get_category_totals($conn, $fyStartYear);
+        $rows = [];
+
+        foreach (array_keys(get_report_monitor_category_groups()) as $key) {
+            $totals = $tpTotals[$key] ?? ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0, 'total' => 0];
+            $rows[] = [
+                'key' => $key,
+                'label' => report_monitor_category_label($key),
+                'Q1' => (int) $totals['Q1'],
+                'Q2' => (int) $totals['Q2'],
+                'Q3' => (int) $totals['Q3'],
+                'Q4' => (int) $totals['Q4'],
+                'total' => (int) $totals['total'],
+            ];
+        }
+
+        $uncat = $tpTotals['uncategorized'] ?? ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0, 'total' => 0];
+        $rows[] = [
+            'key' => 'uncategorized',
+            'label' => 'Uncategorized',
+            'Q1' => (int) $uncat['Q1'],
+            'Q2' => (int) $uncat['Q2'],
+            'Q3' => (int) $uncat['Q3'],
+            'Q4' => (int) $uncat['Q4'],
+            'total' => (int) $uncat['total'],
         ];
 
-        foreach ($entries as $entry) {
-            $row['Q1'] += (int) $entry['Q1'];
-            $row['Q2'] += (int) $entry['Q2'];
-            $row['Q3'] += (int) $entry['Q3'];
-            $row['Q4'] += (int) $entry['Q4'];
-            $row['total'] += (int) $entry['total'];
-        }
-
-        return $row;
+        return $rows;
     }
 
-    function report_monitor_merge_training_partner_admissions($conn, array $summaryRows, int $fyStartYear) {
-        $tpTotals = tp_admissions_get_category_totals($conn, $fyStartYear);
-
-        foreach ($summaryRows as &$row) {
-            $key = (string) ($row['key'] ?? '');
-            if (!isset($tpTotals[$key])) {
-                continue;
-            }
-            $tp = $tpTotals[$key];
-            if (($tp['total'] ?? 0) <= 0) {
-                continue;
-            }
-
-            $row['Q1'] = (int) ($row['Q1'] ?? 0) + (int) $tp['Q1'];
-            $row['Q2'] = (int) ($row['Q2'] ?? 0) + (int) $tp['Q2'];
-            $row['Q3'] = (int) ($row['Q3'] ?? 0) + (int) $tp['Q3'];
-            $row['Q4'] = (int) ($row['Q4'] ?? 0) + (int) $tp['Q4'];
-            $row['total'] = (int) ($row['total'] ?? 0) + (int) $tp['total'];
-            $row['tp_Q1'] = (int) $tp['Q1'];
-            $row['tp_Q2'] = (int) $tp['Q2'];
-            $row['tp_Q3'] = (int) $tp['Q3'];
-            $row['tp_Q4'] = (int) $tp['Q4'];
-            $row['tp_total'] = (int) $tp['total'];
-            $row['includes_training_partner'] = true;
-        }
-        unset($row);
-
-        $partnerRow = tp_admissions_get_partner_summary_row($conn, $fyStartYear);
-        if (($partnerRow['total'] ?? 0) > 0) {
-            $summaryRows[] = $partnerRow;
-        }
-
-        return $summaryRows;
+    function tp_admissions_get_category_quarter_grand_totals(array $summaryRows) {
+        return [
+            'Q1' => array_sum(array_column($summaryRows, 'Q1')),
+            'Q2' => array_sum(array_column($summaryRows, 'Q2')),
+            'Q3' => array_sum(array_column($summaryRows, 'Q3')),
+            'Q4' => array_sum(array_column($summaryRows, 'Q4')),
+            'total' => array_sum(array_column($summaryRows, 'total')),
+        ];
     }
 }

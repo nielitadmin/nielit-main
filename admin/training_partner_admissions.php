@@ -128,7 +128,7 @@ $pageTitle = 'Training Partner Admissions';
             <div class="col-md-8">
                 <div class="alert alert-info mb-0 py-2">
                     <i class="fas fa-info-circle me-1"></i>
-                    Add one entry per quarter. Select Q1, Q2, Q3, or Q4 and enter students trained. Same course in another quarter = add another entry.
+                    Figures appear in the separate <strong>Category Quarterly Admissions Summary — Training Partners</strong> on Report Monitor (not mixed with NIELIT data).
                 </div>
             </div>
         </form>

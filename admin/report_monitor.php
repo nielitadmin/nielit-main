@@ -158,13 +158,9 @@ $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $selectedYear
 );
 
-$categoryQuarterSummary = report_monitor_merge_training_partner_admissions(
-    $conn,
-    $categoryQuarterSummary,
-    $selectedYear
-);
-
 $trainingPartnerEntries = tp_admissions_list($conn, $selectedYear, true);
+$tpCategoryQuarterSummary = tp_admissions_get_category_quarter_summary($conn, $selectedYear);
+$tpCategoryQuarterGrand = tp_admissions_get_category_quarter_grand_totals($tpCategoryQuarterSummary);
 
 $categoryAdmissionTargets = report_monitor_get_category_targets(
     $conn,
@@ -1086,9 +1082,6 @@ Q4 (Jan–Mar)
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
             <i class="fas fa-bullseye me-1"></i> Set Targets
         </button>
-        <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-outline-primary">
-            <i class="fas fa-handshake me-1"></i> TP Admissions
-        </a>
     </div>
     <?php if ($categoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
@@ -1133,15 +1126,7 @@ Q4 (Jan–Mar)
                     }
                     ?>
                     <tr>
-                        <td>
-                            <?php echo htmlspecialchars($categoryRow['label']); ?>
-                            <?php if (!empty($categoryRow['includes_training_partner'])): ?>
-                                <span class="badge bg-info ms-1" title="Includes training partner manual entries">incl. TP</span>
-                            <?php endif; ?>
-                            <?php if (!empty($categoryRow['is_training_partner_row'])): ?>
-                                <span class="badge bg-secondary ms-1">Manual</span>
-                            <?php endif; ?>
-                        </td>
+                        <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q2']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q3']); ?></td>
@@ -1185,11 +1170,71 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>Category Quarterly Admissions Summary — Training Partners</strong>
+            <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
+            <span class="badge bg-secondary ms-1">Manual TP entries only</span>
+        </div>
+        <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-primary">
+            <i class="fas fa-handshake me-1"></i> Manage TP Entries
+        </a>
+    </div>
+    <?php if ($tpCategoryQuarterGrand['total'] <= 0): ?>
+    <div class="card-body border-bottom py-3">
+        <div class="alert alert-info mb-0">
+            <i class="fas fa-info-circle me-1"></i>
+            No training partner admissions recorded for FY <?php echo htmlspecialchars($selectedYear); ?>.
+            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>">Add TP entries</a> to populate this summary.
+        </div>
+    </div>
+    <?php endif; ?>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Category</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($tpCategoryQuarterSummary as $tpCategoryRow): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($tpCategoryRow['label']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpCategoryRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpCategoryRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpCategoryRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpCategoryRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($tpCategoryRow['total']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot class="table-light">
+                <tr>
+                    <th>Grand Total</th>
+                    <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q1']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q2']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q3']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q4']); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format($tpCategoryQuarterGrand['total']); ?></th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
 <?php if (!empty($trainingPartnerEntries)): ?>
 <div class="card table-card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <strong>Training Partner Quarterly Admissions</strong>
+            <strong>Training Partner Entry Details</strong>
             <div class="text-muted small">Manual entries from training partners for FY <?php echo htmlspecialchars($selectedYear); ?></div>
         </div>
         <div class="d-flex gap-2 align-items-center">
@@ -1879,7 +1924,6 @@ Q4 (Jan–Mar)
                             </thead>
                             <tbody>
                             <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
-                                <?php if (!empty($categoryRow['is_training_partner_row'])) { continue; } ?>
                                 <?php $savedTarget = (int) ($categoryAdmissionTargets[$categoryRow['key']] ?? 0); ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
