@@ -88,6 +88,7 @@ $pageTitle = 'Training Partner Admissions';
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="<?php echo APP_URL; ?>/assets/css/admin-theme.css" rel="stylesheet">
+    <link href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css" rel="stylesheet">
 </head>
 <body>
 <div class="admin-wrapper">
@@ -113,12 +114,13 @@ $pageTitle = 'Training Partner Admissions';
     </div>
 </div>
 
-<?php if (!empty($_SESSION['message'])): ?>
-<div class="alert alert-<?php echo htmlspecialchars($_SESSION['message_type'] ?? 'info'); ?> alert-dismissible fade show">
-    <?php echo htmlspecialchars($_SESSION['message']); ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php unset($_SESSION['message'], $_SESSION['message_type']); endif; ?>
+<?php
+$flashMessage = $_SESSION['message'] ?? null;
+$flashType = $_SESSION['message_type'] ?? null;
+if (!empty($flashMessage)) {
+    unset($_SESSION['message'], $_SESSION['message_type']);
+}
+?>
 
 <?php if ($isCourseCoordinator): ?>
 <div class="alert alert-secondary py-2 mb-4">
@@ -318,6 +320,22 @@ $pageTitle = 'Training Partner Admissions';
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<?php if (!empty($flashMessage)): ?>
+<?php
+$toastType = ($flashType === 'danger') ? 'error' : (string) $flashType;
+if (!in_array($toastType, ['success', 'error', 'warning', 'info'], true)) {
+    $toastType = 'info';
+}
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof toast !== 'undefined') {
+        toast.<?php echo $toastType; ?>('<?php echo addslashes((string) $flashMessage); ?>', 5000);
+    }
+});
+</script>
+<?php endif; ?>
 <script>
 function openTpEntryModal(entry) {
     entry = entry || null;
