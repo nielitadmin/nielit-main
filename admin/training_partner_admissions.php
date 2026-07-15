@@ -210,8 +210,8 @@ $pageTitle = 'Training Partner Admissions';
                     </td>
                     <?php endif; ?>
                     <td class="text-end">
-                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                onclick='openTpEntryModal(<?php echo json_encode($entry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
+                        <button type="button" class="btn btn-sm btn-outline-primary tp-edit-entry-btn"
+                                data-entry="<?php echo htmlspecialchars(json_encode($entry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), ENT_QUOTES, 'UTF-8'); ?>">
                             <i class="fas fa-edit"></i>
                         </button>
                         <form method="post" class="d-inline" onsubmit="return confirm('Remove this training partner entry?');">
@@ -320,11 +320,13 @@ $pageTitle = 'Training Partner Admissions';
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function openTpEntryModal(entry) {
+    entry = entry || null;
+
     const title = document.getElementById('tpEntryModalTitle');
     const submitBtn = document.querySelector('#tpEntryForm button[type="submit"]');
     document.getElementById('tp_entry_id').value = entry && entry.id ? entry.id : '';
     document.getElementById('tp_partner_name').value = entry && entry.partner_name ? entry.partner_name : '';
-    document.getElementById('tp_centre_id').value = entry && entry.centre_id ? entry.centre_id : '';
+    document.getElementById('tp_centre_id').value = entry && entry.centre_id ? String(entry.centre_id) : '';
     document.getElementById('tp_course_name').value = entry && entry.course_name ? entry.course_name : '';
     document.getElementById('tp_category_key').value = entry && entry.category_key ? entry.category_key : '';
     document.getElementById('tp_quarter').value = entry && entry.quarter ? entry.quarter : '';
@@ -337,7 +339,24 @@ function openTpEntryModal(entry) {
             ? '<i class="fas fa-save me-1"></i> Update'
             : '<i class="fas fa-save me-1"></i> Add';
     }
+
+    const modalEl = document.getElementById('tpEntryModal');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
 }
+
+document.querySelectorAll('.tp-edit-entry-btn').forEach(function (button) {
+    button.addEventListener('click', function () {
+        let entry = null;
+        try {
+            entry = JSON.parse(button.getAttribute('data-entry') || 'null');
+        } catch (error) {
+            entry = null;
+        }
+        openTpEntryModal(entry);
+    });
+});
 </script>
 </body>
 </html>

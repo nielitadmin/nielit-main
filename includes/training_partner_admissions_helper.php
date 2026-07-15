@@ -348,7 +348,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
                 return ['success' => false, 'message' => 'Could not prepare update query.'];
             }
             $stmt->bind_param(
-                'ssisiiiiisii',
+                'sssiiiiiisii',
                 $entry['partner_name'],
                 $entry['course_name'],
                 $entry['category_key'],
@@ -374,7 +374,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
                 return ['success' => false, 'message' => 'Could not prepare insert query.'];
             }
             $stmt->bind_param(
-                'ssisiiiiisii',
+                'sssiiiiiisii',
                 $entry['partner_name'],
                 $entry['course_name'],
                 $entry['category_key'],
