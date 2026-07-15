@@ -68,6 +68,9 @@ $result = report_monitor_save_category_targets(
 
 if (empty($result['success'])) {
     http_response_code(500);
+} else {
+    $_SESSION['report_targets_flash'] = $result['message'] ?? 'Category admission targets saved successfully.';
+    $_SESSION['report_targets_flash_type'] = 'success';
 }
 
 echo json_encode([

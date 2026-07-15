@@ -1073,10 +1073,22 @@ Q4 (Jan–Mar)
                 <span class="badge bg-secondary ms-1">All-centre targets</span>
             <?php endif; ?>
         </div>
-        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
             <i class="fas fa-bullseye me-1"></i> Set Targets
         </button>
     </div>
+    <?php if ($categoryQuarterGrandTarget <= 0): ?>
+    <div class="card-body border-bottom py-3">
+        <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
+            <i class="fas fa-info-circle mt-1"></i>
+            <div>
+                <strong>No annual targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">Set Targets</button>
+                to enter admission goals for each category. Targets will appear in the <em>Target</em> and <em>Achievement</em> columns.
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-bordered table-hover mb-0">
@@ -1114,7 +1126,13 @@ Q4 (Jan–Mar)
                         <td class="text-end"><?php echo number_format($categoryRow['Q3']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q4']); ?></td>
                         <td class="text-end fw-bold"><?php echo number_format($categoryRow['total']); ?></td>
-                        <td class="text-end"><?php echo !empty($categoryRow['target']) ? number_format($categoryRow['target']) : '—'; ?></td>
+                        <td class="text-end">
+                            <?php if (($categoryRow['target'] ?? 0) > 0): ?>
+                                <?php echo number_format($categoryRow['target']); ?>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal" title="Set target for this category">Not set</button>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-end fw-semibold <?php echo $achievementClass; ?>">
                             <?php echo $achievement !== null ? number_format($achievement, 1) . '%' : '—'; ?>
                         </td>
@@ -1129,74 +1147,19 @@ Q4 (Jan–Mar)
                     <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q3'))); ?></th>
                     <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q4'))); ?></th>
                     <th class="text-end fw-bold"><?php echo number_format($categoryQuarterGrandTotal); ?></th>
-                    <th class="text-end fw-bold"><?php echo $categoryQuarterGrandTarget > 0 ? number_format($categoryQuarterGrandTarget) : '—'; ?></th>
+                    <th class="text-end fw-bold">
+                        <?php if ($categoryQuarterGrandTarget > 0): ?>
+                            <?php echo number_format($categoryQuarterGrandTarget); ?>
+                        <?php else: ?>
+                            <span class="text-muted fw-normal">Not set</span>
+                        <?php endif; ?>
+                    </th>
                     <th class="text-end fw-bold">
                         <?php echo $categoryQuarterGrandAchievement !== null ? number_format($categoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
                     </th>
                 </tr>
                 </tfoot>
             </table>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="categoryTargetsModal" tabindex="-1" aria-labelledby="categoryTargetsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="categoryTargetsForm" method="post" action="ajax_report_category_targets.php">
-                <input type="hidden" name="action" value="save_category_targets">
-                <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
-                <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="categoryTargetsModalLabel">Set Category Admission Targets</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="categoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
-                    <p class="text-muted small mb-3">
-                        Annual admission targets for <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>
-                        <?php if ($centreId > 0): ?>
-                            at <strong><?php echo htmlspecialchars($selectedCentreName); ?></strong>.
-                        <?php else: ?>
-                            across <strong>all centres</strong>.
-                        <?php endif; ?>
-                        Targets are compared against the <em>Total</em> admissions column.
-                    </p>
-                    <div class="table-responsive">
-                        <table class="table table-sm table-bordered align-middle mb-0">
-                            <thead class="table-light">
-                            <tr>
-                                <th>Category</th>
-                                <th class="text-end" style="width: 180px;">Annual Target</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
-                                    <td>
-                                        <input
-                                            type="number"
-                                            class="form-control form-control-sm text-end"
-                                            name="targets[<?php echo htmlspecialchars($categoryRow['key']); ?>]"
-                                            min="0"
-                                            step="1"
-                                            value="<?php echo (int) ($categoryAdmissionTargets[$categoryRow['key']] ?? 0); ?>"
-                                        >
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save me-1"></i> Save Targets
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
@@ -1816,6 +1779,73 @@ Q4 (Jan–Mar)
 
 </div>
 
+<div class="modal fade" id="categoryTargetsModal" tabindex="-1" aria-labelledby="categoryTargetsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="categoryTargetsForm" method="post" action="<?php echo htmlspecialchars(APP_URL); ?>/admin/ajax_report_category_targets.php">
+                <input type="hidden" name="action" value="save_category_targets">
+                <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
+                <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="categoryTargetsModalLabel">
+                        <i class="fas fa-bullseye me-2 text-primary"></i>
+                        Set Category Admission Targets
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="categoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        Enter the <strong>annual admission goal</strong> for each category for
+                        <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>
+                        <?php if ($centreId > 0): ?>
+                            at <strong><?php echo htmlspecialchars($selectedCentreName); ?></strong>.
+                        <?php else: ?>
+                            across <strong>all centres</strong>.
+                        <?php endif; ?>
+                        Leave blank or 0 for categories with no target.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th class="text-end" style="width: 200px;">Annual Target</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
+                                <?php $savedTarget = (int) ($categoryAdmissionTargets[$categoryRow['key']] ?? 0); ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            class="form-control text-end"
+                                            name="targets[<?php echo htmlspecialchars($categoryRow['key']); ?>]"
+                                            min="0"
+                                            step="1"
+                                            placeholder="e.g. 500"
+                                            value="<?php echo $savedTarget > 0 ? $savedTarget : ''; ?>"
+                                        >
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Save Targets
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- PART 2 COMPLETED -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2364,6 +2394,8 @@ instance.resize();
 CATEGORY TARGETS SAVE (AJAX)
 ==================================================*/
 
+const categoryTargetsSaveUrl = <?php echo json_encode(APP_URL . '/admin/ajax_report_category_targets.php', JSON_UNESCAPED_SLASHES); ?>;
+
 const categoryTargetsForm = document.getElementById('categoryTargetsForm');
 if (categoryTargetsForm) {
     categoryTargetsForm.addEventListener('submit', async function (event) {
@@ -2385,9 +2417,10 @@ if (categoryTargetsForm) {
 
         try {
             const formData = new FormData(categoryTargetsForm);
-            const response = await fetch('ajax_report_category_targets.php', {
+            const response = await fetch(categoryTargetsSaveUrl, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'same-origin'
             });
 
             const rawText = await response.text();
