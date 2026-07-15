@@ -1877,6 +1877,124 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return array_values($rows);
     }
 
+    function report_monitor_get_social_category_course_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $grouped = [];
+        foreach (array_keys(report_monitor_get_social_category_groups()) as $key) {
+            $grouped[$key] = [];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+
+        $sql = "SELECT c.id AS course_id,
+                       c.course_name,
+                       c.course_code,
+                       s.category AS raw_category,
+                       s.pwd_status AS pwd_status,
+                       CASE
+                           WHEN s.created_at >= ? AND s.created_at < ? THEN 'Q1'
+                           WHEN s.created_at >= ? AND s.created_at < ? THEN 'Q2'
+                           WHEN s.created_at >= ? AND s.created_at < ? THEN 'Q3'
+                           WHEN s.created_at >= ? AND s.created_at < ? THEN 'Q4'
+                           ELSE ''
+                       END AS quarter_key,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY c.id, c.course_name, c.course_code, raw_category, pwd_status, quarter_key";
+
+        $types = str_repeat('s', 10) . $scopeFilter['types'];
+        $values = array_merge([
+            $quarters['Q1']['start_date'], $quarters['Q1']['next_start'],
+            $quarters['Q2']['start_date'], $quarters['Q2']['next_start'],
+            $quarters['Q3']['start_date'], $quarters['Q3']['next_start'],
+            $quarters['Q4']['start_date'], $quarters['Q4']['next_start'],
+            $fyStart, $fyEnd,
+        ], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+
+        if (!$result) {
+            return $grouped;
+        }
+
+        $addCourseCount = static function (array &$bucket, array $row, string $quarterKey, int $count): void {
+            $courseId = (int) $row['course_id'];
+            if (!isset($bucket[$courseId])) {
+                $bucket[$courseId] = [
+                    'course_id' => $courseId,
+                    'course_name' => $row['course_name'],
+                    'course_code' => $row['course_code'] ?? '',
+                    'Q1' => 0,
+                    'Q2' => 0,
+                    'Q3' => 0,
+                    'Q4' => 0,
+                    'total' => 0,
+                ];
+            }
+
+            if (in_array($quarterKey, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                $bucket[$courseId][$quarterKey] += $count;
+                $bucket[$courseId]['total'] += $count;
+            }
+        };
+
+        while ($row = $result->fetch_assoc()) {
+            $quarterKey = $row['quarter_key'] ?? '';
+            if (!in_array($quarterKey, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                continue;
+            }
+
+            $count = (int) ($row['total'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+
+            $socialKey = report_monitor_resolve_social_category_key($row['raw_category'] ?? '');
+            if (isset($grouped[$socialKey])) {
+                $addCourseCount($grouped[$socialKey], $row, $quarterKey, $count);
+            }
+
+            if (report_monitor_is_pwd_status($row['pwd_status'] ?? '')) {
+                $addCourseCount($grouped['pwd'], $row, $quarterKey, $count);
+            }
+        }
+
+        foreach ($grouped as $socialKey => $courses) {
+            $courses = array_values($courses);
+            usort($courses, static function ($a, $b) {
+                $compare = $b['total'] <=> $a['total'];
+                return $compare !== 0 ? $compare : strcasecmp($a['course_name'], $b['course_name']);
+            });
+            $grouped[$socialKey] = array_values(array_filter($courses, static function ($courseRow) {
+                return (int) ($courseRow['total'] ?? 0) > 0;
+            }));
+        }
+
+        return $grouped;
+    }
+
     function report_monitor_get_targets_by_keys($conn, int $fyStartYear, int $centreId, array $allowedKeys) {
         report_monitor_ensure_category_targets_table($conn);
 

@@ -183,6 +183,12 @@ $socialCategoryQuarterSummary = report_monitor_get_social_category_quarter_summa
     $centreId,
     $selectedYear
 );
+$socialCategoryCourseQuarterSummary = report_monitor_get_social_category_course_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
 $socialCategoryAdmissionTargets = report_monitor_get_social_category_targets(
     $conn,
     $selectedYear,
@@ -1268,13 +1274,15 @@ Q4 (Jan–Mar)
                             $socialAchievementClass = 'text-danger';
                         }
                     }
+                    $socialKey = (string) ($socialRow['key'] ?? '');
+                    $socialCourseRows = $socialCategoryCourseQuarterSummary[$socialKey] ?? [];
                     ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($socialRow['label']); ?></td>
-                        <td class="text-end"><?php echo number_format($socialRow['Q1']); ?></td>
-                        <td class="text-end"><?php echo number_format($socialRow['Q2']); ?></td>
-                        <td class="text-end"><?php echo number_format($socialRow['Q3']); ?></td>
-                        <td class="text-end"><?php echo number_format($socialRow['Q4']); ?></td>
+                    <tr class="table-light">
+                        <td class="fw-semibold"><?php echo htmlspecialchars($socialRow['label']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q1']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q2']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q3']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q4']); ?></td>
                         <td class="text-end fw-bold"><?php echo number_format($socialRow['total']); ?></td>
                         <td class="text-end">
                             <?php if (($socialRow['target'] ?? 0) > 0): ?>
@@ -1287,6 +1295,24 @@ Q4 (Jan–Mar)
                             <?php echo $socialAchievement !== null ? number_format($socialAchievement, 1) . '%' : '—'; ?>
                         </td>
                     </tr>
+                    <?php foreach ($socialCourseRows as $courseRow): ?>
+                    <tr>
+                        <td class="ps-4">
+                            <span class="text-muted me-1">↳</span>
+                            <?php echo htmlspecialchars($courseRow['course_name']); ?>
+                            <?php if (!empty($courseRow['course_code'])): ?>
+                                <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($courseRow['Q4']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($courseRow['total']); ?></td>
+                        <td class="text-end text-muted">—</td>
+                        <td class="text-end text-muted">—</td>
+                    </tr>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
                 </tbody>
                 <tfoot class="table-light">
