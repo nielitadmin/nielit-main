@@ -34,6 +34,7 @@ if (empty($_SESSION['csrf_token'])) {
 $active_theme = loadActiveTheme($conn);
 $selectedYear = isset($_GET['year']) ? (int) $_GET['year'] : report_monitor_get_financial_year_start();
 $categoryOptions = tp_admissions_get_category_options();
+$centreOptions = tp_admissions_get_centre_options($conn);
 $adminId = isset($_SESSION['admin_id']) ? (int) $_SESSION['admin_id'] : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -98,7 +99,7 @@ $pageTitle = 'Training Partner Admissions';
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="fas fa-handshake me-2"></i><?php echo htmlspecialchars($pageTitle); ?></h2>
-        <p class="text-muted mb-0">Add training partner admissions: partner name, course, category, quarter, and students trained.</p>
+        <p class="text-muted mb-0">Add training partner admissions: partner name, training centre, course, category, quarter, and students trained.</p>
     </div>
     <div class="d-flex gap-2">
         <?php if ($isMasterAdmin): ?>
@@ -165,6 +166,7 @@ $pageTitle = 'Training Partner Admissions';
                 <thead class="table-light">
                 <tr>
                     <th>Training Partner</th>
+                    <th>Training Centre</th>
                     <th>Course</th>
                     <th>Category</th>
                     <th>Quarter</th>
@@ -178,7 +180,7 @@ $pageTitle = 'Training Partner Admissions';
                 <tbody>
                 <?php if (empty($entries)): ?>
                 <tr>
-                    <td colspan="<?php echo $isMasterAdmin ? 7 : 6; ?>" class="text-center text-muted py-4">
+                    <td colspan="<?php echo $isMasterAdmin ? 8 : 7; ?>" class="text-center text-muted py-4">
                         No training partner entries for FY <?php echo (int) $selectedYear; ?>.
                         Click <strong>Add Entry</strong> to record TP admissions manually.
                     </td>
@@ -187,6 +189,13 @@ $pageTitle = 'Training Partner Admissions';
                 <?php foreach ($entries as $entry): ?>
                 <tr>
                     <td><strong><?php echo htmlspecialchars($entry['partner_name']); ?></strong></td>
+                    <td>
+                        <?php if (!empty($entry['centre_name'])): ?>
+                            <?php echo htmlspecialchars($entry['centre_name']); ?>
+                        <?php else: ?>
+                            <span class="text-muted">—</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?php echo htmlspecialchars($entry['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($entry['category_label']); ?></small></td>
                     <td><span class="badge bg-primary"><?php echo htmlspecialchars($entry['quarter'] ?: '—'); ?></span></td>
@@ -220,7 +229,7 @@ $pageTitle = 'Training Partner Admissions';
                 <?php if (!empty($entries)): ?>
                 <tfoot class="table-light">
                 <tr>
-                    <th colspan="<?php echo $isMasterAdmin ? 5 : 4; ?>">Quarterly totals</th>
+                    <th colspan="<?php echo $isMasterAdmin ? 6 : 5; ?>">Quarterly totals</th>
                     <th class="text-end"><?php echo number_format($grandTotal); ?></th>
                     <?php if ($isMasterAdmin): ?>
                     <th></th>
@@ -228,7 +237,7 @@ $pageTitle = 'Training Partner Admissions';
                     <th></th>
                 </tr>
                 <tr>
-                    <td colspan="<?php echo $isMasterAdmin ? 7 : 6; ?>" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
+                    <td colspan="<?php echo $isMasterAdmin ? 8 : 7; ?>" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
                 </tr>
                 </tfoot>
                 <?php endif; ?>
@@ -258,6 +267,18 @@ $pageTitle = 'Training Partner Admissions';
                     <div class="mb-3">
                         <label class="form-label">Training Partner Name <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" name="partner_name" id="tp_partner_name" required maxlength="200" placeholder="e.g. ABC Skills Pvt Ltd">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Training Centre <span class="text-danger">*</span></label>
+                        <select class="form-select" name="centre_id" id="tp_centre_id" required>
+                            <option value="">Select training centre</option>
+                            <?php foreach ($centreOptions as $centreId => $centreLabel): ?>
+                            <option value="<?php echo (int) $centreId; ?>"><?php echo htmlspecialchars($centreLabel); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if (empty($centreOptions)): ?>
+                        <div class="form-text text-danger">No active training centres found. Ask Master Admin to add centres first.</div>
+                        <?php endif; ?>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Course Name <span class="text-danger">*</span></label>
@@ -303,6 +324,7 @@ function openTpEntryModal(entry) {
     const submitBtn = document.querySelector('#tpEntryForm button[type="submit"]');
     document.getElementById('tp_entry_id').value = entry && entry.id ? entry.id : '';
     document.getElementById('tp_partner_name').value = entry && entry.partner_name ? entry.partner_name : '';
+    document.getElementById('tp_centre_id').value = entry && entry.centre_id ? entry.centre_id : '';
     document.getElementById('tp_course_name').value = entry && entry.course_name ? entry.course_name : '';
     document.getElementById('tp_category_key').value = entry && entry.category_key ? entry.category_key : '';
     document.getElementById('tp_quarter').value = entry && entry.quarter ? entry.quarter : '';

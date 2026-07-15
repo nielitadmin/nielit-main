@@ -1322,6 +1322,7 @@ Q4 (Jan–Mar)
                 <thead class="table-light">
                 <tr>
                     <th>Training Partner</th>
+                    <th>Training Centre</th>
                     <th>Course</th>
                     <th>Category</th>
                     <th>Quarter</th>
@@ -1332,6 +1333,7 @@ Q4 (Jan–Mar)
                 <?php foreach ($trainingPartnerEntries as $tpRow): ?>
                 <tr>
                     <td><?php echo htmlspecialchars($tpRow['partner_name']); ?></td>
+                    <td><?php echo !empty($tpRow['centre_name']) ? htmlspecialchars($tpRow['centre_name']) : '—'; ?></td>
                     <td><?php echo htmlspecialchars($tpRow['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($tpRow['category_label']); ?></small></td>
                     <td><span class="badge bg-primary"><?php echo htmlspecialchars($tpRow['quarter'] ?: '—'); ?></span></td>
