@@ -25,6 +25,7 @@ if (!in_array($adminRole, $allowedRoles, true)) {
 }
 
 $isMasterAdmin = ($adminRole === 'master_admin');
+$isCourseCoordinator = ($adminRole === 'course_coordinator');
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -49,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_entry') {
         $entryId = isset($_POST['entry_id']) ? (int) $_POST['entry_id'] : 0;
-        $result = tp_admissions_save($conn, $_POST, $adminId, $entryId > 0 ? $entryId : null);
+        $result = tp_admissions_save($conn, $_POST, $adminId, $entryId > 0 ? $entryId : null, $isMasterAdmin);
         $_SESSION['message'] = $result['message'] ?? 'Entry saved.';
         $_SESSION['message_type'] = !empty($result['success']) ? 'success' : 'danger';
         header('Location: training_partner_admissions.php?year=' . $redirectYear);
@@ -58,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete_entry') {
         $entryId = (int) ($_POST['entry_id'] ?? 0);
-        $result = tp_admissions_delete($conn, $entryId, $adminId);
+        $result = tp_admissions_delete($conn, $entryId, $adminId, $isMasterAdmin);
         $_SESSION['message'] = $result['message'] ?? 'Entry removed.';
         $_SESSION['message_type'] = !empty($result['success']) ? 'success' : 'danger';
         header('Location: training_partner_admissions.php?year=' . $redirectYear);
@@ -66,7 +67,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$entries = tp_admissions_list($conn, $selectedYear, true);
+$listCreatedBy = ($isCourseCoordinator && $adminId > 0) ? $adminId : null;
+$entries = tp_admissions_list($conn, $selectedYear, true, $listCreatedBy);
 $grandQ1 = array_sum(array_column($entries, 'Q1'));
 $grandQ2 = array_sum(array_column($entries, 'Q2'));
 $grandQ3 = array_sum(array_column($entries, 'Q3'));
@@ -117,6 +119,13 @@ $pageTitle = 'Training Partner Admissions';
 </div>
 <?php unset($_SESSION['message'], $_SESSION['message_type']); endif; ?>
 
+<?php if ($isCourseCoordinator): ?>
+<div class="alert alert-secondary py-2 mb-4">
+    <i class="fas fa-user-lock me-1"></i>
+    You are viewing <strong>only your own</strong> training partner entries. Master Admin can see all coordinators' records on Report Monitor.
+</div>
+<?php endif; ?>
+
 <div class="card mb-4">
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
@@ -160,13 +169,16 @@ $pageTitle = 'Training Partner Admissions';
                     <th>Category</th>
                     <th>Quarter</th>
                     <th class="text-end">Students</th>
+                    <?php if ($isMasterAdmin): ?>
+                    <th>Entered By</th>
+                    <?php endif; ?>
                     <th class="text-end" style="width:120px;">Actions</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php if (empty($entries)): ?>
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">
+                    <td colspan="<?php echo $isMasterAdmin ? 7 : 6; ?>" class="text-center text-muted py-4">
                         No training partner entries for FY <?php echo (int) $selectedYear; ?>.
                         Click <strong>Add Entry</strong> to record TP admissions manually.
                     </td>
@@ -179,6 +191,15 @@ $pageTitle = 'Training Partner Admissions';
                     <td><small><?php echo htmlspecialchars($entry['category_label']); ?></small></td>
                     <td><span class="badge bg-primary"><?php echo htmlspecialchars($entry['quarter'] ?: '—'); ?></span></td>
                     <td class="text-end fw-bold"><?php echo number_format($entry['students_trained']); ?></td>
+                    <?php if ($isMasterAdmin): ?>
+                    <td>
+                        <?php if (!empty($entry['created_by_name'])): ?>
+                            <?php echo htmlspecialchars($entry['created_by_name']); ?>
+                        <?php else: ?>
+                            <span class="text-muted">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <?php endif; ?>
                     <td class="text-end">
                         <button type="button" class="btn btn-sm btn-outline-primary"
                                 onclick='openTpEntryModal(<?php echo json_encode($entry, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>)'>
@@ -199,14 +220,15 @@ $pageTitle = 'Training Partner Admissions';
                 <?php if (!empty($entries)): ?>
                 <tfoot class="table-light">
                 <tr>
-                    <th colspan="4">Quarterly totals</th>
+                    <th colspan="<?php echo $isMasterAdmin ? 5 : 4; ?>">Quarterly totals</th>
                     <th class="text-end"><?php echo number_format($grandTotal); ?></th>
+                    <?php if ($isMasterAdmin): ?>
+                    <th></th>
+                    <?php endif; ?>
                     <th></th>
                 </tr>
                 <tr>
-                    <td colspan="4" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
-                    <td></td>
-                    <td></td>
+                    <td colspan="<?php echo $isMasterAdmin ? 7 : 6; ?>" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
                 </tr>
                 </tfoot>
                 <?php endif; ?>

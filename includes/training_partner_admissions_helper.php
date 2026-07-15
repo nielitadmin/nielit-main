@@ -141,26 +141,80 @@ if (!function_exists('tp_admissions_ensure_table')) {
             'total' => $q1 + $q2 + $q3 + $q4,
             'remarks' => (string) ($row['remarks'] ?? ''),
             'is_active' => (int) ($row['is_active'] ?? 1),
+            'created_by' => isset($row['created_by']) ? (int) $row['created_by'] : null,
+            'created_by_name' => (string) ($row['created_by_name'] ?? ''),
             'created_at' => (string) ($row['created_at'] ?? ''),
             'updated_at' => (string) ($row['updated_at'] ?? ''),
         ];
     }
 
-    function tp_admissions_list($conn, int $fyStartYear, bool $activeOnly = true) {
+    function tp_admissions_can_modify_entry($conn, int $entryId, ?int $adminId, bool $isMasterAdmin) {
+        if ($isMasterAdmin) {
+            return ['allowed' => true];
+        }
+
+        if ($entryId <= 0) {
+            return ['allowed' => false, 'message' => 'Invalid entry.'];
+        }
+
+        if ($adminId === null || $adminId <= 0) {
+            return ['allowed' => false, 'message' => 'Access denied.'];
+        }
+
         tp_admissions_ensure_table($conn);
 
-        $sql = 'SELECT * FROM training_partner_quarterly_admissions WHERE financial_year_start = ?';
-        if ($activeOnly) {
-            $sql .= ' AND is_active = 1';
+        $stmt = $conn->prepare(
+            'SELECT created_by
+             FROM training_partner_quarterly_admissions
+             WHERE id = ? AND is_active = 1
+             LIMIT 1'
+        );
+        if (!$stmt) {
+            return ['allowed' => false, 'message' => 'Could not verify entry ownership.'];
         }
-        $sql .= ' ORDER BY partner_name ASC, course_name ASC, id ASC';
+
+        $stmt->bind_param('i', $entryId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            return ['allowed' => false, 'message' => 'Entry not found.'];
+        }
+
+        if ((int) ($row['created_by'] ?? 0) !== (int) $adminId) {
+            return ['allowed' => false, 'message' => 'You can only manage your own training partner entries.'];
+        }
+
+        return ['allowed' => true];
+    }
+
+    function tp_admissions_list($conn, int $fyStartYear, bool $activeOnly = true, ?int $createdByAdminId = null) {
+        tp_admissions_ensure_table($conn);
+
+        $sql = 'SELECT t.*, a.username AS created_by_name
+                FROM training_partner_quarterly_admissions t
+                LEFT JOIN admin a ON t.created_by = a.id
+                WHERE t.financial_year_start = ?';
+        if ($activeOnly) {
+            $sql .= ' AND t.is_active = 1';
+        }
+        if ($createdByAdminId !== null && $createdByAdminId > 0) {
+            $sql .= ' AND t.created_by = ?';
+        }
+        $sql .= ' ORDER BY t.partner_name ASC, t.course_name ASC, t.id ASC';
 
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return [];
         }
 
-        $stmt->bind_param('i', $fyStartYear);
+        if ($createdByAdminId !== null && $createdByAdminId > 0) {
+            $stmt->bind_param('ii', $fyStartYear, $createdByAdminId);
+        } else {
+            $stmt->bind_param('i', $fyStartYear);
+        }
         $stmt->execute();
         $result = $stmt->get_result();
 
@@ -190,8 +244,15 @@ if (!function_exists('tp_admissions_ensure_table')) {
         return $row ? tp_admissions_normalize_row($row) : null;
     }
 
-    function tp_admissions_save($conn, array $data, ?int $adminId = null, ?int $id = null) {
+    function tp_admissions_save($conn, array $data, ?int $adminId = null, ?int $id = null, bool $isMasterAdmin = true) {
         tp_admissions_ensure_table($conn);
+
+        if ($id !== null && $id > 0) {
+            $access = tp_admissions_can_modify_entry($conn, $id, $adminId, $isMasterAdmin);
+            if (empty($access['allowed'])) {
+                return ['success' => false, 'message' => $access['message'] ?? 'Access denied.'];
+            }
+        }
 
         $validation = tp_admissions_validate_entry($data);
         if (!$validation['valid']) {
@@ -270,8 +331,13 @@ if (!function_exists('tp_admissions_ensure_table')) {
         ];
     }
 
-    function tp_admissions_delete($conn, int $id, ?int $adminId = null) {
+    function tp_admissions_delete($conn, int $id, ?int $adminId = null, bool $isMasterAdmin = true) {
         tp_admissions_ensure_table($conn);
+
+        $access = tp_admissions_can_modify_entry($conn, $id, $adminId, $isMasterAdmin);
+        if (empty($access['allowed'])) {
+            return ['success' => false, 'message' => $access['message'] ?? 'Access denied.'];
+        }
 
         $updatedBy = ($adminId !== null && $adminId > 0) ? (int) $adminId : 0;
         $stmt = $conn->prepare(
