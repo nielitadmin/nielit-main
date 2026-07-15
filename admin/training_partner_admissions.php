@@ -15,12 +15,16 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
-if (($_SESSION['admin_role'] ?? '') !== 'master_admin') {
+$adminRole = $_SESSION['admin_role'] ?? '';
+$allowedRoles = ['master_admin', 'course_coordinator'];
+if (!in_array($adminRole, $allowedRoles, true)) {
     $_SESSION['message'] = 'Access Denied';
     $_SESSION['message_type'] = 'danger';
     header('Location: dashboard.php');
     exit;
 }
+
+$isMasterAdmin = ($adminRole === 'master_admin');
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -95,9 +99,11 @@ $pageTitle = 'Training Partner Admissions';
         <p class="text-muted mb-0">Add training partner admissions: partner name, course, category, quarter, and students trained.</p>
     </div>
     <div class="d-flex gap-2">
+        <?php if ($isMasterAdmin): ?>
         <a href="<?php echo app_url('admin/report_monitor'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-outline-secondary">
             <i class="fas fa-chart-line me-1"></i> Report Monitor
         </a>
+        <?php endif; ?>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tpEntryModal" onclick="openTpEntryModal()">
             <i class="fas fa-plus me-1"></i> Add Entry
         </button>
@@ -128,7 +134,11 @@ $pageTitle = 'Training Partner Admissions';
             <div class="col-md-8">
                 <div class="alert alert-info mb-0 py-2">
                     <i class="fas fa-info-circle me-1"></i>
+                    <?php if ($isMasterAdmin): ?>
                     Figures appear in the separate <strong>Category Quarterly Admissions Summary — Training Partners</strong> on Report Monitor (not mixed with NIELIT data).
+                    <?php else: ?>
+                    Enter training partner admissions here. Summary reports are available to Master Admin on Report Monitor.
+                    <?php endif; ?>
                 </div>
             </div>
         </form>

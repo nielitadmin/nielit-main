@@ -12,6 +12,7 @@ if (!isset($_SESSION['admin_role'])) {
 }
 
 $is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$is_course_coordinator = ($_SESSION['admin_role'] === 'course_coordinator');
 $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
 $is_placement_coordinator = ($_SESSION['admin_role'] === 'placement_coordinator');
@@ -159,6 +160,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <?php endif; ?>
+
+        <?php if (($is_master_admin || $is_course_coordinator) && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>" class="nav-link <?php echo ($current_page === 'training_partner_admissions.php') ? 'active' : ''; ?>">
+                <i class="fas fa-handshake"></i> TP Admissions
+            </a>
+        </div>
+        <?php endif; ?>
         
         <!-- Admin Management (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
@@ -197,11 +206,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <div class="nav-item">
             <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-line"></i> Report Monitor
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>" class="nav-link <?php echo ($current_page === 'training_partner_admissions.php') ? 'active' : ''; ?>">
-                <i class="fas fa-handshake"></i> TP Admissions
             </a>
         </div>
         <div class="nav-item">
