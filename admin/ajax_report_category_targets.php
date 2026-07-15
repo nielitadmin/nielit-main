@@ -41,7 +41,11 @@ if ($action !== 'save_category_targets') {
 }
 
 $fyStartYear = isset($_POST['financial_year_start']) ? (int) $_POST['financial_year_start'] : 0;
+$targetScope = (string) ($_POST['target_scope'] ?? 'nielit');
 $centreId = isset($_POST['centre_id']) ? (int) $_POST['centre_id'] : 0;
+if ($targetScope === 'training_partner') {
+    $centreId = report_monitor_tp_target_centre_id();
+}
 
 if ($fyStartYear < 2020 || $fyStartYear > 2100) {
     http_response_code(400);
@@ -69,7 +73,10 @@ $result = report_monitor_save_category_targets(
 if (empty($result['success'])) {
     http_response_code(500);
 } else {
-    $_SESSION['report_targets_flash'] = $result['message'] ?? 'Category admission targets saved successfully.';
+    $flashMessage = $targetScope === 'training_partner'
+        ? 'Training partner category targets saved successfully.'
+        : ($result['message'] ?? 'Category admission targets saved successfully.');
+    $_SESSION['report_targets_flash'] = $flashMessage;
     $_SESSION['report_targets_flash_type'] = 'success';
 }
 

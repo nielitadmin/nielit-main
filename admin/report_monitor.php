@@ -160,7 +160,27 @@ $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
 
 $trainingPartnerEntries = tp_admissions_list($conn, $selectedYear, true);
 $tpCategoryQuarterSummary = tp_admissions_get_category_quarter_summary($conn, $selectedYear);
-$tpCategoryQuarterGrand = tp_admissions_get_category_quarter_grand_totals($tpCategoryQuarterSummary);
+
+$tpCategoryAdmissionTargets = report_monitor_get_category_targets(
+    $conn,
+    $selectedYear,
+    report_monitor_tp_target_centre_id()
+);
+$tpCategoryQuarterTargetSummary = report_monitor_apply_category_targets(
+    $tpCategoryQuarterSummary,
+    $tpCategoryAdmissionTargets
+);
+$tpCategoryQuarterSummary = $tpCategoryQuarterTargetSummary['rows'];
+$tpCategoryQuarterGrandTotal = $tpCategoryQuarterTargetSummary['grand_total'];
+$tpCategoryQuarterGrandTarget = $tpCategoryQuarterTargetSummary['grand_target'];
+$tpCategoryQuarterGrandAchievement = $tpCategoryQuarterTargetSummary['grand_achievement_pct'];
+$tpCategoryQuarterGrand = [
+    'Q1' => array_sum(array_column($tpCategoryQuarterSummary, 'Q1')),
+    'Q2' => array_sum(array_column($tpCategoryQuarterSummary, 'Q2')),
+    'Q3' => array_sum(array_column($tpCategoryQuarterSummary, 'Q3')),
+    'Q4' => array_sum(array_column($tpCategoryQuarterSummary, 'Q4')),
+    'total' => $tpCategoryQuarterGrandTotal,
+];
 
 $categoryAdmissionTargets = report_monitor_get_category_targets(
     $conn,
@@ -1177,11 +1197,28 @@ Q4 (Jan–Mar)
             <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
             <span class="badge bg-secondary ms-1">Manual TP entries only</span>
         </div>
-        <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-primary">
-            <i class="fas fa-handshake me-1"></i> Manage TP Entries
-        </a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-outline-primary">
+                <i class="fas fa-handshake me-1"></i> Manage TP Entries
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tpCategoryTargetsModal">
+                <i class="fas fa-bullseye me-1"></i> Set Targets
+            </button>
+        </div>
     </div>
-    <?php if ($tpCategoryQuarterGrand['total'] <= 0): ?>
+    <?php if ($tpCategoryQuarterGrandTarget <= 0): ?>
+    <div class="card-body border-bottom py-3">
+        <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
+            <i class="fas fa-info-circle mt-1"></i>
+            <div>
+                <strong>No TP targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#tpCategoryTargetsModal">Set Targets</button>
+                to enter annual goals for training partner categories.
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    <?php if ($tpCategoryQuarterGrand['total'] <= 0 && $tpCategoryQuarterGrandTarget > 0): ?>
     <div class="card-body border-bottom py-3">
         <div class="alert alert-info mb-0">
             <i class="fas fa-info-circle me-1"></i>
@@ -1201,10 +1238,25 @@ Q4 (Jan–Mar)
                     <th class="text-end">Q3</th>
                     <th class="text-end">Q4</th>
                     <th class="text-end">Total</th>
+                    <th class="text-end">Target</th>
+                    <th class="text-end">Achievement</th>
                 </tr>
                 </thead>
                 <tbody>
                 <?php foreach ($tpCategoryQuarterSummary as $tpCategoryRow): ?>
+                    <?php
+                    $tpAchievement = $tpCategoryRow['achievement_pct'] ?? null;
+                    $tpAchievementClass = '';
+                    if ($tpAchievement !== null) {
+                        if ($tpAchievement >= 100) {
+                            $tpAchievementClass = 'text-success';
+                        } elseif ($tpAchievement >= 75) {
+                            $tpAchievementClass = 'text-warning';
+                        } else {
+                            $tpAchievementClass = 'text-danger';
+                        }
+                    }
+                    ?>
                     <tr>
                         <td><?php echo htmlspecialchars($tpCategoryRow['label']); ?></td>
                         <td class="text-end"><?php echo number_format($tpCategoryRow['Q1']); ?></td>
@@ -1212,6 +1264,16 @@ Q4 (Jan–Mar)
                         <td class="text-end"><?php echo number_format($tpCategoryRow['Q3']); ?></td>
                         <td class="text-end"><?php echo number_format($tpCategoryRow['Q4']); ?></td>
                         <td class="text-end fw-bold"><?php echo number_format($tpCategoryRow['total']); ?></td>
+                        <td class="text-end">
+                            <?php if (($tpCategoryRow['target'] ?? 0) > 0): ?>
+                                <?php echo number_format($tpCategoryRow['target']); ?>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#tpCategoryTargetsModal" title="Set TP target">Not set</button>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end fw-semibold <?php echo $tpAchievementClass; ?>">
+                            <?php echo $tpAchievement !== null ? number_format($tpAchievement, 1) . '%' : '—'; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -1223,6 +1285,16 @@ Q4 (Jan–Mar)
                     <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q3']); ?></th>
                     <th class="text-end"><?php echo number_format($tpCategoryQuarterGrand['Q4']); ?></th>
                     <th class="text-end fw-bold"><?php echo number_format($tpCategoryQuarterGrand['total']); ?></th>
+                    <th class="text-end fw-bold">
+                        <?php if ($tpCategoryQuarterGrandTarget > 0): ?>
+                            <?php echo number_format($tpCategoryQuarterGrandTarget); ?>
+                        <?php else: ?>
+                            <span class="text-muted fw-normal">Not set</span>
+                        <?php endif; ?>
+                    </th>
+                    <th class="text-end fw-bold">
+                        <?php echo $tpCategoryQuarterGrandAchievement !== null ? number_format($tpCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
+                    </th>
                 </tr>
                 </tfoot>
             </table>
@@ -1955,6 +2027,69 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
+<div class="modal fade" id="tpCategoryTargetsModal" tabindex="-1" aria-labelledby="tpCategoryTargetsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="tpCategoryTargetsForm" method="post" action="<?php echo htmlspecialchars(APP_URL); ?>/admin/ajax_report_category_targets.php">
+                <input type="hidden" name="action" value="save_category_targets">
+                <input type="hidden" name="target_scope" value="training_partner">
+                <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
+                <input type="hidden" name="centre_id" value="<?php echo (int) report_monitor_tp_target_centre_id(); ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tpCategoryTargetsModalLabel">
+                        <i class="fas fa-bullseye me-2 text-primary"></i>
+                        Set Training Partner Category Targets
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="tpCategoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        Enter the <strong>annual admission target</strong> for each category for training partners in
+                        <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>.
+                        Compared against the TP admissions total in each row.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Category</th>
+                                <th class="text-end" style="width: 200px;">Annual Target</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($tpCategoryQuarterSummary as $tpCategoryRow): ?>
+                                <?php $tpSavedTarget = (int) ($tpCategoryAdmissionTargets[$tpCategoryRow['key']] ?? 0); ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($tpCategoryRow['label']); ?></td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            class="form-control text-end"
+                                            name="targets[<?php echo htmlspecialchars($tpCategoryRow['key']); ?>]"
+                                            min="0"
+                                            step="1"
+                                            placeholder="e.g. 500"
+                                            value="<?php echo $tpSavedTarget > 0 ? $tpSavedTarget : ''; ?>"
+                                        >
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i> Save Targets
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- PART 2 COMPLETED -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2505,13 +2640,17 @@ CATEGORY TARGETS SAVE (AJAX)
 
 const categoryTargetsSaveUrl = <?php echo json_encode(APP_URL . '/admin/ajax_report_category_targets.php', JSON_UNESCAPED_SLASHES); ?>;
 
-const categoryTargetsForm = document.getElementById('categoryTargetsForm');
-if (categoryTargetsForm) {
-    categoryTargetsForm.addEventListener('submit', async function (event) {
+function bindCategoryTargetsForm(formId, errorBoxId, modalId) {
+    const form = document.getElementById(formId);
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener('submit', async function (event) {
         event.preventDefault();
 
-        const submitBtn = categoryTargetsForm.querySelector('button[type="submit"]');
-        const errorBox = document.getElementById('categoryTargetsError');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const errorBox = document.getElementById(errorBoxId);
         const originalBtnHtml = submitBtn ? submitBtn.innerHTML : '';
 
         if (errorBox) {
@@ -2525,7 +2664,7 @@ if (categoryTargetsForm) {
         }
 
         try {
-            const formData = new FormData(categoryTargetsForm);
+            const formData = new FormData(form);
             const response = await fetch(categoryTargetsSaveUrl, {
                 method: 'POST',
                 body: formData,
@@ -2544,7 +2683,7 @@ if (categoryTargetsForm) {
                 throw new Error(data.message || 'Could not save targets.');
             }
 
-            const modalEl = document.getElementById('categoryTargetsModal');
+            const modalEl = document.getElementById(modalId);
             if (modalEl && typeof bootstrap !== 'undefined') {
                 bootstrap.Modal.getInstance(modalEl)?.hide();
             }
@@ -2566,6 +2705,9 @@ if (categoryTargetsForm) {
         }
     });
 }
+
+bindCategoryTargetsForm('categoryTargetsForm', 'categoryTargetsError', 'categoryTargetsModal');
+bindCategoryTargetsForm('tpCategoryTargetsForm', 'tpCategoryTargetsError', 'tpCategoryTargetsModal');
 
 </script>
 

@@ -1745,6 +1745,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $keys;
     }
 
+    function report_monitor_tp_target_centre_id() {
+        return -1;
+    }
+
     function report_monitor_get_category_targets($conn, int $fyStartYear, int $centreId = 0) {
         report_monitor_ensure_category_targets_table($conn);
 
