@@ -182,6 +182,28 @@ $tpCategoryQuarterGrand = [
     'total' => $tpCategoryQuarterGrandTotal,
 ];
 
+$tpSocialCategoryQuarterSummary = tp_admissions_get_social_category_quarter_summary($conn, $selectedYear);
+$tpSocialCategoryAdmissionTargets = report_monitor_get_social_category_targets(
+    $conn,
+    $selectedYear,
+    report_monitor_tp_social_target_centre_id()
+);
+$tpSocialCategoryQuarterTargetSummary = report_monitor_apply_category_targets(
+    $tpSocialCategoryQuarterSummary,
+    $tpSocialCategoryAdmissionTargets
+);
+$tpSocialCategoryQuarterSummary = $tpSocialCategoryQuarterTargetSummary['rows'];
+$tpSocialCategoryQuarterGrandTotal = $tpSocialCategoryQuarterTargetSummary['grand_total'];
+$tpSocialCategoryQuarterGrandTarget = $tpSocialCategoryQuarterTargetSummary['grand_target'];
+$tpSocialCategoryQuarterGrandAchievement = $tpSocialCategoryQuarterTargetSummary['grand_achievement_pct'];
+$tpSocialCategoryQuarterGrand = [
+    'Q1' => array_sum(array_column($tpSocialCategoryQuarterSummary, 'Q1')),
+    'Q2' => array_sum(array_column($tpSocialCategoryQuarterSummary, 'Q2')),
+    'Q3' => array_sum(array_column($tpSocialCategoryQuarterSummary, 'Q3')),
+    'Q4' => array_sum(array_column($tpSocialCategoryQuarterSummary, 'Q4')),
+    'total' => $tpSocialCategoryQuarterGrandTotal,
+];
+
 $categoryAdmissionTargets = report_monitor_get_category_targets(
     $conn,
     $selectedYear,
@@ -195,6 +217,26 @@ $categoryQuarterSummary = $categoryQuarterTargetSummary['rows'];
 $categoryQuarterGrandTotal = $categoryQuarterTargetSummary['grand_total'];
 $categoryQuarterGrandTarget = $categoryQuarterTargetSummary['grand_target'];
 $categoryQuarterGrandAchievement = $categoryQuarterTargetSummary['grand_achievement_pct'];
+
+$socialCategoryQuarterSummary = report_monitor_get_social_category_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+$socialCategoryAdmissionTargets = report_monitor_get_social_category_targets(
+    $conn,
+    $selectedYear,
+    $centreId
+);
+$socialCategoryQuarterTargetSummary = report_monitor_apply_category_targets(
+    $socialCategoryQuarterSummary,
+    $socialCategoryAdmissionTargets
+);
+$socialCategoryQuarterSummary = $socialCategoryQuarterTargetSummary['rows'];
+$socialCategoryQuarterGrandTotal = $socialCategoryQuarterTargetSummary['grand_total'];
+$socialCategoryQuarterGrandTarget = $socialCategoryQuarterTargetSummary['grand_target'];
+$socialCategoryQuarterGrandAchievement = $socialCategoryQuarterTargetSummary['grand_achievement_pct'];
 
 $internshipCourseSummary = report_monitor_get_internship_course_quarter_summary(
     $conn,
@@ -1193,6 +1235,109 @@ Q4 (Jan–Mar)
 <div class="card table-card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
+            <strong>Social Category Quarterly Admissions Summary</strong>
+            <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
+            <span class="badge bg-secondary ms-1">General / OBC / SC / ST / EWS / PWD</span>
+            <?php if ($centreId > 0): ?>
+                <span class="badge bg-secondary ms-1"><?php echo htmlspecialchars($selectedCentreName); ?> targets</span>
+            <?php else: ?>
+                <span class="badge bg-secondary ms-1">All-centre targets</span>
+            <?php endif; ?>
+        </div>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">
+            <i class="fas fa-bullseye me-1"></i> Set Targets
+        </button>
+    </div>
+    <?php if ($socialCategoryQuarterGrandTarget <= 0): ?>
+    <div class="card-body border-bottom py-3">
+        <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
+            <i class="fas fa-info-circle mt-1"></i>
+            <div>
+                <strong>No social category targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">Set Targets</button>
+                for General, OBC, SC, ST, EWS, and PWD admissions.
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Social Category</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Target</th>
+                    <th class="text-end">Achievement</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($socialCategoryQuarterSummary as $socialRow): ?>
+                    <?php
+                    $socialAchievement = $socialRow['achievement_pct'] ?? null;
+                    $socialAchievementClass = '';
+                    if ($socialAchievement !== null) {
+                        if ($socialAchievement >= 100) {
+                            $socialAchievementClass = 'text-success';
+                        } elseif ($socialAchievement >= 75) {
+                            $socialAchievementClass = 'text-warning';
+                        } else {
+                            $socialAchievementClass = 'text-danger';
+                        }
+                    }
+                    ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($socialRow['label']); ?></td>
+                        <td class="text-end"><?php echo number_format($socialRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($socialRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($socialRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($socialRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($socialRow['total']); ?></td>
+                        <td class="text-end">
+                            <?php if (($socialRow['target'] ?? 0) > 0): ?>
+                                <?php echo number_format($socialRow['target']); ?>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal" title="Set target">Not set</button>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end fw-semibold <?php echo $socialAchievementClass; ?>">
+                            <?php echo $socialAchievement !== null ? number_format($socialAchievement, 1) . '%' : '—'; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot class="table-light">
+                <tr>
+                    <th>Grand Total</th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q1'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q2'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q3'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q4'))); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format($socialCategoryQuarterGrandTotal); ?></th>
+                    <th class="text-end fw-bold">
+                        <?php if ($socialCategoryQuarterGrandTarget > 0): ?>
+                            <?php echo number_format($socialCategoryQuarterGrandTarget); ?>
+                        <?php else: ?>
+                            <span class="text-muted fw-normal">Not set</span>
+                        <?php endif; ?>
+                    </th>
+                    <th class="text-end fw-bold">
+                        <?php echo $socialCategoryQuarterGrandAchievement !== null ? number_format($socialCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
+                    </th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
             <strong>Category Quarterly Admissions Summary — Training Partners</strong>
             <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
             <span class="badge bg-secondary ms-1">Manual TP entries only</span>
@@ -1302,6 +1447,106 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>Social Category Quarterly Admissions Summary — Training Partners</strong>
+            <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
+            <span class="badge bg-secondary ms-1">Manual TP entries only</span>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#tpSocialCategoryTargetsModal">
+                <i class="fas fa-bullseye me-1"></i> Set Targets
+            </button>
+        </div>
+    </div>
+    <?php if ($tpSocialCategoryQuarterGrandTarget <= 0): ?>
+    <div class="card-body border-bottom py-3">
+        <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
+            <i class="fas fa-info-circle mt-1"></i>
+            <div>
+                <strong>No TP social category targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#tpSocialCategoryTargetsModal">Set Targets</button>
+                for General, OBC, SC, ST, EWS, and PWD.
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Social Category</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Target</th>
+                    <th class="text-end">Achievement</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($tpSocialCategoryQuarterSummary as $tpSocialRow): ?>
+                    <?php
+                    $tpSocialAchievement = $tpSocialRow['achievement_pct'] ?? null;
+                    $tpSocialAchievementClass = '';
+                    if ($tpSocialAchievement !== null) {
+                        if ($tpSocialAchievement >= 100) {
+                            $tpSocialAchievementClass = 'text-success';
+                        } elseif ($tpSocialAchievement >= 75) {
+                            $tpSocialAchievementClass = 'text-warning';
+                        } else {
+                            $tpSocialAchievementClass = 'text-danger';
+                        }
+                    }
+                    ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($tpSocialRow['label']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpSocialRow['Q1']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpSocialRow['Q2']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpSocialRow['Q3']); ?></td>
+                        <td class="text-end"><?php echo number_format($tpSocialRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($tpSocialRow['total']); ?></td>
+                        <td class="text-end">
+                            <?php if (($tpSocialRow['target'] ?? 0) > 0): ?>
+                                <?php echo number_format($tpSocialRow['target']); ?>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#tpSocialCategoryTargetsModal" title="Set TP social target">Not set</button>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end fw-semibold <?php echo $tpSocialAchievementClass; ?>">
+                            <?php echo $tpSocialAchievement !== null ? number_format($tpSocialAchievement, 1) . '%' : '—'; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot class="table-light">
+                <tr>
+                    <th>Grand Total</th>
+                    <th class="text-end"><?php echo number_format($tpSocialCategoryQuarterGrand['Q1']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpSocialCategoryQuarterGrand['Q2']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpSocialCategoryQuarterGrand['Q3']); ?></th>
+                    <th class="text-end"><?php echo number_format($tpSocialCategoryQuarterGrand['Q4']); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format($tpSocialCategoryQuarterGrand['total']); ?></th>
+                    <th class="text-end fw-bold">
+                        <?php if ($tpSocialCategoryQuarterGrandTarget > 0): ?>
+                            <?php echo number_format($tpSocialCategoryQuarterGrandTarget); ?>
+                        <?php else: ?>
+                            <span class="text-muted fw-normal">Not set</span>
+                        <?php endif; ?>
+                    </th>
+                    <th class="text-end fw-bold">
+                        <?php echo $tpSocialCategoryQuarterGrandAchievement !== null ? number_format($tpSocialCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
+                    </th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
 <?php if (!empty($trainingPartnerEntries)): ?>
 <div class="card table-card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
@@ -1324,7 +1569,8 @@ Q4 (Jan–Mar)
                     <th>Training Partner</th>
                     <th>Training Centre</th>
                     <th>Course</th>
-                    <th>Category</th>
+                    <th>Course Category</th>
+                    <th>Social Category</th>
                     <th>Quarter</th>
                     <th class="text-end">Students</th>
                 </tr>
@@ -1336,6 +1582,7 @@ Q4 (Jan–Mar)
                     <td><?php echo !empty($tpRow['centre_name']) ? htmlspecialchars($tpRow['centre_name']) : '—'; ?></td>
                     <td><?php echo htmlspecialchars($tpRow['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($tpRow['category_label']); ?></small></td>
+                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($tpRow['social_category_label'] ?? 'General'); ?></span></td>
                     <td><span class="badge bg-primary"><?php echo htmlspecialchars($tpRow['quarter'] ?: '—'); ?></span></td>
                     <td class="text-end fw-bold"><?php echo number_format($tpRow['students_trained']); ?></td>
                 </tr>
@@ -2092,6 +2339,110 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
+<div class="modal fade" id="socialCategoryTargetsModal" tabindex="-1" aria-labelledby="socialCategoryTargetsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="socialCategoryTargetsForm" method="post" action="<?php echo htmlspecialchars(APP_URL); ?>/admin/ajax_report_category_targets.php">
+                <input type="hidden" name="action" value="save_category_targets">
+                <input type="hidden" name="target_scope" value="nielit_social">
+                <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
+                <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="socialCategoryTargetsModalLabel">
+                        <i class="fas fa-bullseye me-2 text-primary"></i>
+                        Set Social Category Admission Targets
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="socialCategoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        Enter annual targets for <strong>General, OBC, SC, ST, EWS, and PWD</strong> admissions in
+                        <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Social Category</th>
+                                <th class="text-end" style="width: 200px;">Annual Target</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($socialCategoryQuarterSummary as $socialRow): ?>
+                                <?php $socialSavedTarget = (int) ($socialCategoryAdmissionTargets[$socialRow['key']] ?? 0); ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($socialRow['label']); ?></td>
+                                    <td>
+                                        <input type="number" class="form-control text-end" name="targets[<?php echo htmlspecialchars($socialRow['key']); ?>]" min="0" step="1" placeholder="e.g. 100" value="<?php echo $socialSavedTarget > 0 ? $socialSavedTarget : ''; ?>">
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Targets</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="tpSocialCategoryTargetsModal" tabindex="-1" aria-labelledby="tpSocialCategoryTargetsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <form id="tpSocialCategoryTargetsForm" method="post" action="<?php echo htmlspecialchars(APP_URL); ?>/admin/ajax_report_category_targets.php">
+                <input type="hidden" name="action" value="save_category_targets">
+                <input type="hidden" name="target_scope" value="training_partner_social">
+                <input type="hidden" name="financial_year_start" value="<?php echo (int) $selectedYear; ?>">
+                <input type="hidden" name="centre_id" value="<?php echo (int) report_monitor_tp_social_target_centre_id(); ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tpSocialCategoryTargetsModalLabel">
+                        <i class="fas fa-bullseye me-2 text-primary"></i>
+                        Set TP Social Category Targets
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="tpSocialCategoryTargetsError" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="alert alert-info py-2 small mb-3">
+                        Enter annual social category targets for training partner admissions in
+                        <strong>FY <?php echo htmlspecialchars($selectedYear); ?></strong>.
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Social Category</th>
+                                <th class="text-end" style="width: 200px;">Annual Target</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($tpSocialCategoryQuarterSummary as $tpSocialRow): ?>
+                                <?php $tpSocialSavedTarget = (int) ($tpSocialCategoryAdmissionTargets[$tpSocialRow['key']] ?? 0); ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($tpSocialRow['label']); ?></td>
+                                    <td>
+                                        <input type="number" class="form-control text-end" name="targets[<?php echo htmlspecialchars($tpSocialRow['key']); ?>]" min="0" step="1" placeholder="e.g. 100" value="<?php echo $tpSocialSavedTarget > 0 ? $tpSocialSavedTarget : ''; ?>">
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save Targets</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- PART 2 COMPLETED -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2710,6 +3061,8 @@ function bindCategoryTargetsForm(formId, errorBoxId, modalId) {
 
 bindCategoryTargetsForm('categoryTargetsForm', 'categoryTargetsError', 'categoryTargetsModal');
 bindCategoryTargetsForm('tpCategoryTargetsForm', 'tpCategoryTargetsError', 'tpCategoryTargetsModal');
+bindCategoryTargetsForm('socialCategoryTargetsForm', 'socialCategoryTargetsError', 'socialCategoryTargetsModal');
+bindCategoryTargetsForm('tpSocialCategoryTargetsForm', 'tpSocialCategoryTargetsError', 'tpSocialCategoryTargetsModal');
 
 </script>
 

@@ -15,6 +15,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
             course_name VARCHAR(255) NOT NULL,
             category_key VARCHAR(64) NOT NULL,
             centre_id INT UNSIGNED NULL DEFAULT NULL,
+            social_category_key VARCHAR(32) NOT NULL DEFAULT 'general',
             financial_year_start INT NOT NULL,
             q1_students INT UNSIGNED NOT NULL DEFAULT 0,
             q2_students INT UNSIGNED NOT NULL DEFAULT 0,
@@ -30,6 +31,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
             KEY idx_tp_qa_fy (financial_year_start),
             KEY idx_tp_qa_category (category_key),
             KEY idx_tp_qa_centre (centre_id),
+            KEY idx_tp_qa_social_category (social_category_key),
             KEY idx_tp_qa_partner (partner_name)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
@@ -39,8 +41,38 @@ if (!function_exists('tp_admissions_ensure_table')) {
         }
 
         tp_admissions_ensure_centre_column($conn);
+        tp_admissions_ensure_social_category_column($conn);
 
         return true;
+    }
+
+    function tp_admissions_ensure_social_category_column($conn) {
+        if (!report_monitor_table_exists($conn, 'training_partner_quarterly_admissions')) {
+            return;
+        }
+
+        $check = $conn->query("SHOW COLUMNS FROM training_partner_quarterly_admissions LIKE 'social_category_key'");
+        if ($check && $check->num_rows > 0) {
+            return;
+        }
+
+        $conn->query(
+            "ALTER TABLE training_partner_quarterly_admissions
+             ADD COLUMN social_category_key VARCHAR(32) NOT NULL DEFAULT 'general' AFTER centre_id,
+             ADD KEY idx_tp_qa_social_category (social_category_key)"
+        );
+    }
+
+    function tp_admissions_get_social_category_options() {
+        $options = [];
+        foreach (report_monitor_get_social_category_groups() as $key => $group) {
+            $options[$key] = $group['label'];
+        }
+        return $options;
+    }
+
+    function tp_admissions_is_valid_social_category_key($key) {
+        return array_key_exists((string) $key, report_monitor_get_social_category_groups());
     }
 
     function tp_admissions_ensure_centre_column($conn) {
@@ -127,6 +159,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
         $courseName = trim((string) ($data['course_name'] ?? ''));
         $categoryKey = trim((string) ($data['category_key'] ?? ''));
         $centreId = (int) ($data['centre_id'] ?? 0);
+        $socialCategoryKey = strtolower(trim((string) ($data['social_category_key'] ?? '')));
         $fyStartYear = (int) ($data['financial_year_start'] ?? 0);
         $quarter = strtoupper(trim((string) ($data['quarter'] ?? '')));
         $studentsTrained = max(0, (int) ($data['students_trained'] ?? 0));
@@ -139,6 +172,9 @@ if (!function_exists('tp_admissions_ensure_table')) {
         }
         if ($centreId <= 0 || !tp_admissions_is_valid_centre_id($conn, $centreId)) {
             $errors[] = 'Please select a valid training centre.';
+        }
+        if (!tp_admissions_is_valid_social_category_key($socialCategoryKey)) {
+            $errors[] = 'Please select a valid social category (General, OBC, SC, ST, EWS, PWD).';
         }
         if ($fyStartYear < 2020 || $fyStartYear > 2100) {
             $errors[] = 'Invalid financial year.';
@@ -176,6 +212,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
                 'course_name' => $courseName,
                 'category_key' => $categoryKey,
                 'centre_id' => $centreId,
+                'social_category_key' => $socialCategoryKey,
                 'financial_year_start' => $fyStartYear,
                 'quarter' => $quarter,
                 'students_trained' => $studentsTrained,
@@ -203,6 +240,8 @@ if (!function_exists('tp_admissions_ensure_table')) {
             'category_label' => report_monitor_category_label($row['category_key'] ?? ''),
             'centre_id' => isset($row['centre_id']) ? (int) $row['centre_id'] : null,
             'centre_name' => (string) ($row['centre_name'] ?? ''),
+            'social_category_key' => (string) ($row['social_category_key'] ?? 'general'),
+            'social_category_label' => report_monitor_social_category_label($row['social_category_key'] ?? 'general'),
             'financial_year_start' => (int) ($row['financial_year_start'] ?? 0),
             'quarter' => $detected['quarter'],
             'students_trained' => $detected['students_trained'],
@@ -339,7 +378,7 @@ if (!function_exists('tp_admissions_ensure_table')) {
         if ($id !== null && $id > 0) {
             $stmt = $conn->prepare(
                 'UPDATE training_partner_quarterly_admissions
-                 SET partner_name = ?, course_name = ?, category_key = ?, centre_id = ?, financial_year_start = ?,
+                 SET partner_name = ?, course_name = ?, category_key = ?, centre_id = ?, social_category_key = ?, financial_year_start = ?,
                      q1_students = ?, q2_students = ?, q3_students = ?, q4_students = ?,
                      remarks = ?, updated_by = ?
                  WHERE id = ? AND is_active = 1'
@@ -348,11 +387,12 @@ if (!function_exists('tp_admissions_ensure_table')) {
                 return ['success' => false, 'message' => 'Could not prepare update query.'];
             }
             $stmt->bind_param(
-                'sssiiiiiisii',
+                'sssisiiiisii',
                 $entry['partner_name'],
                 $entry['course_name'],
                 $entry['category_key'],
                 $entry['centre_id'],
+                $entry['social_category_key'],
                 $entry['financial_year_start'],
                 $entry['q1_students'],
                 $entry['q2_students'],
@@ -366,19 +406,20 @@ if (!function_exists('tp_admissions_ensure_table')) {
             $createdBy = $updatedBy;
             $stmt = $conn->prepare(
                 'INSERT INTO training_partner_quarterly_admissions
-                    (partner_name, course_name, category_key, centre_id, financial_year_start,
+                    (partner_name, course_name, category_key, centre_id, social_category_key, financial_year_start,
                      q1_students, q2_students, q3_students, q4_students, remarks, created_by, updated_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Could not prepare insert query.'];
             }
             $stmt->bind_param(
-                'sssiiiiiisii',
+                'sssisiiiisii',
                 $entry['partner_name'],
                 $entry['course_name'],
                 $entry['category_key'],
                 $entry['centre_id'],
+                $entry['social_category_key'],
                 $entry['financial_year_start'],
                 $entry['q1_students'],
                 $entry['q2_students'],
@@ -505,6 +546,55 @@ if (!function_exists('tp_admissions_ensure_table')) {
         ];
 
         return $rows;
+    }
+
+    function tp_admissions_get_social_category_quarter_summary($conn, int $fyStartYear) {
+        tp_admissions_ensure_table($conn);
+
+        $rows = [];
+        foreach (report_monitor_get_social_category_groups() as $key => $group) {
+            $rows[$key] = [
+                'key' => $key,
+                'label' => $group['label'],
+                'Q1' => 0,
+                'Q2' => 0,
+                'Q3' => 0,
+                'Q4' => 0,
+                'total' => 0,
+            ];
+        }
+
+        $stmt = $conn->prepare(
+            'SELECT social_category_key,
+                    SUM(q1_students) AS q1_total,
+                    SUM(q2_students) AS q2_total,
+                    SUM(q3_students) AS q3_total,
+                    SUM(q4_students) AS q4_total
+             FROM training_partner_quarterly_admissions
+             WHERE financial_year_start = ? AND is_active = 1
+             GROUP BY social_category_key'
+        );
+        if (!$stmt) {
+            return array_values($rows);
+        }
+
+        $stmt->bind_param('i', $fyStartYear);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $key = strtolower(trim((string) ($row['social_category_key'] ?? '')));
+            if (!isset($rows[$key])) {
+                $key = 'general';
+            }
+            $rows[$key]['Q1'] = (int) ($row['q1_total'] ?? 0);
+            $rows[$key]['Q2'] = (int) ($row['q2_total'] ?? 0);
+            $rows[$key]['Q3'] = (int) ($row['q3_total'] ?? 0);
+            $rows[$key]['Q4'] = (int) ($row['q4_total'] ?? 0);
+            $rows[$key]['total'] = $rows[$key]['Q1'] + $rows[$key]['Q2'] + $rows[$key]['Q3'] + $rows[$key]['Q4'];
+        }
+        $stmt->close();
+
+        return array_values($rows);
     }
 
     function tp_admissions_get_category_quarter_grand_totals(array $summaryRows) {

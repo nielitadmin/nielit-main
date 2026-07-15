@@ -43,8 +43,19 @@ if ($action !== 'save_category_targets') {
 $fyStartYear = isset($_POST['financial_year_start']) ? (int) $_POST['financial_year_start'] : 0;
 $targetScope = (string) ($_POST['target_scope'] ?? 'nielit');
 $centreId = isset($_POST['centre_id']) ? (int) $_POST['centre_id'] : 0;
+$allowedKeys = report_monitor_get_category_target_keys();
+$flashMessage = 'Category admission targets saved successfully.';
+
 if ($targetScope === 'training_partner') {
     $centreId = report_monitor_tp_target_centre_id();
+    $flashMessage = 'Training partner category targets saved successfully.';
+} elseif ($targetScope === 'training_partner_social') {
+    $centreId = report_monitor_tp_social_target_centre_id();
+    $allowedKeys = report_monitor_get_social_category_target_keys();
+    $flashMessage = 'Training partner social category targets saved successfully.';
+} elseif ($targetScope === 'nielit_social') {
+    $allowedKeys = report_monitor_get_social_category_target_keys();
+    $flashMessage = 'Social category admission targets saved successfully.';
 }
 
 if ($fyStartYear < 2020 || $fyStartYear > 2100) {
@@ -54,7 +65,7 @@ if ($fyStartYear < 2020 || $fyStartYear > 2100) {
 }
 
 $targetsInput = [];
-foreach (report_monitor_get_category_target_keys() as $targetKey) {
+foreach ($allowedKeys as $targetKey) {
     $targetsInput[$targetKey] = isset($_POST['targets'][$targetKey])
         ? max(0, (int) $_POST['targets'][$targetKey])
         : 0;
@@ -67,15 +78,13 @@ $result = report_monitor_save_category_targets(
     $fyStartYear,
     $centreId,
     $targetsInput,
-    $adminId > 0 ? $adminId : null
+    $adminId > 0 ? $adminId : null,
+    $allowedKeys
 );
 
 if (empty($result['success'])) {
     http_response_code(500);
 } else {
-    $flashMessage = $targetScope === 'training_partner'
-        ? 'Training partner category targets saved successfully.'
-        : ($result['message'] ?? 'Category admission targets saved successfully.');
     $_SESSION['report_targets_flash'] = $flashMessage;
     $_SESSION['report_targets_flash_type'] = 'success';
 }

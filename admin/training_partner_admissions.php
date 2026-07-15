@@ -35,6 +35,7 @@ $active_theme = loadActiveTheme($conn);
 $selectedYear = isset($_GET['year']) ? (int) $_GET['year'] : report_monitor_get_financial_year_start();
 $categoryOptions = tp_admissions_get_category_options();
 $centreOptions = tp_admissions_get_centre_options($conn);
+$socialCategoryOptions = tp_admissions_get_social_category_options();
 $adminId = isset($_SESSION['admin_id']) ? (int) $_SESSION['admin_id'] : null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -100,7 +101,7 @@ $pageTitle = 'Training Partner Admissions';
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
     <div>
         <h2 class="mb-1"><i class="fas fa-handshake me-2"></i><?php echo htmlspecialchars($pageTitle); ?></h2>
-        <p class="text-muted mb-0">Add training partner admissions: partner name, training centre, course, category, quarter, and students trained.</p>
+        <p class="text-muted mb-0">Add training partner admissions: partner name, training centre, course, course category, social category, quarter, and students trained.</p>
     </div>
     <div class="d-flex gap-2">
         <?php if ($isMasterAdmin): ?>
@@ -170,7 +171,8 @@ if (!empty($flashMessage)) {
                     <th>Training Partner</th>
                     <th>Training Centre</th>
                     <th>Course</th>
-                    <th>Category</th>
+                    <th>Course Category</th>
+                    <th>Social Category</th>
                     <th>Quarter</th>
                     <th class="text-end">Students</th>
                     <?php if ($isMasterAdmin): ?>
@@ -182,7 +184,7 @@ if (!empty($flashMessage)) {
                 <tbody>
                 <?php if (empty($entries)): ?>
                 <tr>
-                    <td colspan="<?php echo $isMasterAdmin ? 8 : 7; ?>" class="text-center text-muted py-4">
+                    <td colspan="<?php echo $isMasterAdmin ? 9 : 8; ?>" class="text-center text-muted py-4">
                         No training partner entries for FY <?php echo (int) $selectedYear; ?>.
                         Click <strong>Add Entry</strong> to record TP admissions manually.
                     </td>
@@ -200,6 +202,7 @@ if (!empty($flashMessage)) {
                     </td>
                     <td><?php echo htmlspecialchars($entry['course_name']); ?></td>
                     <td><small><?php echo htmlspecialchars($entry['category_label']); ?></small></td>
+                    <td><span class="badge bg-secondary"><?php echo htmlspecialchars($entry['social_category_label'] ?? 'General'); ?></span></td>
                     <td><span class="badge bg-primary"><?php echo htmlspecialchars($entry['quarter'] ?: '—'); ?></span></td>
                     <td class="text-end fw-bold"><?php echo number_format($entry['students_trained']); ?></td>
                     <?php if ($isMasterAdmin): ?>
@@ -231,7 +234,7 @@ if (!empty($flashMessage)) {
                 <?php if (!empty($entries)): ?>
                 <tfoot class="table-light">
                 <tr>
-                    <th colspan="<?php echo $isMasterAdmin ? 6 : 5; ?>">Quarterly totals</th>
+                    <th colspan="<?php echo $isMasterAdmin ? 7 : 6; ?>">Quarterly totals</th>
                     <th class="text-end"><?php echo number_format($grandTotal); ?></th>
                     <?php if ($isMasterAdmin): ?>
                     <th></th>
@@ -239,7 +242,7 @@ if (!empty($flashMessage)) {
                     <th></th>
                 </tr>
                 <tr>
-                    <td colspan="<?php echo $isMasterAdmin ? 8 : 7; ?>" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
+                    <td colspan="<?php echo $isMasterAdmin ? 9 : 8; ?>" class="text-muted small">Q1: <?php echo number_format($grandQ1); ?> · Q2: <?php echo number_format($grandQ2); ?> · Q3: <?php echo number_format($grandQ3); ?> · Q4: <?php echo number_format($grandQ4); ?></td>
                 </tr>
                 </tfoot>
                 <?php endif; ?>
@@ -287,10 +290,19 @@ if (!empty($flashMessage)) {
                         <input type="text" class="form-control" name="course_name" id="tp_course_name" required maxlength="255" placeholder="e.g. Web Development">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Category <span class="text-danger">*</span></label>
+                        <label class="form-label">Course Category <span class="text-danger">*</span></label>
                         <select class="form-select" name="category_key" id="tp_category_key" required>
-                            <option value="">Select category</option>
+                            <option value="">Select course category</option>
                             <?php foreach ($categoryOptions as $key => $label): ?>
+                            <option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Social Category <span class="text-danger">*</span></label>
+                        <select class="form-select" name="social_category_key" id="tp_social_category_key" required>
+                            <option value="">Select social category</option>
+                            <?php foreach ($socialCategoryOptions as $key => $label): ?>
                             <option value="<?php echo htmlspecialchars($key); ?>"><?php echo htmlspecialchars($label); ?></option>
                             <?php endforeach; ?>
                         </select>
@@ -347,6 +359,7 @@ function openTpEntryModal(entry) {
     document.getElementById('tp_centre_id').value = entry && entry.centre_id ? String(entry.centre_id) : '';
     document.getElementById('tp_course_name').value = entry && entry.course_name ? entry.course_name : '';
     document.getElementById('tp_category_key').value = entry && entry.category_key ? entry.category_key : '';
+    document.getElementById('tp_social_category_key').value = entry && entry.social_category_key ? entry.social_category_key : '';
     document.getElementById('tp_quarter').value = entry && entry.quarter ? entry.quarter : '';
     document.getElementById('tp_students_trained').value = entry && entry.students_trained ? entry.students_trained : '';
     if (title) {

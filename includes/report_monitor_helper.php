@@ -1745,16 +1745,145 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $keys;
     }
 
+    function report_monitor_get_social_category_groups() {
+        return [
+            'general' => ['label' => 'General'],
+            'obc' => ['label' => 'OBC'],
+            'sc' => ['label' => 'SC'],
+            'st' => ['label' => 'ST'],
+            'ews' => ['label' => 'EWS'],
+            'pwd' => ['label' => 'PWD'],
+        ];
+    }
+
+    function report_monitor_get_social_category_target_keys() {
+        return array_keys(report_monitor_get_social_category_groups());
+    }
+
+    function report_monitor_social_category_label($key) {
+        $groups = report_monitor_get_social_category_groups();
+        return $groups[$key]['label'] ?? ucfirst((string) $key);
+    }
+
+    function report_monitor_resolve_social_category_key($rawCategory) {
+        $upper = strtoupper(trim((string) $rawCategory));
+        $map = [
+            'GENERAL' => 'general',
+            'OBC' => 'obc',
+            'SC' => 'sc',
+            'ST' => 'st',
+            'EWS' => 'ews',
+        ];
+
+        return $map[$upper] ?? 'general';
+    }
+
+    function report_monitor_is_pwd_status($rawPwdStatus) {
+        $value = strtoupper(trim((string) $rawPwdStatus));
+        return in_array($value, ['YES', 'Y', '1', 'TRUE'], true);
+    }
+
+    function report_monitor_get_social_category_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $rows = [];
+        foreach (report_monitor_get_social_category_groups() as $key => $group) {
+            $rows[$key] = [
+                'key' => $key,
+                'label' => $group['label'],
+                'Q1' => 0,
+                'Q2' => 0,
+                'Q3' => 0,
+                'Q4' => 0,
+                'total' => 0,
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       s.category AS raw_category,
+                       s.pwd_status AS pwd_status,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_category, pwd_status";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = $row['quarter_key'];
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+
+                $count = (int) ($row['total'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $socialKey = report_monitor_resolve_social_category_key($row['raw_category'] ?? '');
+                if (isset($rows[$socialKey])) {
+                    $rows[$socialKey][$quarter] += $count;
+                    $rows[$socialKey]['total'] += $count;
+                }
+
+                if (report_monitor_is_pwd_status($row['pwd_status'] ?? '')) {
+                    $rows['pwd'][$quarter] += $count;
+                    $rows['pwd']['total'] += $count;
+                }
+            }
+        }
+
+        return array_values($rows);
+    }
+
     function report_monitor_tp_target_centre_id() {
         return -1;
     }
 
-    function report_monitor_get_category_targets($conn, int $fyStartYear, int $centreId = 0) {
+    function report_monitor_tp_social_target_centre_id() {
+        return -2;
+    }
+
+    function report_monitor_get_targets_by_keys($conn, int $fyStartYear, int $centreId, array $allowedKeys) {
         report_monitor_ensure_category_targets_table($conn);
 
         $targets = [];
-        foreach (report_monitor_get_category_target_keys() as $key) {
+        foreach ($allowedKeys as $key) {
             $targets[$key] = 0;
+        }
+
+        if (empty($allowedKeys)) {
+            return $targets;
         }
 
         $stmt = $conn->prepare(
@@ -1780,10 +1909,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $targets;
     }
 
-    function report_monitor_save_category_targets($conn, int $fyStartYear, int $centreId, array $targetsByCategory, ?int $adminId = null) {
+    function report_monitor_save_targets_by_keys($conn, int $fyStartYear, int $centreId, array $targetsByCategory, array $allowedKeys, ?int $adminId = null) {
         report_monitor_ensure_category_targets_table($conn);
 
-        $allowedKeys = report_monitor_get_category_target_keys();
         $updatedBy = ($adminId !== null && $adminId > 0) ? (int) $adminId : 0;
         $sql = 'INSERT INTO report_category_admission_targets
                     (financial_year_start, centre_id, category_key, annual_target, updated_by)
@@ -1810,6 +1938,35 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         return ['success' => true, 'message' => 'Category admission targets saved successfully.'];
+    }
+
+    function report_monitor_get_category_targets($conn, int $fyStartYear, int $centreId = 0) {
+        return report_monitor_get_targets_by_keys(
+            $conn,
+            $fyStartYear,
+            $centreId,
+            report_monitor_get_category_target_keys()
+        );
+    }
+
+    function report_monitor_get_social_category_targets($conn, int $fyStartYear, int $centreId = 0) {
+        return report_monitor_get_targets_by_keys(
+            $conn,
+            $fyStartYear,
+            $centreId,
+            report_monitor_get_social_category_target_keys()
+        );
+    }
+
+    function report_monitor_save_category_targets($conn, int $fyStartYear, int $centreId, array $targetsByCategory, ?int $adminId = null, ?array $allowedKeys = null) {
+        return report_monitor_save_targets_by_keys(
+            $conn,
+            $fyStartYear,
+            $centreId,
+            $targetsByCategory,
+            $allowedKeys ?? report_monitor_get_category_target_keys(),
+            $adminId
+        );
     }
 
     function report_monitor_apply_category_targets(array $summaryRows, array $targetsMap) {
