@@ -200,6 +200,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>" class="nav-link <?php echo ($current_page === 'training_partner_admissions.php') ? 'active' : ''; ?>">
+                <i class="fas fa-handshake"></i> TP Admissions
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
                 <i class="fas fa-list-alt"></i> OTP Logs
             </a>

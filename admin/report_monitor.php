@@ -10,8 +10,10 @@
 session_start();
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/report_monitor_helper.php';
+require_once __DIR__ . '/../includes/training_partner_admissions_helper.php';
 
 /*------------------------------------------------------------
 | Login Check
@@ -155,6 +157,14 @@ $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $centreId,
     $selectedYear
 );
+
+$categoryQuarterSummary = report_monitor_merge_training_partner_admissions(
+    $conn,
+    $categoryQuarterSummary,
+    $selectedYear
+);
+
+$trainingPartnerEntries = tp_admissions_list($conn, $selectedYear, true);
 
 $categoryAdmissionTargets = report_monitor_get_category_targets(
     $conn,
@@ -1076,6 +1086,9 @@ Q4 (Jan–Mar)
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
             <i class="fas fa-bullseye me-1"></i> Set Targets
         </button>
+        <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-outline-primary">
+            <i class="fas fa-handshake me-1"></i> TP Admissions
+        </a>
     </div>
     <?php if ($categoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
@@ -1120,7 +1133,15 @@ Q4 (Jan–Mar)
                     }
                     ?>
                     <tr>
-                        <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
+                        <td>
+                            <?php echo htmlspecialchars($categoryRow['label']); ?>
+                            <?php if (!empty($categoryRow['includes_training_partner'])): ?>
+                                <span class="badge bg-info ms-1" title="Includes training partner manual entries">incl. TP</span>
+                            <?php endif; ?>
+                            <?php if (!empty($categoryRow['is_training_partner_row'])): ?>
+                                <span class="badge bg-secondary ms-1">Manual</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q2']); ?></td>
                         <td class="text-end"><?php echo number_format($categoryRow['Q3']); ?></td>
@@ -1163,6 +1184,55 @@ Q4 (Jan–Mar)
         </div>
     </div>
 </div>
+
+<?php if (!empty($trainingPartnerEntries)): ?>
+<div class="card table-card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>Training Partner Quarterly Admissions</strong>
+            <div class="text-muted small">Manual entries from training partners for FY <?php echo htmlspecialchars($selectedYear); ?></div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-primary"><?php echo number_format(array_sum(array_column($trainingPartnerEntries, 'total'))); ?> Students</span>
+            <a href="<?php echo app_url('admin/training_partner_admissions'); ?>?year=<?php echo (int) $selectedYear; ?>" class="btn btn-sm btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> Manage Entries
+            </a>
+        </div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Training Partner</th>
+                    <th>Course</th>
+                    <th>Category</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($trainingPartnerEntries as $tpRow): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($tpRow['partner_name']); ?></td>
+                    <td><?php echo htmlspecialchars($tpRow['course_name']); ?></td>
+                    <td><small><?php echo htmlspecialchars($tpRow['category_label']); ?></small></td>
+                    <td class="text-end"><?php echo number_format($tpRow['Q1']); ?></td>
+                    <td class="text-end"><?php echo number_format($tpRow['Q2']); ?></td>
+                    <td class="text-end"><?php echo number_format($tpRow['Q3']); ?></td>
+                    <td class="text-end"><?php echo number_format($tpRow['Q4']); ?></td>
+                    <td class="text-end fw-bold"><?php echo number_format($tpRow['total']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if (!empty($internshipCourseSummary)): ?>
 <div class="card table-card mb-4">
@@ -1815,6 +1885,7 @@ Q4 (Jan–Mar)
                             </thead>
                             <tbody>
                             <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
+                                <?php if (!empty($categoryRow['is_training_partner_row'])) { continue; } ?>
                                 <?php $savedTarget = (int) ($categoryAdmissionTargets[$categoryRow['key']] ?? 0); ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
