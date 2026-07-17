@@ -76,20 +76,23 @@
     }
 
     function initBannerParallax() {
+        const page = document.querySelector('.login-page');
         const panel = document.getElementById('bannerPanel');
-        if (!panel) return;
+        if (!page || !panel) return;
 
-        panel.addEventListener('mousemove', function (e) {
-            const rect = panel.getBoundingClientRect();
+        if (window.matchMedia('(max-width: 1024px)').matches) return;
+
+        page.addEventListener('mousemove', function (e) {
+            const rect = page.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width - 0.5;
             const y = (e.clientY - rect.top) / rect.height - 0.5;
 
             panel.querySelectorAll('.banner-slide.active .banner-parallax-layer').forEach(function (layer) {
-                layer.style.transform = 'translate(' + (x * 18) + 'px, ' + (y * 12) + 'px)';
+                layer.style.transform = 'translate(' + (x * 22) + 'px, ' + (y * 14) + 'px)';
             });
         });
 
-        panel.addEventListener('mouseleave', function () {
+        page.addEventListener('mouseleave', function () {
             panel.querySelectorAll('.banner-parallax-layer').forEach(function (layer) {
                 layer.style.transform = '';
             });
@@ -131,43 +134,64 @@
     }
 
     function initCardTilt() {
-        const panel = document.getElementById('loginPanel');
+        const page = document.querySelector('.login-page');
         const inner = document.getElementById('loginPanelInner');
-        if (!panel || !inner) return;
+        if (!page || !inner) return;
 
         if (window.matchMedia('(max-width: 1024px)').matches) return;
 
-        panel.addEventListener('mousemove', function (e) {
-            const rect = panel.getBoundingClientRect();
+        page.addEventListener('mousemove', function (e) {
+            const rect = page.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width - 0.5;
             const y = (e.clientY - rect.top) / rect.height - 0.5;
 
             inner.style.transform =
-                'perspective(900px) rotateY(' + (x * 6) + 'deg) rotateX(' + (-y * 5) + 'deg) translateZ(10px)';
+                'perspective(900px) rotateY(' + (x * 8) + 'deg) rotateX(' + (-y * 6) + 'deg) translateZ(12px)';
         });
 
-        panel.addEventListener('mouseleave', function () {
+        page.addEventListener('mouseleave', function () {
             inner.style.transform = '';
         });
     }
 
-    function initPanelParallax() {
-        const panel = document.getElementById('loginPanel');
-        const scene = panel && panel.querySelector('.panel-3d-scene');
-        if (!panel || !scene) return;
+    function initBannerShapesParallax() {
+        const page = document.querySelector('.login-page');
+        const shapes = document.querySelector('.banner-shapes');
+        if (!page || !shapes) return;
 
         if (window.matchMedia('(max-width: 1024px)').matches) return;
 
-        panel.addEventListener('mousemove', function (e) {
-            const rect = panel.getBoundingClientRect();
+        page.addEventListener('mousemove', function (e) {
+            const rect = page.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width - 0.5;
+            const y = (e.clientY - rect.top) / rect.height - 0.5;
+
+            shapes.style.transform =
+                'translate(' + (x * 28) + 'px, ' + (y * 18) + 'px)';
+        });
+
+        page.addEventListener('mouseleave', function () {
+            shapes.style.transform = '';
+        });
+    }
+
+    function initPanelParallax() {
+        const page = document.querySelector('.login-page');
+        const scene = document.querySelector('.panel-3d-scene');
+        if (!page || !scene) return;
+
+        if (window.matchMedia('(max-width: 1024px)').matches) return;
+
+        page.addEventListener('mousemove', function (e) {
+            const rect = page.getBoundingClientRect();
             const x = (e.clientX - rect.left) / rect.width - 0.5;
             const y = (e.clientY - rect.top) / rect.height - 0.5;
 
             scene.style.transform =
-                'translate(' + (x * -12) + 'px, ' + (y * -8) + 'px)';
+                'translate(' + (x * -18) + 'px, ' + (y * -12) + 'px)';
         });
 
-        panel.addEventListener('mouseleave', function () {
+        page.addEventListener('mouseleave', function () {
             scene.style.transform = '';
         });
     }
@@ -345,6 +369,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         initBannerCarousel();
         initBannerParallax();
+        initBannerShapesParallax();
         initParticles();
         initCardTilt();
         initPanelParallax();
