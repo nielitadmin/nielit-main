@@ -537,12 +537,6 @@ onchange="this.form.submit()"
 
 >
 
-<option value="0">
-
-All Centres
-
-</option>
-
 <?php foreach($centresList as $centre): ?>
 
 <option
