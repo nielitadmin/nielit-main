@@ -40,12 +40,13 @@
     }
 
     function initPublicSkeletonLoader() {
-        const minDisplayMs = 400;
+        const minDisplayMs = 2000;
+        const extraDelayMs = 500;
         const startedAt = performance.now();
 
         function finish() {
             const elapsed = performance.now() - startedAt;
-            const wait = Math.max(0, minDisplayMs - elapsed);
+            const wait = Math.max(0, minDisplayMs - elapsed) + extraDelayMs;
             window.setTimeout(hidePublicSkeletonLoader, wait);
         }
 

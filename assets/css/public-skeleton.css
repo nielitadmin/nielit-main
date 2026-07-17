@@ -11,7 +11,7 @@ body.public-page-loading {
     z-index: 2500;
     background: #f8fafc;
     overflow: hidden;
-    transition: opacity 0.35s ease, visibility 0.35s ease;
+    transition: opacity 0.55s ease, visibility 0.55s ease;
 }
 
 body.public-page-loaded .public-skeleton-loader {
@@ -28,7 +28,7 @@ body.public-page-loading > :not(.public-skeleton-loader) {
 body.public-page-loaded > :not(.public-skeleton-loader) {
     opacity: 1;
     visibility: visible;
-    transition: opacity 0.35s ease;
+    transition: opacity 0.55s ease;
 }
 
 .public-skeleton-topbar {
