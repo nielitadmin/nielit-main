@@ -291,7 +291,29 @@ if (!function_exists('get_report_monitor_category_groups')) {
     }
 
     function report_monitor_batch_month_column_sql($batchAlias = 'b') {
+        return report_monitor_batch_start_sql($batchAlias);
+    }
+
+    function report_monitor_batch_start_sql($batchAlias = 'b') {
         return "COALESCE(NULLIF({$batchAlias}.start_date, '0000-00-00'), {$batchAlias}.created_at)";
+    }
+
+    function report_monitor_batch_end_sql($batchAlias = 'b') {
+        $startExpr = report_monitor_batch_start_sql($batchAlias);
+        return "COALESCE(NULLIF({$batchAlias}.end_date, '0000-00-00'), {$startExpr})";
+    }
+
+    function report_monitor_append_batch_period_overlap(&$sql, &$types, array &$values, $batchAlias = 'b', array $monthFilter = []) {
+        if (empty($monthFilter['active'])) {
+            return;
+        }
+
+        $batchStart = report_monitor_batch_start_sql($batchAlias);
+        $batchEnd = report_monitor_batch_end_sql($batchAlias);
+        $sql .= " AND {$batchStart} <= ? AND {$batchEnd} >= ?";
+        $types .= 'ss';
+        $values[] = $monthFilter['end'];
+        $values[] = $monthFilter['start'];
     }
 
     function report_monitor_append_month_between(&$sql, &$types, array &$values, $columnExpr, array $monthFilter) {
@@ -367,7 +389,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
             // Apply month/quarter filter to batches (by start_date/created_at expression)
             $batchMonthExpr = report_monitor_batch_month_column_sql('b');
-            report_monitor_append_month_between($batchSql, $batchTypes, $batchValues, $batchMonthExpr, $monthFilter);
+            report_monitor_append_batch_period_overlap($batchSql, $batchTypes, $batchValues, 'b', $monthFilter);
 
             $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchTypes, $batchValues);
             if ($batchResult && $row = $batchResult->fetch_assoc()) {
@@ -405,10 +427,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
-        $batchMonthExpr = report_monitor_batch_month_column_sql('b');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
 
         if (!empty($monthFilter['active'])) {
             $monthStart = $monthFilter['start'];
+            $monthEnd = $monthFilter['end'];
             $monthNext = $monthFilter['next_start'];
 
             $sql = "SELECT
@@ -417,11 +441,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                         COALESCE(cen.code, '') AS centre_code,
                         COUNT(DISTINCT CASE
                             WHEN (s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?)
-                              OR (b.id IS NOT NULL AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?)
+                              OR (b.id IS NOT NULL AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?)
                             THEN c.id END) AS course_count,
                         COUNT(DISTINCT CASE
                             WHEN b.id IS NOT NULL
-                            AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?
+                            AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?
                             AND LOWER(COALESCE(b.status, 'active')) = 'active'
                             THEN b.id END) AS batch_count,
                         COUNT(DISTINCT CASE
@@ -443,7 +467,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     ORDER BY applications DESC, centre_name ASC";
             $types = str_repeat('s', 10) . $scopeFilter['types'];
             $values = array_merge(
-                [$monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext, $monthStart, $monthNext],
+                [$monthStart, $monthNext, $monthEnd, $monthStart, $monthEnd, $monthStart, $monthStart, $monthNext, $monthStart, $monthNext],
                 $scopeFilter['values']
             );
 
@@ -712,7 +736,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                          WHERE 1=1{$scopeFilter['sql']}";
             $batchTypes = $scopeFilter['types'];
             $batchValues = $scopeFilter['values'];
-            report_monitor_append_month_between($batchSql, $batchTypes, $batchValues, $batchMonthExpr, $monthFilter);
+            report_monitor_append_batch_period_overlap($batchSql, $batchTypes, $batchValues, 'b', $monthFilter);
             $batchSql .= ' GROUP BY c.id, c.course_name, c.course_code';
 
             $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchTypes, $batchValues);
@@ -1316,7 +1340,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 LEFT JOIN centres cen ON cen.id = c.centre_id
                 WHERE 1=1{$scopeFilter['sql']}";
 
-        report_monitor_append_month_between($sql, $types, $values, $batchMonthExpr, $monthFilter);
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
         $sql .= " ORDER BY b.created_at DESC, b.id DESC LIMIT 100";
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
@@ -1369,8 +1393,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $values = $scopeFilter['values'];
 
         $activeCondition = report_monitor_student_active_sql('s');
+        $enrollmentExpr = report_monitor_enrollment_timestamp_sql($conn, 'bs', 's');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
 
-        // Count students who registered in the selected period and are assigned to a batch
+        // Count students enrolled in the selected period and assigned to a batch active during that period.
         $sql = "SELECT
                     COALESCE(b.id, 0) AS batch_id,
                     COALESCE(b.batch_name, 'Unassigned Batch') AS batch_name,
@@ -1385,11 +1412,16 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 LEFT JOIN centres cen ON cen.id = c.centre_id
                 WHERE {$activeCondition} AND COALESCE(bs.batch_id, s.batch_id) IS NOT NULL";
 
-        // Apply month filter to student registration timestamp
         if (!empty($monthFilter['active'])) {
-            $sql .= " AND s.created_at >= ? AND s.created_at < ?";
-            $types = $types . 'ss';
-            $values = array_merge($values, [$monthFilter['start'], $monthFilter['next_start']]);
+            $sql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+            $sql .= " AND {$enrollmentExpr} >= ? AND {$enrollmentExpr} < ?";
+            $types .= 'ssss';
+            $values = array_merge($values, [
+                $monthFilter['end'],
+                $monthFilter['start'],
+                $monthFilter['start'],
+                $monthFilter['next_start'],
+            ]);
         }
 
         // Apply scope filter (courses/centre)
@@ -1449,7 +1481,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 WHERE f.is_active = 1{$scopeFilter['sql']}";
         $types = $scopeFilter['types'];
         $values = $scopeFilter['values'];
-        report_monitor_append_month_between($sql, $types, $values, $batchMonthExpr, $monthFilter);
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
         $sql .= ' ORDER BY f.name ASC, b.start_date DESC, b.id DESC';
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
@@ -1666,7 +1698,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
-        $batchMonthExpr = report_monitor_batch_month_column_sql('b');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
         $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
 
         if ($hasBatchStudents) {
@@ -1681,10 +1714,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $types = '';
         $values = [];
         if (!empty($monthFilter['active'])) {
-            $batchMonthJoin = " AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?";
+            $batchMonthJoin = " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
             $types .= 'ss';
+            $values[] = $monthFilter['end'];
             $values[] = $monthFilter['start'];
-            $values[] = $monthFilter['next_start'];
         }
 
         $sql = "SELECT
