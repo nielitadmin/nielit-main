@@ -1122,12 +1122,14 @@ Q4 (Jan–Mar)
                 <thead class="table-light">
                 <tr>
                     <th>Category</th>
+                    <th>Schemes</th>
+                    <th>Start Date – End Date</th>
+                    <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
                     <th class="text-end">Q3</th>
                     <th class="text-end">Q4</th>
                     <th class="text-end">Total</th>
-                    <th class="text-end">Target</th>
                     <th class="text-end">Achievement</th>
                 </tr>
                 </thead>
@@ -1150,11 +1152,8 @@ Q4 (Jan–Mar)
                     ?>
                     <tr class="table-light">
                         <td class="fw-semibold"><?php echo htmlspecialchars($categoryRow['label']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q1']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q2']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q3']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q4']); ?></td>
-                        <td class="text-end fw-bold"><?php echo number_format($categoryRow['total']); ?></td>
+                        <td class="text-muted">—</td>
+                        <td class="text-muted">—</td>
                         <td class="text-end">
                             <?php if (($categoryRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($categoryRow['target']); ?>
@@ -1162,6 +1161,11 @@ Q4 (Jan–Mar)
                                 <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal" title="Set target for this category">Not set</button>
                             <?php endif; ?>
                         </td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q1']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q2']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q3']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($categoryRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($categoryRow['total']); ?></td>
                         <td class="text-end fw-semibold <?php echo $achievementClass; ?>">
                             <?php echo $achievement !== null ? number_format($achievement, 1) . '%' : '—'; ?>
                         </td>
@@ -1175,12 +1179,14 @@ Q4 (Jan–Mar)
                                 <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
                             <?php endif; ?>
                         </td>
+                        <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
+                        <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q4']); ?></td>
                         <td class="text-end fw-semibold"><?php echo number_format($courseRow['total']); ?></td>
-                        <td class="text-end text-muted">—</td>
                         <td class="text-end text-muted">—</td>
                     </tr>
                     <?php endforeach; ?>
@@ -1189,11 +1195,8 @@ Q4 (Jan–Mar)
                 <tfoot class="table-light">
                 <tr>
                     <th>Grand Total</th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q1'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q2'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q3'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q4'))); ?></th>
-                    <th class="text-end fw-bold"><?php echo number_format($categoryQuarterGrandTotal); ?></th>
+                    <th></th>
+                    <th></th>
                     <th class="text-end fw-bold">
                         <?php if ($categoryQuarterGrandTarget > 0): ?>
                             <?php echo number_format($categoryQuarterGrandTarget); ?>
@@ -1201,6 +1204,11 @@ Q4 (Jan–Mar)
                             <span class="text-muted fw-normal">Not set</span>
                         <?php endif; ?>
                     </th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q1'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q2'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q3'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($categoryQuarterSummary, 'Q4'))); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format($categoryQuarterGrandTotal); ?></th>
                     <th class="text-end fw-bold">
                         <?php echo $categoryQuarterGrandAchievement !== null ? number_format($categoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
                     </th>
@@ -1245,12 +1253,14 @@ Q4 (Jan–Mar)
                 <thead class="table-light">
                 <tr>
                     <th>Social Category</th>
+                    <th>Schemes</th>
+                    <th>Start Date – End Date</th>
+                    <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
                     <th class="text-end">Q3</th>
                     <th class="text-end">Q4</th>
                     <th class="text-end">Total</th>
-                    <th class="text-end">Target</th>
                     <th class="text-end">Achievement</th>
                 </tr>
                 </thead>
@@ -1273,11 +1283,8 @@ Q4 (Jan–Mar)
                     ?>
                     <tr class="table-light">
                         <td class="fw-semibold"><?php echo htmlspecialchars($socialRow['label']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q1']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q2']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q3']); ?></td>
-                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q4']); ?></td>
-                        <td class="text-end fw-bold"><?php echo number_format($socialRow['total']); ?></td>
+                        <td class="text-muted">—</td>
+                        <td class="text-muted">—</td>
                         <td class="text-end">
                             <?php if (($socialRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($socialRow['target']); ?>
@@ -1285,6 +1292,11 @@ Q4 (Jan–Mar)
                                 <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal" title="Set target">Not set</button>
                             <?php endif; ?>
                         </td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q1']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q2']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q3']); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format($socialRow['Q4']); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format($socialRow['total']); ?></td>
                         <td class="text-end fw-semibold <?php echo $socialAchievementClass; ?>">
                             <?php echo $socialAchievement !== null ? number_format($socialAchievement, 1) . '%' : '—'; ?>
                         </td>
@@ -1298,12 +1310,14 @@ Q4 (Jan–Mar)
                                 <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
                             <?php endif; ?>
                         </td>
+                        <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
+                        <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q4']); ?></td>
                         <td class="text-end fw-semibold"><?php echo number_format($courseRow['total']); ?></td>
-                        <td class="text-end text-muted">—</td>
                         <td class="text-end text-muted">—</td>
                     </tr>
                     <?php endforeach; ?>
@@ -1312,11 +1326,8 @@ Q4 (Jan–Mar)
                 <tfoot class="table-light">
                 <tr>
                     <th>Grand Total</th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q1'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q2'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q3'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q4'))); ?></th>
-                    <th class="text-end fw-bold"><?php echo number_format($socialCategoryQuarterGrandTotal); ?></th>
+                    <th></th>
+                    <th></th>
                     <th class="text-end fw-bold">
                         <?php if ($socialCategoryQuarterGrandTarget > 0): ?>
                             <?php echo number_format($socialCategoryQuarterGrandTarget); ?>
@@ -1324,6 +1335,11 @@ Q4 (Jan–Mar)
                             <span class="text-muted fw-normal">Not set</span>
                         <?php endif; ?>
                     </th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q1'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q2'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q3'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q4'))); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format($socialCategoryQuarterGrandTotal); ?></th>
                     <th class="text-end fw-bold">
                         <?php echo $socialCategoryQuarterGrandAchievement !== null ? number_format($socialCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
                     </th>

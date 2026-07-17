@@ -962,6 +962,96 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return array_values($rows);
     }
 
+    function report_monitor_format_display_date(?string $date): string {
+        if ($date === null || $date === '' || $date === '0000-00-00' || strpos($date, '0000-00-00') === 0) {
+            return '';
+        }
+
+        $timestamp = strtotime($date);
+        return $timestamp ? date('j M Y', $timestamp) : '';
+    }
+
+    function report_monitor_format_batch_period_label(?string $startDate, ?string $endDate): string {
+        $startLabel = report_monitor_format_display_date($startDate);
+        $endLabel = report_monitor_format_display_date($endDate);
+
+        if ($startLabel === '' && $endLabel === '') {
+            return '—';
+        }
+        if ($endLabel === '' || $startLabel === $endLabel) {
+            return $startLabel !== '' ? $startLabel : $endLabel;
+        }
+
+        return $startLabel . ' to ' . $endLabel;
+    }
+
+    function report_monitor_get_course_batch_meta_map($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null): array {
+        if (!report_monitor_table_exists($conn, 'batches')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $fyRange = report_monitor_get_financial_quarter_range($fyStartYear, 'FY');
+        $monthFilter = [
+            'active' => true,
+            'start' => $fyRange['start_date'] . ' 00:00:00',
+            'end' => $fyRange['end_date'] . ' 23:59:59',
+        ];
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $hasSchemes = report_monitor_table_exists($conn, 'schemes');
+        $schemeJoin = $hasSchemes ? 'LEFT JOIN schemes s ON s.id = b.scheme_id' : '';
+        $schemeSelect = $hasSchemes
+            ? "GROUP_CONCAT(DISTINCT NULLIF(TRIM(s.scheme_name), '') ORDER BY s.scheme_name SEPARATOR ', ')"
+            : "''";
+
+        $sql = "SELECT
+                    c.id AS course_id,
+                    {$schemeSelect} AS scheme_names,
+                    MIN({$batchStartExpr}) AS batch_start,
+                    MAX({$batchEndExpr}) AS batch_end
+                FROM batches b
+                INNER JOIN courses c ON c.id = b.course_id
+                {$schemeJoin}
+                WHERE 1=1{$scopeFilter['sql']}";
+
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
+        $sql .= ' GROUP BY c.id';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return [];
+        }
+
+        $metaMap = [];
+        while ($row = $result->fetch_assoc()) {
+            $courseId = (int) ($row['course_id'] ?? 0);
+            if ($courseId <= 0) {
+                continue;
+            }
+
+            $schemeNames = trim((string) ($row['scheme_names'] ?? ''));
+            $metaMap[$courseId] = [
+                'scheme_names' => $schemeNames !== '' ? $schemeNames : '—',
+                'batch_start' => $row['batch_start'] ?? null,
+                'batch_end' => $row['batch_end'] ?? null,
+                'batch_period_label' => report_monitor_format_batch_period_label(
+                    $row['batch_start'] ?? null,
+                    $row['batch_end'] ?? null
+                ),
+            ];
+        }
+
+        return $metaMap;
+    }
+
     function report_monitor_get_category_course_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
         if (!report_monitor_table_exists($conn, 'students')) {
             return [];
@@ -1060,6 +1150,19 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $grouped[$categoryKey] = array_values(array_filter($courses, static function ($courseRow) {
                 return (int) ($courseRow['total'] ?? 0) > 0;
             }));
+        }
+
+        $courseBatchMeta = report_monitor_get_course_batch_meta_map($conn, $courseIds, $centreId, $fyStartYear);
+        foreach ($grouped as $categoryKey => $courses) {
+            foreach ($courses as $index => $courseRow) {
+                $courseId = (int) ($courseRow['course_id'] ?? 0);
+                $meta = $courseBatchMeta[$courseId] ?? [
+                    'scheme_names' => '—',
+                    'batch_period_label' => '—',
+                ];
+                $grouped[$categoryKey][$index]['scheme_names'] = $meta['scheme_names'];
+                $grouped[$categoryKey][$index]['batch_period_label'] = $meta['batch_period_label'];
+            }
         }
 
         return $grouped;
@@ -2023,6 +2126,19 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $grouped[$socialKey] = array_values(array_filter($courses, static function ($courseRow) {
                 return (int) ($courseRow['total'] ?? 0) > 0;
             }));
+        }
+
+        $courseBatchMeta = report_monitor_get_course_batch_meta_map($conn, $courseIds, $centreId, $fyStartYear);
+        foreach ($grouped as $socialKey => $courses) {
+            foreach ($courses as $index => $courseRow) {
+                $courseId = (int) ($courseRow['course_id'] ?? 0);
+                $meta = $courseBatchMeta[$courseId] ?? [
+                    'scheme_names' => '—',
+                    'batch_period_label' => '—',
+                ];
+                $grouped[$socialKey][$index]['scheme_names'] = $meta['scheme_names'];
+                $grouped[$socialKey][$index]['batch_period_label'] = $meta['batch_period_label'];
+            }
         }
 
         return $grouped;
