@@ -37,14 +37,16 @@ h1, h2, h3, .brand-title {
 }
 
 .login-page {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(400px, 0.8fr);
+    position: relative;
     min-height: 100vh;
+    overflow: hidden;
 }
 
-/* ===== Left: Cinematic Banner ===== */
+/* ===== Full-screen Banner Background ===== */
 .banner-panel {
-    position: relative;
+    position: absolute;
+    inset: 0;
+    z-index: 0;
     overflow: hidden;
     background: var(--navy);
     isolation: isolate;
@@ -102,8 +104,9 @@ h1, h2, h3, .brand-title {
     z-index: 2;
     pointer-events: none;
     background:
-        radial-gradient(ellipse 80% 60% at 50% 100%, rgba(10, 22, 40, 0.85) 0%, transparent 70%),
-        linear-gradient(115deg, rgba(10, 22, 40, 0.75) 0%, rgba(10, 22, 40, 0.35) 50%, rgba(10, 22, 40, 0.15) 100%);
+        radial-gradient(ellipse 70% 60% at 50% 48%, rgba(10, 22, 40, 0.62) 0%, transparent 72%),
+        radial-gradient(ellipse 85% 55% at 50% 100%, rgba(10, 22, 40, 0.88) 0%, transparent 70%),
+        linear-gradient(180deg, rgba(10, 22, 40, 0.5) 0%, rgba(10, 22, 40, 0.2) 40%, rgba(10, 22, 40, 0.75) 100%);
 }
 
 .banner-overlay {
@@ -291,14 +294,16 @@ h1, h2, h3, .brand-title {
     50% { transform: translateY(-30px) rotate(15deg); opacity: 0.5; }
 }
 
-/* ===== Right: Login Panel ===== */
+/* ===== Centered Login Overlay ===== */
 .login-panel {
     position: relative;
+    z-index: 5;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 100vh;
     padding: clamp(1.25rem, 3vw, 2.5rem);
-    background: linear-gradient(180deg, #faf9f7 0%, #f3f1ed 100%);
+    background: transparent;
     overflow: hidden;
 }
 
@@ -625,6 +630,9 @@ h1, h2, h3, .brand-title {
     max-width: 430px;
     position: relative;
     z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     animation: cardEntrance 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
@@ -640,12 +648,13 @@ h1, h2, h3, .brand-title {
 
 .login-card {
     position: relative;
+    width: 100%;
     background: #ffffff;
     border: 1px solid rgba(15, 23, 42, 0.08);
     border-radius: 24px;
     box-shadow:
-        0 24px 48px rgba(10, 22, 40, 0.08),
-        0 2px 8px rgba(10, 22, 40, 0.04);
+        0 28px 60px rgba(10, 22, 40, 0.28),
+        0 8px 24px rgba(10, 22, 40, 0.12);
     overflow: hidden;
 }
 
@@ -1257,27 +1266,20 @@ small {
     align-items: center;
     gap: 0.45rem;
     margin-top: 1.15rem;
-    color: var(--muted);
+    color: rgba(255, 255, 255, 0.92);
     text-decoration: none;
     font-size: 0.84rem;
     font-weight: 500;
     transition: color 0.2s ease, transform 0.2s ease;
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
 }
 
 .back-home:hover {
-    color: var(--navy);
+    color: #fff;
     transform: translateX(-3px);
 }
 
 @media (max-width: 1024px) {
-    .login-page {
-        grid-template-columns: 1fr;
-    }
-
-    .banner-panel {
-        min-height: 300px;
-    }
-
     .banner-overlay {
         padding: 1.5rem;
     }
@@ -1290,6 +1292,20 @@ small {
         left: 1.5rem;
         right: 1.5rem;
         bottom: 1.25rem;
+    }
+
+    .banner-content h1 {
+        font-size: clamp(1.5rem, 6vw, 2rem);
+    }
+
+    .banner-content p {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .banner-overlay {
+        display: none;
     }
 }
 
