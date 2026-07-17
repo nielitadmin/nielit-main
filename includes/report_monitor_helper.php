@@ -1717,6 +1717,18 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return 'FY ' . $fyStartYear . '-' . $fyEndShort;
     }
 
+    function report_monitor_format_financial_year_full_label(int $fyStartYear): string {
+        return $fyStartYear . '-' . ($fyStartYear + 1);
+    }
+
+    function report_monitor_get_scope_title_label(int $centreId, string $selectedCentreName = ''): string {
+        if ($centreId > 0 && $selectedCentreName !== '' && strcasecmp($selectedCentreName, 'All Centres') !== 0) {
+            return strtoupper($selectedCentreName);
+        }
+
+        return 'NIELIT BHUBANESWAR';
+    }
+
     /**
      * Date range and graph months for an FY quarter (Q1 Apr–Jun … Q4 Jan–Mar).
      */

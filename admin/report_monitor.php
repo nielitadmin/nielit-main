@@ -86,6 +86,9 @@ if ($centreId > 0) {
     $selectedCentreName = "All Centres";
 }
 
+$reportScopeTitleLabel = report_monitor_get_scope_title_label($centreId, $selectedCentreName);
+$selectedFyFullLabel = report_monitor_format_financial_year_full_label($selectedYear);
+
 /*------------------------------------------------------------
 | Targets flash message (after AJAX save reload)
 -------------------------------------------------------------*/
@@ -1092,13 +1095,7 @@ Q4 (Jan–Mar)
 <div class="card table-card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <strong>Category Quarterly Admissions Summary</strong>
-            <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
-            <?php if ($centreId > 0): ?>
-                <span class="badge bg-secondary ms-1"><?php echo htmlspecialchars($selectedCentreName); ?> targets</span>
-            <?php else: ?>
-                <span class="badge bg-secondary ms-1">All-centre targets</span>
-            <?php endif; ?>
+            <strong>Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
             <i class="fas fa-bullseye me-1"></i> Set Targets
@@ -1109,7 +1106,7 @@ Q4 (Jan–Mar)
         <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
             <i class="fas fa-info-circle mt-1"></i>
             <div>
-                <strong>No annual targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                <strong>No annual targets set for FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?>.</strong>
                 Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">Set Targets</button>
                 to enter admission goals for each category. Targets will appear in the <em>Target</em> and <em>Achievement</em> columns.
             </div>
@@ -1222,14 +1219,8 @@ Q4 (Jan–Mar)
 <div class="card table-card mb-4">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-            <strong>Social Category Quarterly Admissions Summary</strong>
-            <span class="badge bg-primary ms-2">FY <?php echo htmlspecialchars($selectedYear); ?></span>
-            <span class="badge bg-secondary ms-1">General / OBC / SC / ST / EWS / PWD</span>
-            <?php if ($centreId > 0): ?>
-                <span class="badge bg-secondary ms-1"><?php echo htmlspecialchars($selectedCentreName); ?> targets</span>
-            <?php else: ?>
-                <span class="badge bg-secondary ms-1">All-centre targets</span>
-            <?php endif; ?>
+            <strong>Social Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
+            <span class="badge bg-secondary ms-2">General / OBC / SC / ST / EWS / PWD</span>
         </div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">
             <i class="fas fa-bullseye me-1"></i> Set Targets
@@ -1240,7 +1231,7 @@ Q4 (Jan–Mar)
         <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
             <i class="fas fa-info-circle mt-1"></i>
             <div>
-                <strong>No social category targets set for FY <?php echo htmlspecialchars($selectedYear); ?>.</strong>
+                <strong>No social category targets set for FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?>.</strong>
                 Click <button type="button" class="btn btn-link btn-sm p-0 align-baseline fw-semibold" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">Set Targets</button>
                 for General, OBC, SC, ST, EWS, and PWD admissions.
             </div>
