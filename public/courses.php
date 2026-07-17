@@ -470,8 +470,13 @@ $result_internship = $conn->query($sql_internship);
             100% { transform: translate3d(-100%,0,0); }
         }
     </style>
+<?php
+require_once __DIR__ . '/../includes/public_skeleton_helper.php';
+public_skeleton_render_head();
+?>
 </head>
-<body>
+<body class="public-page-loading">
+<?php public_skeleton_render_loader('courses'); ?>
 
 <!-- Top Bar (Government Header) -->
 <div class="top-bar">
@@ -1297,9 +1302,13 @@ function toggleCourseCard(card) {
 
 // Centre filter function
 function selectCentre(centreId) {
+    if (typeof window.showPublicSkeletonLoader === 'function') {
+        window.showPublicSkeletonLoader();
+    }
     window.location.href = '<?php echo APP_URL; ?>/public/courses.php?centre=' + centreId;
 }
 </script>
+<?php public_skeleton_render_script(); ?>
 
 </body>
 </html>

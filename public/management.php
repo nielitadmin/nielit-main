@@ -24,8 +24,13 @@
     ?>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/public-theme.css">
     <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
+<?php
+require_once __DIR__ . '/../includes/public_skeleton_helper.php';
+public_skeleton_render_head();
+?>
 </head>
-<body>
+<body class="public-page-loading">
+<?php public_skeleton_render_loader('generic'); ?>
 
     <!-- Top Bar -->
     <div class="top-bar">
@@ -241,5 +246,6 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<?php public_skeleton_render_script(); ?>
 </body>
 </html>

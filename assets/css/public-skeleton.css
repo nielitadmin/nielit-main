@@ -1,0 +1,229 @@
+/* Public website skeleton loading */
+
+html.public-page-loading,
+body.public-page-loading {
+    overflow: hidden;
+}
+
+.public-skeleton-loader {
+    position: fixed;
+    inset: 0;
+    z-index: 2500;
+    background: #f8fafc;
+    overflow: hidden;
+    transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+body.public-page-loaded .public-skeleton-loader {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+body.public-page-loading > :not(.public-skeleton-loader) {
+    opacity: 0;
+    visibility: hidden;
+}
+
+body.public-page-loaded > :not(.public-skeleton-loader) {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.35s ease;
+}
+
+.public-skeleton-topbar {
+    padding: 0.85rem 0;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+    background: #fff;
+}
+
+.public-skeleton-nav {
+    padding: 0.9rem 0;
+    background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+}
+
+.public-skeleton-body {
+    padding: 1.5rem 0 2rem;
+}
+
+.public-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.public-skeleton-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1.25rem 0;
+}
+
+.public-skeleton-grid {
+    display: grid;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.public-skeleton-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.public-skeleton-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.public-skeleton-grid-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.public-skeleton-stack {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.public-skel {
+    position: relative;
+    overflow: hidden;
+    background: #e8edf3;
+    border-radius: 12px;
+}
+
+.public-skel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.55) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+    transform: translateX(-100%);
+    animation: public-skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+.public-skel-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.public-skel-topbar-text {
+    flex: 1;
+    height: 42px;
+    max-width: 320px;
+}
+
+.public-skel-emblem {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.public-skel-nav-brand {
+    width: 140px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.public-skel-nav-brand::after {
+    background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.35) 50%,
+        rgba(255, 255, 255, 0) 100%
+    );
+}
+
+.public-skel-nav-links {
+    width: min(420px, 55%);
+    height: 24px;
+    margin-left: auto;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.public-skel-hero {
+    height: clamp(280px, 42vw, 460px);
+    border-radius: 18px;
+}
+
+.public-skel-page-hero {
+    height: 180px;
+    border-radius: 16px;
+    margin-bottom: 1.25rem;
+}
+
+.public-skel-page-title {
+    height: 42px;
+    width: min(360px, 70%);
+    margin-bottom: 1rem;
+}
+
+.public-skel-filter {
+    height: 52px;
+    margin-bottom: 1.25rem;
+}
+
+.public-skel-stat {
+    height: 96px;
+}
+
+.public-skel-card {
+    height: 220px;
+}
+
+.public-skel-card-sm {
+    height: 180px;
+}
+
+.public-skel-block {
+    height: 240px;
+}
+
+.public-skel-accordion {
+    height: 72px;
+    border-radius: 14px;
+}
+
+@keyframes public-skeleton-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@media (max-width: 992px) {
+    .public-skeleton-grid-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .public-skel-nav-links {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .public-skeleton-stats,
+    .public-skeleton-grid-3,
+    .public-skeleton-grid-4,
+    .public-skeleton-grid-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .public-skel-emblem {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .public-skel::after {
+        animation: none;
+    }
+
+    .public-skeleton-loader,
+    body.public-page-loaded > :not(.public-skeleton-loader) {
+        transition: none;
+    }
+}

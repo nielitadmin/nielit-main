@@ -1225,8 +1225,13 @@ $homepage_map = [];
             .quick-grid { grid-template-columns: 1fr; }
         }
     </style>
+<?php
+require_once __DIR__ . '/includes/public_skeleton_helper.php';
+public_skeleton_render_head();
+?>
 </head>
-<body>
+<body class="public-page-loading">
+<?php public_skeleton_render_loader('home'); ?>
 
 <!-- ===== TOP BAR ===== -->
 <div class="top-bar">
@@ -1986,5 +1991,6 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
         typeEffect();
     }
 </script>
+<?php public_skeleton_render_script(); ?>
 </body>
 </html>
