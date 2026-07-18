@@ -123,13 +123,17 @@ define('TIMEZONE', 'Asia/Kolkata');
 ```
 
 ### Email Configuration
-Edit `config/email.php` for SMTP settings:
+Edit `config/email.php` for SMTP settings (Hostinger example):
 ```php
-define('SMTP_HOST', 'smtp.gmail.com');
-define('SMTP_PORT', 587);
-define('SMTP_USERNAME', 'your-email@gmail.com');
-define('SMTP_PASSWORD', 'your-app-password');
+define('SMTP_HOST', 'smtp.hostinger.com');
+define('SMTP_PORT', 465);              // Hostinger outgoing SMTP
+define('SMTP_SECURE', 'ssl');          // SSL on port 465
+define('SMTP_USERNAME', 'your-email@yourdomain.com');
+define('SMTP_PASSWORD', 'your-email-password');
+define('SMTP_FROM_EMAIL', 'your-email@yourdomain.com');
+define('SMTP_FROM_NAME', 'NIELIT Bhubaneswar');
 ```
+Note: `config/` is not tracked by Git — update `email.php` on the server separately after deploy.
 
 ## 🎯 Key Modules
 

@@ -30,7 +30,7 @@ function sendOTP($toEmail, $otp, $username = null) {
         $mail->SMTPAuth   = true;
         $mail->Username   = SMTP_USERNAME;
         $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->SMTPSecure = defined('SMTP_SECURE') ? SMTP_SECURE : PHPMailer::ENCRYPTION_SMTPS;
         $mail->Port       = SMTP_PORT;
 
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
