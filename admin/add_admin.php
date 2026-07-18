@@ -48,7 +48,9 @@ function sendOTPEmail($toEmail, $otp, $username) {
         $mail->SMTPAuth   = true;
         $mail->Username   = SMTP_USERNAME;
         $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = defined('SMTP_SECURE') ? SMTP_SECURE : PHPMailer::ENCRYPTION_SMTPS;
+        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
+            ? SMTP_SECURE
+            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
         $mail->Port       = SMTP_PORT;
         
         // Performance optimization - set timeouts

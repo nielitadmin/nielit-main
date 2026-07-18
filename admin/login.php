@@ -22,6 +22,33 @@ $error_message = "";
 $success_message = "";
 $show_otp_form = false;
 
+function resolveSmtpSecure() {
+    if (defined('SMTP_SECURE') && SMTP_SECURE !== '') {
+        return SMTP_SECURE;
+    }
+    // Hostinger: 465 = SSL, 587 = STARTTLS
+    return ((int) SMTP_PORT === 465)
+        ? PHPMailer::ENCRYPTION_SMTPS
+        : PHPMailer::ENCRYPTION_STARTTLS;
+}
+
+function maskEmailAddress($email) {
+    $email = trim((string) $email);
+    if ($email === '' || strpos($email, '@') === false) {
+        return 'your registered email';
+    }
+    [$local, $domain] = explode('@', $email, 2);
+    $localVisible = substr($local, 0, min(2, strlen($local)));
+    $domainParts = explode('.', $domain);
+    $domainName = $domainParts[0] ?? '';
+    $domainVisible = substr($domainName, 0, min(1, strlen($domainName)));
+    $tld = count($domainParts) > 1 ? '.' . implode('.', array_slice($domainParts, 1)) : '';
+    return $localVisible . str_repeat('*', max(3, strlen($local) - strlen($localVisible)))
+        . '@'
+        . $domainVisible . str_repeat('*', max(2, strlen($domainName) - strlen($domainVisible)))
+        . $tld;
+}
+
 function sendOTP($toEmail, $otp, $username = null) {
     $mail = new PHPMailer(true);
     try {
@@ -30,8 +57,9 @@ function sendOTP($toEmail, $otp, $username = null) {
         $mail->SMTPAuth   = true;
         $mail->Username   = SMTP_USERNAME;
         $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = defined('SMTP_SECURE') ? SMTP_SECURE : PHPMailer::ENCRYPTION_SMTPS;
+        $mail->SMTPSecure = resolveSmtpSecure();
         $mail->Port       = SMTP_PORT;
+        $mail->Timeout    = 20;
 
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);
@@ -64,6 +92,7 @@ function sendOTP($toEmail, $otp, $username = null) {
         logOTP($toEmail, $otp, 'Admin Login', $username, 'sent');
         return true;
     } catch (Exception $e) {
+        error_log('Admin login OTP email failed to ' . $toEmail . ': ' . $mail->ErrorInfo);
         logOTP($toEmail, $otp, 'Admin Login', $username, 'failed');
         return false;
     }
@@ -82,7 +111,7 @@ function startAdminLoginOtpFlow(array $admin): bool
     $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $admin['username']);
 
     if ($sent) {
-        $success_message = 'OTP sent successfully to your registered email.';
+        $success_message = 'OTP sent successfully to ' . maskEmailAddress($_SESSION['temp_admin_email']) . '. Check inbox and spam.';
         $show_otp_form = true;
         return true;
     }
@@ -195,7 +224,7 @@ if (isset($_POST['resend_otp'])) {
 
         $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $_SESSION['temp_admin_username']);
         if ($sent) {
-            $success_message = "OTP resent successfully.";
+            $success_message = 'OTP resent successfully to ' . maskEmailAddress($_SESSION['temp_admin_email']) . '. Check inbox and spam.';
             $show_otp_form = true;
         } else {
             $error_message = "Failed to resend OTP. Please contact support.";
@@ -361,7 +390,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                                 <input type="text" class="otp-input" id="otp-6" maxlength="1" pattern="\d" inputmode="numeric" required>
                             </div>
                             <input type="hidden" name="otp" id="otp-hidden">
-                            <small><i class="fas fa-info-circle"></i> OTP sent to your registered email</small>
+                            <small><i class="fas fa-info-circle"></i> OTP sent to <?php echo htmlspecialchars(maskEmailAddress($_SESSION['temp_admin_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?> — also check Spam</small>
                         </div>
 
                         <button type="submit" name="verify_otp" class="btn btn-primary w-100 btn-lg" id="verifyBtn">
