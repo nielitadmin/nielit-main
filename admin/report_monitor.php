@@ -565,7 +565,9 @@ $pageTitle="Report Monitor";
 
             display:flex;
 
-            flex-direction:column;
+            flex-direction:column-reverse;
+
+            justify-content:space-between;
 
             font-size:11px;
 
@@ -575,7 +577,7 @@ $pageTitle="Report Monitor";
 
             text-align:right;
 
-            padding-right:8px;
+            padding:8px 8px 48px 0;
 
             border-right:2px solid #94a3b8;
 
@@ -594,6 +596,10 @@ $pageTitle="Report Monitor";
             padding-right:4px;
 
             color:#1e3a8a;
+
+            line-height:1;
+
+            flex:0 0 auto;
 
         }
 
@@ -3001,6 +3007,15 @@ function renderCourseFyGanttChart(timeline) {
         running += Math.max(0, bar.admissions);
         bar.cumulative = running;
     });
+    const grandTotal = Math.max(running, 1);
+    // Y-axis scale: 10, 20, 30 ... up to a round high value (at least 100).
+    const yMax = Math.max(100, Math.ceil(grandTotal / 10) * 10);
+    let yStep = 10;
+    if (yMax > 400) {
+        yStep = 50;
+    } else if (yMax > 200) {
+        yStep = 20;
+    }
 
     const laneHeight = 56;
     const pixelsPerDay = 32;
@@ -3018,11 +3033,9 @@ function renderCourseFyGanttChart(timeline) {
     if (yTicks) {
         yTicks.style.height = plotHeight + 'px';
         let yHtml = '';
-        // Top = latest progressive course, bottom = earliest (column-reverse visual via normal order matching lanes top-to-bottom)
-        bars.forEach(function (bar) {
-            yHtml += '<div class="course-fy-y-tick" style="height:' + laneHeight + 'px" title="Progressive total">' +
-                Number(bar.cumulative).toLocaleString() + '</div>';
-        });
+        for (let n = 10; n <= yMax; n += yStep) {
+            yHtml += '<div class="course-fy-y-tick" title="Student admission completed scale">' + n + '</div>';
+        }
         yTicks.innerHTML = yHtml;
     }
 
@@ -3127,7 +3140,6 @@ function renderCourseFyGanttChart(timeline) {
             hoverMeta.innerHTML =
                 'Admissions: <strong>' + Number(bar.admissions).toLocaleString() + '</strong>' +
                 ' · Registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
-                ' · Progressive total: <strong>' + Number(bar.cumulative).toLocaleString() + '</strong>' +
                 '<br>' + bar.start_label + ' → ' + bar.end_label;
         }
 
