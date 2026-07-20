@@ -1516,18 +1516,24 @@ if (!function_exists('get_report_monitor_category_groups')) {
         });
 
         $courses = array_values(array_filter($courses, static function ($row) {
-            return ($row['total_registered'] ?? 0) > 0
+            // Keep every course that has at least one FY batch (including 0 footfall).
+            return ($row['total_batches'] ?? 0) > 0
+                || ($row['total_registered'] ?? 0) > 0
                 || ($row['total_admissions'] ?? 0) > 0
-                || ($row['total_footfall'] ?? 0) > 0
-                || ($row['total_batches'] ?? 0) > 0;
+                || ($row['total_footfall'] ?? 0) > 0;
         }));
+
+        $batchCount = 0;
+        foreach ($courses as $courseRow) {
+            $batchCount += count($courseRow['batches'] ?? []);
+        }
 
         $grandTotals = [
             'courses' => count($courses),
             'registered' => array_sum(array_column($courses, 'total_registered')),
             'admissions' => array_sum(array_column($courses, 'total_admissions')),
             'footfall' => array_sum(array_column($courses, 'total_footfall')),
-            'batches' => array_sum(array_column($courses, 'total_batches')),
+            'batches' => $batchCount,
         ];
 
         return [

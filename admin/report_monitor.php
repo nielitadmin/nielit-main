@@ -615,7 +615,7 @@ $pageTitle="Report Monitor";
 
             overflow-y:auto;
 
-            max-height:620px;
+            max-height:760px;
 
             padding-bottom:8px;
 
@@ -2053,7 +2053,7 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">One row per course · day-wise Apr–Mar · hover a bar for mini course detail graph beside it</span>
+                <span class="text-muted small">All individual course batches for this FY · progress from Batch Module seats · hover for detail</span>
             </div>
             <div class="course-fy-admission-chart">
                 <div class="course-fy-y-rail">
@@ -2082,7 +2082,7 @@ Q4 (Jan–Mar)
                 </div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Hover or click a course bar — mini admission graph appears beside that bar.</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Progress uses Batch Module seats (enrolled/total). Hover or click a bar for course detail.</span>
                 <span class="badge bg-light text-dark border">Hover / click</span>
             </div>
         </div>
@@ -2952,44 +2952,33 @@ function renderCourseFyGanttChart(timeline) {
     const dayLabels = timeline.day_labels || [];
     const bars = [];
 
+    // One row per individual batch (all course batches in this FY).
     courses.forEach(function (course) {
         const batches = course.batches || [];
-        if (!batches.length) {
-            return;
-        }
-        let startIdx = Infinity;
-        let endIdx = -1;
-        let startLabel = '';
-        let endLabel = '';
-        let footfall = 0;
         batches.forEach(function (batch) {
-            const s = Number.isFinite(batch.start_index) ? batch.start_index : 0;
-            const e = Number.isFinite(batch.end_index) ? batch.end_index : s;
-            if (s < startIdx) {
-                startIdx = s;
-                startLabel = batch.start_label || '';
-            }
-            if (e > endIdx) {
-                endIdx = e;
-                endLabel = batch.end_label || '';
-            }
-            footfall += Number(batch.footfall) || 0;
-        });
-        if (!Number.isFinite(startIdx) || endIdx < 0) {
-            return;
-        }
-        const admissions = Number(course.total_admissions) || footfall || 0;
-        bars.push({
-            course_name: course.course_name || 'Course',
-            course_code: course.course_code || '',
-            start_index: startIdx,
-            end_index: Math.max(startIdx, endIdx),
-            start_label: startLabel,
-            end_label: endLabel,
-            admissions: admissions,
-            registered: Number(course.total_registered) || 0,
-            footfall: footfall,
-            daily_admissions: course.daily_admissions || []
+            const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+            const endIdx = Number.isFinite(batch.end_index) ? batch.end_index : startIdx;
+            const footfall = Number(batch.footfall) || 0;
+            const seatsTotal = Number(batch.seats_total) || 0;
+            const batchLabel = batch.batch_code || batch.batch_name || '';
+            const displayName = batchLabel
+                ? ((course.course_name || 'Course') + ' · ' + batchLabel)
+                : (course.course_name || 'Course');
+            bars.push({
+                course_name: displayName,
+                course_code: course.course_code || '',
+                batch_name: batch.batch_name || '',
+                batch_code: batch.batch_code || '',
+                start_index: startIdx,
+                end_index: Math.max(startIdx, endIdx),
+                start_label: batch.start_label || '',
+                end_label: batch.end_label || '',
+                admissions: footfall,
+                seats_total: seatsTotal,
+                registered: Number(course.total_registered) || 0,
+                footfall: footfall,
+                daily_admissions: course.daily_admissions || []
+            });
         });
     });
 
@@ -2999,17 +2988,22 @@ function renderCourseFyGanttChart(timeline) {
     }
 
     bars.sort(function (a, b) {
-        return a.start_index - b.start_index || a.course_name.localeCompare(b.course_name);
+        return a.start_index - b.start_index
+            || a.course_name.localeCompare(b.course_name)
+            || String(a.batch_code || '').localeCompare(String(b.batch_code || ''));
     });
 
-    let running = 0;
+    let runningEnrolled = 0;
+    let totalSeats = 0;
     bars.forEach(function (bar) {
-        running += Math.max(0, bar.admissions);
-        bar.cumulative = running;
+        runningEnrolled += Math.max(0, bar.footfall || bar.admissions || 0);
+        totalSeats += Math.max(0, bar.seats_total || 0);
+        bar.cumulative = runningEnrolled;
     });
-    const grandTotal = Math.max(running, 1);
-    // Y-axis: 10 → higher numbers with headroom above current FY admissions.
-    const yMax = Math.max(500, Math.ceil((grandTotal * 1.4) / 50) * 50);
+    const enrolledTotal = Math.max(runningEnrolled, 1);
+    // Y-axis follows Batch Module seat capacity (and enrolled), with headroom.
+    const scaleBase = Math.max(totalSeats, enrolledTotal, 100);
+    const yMax = Math.max(500, Math.ceil((scaleBase * 1.15) / 50) * 50);
     let yStep = 20;
     if (yMax > 600) {
         yStep = 50;
@@ -3035,10 +3029,10 @@ function renderCourseFyGanttChart(timeline) {
         yTicks.style.height = plotHeight + 'px';
         let yHtml = '';
         for (let n = 10; n <= yMax; n += yStep) {
-            yHtml += '<div class="course-fy-y-tick" title="Student admission completed scale">' + n + '</div>';
+            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + n + '</div>';
         }
         if (yMax > 10 && ((yMax - 10) % yStep !== 0)) {
-            yHtml += '<div class="course-fy-y-tick" title="Student admission completed scale">' + yMax + '</div>';
+            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + yMax + '</div>';
         }
         yTicks.innerHTML = yHtml;
     }
@@ -3142,8 +3136,10 @@ function renderCourseFyGanttChart(timeline) {
         }
         if (hoverMeta) {
             hoverMeta.innerHTML =
-                'Admissions: <strong>' + Number(bar.admissions).toLocaleString() + '</strong>' +
-                ' · Registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
+                (bar.batch_name ? ('Batch: <strong>' + escapeHtmlAttr(bar.batch_name) + '</strong> · ') : '') +
+                'Seats: <strong>' + Number(bar.footfall || 0).toLocaleString() + ' / ' +
+                Number(bar.seats_total || 0).toLocaleString() + '</strong>' +
+                ' · Course registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
                 '<br>' + bar.start_label + ' → ' + bar.end_label;
         }
 
