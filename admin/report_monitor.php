@@ -1756,7 +1756,7 @@ Q4 (Jan–Mar)
                 <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Hover the black Total line (or any course) to see that date’s course list and total students.</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Hover a course for that course only. Hover the black Total line for the full day sum.</span>
                 <span class="badge bg-dark text-white border">Total sum line</span>
             </div>
         </div>
@@ -2948,7 +2948,7 @@ function renderCourseFyGanttChart(timeline) {
         hoverPanel.style.top = top + 'px';
     }
 
-    function showDayBreakdown(dayIndex, evt, focusMeta) {
+    function showDayBreakdown(dayIndex, evt) {
         if (!hoverPanel || !Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex >= dayCount) {
             return;
         }
@@ -2980,17 +2980,6 @@ function renderCourseFyGanttChart(timeline) {
             let html = '<div style="margin-bottom:6px"><strong>Total admissions: ' +
                 Number(totalSeries[dayIndex] || total || 0).toLocaleString() +
                 ' students</strong></div>';
-            if (focusMeta) {
-                html += '<div style="margin-bottom:6px;padding:6px 8px;background:#f1f5f9;border-radius:8px">' +
-                    '<strong>' + escapeHtmlAttr(focusMeta.course_name) +
-                    (focusMeta.course_code ? ' (' + escapeHtmlAttr(focusMeta.course_code) + ')' : '') +
-                    '</strong><br>' +
-                    (focusMeta.centre_name ? ('Centre: ' + escapeHtmlAttr(focusMeta.centre_name) + '<br>') : '') +
-                    'Seats: ' + Number(focusMeta.footfall || 0).toLocaleString() + ' / ' +
-                    Number(focusMeta.seats_total || 0).toLocaleString() +
-                    ' · Period: ' + (focusMeta.start_label || '—') + ' → ' + (focusMeta.end_label || '—') +
-                    '</div>';
-            }
             if (!rows.length) {
                 html += '<div class="text-muted">No course admissions on this date yet.</div>';
             } else {
@@ -3011,19 +3000,31 @@ function renderCourseFyGanttChart(timeline) {
     }
 
     function showCourseDetail(meta, evt, dayIndex) {
-        if (Number.isFinite(dayIndex)) {
-            showDayBreakdown(dayIndex, evt, meta);
-            return;
-        }
         if (!hoverPanel || !meta) {
             return;
         }
         cancelHideCourseDetail();
+        const dateLabel = Number.isFinite(dayIndex) && dayIndex >= 0
+            ? (dayLabels[dayIndex] || dayIsoList[dayIndex] || '')
+            : '';
+        let valueAtDay = null;
+        if (Number.isFinite(dayIndex) && dayIndex >= 0) {
+            datasets.forEach(function (ds) {
+                if (ds.isTotal) {
+                    return;
+                }
+                if (ds.metaIndex === courseMeta.indexOf(meta)) {
+                    valueAtDay = Number((ds.data && ds.data[dayIndex]) || 0);
+                }
+            });
+        }
         if (hoverTitle) {
             hoverTitle.textContent = meta.course_name + (meta.course_code ? ' (' + meta.course_code + ')' : '');
         }
         if (hoverMeta) {
             hoverMeta.innerHTML =
+                (dateLabel ? ('Date: <strong>' + escapeHtmlAttr(dateLabel) + '</strong><br>') : '') +
+                (valueAtDay != null ? ('Admissions at this point: <strong>' + Number(valueAtDay).toLocaleString() + '</strong><br>') : '') +
                 (meta.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(meta.centre_name) + '</strong><br>') : '') +
                 'Batch seats: <strong>' + Number(meta.footfall || 0).toLocaleString() + ' / ' +
                 Number(meta.seats_total || 0).toLocaleString() + '</strong>' +
@@ -3124,7 +3125,7 @@ function renderCourseFyGanttChart(timeline) {
                     }
                     const native = evt && (evt.native || evt);
                     if (ds.isTotal) {
-                        showDayBreakdown(picked.index, native, null);
+                        showDayBreakdown(picked.index, native);
                         return;
                     }
                     showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
@@ -3140,7 +3141,7 @@ function renderCourseFyGanttChart(timeline) {
                     }
                     const native = evt && (evt.native || evt);
                     if (ds.isTotal) {
-                        showDayBreakdown(picked.index, native, null);
+                        showDayBreakdown(picked.index, native);
                         return;
                     }
                     showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
