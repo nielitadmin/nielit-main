@@ -1424,6 +1424,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $batchSql = "SELECT b.id,
                                 b.batch_name,
                                 b.batch_code,
+                                b.seats_total,
                                 {$batchStartExpr} AS batch_start,
                                 {$batchEndExpr} AS batch_end,
                                 c.id AS course_id,
@@ -1465,6 +1466,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     $footfall = function_exists('getBatchEnrolledCount')
                         ? getBatchEnrolledCount((int) $row['id'], $conn)
                         : 0;
+                    $seatsTotal = (int) ($row['seats_total'] ?? 0);
+                    $admissionPct = $seatsTotal > 0
+                        ? round(($footfall / $seatsTotal) * 100, 1)
+                        : 0;
 
                     $courseMap[$courseId]['total_footfall'] += $footfall;
                     $courseMap[$courseId]['total_batches']++;
@@ -1479,6 +1484,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                         'start_index' => $startIdx,
                         'end_index' => $endIdx,
                         'footfall' => $footfall,
+                        'seats_total' => $seatsTotal,
+                        'admission_pct' => $admissionPct,
                     ];
                 }
             }
