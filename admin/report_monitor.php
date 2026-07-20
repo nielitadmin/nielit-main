@@ -1717,7 +1717,7 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Area graph · day-wise · use the scrollbar under the graph</span>
+                <span class="text-muted small">Area graph · black Total line · hover a date for course-wise sum</span>
             </div>
             <div class="d-flex gap-2 mb-2">
                 <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollLeft" title="Scroll left">
@@ -1745,8 +1745,8 @@ Q4 (Jan–Mar)
                 <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Scroll day-by-day; hover for seats, centre, and dates.</span>
-                <span class="badge bg-light text-dark border">Day-wise area graph</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Hover the black Total line (or any course) to see that date’s course list and total students.</span>
+                <span class="badge bg-dark text-white border">Total sum line</span>
             </div>
         </div>
 
@@ -2760,10 +2760,8 @@ function renderCourseFyGanttChart(timeline) {
         return (b._peak || 0) - (a._peak || 0);
     });
     datasets.forEach(function (ds, i) {
-        ds.order = i + 1;
-        // Remap metaIndex after sort — keep linked via label lookup instead
+        ds.order = i + 2;
     });
-    // Rebuild metaIndex map after sort
     const metaByLabel = {};
     courseMeta.forEach(function (m) {
         metaByLabel[m.course_name + (m.course_code ? ' (' + m.course_code + ')' : '')] = m;
@@ -2771,6 +2769,38 @@ function renderCourseFyGanttChart(timeline) {
     datasets.forEach(function (ds) {
         const meta = metaByLabel[ds.label];
         ds.metaIndex = meta ? courseMeta.indexOf(meta) : ds.metaIndex;
+    });
+
+    // Total admissions line = sum of all course values at each day.
+    const totalSeries = new Array(dayCount).fill(0);
+    datasets.forEach(function (ds) {
+        (ds.data || []).forEach(function (v, i) {
+            totalSeries[i] += Number(v) || 0;
+        });
+    });
+    const totalPeak = totalSeries.length ? Math.max.apply(null, totalSeries) : 0;
+    if (totalPeak > yPeak) {
+        yPeak = totalPeak;
+    }
+    datasets.unshift({
+        label: 'Total Admissions (all courses)',
+        data: totalSeries,
+        borderColor: '#0f172a',
+        backgroundColor: 'rgba(15,23,42,0.06)',
+        pointBackgroundColor: '#0f172a',
+        pointBorderColor: '#fff',
+        pointRadius: totalSeries.map(function (v, i) {
+            const prev = i > 0 ? Number(totalSeries[i - 1] || 0) : 0;
+            return Number(v) > 0 && Number(v) !== prev ? 4 : 0;
+        }),
+        pointHoverRadius: 7,
+        borderWidth: 3.5,
+        fill: false,
+        tension: 0.25,
+        order: 0,
+        metaIndex: -1,
+        isTotal: true,
+        _peak: totalPeak
     });
 
     // Day-wise width so the FY can scroll horizontally (keep under canvas size limits).
@@ -2873,7 +2903,73 @@ function renderCourseFyGanttChart(timeline) {
         hoverPanel.style.top = top + 'px';
     }
 
-    function showCourseDetail(meta, evt) {
+    function showDayBreakdown(dayIndex, evt, focusMeta) {
+        if (!hoverPanel || !Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex >= dayCount) {
+            return;
+        }
+        cancelHideCourseDetail();
+        const dateLabel = dayLabels[dayIndex] || dayIsoList[dayIndex] || ('Day ' + (dayIndex + 1));
+        const rows = [];
+        let total = 0;
+        datasets.forEach(function (ds) {
+            if (ds.isTotal) {
+                return;
+            }
+            const value = Number((ds.data && ds.data[dayIndex]) || 0);
+            if (value <= 0) {
+                return;
+            }
+            total += value;
+            rows.push({
+                label: ds.label || 'Course',
+                value: value,
+                color: ds.borderColor || '#334155'
+            });
+        });
+        rows.sort(function (a, b) { return b.value - a.value; });
+
+        if (hoverTitle) {
+            hoverTitle.textContent = 'Date: ' + dateLabel;
+        }
+        if (hoverMeta) {
+            let html = '<div style="margin-bottom:6px"><strong>Total admissions: ' +
+                Number(totalSeries[dayIndex] || total || 0).toLocaleString() +
+                ' students</strong></div>';
+            if (focusMeta) {
+                html += '<div style="margin-bottom:6px;padding:6px 8px;background:#f1f5f9;border-radius:8px">' +
+                    '<strong>' + escapeHtmlAttr(focusMeta.course_name) +
+                    (focusMeta.course_code ? ' (' + escapeHtmlAttr(focusMeta.course_code) + ')' : '') +
+                    '</strong><br>' +
+                    (focusMeta.centre_name ? ('Centre: ' + escapeHtmlAttr(focusMeta.centre_name) + '<br>') : '') +
+                    'Seats: ' + Number(focusMeta.footfall || 0).toLocaleString() + ' / ' +
+                    Number(focusMeta.seats_total || 0).toLocaleString() +
+                    ' · Period: ' + (focusMeta.start_label || '—') + ' → ' + (focusMeta.end_label || '—') +
+                    '</div>';
+            }
+            if (!rows.length) {
+                html += '<div class="text-muted">No course admissions on this date yet.</div>';
+            } else {
+                html += '<div style="max-height:180px;overflow:auto">';
+                rows.forEach(function (row) {
+                    html += '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px solid #f1f5f9">' +
+                        '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
+                        escapeHtmlAttr(row.color) + ';margin-right:6px"></span>' +
+                        escapeHtmlAttr(row.label) + '</span>' +
+                        '<strong>' + Number(row.value).toLocaleString() + '</strong></div>';
+                });
+                html += '</div>';
+            }
+            hoverMeta.innerHTML = html;
+        }
+        hoverPanel.classList.add('is-visible');
+        placeHoverAtEvent(evt);
+    }
+
+    function showCourseDetail(meta, evt, dayIndex) {
+        if (Number.isFinite(dayIndex)) {
+            showDayBreakdown(dayIndex, evt, meta);
+            return;
+        }
         if (!hoverPanel || !meta) {
             return;
         }
@@ -2981,7 +3077,12 @@ function renderCourseFyGanttChart(timeline) {
                     if (!ds) {
                         return;
                     }
-                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
+                    const native = evt && (evt.native || evt);
+                    if (ds.isTotal) {
+                        showDayBreakdown(picked.index, native, null);
+                        return;
+                    }
+                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
                 },
                 onClick: function (evt, elements) {
                     const picked = pickNearest(evt, elements);
@@ -2992,7 +3093,12 @@ function renderCourseFyGanttChart(timeline) {
                     if (!ds) {
                         return;
                     }
-                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
+                    const native = evt && (evt.native || evt);
+                    if (ds.isTotal) {
+                        showDayBreakdown(picked.index, native, null);
+                        return;
+                    }
+                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
                 },
                 scales: {
                     x: {
