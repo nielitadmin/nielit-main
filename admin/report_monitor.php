@@ -521,7 +521,7 @@ $pageTitle="Report Monitor";
 
             display:grid;
 
-            grid-template-columns:72px minmax(0,1fr);
+            grid-template-columns:88px minmax(0,1fr);
 
             gap:8px;
 
@@ -536,8 +536,6 @@ $pageTitle="Report Monitor";
             display:flex;
 
             flex-direction:column;
-
-            min-height:420px;
 
         }
 
@@ -567,23 +565,35 @@ $pageTitle="Report Monitor";
 
             display:flex;
 
-            flex-direction:column-reverse;
-
-            justify-content:space-between;
-
-            padding:8px 0 48px;
+            flex-direction:column;
 
             font-size:11px;
 
-            font-weight:600;
+            font-weight:700;
 
             color:#334155;
 
             text-align:right;
 
-            padding-right:6px;
+            padding-right:8px;
 
             border-right:2px solid #94a3b8;
+
+        }
+
+        .course-fy-y-tick{
+
+            display:flex;
+
+            align-items:center;
+
+            justify-content:flex-end;
+
+            box-sizing:border-box;
+
+            padding-right:4px;
+
+            color:#1e3a8a;
 
         }
 
@@ -597,7 +607,9 @@ $pageTitle="Report Monitor";
 
             overflow-x:scroll;
 
-            overflow-y:hidden;
+            overflow-y:auto;
+
+            max-height:620px;
 
             padding-bottom:8px;
 
@@ -614,6 +626,8 @@ $pageTitle="Report Monitor";
         .course-fy-gantt-scroll::-webkit-scrollbar{
 
             height:12px;
+
+            width:10px;
 
         }
 
@@ -637,160 +651,112 @@ $pageTitle="Report Monitor";
 
             position:relative;
 
-            height:460px;
-
             border-bottom:2px solid #94a3b8;
-
-            overflow:visible;
-
-            background:
-                repeating-linear-gradient(
-                    to top,
-                    transparent 0,
-                    transparent calc(10% - 1px),
-                    #e2e8f0 calc(10% - 1px),
-                    #e2e8f0 10%
-                );
-
-        }
-
-        .course-fy-plot-bar-wrap{
-
-            position:absolute;
-
-            display:flex;
-
-            align-items:center;
-
-            gap:6px;
-
-            height:34px;
-
-            z-index:2;
-
-            transform:translateY(50%);
-
-            min-width:140px;
-
-            cursor:pointer;
-
-        }
-
-        .course-fy-plot-bar-wrap:hover{
-
-            z-index:20;
-
-        }
-
-        .course-fy-plot-bar-wrap:hover .course-fy-plot-bar{
-
-            box-shadow:0 4px 14px rgba(37,99,235,.35);
-
-            filter:brightness(1.05);
-
-        }
-
-        .course-fy-bar-total{
-
-            position:absolute;
-
-            left:50%;
-
-            bottom:calc(100% + 4px);
-
-            transform:translateX(-50%);
-
-            font-size:10px;
-
-            font-weight:800;
-
-            color:#0f172a;
 
             background:#fff;
 
-            border:1px solid #94a3b8;
+        }
 
-            border-radius:999px;
+        .course-fy-lane{
 
-            padding:1px 8px;
+            position:relative;
 
-            white-space:nowrap;
+            box-sizing:border-box;
 
-            pointer-events:none;
+            border-bottom:1px solid #f1f5f9;
 
-            z-index:3;
+            background:repeating-linear-gradient(
+                90deg,
+                #fff,
+                #fff 27px,
+                #f8fafc 27px,
+                #f8fafc 28px
+            );
 
         }
 
-        .course-fy-plot-bar{
+        .course-fy-lane-bar{
 
-            flex:1 1 auto;
+            position:absolute;
 
-            min-width:0;
+            top:10px;
 
-            height:34px;
+            height:36px;
 
             display:flex;
 
             align-items:center;
 
-            justify-content:center;
+            gap:8px;
 
-            padding:0 12px;
+            padding:0 10px;
 
             border-radius:999px;
 
-            background:linear-gradient(90deg,#93c5fd,#60a5fa);
-
             border:1px solid #3b82f6;
 
-            box-shadow:0 2px 6px rgba(37,99,235,.18);
+            box-shadow:0 1px 4px rgba(37,99,235,.16);
 
             color:#0f172a;
 
             font-size:12px;
 
-            line-height:1.2;
-
             white-space:nowrap;
 
             overflow:hidden;
 
+            cursor:pointer;
+
+            box-sizing:border-box;
+
+            z-index:2;
+
         }
 
-        .course-fy-plot-bar-wrap:nth-child(5n+2) .course-fy-plot-bar{ background:linear-gradient(90deg,#86efac,#4ade80); border-color:#22c55e; }
+        .course-fy-lane:nth-child(5n+1) .course-fy-lane-bar{ background:linear-gradient(90deg,#67e8f9,#22d3ee); border-color:#06b6d4; }
 
-        .course-fy-plot-bar-wrap:nth-child(5n+3) .course-fy-plot-bar{ background:linear-gradient(90deg,#fca5a5,#f87171); border-color:#ef4444; }
+        .course-fy-lane:nth-child(5n+2) .course-fy-lane-bar{ background:linear-gradient(90deg,#c4b5fd,#a78bfa); border-color:#8b5cf6; }
 
-        .course-fy-plot-bar-wrap:nth-child(5n+4) .course-fy-plot-bar{ background:linear-gradient(90deg,#fde047,#facc15); border-color:#eab308; }
+        .course-fy-lane:nth-child(5n+3) .course-fy-lane-bar{ background:linear-gradient(90deg,#fca5a5,#f87171); border-color:#ef4444; }
 
-        .course-fy-plot-bar-wrap:nth-child(5n+5) .course-fy-plot-bar{ background:linear-gradient(90deg,#c4b5fd,#a78bfa); border-color:#8b5cf6; }
+        .course-fy-lane:nth-child(5n+4) .course-fy-lane-bar{ background:linear-gradient(90deg,#fde047,#facc15); border-color:#eab308; }
 
-        .course-fy-plot-bar-wrap:nth-child(5n+1) .course-fy-plot-bar{ background:linear-gradient(90deg,#67e8f9,#22d3ee); border-color:#06b6d4; }
+        .course-fy-lane:nth-child(5n+5) .course-fy-lane-bar{ background:linear-gradient(90deg,#86efac,#4ade80); border-color:#22c55e; }
 
-        .course-fy-plot-bar-wrap .bar-date{
+        .course-fy-lane-bar:hover{
+
+            filter:brightness(1.04);
+
+            box-shadow:0 3px 10px rgba(15,23,42,.18);
+
+        }
+
+        .course-fy-lane-bar .bar-total,
+        .course-fy-lane-bar .bar-date{
 
             flex:0 0 auto;
 
             font-size:10px;
 
-            font-weight:700;
+            font-weight:800;
 
-            color:#1e3a8a;
+            background:rgba(255,255,255,.92);
 
-            background:#fff;
-
-            border:1px solid #bfdbfe;
+            border:1px solid rgba(15,23,42,.12);
 
             border-radius:6px;
 
-            padding:2px 5px;
+            padding:2px 6px;
 
-            white-space:nowrap;
+            color:#0f172a;
 
         }
 
-        .course-fy-plot-bar .bar-name{
+        .course-fy-lane-bar .bar-name{
+
+            flex:1 1 auto;
+
+            min-width:0;
 
             font-weight:700;
 
@@ -800,23 +766,15 @@ $pageTitle="Report Monitor";
 
             text-overflow:ellipsis;
 
-            min-width:0;
-
-            max-width:100%;
-
         }
 
         .course-fy-hover-panel{
 
-            position:absolute;
+            position:static;
 
-            top:12px;
+            width:100%;
 
-            right:12px;
-
-            width:280px;
-
-            max-width:calc(100% - 24px);
+            margin-top:12px;
 
             background:#fff;
 
@@ -824,11 +782,9 @@ $pageTitle="Report Monitor";
 
             border-radius:12px;
 
-            box-shadow:0 10px 30px rgba(15,23,42,.18);
+            box-shadow:0 4px 16px rgba(15,23,42,.08);
 
             padding:12px;
-
-            z-index:40;
 
             display:none;
 
@@ -866,7 +822,7 @@ $pageTitle="Report Monitor";
 
             width:100% !important;
 
-            height:140px !important;
+            height:160px !important;
 
         }
 
@@ -880,6 +836,12 @@ $pageTitle="Report Monitor";
 
             background:#f8fafc;
 
+            position:sticky;
+
+            bottom:0;
+
+            z-index:5;
+
         }
 
         .course-fy-day-tick{
@@ -888,7 +850,7 @@ $pageTitle="Report Monitor";
 
             box-sizing:border-box;
 
-            height:42px;
+            height:36px;
 
             border-right:1px solid #e2e8f0;
 
@@ -900,7 +862,7 @@ $pageTitle="Report Monitor";
 
             text-align:center;
 
-            line-height:42px;
+            line-height:36px;
 
         }
 
@@ -2010,9 +1972,9 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">1-year progressive · day-wise Apr–Mar · hover a course for admission detail graph</span>
+                <span class="text-muted small">One row per course · no overlap · day-wise Apr–Mar · hover for detail graph below</span>
             </div>
-            <div class="course-fy-admission-chart" style="position:relative;">
+            <div class="course-fy-admission-chart">
                 <div class="course-fy-y-rail">
                     <div class="course-fy-y-title">Student admission completed ↑</div>
                     <div class="course-fy-y-ticks" id="courseFyYTicks"></div>
@@ -2029,15 +1991,15 @@ Q4 (Jan–Mar)
                         <span>Day wise →</span>
                     </div>
                 </div>
-                <div class="course-fy-hover-panel" id="courseFyHoverPanel">
-                    <h6 id="courseFyHoverTitle">Course Detail</h6>
-                    <div class="hover-meta" id="courseFyHoverMeta"></div>
-                    <canvas id="courseFyHoverChart"></canvas>
-                </div>
+            </div>
+            <div class="course-fy-hover-panel" id="courseFyHoverPanel">
+                <h6 id="courseFyHoverTitle">Course Detail</h6>
+                <div class="hover-meta" id="courseFyHoverMeta">Hover a course bar to see admissions for that course.</div>
+                <canvas id="courseFyHoverChart"></canvas>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-arrows-alt-h me-1"></i> Scroll for all 365 days. Hover a bar to see day-wise admissions for that course.</span>
-                <span class="badge bg-light text-dark border">Hover · Scroll →</span>
+                <span><i class="fas fa-arrows-alt-h me-1"></i> Each course has its own row. Scroll horizontally for all 365 days. Detail graph opens below (not over the bars).</span>
+                <span class="badge bg-light text-dark border">No overlap</span>
             </div>
         </div>
 
@@ -2891,6 +2853,7 @@ function renderCourseFyGanttChart(timeline) {
     const plot = document.getElementById('courseFyPlot');
     const dayAxis = document.getElementById('courseFyGanttDayAxis');
     const yTicks = document.getElementById('courseFyYTicks');
+    const yRail = document.querySelector('.course-fy-y-rail');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
@@ -2932,7 +2895,6 @@ function renderCourseFyGanttChart(timeline) {
         }
         const admissions = Number(course.total_admissions) || footfall || 0;
         bars.push({
-            course_id: course.course_id,
             course_name: course.course_name || 'Course',
             course_code: course.course_code || '',
             start_index: startIdx,
@@ -2942,8 +2904,7 @@ function renderCourseFyGanttChart(timeline) {
             admissions: admissions,
             registered: Number(course.total_registered) || 0,
             footfall: footfall,
-            daily_admissions: course.daily_admissions || [],
-            daily_registered: course.daily_registered || []
+            daily_admissions: course.daily_admissions || []
         });
     });
 
@@ -2961,47 +2922,47 @@ function renderCourseFyGanttChart(timeline) {
         running += Math.max(0, bar.admissions);
         bar.cumulative = running;
     });
-    const grandTotal = Math.max(running, 1);
 
-    bars.forEach(function (bar, index) {
-        let level = (bar.cumulative / grandTotal) * 100;
-        level = Math.max(10, Math.min(96, level));
-        const minGap = 6;
-        if (index > 0 && level - bars[index - 1].plot_pct < minGap) {
-            level = Math.min(96, bars[index - 1].plot_pct + minGap);
-        }
-        bar.plot_pct = level;
-    });
-
-    const pixelsPerDay = 28;
+    const laneHeight = 56;
+    const pixelsPerDay = 32;
     const plotWidth = dayCount * pixelsPerDay;
+    const plotHeight = bars.length * laneHeight;
+
     inner.style.width = plotWidth + 'px';
     inner.style.minWidth = plotWidth + 'px';
     plot.style.width = plotWidth + 'px';
+    plot.style.height = plotHeight + 'px';
 
+    if (yRail) {
+        yRail.style.minHeight = (plotHeight + 48) + 'px';
+    }
     if (yTicks) {
+        yTicks.style.height = plotHeight + 'px';
         let yHtml = '';
-        for (let p = 10; p <= 100; p += 10) {
-            const countAt = Math.round((p / 100) * grandTotal);
-            yHtml += '<div title="' + countAt + ' admissions">' + p + '</div>';
-        }
+        // Top = latest progressive course, bottom = earliest (column-reverse visual via normal order matching lanes top-to-bottom)
+        bars.forEach(function (bar) {
+            yHtml += '<div class="course-fy-y-tick" style="height:' + laneHeight + 'px" title="Progressive total">' +
+                Number(bar.cumulative).toLocaleString() + '</div>';
+        });
         yTicks.innerHTML = yHtml;
     }
 
-    let barsHtml = '';
+    let lanesHtml = '';
     bars.forEach(function (bar, index) {
-        const left = (bar.start_index / dayCount) * 100;
+        const leftPx = bar.start_index * pixelsPerDay;
         const spanDays = bar.end_index - bar.start_index + 1;
-        const width = Math.max((spanDays / dayCount) * 100, (120 / plotWidth) * 100);
-        barsHtml +=
-            '<div class="course-fy-plot-bar-wrap" data-bar-index="' + index + '" style="left:' + left + '%;width:' + width + '%;bottom:' + bar.plot_pct + '%;">' +
-                '<span class="course-fy-bar-total">Σ ' + Number(bar.cumulative).toLocaleString() + '</span>' +
-                '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
-                '<div class="course-fy-plot-bar"><span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span></div>' +
-                '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
+        const widthPx = Math.max(spanDays * pixelsPerDay, 220);
+        lanesHtml +=
+            '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
+                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx + 'px;width:' + widthPx + 'px">' +
+                    '<span class="bar-total">Σ ' + Number(bar.cumulative).toLocaleString() + '</span>' +
+                    '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
+                    '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
+                    '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
+                '</div>' +
             '</div>';
     });
-    plot.innerHTML = barsHtml;
+    plot.innerHTML = lanesHtml;
 
     let daysHtml = '';
     for (let i = 0; i < dayCount; i++) {
@@ -3013,12 +2974,6 @@ function renderCourseFyGanttChart(timeline) {
     }
     dayAxis.innerHTML = daysHtml;
     dayAxis.style.width = plotWidth + 'px';
-
-    function hideHoverPanel() {
-        if (hoverPanel) {
-            hoverPanel.classList.remove('is-visible');
-        }
-    }
 
     function showCourseDetail(bar) {
         if (!hoverPanel || !hoverCanvas || typeof Chart === 'undefined') {
@@ -3032,7 +2987,7 @@ function renderCourseFyGanttChart(timeline) {
                 'Admissions: <strong>' + Number(bar.admissions).toLocaleString() + '</strong>' +
                 ' · Registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
                 ' · Progressive total: <strong>' + Number(bar.cumulative).toLocaleString() + '</strong>' +
-                '<br>' + bar.start_label + ' → ' + bar.end_label + ' · admission month figure';
+                '<br>' + bar.start_label + ' → ' + bar.end_label;
         }
 
         if (courseFyHoverChartInstance) {
@@ -3090,7 +3045,7 @@ function renderCourseFyGanttChart(timeline) {
                 },
                 scales: {
                     x: {
-                        ticks: { maxRotation: 45, minRotation: 0, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 },
+                        ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 },
                         grid: { display: false }
                     },
                     y: {
@@ -3105,7 +3060,7 @@ function renderCourseFyGanttChart(timeline) {
         hoverPanel.classList.add('is-visible');
     }
 
-    plot.querySelectorAll('.course-fy-plot-bar-wrap').forEach(function (el) {
+    plot.querySelectorAll('.course-fy-lane-bar').forEach(function (el) {
         el.addEventListener('mouseenter', function () {
             const idx = Number(el.getAttribute('data-bar-index'));
             if (!Number.isFinite(idx) || !bars[idx]) {
@@ -3114,8 +3069,6 @@ function renderCourseFyGanttChart(timeline) {
             showCourseDetail(bars[idx]);
         });
     });
-
-    wrap.addEventListener('mouseleave', hideHoverPanel);
 }
 
 /*==================================================
