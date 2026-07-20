@@ -653,105 +653,6 @@ $pageTitle="Report Monitor";
 
         }
 
-        #courseFyGanttInner{
-
-            position:relative;
-
-            display:block;
-
-            width:max-content;
-
-            min-width:100%;
-
-            max-width:none;
-
-        }
-
-        .course-fy-chart-box{
-
-            position:relative;
-
-            height:420px;
-
-            min-height:420px;
-
-            width:max-content;
-
-            min-width:100%;
-
-            max-width:none;
-
-            background:
-                linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
-                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 24px 100%,
-                #fff;
-
-        }
-
-        #courseFyTimeChart{
-
-            display:block !important;
-
-            max-width:none !important;
-
-            height:auto !important;
-
-        }
-
-        .course-fy-time-scroll{
-
-            display:block;
-
-            width:100%;
-
-            max-width:100%;
-
-            overflow-x:auto;
-
-            overflow-y:hidden;
-
-            padding-bottom:14px;
-
-            -webkit-overflow-scrolling:touch;
-
-            border:1px solid #cbd5e1;
-
-            border-radius:10px;
-
-            background:#fff;
-
-            scrollbar-gutter:stable;
-
-            scrollbar-width:auto;
-
-            scrollbar-color:#64748b #e2e8f0;
-
-        }
-
-        .course-fy-time-scroll::-webkit-scrollbar{
-
-            height:14px;
-
-        }
-
-        .course-fy-time-scroll::-webkit-scrollbar-track{
-
-            background:#e2e8f0;
-
-            border-radius:999px;
-
-        }
-
-        .course-fy-time-scroll::-webkit-scrollbar-thumb{
-
-            background:#64748b;
-
-            border-radius:999px;
-
-            border:2px solid #e2e8f0;
-
-        }
-
         .course-fy-plot{
 
             position:relative;
@@ -1085,6 +986,7 @@ $pageTitle="Report Monitor";
             color:#475569;
 
         }
+
 
         .table-card{
 
@@ -2143,32 +2045,38 @@ Q4 (Jan–Mar)
 
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Duration bars · each colour is a course from start → end · hover a bar for details</span>
+                <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
+                <span class="text-muted small">One lane per batch · start ——— end · hover a bar for that course only</span>
             </div>
-            <div class="course-fy-time-scroll" id="courseFyGanttScroll">
-                <div id="courseFyGanttInner">
-                    <div class="course-fy-chart-box" id="courseFyChartBox">
-                        <canvas id="courseFyTimeChart"></canvas>
-                    </div>
-                    <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
-                    <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
+            <div class="course-fy-admission-chart">
+                <div class="course-fy-y-rail">
+                    <div class="course-fy-y-title">Student admission completed ↑</div>
+                    <div class="course-fy-y-ticks" id="courseFyYTicks"></div>
                 </div>
-            </div>
-            <div class="course-fy-x-caption">
-                <span>Financial year wise (1 Apr → 31 Mar)</span>
-                <span><i class="fas fa-arrows-alt-h me-1"></i> Use the horizontal scroll bar below the graph for day-wise →</span>
+                <div>
+                    <div class="course-fy-gantt-scroll" id="courseFyGanttScroll">
+                        <div id="courseFyGanttInner">
+                            <div class="course-fy-plot" id="courseFyPlot"></div>
+                            <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
+                            <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
+                        </div>
+                    </div>
+                    <div class="course-fy-x-caption">
+                        <span>Financial year wise (1 Apr → 31 Mar)</span>
+                        <span>Day wise →</span>
+                    </div>
+                </div>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
                 <h6 id="courseFyHoverTitle">Course Detail</h6>
-                <div class="hover-meta" id="courseFyHoverMeta">Hover a course area/line to see that course’s data.</div>
+                <div class="hover-meta" id="courseFyHoverMeta">Hover or click a course bar to see admissions for that course.</div>
                 <div class="hover-chart-box">
                     <canvas id="courseFyHoverChart"></canvas>
                 </div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Each |———| bar is a course duration. Hover it for seats, centre, and dates.</span>
-                <span class="badge bg-light text-dark border">Duration bars</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Progress uses Batch Module seats (enrolled/total). Hover or click a bar for course detail.</span>
+                <span class="badge bg-light text-dark border">Hover / click</span>
             </div>
         </div>
 
@@ -3004,7 +2912,6 @@ COURSE FY TIMELINE
 ==================================================*/
 
 let courseFyHoverChartInstance = null;
-let courseFyTimeChartInstance = null;
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
@@ -3020,256 +2927,181 @@ function escapeHtmlAttr(value) {
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
     const inner = document.getElementById('courseFyGanttInner');
-    const canvas = document.getElementById('courseFyTimeChart');
+    const plot = document.getElementById('courseFyPlot');
     const dayAxis = document.getElementById('courseFyGanttDayAxis');
     const monthAxis = document.getElementById('courseFyMonthAxis');
+    const yTicks = document.getElementById('courseFyYTicks');
+    const yRail = document.querySelector('.course-fy-y-rail');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
     const hoverCanvas = document.getElementById('courseFyHoverChart');
-    if (!wrap || !inner || !canvas || typeof Chart === 'undefined') {
+    if (!wrap || !inner || !plot || !dayAxis) {
         return;
     }
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
     const dayLabels = timeline.day_labels || [];
-    const dayIsoList = timeline.day_iso || [];
+    const bars = [];
 
-    if (!courses.length || !dayCount) {
-        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course timeline data for this financial year.</p>';
-        return;
-    }
-
-    const palette = [
-        { border: '#2563eb', fill: 'rgba(37,99,235,0.22)', point: '#1d4ed8' },
-        { border: '#16a34a', fill: 'rgba(22,163,74,0.20)', point: '#15803d' },
-        { border: '#db2777', fill: 'rgba(219,39,119,0.18)', point: '#be185d' },
-        { border: '#ca8a04', fill: 'rgba(202,138,4,0.20)', point: '#a16207' },
-        { border: '#7c3aed', fill: 'rgba(124,58,237,0.18)', point: '#6d28d9' },
-        { border: '#0891b2', fill: 'rgba(8,145,178,0.20)', point: '#0e7490' },
-        { border: '#ea580c', fill: 'rgba(234,88,12,0.18)', point: '#c2410c' },
-        { border: '#4f46e5', fill: 'rgba(79,70,229,0.18)', point: '#4338ca' },
-        { border: '#059669', fill: 'rgba(5,150,105,0.18)', point: '#047857' },
-        { border: '#e11d48', fill: 'rgba(225,29,72,0.18)', point: '#be123c' }
-    ];
-
-    function buildDurationSeries(startIdx, endIdx, yLevel) {
-        const series = new Array(dayCount).fill(null);
-        const from = Math.max(0, Math.min(dayCount - 1, startIdx));
-        const to = Math.max(from, Math.min(dayCount - 1, endIdx));
-        for (let i = from; i <= to; i++) {
-            series[i] = yLevel;
-        }
-        return series;
-    }
-
-    function rangesOverlap(aStart, aEnd, bStart, bEnd) {
-        return !(aEnd < bStart || aStart > bEnd);
-    }
-
-    function assignSpacedYLevels(rows, minGap) {
-        const placed = [];
-        rows.sort(function (a, b) {
-            return (b.preferredY - a.preferredY) || (a.startIdx - b.startIdx) || a.label.localeCompare(b.label);
-        });
-        rows.forEach(function (row) {
-            let y = Math.max(minGap, Number(row.preferredY) || minGap);
-            let guard = 0;
-            while (guard++ < 400) {
-                const clash = placed.some(function (p) {
-                    return Math.abs(p.y - y) < minGap &&
-                        rangesOverlap(row.startIdx, row.endIdx, p.startIdx, p.endIdx);
-                });
-                if (!clash) {
-                    break;
-                }
-                y += minGap;
+    // One row per individual batch (all course batches in this FY).
+    courses.forEach(function (course) {
+        const batches = course.batches || [];
+        batches.forEach(function (batch) {
+            const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+            const endIdx = Number.isFinite(batch.end_index) ? batch.end_index : startIdx;
+            const footfall = Number(batch.footfall) || 0;
+            const seatsTotal = Number(batch.seats_total) || 0;
+            const batchLabel = batch.batch_code || batch.batch_name || '';
+            const centreName = batch.centre_name || '';
+            const baseCourseName = course.course_name || 'Course';
+            const nameParts = [baseCourseName];
+            if (batchLabel) {
+                nameParts.push(batchLabel);
             }
-            row.yLevel = y;
-            placed.push({
-                y: y,
-                startIdx: row.startIdx,
-                endIdx: row.endIdx
+            if (centreName) {
+                nameParts.push(centreName);
+            }
+            const displayName = nameParts.join(' · ');
+            bars.push({
+                course_id: course.course_id || 0,
+                course_key: String(course.course_id || baseCourseName),
+                course_name: displayName,
+                course_code: course.course_code || '',
+                batch_name: batch.batch_name || '',
+                batch_code: batch.batch_code || '',
+                centre_name: centreName,
+                start_index: startIdx,
+                end_index: Math.max(startIdx, endIdx),
+                start_label: batch.start_label || '',
+                end_label: batch.end_label || '',
+                admissions: footfall,
+                seats_total: seatsTotal,
+                registered: Number(course.total_registered) || 0,
+                footfall: footfall,
+                daily_admissions: course.daily_admissions || []
             });
         });
-        return rows;
-    }
-
-    const pendingRows = [];
-
-    courses.forEach(function (course, index) {
-        const batches = course.batches || [];
-        // Only real batch durations — skip registration-only rows that spanned the full FY.
-        if (!batches.length) {
-            return;
-        }
-        const color = palette[index % palette.length];
-        let seatsTotal = 0;
-        let footfall = 0;
-        let startLabel = '';
-        let endLabel = '';
-        let centreName = '';
-        let startIdx = Infinity;
-        let endIdx = -1;
-        batches.forEach(function (batch) {
-            footfall += Number(batch.footfall) || 0;
-            seatsTotal += Number(batch.seats_total) || 0;
-            const s = Number.isFinite(batch.start_index) ? batch.start_index : NaN;
-            const e = Number.isFinite(batch.end_index) ? batch.end_index : s;
-            if (!Number.isFinite(s)) {
-                return;
-            }
-            if (s < startIdx) {
-                startIdx = s;
-                startLabel = batch.start_label || '';
-                centreName = batch.centre_name || centreName;
-            }
-            if (Number.isFinite(e) && e > endIdx) {
-                endIdx = e;
-                endLabel = batch.end_label || '';
-            }
-            if (!centreName && batch.centre_name) {
-                centreName = batch.centre_name;
-            }
-        });
-        if (!Number.isFinite(startIdx) || endIdx < 0) {
-            return;
-        }
-        if (endIdx < startIdx) {
-            endIdx = startIdx;
-        }
-
-        const preferredY = Math.max(
-            footfall,
-            Number(course.total_footfall) || 0,
-            Number(course.total_admissions) || 0,
-            seatsTotal > 0 ? seatsTotal : 0,
-            10
-        );
-
-        pendingRows.push({
-            course: course,
-            color: color,
-            batches: batches,
-            footfall: footfall,
-            seatsTotal: seatsTotal,
-            startLabel: startLabel,
-            endLabel: endLabel,
-            centreName: centreName || '',
-            startIdx: startIdx,
-            endIdx: endIdx,
-            preferredY: preferredY,
-            label: course.course_name || 'Course'
-        });
     });
 
-    const spacedRows = assignSpacedYLevels(pendingRows, 16);
-    const courseMeta = [];
-    const datasets = [];
-    let yPeak = 10;
-
-    spacedRows.forEach(function (row) {
-        const yLevel = row.yLevel;
-        if (yLevel > yPeak) {
-            yPeak = yLevel;
-        }
-        const data = buildDurationSeries(row.startIdx, row.endIdx, yLevel);
-        courseMeta.push({
-            course_name: row.label,
-            course_code: row.course.course_code || '',
-            centre_name: row.centreName,
-            footfall: row.footfall || Number(row.course.total_footfall) || 0,
-            seats_total: row.seatsTotal,
-            registered: Number(row.course.total_registered) || 0,
-            admissions: Number(row.course.total_admissions) || row.footfall || 0,
-            start_label: row.startLabel,
-            end_label: row.endLabel,
-            start_index: row.startIdx,
-            end_index: row.endIdx,
-            y_level: yLevel,
-            daily_admissions: row.course.daily_admissions || [],
-            batches: row.batches,
-            color: row.color.border
-        });
-
-        const pointRadius = data.map(function (_v, i) {
-            return (i === row.startIdx || i === row.endIdx) ? 4 : 0;
-        });
-
-        datasets.push({
-            label: row.label + (row.course.course_code ? ' (' + row.course.course_code + ')' : ''),
-            data: data,
-            borderColor: row.color.border,
-            backgroundColor: row.color.fill,
-            pointBackgroundColor: row.color.point,
-            pointBorderColor: '#fff',
-            pointRadius: pointRadius,
-            pointHoverRadius: 7,
-            borderWidth: 3,
-            fill: false,
-            tension: 0,
-            spanGaps: false,
-            metaIndex: courseMeta.length - 1
-        });
-    });
-
-    if (!datasets.length) {
-        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course progress to plot for this financial year.</p>';
+    if (!bars.length || !dayCount) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No batch periods to plot on the graph for this financial year.</p>';
         return;
     }
 
-    // Wide day timeline for horizontal scroll; keep under canvas size limits (dpr forced to 1).
-    const chartBox = document.getElementById('courseFyChartBox');
-    const chartHeight = Math.max(420, Math.min(720, 160 + spacedRows.length * 18));
-    const maxCssWidth = 12000;
-    let pixelsPerDay = 28;
-    let chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
-    if (chartWidth > maxCssWidth) {
-        pixelsPerDay = Math.max(10, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
-        chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
-    }
-    inner.style.width = chartWidth + 'px';
-    inner.style.minWidth = chartWidth + 'px';
-    inner.style.maxWidth = 'none';
-    if (chartBox) {
-        chartBox.style.width = chartWidth + 'px';
-        chartBox.style.minWidth = chartWidth + 'px';
-        chartBox.style.maxWidth = 'none';
-        chartBox.style.height = chartHeight + 'px';
-        chartBox.style.minHeight = chartHeight + 'px';
-    }
-    canvas.style.maxWidth = 'none';
-    canvas.style.width = chartWidth + 'px';
-    canvas.style.height = chartHeight + 'px';
-    canvas.width = chartWidth;
-    canvas.height = chartHeight;
+    bars.sort(function (a, b) {
+        return a.start_index - b.start_index
+            || a.course_name.localeCompare(b.course_name)
+            || String(a.batch_code || '').localeCompare(String(b.batch_code || ''));
+    });
 
-    const scrollEl = document.getElementById('courseFyGanttScroll');
-    if (scrollEl) {
-        scrollEl.scrollLeft = 0;
-    }
-
-    if (dayAxis) {
-        let daysHtml = '';
-        for (let i = 0; i < dayCount; i++) {
-            const label = dayLabels[i] || '';
-            const iso = dayIsoList[i] || '';
-            let dayOfMonth = i + 1;
-            const labelMatch = String(label).match(/^(\d+)\./);
-            if (labelMatch) {
-                dayOfMonth = Number(labelMatch[1]);
-            } else if (iso.length >= 10) {
-                dayOfMonth = Number(iso.slice(8, 10));
-            }
-            const isMonthStart = dayOfMonth === 1 || i === 0;
-            const tip = label || iso || String(dayOfMonth);
-            daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
-                '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
+    const courseColorPalette = [
+        { bg: 'linear-gradient(90deg,#67e8f9,#22d3ee)', border: '#0891b2' },
+        { bg: 'linear-gradient(90deg,#c4b5fd,#a78bfa)', border: '#7c3aed' },
+        { bg: 'linear-gradient(90deg,#fca5a5,#f87171)', border: '#dc2626' },
+        { bg: 'linear-gradient(90deg,#fde047,#facc15)', border: '#ca8a04' },
+        { bg: 'linear-gradient(90deg,#86efac,#4ade80)', border: '#16a34a' },
+        { bg: 'linear-gradient(90deg,#fdba74,#fb923c)', border: '#ea580c' },
+        { bg: 'linear-gradient(90deg,#f9a8d4,#f472b6)', border: '#db2777' },
+        { bg: 'linear-gradient(90deg,#93c5fd,#3b82f6)', border: '#2563eb' },
+        { bg: 'linear-gradient(90deg,#a5b4fc,#818cf8)', border: '#4f46e5' },
+        { bg: 'linear-gradient(90deg,#5eead4,#14b8a6)', border: '#0d9488' },
+        { bg: 'linear-gradient(90deg,#d8b4fe,#c084fc)', border: '#9333ea' },
+        { bg: 'linear-gradient(90deg,#fcd34d,#f59e0b)', border: '#d97706' }
+    ];
+    const courseColorMap = {};
+    let colorIndex = 0;
+    bars.forEach(function (bar) {
+        const key = bar.course_key || bar.course_name;
+        if (!courseColorMap[key]) {
+            courseColorMap[key] = courseColorPalette[colorIndex % courseColorPalette.length];
+            colorIndex += 1;
         }
-        dayAxis.innerHTML = daysHtml;
-        dayAxis.style.width = chartWidth + 'px';
+        bar.color = courseColorMap[key];
+    });
+
+    let runningEnrolled = 0;
+    let totalSeats = 0;
+    bars.forEach(function (bar) {
+        runningEnrolled += Math.max(0, bar.footfall || bar.admissions || 0);
+        totalSeats += Math.max(0, bar.seats_total || 0);
+        bar.cumulative = runningEnrolled;
+    });
+    const enrolledTotal = Math.max(runningEnrolled, 1);
+    // Y-axis follows Batch Module seat capacity (and enrolled), with headroom.
+    const scaleBase = Math.max(totalSeats, enrolledTotal, 100);
+    const yMax = Math.max(500, Math.ceil((scaleBase * 1.15) / 50) * 50);
+    let yStep = 20;
+    if (yMax > 600) {
+        yStep = 50;
     }
+    if (yMax > 1200) {
+        yStep = 100;
+    }
+
+    const laneHeight = 56;
+    const pixelsPerDay = 32;
+    const plotWidth = dayCount * pixelsPerDay;
+    const plotHeight = bars.length * laneHeight;
+
+    inner.style.width = plotWidth + 'px';
+    inner.style.minWidth = plotWidth + 'px';
+    plot.style.width = plotWidth + 'px';
+    plot.style.height = plotHeight + 'px';
+
+    if (yRail) {
+        yRail.style.minHeight = (plotHeight + 48) + 'px';
+    }
+    if (yTicks) {
+        yTicks.style.height = plotHeight + 'px';
+        let yHtml = '';
+        for (let n = 10; n <= yMax; n += yStep) {
+            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + n + '</div>';
+        }
+        if (yMax > 10 && ((yMax - 10) % yStep !== 0)) {
+            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + yMax + '</div>';
+        }
+        yTicks.innerHTML = yHtml;
+    }
+
+    let lanesHtml = '';
+    bars.forEach(function (bar, index) {
+        const leftPx = bar.start_index * pixelsPerDay;
+        const spanDays = bar.end_index - bar.start_index + 1;
+        const widthPx = Math.max(spanDays * pixelsPerDay, 220);
+        const color = bar.color || courseColorPalette[0];
+        lanesHtml +=
+            '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
+                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx +
+                    'px;width:' + widthPx + 'px;background:' + color.bg + ';border-color:' + color.border + '">' +
+                    '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
+                    '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
+                    '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
+                '</div>' +
+            '</div>';
+    });
+    plot.innerHTML = lanesHtml;
+
+    let daysHtml = '';
+    const dayIsoList = timeline.day_iso || [];
+    for (let i = 0; i < dayCount; i++) {
+        const label = dayLabels[i] || '';
+        const iso = dayIsoList[i] || '';
+        let dayOfMonth = i + 1;
+        const labelMatch = String(label).match(/^(\d+)\./);
+        if (labelMatch) {
+            dayOfMonth = Number(labelMatch[1]);
+        } else if (iso.length >= 10) {
+            dayOfMonth = Number(iso.slice(8, 10));
+        }
+        const isMonthStart = dayOfMonth === 1 || i === 0;
+        const tip = label || iso || String(dayOfMonth);
+        daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
+            '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
+    }
+    dayAxis.innerHTML = daysHtml;
+    dayAxis.style.width = plotWidth + 'px';
 
     if (monthAxis) {
         const markers = timeline.month_markers || [];
@@ -3281,10 +3113,10 @@ function renderCourseFyGanttChart(timeline) {
                     escapeHtmlAttr(marker.label || '') + '">' + escapeHtmlAttr(marker.label || '') + '</div>';
             });
         } else {
-            monthsHtml = '<div class="course-fy-month-tick" style="width:' + chartWidth + 'px">Financial Year</div>';
+            monthsHtml = '<div class="course-fy-month-tick" style="width:' + plotWidth + 'px">Financial Year</div>';
         }
         monthAxis.innerHTML = monthsHtml;
-        monthAxis.style.width = chartWidth + 'px';
+        monthAxis.style.width = plotWidth + 'px';
     }
 
     if (hoverPanel && hoverPanel.parentElement !== document.body) {
@@ -3297,16 +3129,18 @@ function renderCourseFyGanttChart(timeline) {
         }
     }
 
-    function placeHoverAtEvent(evt) {
-        if (!hoverPanel || !evt) {
+    function placeHoverBesideBar(anchorEl) {
+        if (!hoverPanel || !anchorEl) {
             return;
         }
-        const panelWidth = Math.min(320, window.innerWidth - 24);
-        const panelHeight = hoverPanel.offsetHeight || 240;
-        let left = (evt.clientX || 0) + 16;
-        let top = (evt.clientY || 0) - 20;
+        const rect = anchorEl.getBoundingClientRect();
+        const panelWidth = Math.min(300, window.innerWidth - 24);
+        const panelHeight = hoverPanel.offsetHeight || 230;
+        let left = rect.right + 12;
+        let top = rect.top - 8;
+
         if (left + panelWidth > window.innerWidth - 12) {
-            left = Math.max(12, (evt.clientX || 0) - panelWidth - 16);
+            left = Math.max(12, rect.left - panelWidth - 12);
         }
         if (top < 12) {
             top = 12;
@@ -3314,39 +3148,39 @@ function renderCourseFyGanttChart(timeline) {
         if (top + panelHeight > window.innerHeight - 12) {
             top = Math.max(12, window.innerHeight - panelHeight - 12);
         }
+
         hoverPanel.style.width = panelWidth + 'px';
         hoverPanel.style.left = left + 'px';
         hoverPanel.style.top = top + 'px';
     }
 
-    function showCourseDetail(meta, evt) {
-        if (!hoverPanel || !meta) {
+    function showCourseDetail(bar, anchorEl) {
+        if (!hoverPanel || !hoverCanvas || typeof Chart === 'undefined' || !anchorEl) {
             return;
         }
+
         cancelHideCourseDetail();
+
         if (hoverTitle) {
-            hoverTitle.textContent = meta.course_name + (meta.course_code ? ' (' + meta.course_code + ')' : '');
+            hoverTitle.textContent = bar.course_name + (bar.course_code ? ' (' + bar.course_code + ')' : '');
         }
         if (hoverMeta) {
             hoverMeta.innerHTML =
-                (meta.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(meta.centre_name) + '</strong><br>') : '') +
-                'Batch seats: <strong>' + Number(meta.footfall || 0).toLocaleString() + ' / ' +
-                Number(meta.seats_total || 0).toLocaleString() + '</strong>' +
-                ' · Registered: <strong>' + Number(meta.registered || 0).toLocaleString() + '</strong>' +
-                '<br>Period: ' + (meta.start_label || '—') + ' → ' + (meta.end_label || '—') +
-                ' · Batches: <strong>' + Number((meta.batches || []).length).toLocaleString() + '</strong>';
+                (bar.batch_name ? ('Batch: <strong>' + escapeHtmlAttr(bar.batch_name) + '</strong> · ') : '') +
+                (bar.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(bar.centre_name) + '</strong> · ') : '') +
+                'Seats: <strong>' + Number(bar.footfall || 0).toLocaleString() + ' / ' +
+                Number(bar.seats_total || 0).toLocaleString() + '</strong>' +
+                ' · Course registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
+                '<br>' + bar.start_label + ' → ' + bar.end_label;
         }
+
+        // Show panel first so Chart.js can measure canvas size.
+        hoverPanel.classList.add('is-visible');
+        placeHoverBesideBar(anchorEl);
 
         if (courseFyHoverChartInstance) {
             courseFyHoverChartInstance.destroy();
             courseFyHoverChartInstance = null;
-        }
-
-        hoverPanel.classList.add('is-visible');
-        placeHoverAtEvent(evt);
-
-        if (!hoverCanvas) {
-            return;
         }
 
         const monthBuckets = {};
@@ -3357,7 +3191,7 @@ function renderCourseFyGanttChart(timeline) {
         });
         if (!monthOrder.length) {
             for (let i = 0; i < dayCount; i++) {
-                monthBuckets['D' + (i + 1)] = Number(meta.daily_admissions[i] || 0);
+                monthBuckets['D' + (i + 1)] = Number(bar.daily_admissions[i] || 0);
                 monthOrder.push('D' + (i + 1));
             }
         } else {
@@ -3366,7 +3200,7 @@ function renderCourseFyGanttChart(timeline) {
                 const count = marker.day_count || 0;
                 let sum = 0;
                 for (let i = start; i < start + count && i < dayCount; i++) {
-                    sum += Number(meta.daily_admissions[i] || 0);
+                    sum += Number(bar.daily_admissions[i] || 0);
                 }
                 monthBuckets[marker.label] = sum;
             });
@@ -3389,17 +3223,39 @@ function renderCourseFyGanttChart(timeline) {
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: false,
-                    plugins: { legend: { display: false } },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return 'Admissions: ' + Number(ctx.raw || 0).toLocaleString();
+                                }
+                            }
+                        }
+                    },
                     scales: {
-                        x: { ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 }, grid: { display: false } },
-                        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } }
+                        x: {
+                            ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 },
+                            grid: { display: false }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: { precision: 0, font: { size: 9 } },
+                            title: { display: true, text: 'Students', font: { size: 10 } }
+                        }
                     }
                 }
             });
         } catch (err) {
-            // keep text details even if mini chart fails
+            if (hoverMeta) {
+                hoverMeta.innerHTML += '<br><span class="text-danger">Could not render mini chart.</span>';
+            }
         }
-        requestAnimationFrame(function () { placeHoverAtEvent(evt); });
+
+        // Reposition after chart paints (height may change).
+        requestAnimationFrame(function () {
+            placeHoverBesideBar(anchorEl);
+        });
     }
 
     let hoverHideTimer = null;
@@ -3411,180 +3267,23 @@ function renderCourseFyGanttChart(timeline) {
         clearTimeout(hoverHideTimer);
     }
 
-    if (courseFyTimeChartInstance) {
-        courseFyTimeChartInstance.destroy();
-        courseFyTimeChartInstance = null;
-    }
-
-    const yMax = Math.max(100, Math.ceil((Math.max(yPeak, 10) * 1.2 + 12) / 10) * 10);
-
-    function pickNearestCourseElement(evt, elements) {
-        if (!elements || !elements.length) {
-            return null;
-        }
-        if (elements.length === 1 || !courseFyTimeChartInstance) {
-            return elements[0];
-        }
-        const native = evt && (evt.native || evt);
-        const y = native && typeof native.offsetY === 'number'
-            ? native.offsetY
-            : (native && native.y);
-        if (typeof y !== 'number') {
-            return elements[0];
-        }
-        let best = elements[0];
-        let bestDist = Infinity;
-        elements.forEach(function (el) {
-            try {
-                const meta = courseFyTimeChartInstance.getDatasetMeta(el.datasetIndex);
-                const pt = meta && meta.data ? meta.data[el.index] : null;
-                if (!pt || typeof pt.y !== 'number') {
-                    return;
-                }
-                const dist = Math.abs(pt.y - y);
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = el;
-                }
-            } catch (err) {
-                // ignore and keep current best
-            }
-        });
-        return best;
-    }
-
-    const durationBracketPlugin = {
-        id: 'courseDurationBrackets',
-        afterDatasetsDraw: function (chart) {
-            const ctx = chart.ctx;
-            const xScale = chart.scales.x;
-            const yScale = chart.scales.y;
-            if (!ctx || !xScale || !yScale) {
+    function bindBarHover(el) {
+        const open = function () {
+            const idx = Number(el.getAttribute('data-bar-index'));
+            if (!Number.isFinite(idx) || !bars[idx]) {
                 return;
             }
-            const cap = 11;
-            chart.data.datasets.forEach(function (ds) {
-                const meta = courseMeta[ds.metaIndex];
-                if (!meta) {
-                    return;
-                }
-                const x1 = xScale.getPixelForValue(meta.start_index);
-                const x2 = xScale.getPixelForValue(meta.end_index);
-                const y = yScale.getPixelForValue(meta.y_level);
-                if (![x1, x2, y].every(function (n) { return Number.isFinite(n); })) {
-                    return;
-                }
-                ctx.save();
-                ctx.strokeStyle = ds.borderColor || meta.color || '#2563eb';
-                ctx.lineWidth = 3.5;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(x1, y - cap);
-                ctx.lineTo(x1, y + cap);
-                ctx.moveTo(x2, y - cap);
-                ctx.lineTo(x2, y + cap);
-                ctx.stroke();
-                ctx.restore();
-            });
-        }
-    };
-
-    try {
-        courseFyTimeChartInstance = new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: dayLabels,
-                datasets: datasets
-            },
-            plugins: [durationBracketPlugin],
-            options: {
-                responsive: false,
-                maintainAspectRatio: false,
-                devicePixelRatio: 1,
-                animation: false,
-                interaction: {
-                    mode: 'nearest',
-                    intersect: false
-                },
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                        labels: {
-                            boxWidth: 12,
-                            font: { size: 11 },
-                            usePointStyle: true
-                        }
-                    },
-                    tooltip: {
-                        enabled: false
-                    }
-                },
-                onHover: function (evt, elements) {
-                    const picked = pickNearestCourseElement(evt, elements);
-                    if (!picked) {
-                        scheduleHideCourseDetail();
-                        return;
-                    }
-                    const ds = datasets[picked.datasetIndex];
-                    if (!ds) {
-                        return;
-                    }
-                    const meta = courseMeta[ds.metaIndex];
-                    const native = evt && (evt.native || evt);
-                    showCourseDetail(meta, native);
-                },
-                onClick: function (evt, elements) {
-                    const picked = pickNearestCourseElement(evt, elements);
-                    if (!picked) {
-                        return;
-                    }
-                    const ds = datasets[picked.datasetIndex];
-                    if (!ds) {
-                        return;
-                    }
-                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
-                },
-                scales: {
-                    x: {
-                        display: false,
-                        grid: { display: false }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        max: yMax,
-                        title: {
-                            display: true,
-                            text: 'Seats / admissions (spaced lanes) ↑',
-                            font: { size: 12, weight: '700' },
-                            color: '#1e3a8a'
-                        },
-                        ticks: {
-                            stepSize: yMax > 400 ? 50 : (yMax > 100 ? 20 : 10),
-                            precision: 0,
-                            font: { size: 10 }
-                        },
-                        grid: {
-                            color: 'rgba(148,163,184,0.25)'
-                        }
-                    }
-                }
-            }
+            showCourseDetail(bars[idx], el);
+        };
+        el.addEventListener('mouseenter', open);
+        el.addEventListener('click', function (event) {
+            event.preventDefault();
+            open();
         });
-    } catch (err) {
-        console.error('Course FY time chart failed', err);
-        if (chartBox) {
-            chartBox.innerHTML = '<p class="text-danger text-center py-5 mb-0">Could not draw course graph. Please refresh.</p>';
-        }
-        return;
+        el.addEventListener('mouseleave', scheduleHideCourseDetail);
     }
 
-    try {
-        courseFyTimeChartInstance.resize(chartWidth, chartHeight);
-        courseFyTimeChartInstance.update('none');
-    } catch (err) {
-        // chart already created; resize is best-effort
-    }
+    plot.querySelectorAll('.course-fy-lane-bar').forEach(bindBarHover);
 
     if (hoverPanel) {
         hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
@@ -3607,10 +3306,6 @@ Chart.helpers.each(
 Chart.instances,
 
 function(instance){
-
-if (instance === courseFyTimeChartInstance) {
-    return;
-}
 
 instance.resize();
 
