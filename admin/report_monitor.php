@@ -3326,6 +3326,41 @@ function renderCourseFyGanttChart(timeline) {
 
     const yMax = Math.max(100, Math.ceil((Math.max(yPeak, 10) * 1.25) / 10) * 10);
 
+    function pickNearestCourseElement(evt, elements) {
+        if (!elements || !elements.length) {
+            return null;
+        }
+        if (elements.length === 1 || !courseFyTimeChartInstance) {
+            return elements[0];
+        }
+        const native = evt && (evt.native || evt);
+        const y = native && typeof native.offsetY === 'number'
+            ? native.offsetY
+            : (native && native.y);
+        if (typeof y !== 'number') {
+            return elements[0];
+        }
+        let best = elements[0];
+        let bestDist = Infinity;
+        elements.forEach(function (el) {
+            try {
+                const meta = courseFyTimeChartInstance.getDatasetMeta(el.datasetIndex);
+                const pt = meta && meta.data ? meta.data[el.index] : null;
+                if (!pt || typeof pt.y !== 'number') {
+                    return;
+                }
+                const dist = Math.abs(pt.y - y);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = el;
+                }
+            } catch (err) {
+                // ignore and keep current best
+            }
+        });
+        return best;
+    }
+
     try {
         courseFyTimeChartInstance = new Chart(canvas, {
             type: 'line',
@@ -3340,7 +3375,6 @@ function renderCourseFyGanttChart(timeline) {
                 animation: false,
                 interaction: {
                     mode: 'nearest',
-                    axis: 'x',
                     intersect: false
                 },
                 plugins: {
@@ -3354,27 +3388,16 @@ function renderCourseFyGanttChart(timeline) {
                         }
                     },
                     tooltip: {
-                        enabled: true,
-                        callbacks: {
-                            title: function (items) {
-                                if (!items.length) {
-                                    return '';
-                                }
-                                return 'Date: ' + items[0].label;
-                            },
-                            label: function (ctx) {
-                                return (ctx.dataset.label || 'Course') + ': ' + Number(ctx.parsed.y || 0).toLocaleString();
-                            }
-                        }
+                        enabled: false
                     }
                 },
                 onHover: function (evt, elements) {
-                    if (!elements || !elements.length) {
+                    const picked = pickNearestCourseElement(evt, elements);
+                    if (!picked) {
                         scheduleHideCourseDetail();
                         return;
                     }
-                    const el = elements[0];
-                    const ds = datasets[el.datasetIndex];
+                    const ds = datasets[picked.datasetIndex];
                     if (!ds) {
                         return;
                     }
@@ -3383,11 +3406,11 @@ function renderCourseFyGanttChart(timeline) {
                     showCourseDetail(meta, native);
                 },
                 onClick: function (evt, elements) {
-                    if (!elements || !elements.length) {
+                    const picked = pickNearestCourseElement(evt, elements);
+                    if (!picked) {
                         return;
                     }
-                    const el = elements[0];
-                    const ds = datasets[el.datasetIndex];
+                    const ds = datasets[picked.datasetIndex];
                     if (!ds) {
                         return;
                     }
