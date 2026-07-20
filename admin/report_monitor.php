@@ -497,6 +497,16 @@ $pageTitle="Report Monitor";
 
         }
 
+        /* Keep FY day graph scrollable inside admin flex layout (min-width:0 is required). */
+        .admin-content,
+        .admin-main,
+        .container-fluid,
+        .table-card,
+        .table-card > .card-body,
+        #courseFyGanttWrap{
+            min-width:0;
+            max-width:100%;
+        }
         #courseFyGanttWrap{
             position:relative;
             margin-bottom:8px;
@@ -504,36 +514,41 @@ $pageTitle="Report Monitor";
             border:1px solid #e2e8f0;
             border-radius:12px;
             background:#fafbff;
-            max-width:100%;
+            width:100%;
+            box-sizing:border-box;
         }
         .course-fy-day-scroll{
             display:block;
             width:100%;
             max-width:100%;
-            overflow-x:auto;
+            min-width:0;
+            overflow-x:scroll !important;
             overflow-y:hidden;
             border:1px solid #cbd5e1;
             border-radius:10px;
             background:#fff;
-            padding-bottom:10px;
+            padding-bottom:12px;
             scrollbar-gutter:stable;
+            scrollbar-width:auto;
             scrollbar-color:#64748b #e2e8f0;
+            -webkit-overflow-scrolling:touch;
         }
-        .course-fy-day-scroll::-webkit-scrollbar{ height:14px; }
+        .course-fy-day-scroll::-webkit-scrollbar{ height:16px; }
         .course-fy-day-scroll::-webkit-scrollbar-track{ background:#e2e8f0; border-radius:999px; }
         .course-fy-day-scroll::-webkit-scrollbar-thumb{ background:#64748b; border-radius:999px; border:2px solid #e2e8f0; }
         #courseFyGraphInner{
             position:relative;
             display:block;
             width:max-content;
-            max-width:none;
-            min-width:100%;
+            max-width:none !important;
+            min-width:0;
+            box-sizing:border-box;
         }
         .course-fy-graph-box{
             position:relative;
             height:420px;
             min-height:420px;
-            max-width:none;
+            max-width:none !important;
             background:
                 linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
                 linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 28px 100%,
@@ -542,6 +557,7 @@ $pageTitle="Report Monitor";
         #courseFyTimeChart{
             display:block !important;
             max-width:none !important;
+            width:auto !important;
             height:420px !important;
         }
         .course-fy-month-axis{
@@ -1701,7 +1717,15 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Area graph · day-wise FY timeline · scroll sideways · hover a course for details</span>
+                <span class="text-muted small">Area graph · day-wise · use the scrollbar under the graph</span>
+            </div>
+            <div class="d-flex gap-2 mb-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollLeft" title="Scroll left">
+                    <i class="fas fa-chevron-left"></i> Earlier days
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollRight" title="Scroll right">
+                    Later days <i class="fas fa-chevron-right"></i>
+                </button>
             </div>
             <div class="course-fy-day-scroll" id="courseFyDayScroll">
                 <div id="courseFyGraphInner">
@@ -2699,7 +2723,8 @@ function renderCourseFyGanttChart(timeline) {
             admissions: Number(course.total_admissions) || footfall || 0,
             start_label: startLabel,
             end_label: endLabel,
-            batches: batches
+            batches: batches,
+            peak: peak
         });
 
         const pointRadius = data.map(function (v, i) {
@@ -2711,15 +2736,17 @@ function renderCourseFyGanttChart(timeline) {
             label: label + (course.course_code ? ' (' + course.course_code + ')' : ''),
             data: data,
             borderColor: color.border,
-            backgroundColor: color.fill,
+            backgroundColor: color.fill.replace(/[\d.]+\)$/, '0.10)'),
             pointBackgroundColor: color.point,
             pointBorderColor: '#fff',
             pointRadius: pointRadius,
             pointHoverRadius: 6,
-            borderWidth: 2.5,
-            fill: true,
+            borderWidth: 3,
+            fill: 'origin',
             tension: 0.35,
-            metaIndex: courseMeta.length - 1
+            order: Math.max(0, 1000 - peak),
+            metaIndex: courseMeta.length - 1,
+            _peak: peak
         });
     });
 
@@ -2728,14 +2755,39 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
+    // Larger series behind, smaller on top so lines stay visible.
+    datasets.sort(function (a, b) {
+        return (b._peak || 0) - (a._peak || 0);
+    });
+    datasets.forEach(function (ds, i) {
+        ds.order = i + 1;
+        // Remap metaIndex after sort — keep linked via label lookup instead
+    });
+    // Rebuild metaIndex map after sort
+    const metaByLabel = {};
+    courseMeta.forEach(function (m) {
+        metaByLabel[m.course_name + (m.course_code ? ' (' + m.course_code + ')' : '')] = m;
+    });
+    datasets.forEach(function (ds) {
+        const meta = metaByLabel[ds.label];
+        ds.metaIndex = meta ? courseMeta.indexOf(meta) : ds.metaIndex;
+    });
+
     // Day-wise width so the FY can scroll horizontally (keep under canvas size limits).
     const chartHeight = 420;
     const maxCssWidth = 12000;
-    let pixelsPerDay = 28;
-    let chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
+    let pixelsPerDay = 32;
+    let chartWidth = Math.max(dayCount * pixelsPerDay, 1600);
     if (chartWidth > maxCssWidth) {
-        pixelsPerDay = Math.max(12, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
-        chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
+        pixelsPerDay = Math.max(14, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
+        chartWidth = Math.max(dayCount * pixelsPerDay, 1600);
+    }
+
+    const scrollEl = document.getElementById('courseFyDayScroll');
+    if (scrollEl) {
+        scrollEl.style.maxWidth = '100%';
+        scrollEl.style.minWidth = '0';
+        scrollEl.style.overflowX = 'scroll';
     }
 
     inner.style.width = chartWidth + 'px';
@@ -2747,9 +2799,9 @@ function renderCourseFyGanttChart(timeline) {
         chartBox.style.maxWidth = 'none';
         chartBox.style.height = chartHeight + 'px';
     }
-    canvas.style.maxWidth = 'none';
-    canvas.style.width = chartWidth + 'px';
-    canvas.style.height = chartHeight + 'px';
+    canvas.style.setProperty('max-width', 'none', 'important');
+    canvas.style.setProperty('width', chartWidth + 'px', 'important');
+    canvas.style.setProperty('height', chartHeight + 'px', 'important');
     canvas.width = chartWidth;
     canvas.height = chartHeight;
 
@@ -2972,6 +3024,22 @@ function renderCourseFyGanttChart(timeline) {
         console.error('Course FY graph failed', err);
         wrap.innerHTML = '<p class="text-danger text-center py-5 mb-0">Could not draw course graph. Please refresh.</p>';
         return;
+    }
+
+    if (scrollEl) {
+        const jump = Math.max(320, Math.floor(scrollEl.clientWidth * 0.8));
+        const leftBtn = document.getElementById('courseFyScrollLeft');
+        const rightBtn = document.getElementById('courseFyScrollRight');
+        if (leftBtn) {
+            leftBtn.onclick = function () {
+                scrollEl.scrollBy({ left: -jump, behavior: 'smooth' });
+            };
+        }
+        if (rightBtn) {
+            rightBtn.onclick = function () {
+                scrollEl.scrollBy({ left: jump, behavior: 'smooth' });
+            };
+        }
     }
 
     if (hoverPanel) {
