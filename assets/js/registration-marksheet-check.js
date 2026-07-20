@@ -6,10 +6,24 @@
 
     var MARKSHEET_MARKERS = /marksheet|mark sheet|mark-sheet|certificate|board of|examination|exam|matriculation|secondary school|higher secondary|class[\s-]*x\b|class[\s-]*xii|class[\s-]*12|10th|10[\s\/\-]*th|tenth|12th|12[\s\/\-]*th|twelfth|diploma|statement of marks|grade sheet|roll no|roll number|percentile|percentage|marks obtained|chse|cbse|icse|bse|odisha board|pass certificate|school leaving|course certificate/i;
     var AADHAR_MARKERS = /aadhaar|aadhar|uidai|unique identification authority|आधार/i;
-    var MAX_MARGIN_RATIO = 0.10;
-    var MIN_FILL_RATIO = 0.58;
     var ANALYSIS_MAX_DIM = 720;
     var OCR_MAX_DIM = 1600;
+
+    function framingLimits() {
+        var cfg = global.RegistrationAiConfig;
+        return cfg && cfg.framingThresholds ? cfg.framingThresholds() : { minFillRatio: 0.58, maxMarginRatio: 0.10 };
+    }
+
+    function minDocumentSize() {
+        var cfg = global.RegistrationAiConfig;
+        if (cfg && cfg.isLenient && cfg.isLenient()) {
+            return {
+                width: cfg.minDocumentWidth || 240,
+                height: cfg.minDocumentHeight || 160
+            };
+        }
+        return { width: 320, height: 200 };
+    }
 
     function loadImageFromFile(file) {
         return new Promise(function (resolve, reject) {
@@ -73,14 +87,15 @@
 
         var fillRatio = (bounds.docW * bounds.docH) / (width * height);
         var maxMargin = bounds.maxMargin;
+        var limits = framingLimits();
 
-        if (fillRatio < MIN_FILL_RATIO) {
+        if (fillRatio < limits.minFillRatio) {
             return {
                 valid: false,
                 message: 'Document is too small in the photo. Move closer so the marksheet/certificate fills most of the image.'
             };
         }
-        if (maxMargin > MAX_MARGIN_RATIO) {
+        if (maxMargin > limits.maxMarginRatio) {
             return {
                 valid: false,
                 message: 'Too much background around the document. Crop or retake so only the marksheet/certificate is visible.'
@@ -169,6 +184,9 @@
     function analyzeMarksheetText(text, level) {
         var normalized = normalizeText(text);
         if (!normalized || normalized.length < 8) {
+            if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, AADHAR_MARKERS)) {
+                return global.RegistrationAiConfig.lenientOcrAccept('Marksheet/certificate');
+            }
             return {
                 valid: false,
                 message: 'Could not read the document. Upload a clearer photo of your marksheet or certificate.'
@@ -185,6 +203,9 @@
                 valid: true,
                 message: 'Marksheet/certificate verified — document accepted.'
             };
+        }
+        if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, AADHAR_MARKERS)) {
+            return global.RegistrationAiConfig.lenientOcrAccept('Marksheet/certificate');
         }
         return {
             valid: false,
@@ -308,7 +329,8 @@
             }
 
             return loadImageFromFile(file).then(function (img) {
-                if (img.naturalWidth < 320 || img.naturalHeight < 200) {
+                var minSize = minDocumentSize();
+                if (img.naturalWidth < minSize.width || img.naturalHeight < minSize.height) {
                     return {
                         valid: false,
                         message: 'Image is too small. Upload a clear photo of the full marksheet or certificate.'
@@ -318,6 +340,15 @@
                 var framing = validateDocumentFraming(img);
                 if (!framing.valid) {
                     return framing;
+                }
+
+                var skipPortrait = global.RegistrationAiConfig &&
+                    global.RegistrationAiConfig.skipPortraitRejectionOnDocuments &&
+                    global.RegistrationAiConfig.isLenient &&
+                    global.RegistrationAiConfig.isLenient();
+
+                if (skipPortrait) {
+                    return ocrMarksheetImage(img, level);
                 }
 
                 return detectPortrait(img).then(function (portrait) {

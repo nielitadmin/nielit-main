@@ -106,7 +106,26 @@
         return null;
     }
 
+    function faceThresholds() {
+        var cfg = global.RegistrationAiConfig;
+        if (cfg && cfg.isLenient && cfg.isLenient()) {
+            return {
+                minProbability: cfg.minFaceProbability != null ? cfg.minFaceProbability : 0.40,
+                minAreaRatio: cfg.minFaceAreaRatio != null ? cfg.minFaceAreaRatio : 0.035,
+                maxAreaRatio: cfg.maxFaceAreaRatio != null ? cfg.maxFaceAreaRatio : 0.85,
+                minDimension: cfg.minPassportDimension != null ? cfg.minPassportDimension : 150
+            };
+        }
+        return {
+            minProbability: 0.65,
+            minAreaRatio: 0.06,
+            maxAreaRatio: 0.78,
+            minDimension: 180
+        };
+    }
+
     function validatePassportFaceGeometry(faces, imgWidth, imgHeight) {
+        var thresholds = faceThresholds();
         if (!faces || faces.length === 0) {
             return {
                 valid: false,
@@ -122,7 +141,7 @@
 
         var face = faces[0];
         var probability = faceProbability(face);
-        if (probability !== null && probability < 0.65) {
+        if (probability !== null && probability < thresholds.minProbability) {
             return {
                 valid: false,
                 message: 'Face is not clear enough. Use a brighter, front-facing photo.'
@@ -131,13 +150,13 @@
 
         var imgArea = imgWidth * imgHeight;
         var ratio = faceBoxArea(face) / imgArea;
-        if (ratio < 0.06) {
+        if (ratio < thresholds.minAreaRatio) {
             return {
                 valid: false,
                 message: 'Face is too small in the photo. Move closer or crop so your face is clearly visible.'
             };
         }
-        if (ratio > 0.78) {
+        if (ratio > thresholds.maxAreaRatio) {
             return {
                 valid: false,
                 message: 'Face is too close or cropped. Upload a standard passport-style photo showing head and shoulders.'
@@ -179,10 +198,11 @@
     }
 
     function validateDimensions(img) {
-        if (img.naturalWidth < 180 || img.naturalHeight < 180) {
+        var minDim = faceThresholds().minDimension;
+        if (img.naturalWidth < minDim || img.naturalHeight < minDim) {
             return {
                 valid: false,
-                message: 'Photo is too small. Minimum size is 180×180 pixels.'
+                message: 'Photo is too small. Minimum size is ' + minDim + '×' + minDim + ' pixels.'
             };
         }
         return { valid: true };

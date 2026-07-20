@@ -129,7 +129,8 @@
                 message: 'Signature not detected. Upload a clear photo of your handwritten signature on white paper.'
             };
         }
-        if (inkRatio > 0.45) {
+        var maxInkRatio = (global.RegistrationAiConfig && global.RegistrationAiConfig.isLenient && global.RegistrationAiConfig.isLenient()) ? 0.55 : 0.45;
+        if (inkRatio > maxInkRatio) {
             return {
                 valid: false,
                 message: 'This looks like a full document or photo, not a signature. Upload only your signature on white paper.'

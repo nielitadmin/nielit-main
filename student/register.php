@@ -2430,6 +2430,7 @@ if (isset($_SESSION['info'])) {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/registration-ai-config.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-ai-config.js') ? filemtime(__DIR__ . '/../assets/js/registration-ai-config.js') : time(); ?>"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/registration-ai-loader.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-ai-loader.js') ? filemtime(__DIR__ . '/../assets/js/registration-ai-loader.js') : time(); ?>"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/registration-skeleton.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-skeleton.js') ? filemtime(__DIR__ . '/../assets/js/registration-skeleton.js') : time(); ?>"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/registration-pdf-ocr.js?v=<?php echo is_file(__DIR__ . '/../assets/js/registration-pdf-ocr.js') ? filemtime(__DIR__ . '/../assets/js/registration-pdf-ocr.js') : time(); ?>"></script>

@@ -7,10 +7,24 @@
     var AADHAR_MARKERS = /aadhaar|aadhar|uidai|unique identification authority|आधार/i;
     var CASTE_MARKERS = /caste|scheduled caste|scheduled tribe|\bsc\b|\bst\b|\bobc\b|other backward|socially and educationally|sebc|community certificate|cast certificate|certificate of caste|belonging to|reservation category|revenue department|tahsildar|tehsildar|sub collector|district magistrate|deputy collector|social welfare|form of certificate|caste certificate|tribe certificate|non-creamy layer|creamy layer/i;
     var GRADUATION_MARKERS = /graduation|graduate|graduated|degree certificate|provisional degree|convocation|university|bachelor|master of|master in|\bb\.?\s*a\.?\b|\bb\.?\s*sc\.?\b|\bb\.?\s*com\.?\b|\bb\.?\s*tech\.?\b|\bm\.?\s*a\.?\b|\bm\.?\s*sc\.?\b|\bm\.?\s*com\.?\b|diploma in|college of|institute of|school of|faculty of|course completed|award of degree|honours|honors/i;
-    var MAX_MARGIN_RATIO = 0.10;
-    var MIN_FILL_RATIO = 0.58;
     var ANALYSIS_MAX_DIM = 720;
     var OCR_MAX_DIM = 1600;
+
+    function framingLimits() {
+        var cfg = global.RegistrationAiConfig;
+        return cfg && cfg.framingThresholds ? cfg.framingThresholds() : { minFillRatio: 0.58, maxMarginRatio: 0.10 };
+    }
+
+    function minDocumentSize() {
+        var cfg = global.RegistrationAiConfig;
+        if (cfg && cfg.isLenient && cfg.isLenient()) {
+            return {
+                width: cfg.minDocumentWidth || 240,
+                height: cfg.minDocumentHeight || 160
+            };
+        }
+        return { width: 320, height: 200 };
+    }
 
     function loadImageFromFile(file) {
         return new Promise(function (resolve, reject) {
@@ -132,13 +146,14 @@
         }
 
         var fillRatio = (bounds.docW * bounds.docH) / (width * height);
-        if (fillRatio < MIN_FILL_RATIO) {
+        var limits = framingLimits();
+        if (fillRatio < limits.minFillRatio) {
             return {
                 valid: false,
                 message: 'Document is too small in the photo. Move closer so the ' + docLabel + ' fills most of the image.'
             };
         }
-        if (bounds.maxMargin > MAX_MARGIN_RATIO) {
+        if (bounds.maxMargin > limits.maxMarginRatio) {
             return {
                 valid: false,
                 message: 'Too much background around the document. Crop or retake so only the ' + docLabel + ' is visible.'
@@ -167,6 +182,9 @@
         var docLabel = type === 'graduation' ? 'graduation certificate' : 'caste certificate';
 
         if (!normalized || normalized.length < 8) {
+            if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, AADHAR_MARKERS)) {
+                return global.RegistrationAiConfig.lenientOcrAccept(docLabel);
+            }
             return {
                 valid: false,
                 message: 'Could not read the document. Upload a clearer photo of your ' + docLabel + '.'
@@ -185,6 +203,10 @@
                 valid: true,
                 message: docLabel.charAt(0).toUpperCase() + docLabel.slice(1) + ' verified — document accepted.'
             };
+        }
+
+        if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, AADHAR_MARKERS)) {
+            return global.RegistrationAiConfig.lenientOcrAccept(docLabel);
         }
 
         return {
@@ -310,7 +332,8 @@
             }
 
             return loadImageFromFile(file).then(function (img) {
-                if (img.naturalWidth < 320 || img.naturalHeight < 200) {
+                var minSize = minDocumentSize();
+                if (img.naturalWidth < minSize.width || img.naturalHeight < minSize.height) {
                     return {
                         valid: false,
                         message: 'Image is too small. Upload a clear photo of the full ' + docLabel + '.'
@@ -320,6 +343,15 @@
                 var framing = validateDocumentFraming(img, docLabel);
                 if (!framing.valid) {
                     return framing;
+                }
+
+                var skipPortrait = global.RegistrationAiConfig &&
+                    global.RegistrationAiConfig.skipPortraitRejectionOnDocuments &&
+                    global.RegistrationAiConfig.isLenient &&
+                    global.RegistrationAiConfig.isLenient();
+
+                if (skipPortrait) {
+                    return ocrCertificateImage(img, type);
                 }
 
                 return detectPortrait(img).then(function (portrait) {

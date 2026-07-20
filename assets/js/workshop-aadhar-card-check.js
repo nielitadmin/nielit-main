@@ -7,10 +7,24 @@
 
     var STRONG_AADHAR_MARKERS = /aadhaar|aadhar|uidai|unique identification authority|आधार|aadhaar\s*no|aadhaar\s*number|your aadhaar/i;
     var REJECT_DOCUMENT_MARKERS = /marksheet|mark sheet|mark-sheet|certificate of|course certificate|school certificate|character certificate|board of secondary|board of education|higher secondary|matriculation|examination|exam roll|roll number|roll no|grade sheet|statement of marks|percentile|percentage obtained|cgpa|semester|provisional|odisha board|cbse|icse|chse|bse|university|college board|pass certificate|migration certificate|transfer certificate|bonafide|caste certificate|income certificate|domicile|birth certificate|driving licence|driving license|voter id|pan card|passport no/i;
-    var MAX_MARGIN_RATIO = 0.10;
-    var MIN_FILL_RATIO = 0.58;
     var ANALYSIS_MAX_DIM = 720;
     var OCR_MAX_DIM = 1600;
+
+    function framingLimits() {
+        var cfg = global.RegistrationAiConfig;
+        return cfg && cfg.framingThresholds ? cfg.framingThresholds() : { minFillRatio: 0.58, maxMarginRatio: 0.10 };
+    }
+
+    function minDocumentSize() {
+        var cfg = global.RegistrationAiConfig;
+        if (cfg && cfg.isLenient && cfg.isLenient()) {
+            return {
+                width: cfg.minDocumentWidth || 240,
+                height: cfg.minDocumentHeight || 160
+            };
+        }
+        return { width: 320, height: 200 };
+    }
 
     function loadImageFromFile(file) {
         return new Promise(function (resolve, reject) {
@@ -169,15 +183,16 @@
             top / height,
             (height - 1 - bottom) / height
         );
+        var limits = framingLimits();
 
-        if (fillRatio < MIN_FILL_RATIO) {
+        if (fillRatio < limits.minFillRatio) {
             return {
                 valid: false,
                 message: 'Card is too small in the photo. Move closer so the Aadhar card fills most of the image (minimal background on the sides).'
             };
         }
-        if (maxMargin > MAX_MARGIN_RATIO) {
-            var sideHint = (height - 1 - bottom) / height > MAX_MARGIN_RATIO || top / height > MAX_MARGIN_RATIO
+        if (maxMargin > limits.maxMarginRatio) {
+            var sideHint = (height - 1 - bottom) / height > limits.maxMarginRatio || top / height > limits.maxMarginRatio
                 ? 'top or bottom'
                 : 'left or right';
             return {
@@ -201,6 +216,9 @@
         var normalized = normalizeOcrText(text);
 
         if (!normalized || normalized.length < 8) {
+            if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, REJECT_DOCUMENT_MARKERS)) {
+                return global.RegistrationAiConfig.lenientOcrAccept('Aadhar card');
+            }
             return {
                 valid: false,
                 message: 'Could not read the document. Upload a sharper photo of your Aadhar card with Aadhaar / UIDAI text visible.'
@@ -219,6 +237,10 @@
                 valid: true,
                 message: 'Aadhar card verified — document text detected.'
             };
+        }
+
+        if (global.RegistrationAiConfig && global.RegistrationAiConfig.shouldAcceptUnreadableOcr(normalized, REJECT_DOCUMENT_MARKERS)) {
+            return global.RegistrationAiConfig.lenientOcrAccept('Aadhar card');
         }
 
         return {
@@ -332,7 +354,8 @@
     function validateImage(img) {
         var w = img.naturalWidth;
         var h = img.naturalHeight;
-        if (w < 320 || h < 200) {
+        var minSize = minDocumentSize();
+        if (w < minSize.width || h < minSize.height) {
             return Promise.resolve({
                 valid: false,
                 message: 'Aadhar card image is too small. Upload a clear scan or photo of the full card.'
@@ -342,6 +365,15 @@
         var framing = validateDocumentFraming(img);
         if (!framing.valid) {
             return Promise.resolve(framing);
+        }
+
+        var skipPortrait = global.RegistrationAiConfig &&
+            global.RegistrationAiConfig.skipPortraitRejectionOnDocuments &&
+            global.RegistrationAiConfig.isLenient &&
+            global.RegistrationAiConfig.isLenient();
+
+        if (skipPortrait) {
+            return ocrForAadharMarkers(img);
         }
 
         return detectPortraitWithBlazeFace(img).then(function (portrait) {
