@@ -689,14 +689,30 @@ $pageTitle="Report Monitor";
 
         }
 
+        .course-fy-chart-box{
+
+            position:relative;
+
+            height:420px;
+
+            min-height:420px;
+
+            width:100%;
+
+            background:
+                linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
+                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 24px 100%,
+                #fff;
+
+        }
+
         #courseFyTimeChart{
 
             display:block;
 
-            background:
-                linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
-                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 32px 100%,
-                #fff;
+            width:100% !important;
+
+            height:100% !important;
 
         }
 
@@ -2096,7 +2112,9 @@ Q4 (Jan–Mar)
             </div>
             <div class="course-fy-time-scroll" id="courseFyGanttScroll">
                 <div id="courseFyGanttInner">
-                    <canvas id="courseFyTimeChart" height="420"></canvas>
+                    <div class="course-fy-chart-box" id="courseFyChartBox">
+                        <canvas id="courseFyTimeChart"></canvas>
+                    </div>
                     <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
                     <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
                 </div>
@@ -3093,6 +3111,11 @@ function renderCourseFyGanttChart(timeline) {
             batches: batches
         });
 
+        const pointRadius = data.map(function (v, i) {
+            const prev = i > 0 ? Number(data[i - 1] || 0) : 0;
+            return Number(v) > 0 && Number(v) !== prev ? 3 : 0;
+        });
+
         datasets.push({
             label: label + (course.course_code ? ' (' + course.course_code + ')' : ''),
             data: data,
@@ -3100,11 +3123,12 @@ function renderCourseFyGanttChart(timeline) {
             backgroundColor: color.fill,
             pointBackgroundColor: color.point,
             pointBorderColor: '#fff',
-            pointRadius: 0,
-            pointHoverRadius: 5,
+            pointRadius: pointRadius,
+            pointHoverRadius: 6,
             borderWidth: 2.5,
             fill: true,
             tension: 0.35,
+            spanGaps: true,
             metaIndex: courseMeta.length - 1
         });
     });
@@ -3114,15 +3138,26 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
-    const pixelsPerDay = 32;
-    const chartWidth = Math.max(dayCount * pixelsPerDay, 900);
+    // Keep canvas under browser size limits (high-DPI × huge width was blanking the chart).
+    const chartBox = document.getElementById('courseFyChartBox');
     const chartHeight = 420;
+    const maxCssWidth = 7200;
+    let pixelsPerDay = Math.max(3, Math.min(10, Math.floor(maxCssWidth / Math.max(dayCount, 1))));
+    let chartWidth = Math.max(dayCount * pixelsPerDay, 960);
+    if (chartWidth > maxCssWidth) {
+        pixelsPerDay = Math.max(2, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
+        chartWidth = Math.max(dayCount * pixelsPerDay, 960);
+    }
     inner.style.width = chartWidth + 'px';
     inner.style.minWidth = chartWidth + 'px';
+    if (chartBox) {
+        chartBox.style.width = chartWidth + 'px';
+        chartBox.style.height = chartHeight + 'px';
+    }
     canvas.style.width = chartWidth + 'px';
     canvas.style.height = chartHeight + 'px';
-    canvas.width = chartWidth;
-    canvas.height = chartHeight;
+    canvas.removeAttribute('width');
+    canvas.removeAttribute('height');
 
     if (dayAxis) {
         let daysHtml = '';
@@ -3290,83 +3325,115 @@ function renderCourseFyGanttChart(timeline) {
         courseFyTimeChartInstance = null;
     }
 
-    const yMax = Math.max(100, Math.ceil((yPeak * 1.2) / 10) * 10, 500);
+    const yMax = Math.max(100, Math.ceil((Math.max(yPeak, 10) * 1.25) / 10) * 10);
 
-    courseFyTimeChartInstance = new Chart(canvas, {
-        type: 'line',
-        data: {
-            labels: dayLabels,
-            datasets: datasets
-        },
-        options: {
-            responsive: false,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
+    try {
+        courseFyTimeChartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: dayLabels,
+                datasets: datasets
             },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: { boxWidth: 12, font: { size: 11 } }
+            options: {
+                responsive: false,
+                maintainAspectRatio: false,
+                devicePixelRatio: 1,
+                animation: false,
+                interaction: {
+                    mode: 'nearest',
+                    axis: 'x',
+                    intersect: false
                 },
-                tooltip: {
-                    enabled: true,
-                    callbacks: {
-                        title: function (items) {
-                            if (!items.length) {
-                                return '';
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 11 },
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            title: function (items) {
+                                if (!items.length) {
+                                    return '';
+                                }
+                                return 'Date: ' + items[0].label;
+                            },
+                            label: function (ctx) {
+                                return (ctx.dataset.label || 'Course') + ': ' + Number(ctx.parsed.y || 0).toLocaleString();
                             }
-                            return 'Date: ' + items[0].label;
+                        }
+                    }
+                },
+                onHover: function (evt, elements) {
+                    if (!elements || !elements.length) {
+                        scheduleHideCourseDetail();
+                        return;
+                    }
+                    const el = elements[0];
+                    const ds = datasets[el.datasetIndex];
+                    if (!ds) {
+                        return;
+                    }
+                    const meta = courseMeta[ds.metaIndex];
+                    const native = evt && (evt.native || evt);
+                    showCourseDetail(meta, native);
+                },
+                onClick: function (evt, elements) {
+                    if (!elements || !elements.length) {
+                        return;
+                    }
+                    const el = elements[0];
+                    const ds = datasets[el.datasetIndex];
+                    if (!ds) {
+                        return;
+                    }
+                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
+                },
+                scales: {
+                    x: {
+                        display: false,
+                        grid: { display: false }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: yMax,
+                        title: {
+                            display: true,
+                            text: 'Student admission completed ↑',
+                            font: { size: 12, weight: '700' },
+                            color: '#1e3a8a'
                         },
-                        label: function (ctx) {
-                            return (ctx.dataset.label || 'Course') + ': ' + Number(ctx.parsed.y || 0).toLocaleString();
+                        ticks: {
+                            stepSize: yMax > 400 ? 50 : (yMax > 100 ? 20 : 10),
+                            precision: 0,
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: 'rgba(148,163,184,0.25)'
                         }
                     }
                 }
-            },
-            onHover: function (evt, elements) {
-                if (!elements || !elements.length) {
-                    scheduleHideCourseDetail();
-                    return;
-                }
-                const el = elements[0];
-                const ds = datasets[el.datasetIndex];
-                if (!ds) {
-                    return;
-                }
-                const meta = courseMeta[ds.metaIndex];
-                const native = evt && (evt.native || evt);
-                showCourseDetail(meta, native);
-            },
-            scales: {
-                x: {
-                    display: false,
-                    grid: { display: false }
-                },
-                y: {
-                    beginAtZero: true,
-                    suggestedMax: yMax,
-                    title: {
-                        display: true,
-                        text: 'Student admission completed ↑',
-                        font: { size: 12, weight: '700' },
-                        color: '#1e3a8a'
-                    },
-                    ticks: {
-                        stepSize: yMax > 400 ? 50 : 20,
-                        precision: 0,
-                        font: { size: 10 }
-                    },
-                    grid: {
-                        color: 'rgba(148,163,184,0.25)'
-                    }
-                }
             }
+        });
+    } catch (err) {
+        console.error('Course FY time chart failed', err);
+        if (chartBox) {
+            chartBox.innerHTML = '<p class="text-danger text-center py-5 mb-0">Could not draw course graph. Please refresh.</p>';
         }
-    });
+        return;
+    }
+
+    try {
+        courseFyTimeChartInstance.resize(chartWidth, chartHeight);
+        courseFyTimeChartInstance.update('none');
+    } catch (err) {
+        // chart already created; resize is best-effort
+    }
 
     if (hoverPanel) {
         hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
@@ -3389,6 +3456,10 @@ Chart.helpers.each(
 Chart.instances,
 
 function(instance){
+
+if (instance === courseFyTimeChartInstance) {
+    return;
+}
 
 instance.resize();
 
