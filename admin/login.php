@@ -15,22 +15,14 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/hero_banner_helper.php';
 require_once __DIR__ . '/../includes/google_auth.php';
 
+require_once __DIR__ . '/../includes/phpmailer_smtp.php';
+
 // Ensure all custom roles exist in the enum (runs silently)
 $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
 
 $error_message = "";
 $success_message = "";
 $show_otp_form = false;
-
-function resolveSmtpSecure() {
-    if (defined('SMTP_SECURE') && SMTP_SECURE !== '') {
-        return SMTP_SECURE;
-    }
-    // Hostinger: 465 = SSL, 587 = STARTTLS
-    return ((int) SMTP_PORT === 465)
-        ? PHPMailer::ENCRYPTION_SMTPS
-        : PHPMailer::ENCRYPTION_STARTTLS;
-}
 
 function maskEmailAddress($email) {
     $email = trim((string) $email);
@@ -52,14 +44,7 @@ function maskEmailAddress($email) {
 function sendOTP($toEmail, $otp, $username = null) {
     $mail = new PHPMailer(true);
     try {
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USERNAME;
-        $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = resolveSmtpSecure();
-        $mail->Port       = SMTP_PORT;
-        $mail->Timeout    = 20;
+        configurePhpMailerSmtp($mail, ['timeout' => 20]);
 
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);

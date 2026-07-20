@@ -30,6 +30,7 @@ use PHPMailer\PHPMailer\Exception;
 require __DIR__ . '/../libraries/PHPMailer/src/Exception.php';
 require __DIR__ . '/../libraries/PHPMailer/src/PHPMailer.php';
 require __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
+require_once __DIR__ . '/../includes/phpmailer_smtp.php';
 
 $success_message = "";
 $error_message = "";
@@ -40,17 +41,7 @@ $show_password_form = false;
 function sendResetOTP($toEmail, $otp, $username) {
     $mail = new PHPMailer(true);
     try {
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USERNAME;
-        $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port       = SMTP_PORT;
-        $mail->Timeout = 10;
-        $mail->SMTPKeepAlive = false;
+        configurePhpMailerSmtp($mail, ['timeout' => 10, 'keep_alive' => false]);
         $mail->SMTPAutoTLS = true;
         $mail->SMTPDebug = 0;
 

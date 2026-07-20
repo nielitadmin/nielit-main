@@ -16,6 +16,7 @@ require_once __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
 
 // Load email configuration
 require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/phpmailer_smtp.php';
 
 /**
  * Resolve a production-safe base URL for links inside outbound emails.
@@ -120,8 +121,8 @@ function dispatchRegistrationEmailAsync(
     $job['token'] = buildRegistrationEmailJobToken($job);
     $encoded = base64_encode(json_encode($job, JSON_UNESCAPED_UNICODE));
 
-    if (function_exists('curl_init') && defined('APP_URL')) {
-        $url = rtrim(APP_URL, '/') . '/student/async_send_registration_email.php';
+    if (function_exists('curl_init')) {
+        $url = getEmailBaseUrl() . '/student/async_send_registration_email.php';
         $ch = curl_init($url);
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
@@ -184,18 +185,7 @@ function sendRegistrationEmail($to_email, $student_name, $student_id, $password,
     $mail = new PHPMailer(true);
     
     try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port = SMTP_PORT;
-        $mail->Timeout = 8;
-        $mail->SMTPKeepAlive = false;
+        configurePhpMailerSmtp($mail, ['timeout' => 8, 'keep_alive' => false]);
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
@@ -394,16 +384,7 @@ function sendPasswordResetEmail($to_email, $student_name, $student_id, $new_pass
     $mail = new PHPMailer(true);
     
     try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port = SMTP_PORT;
+        configurePhpMailerSmtp($mail);
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
@@ -448,15 +429,7 @@ function sendRegistrationRejectionEmail(
     $mail = new PHPMailer(true);
 
     try {
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port = SMTP_PORT;
+        configurePhpMailerSmtp($mail);
 
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $student_name);
@@ -642,16 +615,7 @@ function testEmailConfiguration($test_email) {
     $mail = new PHPMailer(true);
     
     try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port = SMTP_PORT;
+        configurePhpMailerSmtp($mail);
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
@@ -682,16 +646,7 @@ function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '
     $mail = new PHPMailer(true);
     
     try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host = SMTP_HOST;
-        $mail->SMTPAuth = true;
-        $mail->Username = SMTP_USERNAME;
-        $mail->Password = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port = SMTP_PORT;
+        configurePhpMailerSmtp($mail);
         
         // Recipients
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);

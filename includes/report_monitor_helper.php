@@ -1481,6 +1481,210 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $rows;
     }
 
+    function report_monitor_calendar_event_color(string $categoryKey): string {
+        $colors = [
+            'long_term' => '#2563eb',
+            'short_term' => '#16a34a',
+            'internship' => '#d97706',
+            'workshop' => '#7c3aed',
+            'certification' => '#0891b2',
+            'tp' => '#db2777',
+        ];
+
+        return $colors[$categoryKey] ?? '#6366f1';
+    }
+
+    /**
+     * Calendar-wise batch schedule for the selected FY quarter / centre.
+     * Groups batches by start month with course name, dates, and footfall (enrolled students).
+     */
+    function report_monitor_get_course_calendar_schedule($conn, array $courseIds = [], $centreId = 0, array $monthFilter = [], array $graphMonths = []) {
+        if (!report_monitor_table_exists($conn, 'batches')) {
+            return [
+                'months' => [],
+                'events' => [],
+                'total_footfall' => 0,
+                'total_batches' => 0,
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        $categoryExpr = report_monitor_course_category_sql('c');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $hasSchemes = report_monitor_table_exists($conn, 'schemes');
+        $schemeJoin = $hasSchemes ? 'LEFT JOIN schemes sch ON sch.id = b.scheme_id' : '';
+        $schemeSelect = $hasSchemes
+            ? "COALESCE(NULLIF(TRIM(sch.scheme_name), ''), '—')"
+            : "'—'";
+
+        $sql = "SELECT
+                    b.id,
+                    b.batch_name,
+                    b.batch_code,
+                    {$batchStartExpr} AS batch_start,
+                    {$batchEndExpr} AS batch_end,
+                    b.seats_total,
+                    b.seats_filled,
+                    b.status,
+                    c.id AS course_id,
+                    c.course_name,
+                    c.course_code,
+                    {$categoryExpr} AS course_category,
+                    {$schemeSelect} AS scheme_name,
+                    COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name
+                FROM batches b
+                INNER JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres cen ON cen.id = c.centre_id
+                {$schemeJoin}
+                WHERE 1=1{$scopeFilter['sql']}";
+
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
+        $sql .= " ORDER BY {$batchStartExpr} ASC, c.course_name ASC, b.batch_name ASC";
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return [
+                'months' => [],
+                'events' => [],
+                'total_footfall' => 0,
+                'total_batches' => 0,
+            ];
+        }
+
+        require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
+
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $footfall = function_exists('getBatchEnrolledCount')
+                ? getBatchEnrolledCount((int) $row['id'], $conn)
+                : (int) ($row['seats_filled'] ?? 0);
+            $seatsTotal = (int) ($row['seats_total'] ?? 0);
+            $startRaw = $row['batch_start'] ?? null;
+            $endRaw = $row['batch_end'] ?? null;
+            $startTs = $startRaw ? strtotime((string) $startRaw) : false;
+            $monthKey = $startTs ? date('Y-m', $startTs) : 'unknown';
+            $categoryKey = report_monitor_resolve_category_group($row['course_category']);
+
+            $rows[] = [
+                'id' => (int) $row['id'],
+                'course_name' => $row['course_name'],
+                'course_code' => $row['course_code'] ?? '',
+                'course_category' => report_monitor_category_label($categoryKey),
+                'category_key' => $categoryKey,
+                'batch_name' => $row['batch_name'],
+                'batch_code' => $row['batch_code'] ?? '',
+                'scheme_name' => $row['scheme_name'] ?? '—',
+                'centre_name' => $row['centre_name'],
+                'start_date' => $startRaw,
+                'end_date' => $endRaw,
+                'start_date_label' => report_monitor_format_display_date($startRaw),
+                'end_date_label' => report_monitor_format_display_date($endRaw),
+                'period_label' => report_monitor_format_batch_period_label($startRaw, $endRaw),
+                'footfall' => $footfall,
+                'seats_total' => $seatsTotal,
+                'fill_rate' => $seatsTotal > 0 ? round(($footfall / $seatsTotal) * 100, 1) : 0,
+                'status' => $row['status'] ?? 'active',
+                'month_key' => $monthKey,
+            ];
+        }
+
+        $events = [];
+        foreach ($rows as $row) {
+            $startDate = !empty($row['start_date']) ? date('Y-m-d', strtotime((string) $row['start_date'])) : null;
+            if ($startDate === null) {
+                continue;
+            }
+
+            $endSource = !empty($row['end_date']) ? $row['end_date'] : $row['start_date'];
+            $endExclusive = date('Y-m-d', strtotime((string) $endSource . ' +1 day'));
+            $eventColor = report_monitor_calendar_event_color((string) ($row['category_key'] ?? ''));
+
+            $events[] = [
+                'id' => (string) $row['id'],
+                'title' => $row['course_name'] . ' (' . number_format($row['footfall']) . ')',
+                'start' => $startDate,
+                'end' => $endExclusive,
+                'allDay' => true,
+                'backgroundColor' => $eventColor,
+                'borderColor' => $eventColor,
+                'extendedProps' => [
+                    'course_name' => $row['course_name'],
+                    'course_code' => $row['course_code'],
+                    'course_category' => $row['course_category'],
+                    'batch_name' => $row['batch_name'],
+                    'batch_code' => $row['batch_code'],
+                    'scheme_name' => $row['scheme_name'],
+                    'centre_name' => $row['centre_name'],
+                    'start_label' => $row['start_date_label'],
+                    'end_label' => $row['end_date_label'],
+                    'period_label' => $row['period_label'],
+                    'footfall' => $row['footfall'],
+                    'seats_total' => $row['seats_total'],
+                    'fill_rate' => $row['fill_rate'],
+                    'status' => $row['status'],
+                ],
+            ];
+        }
+
+        $monthBuckets = [];
+        foreach ($graphMonths as $graphMonth) {
+            $monthKey = sprintf('%04d-%02d', (int) $graphMonth['year'], (int) $graphMonth['month']);
+            $monthBuckets[$monthKey] = [
+                'key' => $monthKey,
+                'label' => date('F Y', mktime(0, 0, 0, (int) $graphMonth['month'], 1, (int) $graphMonth['year'])),
+                'rows' => [],
+                'footfall' => 0,
+                'batch_count' => 0,
+            ];
+        }
+
+        foreach ($rows as $row) {
+            $monthKey = $row['month_key'];
+            if (!isset($monthBuckets[$monthKey])) {
+                $startTs = !empty($row['start_date']) ? strtotime((string) $row['start_date']) : false;
+                $monthBuckets[$monthKey] = [
+                    'key' => $monthKey,
+                    'label' => $startTs ? date('F Y', $startTs) : 'Unscheduled',
+                    'rows' => [],
+                    'footfall' => 0,
+                    'batch_count' => 0,
+                ];
+            }
+
+            $monthBuckets[$monthKey]['rows'][] = $row;
+            $monthBuckets[$monthKey]['footfall'] += (int) $row['footfall'];
+            $monthBuckets[$monthKey]['batch_count']++;
+        }
+
+        $orderedMonths = [];
+        foreach ($graphMonths as $graphMonth) {
+            $monthKey = sprintf('%04d-%02d', (int) $graphMonth['year'], (int) $graphMonth['month']);
+            if (isset($monthBuckets[$monthKey])) {
+                $orderedMonths[] = $monthBuckets[$monthKey];
+                unset($monthBuckets[$monthKey]);
+            }
+        }
+
+        if (!empty($monthBuckets)) {
+            ksort($monthBuckets);
+            foreach ($monthBuckets as $extraMonth) {
+                $orderedMonths[] = $extraMonth;
+            }
+        }
+
+        $totalFootfall = array_sum(array_column($rows, 'footfall'));
+
+        return [
+            'months' => $orderedMonths,
+            'events' => $events,
+            'total_footfall' => $totalFootfall,
+            'total_batches' => count($rows),
+        ];
+    }
+
     /**
      * Return number of students (registered in the given monthFilter) grouped by batch.
      * Students counted are those active and assigned to a batch (via students.batch_id or batch_students mapping).

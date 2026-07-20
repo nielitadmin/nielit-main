@@ -32,6 +32,7 @@ use PHPMailer\PHPMailer\Exception;
 require __DIR__ . '/../libraries/PHPMailer/src/Exception.php';
 require __DIR__ . '/../libraries/PHPMailer/src/PHPMailer.php';
 require __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
+require_once __DIR__ . '/../includes/phpmailer_smtp.php';
 
 // Handle form submission
 $success_message = "";
@@ -42,23 +43,8 @@ $show_otp_form = false;
 function sendOTPEmail($toEmail, $otp, $username) {
     $mail = new PHPMailer(true);
     try {
-        // SMTP Configuration with timeout settings
-        $mail->isSMTP();
-        $mail->Host       = SMTP_HOST;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = SMTP_USERNAME;
-        $mail->Password   = SMTP_PASSWORD;
-        $mail->SMTPSecure = (defined('SMTP_SECURE') && SMTP_SECURE !== '')
-            ? SMTP_SECURE
-            : (((int) SMTP_PORT === 465) ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS);
-        $mail->Port       = SMTP_PORT;
-        
-        // Performance optimization - set timeouts
-        $mail->Timeout = 10; // Connection timeout (10 seconds)
-        $mail->SMTPKeepAlive = false; // Don't keep connection alive
-        $mail->SMTPAutoTLS = true; // Auto TLS
-        
-        // Disable debug output for faster processing
+        configurePhpMailerSmtp($mail, ['timeout' => 10, 'keep_alive' => false]);
+        $mail->SMTPAutoTLS = true;
         $mail->SMTPDebug = 0;
 
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
