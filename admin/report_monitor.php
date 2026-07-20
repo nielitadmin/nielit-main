@@ -731,7 +731,6 @@ $pageTitle="Report Monitor";
 
         }
 
-        .course-fy-lane-bar .bar-total,
         .course-fy-lane-bar .bar-date{
 
             flex:0 0 auto;
@@ -2985,7 +2984,6 @@ function renderCourseFyGanttChart(timeline) {
         lanesHtml +=
             '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
                 '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx + 'px;width:' + widthPx + 'px">' +
-                    '<span class="bar-total">Σ ' + Number(bar.cumulative).toLocaleString() + '</span>' +
                     '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
                     '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
                     '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
