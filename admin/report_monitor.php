@@ -853,6 +853,54 @@ $pageTitle="Report Monitor";
 
         }
 
+        .course-fy-month-axis{
+
+            display:flex;
+
+            flex-wrap:nowrap;
+
+            border-top:1px solid #93c5fd;
+
+            background:#eff6ff;
+
+            position:sticky;
+
+            bottom:36px;
+
+            z-index:6;
+
+        }
+
+        .course-fy-month-tick{
+
+            flex:0 0 auto;
+
+            box-sizing:border-box;
+
+            height:28px;
+
+            border-right:2px solid #2563eb;
+
+            font-size:11px;
+
+            font-weight:800;
+
+            color:#1e3a8a;
+
+            text-align:center;
+
+            line-height:28px;
+
+            white-space:nowrap;
+
+            overflow:hidden;
+
+            text-overflow:ellipsis;
+
+            padding:0 4px;
+
+        }
+
         .course-fy-day-axis{
 
             display:flex;
@@ -2010,6 +2058,7 @@ Q4 (Jan–Mar)
                     <div class="course-fy-gantt-scroll" id="courseFyGanttScroll">
                         <div id="courseFyGanttInner">
                             <div class="course-fy-plot" id="courseFyPlot"></div>
+                            <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
                             <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
                         </div>
                     </div>
@@ -2881,6 +2930,7 @@ function renderCourseFyGanttChart(timeline) {
     const inner = document.getElementById('courseFyGanttInner');
     const plot = document.getElementById('courseFyPlot');
     const dayAxis = document.getElementById('courseFyGanttDayAxis');
+    const monthAxis = document.getElementById('courseFyMonthAxis');
     const yTicks = document.getElementById('courseFyYTicks');
     const yRail = document.querySelector('.course-fy-y-rail');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
@@ -3002,6 +3052,22 @@ function renderCourseFyGanttChart(timeline) {
     }
     dayAxis.innerHTML = daysHtml;
     dayAxis.style.width = plotWidth + 'px';
+
+    if (monthAxis) {
+        const markers = timeline.month_markers || [];
+        let monthsHtml = '';
+        if (markers.length) {
+            markers.forEach(function (marker) {
+                const width = Math.max(1, Number(marker.day_count) || 0) * pixelsPerDay;
+                monthsHtml += '<div class="course-fy-month-tick" style="width:' + width + 'px" title="' +
+                    escapeHtmlAttr(marker.label || '') + '">' + escapeHtmlAttr(marker.label || '') + '</div>';
+            });
+        } else {
+            monthsHtml = '<div class="course-fy-month-tick" style="width:' + plotWidth + 'px">Financial Year</div>';
+        }
+        monthAxis.innerHTML = monthsHtml;
+        monthAxis.style.width = plotWidth + 'px';
+    }
 
     if (hoverPanel && hoverPanel.parentElement !== document.body) {
         document.body.appendChild(hoverPanel);
