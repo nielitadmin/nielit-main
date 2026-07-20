@@ -935,6 +935,22 @@ $pageTitle="Report Monitor";
 
         }
 
+        .course-fy-gantt-scroll{
+
+            overflow-x:auto;
+
+            overflow-y:hidden;
+
+            padding-bottom:4px;
+
+        }
+
+        #courseFyGanttInner{
+
+            min-width:100%;
+
+        }
+
         #courseFyGanttWrap canvas{
 
             width:100% !important;
@@ -2047,9 +2063,13 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Y-axis: course · X-axis: dates (d.m.yy) · hover bar for footfall &amp; totals</span>
+                <span class="text-muted small">Y-axis: course · X-axis: all <?php echo (int) ($courseFyTimeline['day_count'] ?? 365); ?> days (d.m.yy) · scroll horizontally · hover for figures</span>
             </div>
-            <canvas id="courseFyGanttChart"></canvas>
+            <div class="course-fy-gantt-scroll">
+                <div id="courseFyGanttInner">
+                    <canvas id="courseFyGanttChart"></canvas>
+                </div>
+            </div>
         </div>
 
         <details class="mb-0">
@@ -2908,14 +2928,24 @@ const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
 renderCourseFyTimeline(courseFyTimelineData);
 
+function formatDayTick(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) {
+        return '';
+    }
+    return d.getDate() + '.' + (d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(-2);
+}
+
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
+    const inner = document.getElementById('courseFyGanttInner');
     const canvas = document.getElementById('courseFyGanttChart');
     if (!wrap || !canvas || typeof Chart === 'undefined') {
         return;
     }
 
     const courses = timeline.courses || [];
+    const dayCount = timeline.day_count || 0;
     const batchPoints = [];
     const barColors = [
         'rgba(37,99,235,0.85)', 'rgba(22,163,74,0.85)', 'rgba(217,119,6,0.85)',
@@ -2933,7 +2963,7 @@ function renderCourseFyGanttChart(timeline) {
                 ? (course.course_name + ' · ' + batch.batch_code)
                 : course.course_name;
             batchPoints.push({
-                x: [batch.start_date, batch.end_date],
+                x: [batch.start_date, batch.end_date + 'T23:59:59'],
                 y: yLabel,
                 batch_name: batch.batch_name,
                 batch_code: batch.batch_code,
@@ -2952,8 +2982,16 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
-    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 100));
+    const pixelsPerDay = 5;
+    const chartWidth = Math.max(wrap.clientWidth - 24, (dayCount || 365) * pixelsPerDay);
+    if (inner) {
+        inner.style.width = chartWidth + 'px';
+    }
+
+    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 120));
     wrap.style.height = chartHeight + 'px';
+
+    const fyEndMax = timeline.fy_end ? (timeline.fy_end + 'T23:59:59') : undefined;
 
     new Chart(canvas, {
         type: 'bar',
@@ -2979,6 +3017,9 @@ function renderCourseFyGanttChart(timeline) {
             indexAxis: 'y',
             responsive: true,
             maintainAspectRatio: false,
+            layout: {
+                padding: { bottom: 8, right: 8 }
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -3010,25 +3051,48 @@ function renderCourseFyGanttChart(timeline) {
                 x: {
                     type: 'time',
                     min: timeline.fy_start,
-                    max: timeline.fy_end,
+                    max: fyEndMax,
                     time: {
-                        unit: 'month',
+                        unit: 'day',
+                        round: 'day',
                         displayFormats: {
-                            month: 'MMM yyyy',
                             day: 'd.M.yy'
                         },
                         tooltipFormat: 'd.M.yy'
                     },
                     title: {
                         display: true,
-                        text: 'Date (daily axis · Apr–Mar FY)'
+                        text: 'Date — all ' + (dayCount || 365) + ' days (d.m.yy) · scroll →'
                     },
                     grid: {
-                        color: 'rgba(148,163,184,0.25)'
+                        color: function (context) {
+                            if (!context.tick || !context.tick.value) {
+                                return 'rgba(148,163,184,0.15)';
+                            }
+                            const d = new Date(context.tick.value);
+                            return d.getDate() === 1
+                                ? 'rgba(37,99,235,0.22)'
+                                : 'rgba(148,163,184,0.12)';
+                        },
+                        lineWidth: function (context) {
+                            if (!context.tick || !context.tick.value) {
+                                return 1;
+                            }
+                            const d = new Date(context.tick.value);
+                            return d.getDate() === 1 ? 1.5 : 1;
+                        }
                     },
                     ticks: {
-                        maxRotation: 0,
-                        autoSkip: true
+                        source: 'auto',
+                        autoSkip: false,
+                        maxTicksLimit: (dayCount || 366) + 5,
+                        maxRotation: 90,
+                        minRotation: 90,
+                        font: { size: 8 },
+                        padding: 2,
+                        callback: function (value) {
+                            return formatDayTick(value);
+                        }
                     }
                 },
                 y: {
