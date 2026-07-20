@@ -438,6 +438,8 @@ $pageTitle="Report Monitor";
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
     <link
         href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css"
         rel="stylesheet"
@@ -912,6 +914,30 @@ $pageTitle="Report Monitor";
             width:100% !important;
 
             height:44px !important;
+
+        }
+
+        #courseFyGanttWrap{
+
+            position:relative;
+
+            min-height:420px;
+
+            margin-bottom:24px;
+
+            padding:12px;
+
+            border:1px solid #e2e8f0;
+
+            border-radius:12px;
+
+            background:#fafbff;
+
+        }
+
+        #courseFyGanttWrap canvas{
+
+            width:100% !important;
 
         }
 
@@ -2003,7 +2029,7 @@ Q4 (Jan–Mar)
                 Course-wise FY Timeline Progress
             </strong>
             <small class="text-muted ms-2">
-                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · daily axis · hover bars &amp; mini graphs for figures
+                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · graph + daily timeline · hover for figures
             </small>
         </div>
 
@@ -2018,9 +2044,20 @@ Q4 (Jan–Mar)
 
     <div class="card-body">
 
-        <div id="courseFyTimeline" class="course-fy-timeline-wrap">
-            <p class="text-center text-muted py-4 mb-0">Loading timeline…</p>
+        <div id="courseFyGanttWrap">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
+                <span class="text-muted small">Y-axis: course · X-axis: dates (d.m.yy) · hover bar for footfall &amp; totals</span>
+            </div>
+            <canvas id="courseFyGanttChart"></canvas>
         </div>
+
+        <details class="mb-0">
+            <summary class="fw-semibold text-muted mb-3" style="cursor:pointer;">Detailed daily timeline table (click to expand)</summary>
+            <div id="courseFyTimeline" class="course-fy-timeline-wrap">
+                <p class="text-center text-muted py-4 mb-0">Loading timeline…</p>
+            </div>
+        </details>
 
     </div>
 
@@ -2867,7 +2904,150 @@ precision:0
 COURSE FY TIMELINE
 ==================================================*/
 
-renderCourseFyTimeline(reportPayload.courseFyTimeline || {});
+const courseFyTimelineData = reportPayload.courseFyTimeline || {};
+renderCourseFyGanttChart(courseFyTimelineData);
+renderCourseFyTimeline(courseFyTimelineData);
+
+function renderCourseFyGanttChart(timeline) {
+    const wrap = document.getElementById('courseFyGanttWrap');
+    const canvas = document.getElementById('courseFyGanttChart');
+    if (!wrap || !canvas || typeof Chart === 'undefined') {
+        return;
+    }
+
+    const courses = timeline.courses || [];
+    const batchPoints = [];
+    const barColors = [
+        'rgba(37,99,235,0.85)', 'rgba(22,163,74,0.85)', 'rgba(217,119,6,0.85)',
+        'rgba(124,58,237,0.85)', 'rgba(8,145,178,0.85)', 'rgba(219,39,119,0.85)',
+        'rgba(101,163,13,0.85)', 'rgba(234,88,12,0.85)', 'rgba(79,70,229,0.85)'
+    ];
+
+    courses.forEach(function (course) {
+        const batches = course.batches || [];
+        if (!batches.length) {
+            return;
+        }
+        batches.forEach(function (batch) {
+            const yLabel = batches.length > 1 && batch.batch_code
+                ? (course.course_name + ' · ' + batch.batch_code)
+                : course.course_name;
+            batchPoints.push({
+                x: [batch.start_date, batch.end_date],
+                y: yLabel,
+                batch_name: batch.batch_name,
+                batch_code: batch.batch_code,
+                start_label: batch.start_label,
+                end_label: batch.end_label,
+                footfall: batch.footfall,
+                total_registered: course.total_registered,
+                total_admissions: course.total_admissions,
+                total_footfall: course.total_footfall
+            });
+        });
+    });
+
+    if (!batchPoints.length) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No batch periods to plot on the graph for this financial year.</p>';
+        return;
+    }
+
+    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 100));
+    wrap.style.height = chartHeight + 'px';
+
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            datasets: [{
+                label: 'Batch period',
+                data: batchPoints.map(function (point) {
+                    return { x: point.x, y: point.y };
+                }),
+                backgroundColor: batchPoints.map(function (_, index) {
+                    return barColors[index % barColors.length];
+                }),
+                borderColor: batchPoints.map(function (_, index) {
+                    return barColors[index % barColors.length].replace('0.85', '1');
+                }),
+                borderWidth: 1,
+                borderRadius: 6,
+                barThickness: 16,
+                batchMeta: batchPoints
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title: function (items) {
+                            if (!items.length) {
+                                return '';
+                            }
+                            const meta = items[0].dataset.batchMeta[items[0].dataIndex];
+                            return meta ? meta.y : '';
+                        },
+                        label: function (ctx) {
+                            const meta = ctx.dataset.batchMeta[ctx.dataIndex];
+                            if (!meta) {
+                                return '';
+                            }
+                            return [
+                                'Batch: ' + meta.batch_name,
+                                'Period: ' + meta.start_label + ' → ' + meta.end_label,
+                                'Footfall: ' + Number(meta.footfall || 0).toLocaleString(),
+                                'Course Reg: ' + Number(meta.total_registered || 0).toLocaleString(),
+                                'Course Adm: ' + Number(meta.total_admissions || 0).toLocaleString()
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    min: timeline.fy_start,
+                    max: timeline.fy_end,
+                    time: {
+                        unit: 'month',
+                        displayFormats: {
+                            month: 'MMM yyyy',
+                            day: 'd.M.yy'
+                        },
+                        tooltipFormat: 'd.M.yy'
+                    },
+                    title: {
+                        display: true,
+                        text: 'Date (daily axis · Apr–Mar FY)'
+                    },
+                    grid: {
+                        color: 'rgba(148,163,184,0.25)'
+                    },
+                    ticks: {
+                        maxRotation: 0,
+                        autoSkip: true
+                    }
+                },
+                y: {
+                    title: {
+                        display: true,
+                        text: 'Course'
+                    },
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        autoSkip: false,
+                        font: { size: 11 }
+                    }
+                }
+            }
+        }
+    });
+}
 
 function renderCourseFyTimeline(timeline) {
     const container = document.getElementById('courseFyTimeline');
