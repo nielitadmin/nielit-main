@@ -1,0 +1,204 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta name="ProgId" content="Word.Document">
+<meta name="Generator" content="Microsoft Word">
+<title>यात्रा भत्ता आवेदन - Travelling Allowance Form</title>
+<style>
+@page { size: A4; margin: 1.5cm 1.2cm; }
+body { font-family: "Mangal", "Nirmala UI", "Arial Unicode MS", Arial, sans-serif; font-size: 11pt; color: #000; }
+.center { text-align: center; }
+.bold { font-weight: bold; }
+.hindi { font-family: "Mangal", "Nirmala UI", "Arial Unicode MS", sans-serif; }
+table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; font-size: 10pt; }
+.no-border td, .no-border th { border: none; }
+.field-line { border-bottom: 1px solid #000; min-height: 18px; display: inline-block; width: 100%; }
+.section-title { font-weight: bold; margin: 12px 0 6px; }
+.small { font-size: 9pt; }
+.checkbox { font-family: Segoe UI Symbol, Arial; }
+</style>
+</head>
+<body>
+
+<div class="center bold hindi">
+<div>राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान</div>
+<div>National Institute of Electronics &amp; Information Technology (NIELIT)</div>
+<div class="small">इलेक्ट्रॉनिकी और सूचना प्रौद्योगिकी मंत्रालय, भारत सरकार</div>
+<div class="small">Ministry of Electronics &amp; Information Technology, Government of India</div>
+</div>
+
+<div class="center bold hindi" style="margin-top:14px; font-size:13pt;">
+यात्रा भत्ता आवेदन / Travelling Allowance Form
+</div>
+
+<div class="section-title hindi checkbox">&#9670; दावेदार का विवरण / Claimant Details:-</div>
+<table class="no-border" style="width:100%;">
+<tr><td class="hindi" style="width:38%;">दावेदार का नाम / Name of Claimant:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">पदनाम / Designation:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">वेतन / Pay:</td><td><span class="field-line" style="width:30%;">&nbsp;</span> <span class="hindi">स्तर / Level</span> <span class="field-line" style="width:15%;">&nbsp;</span> <span class="hindi">सेल / Cell</span> <span class="field-line" style="width:30%;">&nbsp;</span></td></tr>
+<tr><td class="hindi">आधिकारिक पता / Official Address:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">यात्रा का उद्देश्य / Purpose of Journey:</td><td><span class="field-line">&nbsp;</span></td></tr>
+</table>
+
+<div class="section-title hindi checkbox">&#9670; खाते में अंतरित करने के लिए [अनिवार्य] / For Account Transfer [Mandatory]:-</div>
+<table class="no-border" style="width:100%;">
+<tr><td class="hindi" style="width:38%;">पैन / PAN:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">ईमेल / E-Mail ID:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">संपर्क सूत्र / Mobile No.:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">बैंक का नाम व शाखा / Name and Branch of Bank:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">आई एफ सी कोड / IFSC Code:</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">खाता संख्या / Account Number:</td><td><span class="field-line">&nbsp;</span></td></tr>
+</table>
+
+<div class="section-title">A) <span class="hindi">यात्रा भत्ता / Travelling Allowance:-</span></div>
+<table>
+<tr>
+<th class="hindi small" colspan="2">प्रस्थान<br>Departure</th>
+<th class="hindi small" colspan="2">आगमन<br>Arrival</th>
+<th class="hindi small" rowspan="2">यात्रा का<br>तरीका<br>Mode of Travel</th>
+<th class="hindi small" rowspan="2">श्रेणी<br>Class</th>
+<th class="hindi small" rowspan="2">दूरी<br>(कि.मी. / K.M.)<br>Distance</th>
+<th class="hindi small" rowspan="2">भुगतान<br>किया या<br>कराया<br>Fare Paid</th>
+<th class="hindi small" colspan="3">यात्रा विवरण / Journey Details<br><span class="small">यदि यात्रा टैक्सी / कार द्वारा की गई, कृपया निर्दिष्ट करें<br>(If Travelled by Taxi / Car, Please indicate)</span></th>
+</tr>
+<tr>
+<th class="hindi small">दिनांक व<br>समय<br>Date &amp; Time</th>
+<th class="hindi small">स्टेशन /<br>स्थान<br>Station / Place</th>
+<th class="hindi small">दिनांक व<br>समय<br>Date &amp; Time</th>
+<th class="hindi small">स्टेशन /<br>स्थान<br>Station / Place</th>
+<th class="hindi small">वाहन<br>क्रमांक<br>Vehicle No.</th>
+<th class="hindi small">यात्रा<br>कि.मी.<br>KM Travelled</th>
+<th class="hindi small">क्या साझा<br>किया या<br>Whether Shared</th>
+<th class="hindi small">राशि<br>Amount</th>
+</tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+</table>
+<p class="small">(Note:- TA is applicable for the shortest route only)</p>
+
+<div class="section-title">(B) <span class="hindi">खाद्य बिल दावे / Food Bill Claim (If Applicable):-</span></div>
+<table>
+<tr>
+<th class="hindi">दावे की तिथि / Date for which claim made</th>
+<th class="hindi">राशि / Amount</th>
+<th class="hindi">कार्यालय प्रयोजन हेतु (राशि) / For Office Use (Entitled amount)</th>
+</tr>
+<tr><td style="height:24px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td style="height:24px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr>
+<td class="hindi bold">कुल / Total</td>
+<td>&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+</table>
+
+<br style="page-break-before: always;">
+
+<div class="section-title">(C) <span class="hindi">होटल आवास लागत / Cost of Hotel Accommodation (If Stayed):-</span></div>
+<table>
+<tr>
+<th class="hindi">होटल का नाम एवं पता<br>Name and Address of Hotel</th>
+<th class="hindi">अवधि / Period<br>से / From</th>
+<th class="hindi">तक / To</th>
+<th class="hindi">दिनों की संख्या<br>No. of Days</th>
+<th class="hindi">दर / Rate</th>
+<th class="hindi">जीएसटी / GST</th>
+<th class="hindi">राशि / Amount</th>
+</tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr><td style="height:28px;">&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>
+<tr>
+<td class="hindi bold">कुल / Total</td>
+<td colspan="5">&nbsp;</td>
+<td>&nbsp;</td>
+</tr>
+</table>
+
+<table class="no-border" style="width:100%; margin-top:10px;">
+<tr><td class="hindi" style="width:42%;">'ए' के अनुसार / Claim as per 'A':</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">'बी' के अनुसार / Claim as per 'B':</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">'सी' के अनुसार / Claim as per 'C':</td><td><span class="field-line">&nbsp;</span></td></tr>
+<tr><td class="hindi">कुल / Total Claim (A+B+C):</td><td><span class="field-line" style="width:25%;">&nbsp;</span> <span class="hindi">(रु / Rupees</span> <span class="field-line" style="width:40%;">&nbsp;</span> <span class="hindi">केवल / Only)</span></td></tr>
+</table>
+
+<div class="section-title">D) <span class="hindi">विराम स्थल से निम्नलिखित कारण से अनुपस्थित रहने की तारीख / Date of absence from place of halt on account of:-</span></div>
+<p>a) R.H. and C.L.:- <span class="field-line" style="width:60%;">&nbsp;</span></p>
+
+<div class="section-title">E) <span class="hindi">लिए गए यात्रा भत्ता अग्रिम की रकम यदि कोई हो / Amount of T.A. advance, if any drawn:-</span></div>
+<p><span class="field-line" style="width:70%;">&nbsp;</span></p>
+
+<p>Certified that the incumbent has performed his/her duties in relation to <span class="field-line" style="width:45%;">&nbsp;</span> and TA/DA be paid for the period from <span class="field-line" style="width:22%;">&nbsp;</span> to <span class="field-line" style="width:22%;">&nbsp;</span>.</p>
+
+<div class="section-title checkbox">&#9670; Checklist:-</div>
+<ul style="margin-top:4px;">
+<li>Copy of the invitation letter attached.</li>
+<li>Original Bill for Taxi (if Own Car is not used) attached.</li>
+<li>Proof of Toll Charges attached.</li>
+<li>Verified list of Students in case of Practical/Viva is attached.</li>
+<li>Copy of Ticket and Boarding Pass (In Original) in case of Air Travel attached. Tickets have been purchased only from one of the three Authorized Travel Agents, only as listed below:
+<ol>
+<li>M/s Balmer Lawrie &amp; Company Limited (BLCL).</li>
+<li>M/s Ashok Travels &amp; Tours (ATT).</li>
+<li>Indian Railways Catering and Tourism Corporation Ltd. (IRCTC).</li>
+</ol></li>
+<li>Original Tickets in case of Public Transport attached.</li>
+<li>Form is complete in all respect.</li>
+</ul>
+
+<table class="no-border" style="width:100%; margin-top:16px;">
+<tr>
+<td style="width:50%; vertical-align:top;">
+<div class="hindi bold">रकम प्राप्त (पूर्व प्राप्ति रसीद) / Amount Received in Full (Pre-Receipt)</div>
+<div style="height:50px; border:1px solid #000; margin-top:8px;">&nbsp;</div>
+</td>
+<td style="width:50%; vertical-align:top;">
+<div class="hindi bold">पर्यवेक्षण अधिकारी / विभागाध्यक्ष / पीआई / समन्वयक के हस्ताक्षर</div>
+<div class="small">Signature of the supervising officer / HoD / PI / Coordinator</div>
+<div class="hindi" style="margin-top:8px;">नाम / Name: <span class="field-line">&nbsp;</span></div>
+<div class="hindi">पद / Designation: <span class="field-line">&nbsp;</span></div>
+<div class="hindi">विभाग / Department: <span class="field-line">&nbsp;</span></div>
+<div class="hindi">कर्मचारी आईडी / Emp. ID: <span class="field-line">&nbsp;</span></div>
+</td>
+</tr>
+</table>
+
+<div class="hindi bold" style="margin-top:18px;">दावेदार के हस्ताक्षर दिनांक के साथ / Signature of the Claimant with date</div>
+<div style="height:45px; border:1px solid #000; margin-top:8px; width:45%;">&nbsp;</div>
+
+<p class="bold small">Note:- All columns are mandatory</p>
+
+<div class="hindi center bold" style="margin-top:14px; border-top:1px solid #000; padding-top:8px;">
+(वित्त और लेखा विभाग के उपयोग के लिए / For the use of Finance &amp; Accounts Department)
+</div>
+
+<p>TA: __________, DA: _____________, SF: _________, Total: ____________, Less TDS: _______, Grand Total: _______________</p>
+
+<p>Passed Payment of Rs. _________________ (<span class="hindi">रु / Rupees</span> _____________________________________________________________ <span class="hindi">केवल / only</span>).</p>
+
+<table class="no-border" style="width:100%; margin-top:20px;">
+<tr>
+<td class="center" style="width:50%;">
+<div class="hindi">कार्य सहायक (वित्त)</div>
+<div class="small">Dealing Assistant (Finance)</div>
+<div style="height:40px; border-top:1px solid #000; margin-top:30px;">&nbsp;</div>
+</td>
+<td class="center" style="width:50%;">
+<div class="hindi">वित्त अधिकारी / प्रशासनिक अधिकारी</div>
+<div class="small">Fin. Officer / Admin. Officer</div>
+<div style="height:40px; border-top:1px solid #000; margin-top:30px;">&nbsp;</div>
+</td>
+</tr>
+<tr>
+<td colspan="2" class="center" style="padding-top:20px;">
+<div class="hindi">मुख्य वित्त अधिकारी / प्रमुख (वित्त)</div>
+<div class="small">Chief Finance Officer / Head (Finance)</div>
+<div style="height:40px; border-top:1px solid #000; margin-top:30px; width:60%; margin-left:auto; margin-right:auto;">&nbsp;</div>
+</td>
+</tr>
+</table>
+
+</body>
+</html>

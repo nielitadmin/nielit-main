@@ -669,7 +669,7 @@ $pageTitle="Report Monitor";
 
         .course-fy-timeline{
 
-            min-width:1200px;
+            min-width:max(1200px, calc(240px + 12px + var(--fy-track-width, 4380px) + 12px + 150px));
 
         }
 
@@ -689,7 +689,7 @@ $pageTitle="Report Monitor";
 
             display:grid;
 
-            grid-template-columns:240px minmax(640px,1fr) 150px;
+            grid-template-columns:240px max-content 150px;
 
             gap:12px;
 
@@ -729,6 +729,8 @@ $pageTitle="Report Monitor";
 
         .course-fy-axis-month{
 
+            flex:0 0 auto;
+
             display:flex;
 
             align-items:center;
@@ -765,7 +767,7 @@ $pageTitle="Report Monitor";
 
         .course-fy-axis-day{
 
-            flex:1 0 0;
+            flex:0 0 auto;
 
             min-width:3px;
 
@@ -797,7 +799,7 @@ $pageTitle="Report Monitor";
 
             display:grid;
 
-            grid-template-columns:240px minmax(640px,1fr) 150px;
+            grid-template-columns:240px max-content 150px;
 
             gap:12px;
 
@@ -949,11 +951,13 @@ $pageTitle="Report Monitor";
 
             min-width:100%;
 
+            position:relative;
+
         }
 
-        #courseFyGanttWrap canvas{
+        #courseFyGanttInner canvas{
 
-            width:100% !important;
+            display:block;
 
         }
 
@@ -2982,16 +2986,22 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
-    const pixelsPerDay = 5;
+    const pixelsPerDay = 12;
     const chartWidth = Math.max(wrap.clientWidth - 24, (dayCount || 365) * pixelsPerDay);
+    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 120));
     if (inner) {
         inner.style.width = chartWidth + 'px';
+        inner.style.height = chartHeight + 'px';
     }
+    wrap.style.height = (chartHeight + 48) + 'px';
 
-    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 120));
-    wrap.style.height = chartHeight + 'px';
+    canvas.width = chartWidth;
+    canvas.height = chartHeight;
+    canvas.style.width = chartWidth + 'px';
+    canvas.style.height = chartHeight + 'px';
 
     const fyEndMax = timeline.fy_end ? (timeline.fy_end + 'T23:59:59') : undefined;
+    const dayIso = timeline.day_iso || [];
 
     new Chart(canvas, {
         type: 'bar',
@@ -2999,7 +3009,10 @@ function renderCourseFyGanttChart(timeline) {
             datasets: [{
                 label: 'Batch period',
                 data: batchPoints.map(function (point) {
-                    return { x: point.x, y: point.y };
+                    return {
+                        x: [point.x[0], point.x[1]],
+                        y: point.y
+                    };
                 }),
                 backgroundColor: batchPoints.map(function (_, index) {
                     return barColors[index % barColors.length];
@@ -3015,8 +3028,12 @@ function renderCourseFyGanttChart(timeline) {
         },
         options: {
             indexAxis: 'y',
-            responsive: true,
+            responsive: false,
             maintainAspectRatio: false,
+            parsing: {
+                xAxisKey: 'x',
+                yAxisKey: 'y'
+            },
             layout: {
                 padding: { bottom: 8, right: 8 }
             },
@@ -3060,6 +3077,14 @@ function renderCourseFyGanttChart(timeline) {
                         },
                         tooltipFormat: 'd.M.yy'
                     },
+                    afterBuildTicks: function (axis) {
+                        if (!dayIso.length) {
+                            return;
+                        }
+                        axis.ticks = dayIso.map(function (iso) {
+                            return { value: iso };
+                        });
+                    },
                     title: {
                         display: true,
                         text: 'Date — all ' + (dayCount || 365) + ' days (d.m.yy) · scroll →'
@@ -3083,13 +3108,12 @@ function renderCourseFyGanttChart(timeline) {
                         }
                     },
                     ticks: {
-                        source: 'auto',
                         autoSkip: false,
                         maxTicksLimit: (dayCount || 366) + 5,
                         maxRotation: 90,
                         minRotation: 90,
-                        font: { size: 8 },
-                        padding: 2,
+                        font: { size: 7 },
+                        padding: 1,
                         callback: function (value) {
                             return formatDayTick(value);
                         }
@@ -3130,7 +3154,7 @@ function renderCourseFyTimeline(timeline) {
         return;
     }
 
-    const dayWidth = Math.max(3, Math.min(6, Math.floor(1100 / dayCount)));
+    const dayWidth = 12;
     const trackWidth = dayCount * dayWidth;
 
     let monthsHtml = '';
@@ -3178,7 +3202,7 @@ function renderCourseFyTimeline(timeline) {
     });
 
     container.innerHTML =
-        '<div class="course-fy-timeline" style="width:' + (240 + 12 + trackWidth + 12 + 150) + 'px">' +
+        '<div class="course-fy-timeline" style="width:' + (240 + 12 + trackWidth + 12 + 150) + 'px;--fy-track-width:' + trackWidth + 'px">' +
             '<div class="course-fy-timeline-head">' +
                 '<div><strong>Course</strong><div class="text-muted small">Totals per course</div></div>' +
                 '<div style="width:' + trackWidth + 'px">' +
