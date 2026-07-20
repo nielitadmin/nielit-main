@@ -653,6 +653,53 @@ $pageTitle="Report Monitor";
 
         }
 
+        .course-fy-time-scroll{
+
+            display:block;
+
+            width:100%;
+
+            max-width:100%;
+
+            overflow-x:scroll;
+
+            overflow-y:hidden;
+
+            padding-bottom:8px;
+
+            -webkit-overflow-scrolling:touch;
+
+            border:1px solid #cbd5e1;
+
+            border-radius:10px;
+
+            background:#fff;
+
+        }
+
+        #courseFyGanttInner{
+
+            position:relative;
+
+            display:block;
+
+            width:max-content;
+
+            min-width:100%;
+
+        }
+
+        #courseFyTimeChart{
+
+            display:block;
+
+            background:
+                linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
+                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 32px 100%,
+                #fff;
+
+        }
+
         .course-fy-plot{
 
             position:relative;
@@ -2044,38 +2091,30 @@ Q4 (Jan–Mar)
 
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">All individual course batches for this FY · progress from Batch Module seats · hover for detail</span>
+                <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
+                <span class="text-muted small">Time graph · one coloured area per course · hover a line for that course’s details</span>
             </div>
-            <div class="course-fy-admission-chart">
-                <div class="course-fy-y-rail">
-                    <div class="course-fy-y-title">Student admission completed ↑</div>
-                    <div class="course-fy-y-ticks" id="courseFyYTicks"></div>
+            <div class="course-fy-time-scroll" id="courseFyGanttScroll">
+                <div id="courseFyGanttInner">
+                    <canvas id="courseFyTimeChart" height="420"></canvas>
+                    <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
+                    <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
                 </div>
-                <div>
-                    <div class="course-fy-gantt-scroll" id="courseFyGanttScroll">
-                        <div id="courseFyGanttInner">
-                            <div class="course-fy-plot" id="courseFyPlot"></div>
-                            <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
-                            <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
-                        </div>
-                    </div>
-                    <div class="course-fy-x-caption">
-                        <span>Financial year wise (1 Apr → 31 Mar)</span>
-                        <span>Day wise →</span>
-                    </div>
-                </div>
+            </div>
+            <div class="course-fy-x-caption">
+                <span>Financial year wise (1 Apr → 31 Mar)</span>
+                <span>Day wise →</span>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
                 <h6 id="courseFyHoverTitle">Course Detail</h6>
-                <div class="hover-meta" id="courseFyHoverMeta">Hover or click a course bar to see admissions for that course.</div>
+                <div class="hover-meta" id="courseFyHoverMeta">Hover a course area/line to see that course’s data.</div>
                 <div class="hover-chart-box">
                     <canvas id="courseFyHoverChart"></canvas>
                 </div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Progress uses Batch Module seats (enrolled/total). Hover or click a bar for course detail.</span>
-                <span class="badge bg-light text-dark border">Hover / click</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Hover the graph to open that course’s seats, centre, and dates.</span>
+                <span class="badge bg-light text-dark border">Time graph</span>
             </div>
         </div>
 
@@ -2923,184 +2962,188 @@ function escapeHtmlAttr(value) {
         .replace(/>/g, '&gt;');
 }
 
+let courseFyTimeChartInstance = null;
+
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
     const inner = document.getElementById('courseFyGanttInner');
-    const plot = document.getElementById('courseFyPlot');
+    const canvas = document.getElementById('courseFyTimeChart');
     const dayAxis = document.getElementById('courseFyGanttDayAxis');
     const monthAxis = document.getElementById('courseFyMonthAxis');
-    const yTicks = document.getElementById('courseFyYTicks');
-    const yRail = document.querySelector('.course-fy-y-rail');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
     const hoverCanvas = document.getElementById('courseFyHoverChart');
-    if (!wrap || !inner || !plot || !dayAxis) {
+    if (!wrap || !inner || !canvas || typeof Chart === 'undefined') {
         return;
     }
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
     const dayLabels = timeline.day_labels || [];
-    const bars = [];
+    const dayIsoList = timeline.day_iso || [];
 
-    // One row per individual batch (all course batches in this FY).
-    courses.forEach(function (course) {
-        const batches = course.batches || [];
-        batches.forEach(function (batch) {
-            const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
-            const endIdx = Number.isFinite(batch.end_index) ? batch.end_index : startIdx;
-            const footfall = Number(batch.footfall) || 0;
-            const seatsTotal = Number(batch.seats_total) || 0;
-            const batchLabel = batch.batch_code || batch.batch_name || '';
-            const centreName = batch.centre_name || '';
-            const baseCourseName = course.course_name || 'Course';
-            const nameParts = [baseCourseName];
-            if (batchLabel) {
-                nameParts.push(batchLabel);
-            }
-            if (centreName) {
-                nameParts.push(centreName);
-            }
-            const displayName = nameParts.join(' · ');
-            bars.push({
-                course_id: course.course_id || 0,
-                course_key: String(course.course_id || baseCourseName),
-                course_name: displayName,
-                course_code: course.course_code || '',
-                batch_name: batch.batch_name || '',
-                batch_code: batch.batch_code || '',
-                centre_name: centreName,
-                start_index: startIdx,
-                end_index: Math.max(startIdx, endIdx),
-                start_label: batch.start_label || '',
-                end_label: batch.end_label || '',
-                admissions: footfall,
-                seats_total: seatsTotal,
-                registered: Number(course.total_registered) || 0,
-                footfall: footfall,
-                daily_admissions: course.daily_admissions || []
-            });
-        });
-    });
-
-    if (!bars.length || !dayCount) {
-        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No batch periods to plot on the graph for this financial year.</p>';
+    if (!courses.length || !dayCount) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course timeline data for this financial year.</p>';
         return;
     }
 
-    bars.sort(function (a, b) {
-        return a.start_index - b.start_index
-            || a.course_name.localeCompare(b.course_name)
-            || String(a.batch_code || '').localeCompare(String(b.batch_code || ''));
-    });
-
-    const courseColorPalette = [
-        { bg: 'linear-gradient(90deg,#67e8f9,#22d3ee)', border: '#0891b2' },
-        { bg: 'linear-gradient(90deg,#c4b5fd,#a78bfa)', border: '#7c3aed' },
-        { bg: 'linear-gradient(90deg,#fca5a5,#f87171)', border: '#dc2626' },
-        { bg: 'linear-gradient(90deg,#fde047,#facc15)', border: '#ca8a04' },
-        { bg: 'linear-gradient(90deg,#86efac,#4ade80)', border: '#16a34a' },
-        { bg: 'linear-gradient(90deg,#fdba74,#fb923c)', border: '#ea580c' },
-        { bg: 'linear-gradient(90deg,#f9a8d4,#f472b6)', border: '#db2777' },
-        { bg: 'linear-gradient(90deg,#93c5fd,#3b82f6)', border: '#2563eb' },
-        { bg: 'linear-gradient(90deg,#a5b4fc,#818cf8)', border: '#4f46e5' },
-        { bg: 'linear-gradient(90deg,#5eead4,#14b8a6)', border: '#0d9488' },
-        { bg: 'linear-gradient(90deg,#d8b4fe,#c084fc)', border: '#9333ea' },
-        { bg: 'linear-gradient(90deg,#fcd34d,#f59e0b)', border: '#d97706' }
+    const palette = [
+        { border: '#2563eb', fill: 'rgba(37,99,235,0.22)', point: '#1d4ed8' },
+        { border: '#16a34a', fill: 'rgba(22,163,74,0.20)', point: '#15803d' },
+        { border: '#db2777', fill: 'rgba(219,39,119,0.18)', point: '#be185d' },
+        { border: '#ca8a04', fill: 'rgba(202,138,4,0.20)', point: '#a16207' },
+        { border: '#7c3aed', fill: 'rgba(124,58,237,0.18)', point: '#6d28d9' },
+        { border: '#0891b2', fill: 'rgba(8,145,178,0.20)', point: '#0e7490' },
+        { border: '#ea580c', fill: 'rgba(234,88,12,0.18)', point: '#c2410c' },
+        { border: '#4f46e5', fill: 'rgba(79,70,229,0.18)', point: '#4338ca' },
+        { border: '#059669', fill: 'rgba(5,150,105,0.18)', point: '#047857' },
+        { border: '#e11d48', fill: 'rgba(225,29,72,0.18)', point: '#be123c' }
     ];
-    const courseColorMap = {};
-    let colorIndex = 0;
-    bars.forEach(function (bar) {
-        const key = bar.course_key || bar.course_name;
-        if (!courseColorMap[key]) {
-            courseColorMap[key] = courseColorPalette[colorIndex % courseColorPalette.length];
-            colorIndex += 1;
+
+    function buildCourseSeries(course) {
+        const series = new Array(dayCount).fill(0);
+        const daily = course.daily_admissions || [];
+        let run = 0;
+        let hasDaily = false;
+        for (let i = 0; i < dayCount; i++) {
+            const v = Number(daily[i] || 0);
+            if (v) {
+                hasDaily = true;
+            }
+            run += v;
+            series[i] = run;
         }
-        bar.color = courseColorMap[key];
-    });
-
-    let runningEnrolled = 0;
-    let totalSeats = 0;
-    bars.forEach(function (bar) {
-        runningEnrolled += Math.max(0, bar.footfall || bar.admissions || 0);
-        totalSeats += Math.max(0, bar.seats_total || 0);
-        bar.cumulative = runningEnrolled;
-    });
-    const enrolledTotal = Math.max(runningEnrolled, 1);
-    // Y-axis follows Batch Module seat capacity (and enrolled), with headroom.
-    const scaleBase = Math.max(totalSeats, enrolledTotal, 100);
-    const yMax = Math.max(500, Math.ceil((scaleBase * 1.15) / 50) * 50);
-    let yStep = 20;
-    if (yMax > 600) {
-        yStep = 50;
-    }
-    if (yMax > 1200) {
-        yStep = 100;
+        if (hasDaily && run > 0) {
+            return series;
+        }
+        // Fallback: batch-module enrolled progress over time (step when batch starts).
+        for (let i = 0; i < dayCount; i++) {
+            let sum = 0;
+            (course.batches || []).forEach(function (batch) {
+                const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+                if (i >= startIdx) {
+                    sum += Number(batch.footfall) || 0;
+                }
+            });
+            series[i] = sum;
+        }
+        return series;
     }
 
-    const laneHeight = 56;
+    const courseMeta = [];
+    const datasets = [];
+    let yPeak = 10;
+
+    courses.forEach(function (course, index) {
+        const batches = course.batches || [];
+        if (!batches.length && !(course.total_footfall || course.total_admissions || course.total_registered)) {
+            return;
+        }
+        const color = palette[index % palette.length];
+        const data = buildCourseSeries(course);
+        const peak = data.length ? Math.max.apply(null, data) : 0;
+        if (peak > yPeak) {
+            yPeak = peak;
+        }
+        let seatsTotal = 0;
+        let footfall = 0;
+        let startLabel = '';
+        let endLabel = '';
+        let centreName = '';
+        let startIdx = Infinity;
+        let endIdx = -1;
+        batches.forEach(function (batch) {
+            footfall += Number(batch.footfall) || 0;
+            seatsTotal += Number(batch.seats_total) || 0;
+            const s = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+            const e = Number.isFinite(batch.end_index) ? batch.end_index : s;
+            if (s < startIdx) {
+                startIdx = s;
+                startLabel = batch.start_label || '';
+                centreName = batch.centre_name || centreName;
+            }
+            if (e > endIdx) {
+                endIdx = e;
+                endLabel = batch.end_label || '';
+            }
+            if (!centreName && batch.centre_name) {
+                centreName = batch.centre_name;
+            }
+        });
+        if (!Number.isFinite(startIdx)) {
+            startIdx = 0;
+        }
+        if (endIdx < 0) {
+            endIdx = dayCount - 1;
+        }
+
+        const label = course.course_name || 'Course';
+        courseMeta.push({
+            course_name: label,
+            course_code: course.course_code || '',
+            centre_name: centreName || '',
+            footfall: footfall || Number(course.total_footfall) || 0,
+            seats_total: seatsTotal,
+            registered: Number(course.total_registered) || 0,
+            admissions: Number(course.total_admissions) || footfall || 0,
+            start_label: startLabel,
+            end_label: endLabel,
+            daily_admissions: course.daily_admissions || [],
+            batches: batches
+        });
+
+        datasets.push({
+            label: label + (course.course_code ? ' (' + course.course_code + ')' : ''),
+            data: data,
+            borderColor: color.border,
+            backgroundColor: color.fill,
+            pointBackgroundColor: color.point,
+            pointBorderColor: '#fff',
+            pointRadius: 0,
+            pointHoverRadius: 5,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            metaIndex: courseMeta.length - 1
+        });
+    });
+
+    if (!datasets.length) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course progress to plot for this financial year.</p>';
+        return;
+    }
+
     const pixelsPerDay = 32;
-    const plotWidth = dayCount * pixelsPerDay;
-    const plotHeight = bars.length * laneHeight;
+    const chartWidth = Math.max(dayCount * pixelsPerDay, 900);
+    const chartHeight = 420;
+    inner.style.width = chartWidth + 'px';
+    inner.style.minWidth = chartWidth + 'px';
+    canvas.style.width = chartWidth + 'px';
+    canvas.style.height = chartHeight + 'px';
+    canvas.width = chartWidth;
+    canvas.height = chartHeight;
 
-    inner.style.width = plotWidth + 'px';
-    inner.style.minWidth = plotWidth + 'px';
-    plot.style.width = plotWidth + 'px';
-    plot.style.height = plotHeight + 'px';
-
-    if (yRail) {
-        yRail.style.minHeight = (plotHeight + 48) + 'px';
-    }
-    if (yTicks) {
-        yTicks.style.height = plotHeight + 'px';
-        let yHtml = '';
-        for (let n = 10; n <= yMax; n += yStep) {
-            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + n + '</div>';
+    if (dayAxis) {
+        let daysHtml = '';
+        for (let i = 0; i < dayCount; i++) {
+            const label = dayLabels[i] || '';
+            const iso = dayIsoList[i] || '';
+            let dayOfMonth = i + 1;
+            const labelMatch = String(label).match(/^(\d+)\./);
+            if (labelMatch) {
+                dayOfMonth = Number(labelMatch[1]);
+            } else if (iso.length >= 10) {
+                dayOfMonth = Number(iso.slice(8, 10));
+            }
+            const isMonthStart = dayOfMonth === 1 || i === 0;
+            const tip = label || iso || String(dayOfMonth);
+            daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
+                '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
         }
-        if (yMax > 10 && ((yMax - 10) % yStep !== 0)) {
-            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + yMax + '</div>';
-        }
-        yTicks.innerHTML = yHtml;
+        dayAxis.innerHTML = daysHtml;
+        dayAxis.style.width = chartWidth + 'px';
     }
-
-    let lanesHtml = '';
-    bars.forEach(function (bar, index) {
-        const leftPx = bar.start_index * pixelsPerDay;
-        const spanDays = bar.end_index - bar.start_index + 1;
-        const widthPx = Math.max(spanDays * pixelsPerDay, 220);
-        const color = bar.color || courseColorPalette[0];
-        lanesHtml +=
-            '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
-                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx +
-                    'px;width:' + widthPx + 'px;background:' + color.bg + ';border-color:' + color.border + '">' +
-                    '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
-                    '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
-                    '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
-                '</div>' +
-            '</div>';
-    });
-    plot.innerHTML = lanesHtml;
-
-    let daysHtml = '';
-    const dayIsoList = timeline.day_iso || [];
-    for (let i = 0; i < dayCount; i++) {
-        const label = dayLabels[i] || '';
-        const iso = dayIsoList[i] || '';
-        let dayOfMonth = i + 1;
-        const labelMatch = String(label).match(/^(\d+)\./);
-        if (labelMatch) {
-            dayOfMonth = Number(labelMatch[1]);
-        } else if (iso.length >= 10) {
-            dayOfMonth = Number(iso.slice(8, 10));
-        }
-        const isMonthStart = dayOfMonth === 1 || i === 0;
-        const tip = label || iso || String(dayOfMonth);
-        daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
-            '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
-    }
-    dayAxis.innerHTML = daysHtml;
-    dayAxis.style.width = plotWidth + 'px';
 
     if (monthAxis) {
         const markers = timeline.month_markers || [];
@@ -3112,10 +3155,10 @@ function renderCourseFyGanttChart(timeline) {
                     escapeHtmlAttr(marker.label || '') + '">' + escapeHtmlAttr(marker.label || '') + '</div>';
             });
         } else {
-            monthsHtml = '<div class="course-fy-month-tick" style="width:' + plotWidth + 'px">Financial Year</div>';
+            monthsHtml = '<div class="course-fy-month-tick" style="width:' + chartWidth + 'px">Financial Year</div>';
         }
         monthAxis.innerHTML = monthsHtml;
-        monthAxis.style.width = plotWidth + 'px';
+        monthAxis.style.width = chartWidth + 'px';
     }
 
     if (hoverPanel && hoverPanel.parentElement !== document.body) {
@@ -3128,18 +3171,16 @@ function renderCourseFyGanttChart(timeline) {
         }
     }
 
-    function placeHoverBesideBar(anchorEl) {
-        if (!hoverPanel || !anchorEl) {
+    function placeHoverAtEvent(evt) {
+        if (!hoverPanel || !evt) {
             return;
         }
-        const rect = anchorEl.getBoundingClientRect();
-        const panelWidth = Math.min(300, window.innerWidth - 24);
-        const panelHeight = hoverPanel.offsetHeight || 230;
-        let left = rect.right + 12;
-        let top = rect.top - 8;
-
+        const panelWidth = Math.min(320, window.innerWidth - 24);
+        const panelHeight = hoverPanel.offsetHeight || 240;
+        let left = (evt.clientX || 0) + 16;
+        let top = (evt.clientY || 0) - 20;
         if (left + panelWidth > window.innerWidth - 12) {
-            left = Math.max(12, rect.left - panelWidth - 12);
+            left = Math.max(12, (evt.clientX || 0) - panelWidth - 16);
         }
         if (top < 12) {
             top = 12;
@@ -3147,39 +3188,39 @@ function renderCourseFyGanttChart(timeline) {
         if (top + panelHeight > window.innerHeight - 12) {
             top = Math.max(12, window.innerHeight - panelHeight - 12);
         }
-
         hoverPanel.style.width = panelWidth + 'px';
         hoverPanel.style.left = left + 'px';
         hoverPanel.style.top = top + 'px';
     }
 
-    function showCourseDetail(bar, anchorEl) {
-        if (!hoverPanel || !hoverCanvas || typeof Chart === 'undefined' || !anchorEl) {
+    function showCourseDetail(meta, evt) {
+        if (!hoverPanel || !meta) {
             return;
         }
-
         cancelHideCourseDetail();
-
         if (hoverTitle) {
-            hoverTitle.textContent = bar.course_name + (bar.course_code ? ' (' + bar.course_code + ')' : '');
+            hoverTitle.textContent = meta.course_name + (meta.course_code ? ' (' + meta.course_code + ')' : '');
         }
         if (hoverMeta) {
             hoverMeta.innerHTML =
-                (bar.batch_name ? ('Batch: <strong>' + escapeHtmlAttr(bar.batch_name) + '</strong> · ') : '') +
-                (bar.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(bar.centre_name) + '</strong> · ') : '') +
-                'Seats: <strong>' + Number(bar.footfall || 0).toLocaleString() + ' / ' +
-                Number(bar.seats_total || 0).toLocaleString() + '</strong>' +
-                ' · Course registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
-                '<br>' + bar.start_label + ' → ' + bar.end_label;
+                (meta.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(meta.centre_name) + '</strong><br>') : '') +
+                'Batch seats: <strong>' + Number(meta.footfall || 0).toLocaleString() + ' / ' +
+                Number(meta.seats_total || 0).toLocaleString() + '</strong>' +
+                ' · Registered: <strong>' + Number(meta.registered || 0).toLocaleString() + '</strong>' +
+                '<br>Period: ' + (meta.start_label || '—') + ' → ' + (meta.end_label || '—') +
+                ' · Batches: <strong>' + Number((meta.batches || []).length).toLocaleString() + '</strong>';
         }
-
-        // Show panel first so Chart.js can measure canvas size.
-        hoverPanel.classList.add('is-visible');
-        placeHoverBesideBar(anchorEl);
 
         if (courseFyHoverChartInstance) {
             courseFyHoverChartInstance.destroy();
             courseFyHoverChartInstance = null;
+        }
+
+        hoverPanel.classList.add('is-visible');
+        placeHoverAtEvent(evt);
+
+        if (!hoverCanvas) {
+            return;
         }
 
         const monthBuckets = {};
@@ -3190,7 +3231,7 @@ function renderCourseFyGanttChart(timeline) {
         });
         if (!monthOrder.length) {
             for (let i = 0; i < dayCount; i++) {
-                monthBuckets['D' + (i + 1)] = Number(bar.daily_admissions[i] || 0);
+                monthBuckets['D' + (i + 1)] = Number(meta.daily_admissions[i] || 0);
                 monthOrder.push('D' + (i + 1));
             }
         } else {
@@ -3199,7 +3240,7 @@ function renderCourseFyGanttChart(timeline) {
                 const count = marker.day_count || 0;
                 let sum = 0;
                 for (let i = start; i < start + count && i < dayCount; i++) {
-                    sum += Number(bar.daily_admissions[i] || 0);
+                    sum += Number(meta.daily_admissions[i] || 0);
                 }
                 monthBuckets[marker.label] = sum;
             });
@@ -3222,39 +3263,17 @@ function renderCourseFyGanttChart(timeline) {
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function (ctx) {
-                                    return 'Admissions: ' + Number(ctx.raw || 0).toLocaleString();
-                                }
-                            }
-                        }
-                    },
+                    plugins: { legend: { display: false } },
                     scales: {
-                        x: {
-                            ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 },
-                            grid: { display: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0, font: { size: 9 } },
-                            title: { display: true, text: 'Students', font: { size: 10 } }
-                        }
+                        x: { ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 }, grid: { display: false } },
+                        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 9 } } }
                     }
                 }
             });
         } catch (err) {
-            if (hoverMeta) {
-                hoverMeta.innerHTML += '<br><span class="text-danger">Could not render mini chart.</span>';
-            }
+            // keep text details even if mini chart fails
         }
-
-        // Reposition after chart paints (height may change).
-        requestAnimationFrame(function () {
-            placeHoverBesideBar(anchorEl);
-        });
+        requestAnimationFrame(function () { placeHoverAtEvent(evt); });
     }
 
     let hoverHideTimer = null;
@@ -3266,23 +3285,88 @@ function renderCourseFyGanttChart(timeline) {
         clearTimeout(hoverHideTimer);
     }
 
-    function bindBarHover(el) {
-        const open = function () {
-            const idx = Number(el.getAttribute('data-bar-index'));
-            if (!Number.isFinite(idx) || !bars[idx]) {
-                return;
-            }
-            showCourseDetail(bars[idx], el);
-        };
-        el.addEventListener('mouseenter', open);
-        el.addEventListener('click', function (event) {
-            event.preventDefault();
-            open();
-        });
-        el.addEventListener('mouseleave', scheduleHideCourseDetail);
+    if (courseFyTimeChartInstance) {
+        courseFyTimeChartInstance.destroy();
+        courseFyTimeChartInstance = null;
     }
 
-    plot.querySelectorAll('.course-fy-lane-bar').forEach(bindBarHover);
+    const yMax = Math.max(100, Math.ceil((yPeak * 1.2) / 10) * 10, 500);
+
+    courseFyTimeChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: dayLabels,
+            datasets: datasets
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { boxWidth: 12, font: { size: 11 } }
+                },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        title: function (items) {
+                            if (!items.length) {
+                                return '';
+                            }
+                            return 'Date: ' + items[0].label;
+                        },
+                        label: function (ctx) {
+                            return (ctx.dataset.label || 'Course') + ': ' + Number(ctx.parsed.y || 0).toLocaleString();
+                        }
+                    }
+                }
+            },
+            onHover: function (evt, elements) {
+                if (!elements || !elements.length) {
+                    scheduleHideCourseDetail();
+                    return;
+                }
+                const el = elements[0];
+                const ds = datasets[el.datasetIndex];
+                if (!ds) {
+                    return;
+                }
+                const meta = courseMeta[ds.metaIndex];
+                const native = evt && (evt.native || evt);
+                showCourseDetail(meta, native);
+            },
+            scales: {
+                x: {
+                    display: false,
+                    grid: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: yMax,
+                    title: {
+                        display: true,
+                        text: 'Student admission completed ↑',
+                        font: { size: 12, weight: '700' },
+                        color: '#1e3a8a'
+                    },
+                    ticks: {
+                        stepSize: yMax > 400 ? 50 : 20,
+                        precision: 0,
+                        font: { size: 10 }
+                    },
+                    grid: {
+                        color: 'rgba(148,163,184,0.25)'
+                    }
+                }
+            }
+        }
+    });
 
     if (hoverPanel) {
         hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
