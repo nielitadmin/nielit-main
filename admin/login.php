@@ -42,13 +42,19 @@ function maskEmailAddress($email) {
 }
 
 function sendOTP($toEmail, $otp, $username = null) {
-    $mail = new PHPMailer(true);
-    try {
-        configurePhpMailerSmtp($mail, ['timeout' => 20]);
+    $toEmail = trim((string) $toEmail);
+    if ($toEmail === '' || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+        error_log('Admin login OTP aborted: invalid recipient email [' . $toEmail . ']');
+        logOTP($toEmail ?: 'invalid', (string) $otp, 'Admin Login', $username, 'failed');
+        return [
+            'ok' => false,
+            'error' => 'Admin account has no valid email address configured.',
+        ];
+    }
 
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($toEmail, $otp) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);
-
         $mail->isHTML(true);
         $mail->Subject = 'Your OTP for Admin Login - NIELIT Bhubaneswar';
         $mail->Body = '
@@ -72,15 +78,20 @@ function sendOTP($toEmail, $otp, $username = null) {
                 </p>
             </div>
         </div>';
+        $mail->AltBody = 'Your OTP for Admin Login is: ' . $otp . ' (valid 10 minutes).';
+    }, ['timeout' => 25]);
 
-        $mail->send();
+    if (!empty($result['ok'])) {
         logOTP($toEmail, $otp, 'Admin Login', $username, 'sent');
-        return true;
-    } catch (Exception $e) {
-        error_log('Admin login OTP email failed to ' . $toEmail . ': ' . $mail->ErrorInfo);
-        logOTP($toEmail, $otp, 'Admin Login', $username, 'failed');
-        return false;
+        return ['ok' => true, 'error' => ''];
     }
+
+    error_log('Admin login OTP email failed to ' . $toEmail . ': ' . ($result['error'] ?? 'unknown'));
+    logOTP($toEmail, $otp, 'Admin Login', $username, 'failed');
+    return [
+        'ok' => false,
+        'error' => $result['error'] ?: 'SMTP send failed.',
+    ];
 }
 
 function startAdminLoginOtpFlow(array $admin): bool
@@ -94,14 +105,22 @@ function startAdminLoginOtpFlow(array $admin): bool
     $_SESSION['otp_generated_time'] = time();
 
     $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $admin['username']);
+    $ok = is_array($sent) ? !empty($sent['ok']) : (bool) $sent;
+    $detail = is_array($sent) ? trim((string) ($sent['error'] ?? '')) : '';
 
-    if ($sent) {
+    if ($ok) {
         $success_message = 'OTP sent successfully to ' . maskEmailAddress($_SESSION['temp_admin_email']) . '. Check inbox and spam.';
         $show_otp_form = true;
         return true;
     }
 
     $error_message = 'Failed to send OTP email. Please contact support.';
+    if ($detail !== '') {
+        // Safe short hint for admins (no password). Helps diagnose Hostinger SMTP issues.
+        $safe = preg_replace('/\s+/', ' ', $detail);
+        $safe = substr($safe, 0, 220);
+        $error_message .= ' Details: ' . htmlspecialchars($safe, ENT_QUOTES, 'UTF-8');
+    }
     return false;
 }
 
@@ -208,11 +227,18 @@ if (isset($_POST['resend_otp'])) {
         $_SESSION['otp_generated_time'] = time();
 
         $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $_SESSION['temp_admin_username']);
-        if ($sent) {
+        $ok = is_array($sent) ? !empty($sent['ok']) : (bool) $sent;
+        $detail = is_array($sent) ? trim((string) ($sent['error'] ?? '')) : '';
+        if ($ok) {
             $success_message = 'OTP resent successfully to ' . maskEmailAddress($_SESSION['temp_admin_email']) . '. Check inbox and spam.';
             $show_otp_form = true;
         } else {
-            $error_message = "Failed to resend OTP. Please contact support.";
+            $error_message = 'Failed to resend OTP. Please contact support.';
+            if ($detail !== '') {
+                $safe = preg_replace('/\s+/', ' ', $detail);
+                $safe = substr($safe, 0, 220);
+                $error_message .= ' Details: ' . htmlspecialchars($safe, ENT_QUOTES, 'UTF-8');
+            }
             $show_otp_form = true;
         }
     }
