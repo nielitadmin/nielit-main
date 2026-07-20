@@ -558,7 +558,7 @@ $pageTitle="Report Monitor";
             display:block !important;
             max-width:none !important;
             width:auto !important;
-            height:420px !important;
+            height:auto !important;
         }
         .course-fy-month-axis{
             display:flex;
@@ -1719,13 +1719,24 @@ Q4 (Jan–Mar)
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
                 <span class="text-muted small">Area graph · black Total line · hover a date for course-wise sum</span>
             </div>
-            <div class="d-flex gap-2 mb-2">
+            <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
                 <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollLeft" title="Scroll left">
                     <i class="fas fa-chevron-left"></i> Earlier days
                 </button>
                 <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollRight" title="Scroll right">
                     Later days <i class="fas fa-chevron-right"></i>
                 </button>
+                <span class="vr d-none d-md-inline mx-1"></span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="courseFyZoomOut" title="Zoom out">
+                    <i class="fas fa-search-minus"></i> Zoom out
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="courseFyZoomIn" title="Zoom in">
+                    <i class="fas fa-search-plus"></i> Zoom in
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-dark" id="courseFyZoomReset" title="Reset zoom">
+                    Reset
+                </button>
+                <span class="badge bg-light text-dark border" id="courseFyZoomLabel">Zoom 100%</span>
             </div>
             <div class="course-fy-day-scroll" id="courseFyDayScroll">
                 <div id="courseFyGraphInner">
@@ -2583,6 +2594,9 @@ COURSE FY TIMELINE
 
 let courseFyHoverChartInstance = null;
 let courseFyTimeChartInstance = null;
+let courseFyTimelineCache = null;
+const courseFyZoomSteps = [0.75, 1, 1.5, 2, 2.5, 3];
+let courseFyZoomIndex = 1; // 100%
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
@@ -2595,7 +2609,27 @@ function escapeHtmlAttr(value) {
         .replace(/>/g, '&gt;');
 }
 
+function applyCourseFyZoom(nextIndex, keepScrollRatio) {
+    const max = courseFyZoomSteps.length - 1;
+    courseFyZoomIndex = Math.max(0, Math.min(max, nextIndex));
+    const scrollEl = document.getElementById('courseFyDayScroll');
+    let ratio = 0;
+    if (keepScrollRatio && scrollEl && scrollEl.scrollWidth > scrollEl.clientWidth) {
+        ratio = scrollEl.scrollLeft / Math.max(1, scrollEl.scrollWidth - scrollEl.clientWidth);
+    }
+    if (courseFyTimelineCache) {
+        renderCourseFyGanttChart(courseFyTimelineCache);
+    }
+    if (keepScrollRatio && scrollEl) {
+        requestAnimationFrame(function () {
+            const maxScroll = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
+            scrollEl.scrollLeft = ratio * maxScroll;
+        });
+    }
+}
+
 function renderCourseFyGanttChart(timeline) {
+    courseFyTimelineCache = timeline || courseFyTimelineCache || {};
     const wrap = document.getElementById('courseFyGanttWrap');
     const inner = document.getElementById('courseFyGraphInner');
     const chartBox = document.getElementById('courseFyChartBox');
@@ -2605,9 +2639,12 @@ function renderCourseFyGanttChart(timeline) {
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
+    const zoomLabel = document.getElementById('courseFyZoomLabel');
     if (!wrap || !inner || !canvas || typeof Chart === 'undefined') {
         return;
     }
+
+    timeline = courseFyTimelineCache;
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
@@ -2804,13 +2841,17 @@ function renderCourseFyGanttChart(timeline) {
     });
 
     // Day-wise width so the FY can scroll horizontally (keep under canvas size limits).
-    const chartHeight = 420;
-    const maxCssWidth = 12000;
-    let pixelsPerDay = 32;
+    const zoom = courseFyZoomSteps[courseFyZoomIndex] || 1;
+    const chartHeight = Math.round(420 * Math.min(1.45, 0.9 + zoom * 0.18));
+    const maxCssWidth = 14000;
+    let pixelsPerDay = Math.round(32 * zoom);
     let chartWidth = Math.max(dayCount * pixelsPerDay, 1600);
     if (chartWidth > maxCssWidth) {
-        pixelsPerDay = Math.max(14, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
+        pixelsPerDay = Math.max(12, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
         chartWidth = Math.max(dayCount * pixelsPerDay, 1600);
+    }
+    if (zoomLabel) {
+        zoomLabel.textContent = 'Zoom ' + Math.round(zoom * 100) + '%';
     }
 
     const scrollEl = document.getElementById('courseFyDayScroll');
@@ -2834,6 +2875,10 @@ function renderCourseFyGanttChart(timeline) {
     canvas.style.setProperty('height', chartHeight + 'px', 'important');
     canvas.width = chartWidth;
     canvas.height = chartHeight;
+    if (chartBox) {
+        chartBox.style.height = chartHeight + 'px';
+        chartBox.style.minHeight = chartHeight + 'px';
+    }
 
     if (dayAxis) {
         let daysHtml = '';
@@ -3148,9 +3193,30 @@ function renderCourseFyGanttChart(timeline) {
         }
     }
 
+    const zoomInBtn = document.getElementById('courseFyZoomIn');
+    const zoomOutBtn = document.getElementById('courseFyZoomOut');
+    const zoomResetBtn = document.getElementById('courseFyZoomReset');
+    if (zoomInBtn) {
+        zoomInBtn.onclick = function () {
+            applyCourseFyZoom(courseFyZoomIndex + 1, true);
+        };
+        zoomInBtn.disabled = courseFyZoomIndex >= courseFyZoomSteps.length - 1;
+    }
+    if (zoomOutBtn) {
+        zoomOutBtn.onclick = function () {
+            applyCourseFyZoom(courseFyZoomIndex - 1, true);
+        };
+        zoomOutBtn.disabled = courseFyZoomIndex <= 0;
+    }
+    if (zoomResetBtn) {
+        zoomResetBtn.onclick = function () {
+            applyCourseFyZoom(1, true);
+        };
+    }
+
     if (hoverPanel) {
-        hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
-        hoverPanel.addEventListener('mouseleave', scheduleHideCourseDetail);
+        hoverPanel.onmouseenter = cancelHideCourseDetail;
+        hoverPanel.onmouseleave = scheduleHideCourseDetail;
     }
 }
 
