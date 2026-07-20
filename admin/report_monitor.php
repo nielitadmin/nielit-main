@@ -2967,10 +2967,11 @@ precision:0
 COURSE FY TIMELINE
 ==================================================*/
 
+let courseFyHoverChartInstance = null;
+let courseFyTimeChartInstance = null;
+
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
-
-let courseFyHoverChartInstance = null;
 
 function escapeHtmlAttr(value) {
     return String(value == null ? '' : value)
@@ -2979,8 +2980,6 @@ function escapeHtmlAttr(value) {
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
-
-let courseFyTimeChartInstance = null;
 
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
