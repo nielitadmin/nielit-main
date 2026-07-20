@@ -2953,10 +2953,16 @@ function renderCourseFyGanttChart(timeline) {
             const footfall = Number(batch.footfall) || 0;
             const seatsTotal = Number(batch.seats_total) || 0;
             const batchLabel = batch.batch_code || batch.batch_name || '';
+            const centreName = batch.centre_name || '';
             const baseCourseName = course.course_name || 'Course';
-            const displayName = batchLabel
-                ? (baseCourseName + ' · ' + batchLabel)
-                : baseCourseName;
+            const nameParts = [baseCourseName];
+            if (batchLabel) {
+                nameParts.push(batchLabel);
+            }
+            if (centreName) {
+                nameParts.push(centreName);
+            }
+            const displayName = nameParts.join(' · ');
             bars.push({
                 course_id: course.course_id || 0,
                 course_key: String(course.course_id || baseCourseName),
@@ -2964,6 +2970,7 @@ function renderCourseFyGanttChart(timeline) {
                 course_code: course.course_code || '',
                 batch_name: batch.batch_name || '',
                 batch_code: batch.batch_code || '',
+                centre_name: centreName,
                 start_index: startIdx,
                 end_index: Math.max(startIdx, endIdx),
                 start_label: batch.start_label || '',
@@ -3159,6 +3166,7 @@ function renderCourseFyGanttChart(timeline) {
         if (hoverMeta) {
             hoverMeta.innerHTML =
                 (bar.batch_name ? ('Batch: <strong>' + escapeHtmlAttr(bar.batch_name) + '</strong> · ') : '') +
+                (bar.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(bar.centre_name) + '</strong> · ') : '') +
                 'Seats: <strong>' + Number(bar.footfall || 0).toLocaleString() + ' / ' +
                 Number(bar.seats_total || 0).toLocaleString() + '</strong>' +
                 ' · Course registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +

@@ -1443,9 +1443,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                                 {$batchEndExpr} AS batch_end,
                                 c.id AS course_id,
                                 c.course_name,
-                                c.course_code
+                                c.course_code,
+                                COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name
                          FROM batches b
                          INNER JOIN courses c ON c.id = b.course_id
+                         LEFT JOIN centres cen ON cen.id = c.centre_id
                          WHERE 1=1{$scopeFilter['sql']}";
             $batchTypes = $scopeFilter['types'];
             $batchValues = $scopeFilter['values'];
@@ -1491,6 +1493,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                         'id' => (int) $row['id'],
                         'batch_name' => $row['batch_name'],
                         'batch_code' => $row['batch_code'] ?? '',
+                        'centre_name' => $row['centre_name'] ?? 'Unassigned Centre',
                         'start_date' => $startIso,
                         'end_date' => $endIso,
                         'start_label' => report_monitor_format_day_month_year($startIso),
