@@ -498,493 +498,84 @@ $pageTitle="Report Monitor";
         }
 
         #courseFyGanttWrap{
-
             position:relative;
-
             margin-bottom:8px;
-
             padding:12px;
-
             border:1px solid #e2e8f0;
-
             border-radius:12px;
-
             background:#fafbff;
-
             max-width:100%;
-
-            overflow:visible;
-
         }
-
-        .course-fy-admission-chart{
-
-            display:grid;
-
-            grid-template-columns:88px minmax(0,1fr);
-
-            gap:8px;
-
-            align-items:stretch;
-
-            max-width:100%;
-
-        }
-
-        .course-fy-y-rail{
-
-            display:flex;
-
-            flex-direction:column;
-
-        }
-
-        .course-fy-y-title{
-
-            writing-mode:vertical-rl;
-
-            transform:rotate(180deg);
-
-            font-size:12px;
-
-            font-weight:700;
-
-            color:#1e3a8a;
-
-            text-align:center;
-
-            margin:0 auto 8px;
-
-            letter-spacing:.02em;
-
-        }
-
-        .course-fy-y-ticks{
-
-            flex:1;
-
-            display:flex;
-
-            flex-direction:column-reverse;
-
-            justify-content:space-between;
-
-            font-size:11px;
-
-            font-weight:700;
-
-            color:#334155;
-
-            text-align:right;
-
-            padding:8px 8px 48px 0;
-
-            border-right:2px solid #94a3b8;
-
-        }
-
-        .course-fy-y-tick{
-
-            display:flex;
-
-            align-items:center;
-
-            justify-content:flex-end;
-
-            box-sizing:border-box;
-
-            padding-right:4px;
-
-            color:#1e3a8a;
-
-            line-height:1;
-
-            flex:0 0 auto;
-
-        }
-
-        .course-fy-gantt-scroll{
-
-            display:block;
-
+        .course-fy-graph-box{
+            position:relative;
             width:100%;
-
-            max-width:100%;
-
-            overflow-x:scroll;
-
-            overflow-y:auto;
-
-            max-height:760px;
-
-            padding-bottom:8px;
-
-            -webkit-overflow-scrolling:touch;
-
+            height:440px;
             border:1px solid #cbd5e1;
-
             border-radius:10px;
-
-            background:#fff;
-
+            background:
+                linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
+                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 48px 100%,
+                #fff;
+            padding:8px 8px 4px;
         }
-
-        .course-fy-gantt-scroll::-webkit-scrollbar{
-
-            height:12px;
-
-            width:10px;
-
-        }
-
-        .course-fy-gantt-scroll::-webkit-scrollbar-track{
-
-            background:#e2e8f0;
-
-            border-radius:999px;
-
-        }
-
-        .course-fy-gantt-scroll::-webkit-scrollbar-thumb{
-
-            background:#64748b;
-
-            border-radius:999px;
-
-        }
-
-        .course-fy-plot{
-
-            position:relative;
-
-            border-bottom:2px solid #94a3b8;
-
-            background:#fff;
-
-        }
-
-        .course-fy-lane{
-
-            position:relative;
-
-            box-sizing:border-box;
-
-            border-bottom:1px solid #f1f5f9;
-
-            background:repeating-linear-gradient(
-                90deg,
-                #fff,
-                #fff 27px,
-                #f8fafc 27px,
-                #f8fafc 28px
-            );
-
-        }
-
-        .course-fy-lane-bar{
-
-            position:absolute;
-
-            top:10px;
-
-            height:36px;
-
-            display:flex;
-
-            align-items:center;
-
-            gap:8px;
-
-            padding:0 10px;
-
-            border-radius:999px;
-
-            border:1px solid #3b82f6;
-
-            background:linear-gradient(90deg,#93c5fd,#60a5fa);
-
-            box-shadow:0 1px 4px rgba(37,99,235,.16);
-
-            color:#0f172a;
-
-            font-size:12px;
-
-            white-space:nowrap;
-
-            overflow:hidden;
-
-            cursor:pointer;
-
-            box-sizing:border-box;
-
-            z-index:2;
-
-        }
-
-        .course-fy-lane-bar:hover{
-
-            filter:brightness(1.04);
-
-            box-shadow:0 3px 10px rgba(15,23,42,.18);
-
-        }
-
-        .course-fy-lane-bar .bar-date{
-
-            flex:0 0 auto;
-
-            font-size:10px;
-
-            font-weight:800;
-
-            background:rgba(255,255,255,.92);
-
-            border:1px solid rgba(15,23,42,.12);
-
-            border-radius:6px;
-
-            padding:2px 6px;
-
-            color:#0f172a;
-
-        }
-
-        .course-fy-lane-bar .bar-name{
-
-            flex:1 1 auto;
-
-            min-width:0;
-
-            font-weight:700;
-
-            text-align:center;
-
-            overflow:hidden;
-
-            text-overflow:ellipsis;
-
-        }
-
-        .course-fy-hover-panel{
-
-            position:fixed;
-
-            left:0;
-
-            top:0;
-
-            width:300px;
-
-            max-width:calc(100vw - 24px);
-
-            background:#fff;
-
-            border:1px solid #94a3b8;
-
-            border-radius:12px;
-
-            box-shadow:0 12px 32px rgba(15,23,42,.22);
-
-            padding:12px;
-
-            z-index:10050;
-
-            pointer-events:auto;
-
-            opacity:0;
-
-            visibility:hidden;
-
-            transform:translateY(4px);
-
-            transition:opacity .12s ease, transform .12s ease, visibility .12s ease;
-
-        }
-
-        .course-fy-hover-panel.is-visible{
-
-            opacity:1;
-
-            visibility:visible;
-
-            transform:translateY(0);
-
-        }
-
-        .course-fy-hover-panel h6{
-
-            margin:0 0 4px;
-
-            font-size:13px;
-
-            font-weight:700;
-
-            color:#0f172a;
-
-        }
-
-        .course-fy-hover-panel .hover-meta{
-
-            font-size:11px;
-
-            color:#64748b;
-
-            margin-bottom:8px;
-
-        }
-
-        .course-fy-hover-panel .hover-chart-box{
-
-            width:100%;
-
-            height:150px;
-
-            position:relative;
-
-        }
-
-        .course-fy-hover-panel canvas{
-
+        #courseFyTimeChart{
+            display:block !important;
             width:100% !important;
-
-            height:150px !important;
-
+            height:100% !important;
+            max-width:100% !important;
         }
-
-        .course-fy-month-axis{
-
-            display:flex;
-
-            flex-wrap:nowrap;
-
-            border-top:1px solid #93c5fd;
-
-            background:#eff6ff;
-
-            position:sticky;
-
-            bottom:36px;
-
-            z-index:6;
-
+        .course-fy-hover-panel{
+            position:fixed;
+            left:0;
+            top:0;
+            width:300px;
+            max-width:calc(100vw - 24px);
+            background:#fff;
+            border:1px solid #94a3b8;
+            border-radius:12px;
+            box-shadow:0 12px 32px rgba(15,23,42,.22);
+            padding:12px;
+            z-index:10050;
+            pointer-events:auto;
+            opacity:0;
+            visibility:hidden;
+            transform:translateY(4px);
+            transition:opacity .12s ease, transform .12s ease, visibility .12s ease;
         }
-
-        .course-fy-month-tick{
-
-            flex:0 0 auto;
-
-            box-sizing:border-box;
-
-            height:28px;
-
-            border-right:2px solid #2563eb;
-
+        .course-fy-hover-panel.is-visible{
+            opacity:1;
+            visibility:visible;
+            transform:translateY(0);
+        }
+        .course-fy-hover-panel h6{
+            margin:0 0 4px;
+            font-size:13px;
+            font-weight:700;
+            color:#0f172a;
+        }
+        .course-fy-hover-panel .hover-meta{
             font-size:11px;
-
-            font-weight:800;
-
-            color:#1e3a8a;
-
-            text-align:center;
-
-            line-height:28px;
-
-            white-space:nowrap;
-
-            overflow:hidden;
-
-            text-overflow:ellipsis;
-
-            padding:0 4px;
-
+            color:#64748b;
+            margin-bottom:0;
+            line-height:1.45;
         }
-
-        .course-fy-day-axis{
-
-            display:flex;
-
-            flex-wrap:nowrap;
-
-            border-top:1px solid #e2e8f0;
-
-            background:#f8fafc;
-
-            position:sticky;
-
-            bottom:0;
-
-            z-index:5;
-
-        }
-
-        .course-fy-day-tick{
-
-            flex:0 0 auto;
-
-            box-sizing:border-box;
-
-            height:36px;
-
-            border-right:1px solid #e2e8f0;
-
-            font-size:10px;
-
-            font-weight:600;
-
-            color:#334155;
-
-            text-align:center;
-
-            line-height:36px;
-
-        }
-
-        .course-fy-day-tick.is-month-start{
-
-            background:#dbeafe;
-
-            color:#1e3a8a;
-
-            font-weight:800;
-
-            border-right:2px solid #2563eb;
-
-        }
-
         .course-fy-x-caption{
-
             display:flex;
-
             justify-content:space-between;
-
             align-items:center;
-
             padding:8px 4px 0;
-
             font-size:12px;
-
             font-weight:600;
-
             color:#1e3a8a;
-
         }
-
         .course-fy-gantt-hint{
-
             display:flex;
-
             align-items:center;
-
             justify-content:space-between;
-
             gap:8px;
-
             margin-top:8px;
-
             font-size:12px;
-
             color:#475569;
-
         }
 
 
@@ -2045,38 +1636,23 @@ Q4 (Jan–Mar)
 
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">One lane per batch · start ——— end · hover a bar for that course only</span>
+                <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
+                <span class="text-muted small">Time graph · one coloured area per course · hover a line for that course only</span>
             </div>
-            <div class="course-fy-admission-chart">
-                <div class="course-fy-y-rail">
-                    <div class="course-fy-y-title">Student admission completed ↑</div>
-                    <div class="course-fy-y-ticks" id="courseFyYTicks"></div>
-                </div>
-                <div>
-                    <div class="course-fy-gantt-scroll" id="courseFyGanttScroll">
-                        <div id="courseFyGanttInner">
-                            <div class="course-fy-plot" id="courseFyPlot"></div>
-                            <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
-                            <div class="course-fy-day-axis" id="courseFyGanttDayAxis"></div>
-                        </div>
-                    </div>
-                    <div class="course-fy-x-caption">
-                        <span>Financial year wise (1 Apr → 31 Mar)</span>
-                        <span>Day wise →</span>
-                    </div>
-                </div>
+            <div class="course-fy-graph-box">
+                <canvas id="courseFyTimeChart"></canvas>
+            </div>
+            <div class="course-fy-x-caption">
+                <span>Financial year wise (1 Apr → 31 Mar)</span>
+                <span>Student admission completed ↑</span>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
                 <h6 id="courseFyHoverTitle">Course Detail</h6>
-                <div class="hover-meta" id="courseFyHoverMeta">Hover or click a course bar to see admissions for that course.</div>
-                <div class="hover-chart-box">
-                    <canvas id="courseFyHoverChart"></canvas>
-                </div>
+                <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Progress uses Batch Module seats (enrolled/total). Hover or click a bar for course detail.</span>
-                <span class="badge bg-light text-dark border">Hover / click</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Hover the graph for seats, centre, and dates.</span>
+                <span class="badge bg-light text-dark border">Area graph</span>
             </div>
         </div>
 
@@ -2912,6 +2488,7 @@ COURSE FY TIMELINE
 ==================================================*/
 
 let courseFyHoverChartInstance = null;
+let courseFyTimeChartInstance = null;
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
@@ -2926,197 +2503,154 @@ function escapeHtmlAttr(value) {
 
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
-    const inner = document.getElementById('courseFyGanttInner');
-    const plot = document.getElementById('courseFyPlot');
-    const dayAxis = document.getElementById('courseFyGanttDayAxis');
-    const monthAxis = document.getElementById('courseFyMonthAxis');
-    const yTicks = document.getElementById('courseFyYTicks');
-    const yRail = document.querySelector('.course-fy-y-rail');
+    const canvas = document.getElementById('courseFyTimeChart');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
-    const hoverCanvas = document.getElementById('courseFyHoverChart');
-    if (!wrap || !inner || !plot || !dayAxis) {
+    if (!wrap || !canvas || typeof Chart === 'undefined') {
         return;
     }
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
     const dayLabels = timeline.day_labels || [];
-    const bars = [];
+    const monthMarkers = timeline.month_markers || [];
 
-    // One row per individual batch (all course batches in this FY).
-    courses.forEach(function (course) {
-        const batches = course.batches || [];
-        batches.forEach(function (batch) {
-            const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
-            const endIdx = Number.isFinite(batch.end_index) ? batch.end_index : startIdx;
-            const footfall = Number(batch.footfall) || 0;
-            const seatsTotal = Number(batch.seats_total) || 0;
-            const batchLabel = batch.batch_code || batch.batch_name || '';
-            const centreName = batch.centre_name || '';
-            const baseCourseName = course.course_name || 'Course';
-            const nameParts = [baseCourseName];
-            if (batchLabel) {
-                nameParts.push(batchLabel);
-            }
-            if (centreName) {
-                nameParts.push(centreName);
-            }
-            const displayName = nameParts.join(' · ');
-            bars.push({
-                course_id: course.course_id || 0,
-                course_key: String(course.course_id || baseCourseName),
-                course_name: displayName,
-                course_code: course.course_code || '',
-                batch_name: batch.batch_name || '',
-                batch_code: batch.batch_code || '',
-                centre_name: centreName,
-                start_index: startIdx,
-                end_index: Math.max(startIdx, endIdx),
-                start_label: batch.start_label || '',
-                end_label: batch.end_label || '',
-                admissions: footfall,
-                seats_total: seatsTotal,
-                registered: Number(course.total_registered) || 0,
-                footfall: footfall,
-                daily_admissions: course.daily_admissions || []
-            });
-        });
-    });
-
-    if (!bars.length || !dayCount) {
-        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No batch periods to plot on the graph for this financial year.</p>';
+    if (!courses.length || !dayCount) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course timeline data for this financial year.</p>';
         return;
     }
 
-    bars.sort(function (a, b) {
-        return a.start_index - b.start_index
-            || a.course_name.localeCompare(b.course_name)
-            || String(a.batch_code || '').localeCompare(String(b.batch_code || ''));
-    });
-
-    const courseColorPalette = [
-        { bg: 'linear-gradient(90deg,#67e8f9,#22d3ee)', border: '#0891b2' },
-        { bg: 'linear-gradient(90deg,#c4b5fd,#a78bfa)', border: '#7c3aed' },
-        { bg: 'linear-gradient(90deg,#fca5a5,#f87171)', border: '#dc2626' },
-        { bg: 'linear-gradient(90deg,#fde047,#facc15)', border: '#ca8a04' },
-        { bg: 'linear-gradient(90deg,#86efac,#4ade80)', border: '#16a34a' },
-        { bg: 'linear-gradient(90deg,#fdba74,#fb923c)', border: '#ea580c' },
-        { bg: 'linear-gradient(90deg,#f9a8d4,#f472b6)', border: '#db2777' },
-        { bg: 'linear-gradient(90deg,#93c5fd,#3b82f6)', border: '#2563eb' },
-        { bg: 'linear-gradient(90deg,#a5b4fc,#818cf8)', border: '#4f46e5' },
-        { bg: 'linear-gradient(90deg,#5eead4,#14b8a6)', border: '#0d9488' },
-        { bg: 'linear-gradient(90deg,#d8b4fe,#c084fc)', border: '#9333ea' },
-        { bg: 'linear-gradient(90deg,#fcd34d,#f59e0b)', border: '#d97706' }
+    const palette = [
+        { border: '#2563eb', fill: 'rgba(37,99,235,0.22)', point: '#1d4ed8' },
+        { border: '#16a34a', fill: 'rgba(22,163,74,0.20)', point: '#15803d' },
+        { border: '#db2777', fill: 'rgba(219,39,119,0.18)', point: '#be185d' },
+        { border: '#ca8a04', fill: 'rgba(202,138,4,0.20)', point: '#a16207' },
+        { border: '#7c3aed', fill: 'rgba(124,58,237,0.18)', point: '#6d28d9' },
+        { border: '#0891b2', fill: 'rgba(8,145,178,0.20)', point: '#0e7490' },
+        { border: '#ea580c', fill: 'rgba(234,88,12,0.18)', point: '#c2410c' },
+        { border: '#4f46e5', fill: 'rgba(79,70,229,0.18)', point: '#4338ca' },
+        { border: '#059669', fill: 'rgba(5,150,105,0.18)', point: '#047857' },
+        { border: '#e11d48', fill: 'rgba(225,29,72,0.18)', point: '#be123c' }
     ];
-    const courseColorMap = {};
-    let colorIndex = 0;
-    bars.forEach(function (bar) {
-        const key = bar.course_key || bar.course_name;
-        if (!courseColorMap[key]) {
-            courseColorMap[key] = courseColorPalette[colorIndex % courseColorPalette.length];
-            colorIndex += 1;
+
+    function buildCourseSeries(course) {
+        const series = new Array(dayCount).fill(0);
+        const daily = course.daily_admissions || [];
+        let run = 0;
+        let hasDaily = false;
+        for (let i = 0; i < dayCount; i++) {
+            const v = Number(daily[i] || 0);
+            if (v) {
+                hasDaily = true;
+            }
+            run += v;
+            series[i] = run;
         }
-        bar.color = courseColorMap[key];
-    });
-
-    let runningEnrolled = 0;
-    let totalSeats = 0;
-    bars.forEach(function (bar) {
-        runningEnrolled += Math.max(0, bar.footfall || bar.admissions || 0);
-        totalSeats += Math.max(0, bar.seats_total || 0);
-        bar.cumulative = runningEnrolled;
-    });
-    const enrolledTotal = Math.max(runningEnrolled, 1);
-    // Y-axis follows Batch Module seat capacity (and enrolled), with headroom.
-    const scaleBase = Math.max(totalSeats, enrolledTotal, 100);
-    const yMax = Math.max(500, Math.ceil((scaleBase * 1.15) / 50) * 50);
-    let yStep = 20;
-    if (yMax > 600) {
-        yStep = 50;
-    }
-    if (yMax > 1200) {
-        yStep = 100;
-    }
-
-    const laneHeight = 56;
-    const pixelsPerDay = 32;
-    const plotWidth = dayCount * pixelsPerDay;
-    const plotHeight = bars.length * laneHeight;
-
-    inner.style.width = plotWidth + 'px';
-    inner.style.minWidth = plotWidth + 'px';
-    plot.style.width = plotWidth + 'px';
-    plot.style.height = plotHeight + 'px';
-
-    if (yRail) {
-        yRail.style.minHeight = (plotHeight + 48) + 'px';
-    }
-    if (yTicks) {
-        yTicks.style.height = plotHeight + 'px';
-        let yHtml = '';
-        for (let n = 10; n <= yMax; n += yStep) {
-            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + n + '</div>';
+        if (hasDaily && run > 0) {
+            return series;
         }
-        if (yMax > 10 && ((yMax - 10) % yStep !== 0)) {
-            yHtml += '<div class="course-fy-y-tick" title="Batch module seats progress scale">' + yMax + '</div>';
-        }
-        yTicks.innerHTML = yHtml;
-    }
-
-    let lanesHtml = '';
-    bars.forEach(function (bar, index) {
-        const leftPx = bar.start_index * pixelsPerDay;
-        const spanDays = bar.end_index - bar.start_index + 1;
-        const widthPx = Math.max(spanDays * pixelsPerDay, 220);
-        const color = bar.color || courseColorPalette[0];
-        lanesHtml +=
-            '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
-                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx +
-                    'px;width:' + widthPx + 'px;background:' + color.bg + ';border-color:' + color.border + '">' +
-                    '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
-                    '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
-                    '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
-                '</div>' +
-            '</div>';
-    });
-    plot.innerHTML = lanesHtml;
-
-    let daysHtml = '';
-    const dayIsoList = timeline.day_iso || [];
-    for (let i = 0; i < dayCount; i++) {
-        const label = dayLabels[i] || '';
-        const iso = dayIsoList[i] || '';
-        let dayOfMonth = i + 1;
-        const labelMatch = String(label).match(/^(\d+)\./);
-        if (labelMatch) {
-            dayOfMonth = Number(labelMatch[1]);
-        } else if (iso.length >= 10) {
-            dayOfMonth = Number(iso.slice(8, 10));
-        }
-        const isMonthStart = dayOfMonth === 1 || i === 0;
-        const tip = label || iso || String(dayOfMonth);
-        daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
-            '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
-    }
-    dayAxis.innerHTML = daysHtml;
-    dayAxis.style.width = plotWidth + 'px';
-
-    if (monthAxis) {
-        const markers = timeline.month_markers || [];
-        let monthsHtml = '';
-        if (markers.length) {
-            markers.forEach(function (marker) {
-                const width = Math.max(1, Number(marker.day_count) || 0) * pixelsPerDay;
-                monthsHtml += '<div class="course-fy-month-tick" style="width:' + width + 'px" title="' +
-                    escapeHtmlAttr(marker.label || '') + '">' + escapeHtmlAttr(marker.label || '') + '</div>';
+        for (let i = 0; i < dayCount; i++) {
+            let sum = 0;
+            (course.batches || []).forEach(function (batch) {
+                const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+                if (i >= startIdx) {
+                    sum += Number(batch.footfall) || 0;
+                }
             });
-        } else {
-            monthsHtml = '<div class="course-fy-month-tick" style="width:' + plotWidth + 'px">Financial Year</div>';
+            series[i] = sum;
         }
-        monthAxis.innerHTML = monthsHtml;
-        monthAxis.style.width = plotWidth + 'px';
+        return series;
+    }
+
+    const courseMeta = [];
+    const datasets = [];
+    let yPeak = 10;
+
+    courses.forEach(function (course, index) {
+        const batches = course.batches || [];
+        if (!batches.length && !(course.total_footfall || course.total_admissions || course.total_registered)) {
+            return;
+        }
+        const color = palette[index % palette.length];
+        const data = buildCourseSeries(course);
+        const peak = data.length ? Math.max.apply(null, data) : 0;
+        if (peak > yPeak) {
+            yPeak = peak;
+        }
+
+        let seatsTotal = 0;
+        let footfall = 0;
+        let startLabel = '';
+        let endLabel = '';
+        let centreName = '';
+        let startIdx = Infinity;
+        let endIdx = -1;
+        batches.forEach(function (batch) {
+            footfall += Number(batch.footfall) || 0;
+            seatsTotal += Number(batch.seats_total) || 0;
+            const s = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+            const e = Number.isFinite(batch.end_index) ? batch.end_index : s;
+            if (s < startIdx) {
+                startIdx = s;
+                startLabel = batch.start_label || '';
+                centreName = batch.centre_name || centreName;
+            }
+            if (e > endIdx) {
+                endIdx = e;
+                endLabel = batch.end_label || '';
+            }
+            if (!centreName && batch.centre_name) {
+                centreName = batch.centre_name;
+            }
+        });
+        if (!Number.isFinite(startIdx)) {
+            startIdx = 0;
+            startLabel = startLabel || (dayLabels[0] || '');
+        }
+        if (endIdx < 0) {
+            endIdx = dayCount - 1;
+            endLabel = endLabel || (dayLabels[dayCount - 1] || '');
+        }
+
+        const label = course.course_name || 'Course';
+        courseMeta.push({
+            course_name: label,
+            course_code: course.course_code || '',
+            centre_name: centreName || '',
+            footfall: footfall || Number(course.total_footfall) || 0,
+            seats_total: seatsTotal,
+            registered: Number(course.total_registered) || 0,
+            admissions: Number(course.total_admissions) || footfall || 0,
+            start_label: startLabel,
+            end_label: endLabel,
+            batches: batches
+        });
+
+        const pointRadius = data.map(function (v, i) {
+            const prev = i > 0 ? Number(data[i - 1] || 0) : 0;
+            return Number(v) > 0 && Number(v) !== prev ? 3 : 0;
+        });
+
+        datasets.push({
+            label: label + (course.course_code ? ' (' + course.course_code + ')' : ''),
+            data: data,
+            borderColor: color.border,
+            backgroundColor: color.fill,
+            pointBackgroundColor: color.point,
+            pointBorderColor: '#fff',
+            pointRadius: pointRadius,
+            pointHoverRadius: 6,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            metaIndex: courseMeta.length - 1
+        });
+    });
+
+    if (!datasets.length) {
+        wrap.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course progress to plot for this financial year.</p>';
+        return;
     }
 
     if (hoverPanel && hoverPanel.parentElement !== document.body) {
@@ -3129,18 +2663,16 @@ function renderCourseFyGanttChart(timeline) {
         }
     }
 
-    function placeHoverBesideBar(anchorEl) {
-        if (!hoverPanel || !anchorEl) {
+    function placeHoverAtEvent(evt) {
+        if (!hoverPanel || !evt) {
             return;
         }
-        const rect = anchorEl.getBoundingClientRect();
         const panelWidth = Math.min(300, window.innerWidth - 24);
-        const panelHeight = hoverPanel.offsetHeight || 230;
-        let left = rect.right + 12;
-        let top = rect.top - 8;
-
+        const panelHeight = hoverPanel.offsetHeight || 120;
+        let left = (evt.clientX || 0) + 16;
+        let top = (evt.clientY || 0) - 20;
         if (left + panelWidth > window.innerWidth - 12) {
-            left = Math.max(12, rect.left - panelWidth - 12);
+            left = Math.max(12, (evt.clientX || 0) - panelWidth - 16);
         }
         if (top < 12) {
             top = 12;
@@ -3148,142 +2680,177 @@ function renderCourseFyGanttChart(timeline) {
         if (top + panelHeight > window.innerHeight - 12) {
             top = Math.max(12, window.innerHeight - panelHeight - 12);
         }
-
         hoverPanel.style.width = panelWidth + 'px';
         hoverPanel.style.left = left + 'px';
         hoverPanel.style.top = top + 'px';
     }
 
-    function showCourseDetail(bar, anchorEl) {
-        if (!hoverPanel || !hoverCanvas || typeof Chart === 'undefined' || !anchorEl) {
+    function showCourseDetail(meta, evt) {
+        if (!hoverPanel || !meta) {
             return;
         }
-
         cancelHideCourseDetail();
-
         if (hoverTitle) {
-            hoverTitle.textContent = bar.course_name + (bar.course_code ? ' (' + bar.course_code + ')' : '');
+            hoverTitle.textContent = meta.course_name + (meta.course_code ? ' (' + meta.course_code + ')' : '');
         }
         if (hoverMeta) {
             hoverMeta.innerHTML =
-                (bar.batch_name ? ('Batch: <strong>' + escapeHtmlAttr(bar.batch_name) + '</strong> · ') : '') +
-                (bar.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(bar.centre_name) + '</strong> · ') : '') +
-                'Seats: <strong>' + Number(bar.footfall || 0).toLocaleString() + ' / ' +
-                Number(bar.seats_total || 0).toLocaleString() + '</strong>' +
-                ' · Course registered: <strong>' + Number(bar.registered).toLocaleString() + '</strong>' +
-                '<br>' + bar.start_label + ' → ' + bar.end_label;
+                (meta.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(meta.centre_name) + '</strong><br>') : '') +
+                'Batch seats: <strong>' + Number(meta.footfall || 0).toLocaleString() + ' / ' +
+                Number(meta.seats_total || 0).toLocaleString() + '</strong>' +
+                ' · Registered: <strong>' + Number(meta.registered || 0).toLocaleString() + '</strong>' +
+                '<br>Period: ' + (meta.start_label || '—') + ' → ' + (meta.end_label || '—') +
+                ' · Batches: <strong>' + Number((meta.batches || []).length).toLocaleString() + '</strong>';
         }
-
-        // Show panel first so Chart.js can measure canvas size.
         hoverPanel.classList.add('is-visible');
-        placeHoverBesideBar(anchorEl);
-
-        if (courseFyHoverChartInstance) {
-            courseFyHoverChartInstance.destroy();
-            courseFyHoverChartInstance = null;
-        }
-
-        const monthBuckets = {};
-        const monthOrder = [];
-        (timeline.month_markers || []).forEach(function (marker) {
-            monthBuckets[marker.label] = 0;
-            monthOrder.push(marker.label);
-        });
-        if (!monthOrder.length) {
-            for (let i = 0; i < dayCount; i++) {
-                monthBuckets['D' + (i + 1)] = Number(bar.daily_admissions[i] || 0);
-                monthOrder.push('D' + (i + 1));
-            }
-        } else {
-            (timeline.month_markers || []).forEach(function (marker) {
-                const start = marker.start_index || 0;
-                const count = marker.day_count || 0;
-                let sum = 0;
-                for (let i = start; i < start + count && i < dayCount; i++) {
-                    sum += Number(bar.daily_admissions[i] || 0);
-                }
-                monthBuckets[marker.label] = sum;
-            });
-        }
-
-        try {
-            courseFyHoverChartInstance = new Chart(hoverCanvas, {
-                type: 'bar',
-                data: {
-                    labels: monthOrder,
-                    datasets: [{
-                        label: 'Admissions',
-                        data: monthOrder.map(function (key) { return monthBuckets[key] || 0; }),
-                        backgroundColor: 'rgba(37,99,235,0.75)',
-                        borderRadius: 4,
-                        maxBarThickness: 18
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function (ctx) {
-                                    return 'Admissions: ' + Number(ctx.raw || 0).toLocaleString();
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            ticks: { maxRotation: 45, font: { size: 9 }, autoSkip: true, maxTicksLimit: 6 },
-                            grid: { display: false }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: { precision: 0, font: { size: 9 } },
-                            title: { display: true, text: 'Students', font: { size: 10 } }
-                        }
-                    }
-                }
-            });
-        } catch (err) {
-            if (hoverMeta) {
-                hoverMeta.innerHTML += '<br><span class="text-danger">Could not render mini chart.</span>';
-            }
-        }
-
-        // Reposition after chart paints (height may change).
-        requestAnimationFrame(function () {
-            placeHoverBesideBar(anchorEl);
-        });
+        placeHoverAtEvent(evt);
     }
 
     let hoverHideTimer = null;
     function scheduleHideCourseDetail() {
         clearTimeout(hoverHideTimer);
-        hoverHideTimer = setTimeout(hideCourseDetail, 350);
+        hoverHideTimer = setTimeout(hideCourseDetail, 280);
     }
     function cancelHideCourseDetail() {
         clearTimeout(hoverHideTimer);
     }
 
-    function bindBarHover(el) {
-        const open = function () {
-            const idx = Number(el.getAttribute('data-bar-index'));
-            if (!Number.isFinite(idx) || !bars[idx]) {
-                return;
-            }
-            showCourseDetail(bars[idx], el);
-        };
-        el.addEventListener('mouseenter', open);
-        el.addEventListener('click', function (event) {
-            event.preventDefault();
-            open();
+    function pickNearest(evt, elements) {
+        if (!elements || !elements.length) {
+            return null;
+        }
+        if (elements.length === 1 || !courseFyTimeChartInstance) {
+            return elements[0];
+        }
+        const native = evt && (evt.native || evt);
+        const y = native && typeof native.offsetY === 'number' ? native.offsetY : null;
+        if (y == null) {
+            return elements[0];
+        }
+        let best = elements[0];
+        let bestDist = Infinity;
+        elements.forEach(function (el) {
+            try {
+                const meta = courseFyTimeChartInstance.getDatasetMeta(el.datasetIndex);
+                const pt = meta && meta.data ? meta.data[el.index] : null;
+                if (!pt || typeof pt.y !== 'number') {
+                    return;
+                }
+                const dist = Math.abs(pt.y - y);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    best = el;
+                }
+            } catch (err) {}
         });
-        el.addEventListener('mouseleave', scheduleHideCourseDetail);
+        return best;
     }
 
-    plot.querySelectorAll('.course-fy-lane-bar').forEach(bindBarHover);
+    if (courseFyTimeChartInstance) {
+        courseFyTimeChartInstance.destroy();
+        courseFyTimeChartInstance = null;
+    }
+
+    const yMax = Math.max(50, Math.ceil((Math.max(yPeak, 10) * 1.2) / 10) * 10);
+    const monthTickIndex = {};
+    monthMarkers.forEach(function (m) {
+        monthTickIndex[Number(m.start_index) || 0] = m.label || '';
+    });
+
+    try {
+        courseFyTimeChartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: dayLabels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'nearest',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            boxWidth: 12,
+                            font: { size: 11 },
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                },
+                onHover: function (evt, elements) {
+                    const picked = pickNearest(evt, elements);
+                    if (!picked) {
+                        scheduleHideCourseDetail();
+                        return;
+                    }
+                    const ds = datasets[picked.datasetIndex];
+                    if (!ds) {
+                        return;
+                    }
+                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
+                },
+                onClick: function (evt, elements) {
+                    const picked = pickNearest(evt, elements);
+                    if (!picked) {
+                        return;
+                    }
+                    const ds = datasets[picked.datasetIndex];
+                    if (!ds) {
+                        return;
+                    }
+                    showCourseDetail(courseMeta[ds.metaIndex], evt && (evt.native || evt));
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: { size: 10, weight: '700' },
+                            color: '#1e3a8a',
+                            callback: function (value, index) {
+                                return monthTickIndex[index] || '';
+                            }
+                        },
+                        grid: {
+                            color: function (ctx) {
+                                return monthTickIndex[ctx.index] ? 'rgba(37,99,235,0.25)' : 'rgba(148,163,184,0.12)';
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        suggestedMax: yMax,
+                        title: {
+                            display: true,
+                            text: 'Student admission completed ↑',
+                            font: { size: 12, weight: '700' },
+                            color: '#1e3a8a'
+                        },
+                        ticks: {
+                            precision: 0,
+                            font: { size: 10 }
+                        },
+                        grid: {
+                            color: 'rgba(148,163,184,0.25)'
+                        }
+                    }
+                }
+            }
+        });
+    } catch (err) {
+        console.error('Course FY graph failed', err);
+        wrap.innerHTML = '<p class="text-danger text-center py-5 mb-0">Could not draw course graph. Please refresh.</p>';
+        return;
+    }
 
     if (hoverPanel) {
         hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
@@ -3301,17 +2868,7 @@ window.addEventListener(
 
 function(){
 
-Chart.helpers.each(
-
-Chart.instances,
-
-function(instance){
-
-instance.resize();
-
-}
-
-);
+Chart.helpers.each(Chart.instances, function(instance){ if (typeof courseFyTimeChartInstance !== 'undefined' && instance === courseFyTimeChartInstance) { return; } instance.resize(); });
 
 });
 
