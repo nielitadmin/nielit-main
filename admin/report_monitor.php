@@ -293,14 +293,6 @@ $batchDetails = report_monitor_get_batch_details(
     $monthFilter
 );
 
-$courseCalendarSchedule = report_monitor_get_course_calendar_schedule(
-    $conn,
-    $scopedCourseIds,
-    $centreId,
-    $fyMonthFilter,
-    $fyCalendarRange['graph_months']
-);
-
 $admissionsByBatch = report_monitor_get_admissions_by_batch(
     $conn,
     $scopedCourseIds,
@@ -380,20 +372,6 @@ $reportPayload=[
 
     'facultyTrainingStats'=>$facultyTrainingStats,
 
-    'calendarEvents'=>$courseCalendarSchedule['events'] ?? [],
-
-    'calendarRange'=>[
-        'start'=>$fyCalendarRange['start_date'],
-        'end'=>date('Y-m-d', strtotime($fyCalendarRange['end_date'] . ' +1 day')),
-        'fy_label'=>$fyCalendarScopeLabel,
-    ],
-
-    'calendarMeta'=>[
-        'total_batches'=>(int) ($courseCalendarSchedule['total_batches'] ?? 0),
-        'total_footfall'=>(int) ($courseCalendarSchedule['total_footfall'] ?? 0),
-        'scope_label'=>$fyCalendarScopeLabel,
-    ],
-
 ];
 
 $pageTitle="Report Monitor";
@@ -437,15 +415,6 @@ $pageTitle="Report Monitor";
     >
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css"
-        rel="stylesheet"
-    >
-
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
 
     <style>
 
@@ -525,137 +494,6 @@ $pageTitle="Report Monitor";
             white-space:normal;
 
             min-width:180px;
-
-        }
-
-        .calendar-month-header{
-
-            background:linear-gradient(90deg,#eff6ff,#f8fafc);
-
-            border-left:4px solid #2563eb;
-
-        }
-
-        .calendar-month-header td{
-
-            font-weight:600;
-
-            color:#1e3a8a;
-
-        }
-
-        .calendar-schedule-table th,
-        .calendar-schedule-table td{
-
-            font-size:13px;
-
-            vertical-align:middle;
-
-        }
-
-        #courseBatchCalendar{
-
-            min-height:960px;
-
-        }
-
-        #courseBatchCalendar .fc-multimonth{
-
-            border-radius:12px;
-
-            overflow:hidden;
-
-        }
-
-        #courseBatchCalendar .fc-multimonth-month{
-
-            border-color:#e2e8f0;
-
-        }
-
-        #courseBatchCalendar .fc-multimonth-title{
-
-            font-size:14px;
-
-            font-weight:600;
-
-            color:#1e3a8a;
-
-        }
-
-        #courseBatchCalendar .fc-toolbar-title{
-
-            font-size:1.25rem;
-
-            font-weight:600;
-
-        }
-
-        #courseBatchCalendar .fc-event{
-
-            cursor:pointer;
-
-            font-size:12px;
-
-            border-radius:6px;
-
-            padding:2px 4px;
-
-        }
-
-        #courseBatchCalendar .fc-daygrid-day-number{
-
-            font-weight:600;
-
-        }
-
-        .calendar-legend{
-
-            display:flex;
-
-            flex-wrap:wrap;
-
-            gap:10px 16px;
-
-        }
-
-        .calendar-legend-item{
-
-            display:inline-flex;
-
-            align-items:center;
-
-            gap:6px;
-
-            font-size:12px;
-
-            color:#475569;
-
-        }
-
-        .calendar-legend-dot{
-
-            width:12px;
-
-            height:12px;
-
-            border-radius:999px;
-
-            display:inline-block;
-
-        }
-
-        .calendar-event-detail dt{
-
-            font-weight:600;
-
-            color:#64748b;
-
-        }
-
-        .calendar-event-detail dd{
-
-            margin-bottom:.65rem;
 
         }
 
@@ -1244,54 +1082,6 @@ Q4 (Jan–Mar)
             </div>
 
         </div>
-
-    </div>
-
-</div>
-<!-- COURSE CALENDAR -->
-
-<div class="card table-card mb-4">
-
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-
-        <div>
-            <strong>
-                <i class="fas fa-calendar-alt me-2"></i>
-                Course Calendar
-            </strong>
-            <small class="text-muted ms-2">
-                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · 12-month view · click a course bar for details
-            </small>
-        </div>
-
-        <div class="d-flex gap-2 flex-wrap">
-            <span class="badge bg-primary">
-                <?php echo number_format($courseCalendarSchedule['total_batches'] ?? 0); ?> Batches
-            </span>
-            <span class="badge bg-success">
-                <?php echo number_format($courseCalendarSchedule['total_footfall'] ?? 0); ?> Footfall
-            </span>
-        </div>
-
-    </div>
-
-    <div class="card-body">
-
-        <div class="calendar-legend mb-3">
-            <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#2563eb"></span> Long Term</span>
-            <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#16a34a"></span> Short Term</span>
-            <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#d97706"></span> Internship</span>
-            <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#7c3aed"></span> Workshop</span>
-            <span class="calendar-legend-item"><span class="calendar-legend-dot" style="background:#6366f1"></span> Other</span>
-        </div>
-
-        <div id="courseBatchCalendar"></div>
-
-        <?php if (($courseCalendarSchedule['total_batches'] ?? 0) === 0): ?>
-        <p class="text-center text-muted mt-3 mb-0">
-            No batches scheduled for <?php echo htmlspecialchars($fyCalendarScopeLabel); ?>.
-        </p>
-        <?php endif; ?>
 
     </div>
 
@@ -2313,20 +2103,6 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
-<div class="modal fade" id="courseCalendarEventModal" tabindex="-1" aria-labelledby="courseCalendarEventModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="courseCalendarEventModalLabel">Course Details</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <dl class="row calendar-event-detail mb-0" id="courseCalendarEventBody"></dl>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- PART 2 COMPLETED -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -2918,81 +2694,6 @@ function renderCourseFyGanttChart(timeline) {
         dayAxis.style.marginLeft = chart.chartArea.left + 'px';
         dayAxis.style.width = plotWidth + 'px';
     }
-}
-
-/*==================================================
-COURSE BATCH CALENDAR
-==================================================*/
-
-const calendarEl = document.getElementById('courseBatchCalendar');
-const calendarEvents = reportPayload.calendarEvents || [];
-const calendarRange = reportPayload.calendarRange || {};
-
-if (calendarEl && typeof FullCalendar !== 'undefined') {
-    const calendarModalEl = document.getElementById('courseCalendarEventModal');
-    const calendarModalBody = document.getElementById('courseCalendarEventBody');
-    const calendarModalTitle = document.getElementById('courseCalendarEventModalLabel');
-
-    const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'multiMonthYear',
-        height: 'auto',
-        firstDay: 1,
-        multiMonthMaxColumns: 3,
-        multiMonthMinWidth: 240,
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'multiMonthYear,dayGridMonth,listMonth'
-        },
-        views: {
-            multiMonthYear: {
-                type: 'multiMonthYear',
-                duration: { months: 12 }
-            }
-        },
-        validRange: calendarRange.start && calendarRange.end ? {
-            start: calendarRange.start,
-            end: calendarRange.end
-        } : undefined,
-        initialDate: calendarRange.start || undefined,
-        events: calendarEvents,
-        displayEventTime: false,
-        eventDisplay: 'block',
-        dayMaxEvents: 3,
-        moreLinkClick: 'popover',
-        eventClick: function(info) {
-            const props = info.event.extendedProps || {};
-            if (calendarModalTitle) {
-                calendarModalTitle.textContent = props.course_name || info.event.title;
-            }
-            if (calendarModalBody) {
-                calendarModalBody.innerHTML = [
-                    detailRow('Course', props.course_name, props.course_code),
-                    detailRow('Batch', props.batch_name, props.batch_code),
-                    detailRow('Category', props.course_category),
-                    detailRow('Scheme', props.scheme_name),
-                    detailRow('Centre', props.centre_name),
-                    detailRow('Start Date', props.start_label),
-                    detailRow('End Date', props.end_label),
-                    detailRow('Footfall', props.footfall != null ? Number(props.footfall).toLocaleString() : '—'),
-                    detailRow('Seats', props.seats_total != null ? Number(props.seats_total).toLocaleString() : '—'),
-                    detailRow('Fill %', props.fill_rate != null ? props.fill_rate + '%' : '—'),
-                    detailRow('Status', props.status)
-                ].join('');
-            }
-            if (calendarModalEl && typeof bootstrap !== 'undefined') {
-                bootstrap.Modal.getOrCreateInstance(calendarModalEl).show();
-            }
-        }
-    });
-
-    calendar.render();
-}
-
-function detailRow(label, value, secondary) {
-    const main = value ? String(value) : '—';
-    const extra = secondary ? ' <small class="text-muted">(' + String(secondary) + ')</small>' : '';
-    return '<dt class="col-sm-4">' + label + '</dt><dd class="col-sm-8">' + main + extra + '</dd>';
 }
 
 /*==================================================
