@@ -2148,7 +2148,7 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Time graph · one coloured area per course · hover a line for that course’s details</span>
+                <span class="text-muted small">Duration bars · each colour is a course from start → end · hover a bar for details</span>
             </div>
             <div class="course-fy-time-scroll" id="courseFyGanttScroll">
                 <div id="courseFyGanttInner">
@@ -2171,8 +2171,8 @@ Q4 (Jan–Mar)
                 </div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Hover the graph to open that course’s seats, centre, and dates.</span>
-                <span class="badge bg-light text-dark border">Time graph</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Each |———| bar is a course duration. Hover it for seats, centre, and dates.</span>
+                <span class="badge bg-light text-dark border">Duration bars</span>
             </div>
         </div>
 
@@ -3058,32 +3058,12 @@ function renderCourseFyGanttChart(timeline) {
         { border: '#e11d48', fill: 'rgba(225,29,72,0.18)', point: '#be123c' }
     ];
 
-    function buildCourseSeries(course) {
-        const series = new Array(dayCount).fill(0);
-        const daily = course.daily_admissions || [];
-        let run = 0;
-        let hasDaily = false;
-        for (let i = 0; i < dayCount; i++) {
-            const v = Number(daily[i] || 0);
-            if (v) {
-                hasDaily = true;
-            }
-            run += v;
-            series[i] = run;
-        }
-        if (hasDaily && run > 0) {
-            return series;
-        }
-        // Fallback: batch-module enrolled progress over time (step when batch starts).
-        for (let i = 0; i < dayCount; i++) {
-            let sum = 0;
-            (course.batches || []).forEach(function (batch) {
-                const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
-                if (i >= startIdx) {
-                    sum += Number(batch.footfall) || 0;
-                }
-            });
-            series[i] = sum;
+    function buildDurationSeries(startIdx, endIdx, yLevel) {
+        const series = new Array(dayCount).fill(null);
+        const from = Math.max(0, Math.min(dayCount - 1, startIdx));
+        const to = Math.max(from, Math.min(dayCount - 1, endIdx));
+        for (let i = from; i <= to; i++) {
+            series[i] = yLevel;
         }
         return series;
     }
@@ -3098,11 +3078,6 @@ function renderCourseFyGanttChart(timeline) {
             return;
         }
         const color = palette[index % palette.length];
-        const data = buildCourseSeries(course);
-        const peak = data.length ? Math.max.apply(null, data) : 0;
-        if (peak > yPeak) {
-            yPeak = peak;
-        }
         let seatsTotal = 0;
         let footfall = 0;
         let startLabel = '';
@@ -3135,6 +3110,20 @@ function renderCourseFyGanttChart(timeline) {
             endIdx = dayCount - 1;
         }
 
+        // Flat duration bar height = seats / admissions (as marked |—————|).
+        const yLevel = Math.max(
+            footfall,
+            Number(course.total_footfall) || 0,
+            Number(course.total_admissions) || 0,
+            Number(course.total_registered) || 0,
+            seatsTotal > 0 ? Math.max(8, Math.round(seatsTotal * 0.2)) : 0,
+            8
+        );
+        if (yLevel > yPeak) {
+            yPeak = yLevel;
+        }
+
+        const data = buildDurationSeries(startIdx, endIdx, yLevel);
         const label = course.course_name || 'Course';
         courseMeta.push({
             course_name: label,
@@ -3146,13 +3135,16 @@ function renderCourseFyGanttChart(timeline) {
             admissions: Number(course.total_admissions) || footfall || 0,
             start_label: startLabel,
             end_label: endLabel,
+            start_index: startIdx,
+            end_index: endIdx,
+            y_level: yLevel,
             daily_admissions: course.daily_admissions || [],
-            batches: batches
+            batches: batches,
+            color: color.border
         });
 
-        const pointRadius = data.map(function (v, i) {
-            const prev = i > 0 ? Number(data[i - 1] || 0) : 0;
-            return Number(v) > 0 && Number(v) !== prev ? 3 : 0;
+        const pointRadius = data.map(function (_v, i) {
+            return (i === startIdx || i === endIdx) ? 4 : 0;
         });
 
         datasets.push({
@@ -3163,11 +3155,11 @@ function renderCourseFyGanttChart(timeline) {
             pointBackgroundColor: color.point,
             pointBorderColor: '#fff',
             pointRadius: pointRadius,
-            pointHoverRadius: 6,
-            borderWidth: 2.5,
-            fill: true,
-            tension: 0.35,
-            spanGaps: true,
+            pointHoverRadius: 7,
+            borderWidth: 3,
+            fill: false,
+            tension: 0,
+            spanGaps: false,
             metaIndex: courseMeta.length - 1
         });
     });
@@ -3407,6 +3399,42 @@ function renderCourseFyGanttChart(timeline) {
         return best;
     }
 
+    const durationBracketPlugin = {
+        id: 'courseDurationBrackets',
+        afterDatasetsDraw: function (chart) {
+            const ctx = chart.ctx;
+            const xScale = chart.scales.x;
+            const yScale = chart.scales.y;
+            if (!ctx || !xScale || !yScale) {
+                return;
+            }
+            const cap = 11;
+            chart.data.datasets.forEach(function (ds) {
+                const meta = courseMeta[ds.metaIndex];
+                if (!meta) {
+                    return;
+                }
+                const x1 = xScale.getPixelForValue(meta.start_index);
+                const x2 = xScale.getPixelForValue(meta.end_index);
+                const y = yScale.getPixelForValue(meta.y_level);
+                if (![x1, x2, y].every(function (n) { return Number.isFinite(n); })) {
+                    return;
+                }
+                ctx.save();
+                ctx.strokeStyle = ds.borderColor || meta.color || '#2563eb';
+                ctx.lineWidth = 3.5;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x1, y - cap);
+                ctx.lineTo(x1, y + cap);
+                ctx.moveTo(x2, y - cap);
+                ctx.lineTo(x2, y + cap);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+    };
+
     try {
         courseFyTimeChartInstance = new Chart(canvas, {
             type: 'line',
@@ -3414,6 +3442,7 @@ function renderCourseFyGanttChart(timeline) {
                 labels: dayLabels,
                 datasets: datasets
             },
+            plugins: [durationBracketPlugin],
             options: {
                 responsive: false,
                 maintainAspectRatio: false,
