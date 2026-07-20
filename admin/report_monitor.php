@@ -659,266 +659,6 @@ $pageTitle="Report Monitor";
 
         }
 
-        .course-fy-timeline-wrap{
-
-            overflow-x:auto;
-
-            padding-bottom:8px;
-
-        }
-
-        .course-fy-timeline{
-
-            min-width:max(1200px, calc(240px + 12px + var(--fy-track-width, 4380px) + 12px + 150px));
-
-        }
-
-        .course-fy-timeline-summary{
-
-            display:flex;
-
-            flex-wrap:wrap;
-
-            gap:10px;
-
-            margin-bottom:16px;
-
-        }
-
-        .course-fy-timeline-head{
-
-            display:grid;
-
-            grid-template-columns:240px max-content 150px;
-
-            gap:12px;
-
-            align-items:end;
-
-            margin-bottom:8px;
-
-            position:sticky;
-
-            top:0;
-
-            z-index:2;
-
-            background:#fff;
-
-            padding-bottom:8px;
-
-            border-bottom:2px solid #e2e8f0;
-
-        }
-
-        .course-fy-axis-months{
-
-            display:flex;
-
-            height:28px;
-
-            border:1px solid #dbeafe;
-
-            border-radius:8px 8px 0 0;
-
-            overflow:hidden;
-
-            background:#f8fafc;
-
-        }
-
-        .course-fy-axis-month{
-
-            flex:0 0 auto;
-
-            display:flex;
-
-            align-items:center;
-
-            justify-content:center;
-
-            font-size:11px;
-
-            font-weight:600;
-
-            color:#1e3a8a;
-
-            border-right:1px solid #dbeafe;
-
-            white-space:nowrap;
-
-            padding:0 4px;
-
-        }
-
-        .course-fy-axis-days{
-
-            display:flex;
-
-            height:22px;
-
-            border:1px solid #e2e8f0;
-
-            border-top:none;
-
-            background:#fff;
-
-        }
-
-        .course-fy-axis-day{
-
-            flex:0 0 auto;
-
-            min-width:3px;
-
-            font-size:9px;
-
-            color:#64748b;
-
-            text-align:center;
-
-            border-right:1px solid #f1f5f9;
-
-            line-height:22px;
-
-            overflow:hidden;
-
-        }
-
-        .course-fy-axis-day.is-month-start{
-
-            background:#eff6ff;
-
-            color:#2563eb;
-
-            font-weight:600;
-
-        }
-
-        .course-fy-row{
-
-            display:grid;
-
-            grid-template-columns:240px max-content 150px;
-
-            gap:12px;
-
-            align-items:center;
-
-            padding:10px 0;
-
-            border-bottom:1px solid #f1f5f9;
-
-        }
-
-        .course-fy-row:hover{
-
-            background:#fafbff;
-
-        }
-
-        .course-fy-course-name{
-
-            font-weight:600;
-
-            font-size:13px;
-
-            line-height:1.3;
-
-        }
-
-        .course-fy-course-code{
-
-            font-size:11px;
-
-            color:#64748b;
-
-        }
-
-        .course-fy-totals{
-
-            display:flex;
-
-            flex-wrap:wrap;
-
-            gap:6px;
-
-            margin-top:6px;
-
-        }
-
-        .course-fy-totals .badge{
-
-            font-size:10px;
-
-            font-weight:500;
-
-        }
-
-        .course-fy-track{
-
-            position:relative;
-
-            height:34px;
-
-            border:1px solid #e2e8f0;
-
-            border-radius:8px;
-
-            background:repeating-linear-gradient(
-                90deg,
-                #fff,
-                #fff  calc(100% / var(--fy-days, 365) - 1px),
-                #f8fafc calc(100% / var(--fy-days, 365) - 1px),
-                #f8fafc calc(100% / var(--fy-days, 365))
-            );
-
-            overflow:hidden;
-
-        }
-
-        .course-fy-bar{
-
-            position:absolute;
-
-            top:5px;
-
-            height:24px;
-
-            border-radius:999px;
-
-            background:linear-gradient(90deg,#2563eb,#3b82f6);
-
-            box-shadow:0 1px 3px rgba(37,99,235,.25);
-
-            cursor:pointer;
-
-            min-width:4px;
-
-        }
-
-        .course-fy-bar:nth-child(odd){
-
-            background:linear-gradient(90deg,#16a34a,#22c55e);
-
-        }
-
-        .course-fy-sparkline{
-
-            height:44px;
-
-            width:140px;
-
-        }
-
-        .course-fy-sparkline canvas{
-
-            width:100% !important;
-
-            height:44px !important;
-
-        }
-
         #courseFyGanttWrap{
 
             position:relative;
@@ -958,6 +698,62 @@ $pageTitle="Report Monitor";
         #courseFyGanttInner canvas{
 
             display:block;
+
+        }
+
+        .course-fy-gantt-day-axis{
+
+            display:flex;
+
+            width:100%;
+
+            border-top:1px solid #e2e8f0;
+
+            background:#fff;
+
+            margin-top:4px;
+
+        }
+
+        .course-fy-gantt-day-tick{
+
+            flex:0 0 auto;
+
+            box-sizing:border-box;
+
+            border-right:1px solid #f1f5f9;
+
+            text-align:center;
+
+            font-size:8px;
+
+            line-height:1.1;
+
+            color:#475569;
+
+            height:72px;
+
+            padding-top:4px;
+
+            writing-mode:vertical-rl;
+
+            transform:rotate(180deg);
+
+            white-space:nowrap;
+
+            overflow:hidden;
+
+        }
+
+        .course-fy-gantt-day-tick.is-month-start{
+
+            background:#eff6ff;
+
+            color:#1d4ed8;
+
+            font-weight:700;
+
+            border-right-color:#bfdbfe;
 
         }
 
@@ -2049,7 +1845,7 @@ Q4 (Jan–Mar)
                 Course-wise FY Timeline Progress
             </strong>
             <small class="text-muted ms-2">
-                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · graph + daily timeline · hover for figures
+                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · duration graph · hover for figures
             </small>
         </div>
 
@@ -2072,16 +1868,10 @@ Q4 (Jan–Mar)
             <div class="course-fy-gantt-scroll">
                 <div id="courseFyGanttInner">
                     <canvas id="courseFyGanttChart"></canvas>
+                    <div id="courseFyGanttDayAxis" class="course-fy-gantt-day-axis" aria-hidden="true"></div>
                 </div>
             </div>
         </div>
-
-        <details class="mb-0">
-            <summary class="fw-semibold text-muted mb-3" style="cursor:pointer;">Detailed daily timeline table (click to expand)</summary>
-            <div id="courseFyTimeline" class="course-fy-timeline-wrap">
-                <p class="text-center text-muted py-4 mb-0">Loading timeline…</p>
-            </div>
-        </details>
 
     </div>
 
@@ -2930,26 +2720,19 @@ COURSE FY TIMELINE
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
-renderCourseFyTimeline(courseFyTimelineData);
-
-function formatDayTick(value) {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) {
-        return '';
-    }
-    return d.getDate() + '.' + (d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(-2);
-}
 
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
     const inner = document.getElementById('courseFyGanttInner');
     const canvas = document.getElementById('courseFyGanttChart');
+    const dayAxis = document.getElementById('courseFyGanttDayAxis');
     if (!wrap || !canvas || typeof Chart === 'undefined') {
         return;
     }
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
+    const dayLabels = timeline.day_labels || [];
     const batchPoints = [];
     const barColors = [
         'rgba(37,99,235,0.85)', 'rgba(22,163,74,0.85)', 'rgba(217,119,6,0.85)',
@@ -2966,8 +2749,10 @@ function renderCourseFyGanttChart(timeline) {
             const yLabel = batches.length > 1 && batch.batch_code
                 ? (course.course_name + ' · ' + batch.batch_code)
                 : course.course_name;
+            const startIdx = Number.isFinite(batch.start_index) ? batch.start_index : 0;
+            const endIdx = Number.isFinite(batch.end_index) ? batch.end_index : startIdx;
             batchPoints.push({
-                x: [batch.start_date, batch.end_date + 'T23:59:59'],
+                x: [startIdx, Math.max(startIdx, endIdx) + 0.999],
                 y: yLabel,
                 batch_name: batch.batch_name,
                 batch_code: batch.batch_code,
@@ -2986,31 +2771,29 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
-    const pixelsPerDay = 12;
-    const chartWidth = Math.max(wrap.clientWidth - 24, (dayCount || 365) * pixelsPerDay);
-    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 120));
+    const pixelsPerDay = 14;
+    const yAxisReserve = 280;
+    const plotTargetWidth = (dayCount || 365) * pixelsPerDay;
+    let chartWidth = Math.max(wrap.clientWidth - 24, plotTargetWidth + yAxisReserve);
+    const chartHeight = Math.max(420, Math.min(900, batchPoints.length * 32 + 80));
     if (inner) {
         inner.style.width = chartWidth + 'px';
-        inner.style.height = chartHeight + 'px';
     }
-    wrap.style.height = (chartHeight + 48) + 'px';
+    wrap.style.height = 'auto';
 
     canvas.width = chartWidth;
     canvas.height = chartHeight;
     canvas.style.width = chartWidth + 'px';
     canvas.style.height = chartHeight + 'px';
 
-    const fyEndMax = timeline.fy_end ? (timeline.fy_end + 'T23:59:59') : undefined;
-    const dayIso = timeline.day_iso || [];
-
-    new Chart(canvas, {
+    const chartConfig = {
         type: 'bar',
         data: {
             datasets: [{
                 label: 'Batch period',
                 data: batchPoints.map(function (point) {
                     return {
-                        x: [point.x[0], point.x[1]],
+                        x: point.x,
                         y: point.y
                     };
                 }),
@@ -3035,7 +2818,7 @@ function renderCourseFyGanttChart(timeline) {
                 yAxisKey: 'y'
             },
             layout: {
-                padding: { bottom: 8, right: 8 }
+                padding: { top: 4, right: 8, bottom: 4, left: 4 }
             },
             plugins: {
                 legend: { display: false },
@@ -3066,57 +2849,26 @@ function renderCourseFyGanttChart(timeline) {
             },
             scales: {
                 x: {
-                    type: 'time',
-                    min: timeline.fy_start,
-                    max: fyEndMax,
-                    time: {
-                        unit: 'day',
-                        round: 'day',
-                        displayFormats: {
-                            day: 'd.M.yy'
-                        },
-                        tooltipFormat: 'd.M.yy'
-                    },
-                    afterBuildTicks: function (axis) {
-                        if (!dayIso.length) {
-                            return;
-                        }
-                        axis.ticks = dayIso.map(function (iso) {
-                            return { value: iso };
-                        });
-                    },
+                    type: 'linear',
+                    min: 0,
+                    max: Math.max(0, (dayCount || 365) - 0.001),
                     title: {
                         display: true,
                         text: 'Date — all ' + (dayCount || 365) + ' days (d.m.yy) · scroll →'
                     },
                     grid: {
                         color: function (context) {
-                            if (!context.tick || !context.tick.value) {
-                                return 'rgba(148,163,184,0.15)';
-                            }
-                            const d = new Date(context.tick.value);
-                            return d.getDate() === 1
-                                ? 'rgba(37,99,235,0.22)'
+                            const i = Math.round(context.tick && context.tick.value);
+                            const label = dayLabels[i] || '';
+                            return /^1\./.test(label)
+                                ? 'rgba(37,99,235,0.25)'
                                 : 'rgba(148,163,184,0.12)';
-                        },
-                        lineWidth: function (context) {
-                            if (!context.tick || !context.tick.value) {
-                                return 1;
-                            }
-                            const d = new Date(context.tick.value);
-                            return d.getDate() === 1 ? 1.5 : 1;
                         }
                     },
                     ticks: {
-                        autoSkip: false,
-                        maxTicksLimit: (dayCount || 366) + 5,
-                        maxRotation: 90,
-                        minRotation: 90,
-                        font: { size: 7 },
-                        padding: 1,
-                        callback: function (value) {
-                            return formatDayTick(value);
-                        }
+                        display: false,
+                        stepSize: 1,
+                        autoSkip: false
                     }
                 },
                 y: {
@@ -3134,149 +2886,38 @@ function renderCourseFyGanttChart(timeline) {
                 }
             }
         }
-    });
-}
+    };
 
-function renderCourseFyTimeline(timeline) {
-    const container = document.getElementById('courseFyTimeline');
-    if (!container) {
-        return;
-    }
+    const chart = new Chart(canvas, chartConfig);
 
-    const courses = timeline.courses || [];
-    const dayCount = timeline.day_count || 0;
-    const dayLabels = timeline.day_labels || [];
-    const monthMarkers = timeline.month_markers || [];
-
-    if (!courses.length || !dayCount) {
-        container.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course timeline data for ' +
-            (timeline.fy_label ? timeline.fy_label : 'the selected financial year') + '.</p>';
-        return;
-    }
-
-    const dayWidth = 12;
-    const trackWidth = dayCount * dayWidth;
-
-    let monthsHtml = '';
-    monthMarkers.forEach(function (marker) {
-        const width = marker.day_count * dayWidth;
-        monthsHtml += '<div class="course-fy-axis-month" style="width:' + width + 'px">' +
-            marker.label + '</div>';
-    });
-
-    let daysHtml = '';
-    for (let i = 0; i < dayCount; i++) {
-        const label = dayLabels[i] || '';
-        const isMonthStart = /^1\./.test(label);
-        daysHtml += '<div class="course-fy-axis-day' + (isMonthStart ? ' is-month-start' : '') + '" style="width:' + dayWidth + 'px" title="' + label + '">' +
-            (isMonthStart ? label.split('.')[0] : '') + '</div>';
-    }
-
-    let rowsHtml = '';
-    courses.forEach(function (course, courseIndex) {
-        let barsHtml = '';
-        (course.batches || []).forEach(function (batch) {
-            const left = (batch.start_index / dayCount) * 100;
-            const span = (batch.end_index - batch.start_index + 1);
-            const width = (span / dayCount) * 100;
-            const tip = (batch.batch_name || 'Batch') +
-                ' | ' + batch.start_label + ' to ' + batch.end_label +
-                ' | Footfall: ' + Number(batch.footfall || 0).toLocaleString();
-            barsHtml += '<div class="course-fy-bar" style="left:' + left + '%;width:' + width + '%" title="' + tip + '"></div>';
-        });
-
-        rowsHtml += '<div class="course-fy-row">' +
-            '<div>' +
-                '<div class="course-fy-course-name">' + escapeHtml(course.course_name || '') + '</div>' +
-                (course.course_code ? '<div class="course-fy-course-code">' + escapeHtml(course.course_code) + '</div>' : '') +
-                '<div class="course-fy-totals">' +
-                    '<span class="badge bg-primary">Reg: ' + Number(course.total_registered || 0).toLocaleString() + '</span>' +
-                    '<span class="badge bg-success">Adm: ' + Number(course.total_admissions || 0).toLocaleString() + '</span>' +
-                    '<span class="badge bg-info text-dark">Footfall: ' + Number(course.total_footfall || 0).toLocaleString() + '</span>' +
-                    '<span class="badge bg-secondary">Batches: ' + Number(course.total_batches || 0).toLocaleString() + '</span>' +
-                '</div>' +
-            '</div>' +
-            '<div class="course-fy-track" style="width:' + trackWidth + 'px;--fy-days:' + dayCount + '">' + barsHtml + '</div>' +
-            '<div class="course-fy-sparkline"><canvas id="courseFySpark' + courseIndex + '"></canvas></div>' +
-        '</div>';
-    });
-
-    container.innerHTML =
-        '<div class="course-fy-timeline" style="width:' + (240 + 12 + trackWidth + 12 + 150) + 'px;--fy-track-width:' + trackWidth + 'px">' +
-            '<div class="course-fy-timeline-head">' +
-                '<div><strong>Course</strong><div class="text-muted small">Totals per course</div></div>' +
-                '<div style="width:' + trackWidth + 'px">' +
-                    '<div class="course-fy-axis-months" style="width:' + trackWidth + 'px">' + monthsHtml + '</div>' +
-                    '<div class="course-fy-axis-days" style="width:' + trackWidth + 'px">' + daysHtml + '</div>' +
-                '</div>' +
-                '<div class="text-muted small text-center">Daily trend<br><span class="badge bg-light text-dark border">hover</span></div>' +
-            '</div>' +
-            rowsHtml +
-        '</div>';
-
-    courses.forEach(function (course, courseIndex) {
-        const canvas = document.getElementById('courseFySpark' + courseIndex);
-        if (!canvas || typeof Chart === 'undefined') {
-            return;
-        }
-
-        new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: timeline.day_labels || [],
-                datasets: [
-                    {
-                        label: 'Registered',
-                        data: course.daily_registered || [],
-                        borderColor: '#2563eb',
-                        backgroundColor: 'rgba(37,99,235,0.12)',
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        tension: 0.25,
-                        fill: true
-                    },
-                    {
-                        label: 'Admissions',
-                        data: course.daily_admissions || [],
-                        borderColor: '#16a34a',
-                        backgroundColor: 'rgba(22,163,74,0.08)',
-                        borderWidth: 1.5,
-                        pointRadius: 0,
-                        tension: 0.25,
-                        fill: false
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            title: function (items) {
-                                return items.length ? ('Date: ' + items[0].label) : '';
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { display: false },
-                    y: { display: false, beginAtZero: true }
-                }
+    if (chart.chartArea) {
+        const rightPad = chartWidth - chart.chartArea.right;
+        const fittedWidth = Math.ceil(chart.chartArea.left + plotTargetWidth + rightPad);
+        if (fittedWidth > chartWidth + 2) {
+            chartWidth = fittedWidth;
+            if (inner) {
+                inner.style.width = chartWidth + 'px';
             }
-        });
-    });
-}
+            canvas.width = chartWidth;
+            canvas.style.width = chartWidth + 'px';
+            chart.resize();
+        }
+    }
 
-function escapeHtml(value) {
-    return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    if (dayAxis && chart.chartArea) {
+        const plotWidth = Math.max(1, chart.chartArea.right - chart.chartArea.left);
+        const dayPx = plotWidth / Math.max(1, dayCount || 365);
+        let ticksHtml = '';
+        for (let i = 0; i < dayCount; i++) {
+            const label = dayLabels[i] || String(i + 1);
+            const isMonthStart = /^1\./.test(label);
+            ticksHtml += '<div class="course-fy-gantt-day-tick' + (isMonthStart ? ' is-month-start' : '') +
+                '" style="width:' + dayPx + 'px" title="' + label + '">' + label + '</div>';
+        }
+        dayAxis.innerHTML = ticksHtml;
+        dayAxis.style.marginLeft = chart.chartArea.left + 'px';
+        dayAxis.style.width = plotWidth + 'px';
+    }
 }
 
 /*==================================================
