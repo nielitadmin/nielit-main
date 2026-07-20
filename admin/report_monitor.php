@@ -701,6 +701,8 @@ $pageTitle="Report Monitor";
 
             border:1px solid #3b82f6;
 
+            background:linear-gradient(90deg,#93c5fd,#60a5fa);
+
             box-shadow:0 1px 4px rgba(37,99,235,.16);
 
             color:#0f172a;
@@ -718,16 +720,6 @@ $pageTitle="Report Monitor";
             z-index:2;
 
         }
-
-        .course-fy-lane:nth-child(5n+1) .course-fy-lane-bar{ background:linear-gradient(90deg,#67e8f9,#22d3ee); border-color:#06b6d4; }
-
-        .course-fy-lane:nth-child(5n+2) .course-fy-lane-bar{ background:linear-gradient(90deg,#c4b5fd,#a78bfa); border-color:#8b5cf6; }
-
-        .course-fy-lane:nth-child(5n+3) .course-fy-lane-bar{ background:linear-gradient(90deg,#fca5a5,#f87171); border-color:#ef4444; }
-
-        .course-fy-lane:nth-child(5n+4) .course-fy-lane-bar{ background:linear-gradient(90deg,#fde047,#facc15); border-color:#eab308; }
-
-        .course-fy-lane:nth-child(5n+5) .course-fy-lane-bar{ background:linear-gradient(90deg,#86efac,#4ade80); border-color:#22c55e; }
 
         .course-fy-lane-bar:hover{
 
@@ -2961,10 +2953,13 @@ function renderCourseFyGanttChart(timeline) {
             const footfall = Number(batch.footfall) || 0;
             const seatsTotal = Number(batch.seats_total) || 0;
             const batchLabel = batch.batch_code || batch.batch_name || '';
+            const baseCourseName = course.course_name || 'Course';
             const displayName = batchLabel
-                ? ((course.course_name || 'Course') + ' · ' + batchLabel)
-                : (course.course_name || 'Course');
+                ? (baseCourseName + ' · ' + batchLabel)
+                : baseCourseName;
             bars.push({
+                course_id: course.course_id || 0,
+                course_key: String(course.course_id || baseCourseName),
                 course_name: displayName,
                 course_code: course.course_code || '',
                 batch_name: batch.batch_name || '',
@@ -2991,6 +2986,31 @@ function renderCourseFyGanttChart(timeline) {
         return a.start_index - b.start_index
             || a.course_name.localeCompare(b.course_name)
             || String(a.batch_code || '').localeCompare(String(b.batch_code || ''));
+    });
+
+    const courseColorPalette = [
+        { bg: 'linear-gradient(90deg,#67e8f9,#22d3ee)', border: '#0891b2' },
+        { bg: 'linear-gradient(90deg,#c4b5fd,#a78bfa)', border: '#7c3aed' },
+        { bg: 'linear-gradient(90deg,#fca5a5,#f87171)', border: '#dc2626' },
+        { bg: 'linear-gradient(90deg,#fde047,#facc15)', border: '#ca8a04' },
+        { bg: 'linear-gradient(90deg,#86efac,#4ade80)', border: '#16a34a' },
+        { bg: 'linear-gradient(90deg,#fdba74,#fb923c)', border: '#ea580c' },
+        { bg: 'linear-gradient(90deg,#f9a8d4,#f472b6)', border: '#db2777' },
+        { bg: 'linear-gradient(90deg,#93c5fd,#3b82f6)', border: '#2563eb' },
+        { bg: 'linear-gradient(90deg,#a5b4fc,#818cf8)', border: '#4f46e5' },
+        { bg: 'linear-gradient(90deg,#5eead4,#14b8a6)', border: '#0d9488' },
+        { bg: 'linear-gradient(90deg,#d8b4fe,#c084fc)', border: '#9333ea' },
+        { bg: 'linear-gradient(90deg,#fcd34d,#f59e0b)', border: '#d97706' }
+    ];
+    const courseColorMap = {};
+    let colorIndex = 0;
+    bars.forEach(function (bar) {
+        const key = bar.course_key || bar.course_name;
+        if (!courseColorMap[key]) {
+            courseColorMap[key] = courseColorPalette[colorIndex % courseColorPalette.length];
+            colorIndex += 1;
+        }
+        bar.color = courseColorMap[key];
     });
 
     let runningEnrolled = 0;
@@ -3042,9 +3062,11 @@ function renderCourseFyGanttChart(timeline) {
         const leftPx = bar.start_index * pixelsPerDay;
         const spanDays = bar.end_index - bar.start_index + 1;
         const widthPx = Math.max(spanDays * pixelsPerDay, 220);
+        const color = bar.color || courseColorPalette[0];
         lanesHtml +=
             '<div class="course-fy-lane" style="height:' + laneHeight + 'px;width:' + plotWidth + 'px">' +
-                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx + 'px;width:' + widthPx + 'px">' +
+                '<div class="course-fy-lane-bar" data-bar-index="' + index + '" style="left:' + leftPx +
+                    'px;width:' + widthPx + 'px;background:' + color.bg + ';border-color:' + color.border + '">' +
                     '<span class="bar-date">' + escapeHtmlAttr(bar.start_label) + '</span>' +
                     '<span class="bar-name">' + escapeHtmlAttr(bar.course_name) + '</span>' +
                     '<span class="bar-date">' + escapeHtmlAttr(bar.end_label) + '</span>' +
