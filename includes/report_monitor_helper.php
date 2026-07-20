@@ -971,6 +971,20 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $timestamp ? date('j M Y', $timestamp) : '';
     }
 
+    /** Short label like 15.apr.26 for timeline graphs. */
+    function report_monitor_format_day_month_year(?string $date): string {
+        if ($date === null || $date === '' || $date === '0000-00-00' || strpos((string) $date, '0000-00-00') === 0) {
+            return '';
+        }
+
+        $timestamp = is_numeric($date) ? (int) $date : strtotime((string) $date);
+        if (!$timestamp) {
+            return '';
+        }
+
+        return strtolower(date('j.M.y', $timestamp));
+    }
+
     function report_monitor_format_batch_period_label(?string $startDate, ?string $endDate): string {
         $startLabel = report_monitor_format_display_date($startDate);
         $endLabel = report_monitor_format_display_date($endDate);
@@ -1321,7 +1335,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $iso = date('Y-m-d', $cursor);
             $dayIndexMap[$iso] = $dayIndex;
             $dayIso[] = $iso;
-            $dayLabels[] = date('j.n.y', $cursor);
+            $dayLabels[] = report_monitor_format_day_month_year(date('Y-m-d', $cursor));
             $cursor = strtotime('+1 day', $cursor);
             $dayIndex++;
         }
@@ -1479,8 +1493,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                         'batch_code' => $row['batch_code'] ?? '',
                         'start_date' => $startIso,
                         'end_date' => $endIso,
-                        'start_label' => date('j.n.y', strtotime($startIso)),
-                        'end_label' => date('j.n.y', strtotime($endIso)),
+                        'start_label' => report_monitor_format_day_month_year($startIso),
+                        'end_label' => report_monitor_format_day_month_year($endIso),
                         'start_index' => $startIdx,
                         'end_index' => $endIdx,
                         'footfall' => $footfall,

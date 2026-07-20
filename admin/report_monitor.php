@@ -770,23 +770,27 @@ $pageTitle="Report Monitor";
 
         .course-fy-hover-panel{
 
-            position:static;
+            position:fixed;
 
-            width:100%;
+            width:300px;
 
-            margin-top:12px;
+            max-width:calc(100vw - 24px);
 
             background:#fff;
 
-            border:1px solid #cbd5e1;
+            border:1px solid #94a3b8;
 
             border-radius:12px;
 
-            box-shadow:0 4px 16px rgba(15,23,42,.08);
+            box-shadow:0 12px 32px rgba(15,23,42,.22);
 
             padding:12px;
 
             display:none;
+
+            z-index:3000;
+
+            pointer-events:auto;
 
         }
 
@@ -822,7 +826,7 @@ $pageTitle="Report Monitor";
 
             width:100% !important;
 
-            height:160px !important;
+            height:150px !important;
 
         }
 
@@ -1972,7 +1976,7 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-bar me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">One row per course · no overlap · day-wise Apr–Mar · hover for detail graph below</span>
+                <span class="text-muted small">One row per course · day-wise Apr–Mar · hover a bar for mini course detail graph beside it</span>
             </div>
             <div class="course-fy-admission-chart">
                 <div class="course-fy-y-rail">
@@ -1998,8 +2002,8 @@ Q4 (Jan–Mar)
                 <canvas id="courseFyHoverChart"></canvas>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-arrows-alt-h me-1"></i> Each course has its own row. Scroll horizontally for all 365 days. Detail graph opens below (not over the bars).</span>
-                <span class="badge bg-light text-dark border">No overlap</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Hover a course bar — mini admission graph appears next to that bar.</span>
+                <span class="badge bg-light text-dark border">Hover beside bar</span>
             </div>
         </div>
 
@@ -2975,7 +2979,38 @@ function renderCourseFyGanttChart(timeline) {
     dayAxis.innerHTML = daysHtml;
     dayAxis.style.width = plotWidth + 'px';
 
-    function showCourseDetail(bar) {
+    function hideCourseDetail() {
+        if (hoverPanel) {
+            hoverPanel.classList.remove('is-visible');
+        }
+    }
+
+    function placeHoverBesideBar(anchorEl) {
+        if (!hoverPanel || !anchorEl) {
+            return;
+        }
+        const rect = anchorEl.getBoundingClientRect();
+        const panelWidth = Math.min(300, window.innerWidth - 24);
+        const panelHeight = 230;
+        let left = rect.right + 12;
+        let top = rect.top - 8;
+
+        if (left + panelWidth > window.innerWidth - 12) {
+            left = Math.max(12, rect.left - panelWidth - 12);
+        }
+        if (top < 12) {
+            top = 12;
+        }
+        if (top + panelHeight > window.innerHeight - 12) {
+            top = Math.max(12, window.innerHeight - panelHeight - 12);
+        }
+
+        hoverPanel.style.width = panelWidth + 'px';
+        hoverPanel.style.left = left + 'px';
+        hoverPanel.style.top = top + 'px';
+    }
+
+    function showCourseDetail(bar, anchorEl) {
         if (!hoverPanel || !hoverCanvas || typeof Chart === 'undefined') {
             return;
         }
@@ -3058,17 +3093,34 @@ function renderCourseFyGanttChart(timeline) {
         });
 
         hoverPanel.classList.add('is-visible');
+        placeHoverBesideBar(anchorEl);
+    }
+
+    let hoverHideTimer = null;
+    function scheduleHideCourseDetail() {
+        clearTimeout(hoverHideTimer);
+        hoverHideTimer = setTimeout(hideCourseDetail, 180);
+    }
+    function cancelHideCourseDetail() {
+        clearTimeout(hoverHideTimer);
     }
 
     plot.querySelectorAll('.course-fy-lane-bar').forEach(function (el) {
         el.addEventListener('mouseenter', function () {
+            cancelHideCourseDetail();
             const idx = Number(el.getAttribute('data-bar-index'));
             if (!Number.isFinite(idx) || !bars[idx]) {
                 return;
             }
-            showCourseDetail(bars[idx]);
+            showCourseDetail(bars[idx], el);
         });
+        el.addEventListener('mouseleave', scheduleHideCourseDetail);
     });
+
+    if (hoverPanel) {
+        hoverPanel.addEventListener('mouseenter', cancelHideCourseDetail);
+        hoverPanel.addEventListener('mouseleave', scheduleHideCourseDetail);
+    }
 }
 
 /*==================================================
