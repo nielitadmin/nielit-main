@@ -1297,6 +1297,231 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 
+    /**
+     * Course timeline for a full financial year: daily axis, batch spans, totals, sparkline series.
+     */
+    function report_monitor_get_course_fy_timeline($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $fyRange = report_monitor_get_financial_quarter_range($fyStartYear, 'FY');
+        $fyStart = $fyRange['start_date'];
+        $fyEndExclusive = $fyRange['next_start'];
+        $fyEnd = $fyRange['end_date'];
+
+        $dayIndexMap = [];
+        $dayLabels = [];
+        $dayIso = [];
+        $cursor = strtotime($fyStart);
+        $endTs = strtotime($fyEndExclusive);
+        $dayIndex = 0;
+
+        while ($cursor < $endTs) {
+            $iso = date('Y-m-d', $cursor);
+            $dayIndexMap[$iso] = $dayIndex;
+            $dayIso[] = $iso;
+            $dayLabels[] = date('j.n.y', $cursor);
+            $cursor = strtotime('+1 day', $cursor);
+            $dayIndex++;
+        }
+
+        $dayCount = count($dayLabels);
+        if ($dayCount === 0) {
+            return [
+                'fy_start' => $fyStart,
+                'fy_end' => $fyEnd,
+                'fy_label' => $fyRange['scope_label'],
+                'day_count' => 0,
+                'day_labels' => [],
+                'day_iso' => [],
+                'month_markers' => [],
+                'grand_totals' => ['courses' => 0, 'registered' => 0, 'admissions' => 0, 'footfall' => 0, 'batches' => 0],
+                'courses' => [],
+            ];
+        }
+
+        $monthMarkers = [];
+        foreach ($fyRange['graph_months'] as $graphMonth) {
+            $monthStartIso = sprintf('%04d-%02d-01', (int) $graphMonth['year'], (int) $graphMonth['month']);
+            if (!isset($dayIndexMap[$monthStartIso])) {
+                continue;
+            }
+            $daysInMonth = (int) date('t', strtotime($monthStartIso));
+            $monthMarkers[] = [
+                'label' => date('M Y', strtotime($monthStartIso)),
+                'start_index' => $dayIndexMap[$monthStartIso],
+                'day_count' => $daysInMonth,
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+
+        $courseMap = [];
+        $initCourse = static function (array &$map, array $row, int $dayCount): int {
+            $courseId = (int) $row['course_id'];
+            if (!isset($map[$courseId])) {
+                $map[$courseId] = [
+                    'course_id' => $courseId,
+                    'course_name' => $row['course_name'],
+                    'course_code' => $row['course_code'] ?? '',
+                    'total_registered' => 0,
+                    'total_admissions' => 0,
+                    'total_footfall' => 0,
+                    'total_batches' => 0,
+                    'daily_registered' => array_fill(0, $dayCount, 0),
+                    'daily_admissions' => array_fill(0, $dayCount, 0),
+                    'batches' => [],
+                ];
+            }
+            return $courseId;
+        };
+
+        $studentSql = "SELECT c.id AS course_id,
+                              c.course_name,
+                              c.course_code,
+                              DATE(s.created_at) AS reg_date,
+                              COUNT(DISTINCT s.id) AS applications,
+                              SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled
+                       FROM students s
+                       INNER JOIN courses c ON c.id = s.course_id
+                       WHERE {$activeCondition}{$scopeFilter['sql']}
+                       AND s.created_at >= ? AND s.created_at < ?
+                       GROUP BY c.id, c.course_name, c.course_code, reg_date";
+        $studentTypes = $scopeFilter['types'] . 'ss';
+        $studentValues = array_merge($scopeFilter['values'], [$fyStart . ' 00:00:00', $fyEndExclusive . ' 00:00:00']);
+        $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentTypes, $studentValues);
+        if ($studentResult) {
+            while ($row = $studentResult->fetch_assoc()) {
+                $regDate = $row['reg_date'] ?? '';
+                if (!isset($dayIndexMap[$regDate])) {
+                    continue;
+                }
+                $courseId = $initCourse($courseMap, $row, $dayCount);
+                $idx = $dayIndexMap[$regDate];
+                $registered = (int) ($row['applications'] ?? 0);
+                $admissions = (int) ($row['batch_enrolled'] ?? 0);
+                $courseMap[$courseId]['daily_registered'][$idx] += $registered;
+                $courseMap[$courseId]['daily_admissions'][$idx] += $admissions;
+                $courseMap[$courseId]['total_registered'] += $registered;
+                $courseMap[$courseId]['total_admissions'] += $admissions;
+            }
+        }
+
+        if (report_monitor_table_exists($conn, 'batches')) {
+            require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
+
+            $monthFilter = [
+                'active' => true,
+                'start' => $fyStart . ' 00:00:00',
+                'end' => $fyEnd . ' 23:59:59',
+            ];
+
+            $batchSql = "SELECT b.id,
+                                b.batch_name,
+                                b.batch_code,
+                                {$batchStartExpr} AS batch_start,
+                                {$batchEndExpr} AS batch_end,
+                                c.id AS course_id,
+                                c.course_name,
+                                c.course_code
+                         FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
+                         WHERE 1=1{$scopeFilter['sql']}";
+            $batchTypes = $scopeFilter['types'];
+            $batchValues = $scopeFilter['values'];
+            report_monitor_append_batch_period_overlap($batchSql, $batchTypes, $batchValues, 'b', $monthFilter);
+            $batchSql .= " ORDER BY {$batchStartExpr} ASC, b.id ASC";
+
+            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchTypes, $batchValues);
+            if ($batchResult) {
+                while ($row = $batchResult->fetch_assoc()) {
+                    $courseId = $initCourse($courseMap, $row, $dayCount);
+                    $startRaw = $row['batch_start'] ?? null;
+                    $endRaw = $row['batch_end'] ?? null;
+                    if (!$startRaw) {
+                        continue;
+                    }
+
+                    $startIso = date('Y-m-d', strtotime((string) $startRaw));
+                    $endIso = date('Y-m-d', strtotime((string) ($endRaw ?: $startRaw)));
+                    if (!isset($dayIndexMap[$startIso])) {
+                        $startIso = $fyStart;
+                    }
+                    if (!isset($dayIndexMap[$endIso])) {
+                        $endIso = $fyEnd;
+                    }
+
+                    $startIdx = $dayIndexMap[$startIso] ?? 0;
+                    $endIdx = $dayIndexMap[$endIso] ?? ($dayCount - 1);
+                    if ($endIdx < $startIdx) {
+                        $endIdx = $startIdx;
+                    }
+
+                    $footfall = function_exists('getBatchEnrolledCount')
+                        ? getBatchEnrolledCount((int) $row['id'], $conn)
+                        : 0;
+
+                    $courseMap[$courseId]['total_footfall'] += $footfall;
+                    $courseMap[$courseId]['total_batches']++;
+                    $courseMap[$courseId]['batches'][] = [
+                        'id' => (int) $row['id'],
+                        'batch_name' => $row['batch_name'],
+                        'batch_code' => $row['batch_code'] ?? '',
+                        'start_date' => $startIso,
+                        'end_date' => $endIso,
+                        'start_label' => date('j.n.y', strtotime($startIso)),
+                        'end_label' => date('j.n.y', strtotime($endIso)),
+                        'start_index' => $startIdx,
+                        'end_index' => $endIdx,
+                        'footfall' => $footfall,
+                    ];
+                }
+            }
+        }
+
+        $courses = array_values($courseMap);
+        usort($courses, static function ($a, $b) {
+            $footfallCompare = ($b['total_footfall'] ?? 0) <=> ($a['total_footfall'] ?? 0);
+            if ($footfallCompare !== 0) {
+                return $footfallCompare;
+            }
+            $regCompare = ($b['total_registered'] ?? 0) <=> ($a['total_registered'] ?? 0);
+            return $regCompare !== 0 ? $regCompare : strcasecmp($a['course_name'], $b['course_name']);
+        });
+
+        $courses = array_values(array_filter($courses, static function ($row) {
+            return ($row['total_registered'] ?? 0) > 0
+                || ($row['total_admissions'] ?? 0) > 0
+                || ($row['total_footfall'] ?? 0) > 0
+                || ($row['total_batches'] ?? 0) > 0;
+        }));
+
+        $grandTotals = [
+            'courses' => count($courses),
+            'registered' => array_sum(array_column($courses, 'total_registered')),
+            'admissions' => array_sum(array_column($courses, 'total_admissions')),
+            'footfall' => array_sum(array_column($courses, 'total_footfall')),
+            'batches' => array_sum(array_column($courses, 'total_batches')),
+        ];
+
+        return [
+            'fy_start' => $fyStart,
+            'fy_end' => $fyEnd,
+            'fy_label' => $fyRange['scope_label'],
+            'day_count' => $dayCount,
+            'day_labels' => $dayLabels,
+            'day_iso' => $dayIso,
+            'month_markers' => $monthMarkers,
+            'grand_totals' => $grandTotals,
+            'courses' => $courses,
+        ];
+    }
+
     function report_monitor_get_batch_monthly($conn, $months = 12, array $courseIds = [], $centreId = 0) {
         $labels = [];
         $batchCounts = [];

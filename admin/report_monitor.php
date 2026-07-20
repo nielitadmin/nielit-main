@@ -110,6 +110,9 @@ $endDate = $quarterRange['end_date'];
 $quarterLabel = $quarterRange['quarter_label'];
 $monthScopeLabel = $quarterRange['scope_label'];
 
+$fyCalendarRange = report_monitor_get_financial_quarter_range($selectedYear, 'FY');
+$fyCalendarScopeLabel = report_monitor_format_financial_year_label($selectedYear) . ' · Full Year (Apr–Mar)';
+
 /*------------------------------------------------------------
 | Month Filter
 -------------------------------------------------------------*/
@@ -132,6 +135,27 @@ $monthFilter = [
 
     'label' =>
         $monthScopeLabel
+
+];
+
+$fyMonthFilter = [
+
+    'active' => true,
+
+    'start' =>
+        $fyCalendarRange['start_date'] . ' 00:00:00',
+
+    'end' =>
+        $fyCalendarRange['end_date'] . ' 23:59:59',
+
+    'next_start' =>
+        date(
+            'Y-m-d H:i:s',
+            strtotime($fyCalendarRange['end_date'] . ' +1 day')
+        ),
+
+    'label' =>
+        $fyCalendarScopeLabel
 
 ];
 
@@ -246,9 +270,16 @@ $courseMonthlyProgress = report_monitor_get_course_monthly_progress(
     $conn,
     $scopedCourseIds,
     $centreId,
-    $monthFilter,
-    $quarterRange['graph_months'],
+    $fyMonthFilter,
+    $fyCalendarRange['graph_months'],
     8
+);
+
+$courseFyTimeline = report_monitor_get_course_fy_timeline(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
 );
 
 $centresList = report_monitor_get_centres_list(
@@ -266,8 +297,8 @@ $courseCalendarSchedule = report_monitor_get_course_calendar_schedule(
     $conn,
     $scopedCourseIds,
     $centreId,
-    $monthFilter,
-    $quarterRange['graph_months']
+    $fyMonthFilter,
+    $fyCalendarRange['graph_months']
 );
 
 $admissionsByBatch = report_monitor_get_admissions_by_batch(
@@ -345,19 +376,22 @@ $reportPayload=[
 
     'courseMonthlyProgress'=>$courseMonthlyProgress,
 
+    'courseFyTimeline'=>$courseFyTimeline,
+
     'facultyTrainingStats'=>$facultyTrainingStats,
 
     'calendarEvents'=>$courseCalendarSchedule['events'] ?? [],
 
     'calendarRange'=>[
-        'start'=>$startDate,
-        'end'=>date('Y-m-d', strtotime($endDate . ' +1 day')),
+        'start'=>$fyCalendarRange['start_date'],
+        'end'=>date('Y-m-d', strtotime($fyCalendarRange['end_date'] . ' +1 day')),
+        'fy_label'=>$fyCalendarScopeLabel,
     ],
 
     'calendarMeta'=>[
         'total_batches'=>(int) ($courseCalendarSchedule['total_batches'] ?? 0),
         'total_footfall'=>(int) ($courseCalendarSchedule['total_footfall'] ?? 0),
-        'scope_label'=>$monthScopeLabel,
+        'scope_label'=>$fyCalendarScopeLabel,
     ],
 
 ];
@@ -519,7 +553,31 @@ $pageTitle="Report Monitor";
 
         #courseBatchCalendar{
 
-            min-height:720px;
+            min-height:960px;
+
+        }
+
+        #courseBatchCalendar .fc-multimonth{
+
+            border-radius:12px;
+
+            overflow:hidden;
+
+        }
+
+        #courseBatchCalendar .fc-multimonth-month{
+
+            border-color:#e2e8f0;
+
+        }
+
+        #courseBatchCalendar .fc-multimonth-title{
+
+            font-size:14px;
+
+            font-weight:600;
+
+            color:#1e3a8a;
 
         }
 
@@ -596,6 +654,264 @@ $pageTitle="Report Monitor";
         .calendar-event-detail dd{
 
             margin-bottom:.65rem;
+
+        }
+
+        .course-fy-timeline-wrap{
+
+            overflow-x:auto;
+
+            padding-bottom:8px;
+
+        }
+
+        .course-fy-timeline{
+
+            min-width:1200px;
+
+        }
+
+        .course-fy-timeline-summary{
+
+            display:flex;
+
+            flex-wrap:wrap;
+
+            gap:10px;
+
+            margin-bottom:16px;
+
+        }
+
+        .course-fy-timeline-head{
+
+            display:grid;
+
+            grid-template-columns:240px minmax(640px,1fr) 150px;
+
+            gap:12px;
+
+            align-items:end;
+
+            margin-bottom:8px;
+
+            position:sticky;
+
+            top:0;
+
+            z-index:2;
+
+            background:#fff;
+
+            padding-bottom:8px;
+
+            border-bottom:2px solid #e2e8f0;
+
+        }
+
+        .course-fy-axis-months{
+
+            display:flex;
+
+            height:28px;
+
+            border:1px solid #dbeafe;
+
+            border-radius:8px 8px 0 0;
+
+            overflow:hidden;
+
+            background:#f8fafc;
+
+        }
+
+        .course-fy-axis-month{
+
+            display:flex;
+
+            align-items:center;
+
+            justify-content:center;
+
+            font-size:11px;
+
+            font-weight:600;
+
+            color:#1e3a8a;
+
+            border-right:1px solid #dbeafe;
+
+            white-space:nowrap;
+
+            padding:0 4px;
+
+        }
+
+        .course-fy-axis-days{
+
+            display:flex;
+
+            height:22px;
+
+            border:1px solid #e2e8f0;
+
+            border-top:none;
+
+            background:#fff;
+
+        }
+
+        .course-fy-axis-day{
+
+            flex:1 0 0;
+
+            min-width:3px;
+
+            font-size:9px;
+
+            color:#64748b;
+
+            text-align:center;
+
+            border-right:1px solid #f1f5f9;
+
+            line-height:22px;
+
+            overflow:hidden;
+
+        }
+
+        .course-fy-axis-day.is-month-start{
+
+            background:#eff6ff;
+
+            color:#2563eb;
+
+            font-weight:600;
+
+        }
+
+        .course-fy-row{
+
+            display:grid;
+
+            grid-template-columns:240px minmax(640px,1fr) 150px;
+
+            gap:12px;
+
+            align-items:center;
+
+            padding:10px 0;
+
+            border-bottom:1px solid #f1f5f9;
+
+        }
+
+        .course-fy-row:hover{
+
+            background:#fafbff;
+
+        }
+
+        .course-fy-course-name{
+
+            font-weight:600;
+
+            font-size:13px;
+
+            line-height:1.3;
+
+        }
+
+        .course-fy-course-code{
+
+            font-size:11px;
+
+            color:#64748b;
+
+        }
+
+        .course-fy-totals{
+
+            display:flex;
+
+            flex-wrap:wrap;
+
+            gap:6px;
+
+            margin-top:6px;
+
+        }
+
+        .course-fy-totals .badge{
+
+            font-size:10px;
+
+            font-weight:500;
+
+        }
+
+        .course-fy-track{
+
+            position:relative;
+
+            height:34px;
+
+            border:1px solid #e2e8f0;
+
+            border-radius:8px;
+
+            background:repeating-linear-gradient(
+                90deg,
+                #fff,
+                #fff  calc(100% / var(--fy-days, 365) - 1px),
+                #f8fafc calc(100% / var(--fy-days, 365) - 1px),
+                #f8fafc calc(100% / var(--fy-days, 365))
+            );
+
+            overflow:hidden;
+
+        }
+
+        .course-fy-bar{
+
+            position:absolute;
+
+            top:5px;
+
+            height:24px;
+
+            border-radius:999px;
+
+            background:linear-gradient(90deg,#2563eb,#3b82f6);
+
+            box-shadow:0 1px 3px rgba(37,99,235,.25);
+
+            cursor:pointer;
+
+            min-width:4px;
+
+        }
+
+        .course-fy-bar:nth-child(odd){
+
+            background:linear-gradient(90deg,#16a34a,#22c55e);
+
+        }
+
+        .course-fy-sparkline{
+
+            height:44px;
+
+            width:140px;
+
+        }
+
+        .course-fy-sparkline canvas{
+
+            width:100% !important;
+
+            height:44px !important;
 
         }
 
@@ -1102,7 +1418,7 @@ Q4 (Jan–Mar)
                 Course Calendar
             </strong>
             <small class="text-muted ms-2">
-                <?php echo htmlspecialchars($monthScopeLabel); ?> · click a course bar for details
+                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · 12-month view · click a course bar for details
             </small>
         </div>
 
@@ -1131,7 +1447,7 @@ Q4 (Jan–Mar)
 
         <?php if (($courseCalendarSchedule['total_batches'] ?? 0) === 0): ?>
         <p class="text-center text-muted mt-3 mb-0">
-            No batches scheduled for <?php echo htmlspecialchars($monthScopeLabel); ?>.
+            No batches scheduled for <?php echo htmlspecialchars($fyCalendarScopeLabel); ?>.
         </p>
         <?php endif; ?>
 
@@ -1675,166 +1991,35 @@ Q4 (Jan–Mar)
 
 </div>
 
-<!-- COURSE MONTHLY PROGRESS -->
+<!-- COURSE FY TIMELINE PROGRESS -->
 
-<div class="row mb-4">
+<div class="card table-card mb-4">
 
-    <div class="col-lg-12">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-        <div class="card chart-card">
+        <div>
+            <strong>
+                <i class="fas fa-chart-line me-2"></i>
+                Course-wise FY Timeline Progress
+            </strong>
+            <small class="text-muted ms-2">
+                <?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · daily axis · hover bars &amp; mini graphs for figures
+            </small>
+        </div>
 
-            <div class="card-header">
-
-                <strong>
-
-                    Course-wise Monthly Progress
-
-                </strong>
-
-                <small class="text-muted ms-2">
-
-                    <?php echo htmlspecialchars($monthScopeLabel); ?> · monthly registrations (top courses in chart)
-
-                </small>
-
-            </div>
-
-            <div class="card-body">
-
-                <canvas
-
-                    id="courseMonthlyChart"
-
-                    height="320"
-
-                ></canvas>
-
-            </div>
-
+        <div class="d-flex gap-2 flex-wrap">
+            <span class="badge bg-dark"><?php echo number_format($courseFyTimeline['grand_totals']['courses'] ?? 0); ?> Courses</span>
+            <span class="badge bg-primary"><?php echo number_format($courseFyTimeline['grand_totals']['registered'] ?? 0); ?> Total Reg.</span>
+            <span class="badge bg-success"><?php echo number_format($courseFyTimeline['grand_totals']['footfall'] ?? 0); ?> Total Footfall</span>
+            <span class="badge bg-warning text-dark"><?php echo number_format($courseFyTimeline['grand_totals']['batches'] ?? 0); ?> Batches</span>
         </div>
 
     </div>
 
-</div>
+    <div class="card-body">
 
-<div class="card table-card mb-4">
-
-    <div class="card-header d-flex justify-content-between align-items-center">
-
-        <strong>
-
-            Course-wise Monthly Progress Table
-
-        </strong>
-
-        <span class="badge bg-primary">
-
-            <?php echo count($courseMonthlyProgress['courses'] ?? []); ?> Courses
-
-        </span>
-
-    </div>
-
-    <div class="card-body p-0">
-
-        <div class="table-responsive">
-
-            <table class="table table-bordered table-hover mb-0 monthly-progress-table">
-
-                <thead class="table-light">
-
-                <tr>
-
-                    <th class="course-col">Course</th>
-
-                    <th>Code</th>
-
-                    <?php foreach (($courseMonthlyProgress['labels'] ?? []) as $monthLabel): ?>
-
-                    <th class="text-end" title="Registered in <?php echo htmlspecialchars($monthLabel); ?>">
-
-                        <?php echo htmlspecialchars($monthLabel); ?>
-
-                    </th>
-
-                    <?php endforeach; ?>
-
-                    <th class="text-end">FY Total Reg.</th>
-
-                    <th class="text-end">FY Total Adm.</th>
-
-                    <th class="text-end">FY Batches</th>
-
-                </tr>
-
-                </thead>
-
-                <tbody>
-
-                <?php if (empty($courseMonthlyProgress['courses'])): ?>
-
-                <tr>
-
-                    <td colspan="<?php echo 5 + count($courseMonthlyProgress['labels'] ?? []); ?>" class="text-center">
-
-                        No course activity for <?php echo htmlspecialchars($monthScopeLabel); ?>.
-
-                    </td>
-
-                </tr>
-
-                <?php else: ?>
-
-                <?php foreach ($courseMonthlyProgress['courses'] as $courseRow): ?>
-
-                <tr>
-
-                    <td class="course-col">
-
-                        <strong><?php echo htmlspecialchars($courseRow['course_name']); ?></strong>
-
-                    </td>
-
-                    <td><?php echo htmlspecialchars($courseRow['course_code'] ?: '—'); ?></td>
-
-                    <?php foreach ($courseRow['registered'] as $monthValue): ?>
-
-                    <td class="text-end">
-
-                        <?php echo $monthValue > 0 ? number_format($monthValue) : '—'; ?>
-
-                    </td>
-
-                    <?php endforeach; ?>
-
-                    <td class="text-end fw-bold">
-
-                        <?php echo number_format($courseRow['total_registered']); ?>
-
-                    </td>
-
-                    <td class="text-end text-success">
-
-                        <?php echo number_format($courseRow['total_admissions']); ?>
-
-                    </td>
-
-                    <td class="text-end text-primary">
-
-                        <?php echo number_format($courseRow['total_batches']); ?>
-
-                    </td>
-
-                </tr>
-
-                <?php endforeach; ?>
-
-                <?php endif; ?>
-
-                </tbody>
-
-            </table>
-
+        <div id="courseFyTimeline" class="course-fy-timeline-wrap">
+            <p class="text-center text-muted py-4 mb-0">Loading timeline…</p>
         </div>
 
     </div>
@@ -2679,134 +2864,151 @@ precision:0
 }
 
 /*==================================================
-COURSE MONTHLY PROGRESS GRAPH
+COURSE FY TIMELINE
 ==================================================*/
 
-const courseMonthlyCanvas =
-document.getElementById(
-'courseMonthlyChart'
-);
+renderCourseFyTimeline(reportPayload.courseFyTimeline || {});
 
-if(courseMonthlyCanvas){
+function renderCourseFyTimeline(timeline) {
+    const container = document.getElementById('courseFyTimeline');
+    if (!container) {
+        return;
+    }
 
-const monthlyProgress =
-reportPayload.courseMonthlyProgress || {};
+    const courses = timeline.courses || [];
+    const dayCount = timeline.day_count || 0;
+    const dayLabels = timeline.day_labels || [];
+    const monthMarkers = timeline.month_markers || [];
 
-const monthlyChartCourses =
-monthlyProgress.chart_courses || [];
+    if (!courses.length || !dayCount) {
+        container.innerHTML = '<p class="text-center text-muted py-5 mb-0">No course timeline data for ' +
+            (timeline.fy_label ? timeline.fy_label : 'the selected financial year') + '.</p>';
+        return;
+    }
 
-if(!monthlyChartCourses.length){
+    const dayWidth = Math.max(3, Math.min(6, Math.floor(1100 / dayCount)));
+    const trackWidth = dayCount * dayWidth;
 
-courseMonthlyCanvas.parentElement.innerHTML =
-'<p class="text-center text-muted py-5 mb-0">No course monthly data for the selected period.</p>';
+    let monthsHtml = '';
+    monthMarkers.forEach(function (marker) {
+        const width = marker.day_count * dayWidth;
+        monthsHtml += '<div class="course-fy-axis-month" style="width:' + width + 'px">' +
+            marker.label + '</div>';
+    });
 
-}else{
+    let daysHtml = '';
+    for (let i = 0; i < dayCount; i++) {
+        const label = dayLabels[i] || '';
+        const isMonthStart = /^1\./.test(label);
+        daysHtml += '<div class="course-fy-axis-day' + (isMonthStart ? ' is-month-start' : '') + '" style="width:' + dayWidth + 'px" title="' + label + '">' +
+            (isMonthStart ? label.split('.')[0] : '') + '</div>';
+    }
 
-const lineColors = [
-'#2563eb','#16a34a','#dc2626','#f59e0b','#7c3aed',
-'#0891b2','#db2777','#65a30d','#ea580c','#4f46e5'
-];
+    let rowsHtml = '';
+    courses.forEach(function (course, courseIndex) {
+        let barsHtml = '';
+        (course.batches || []).forEach(function (batch) {
+            const left = (batch.start_index / dayCount) * 100;
+            const span = (batch.end_index - batch.start_index + 1);
+            const width = (span / dayCount) * 100;
+            const tip = (batch.batch_name || 'Batch') +
+                ' | ' + batch.start_label + ' to ' + batch.end_label +
+                ' | Footfall: ' + Number(batch.footfall || 0).toLocaleString();
+            barsHtml += '<div class="course-fy-bar" style="left:' + left + '%;width:' + width + '%" title="' + tip + '"></div>';
+        });
 
-new Chart(
+        rowsHtml += '<div class="course-fy-row">' +
+            '<div>' +
+                '<div class="course-fy-course-name">' + escapeHtml(course.course_name || '') + '</div>' +
+                (course.course_code ? '<div class="course-fy-course-code">' + escapeHtml(course.course_code) + '</div>' : '') +
+                '<div class="course-fy-totals">' +
+                    '<span class="badge bg-primary">Reg: ' + Number(course.total_registered || 0).toLocaleString() + '</span>' +
+                    '<span class="badge bg-success">Adm: ' + Number(course.total_admissions || 0).toLocaleString() + '</span>' +
+                    '<span class="badge bg-info text-dark">Footfall: ' + Number(course.total_footfall || 0).toLocaleString() + '</span>' +
+                    '<span class="badge bg-secondary">Batches: ' + Number(course.total_batches || 0).toLocaleString() + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div class="course-fy-track" style="width:' + trackWidth + 'px;--fy-days:' + dayCount + '">' + barsHtml + '</div>' +
+            '<div class="course-fy-sparkline"><canvas id="courseFySpark' + courseIndex + '"></canvas></div>' +
+        '</div>';
+    });
 
-courseMonthlyCanvas,
+    container.innerHTML =
+        '<div class="course-fy-timeline" style="width:' + (240 + 12 + trackWidth + 12 + 150) + 'px">' +
+            '<div class="course-fy-timeline-head">' +
+                '<div><strong>Course</strong><div class="text-muted small">Totals per course</div></div>' +
+                '<div style="width:' + trackWidth + 'px">' +
+                    '<div class="course-fy-axis-months" style="width:' + trackWidth + 'px">' + monthsHtml + '</div>' +
+                    '<div class="course-fy-axis-days" style="width:' + trackWidth + 'px">' + daysHtml + '</div>' +
+                '</div>' +
+                '<div class="text-muted small text-center">Daily trend<br><span class="badge bg-light text-dark border">hover</span></div>' +
+            '</div>' +
+            rowsHtml +
+        '</div>';
 
-{
+    courses.forEach(function (course, courseIndex) {
+        const canvas = document.getElementById('courseFySpark' + courseIndex);
+        if (!canvas || typeof Chart === 'undefined') {
+            return;
+        }
 
-type:'line',
-
-data:{
-
-labels: monthlyProgress.labels || [],
-
-datasets: monthlyChartCourses.map(function(course, index){
-
-const color = lineColors[index % lineColors.length];
-
-const label = course.course_code
-    ? course.course_name + ' (' + course.course_code + ')'
-    : course.course_name;
-
-return {
-
-label: label,
-
-data: course.registered || [],
-
-borderColor: color,
-
-backgroundColor: color + '22',
-
-fill:false,
-
-borderWidth:2,
-
-tension:.3,
-
-pointRadius:3
-
-};
-
-})
-
-},
-
-options:{
-
-responsive:true,
-
-maintainAspectRatio:false,
-
-plugins:{
-
-legend:{
-
-position:'bottom'
-
-},
-
-tooltip:{
-
-mode:'index',
-
-intersect:false
-
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: timeline.day_labels || [],
+                datasets: [
+                    {
+                        label: 'Registered',
+                        data: course.daily_registered || [],
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37,99,235,0.12)',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.25,
+                        fill: true
+                    },
+                    {
+                        label: 'Admissions',
+                        data: course.daily_admissions || [],
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22,163,74,0.08)',
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        tension: 0.25,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            title: function (items) {
+                                return items.length ? ('Date: ' + items[0].label) : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: { display: false, beginAtZero: true }
+                }
+            }
+        });
+    });
 }
 
-},
-
-interaction:{
-
-mode:'index',
-
-intersect:false
-
-},
-
-scales:{
-
-y:{
-
-beginAtZero:true,
-
-ticks:{
-
-precision:0
-
-}
-
-}
-
-}
-
-}
-
-}
-
-);
-
-}
-
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
 }
 
 /*==================================================
@@ -2823,13 +3025,21 @@ if (calendarEl && typeof FullCalendar !== 'undefined') {
     const calendarModalTitle = document.getElementById('courseCalendarEventModalLabel');
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
+        initialView: 'multiMonthYear',
         height: 'auto',
         firstDay: 1,
+        multiMonthMaxColumns: 3,
+        multiMonthMinWidth: 240,
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
-            right: 'dayGridMonth,dayGridWeek,listMonth'
+            right: 'multiMonthYear,dayGridMonth,listMonth'
+        },
+        views: {
+            multiMonthYear: {
+                type: 'multiMonthYear',
+                duration: { months: 12 }
+            }
         },
         validRange: calendarRange.start && calendarRange.end ? {
             start: calendarRange.start,
