@@ -1756,7 +1756,7 @@ Q4 (Jan–Mar)
                 <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Hover a course for that course only. Hover the black Total line for the full day sum.</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Click a course in the legend to focus only that line (+ Total). Click Total or the same course again to show all.</span>
                 <span class="badge bg-dark text-white border">Total sum line</span>
             </div>
         </div>
@@ -3107,6 +3107,46 @@ function renderCourseFyGanttChart(timeline) {
                             boxWidth: 12,
                             font: { size: 10 },
                             usePointStyle: true
+                        },
+                        onClick: function (evt, legendItem, legend) {
+                            const chart = legend.chart;
+                            const clickedIndex = legendItem.datasetIndex;
+                            const clickedDs = chart.data.datasets[clickedIndex];
+                            if (!clickedDs) {
+                                return;
+                            }
+
+                            // Total line click → show all courses again.
+                            if (clickedDs.isTotal) {
+                                chart.data.datasets.forEach(function (_ds, i) {
+                                    chart.setDatasetVisibility(i, true);
+                                });
+                                chart.update('none');
+                                return;
+                            }
+
+                            // Course click → show only that course + Total (always on).
+                            const onlyThisVisible = chart.data.datasets.every(function (ds, i) {
+                                if (ds.isTotal) {
+                                    return chart.isDatasetVisible(i);
+                                }
+                                if (i === clickedIndex) {
+                                    return chart.isDatasetVisible(i);
+                                }
+                                return !chart.isDatasetVisible(i);
+                            });
+
+                            if (onlyThisVisible) {
+                                // Second click on same focused course → restore all.
+                                chart.data.datasets.forEach(function (_ds, i) {
+                                    chart.setDatasetVisibility(i, true);
+                                });
+                            } else {
+                                chart.data.datasets.forEach(function (ds, i) {
+                                    chart.setDatasetVisibility(i, !!(ds.isTotal || i === clickedIndex));
+                                });
+                            }
+                            chart.update('none');
                         }
                     },
                     tooltip: {
