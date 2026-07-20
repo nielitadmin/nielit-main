@@ -506,23 +506,87 @@ $pageTitle="Report Monitor";
             background:#fafbff;
             max-width:100%;
         }
-        .course-fy-graph-box{
-            position:relative;
+        .course-fy-day-scroll{
+            display:block;
             width:100%;
-            height:440px;
+            max-width:100%;
+            overflow-x:auto;
+            overflow-y:hidden;
             border:1px solid #cbd5e1;
             border-radius:10px;
+            background:#fff;
+            padding-bottom:10px;
+            scrollbar-gutter:stable;
+            scrollbar-color:#64748b #e2e8f0;
+        }
+        .course-fy-day-scroll::-webkit-scrollbar{ height:14px; }
+        .course-fy-day-scroll::-webkit-scrollbar-track{ background:#e2e8f0; border-radius:999px; }
+        .course-fy-day-scroll::-webkit-scrollbar-thumb{ background:#64748b; border-radius:999px; border:2px solid #e2e8f0; }
+        #courseFyGraphInner{
+            position:relative;
+            display:block;
+            width:max-content;
+            max-width:none;
+            min-width:100%;
+        }
+        .course-fy-graph-box{
+            position:relative;
+            height:420px;
+            min-height:420px;
+            max-width:none;
             background:
                 linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
-                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 48px 100%,
+                linear-gradient(90deg, #f1f5f9 1px, transparent 1px) 0 0 / 28px 100%,
                 #fff;
-            padding:8px 8px 4px;
         }
         #courseFyTimeChart{
             display:block !important;
-            width:100% !important;
-            height:100% !important;
-            max-width:100% !important;
+            max-width:none !important;
+            height:420px !important;
+        }
+        .course-fy-month-axis{
+            display:flex;
+            flex-wrap:nowrap;
+            border-top:1px solid #93c5fd;
+            background:#eff6ff;
+        }
+        .course-fy-month-tick{
+            flex:0 0 auto;
+            box-sizing:border-box;
+            height:28px;
+            border-right:2px solid #2563eb;
+            font-size:11px;
+            font-weight:800;
+            color:#1e3a8a;
+            text-align:center;
+            line-height:28px;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            padding:0 4px;
+        }
+        .course-fy-day-axis{
+            display:flex;
+            flex-wrap:nowrap;
+            border-top:1px solid #e2e8f0;
+            background:#f8fafc;
+        }
+        .course-fy-day-tick{
+            flex:0 0 auto;
+            box-sizing:border-box;
+            height:34px;
+            border-right:1px solid #e2e8f0;
+            font-size:10px;
+            font-weight:600;
+            color:#334155;
+            text-align:center;
+            line-height:34px;
+        }
+        .course-fy-day-tick.is-month-start{
+            background:#dbeafe;
+            color:#1e3a8a;
+            font-weight:800;
+            border-right:2px solid #2563eb;
         }
         .course-fy-hover-panel{
             position:fixed;
@@ -1637,22 +1701,28 @@ Q4 (Jan–Mar)
         <div id="courseFyGanttWrap">
             <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
-                <span class="text-muted small">Time graph · one coloured area per course · hover a line for that course only</span>
+                <span class="text-muted small">Area graph · day-wise FY timeline · scroll sideways · hover a course for details</span>
             </div>
-            <div class="course-fy-graph-box">
-                <canvas id="courseFyTimeChart"></canvas>
+            <div class="course-fy-day-scroll" id="courseFyDayScroll">
+                <div id="courseFyGraphInner">
+                    <div class="course-fy-graph-box" id="courseFyChartBox">
+                        <canvas id="courseFyTimeChart"></canvas>
+                    </div>
+                    <div class="course-fy-month-axis" id="courseFyMonthAxis"></div>
+                    <div class="course-fy-day-axis" id="courseFyDayAxis"></div>
+                </div>
             </div>
             <div class="course-fy-x-caption">
                 <span>Financial year wise (1 Apr → 31 Mar)</span>
-                <span>Student admission completed ↑</span>
+                <span><i class="fas fa-arrows-alt-h me-1"></i> Day wise → use horizontal scroll</span>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
                 <h6 id="courseFyHoverTitle">Course Detail</h6>
                 <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
-                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Hover the graph for seats, centre, and dates.</span>
-                <span class="badge bg-light text-dark border">Area graph</span>
+                <span><i class="fas fa-mouse-pointer me-1"></i> Each colour is a course. Scroll day-by-day; hover for seats, centre, and dates.</span>
+                <span class="badge bg-light text-dark border">Day-wise area graph</span>
             </div>
         </div>
 
@@ -2503,17 +2573,22 @@ function escapeHtmlAttr(value) {
 
 function renderCourseFyGanttChart(timeline) {
     const wrap = document.getElementById('courseFyGanttWrap');
+    const inner = document.getElementById('courseFyGraphInner');
+    const chartBox = document.getElementById('courseFyChartBox');
     const canvas = document.getElementById('courseFyTimeChart');
+    const dayAxis = document.getElementById('courseFyDayAxis');
+    const monthAxis = document.getElementById('courseFyMonthAxis');
     const hoverPanel = document.getElementById('courseFyHoverPanel');
     const hoverTitle = document.getElementById('courseFyHoverTitle');
     const hoverMeta = document.getElementById('courseFyHoverMeta');
-    if (!wrap || !canvas || typeof Chart === 'undefined') {
+    if (!wrap || !inner || !canvas || typeof Chart === 'undefined') {
         return;
     }
 
     const courses = timeline.courses || [];
     const dayCount = timeline.day_count || 0;
     const dayLabels = timeline.day_labels || [];
+    const dayIsoList = timeline.day_iso || [];
     const monthMarkers = timeline.month_markers || [];
 
     if (!courses.length || !dayCount) {
@@ -2653,6 +2728,67 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
+    // Day-wise width so the FY can scroll horizontally (keep under canvas size limits).
+    const chartHeight = 420;
+    const maxCssWidth = 12000;
+    let pixelsPerDay = 28;
+    let chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
+    if (chartWidth > maxCssWidth) {
+        pixelsPerDay = Math.max(12, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
+        chartWidth = Math.max(dayCount * pixelsPerDay, 1400);
+    }
+
+    inner.style.width = chartWidth + 'px';
+    inner.style.minWidth = chartWidth + 'px';
+    inner.style.maxWidth = 'none';
+    if (chartBox) {
+        chartBox.style.width = chartWidth + 'px';
+        chartBox.style.minWidth = chartWidth + 'px';
+        chartBox.style.maxWidth = 'none';
+        chartBox.style.height = chartHeight + 'px';
+    }
+    canvas.style.maxWidth = 'none';
+    canvas.style.width = chartWidth + 'px';
+    canvas.style.height = chartHeight + 'px';
+    canvas.width = chartWidth;
+    canvas.height = chartHeight;
+
+    if (dayAxis) {
+        let daysHtml = '';
+        for (let i = 0; i < dayCount; i++) {
+            const label = dayLabels[i] || '';
+            const iso = dayIsoList[i] || '';
+            let dayOfMonth = i + 1;
+            const labelMatch = String(label).match(/^(\d+)\./);
+            if (labelMatch) {
+                dayOfMonth = Number(labelMatch[1]);
+            } else if (iso.length >= 10) {
+                dayOfMonth = Number(iso.slice(8, 10));
+            }
+            const isMonthStart = dayOfMonth === 1 || i === 0;
+            const tip = label || iso || String(dayOfMonth);
+            daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
+                '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
+        }
+        dayAxis.innerHTML = daysHtml;
+        dayAxis.style.width = chartWidth + 'px';
+    }
+
+    if (monthAxis) {
+        let monthsHtml = '';
+        if (monthMarkers.length) {
+            monthMarkers.forEach(function (marker) {
+                const width = Math.max(1, Number(marker.day_count) || 0) * pixelsPerDay;
+                monthsHtml += '<div class="course-fy-month-tick" style="width:' + width + 'px" title="' +
+                    escapeHtmlAttr(marker.label || '') + '">' + escapeHtmlAttr(marker.label || '') + '</div>';
+            });
+        } else {
+            monthsHtml = '<div class="course-fy-month-tick" style="width:' + chartWidth + 'px">Financial Year</div>';
+        }
+        monthAxis.innerHTML = monthsHtml;
+        monthAxis.style.width = chartWidth + 'px';
+    }
+
     if (hoverPanel && hoverPanel.parentElement !== document.body) {
         document.body.appendChild(hoverPanel);
     }
@@ -2752,10 +2888,6 @@ function renderCourseFyGanttChart(timeline) {
     }
 
     const yMax = Math.max(50, Math.ceil((Math.max(yPeak, 10) * 1.2) / 10) * 10);
-    const monthTickIndex = {};
-    monthMarkers.forEach(function (m) {
-        monthTickIndex[Number(m.start_index) || 0] = m.label || '';
-    });
 
     try {
         courseFyTimeChartInstance = new Chart(canvas, {
@@ -2765,8 +2897,10 @@ function renderCourseFyGanttChart(timeline) {
                 datasets: datasets
             },
             options: {
-                responsive: true,
+                responsive: false,
                 maintainAspectRatio: false,
+                devicePixelRatio: 1,
+                animation: false,
                 interaction: {
                     mode: 'nearest',
                     intersect: false
@@ -2777,7 +2911,7 @@ function renderCourseFyGanttChart(timeline) {
                         position: 'top',
                         labels: {
                             boxWidth: 12,
-                            font: { size: 11 },
+                            font: { size: 10 },
                             usePointStyle: true
                         }
                     },
@@ -2810,21 +2944,8 @@ function renderCourseFyGanttChart(timeline) {
                 },
                 scales: {
                     x: {
-                        ticks: {
-                            autoSkip: false,
-                            maxRotation: 0,
-                            minRotation: 0,
-                            font: { size: 10, weight: '700' },
-                            color: '#1e3a8a',
-                            callback: function (value, index) {
-                                return monthTickIndex[index] || '';
-                            }
-                        },
-                        grid: {
-                            color: function (ctx) {
-                                return monthTickIndex[ctx.index] ? 'rgba(37,99,235,0.25)' : 'rgba(148,163,184,0.12)';
-                            }
-                        }
+                        display: false,
+                        grid: { display: false }
                     },
                     y: {
                         beginAtZero: true,
@@ -2846,6 +2967,7 @@ function renderCourseFyGanttChart(timeline) {
                 }
             }
         });
+        courseFyTimeChartInstance.resize(chartWidth, chartHeight);
     } catch (err) {
         console.error('Course FY graph failed', err);
         wrap.innerHTML = '<p class="text-danger text-center py-5 mb-0">Could not draw course graph. Please refresh.</p>';
