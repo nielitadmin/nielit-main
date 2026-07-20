@@ -3043,12 +3043,21 @@ function renderCourseFyGanttChart(timeline) {
     plot.innerHTML = lanesHtml;
 
     let daysHtml = '';
+    const dayIsoList = timeline.day_iso || [];
     for (let i = 0; i < dayCount; i++) {
-        const dayNo = i + 1;
-        const label = dayLabels[i] || String(dayNo);
-        const isMonthStart = /^1\./.test(label) || dayNo === 1;
+        const label = dayLabels[i] || '';
+        const iso = dayIsoList[i] || '';
+        let dayOfMonth = i + 1;
+        const labelMatch = String(label).match(/^(\d+)\./);
+        if (labelMatch) {
+            dayOfMonth = Number(labelMatch[1]);
+        } else if (iso.length >= 10) {
+            dayOfMonth = Number(iso.slice(8, 10));
+        }
+        const isMonthStart = dayOfMonth === 1 || i === 0;
+        const tip = label || iso || String(dayOfMonth);
         daysHtml += '<div class="course-fy-day-tick' + (isMonthStart ? ' is-month-start' : '') +
-            '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(label) + '">' + dayNo + '</div>';
+            '" style="width:' + pixelsPerDay + 'px" title="' + escapeHtmlAttr(tip) + '">' + dayOfMonth + '</div>';
     }
     dayAxis.innerHTML = daysHtml;
     dayAxis.style.width = plotWidth + 'px';
