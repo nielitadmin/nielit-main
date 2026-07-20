@@ -3008,13 +3008,14 @@ function renderCourseFyGanttChart(timeline) {
         bar.cumulative = running;
     });
     const grandTotal = Math.max(running, 1);
-    // Y-axis scale: 10, 20, 30 ... up to a round high value (at least 100).
-    const yMax = Math.max(100, Math.ceil(grandTotal / 10) * 10);
-    let yStep = 10;
-    if (yMax > 400) {
+    // Y-axis: 10 → higher numbers with headroom above current FY admissions.
+    const yMax = Math.max(500, Math.ceil((grandTotal * 1.4) / 50) * 50);
+    let yStep = 20;
+    if (yMax > 600) {
         yStep = 50;
-    } else if (yMax > 200) {
-        yStep = 20;
+    }
+    if (yMax > 1200) {
+        yStep = 100;
     }
 
     const laneHeight = 56;
@@ -3035,6 +3036,9 @@ function renderCourseFyGanttChart(timeline) {
         let yHtml = '';
         for (let n = 10; n <= yMax; n += yStep) {
             yHtml += '<div class="course-fy-y-tick" title="Student admission completed scale">' + n + '</div>';
+        }
+        if (yMax > 10 && ((yMax - 10) % yStep !== 0)) {
+            yHtml += '<div class="course-fy-y-tick" title="Student admission completed scale">' + yMax + '</div>';
         }
         yTicks.innerHTML = yHtml;
     }
