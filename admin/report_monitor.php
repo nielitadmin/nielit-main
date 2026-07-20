@@ -665,7 +665,7 @@ $pageTitle="Report Monitor";
 
             overflow-y:hidden;
 
-            padding-bottom:8px;
+            padding-bottom:14px;
 
             -webkit-overflow-scrolling:touch;
 
@@ -674,6 +674,44 @@ $pageTitle="Report Monitor";
             border-radius:10px;
 
             background:#fff;
+
+            scrollbar-gutter:stable;
+
+            scrollbar-width:auto;
+
+            scrollbar-color:#64748b #e2e8f0;
+
+        }
+
+        .course-fy-time-scroll::-webkit-scrollbar{
+
+            height:14px;
+
+            width:10px;
+
+        }
+
+        .course-fy-time-scroll::-webkit-scrollbar-track{
+
+            background:#e2e8f0;
+
+            border-radius:999px;
+
+        }
+
+        .course-fy-time-scroll::-webkit-scrollbar-thumb{
+
+            background:#64748b;
+
+            border-radius:999px;
+
+            border:2px solid #e2e8f0;
+
+        }
+
+        .course-fy-time-scroll::-webkit-scrollbar-thumb:hover{
+
+            background:#475569;
 
         }
 
@@ -697,7 +735,9 @@ $pageTitle="Report Monitor";
 
             min-height:420px;
 
-            width:100%;
+            width:max-content;
+
+            min-width:100%;
 
             background:
                 linear-gradient(#f1f5f9 1px, transparent 1px) 0 0 / 100% 40px,
@@ -2121,7 +2161,7 @@ Q4 (Jan–Mar)
             </div>
             <div class="course-fy-x-caption">
                 <span>Financial year wise (1 Apr → 31 Mar)</span>
-                <span>Day wise →</span>
+                <span><i class="fas fa-arrows-alt-h me-1"></i> Use the horizontal scroll bar below the graph for day-wise →</span>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
                 <h6 id="courseFyHoverTitle">Course Detail</h6>
@@ -3137,26 +3177,32 @@ function renderCourseFyGanttChart(timeline) {
         return;
     }
 
-    // Keep canvas under browser size limits (high-DPI × huge width was blanking the chart).
+    // Wide day timeline for horizontal scroll; keep under canvas size limits (dpr forced to 1).
     const chartBox = document.getElementById('courseFyChartBox');
     const chartHeight = 420;
-    const maxCssWidth = 7200;
-    let pixelsPerDay = Math.max(3, Math.min(10, Math.floor(maxCssWidth / Math.max(dayCount, 1))));
-    let chartWidth = Math.max(dayCount * pixelsPerDay, 960);
+    const maxCssWidth = 12000;
+    let pixelsPerDay = 24;
+    let chartWidth = Math.max(dayCount * pixelsPerDay, 1200);
     if (chartWidth > maxCssWidth) {
-        pixelsPerDay = Math.max(2, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
-        chartWidth = Math.max(dayCount * pixelsPerDay, 960);
+        pixelsPerDay = Math.max(8, Math.floor(maxCssWidth / Math.max(dayCount, 1)));
+        chartWidth = Math.max(dayCount * pixelsPerDay, 1200);
     }
     inner.style.width = chartWidth + 'px';
     inner.style.minWidth = chartWidth + 'px';
     if (chartBox) {
         chartBox.style.width = chartWidth + 'px';
+        chartBox.style.minWidth = chartWidth + 'px';
         chartBox.style.height = chartHeight + 'px';
     }
     canvas.style.width = chartWidth + 'px';
     canvas.style.height = chartHeight + 'px';
     canvas.removeAttribute('width');
     canvas.removeAttribute('height');
+
+    const scrollEl = document.getElementById('courseFyGanttScroll');
+    if (scrollEl) {
+        scrollEl.scrollLeft = 0;
+    }
 
     if (dayAxis) {
         let daysHtml = '';
