@@ -41,9 +41,9 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $hindiTexts = function_exists('getAdmissionFormHindiTexts') ? getAdmissionFormHindiTexts() : [];
 
         $fullW = 186;
-        $rowH = 8.5;
-        $sectionH = 7;
-        $gap = 2;
+        $rowH = 8;
+        $sectionH = 6.5;
+        $gap = 1.8;
 
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $marginLeft = 12;
@@ -150,7 +150,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
         workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 12);
+        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 11);
         workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
         workshopPdfLabeledLine($pdf, 'Pincode *', '', 100, $rowH);
         $pdf->Ln($gap);
@@ -168,45 +168,50 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln($gap);
 
-        // Signatures — empty boxes; labels below; footer fully inside page border
+        // Signatures — layout from page bottom upward so labels and footer never overlap
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $labelH = 5.5;
-        $footerH = 7;
-        $gapAfterBox = 1.2;
-        $gapAfterLabel = 1.2;
-        // Page border bottom is y=289; keep all text above y=286
-        $safeBottom = 286;
+        $x = 12;
         $ySig = $pdf->GetY();
 
-        $reservedBelow = $gapAfterBox + $labelH + $gapAfterLabel + $footerH;
-        $sigBoxH = $safeBottom - $ySig - $reservedBelow;
-        if ($sigBoxH > 24) {
-            $sigBoxH = 24;
+        // Fixed stack near bottom of page (border ends at ~289)
+        $footerY = 281.0;
+        $labelY = 274.0;
+        $boxBottom = 272.0;
+
+        $sigBoxH = $boxBottom - $ySig;
+        if ($sigBoxH > 26) {
+            $sigBoxH = 26;
+            $boxBottom = $ySig + $sigBoxH;
+            $labelY = $boxBottom + 1.5;
+            $footerY = $labelY + 6.5;
         }
-        if ($sigBoxH < 14) {
-            $sigBoxH = 14;
+        if ($sigBoxH < 15) {
+            // Not enough room: keep a short sequential stack (never pull footer up into labels)
+            $sigBoxH = 15;
+            $boxBottom = $ySig + $sigBoxH;
+            $labelY = $boxBottom + 1.5;
+            $footerY = $labelY + 6.5;
         }
 
-        $x = 12;
         $pdf->SetDrawColor(180, 200, 230);
         $pdf->SetLineWidth(0.35);
         $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
         $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
 
-        $labelY = $ySig + $sigBoxH + $gapAfterBox;
-        $pdf->SetXY($x, $labelY);
+        // Labels under the boxes only
         $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->Cell($sigHalf, $labelH, 'Signature of Parent / Guardian *', 0, 0, 'C');
-        $pdf->Cell($sigHalf, $labelH, 'Signature of Student (if applicable)', 0, 1, 'C');
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetXY($x, $labelY);
+        $pdf->Cell($sigHalf, 5, 'Signature of Parent / Guardian *', 0, 0, 'C');
+        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
 
-        // One-line footer, capped so it never crosses the page border
-        $footerY = $labelY + $labelH + $gapAfterLabel;
-        if (($footerY + $footerH) > $safeBottom) {
-            $footerY = $safeBottom - $footerH;
+        // Footer on its own line under labels (minimum 1.5mm gap; never share Y with labels)
+        if ($footerY < ($labelY + 5 + 1.5)) {
+            $footerY = $labelY + 5 + 1.5;
         }
-        $pdf->SetTextColor(110, 110, 110);
         $pdf->SetFont('helvetica', 'I', 7);
+        $pdf->SetTextColor(110, 110, 110);
         $pdf->SetXY(12, $footerY);
         $pdf->Cell(
             $fullW,
