@@ -47,9 +47,9 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $hindiTexts = function_exists('getAdmissionFormHindiTexts') ? getAdmissionFormHindiTexts() : [];
 
         $fullW = 186;
-        $rowH = 8;
-        $sectionH = 6.5;
-        $gap = 1.8;
+        $rowH = 7.5;
+        $sectionH = 6;
+        $gap = 1.5;
 
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $marginLeft = 12;
@@ -99,7 +99,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $y = $pdf->GetY();
         $photoX = 162;
         $photoW = 36;
-        $photoH = 48;
+        $photoH = 42;
         $pdf->SetDrawColor(100, 100, 100);
         $pdf->SetLineWidth(0.3);
         $pdf->Rect($photoX, $y, $photoW, $photoH);
@@ -173,70 +173,43 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
         workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 11);
+        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 9);
         workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
         workshopPdfLabeledLine($pdf, 'Pincode *', '', 100, $rowH);
-        $pdf->Ln($gap);
+        $pdf->Ln(1.2);
 
+        // 5. Declaration — text, then Date/Place clearly below (no overlap)
         workshopPdfSection($pdf, '5. Declaration', $sectionH);
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->MultiCell(
-            0,
-            4,
-            'I hereby declare that the information given above is true and correct to the best of my knowledge. I agree to abide by the rules and regulations of NIELIT. I understand that any false or incomplete information may lead to cancellation of my registration.',
-            0,
-            'L'
-        );
-        $pdf->Ln(1.5);
+        $pdf->SetFont('helvetica', '', 8.5);
+        $pdf->SetDrawColor(180, 200, 230);
+        $decl = 'I hereby declare that the information given above is true and correct to the best of my knowledge. I agree to abide by the rules and regulations of NIELIT. I understand that any false or incomplete information may lead to cancellation of my registration.';
+        $pdf->MultiCell($fullW, 3.8, $decl, 1, 'L', false, 1, 12, $pdf->GetY(), true);
+        $pdf->Ln(2);
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
-        $pdf->Ln($gap);
+        $pdf->Ln(1.5);
 
-        // Signatures — layout from page bottom upward so labels and footer never overlap
+        // 6. Signatures — empty boxes + labels under them (sequential only, always visible)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $x = 12;
-        $ySig = $pdf->GetY();
-
-        // Fixed stack near bottom of page (border ends at ~289)
-        $footerY = 281.0;
-        $labelY = 274.0;
-        $boxBottom = 272.0;
-
-        $sigBoxH = $boxBottom - $ySig;
-        if ($sigBoxH > 26) {
-            $sigBoxH = 26;
-            $boxBottom = $ySig + $sigBoxH;
-            $labelY = $boxBottom + 1.5;
-            $footerY = $labelY + 6.5;
+        $sigBoxH = 22;
+        // Keep inside page: if near bottom, shrink box but never hide it
+        $room = 285 - $pdf->GetY() - 12;
+        if ($room < $sigBoxH) {
+            $sigBoxH = max(16, $room);
         }
-        if ($sigBoxH < 15) {
-            // Not enough room: keep a short sequential stack (never pull footer up into labels)
-            $sigBoxH = 15;
-            $boxBottom = $ySig + $sigBoxH;
-            $labelY = $boxBottom + 1.5;
-            $footerY = $labelY + 6.5;
-        }
-
         $pdf->SetDrawColor(180, 200, 230);
-        $pdf->SetLineWidth(0.35);
-        $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
-        $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 0, 'C', true);
+        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 1, 'C', true);
 
-        // Labels under the boxes — student a bit higher; right = HoD/Principal/Coordinator
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetXY($x, $labelY - 1.5);
         $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 0, 'C');
-        $pdf->SetXY($x + $sigHalf, $labelY);
         $pdf->Cell($sigHalf, 5, 'HoD / Principal / Coordinator', 0, 1, 'C');
+        $pdf->Ln(1.5);
 
-        // Footer on its own line under labels (minimum 1.5mm gap; never share Y with labels)
-        if ($footerY < ($labelY + 5 + 1.5)) {
-            $footerY = $labelY + 5 + 1.5;
-        }
         $pdf->SetFont('helvetica', 'I', 7);
         $pdf->SetTextColor(110, 110, 110);
-        $pdf->SetXY(12, $footerY);
         $pdf->Cell(
             $fullW,
             4,
