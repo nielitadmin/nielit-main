@@ -161,19 +161,23 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Ln(3);
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
 
-        // Push signatures toward bottom of page without overflowing
-        $sigY = max($pdf->GetY() + 8, 252);
-        if ($sigY > 262) {
-            $sigY = 252;
-        }
-        $pdf->SetY($sigY);
-        $pdf->SetFont('helvetica', '', 8);
+        // Signature block — flow after Date/Place (never absolute Y, avoids overlap)
+        $pdf->Ln(10);
+        // Blank space for handwritten signature above the underline
+        $pdf->Ln(12);
+        $pdf->SetFont('helvetica', '', 9);
         $pdf->Cell(93, 5, '________________________________', 0, 0, 'C');
         $pdf->Cell(93, 5, '________________________________', 0, 1, 'C');
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->Cell(93, 5, 'Signature of Parent / Guardian', 0, 0, 'C');
         $pdf->Cell(93, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
 
-        $pdf->SetY(280);
+        // Footer note near bottom of page if space remains
+        $footerY = max($pdf->GetY() + 6, 280);
+        if ($footerY > 285) {
+            $footerY = 285;
+        }
+        $pdf->SetY($footerY);
         $pdf->SetFont('helvetica', 'I', 6.5);
         $pdf->SetTextColor(110, 110, 110);
         $pdf->MultiCell(0, 3, '* Mandatory fields. Aadhar number and Aadhar card are optional. Passport-size photo is mandatory. For office use: enter data into NIELIT workshop registration system after verification.', 0, 'L');
