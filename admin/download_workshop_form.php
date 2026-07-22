@@ -28,7 +28,7 @@ if ($courseId <= 0) {
 }
 
 $stmt = $conn->prepare(
-    'SELECT course_name, course_code, training_center, course_description, start_date, end_date
+    'SELECT course_name, course_code, training_center, course_description, eligibility, start_date, end_date
      FROM courses WHERE id = ? LIMIT 1'
 );
 if (!$stmt) {
@@ -63,6 +63,7 @@ if (trim($trainingCentre) === '') {
     $trainingCentre = 'NIELIT Bhubaneswar';
 }
 $courseDescription = (string) ($course['course_description'] ?? '');
+$eligibility = (string) ($course['eligibility'] ?? '');
 $startDate = (string) ($course['start_date'] ?? '');
 $endDate = (string) ($course['end_date'] ?? '');
 
@@ -73,6 +74,7 @@ outputWorkshopBlankRegistrationPdf(
     $trainingCentre,
     $courseDescription,
     $startDate,
-    $endDate
+    $endDate,
+    $eligibility
 );
 exit;

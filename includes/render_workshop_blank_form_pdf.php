@@ -16,13 +16,21 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         ?string $trainingCentre = null,
         ?string $courseDescription = null,
         ?string $startDate = null,
-        ?string $endDate = null
+        ?string $endDate = null,
+        ?string $eligibilityFallback = null
     ): string {
         $trainingCentre = trim((string) $trainingCentre);
         if ($trainingCentre === '') {
             $trainingCentre = 'NIELIT Bhubaneswar';
         }
         $courseDescription = trim((string) $courseDescription);
+        if ($courseDescription === '' && !empty($eligibilityFallback)) {
+            $courseDescription = trim(preg_replace('/\[[^\]]*\]/', '', (string) $eligibilityFallback));
+            $courseDescription = trim(preg_replace('/\s+/', ' ', $courseDescription));
+        }
+        if ($courseDescription === '' && trim((string) $courseName) !== '') {
+            $courseDescription = trim((string) $courseName);
+        }
         $startDate = workshopPdfFormatDate($startDate);
         $endDate = workshopPdfFormatDate($endDate);
 
@@ -118,11 +126,11 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfLabeledLine($pdf, 'Training centre', $trainingCentre, $leftW, $rowH);
         $pdf->SetY(max($pdf->GetY(), $y + $photoH) + 1);
 
-        // Extra course fields (full width)
+        // Extra course fields (full width) — description always filled when possible
         $descPreview = $courseDescription !== ''
-            ? (strlen($courseDescription) > 120 ? substr($courseDescription, 0, 117) . '...' : $courseDescription)
+            ? (strlen($courseDescription) > 180 ? substr($courseDescription, 0, 177) . '...' : $courseDescription)
             : '';
-        workshopPdfLabeledLine($pdf, 'Course Description', $descPreview, $fullW, $rowH + 1);
+        workshopPdfLabeledLine($pdf, 'Course Description', $descPreview, $fullW, max($rowH + 2, 10));
         $half = $fullW / 2;
         $pdf->SetFont('helvetica', '', 9);
         $pdf->SetDrawColor(180, 200, 230);

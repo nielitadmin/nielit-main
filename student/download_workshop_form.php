@@ -13,6 +13,7 @@ $trainingCentre = null;
 $courseDescription = null;
 $startDate = null;
 $endDate = null;
+$eligibility = null;
 
 $token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
 $legacy = trim((string) ($_GET['course'] ?? ''));
@@ -25,6 +26,7 @@ if ($token !== '' || $legacy !== '') {
         $courseDescription = (string) ($course['course_description'] ?? '');
         $startDate = (string) ($course['start_date'] ?? '');
         $endDate = (string) ($course['end_date'] ?? '');
+        $eligibility = (string) ($course['eligibility'] ?? '');
     }
 }
 
@@ -35,6 +37,7 @@ outputWorkshopBlankRegistrationPdf(
     $trainingCentre,
     $courseDescription,
     $startDate,
-    $endDate
+    $endDate,
+    $eligibility
 );
 exit;
