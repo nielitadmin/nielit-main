@@ -24,13 +24,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
             $trainingCentre = 'NIELIT Bhubaneswar';
         }
         $courseDescription = trim((string) $courseDescription);
-        if ($courseDescription === '' && !empty($eligibilityFallback)) {
-            $courseDescription = trim(preg_replace('/\[[^\]]*\]/', '', (string) $eligibilityFallback));
-            $courseDescription = trim(preg_replace('/\s+/', ' ', $courseDescription));
-        }
-        if ($courseDescription === '' && trim((string) $courseName) !== '') {
-            $courseDescription = trim((string) $courseName);
-        }
+        // Only use real Course Description from Edit Course — do not fall back to eligibility
         $startDate = workshopPdfFormatDate($startDate);
         $endDate = workshopPdfFormatDate($endDate);
 
