@@ -710,6 +710,23 @@ if ($registration_form_display === 'full' && (sub_category_matches($selected_sub
                                 Students use the full registration wizard.
                             <?php endif; ?>
                         </small>
+                        <?php
+                        $showPhysicalFormDownload = ($registration_form_display === 'workshop')
+                            || sub_category_matches($selected_sub_category, 'Workshop')
+                            || sub_category_matches($selected_sub_category, 'Awareness Program');
+                        ?>
+                        <div id="workshop_physical_form_download" style="margin-top: 12px; <?php echo $showPhysicalFormDownload ? '' : 'display: none;'; ?>">
+                            <a href="download_workshop_form.php?course_id=<?php echo (int) $course_id; ?>"
+                               class="btn btn-outline-primary btn-sm"
+                               target="_blank"
+                               rel="noopener">
+                                <i class="fas fa-file-pdf"></i> Download physical registration form (PDF)
+                            </a>
+                            <small class="text-muted d-block mt-1">
+                                Auto-fills <strong>Course name</strong>, <strong>Course code</strong>, and <strong>Training centre</strong> from this course.
+                                Other fields stay blank for offline / handwritten use.
+                            </small>
+                        </div>
                     </div>
                     <?php endif; ?>
                     
@@ -1533,8 +1550,16 @@ function updateRegistrationFormForSubcategory(forceWorkshopDefault) {
         if (eligibilityField && !eligibilityField.value.trim()) {
             eligibilityField.placeholder = 'e.g., Class 1–10 students, or 11th/12th/Diploma/Graduation';
         }
+        const physDl = document.getElementById('workshop_physical_form_download');
+        if (physDl) {
+            physDl.style.display = 'block';
+        }
     } else {
         regFormGroup.style.display = 'none';
+        const physDl = document.getElementById('workshop_physical_form_download');
+        if (physDl) {
+            physDl.style.display = 'none';
+        }
         regFormSelect.value = 'full';
         if (regFormHelp) {
             regFormHelp.textContent = 'Students use the full registration wizard.';
@@ -1577,8 +1602,18 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             if (this.value === 'workshop') {
                 regFormHelp.textContent = 'Students see the short workshop form (name, class, school, photo, etc.). Same Apply link — they are redirected automatically.';
+                const physDl = document.getElementById('workshop_physical_form_download');
+                if (physDl) {
+                    physDl.style.display = 'block';
+                }
             } else {
                 regFormHelp.textContent = 'Students use the full registration wizard.';
+                const physDl = document.getElementById('workshop_physical_form_download');
+                if (physDl) {
+                    const nsqf = document.getElementById('edit_nsqf_type');
+                    const keep = nsqf && ['Workshop', 'Awareness Program'].includes(nsqf.value);
+                    physDl.style.display = keep ? 'block' : 'none';
+                }
             }
         });
     }

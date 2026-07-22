@@ -111,6 +111,13 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                     <i class="fas fa-camera"></i>
                     <span>Photo required · Aadhar optional</span>
                 </div>
+                <div class="workshop-quick-item">
+                    <i class="fas fa-file-pdf"></i>
+                    <a href="<?php echo APP_URL; ?>/student/download_workshop_form.php?token=<?php echo rawurlencode($registration_token); ?>"
+                       style="color:inherit;text-decoration:underline;">
+                        Download printable PDF form
+                    </a>
+                </div>
             </div>
         </div>
     </header>
@@ -279,6 +286,10 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
             <button type="submit" class="btn btn-submit" id="workshopSubmitBtn">
                 <i class="fas fa-paper-plane"></i> Submit Registration
             </button>
+            <a href="<?php echo APP_URL; ?>/student/download_workshop_form.php?token=<?php echo rawurlencode($registration_token); ?>"
+               class="btn-back" target="_blank" rel="noopener">
+                <i class="fas fa-file-pdf"></i> Download PDF form
+            </a>
             <a href="<?php echo APP_URL; ?>/public/courses.php" class="btn-back">
                 <i class="fas fa-arrow-left"></i> Back to Courses
             </a>
