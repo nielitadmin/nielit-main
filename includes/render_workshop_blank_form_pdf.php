@@ -33,6 +33,13 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->SetAutoPageBreak(false, 0);
         $pdf->AddPage();
 
+        // Full A4 page border
+        $pdf->SetDrawColor(80, 80, 80);
+        $pdf->SetLineWidth(0.6);
+        $pdf->Rect(8, 8, 194, 281, 'D');
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->SetLineWidth(0.2);
+
         $hindiFont = function_exists('getTcpdfDevanagariFontName') ? getTcpdfDevanagariFontName() : null;
         $hindiTexts = function_exists('getAdmissionFormHindiTexts') ? getAdmissionFormHindiTexts() : [];
 
