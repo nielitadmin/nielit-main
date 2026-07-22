@@ -13,12 +13,18 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         ?string $courseName = null,
         ?string $courseCode = null,
         string $dest = 'I',
-        ?string $trainingCentre = null
+        ?string $trainingCentre = null,
+        ?string $courseDescription = null,
+        ?string $startDate = null,
+        ?string $endDate = null
     ): string {
         $trainingCentre = trim((string) $trainingCentre);
         if ($trainingCentre === '') {
             $trainingCentre = 'NIELIT Bhubaneswar';
         }
+        $courseDescription = trim((string) $courseDescription);
+        $startDate = workshopPdfFormatDate($startDate);
+        $endDate = workshopPdfFormatDate($endDate);
 
         $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('NIELIT Bhubaneswar');
@@ -93,7 +99,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $y = $pdf->GetY();
         $photoX = 162;
         $photoW = 36;
-        $photoH = 40;
+        $photoH = 48;
         $pdf->SetDrawColor(100, 100, 100);
         $pdf->SetLineWidth(0.3);
         $pdf->Rect($photoX, $y, $photoW, $photoH);
@@ -110,7 +116,24 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfLabeledLine($pdf, 'Course name', $courseName ?: '', $leftW, $rowH);
         workshopPdfLabeledLine($pdf, 'Course code', $courseCode ?: '', $leftW, $rowH);
         workshopPdfLabeledLine($pdf, 'Training centre', $trainingCentre, $leftW, $rowH);
-        $pdf->SetY(max($pdf->GetY(), $y + $photoH) + $gap);
+        $pdf->SetY(max($pdf->GetY(), $y + $photoH) + 1);
+
+        // Extra course fields (full width)
+        $descPreview = $courseDescription !== ''
+            ? (strlen($courseDescription) > 120 ? substr($courseDescription, 0, 117) . '...' : $courseDescription)
+            : '';
+        workshopPdfLabeledLine($pdf, 'Course Description', $descPreview, $fullW, $rowH + 1);
+        $half = $fullW / 2;
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetDrawColor(180, 200, 230);
+        $pdf->Cell(42, $rowH, ' Start Date *', 1, 0);
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell($half - 42, $rowH, ' ' . $startDate, 1, 0);
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell(42, $rowH, ' End Date *', 1, 0);
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell($half - 42, $rowH, ' ' . $endDate, 1, 1);
+        $pdf->Ln($gap);
 
         workshopPdfSection($pdf, '1. Student details', $sectionH);
         workshopPdfLabeledLine($pdf, 'Student full name *', '', $fullW, $rowH);
@@ -199,12 +222,13 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
         $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
 
-        // Labels under the boxes only
+        // Labels under the boxes — student a bit higher; right = HoD/Principal/Coordinator
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->SetXY($x, $labelY);
-        $pdf->Cell($sigHalf, 5, 'Signature of Parent / Guardian *', 0, 0, 'C');
-        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
+        $pdf->SetXY($x, $labelY - 1.5);
+        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 0, 'C');
+        $pdf->SetXY($x + $sigHalf, $labelY);
+        $pdf->Cell($sigHalf, 5, 'HoD / Principal / Coordinator', 0, 1, 'C');
 
         // Footer on its own line under labels (minimum 1.5mm gap; never share Y with labels)
         if ($footerY < ($labelY + 5 + 1.5)) {
@@ -216,7 +240,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Cell(
             $fullW,
             4,
-            '* Mandatory. Aadhar optional. Passport photo & Parent/Guardian signature mandatory. Office use: enter into NIELIT system after verification.',
+            '* Mandatory. Aadhar optional. Passport photo & Student signature mandatory. Office use: enter into NIELIT system after verification.',
             0,
             1,
             'L',
@@ -237,6 +261,21 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         }
         $pdf->Output($filename, $dest);
         return $filename;
+    }
+}
+
+if (!function_exists('workshopPdfFormatDate')) {
+    function workshopPdfFormatDate(?string $date): string
+    {
+        $date = trim((string) $date);
+        if ($date === '' || $date === '0000-00-00') {
+            return '';
+        }
+        $ts = strtotime($date);
+        if ($ts === false) {
+            return $date;
+        }
+        return date('d/m/Y', $ts);
     }
 }
 

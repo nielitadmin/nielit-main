@@ -1,7 +1,7 @@
 <?php
 /**
  * Admin: download blank physical workshop/awareness registration PDF
- * with course name, code, and training centre filled from the course.
+ * with course fields filled from the course record.
  *
  * GET ?course_id=123
  */
@@ -27,7 +27,10 @@ if ($courseId <= 0) {
     exit();
 }
 
-$stmt = $conn->prepare('SELECT course_name, course_code, training_center, registration_form, category, course_type FROM courses WHERE id = ? LIMIT 1');
+$stmt = $conn->prepare(
+    'SELECT course_name, course_code, training_center, course_description, start_date, end_date
+     FROM courses WHERE id = ? LIMIT 1'
+);
 if (!$stmt) {
     while (ob_get_level() > 0) {
         ob_end_clean();
@@ -59,6 +62,17 @@ $trainingCentre = (string) ($course['training_center'] ?? 'NIELIT Bhubaneswar');
 if (trim($trainingCentre) === '') {
     $trainingCentre = 'NIELIT Bhubaneswar';
 }
+$courseDescription = (string) ($course['course_description'] ?? '');
+$startDate = (string) ($course['start_date'] ?? '');
+$endDate = (string) ($course['end_date'] ?? '');
 
-outputWorkshopBlankRegistrationPdf($courseName, $courseCode, 'D', $trainingCentre);
+outputWorkshopBlankRegistrationPdf(
+    $courseName,
+    $courseCode,
+    'D',
+    $trainingCentre,
+    $courseDescription,
+    $startDate,
+    $endDate
+);
 exit;
