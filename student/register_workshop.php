@@ -108,8 +108,8 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                     <span>Email confirmation</span>
                 </div>
                 <div class="workshop-quick-item">
-                    <i class="fas fa-id-card"></i>
-                    <span>Aadhar + photo required</span>
+                    <i class="fas fa-camera"></i>
+                    <span>Photo required · Aadhar optional</span>
                 </div>
             </div>
         </div>
@@ -211,23 +211,23 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </section>
 
         <section class="form-section">
-            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Identity verification — mandatory', 'icon-gold'); ?>
+            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Optional — you can skip and submit without Aadhar', 'icon-gold'); ?>
             <div class="row g-4">
                 <div class="col-md-6">
-                    <label class="form-label">Aadhar number (student or parent) <span class="required-mark">*</span></label>
-                    <input type="text" name="aadhar" class="form-control" maxlength="12" pattern="[0-9]{12}" required
-                           placeholder="12-digit Aadhar number" value="<?php echo workshopFieldValue($formData, 'aadhar'); ?>">
-                    <span class="field-hint">For Class 1–10, parent/guardian Aadhar is accepted</span>
+                    <label class="form-label">Aadhar number (student or parent)</label>
+                    <input type="text" name="aadhar" class="form-control" maxlength="12" pattern="[0-9]{12}"
+                           placeholder="12-digit Aadhar number (optional)" value="<?php echo workshopFieldValue($formData, 'aadhar'); ?>">
+                    <span class="field-hint">Optional. If provided, must be 12 digits. Parent/guardian Aadhar is accepted for Class 1–10</span>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Upload Aadhar card <span class="required-mark">*</span></label>
+                    <label class="form-label">Upload Aadhar card</label>
                     <div class="file-upload-zone" id="zone_aadhar_card">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="file-upload-label">JPG or PNG only</div>
+                        <div class="file-upload-label">JPG or PNG only (optional)</div>
                         <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG/PNG max 5MB</span>
-                        <span class="field-hint d-block mb-2">Upload a clear photo or scan of your <strong>Aadhar card</strong>.</span>
+                        <span class="field-hint d-block mb-2">Optional. Upload a clear photo or scan of your <strong>Aadhar card</strong> if available.</span>
                         <input type="file" name="aadhar_card" id="workshop_aadhar_card" class="form-control workshop-file-input"
-                               accept="image/jpeg,image/png,image/jpg" required
+                               accept="image/jpeg,image/png,image/jpg"
                                data-max-image-mb="5">
                     </div>
                 </div>
@@ -272,7 +272,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 
         <div class="workshop-info-note">
             <i class="fas fa-circle-info"></i>
-            <p>Payment, marksheets, signature, and thumb impression are <strong>not required</strong> for this short form. Aadhar card upload and photo are mandatory.</p>
+            <p>Payment, marksheets, signature, thumb impression, and Aadhar are <strong>not required</strong> for this short form. Passport photo is mandatory.</p>
         </div>
 
         <div class="workshop-form-actions">

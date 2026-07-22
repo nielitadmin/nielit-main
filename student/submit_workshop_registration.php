@@ -98,13 +98,9 @@ if ($category !== '' && !in_array($category, ['General', 'OBC', 'SC', 'ST', 'EWS
 if ($category === '') {
     $category = 'General';
 }
-if ($aadhar === '' || strlen($aadhar) !== 12) {
-    $errors[] = 'Valid 12-digit Aadhar number is required.';
+if ($aadhar !== '' && strlen($aadhar) !== 12) {
+    $errors[] = 'Aadhar number must be exactly 12 digits if provided.';
     $missing[] = 'aadhar';
-}
-if (($_FILES['aadhar_card']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-    $errors[] = 'Aadhar card document upload is required.';
-    $missing[] = 'aadhar_card';
 }
 
 $age = $dob !== '' ? (int)(new DateTime($dob))->diff(new DateTime())->y : 0;
@@ -141,9 +137,11 @@ if (workshopIsMobileEnrolledInCourse($conn, $mobile, $course_id)) {
 
 $is_returning_student = false;
 $existing_account = null;
-$existing_account = findAccountByAadhar($conn, $aadhar);
-if ($existing_account && isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
-    workshopRedirectWithErrors($redirectBack, ['This Aadhar is already registered for this program.'], ['aadhar']);
+if ($aadhar !== '') {
+    $existing_account = findAccountByAadhar($conn, $aadhar);
+    if ($existing_account && isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
+        workshopRedirectWithErrors($redirectBack, ['This Aadhar is already registered for this program.'], ['aadhar']);
+    }
 }
 if (!$existing_account) {
     $existing_account = workshopFindAccountByMobile($conn, $mobile);
@@ -242,12 +240,14 @@ if ($hasClassCol) {
 $stmt->bind_param($bindTypes, ...$bindArgs);
 if (!$stmt->execute()) {
     $absPhoto = __DIR__ . '/../' . $passport_photo_path;
-    $absAadhar = __DIR__ . '/../' . $aadhar_card_path;
     if (is_file($absPhoto)) {
         unlink($absPhoto);
     }
-    if (is_file($absAadhar)) {
-        unlink($absAadhar);
+    if ($aadhar_card_path !== '') {
+        $absAadhar = __DIR__ . '/../' . $aadhar_card_path;
+        if (is_file($absAadhar)) {
+            unlink($absAadhar);
+        }
     }
     workshopRedirectWithErrors($redirectBack, ['Registration failed: ' . $stmt->error], []);
 }
@@ -260,9 +260,13 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
     if ($is_returning_student && !empty($existing_account['id'])) {
         $account_id = (int)$existing_account['id'];
     } else {
+        // student_accounts.aadhar is UNIQUE — use a non-colliding placeholder when Aadhar is skipped.
+        $accountAadhar = $aadhar !== ''
+            ? $aadhar
+            : ('NOAADHAR/' . preg_replace('/[^A-Za-z0-9\/]/', '', $student_id));
         $account_id = createStudentAccount($conn, [
             'student_id' => $student_id,
-            'aadhar' => $aadhar,
+            'aadhar' => $accountAadhar,
             'name' => $name,
             'email' => $email,
             'mobile' => $mobile,

@@ -260,8 +260,13 @@ if (!function_exists('workshopUploadPassportPhoto')) {
 if (!function_exists('workshopUploadAadharCard')) {
     function workshopUploadAadharCard(array $file, string $safeStudentId, string $redirectBack): string
     {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+            || empty($file['tmp_name'])
+            || !is_uploaded_file($file['tmp_name'] ?? '')) {
+            return '';
+        }
         if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            workshopRedirectWithErrors($redirectBack, ['Aadhar card document is required.'], ['aadhar_card']);
+            workshopRedirectWithErrors($redirectBack, ['Aadhar card upload failed. Please try again or leave it blank.'], ['aadhar_card']);
         }
         $allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
