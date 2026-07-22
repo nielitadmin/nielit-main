@@ -164,28 +164,57 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln($gap);
 
-        // Signatures — table cells only (same light border style), labels inside box
+        // Signatures stretch to fill remaining space above page border (no empty gap at bottom)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $sigBoxH = 22;
-        // Ensure signature + footer stay inside page border
-        if ($pdf->GetY() + $sigBoxH + 10 > $contentMaxY) {
-            $sigBoxH = max(16, $contentMaxY - $pdf->GetY() - 10);
+        $footerReserve = 8; // space for mandatory note
+        $sigBoxH = $contentMaxY - $pdf->GetY() - $footerReserve;
+        if ($sigBoxH < 22) {
+            $sigBoxH = 22;
+        }
+        if ($sigBoxH > 55) {
+            $sigBoxH = 55;
         }
         $pdf->SetDrawColor(180, 200, 230);
-        $pdf->SetFont('helvetica', '', 7);
-        $pdf->SetFillColor(255, 255, 255);
+        $pdf->SetFont('helvetica', '', 8);
         $x = $pdf->GetX();
         $ySig = $pdf->GetY();
-        // Left box
-        $pdf->MultiCell($sigHalf, $sigBoxH, "\n\n\n Sign here\n\n Signature of Parent / Guardian *", 1, 'C', false, 0, $x, $ySig, true, 0, false, true, $sigBoxH, 'B');
-        // Right box
-        $pdf->MultiCell($sigHalf, $sigBoxH, "\n\n\n Sign here\n\n Signature of Student (if applicable)", 1, 'C', false, 1, $x + $sigHalf, $ySig, true, 0, false, true, $sigBoxH, 'B');
-        $pdf->SetY($ySig + $sigBoxH + 2);
+        $pdf->MultiCell(
+            $sigHalf,
+            $sigBoxH,
+            "\n\n\n\n Sign here\n\n\n Signature of Parent / Guardian *",
+            1,
+            'C',
+            false,
+            0,
+            $x,
+            $ySig,
+            true,
+            0,
+            false,
+            true,
+            $sigBoxH,
+            'B'
+        );
+        $pdf->MultiCell(
+            $sigHalf,
+            $sigBoxH,
+            "\n\n\n\n Sign here\n\n\n Signature of Student (if applicable)",
+            1,
+            'C',
+            false,
+            1,
+            $x + $sigHalf,
+            $ySig,
+            true,
+            0,
+            false,
+            true,
+            $sigBoxH,
+            'B'
+        );
+        $pdf->SetY($ySig + $sigBoxH + 1.5);
 
-        if ($pdf->GetY() > $contentMaxY - 6) {
-            $pdf->SetY($contentMaxY - 6);
-        }
         $pdf->SetFont('helvetica', 'I', 6);
         $pdf->SetTextColor(110, 110, 110);
         $pdf->MultiCell(0, 2.8, '* Mandatory. Aadhar optional. Passport photo and Parent/Guardian signature mandatory. Office use: enter into NIELIT workshop registration system after verification.', 0, 'L');
