@@ -117,10 +117,27 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Mobile (parent) * 10 digits', 'Email *');
 
         workshopPdfSection($pdf, '3. Aadhar details (optional)');
-        workshopPdfLabeledLine($pdf, 'Aadhar number (student or parent) — 12 digits, optional');
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell(55, 8, ' Aadhar card copy (optional)', 1, 0);
-        $pdf->Cell(127, 8, '  Attach photocopy if available  □ Attached   □ Not available', 1, 1);
+        // Write-in area: short label + 12 empty digit boxes (do not put hint text in the write cell)
+        $pdf->SetFont('helvetica', '', 8);
+        $aadharLabelW = 58;
+        $boxH = 9;
+        $pdf->Cell($aadharLabelW, $boxH, ' Aadhar number (optional)', 1, 0);
+        $digitAreaW = 182 - $aadharLabelW;
+        $digitBoxW = $digitAreaW / 12;
+        $startX = $pdf->GetX();
+        $startY = $pdf->GetY();
+        for ($i = 0; $i < 12; $i++) {
+            $pdf->Rect($startX + ($i * $digitBoxW), $startY, $digitBoxW, $boxH);
+        }
+        $pdf->SetXY($startX + $digitAreaW, $startY);
+        $pdf->Ln($boxH);
+        $pdf->SetFont('helvetica', 'I', 7);
+        $pdf->SetTextColor(100, 100, 100);
+        $pdf->Cell(0, 3.5, 'Write one digit in each box (student or parent Aadhar). Leave blank if not available.', 0, 1, 'L');
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(58, 8, ' Aadhar card copy (optional)', 1, 0);
+        $pdf->Cell(124, 8, '  Attach photocopy if available     [ ] Attached     [ ] Not available', 1, 1);
 
         workshopPdfSection($pdf, '4. School & address');
         workshopPdfLabeledLine($pdf, 'School / College name *');
@@ -176,13 +193,14 @@ if (!function_exists('workshopPdfSection')) {
 if (!function_exists('workshopPdfLabeledLine')) {
     function workshopPdfLabeledLine(TCPDF $pdf, string $label, string $value = '', float $width = 182, float $height = 8): void
     {
-        $pdf->SetFont('helvetica', '', 9);
-        $labelW = min(55, max(28, $pdf->GetStringWidth($label) + 6));
+        $pdf->SetFont('helvetica', '', 8);
         if ($label === '') {
             $pdf->Cell($width, $height, ' ' . $value, 1, 1);
             return;
         }
-        $pdf->Cell($labelW, $height, ' ' . $label, 1, 0);
+        // Keep label column fixed so long text never overflows into the write-in cell
+        $labelW = min(58, max(28, min(58, $pdf->GetStringWidth($label) + 4)));
+        $pdf->Cell($labelW, $height, ' ' . $label, 1, 0, '', false, '', 1);
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->Cell($width - $labelW, $height, ' ' . $value, 1, 1);
         $pdf->SetFont('helvetica', '', 9);
