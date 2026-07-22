@@ -81,8 +81,8 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Line(12, $pdf->GetY(), 198, $pdf->GetY());
         $pdf->Ln(2.5);
 
-        $pdf->SetFont('helvetica', 'B', 13);
-        $pdf->Cell(0, 7, 'Student Registration Form', 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(0, 6.5, getWorkshopShortFormTitle() . ' — Short Registration Form', 0, 1, 'C');
         $pdf->SetFont('helvetica', '', 8.5);
         $pdf->SetTextColor(90, 90, 90);
         $pdf->Cell(0, 4, 'Physical / Offline copy — please fill by hand clearly', 0, 1, 'C');
@@ -168,21 +168,22 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln($gap);
 
-        // Signatures — Rect + text inside only (no overflow / overlap with border)
+        // Signatures — empty boxes; labels below the border (no "Sign here", no footer overlap)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $footerReserve = 10;
+        $labelH = 6;
+        $footerReserve = 9;
         $ySig = $pdf->GetY();
-        $sigBoxH = $contentMaxY - $ySig - $footerReserve;
-        if ($sigBoxH > 30) {
-            $sigBoxH = 30;
+        // Space needed: boxes + labels under boxes + footer
+        $sigBoxH = $contentMaxY - $ySig - $labelH - $footerReserve - 2;
+        if ($sigBoxH > 28) {
+            $sigBoxH = 28;
         }
-        if ($sigBoxH < 20) {
-            $sigBoxH = 20;
+        if ($sigBoxH < 18) {
+            $sigBoxH = 18;
         }
-        // Hard stop: bottom of boxes must stay above page border
-        if (($ySig + $sigBoxH) > ($contentMaxY - $footerReserve)) {
-            $sigBoxH = max(18, $contentMaxY - $footerReserve - $ySig);
+        if (($ySig + $sigBoxH + $labelH + $footerReserve) > $contentMaxY) {
+            $sigBoxH = max(16, $contentMaxY - $ySig - $labelH - $footerReserve);
         }
 
         $x = 12;
@@ -191,19 +192,14 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
         $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
 
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->SetXY($x, $ySig + 3);
-        $pdf->Cell($sigHalf, 4, 'Sign here', 0, 0, 'C');
-        $pdf->Cell($sigHalf, 4, 'Sign here', 0, 1, 'C');
-
+        // Labels AFTER (below) the signature box border
+        $pdf->SetY($ySig + $sigBoxH + 1);
         $pdf->SetFont('helvetica', 'B', 9);
-        $labelY = $ySig + $sigBoxH - 7;
-        $pdf->SetXY($x, $labelY);
-        $pdf->Cell($sigHalf, 5, 'Signature of Parent / Guardian *', 0, 0, 'C');
-        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
+        $pdf->Cell($sigHalf, $labelH, 'Signature of Parent / Guardian *', 0, 0, 'C');
+        $pdf->Cell($sigHalf, $labelH, 'Signature of Student (if applicable)', 0, 1, 'C');
 
-        // Footer always below signature boxes, always inside border
-        $footerY = $ySig + $sigBoxH + 2;
+        // Footer below labels, inside page border
+        $footerY = $pdf->GetY() + 1.5;
         if ($footerY > $contentMaxY - 6) {
             $footerY = $contentMaxY - 6;
         }
