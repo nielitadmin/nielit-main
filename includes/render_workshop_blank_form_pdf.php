@@ -173,7 +173,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
         workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 9);
+        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 8);
         workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
         workshopPdfLabeledLine($pdf, 'Pincode *', '', 100, $rowH);
         $pdf->Ln(1.2);
@@ -188,25 +188,26 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln(1.5);
 
-        // 6. Signatures — empty boxes + labels under them (sequential only, always visible)
+        // 6. Signatures — tall empty space above labels (student left, HoD right)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $sigBoxH = 22;
-        // Keep inside page: if near bottom, shrink box but never hide it
-        $room = 285 - $pdf->GetY() - 12;
+        $sigBoxH = 34;
+        $room = 284 - $pdf->GetY() - 14;
         if ($room < $sigBoxH) {
-            $sigBoxH = max(16, $room);
+            $sigBoxH = max(22, $room);
         }
         $pdf->SetDrawColor(180, 200, 230);
         $pdf->SetFillColor(255, 255, 255);
+        $pdf->SetLineWidth(0.4);
+        // Empty signing areas (space above labels)
         $pdf->Cell($sigHalf, $sigBoxH, '', 1, 0, 'C', true);
         $pdf->Cell($sigHalf, $sigBoxH, '', 1, 1, 'C', true);
 
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 0, 'C');
-        $pdf->Cell($sigHalf, 5, 'HoD / Principal / Coordinator', 0, 1, 'C');
-        $pdf->Ln(1.5);
+        $pdf->Cell($sigHalf, 5.5, 'Signature of Student (if applicable)', 0, 0, 'C');
+        $pdf->Cell($sigHalf, 5.5, 'HoD / Principal / Coordinator', 0, 1, 'C');
+        $pdf->Ln(1.2);
 
         $pdf->SetFont('helvetica', 'I', 7);
         $pdf->SetTextColor(110, 110, 110);
