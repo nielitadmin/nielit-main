@@ -90,7 +90,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Ln(2.5);
 
         $pdf->SetFont('helvetica', 'B', 12);
-        $pdf->Cell(0, 6.5, getWorkshopShortFormTitle() . ' — Short Registration Form', 0, 1, 'C');
+        $pdf->Cell(0, 6.5, getWorkshopShortFormTitle() . ' — Application Form', 0, 1, 'C');
         $pdf->SetFont('helvetica', '', 8.5);
         $pdf->SetTextColor(90, 90, 90);
         $pdf->Cell(0, 4, 'Physical / Offline copy — please fill by hand clearly', 0, 1, 'C');
