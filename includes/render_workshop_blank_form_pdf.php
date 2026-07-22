@@ -196,25 +196,24 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln(1.5);
 
-        // 6. Signatures — tall empty space above labels (student left, HoD right)
-        workshopPdfSection($pdf, '6. Signatures', $sectionH);
+        // 6 + 7 Signatures side by side
         $sigHalf = $fullW / 2;
-        $sigBoxH = 34;
-        $room = 284 - $pdf->GetY() - 14;
-        if ($room < $sigBoxH) {
-            $sigBoxH = max(22, $room);
+        $sigBoxH = 32;
+        $room = 284 - $pdf->GetY() - 12;
+        if ($room < $sigBoxH + 7) {
+            $sigBoxH = max(20, $room - 7);
         }
-        $pdf->SetDrawColor(180, 200, 230);
-        $pdf->SetFillColor(255, 255, 255);
-        $pdf->SetLineWidth(0.4);
-        // Empty signing areas (space above labels)
-        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 0, 'C', true);
-        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 1, 'C', true);
 
         $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->SetTextColor(0, 0, 0);
-        $pdf->Cell($sigHalf, 5.5, 'Signature of Student (if applicable)', 0, 0, 'C');
-        $pdf->Cell($sigHalf, 5.5, 'HoD / Principal / Coordinator', 0, 1, 'C');
+        $pdf->SetFillColor(232, 240, 254);
+        $pdf->SetDrawColor(180, 200, 230);
+        $pdf->Cell($sigHalf, 6.5, '  6. Signature of Student (if applicable)', 1, 0, 'L', true);
+        $pdf->Cell($sigHalf, 6.5, '  7. Signature of HoD / Principal / Coordinator', 1, 1, 'L', true);
+
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->SetLineWidth(0.4);
+        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 0, 'C', true);
+        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 1, 'C', true);
         $pdf->Ln(1.2);
 
         $pdf->SetFont('helvetica', 'I', 7);
