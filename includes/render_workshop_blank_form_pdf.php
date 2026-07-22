@@ -180,10 +180,10 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Ln($gap);
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
-        workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 8);
-        workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Pincode *', '', 100, $rowH);
+        workshopPdfLabeledLine($pdf, 'School / College name', '', $fullW, $rowH);
+        workshopPdfLabeledLine($pdf, 'Address', '', $fullW, 8);
+        workshopPdfTwoCol($pdf, 'State', 'City / District', $fullW, $rowH);
+        workshopPdfLabeledLine($pdf, 'Pincode', '', 100, $rowH);
         $pdf->Ln(1.2);
 
         // 5. Declaration — text, then Date/Place clearly below (no overlap)
