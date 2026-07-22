@@ -149,38 +149,40 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
         workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 14);
-        workshopPdfLabeledLine($pdf, '', '', $fullW, 10);
+        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 12);
         workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
         workshopPdfLabeledLine($pdf, 'Pincode * (6 digits)', '', 100, $rowH);
         $pdf->Ln($gap);
 
         workshopPdfSection($pdf, '5. Declaration', $sectionH);
         $pdf->SetFont('helvetica', '', 8);
-        $pdf->MultiCell(0, 4, 'I hereby declare that the information given above is true to the best of my knowledge. This form is for Workshop / Awareness Program short registration. Payment, marksheets, signature and thumb impression are not required for this short form.', 0, 'L');
-        $pdf->Ln(3);
+        $pdf->MultiCell(0, 3.8, 'I hereby declare that the information given above is true to the best of my knowledge. This form is for Workshop / Awareness Program short registration.', 0, 'L');
+        $pdf->Ln(2);
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
+        $pdf->Ln($gap);
 
-        // Signature block — flow after Date/Place (never absolute Y, avoids overlap)
-        $pdf->Ln(10);
-        // Blank space for handwritten signature above the underline
-        $pdf->Ln(12);
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell(93, 5, '________________________________', 0, 0, 'C');
-        $pdf->Cell(93, 5, '________________________________', 0, 1, 'C');
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->Cell(93, 5, 'Signature of Parent / Guardian', 0, 0, 'C');
-        $pdf->Cell(93, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
+        // Clear signature section with boxes (easy to find on physical print)
+        workshopPdfSection($pdf, '6. Signatures', $sectionH);
+        $sigBoxH = 28;
+        $sigHalf = $fullW / 2;
+        $sigX = $pdf->GetX();
+        $sigY = $pdf->GetY();
+        $pdf->SetDrawColor(0, 0, 0);
+        $pdf->Rect($sigX, $sigY, $sigHalf, $sigBoxH);
+        $pdf->Rect($sigX + $sigHalf, $sigY, $sigHalf, $sigBoxH);
+        $pdf->SetFont('helvetica', '', 7);
+        $pdf->SetXY($sigX, $sigY + 2);
+        $pdf->Cell($sigHalf, 4, ' Sign here', 0, 0, 'L');
+        $pdf->Cell($sigHalf, 4, ' Sign here', 0, 1, 'L');
+        $pdf->SetY($sigY + $sigBoxH - 8);
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($sigHalf, 5, 'Signature of Parent / Guardian *', 0, 0, 'C');
+        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
+        $pdf->SetY($sigY + $sigBoxH + 3);
 
-        // Footer note near bottom of page if space remains
-        $footerY = max($pdf->GetY() + 6, 280);
-        if ($footerY > 285) {
-            $footerY = 285;
-        }
-        $pdf->SetY($footerY);
         $pdf->SetFont('helvetica', 'I', 6.5);
         $pdf->SetTextColor(110, 110, 110);
-        $pdf->MultiCell(0, 3, '* Mandatory fields. Aadhar number and Aadhar card are optional. Passport-size photo is mandatory. For office use: enter data into NIELIT workshop registration system after verification.', 0, 'L');
+        $pdf->MultiCell(0, 3, '* Mandatory fields. Aadhar number and Aadhar card are optional. Passport-size photo and Parent/Guardian signature are mandatory on this physical form. For office use: enter data into NIELIT workshop registration system after verification.', 0, 'L');
         $pdf->SetTextColor(0, 0, 0);
 
         $filename = 'NIELIT_Workshop_Registration_Form.pdf';
