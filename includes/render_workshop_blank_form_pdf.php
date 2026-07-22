@@ -97,45 +97,51 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(2);
 
-        // Course + photo
+        // Course + photo — Description / Start / End inside Program block (left of photo)
         $y = $pdf->GetY();
         $photoX = 162;
         $photoW = 36;
-        $photoH = 42;
-        $pdf->SetDrawColor(100, 100, 100);
-        $pdf->SetLineWidth(0.3);
-        $pdf->Rect($photoX, $y, $photoW, $photoH);
-        $pdf->SetXY($photoX, $y + $photoH / 2 - 5);
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->MultiCell($photoW, 3.5, "Passport photo *\n(paste here)", 0, 'C');
-
         $leftW = 146;
+        $rowHLocal = 7.2;
+        $descH = 9;
+
         $pdf->SetXY(12, $y);
         $pdf->SetFont('helvetica', 'B', 9.5);
         $pdf->SetFillColor(232, 240, 254);
         $pdf->SetDrawColor(180, 200, 230);
-        $pdf->Cell($leftW, 6.5, '  Program / Course', 1, 1, 'L', true);
-        workshopPdfLabeledLine($pdf, 'Course name', $courseName ?: '', $leftW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Course code', $courseCode ?: '', $leftW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Training centre', $trainingCentre, $leftW, $rowH);
-        $pdf->SetY(max($pdf->GetY(), $y + $photoH) + 1);
+        $pdf->Cell($leftW, 6, '  Program / Course', 1, 1, 'L', true);
+        workshopPdfLabeledLine($pdf, 'Course name', $courseName ?: '', $leftW, $rowHLocal);
+        workshopPdfLabeledLine($pdf, 'Course code', $courseCode ?: '', $leftW, $rowHLocal);
+        workshopPdfLabeledLine($pdf, 'Training centre', $trainingCentre, $leftW, $rowHLocal);
 
-        // Extra course fields (full width) — description always filled when possible
+        // Course Description (write-in / auto value) inside left column
         $descPreview = $courseDescription !== ''
-            ? (strlen($courseDescription) > 180 ? substr($courseDescription, 0, 177) . '...' : $courseDescription)
+            ? (strlen($courseDescription) > 90 ? substr($courseDescription, 0, 87) . '...' : $courseDescription)
             : '';
-        workshopPdfLabeledLine($pdf, 'Course Description', $descPreview, $fullW, max($rowH + 2, 10));
-        $half = $fullW / 2;
-        $pdf->SetFont('helvetica', '', 9);
+        workshopPdfLabeledLine($pdf, 'Course Description', $descPreview, $leftW, $descH);
+
+        // Start Date * | End Date * inside left column
+        $halfL = $leftW / 2;
+        $pdf->SetFont('helvetica', '', 8);
         $pdf->SetDrawColor(180, 200, 230);
-        $pdf->Cell(42, $rowH, ' Start Date *', 1, 0);
-        $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell($half - 42, $rowH, ' ' . $startDate, 1, 0);
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell(42, $rowH, ' End Date *', 1, 0);
-        $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell($half - 42, $rowH, ' ' . $endDate, 1, 1);
-        $pdf->Ln($gap);
+        $pdf->Cell(32, $rowHLocal, ' Start Date *', 1, 0);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell($halfL - 32, $rowHLocal, ' ' . $startDate, 1, 0);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell(30, $rowHLocal, ' End Date *', 1, 0);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell($halfL - 30, $rowHLocal, ' ' . $endDate, 1, 1);
+
+        $blockBottom = $pdf->GetY();
+        $photoH = max(40, $blockBottom - $y);
+        $pdf->SetDrawColor(100, 100, 100);
+        $pdf->SetLineWidth(0.3);
+        $pdf->Rect($photoX, $y, $photoW, $photoH);
+        $pdf->SetXY($photoX, $y + ($photoH / 2) - 5);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->MultiCell($photoW, 3.5, "Passport photo *\n(paste here)", 0, 'C');
+
+        $pdf->SetY($blockBottom + $gap);
 
         workshopPdfSection($pdf, '1. Student details', $sectionH);
         workshopPdfLabeledLine($pdf, 'Student full name *', '', $fullW, $rowH);
