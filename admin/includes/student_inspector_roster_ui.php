@@ -19,7 +19,7 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
     <h2 class="h5 mb-2"><i class="fas fa-clone text-success"></i> Copy Batch Roster to Another Course</h2>
     <p class="text-muted small mb-4">
         Copy all students from one batch into a <strong>different course</strong> (and scheme). Same Student ID is reused.
-        Example: O Level (SCSPTSP) batch → Internship (Regular) batch.
+        Source list includes <strong>Active</strong> and <strong>Completed</strong> batches (locked batches can still be copied from).
     </p>
 
     <form method="POST" action="check_student_exists.php<?php echo $searchParams ? '?' . htmlspecialchars(inspectorSearchParams($searchParams)) : ''; ?>"
@@ -37,9 +37,12 @@ $rosterSourceBatches = inspectorGetRosterSourceBatches($conn);
                     <?php
                         $schemePart = !empty($batch['scheme_name']) ? ' — ' . $batch['scheme_name'] : '';
                         $batchCodePart = !empty($batch['batch_code']) ? ' (' . $batch['batch_code'] . ')' : '';
+                        $statusLabel = trim((string) ($batch['status'] ?? ''));
+                        $statusPart = $statusLabel !== '' ? ' [' . ucfirst(strtolower($statusLabel)) . ']' : '';
                         $label = ($batch['batch_name'] ?? 'Batch')
                             . $batchCodePart
                             . ' (' . ($batch['course_name'] ?? '') . $schemePart . ')'
+                            . $statusPart
                             . ' — ' . (int)($batch['enrolled_count'] ?? 0) . ' students';
                     ?>
                     <option value="<?php echo (int)$batch['id']; ?>">

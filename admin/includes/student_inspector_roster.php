@@ -5,7 +5,7 @@
 
 if (!function_exists('inspectorGetRosterSourceBatches')) {
     /**
-     * Active batches for the source dropdown (with enrolled count).
+     * Source batches for roster copy (Active + Completed; locked batches included).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -19,8 +19,15 @@ if (!function_exists('inspectorGetRosterSourceBatches')) {
                 FROM batches b
                 LEFT JOIN courses c ON c.id = b.course_id
                 LEFT JOIN schemes s ON s.id = b.scheme_id
-                WHERE LOWER(COALESCE(b.status, '')) = 'active'
-                ORDER BY c.course_name ASC, b.batch_name ASC";
+                WHERE LOWER(TRIM(COALESCE(b.status, ''))) IN ('active', 'completed')
+                ORDER BY
+                    CASE LOWER(TRIM(COALESCE(b.status, '')))
+                        WHEN 'active' THEN 0
+                        WHEN 'completed' THEN 1
+                        ELSE 2
+                    END ASC,
+                    c.course_name ASC,
+                    b.batch_name ASC";
 
         $res = $conn->query($sql);
         if (!$res) {
