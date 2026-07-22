@@ -41,9 +41,9 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $hindiTexts = function_exists('getAdmissionFormHindiTexts') ? getAdmissionFormHindiTexts() : [];
 
         $fullW = 186;
-        $rowH = 9;
-        $sectionH = 7.5;
-        $gap = 2.5;
+        $rowH = 8.5;
+        $sectionH = 7;
+        $gap = 2;
 
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $marginLeft = 12;
@@ -150,7 +150,7 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
 
         workshopPdfSection($pdf, '4. School & address', $sectionH);
         workshopPdfLabeledLine($pdf, 'School / College name *', '', $fullW, $rowH);
-        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 14);
+        workshopPdfLabeledLine($pdf, 'Address *', '', $fullW, 12);
         workshopPdfTwoCol($pdf, 'State *', 'City / District *', $fullW, $rowH);
         workshopPdfLabeledLine($pdf, 'Pincode *', '', 100, $rowH);
         $pdf->Ln($gap);
@@ -159,64 +159,58 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->SetFont('helvetica', '', 9);
         $pdf->MultiCell(
             0,
-            4.2,
+            4,
             'I hereby declare that the information given above is true and correct to the best of my knowledge. I agree to abide by the rules and regulations of NIELIT. I understand that any false or incomplete information may lead to cancellation of my registration.',
             0,
             'L'
         );
-        $pdf->Ln(2);
+        $pdf->Ln(1.5);
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln($gap);
 
-        // Balanced signature area (not oversized)
+        // Signatures — Rect + text inside only (no overflow / overlap with border)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $footerReserve = 9;
-        $remaining = $contentMaxY - $pdf->GetY() - $footerReserve;
-        $sigBoxH = min(32, max(24, $remaining));
-        $pdf->SetDrawColor(180, 200, 230);
-        $pdf->SetFont('helvetica', '', 9);
-        $x = $pdf->GetX();
+        $footerReserve = 10;
         $ySig = $pdf->GetY();
-        $pdf->MultiCell(
-            $sigHalf,
-            $sigBoxH,
-            "\n\n Sign here\n\n\n Signature of Parent / Guardian *",
-            1,
-            'C',
-            false,
-            0,
-            $x,
-            $ySig,
-            true,
-            0,
-            false,
-            true,
-            $sigBoxH,
-            'B'
-        );
-        $pdf->MultiCell(
-            $sigHalf,
-            $sigBoxH,
-            "\n\n Sign here\n\n\n Signature of Student (if applicable)",
-            1,
-            'C',
-            false,
-            1,
-            $x + $sigHalf,
-            $ySig,
-            true,
-            0,
-            false,
-            true,
-            $sigBoxH,
-            'B'
-        );
-        $pdf->SetY($ySig + $sigBoxH + 2);
+        $sigBoxH = $contentMaxY - $ySig - $footerReserve;
+        if ($sigBoxH > 30) {
+            $sigBoxH = 30;
+        }
+        if ($sigBoxH < 20) {
+            $sigBoxH = 20;
+        }
+        // Hard stop: bottom of boxes must stay above page border
+        if (($ySig + $sigBoxH) > ($contentMaxY - $footerReserve)) {
+            $sigBoxH = max(18, $contentMaxY - $footerReserve - $ySig);
+        }
 
+        $x = 12;
+        $pdf->SetDrawColor(180, 200, 230);
+        $pdf->SetLineWidth(0.35);
+        $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
+        $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
+
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetXY($x, $ySig + 3);
+        $pdf->Cell($sigHalf, 4, 'Sign here', 0, 0, 'C');
+        $pdf->Cell($sigHalf, 4, 'Sign here', 0, 1, 'C');
+
+        $pdf->SetFont('helvetica', 'B', 9);
+        $labelY = $ySig + $sigBoxH - 7;
+        $pdf->SetXY($x, $labelY);
+        $pdf->Cell($sigHalf, 5, 'Signature of Parent / Guardian *', 0, 0, 'C');
+        $pdf->Cell($sigHalf, 5, 'Signature of Student (if applicable)', 0, 1, 'C');
+
+        // Footer always below signature boxes, always inside border
+        $footerY = $ySig + $sigBoxH + 2;
+        if ($footerY > $contentMaxY - 6) {
+            $footerY = $contentMaxY - 6;
+        }
+        $pdf->SetY($footerY);
         $pdf->SetFont('helvetica', 'I', 7.5);
         $pdf->SetTextColor(110, 110, 110);
-        $pdf->MultiCell(0, 3.2, '* Mandatory fields. Aadhar is optional. Passport photo and Parent/Guardian signature are mandatory. For office use: enter details into the NIELIT student system after verification.', 0, 'L');
+        $pdf->MultiCell(0, 3, '* Mandatory fields. Aadhar is optional. Passport photo and Parent/Guardian signature are mandatory. For office use: enter details into the NIELIT student system after verification.', 0, 'L');
         $pdf->SetTextColor(0, 0, 0);
 
         $filename = 'NIELIT_Workshop_Registration_Form.pdf';
