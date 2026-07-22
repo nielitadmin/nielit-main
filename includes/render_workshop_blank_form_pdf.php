@@ -168,22 +168,23 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln($gap);
 
-        // Signatures — empty boxes; labels below the border (no "Sign here", no footer overlap)
+        // Signatures — empty boxes; labels below boxes; footer below labels (no overlap)
         workshopPdfSection($pdf, '6. Signatures', $sectionH);
         $sigHalf = $fullW / 2;
-        $labelH = 6;
-        $footerReserve = 9;
+        $labelH = 5.5;
+        $footerH = 8;
+        $gapAfterBox = 1.5;
+        $gapAfterLabel = 1.5;
         $ySig = $pdf->GetY();
-        // Space needed: boxes + labels under boxes + footer
-        $sigBoxH = $contentMaxY - $ySig - $labelH - $footerReserve - 2;
-        if ($sigBoxH > 28) {
-            $sigBoxH = 28;
+
+        // Reserve space for labels + footer so nothing collides
+        $reservedBelow = $gapAfterBox + $labelH + $gapAfterLabel + $footerH;
+        $sigBoxH = $contentMaxY - $ySig - $reservedBelow;
+        if ($sigBoxH > 26) {
+            $sigBoxH = 26;
         }
-        if ($sigBoxH < 18) {
-            $sigBoxH = 18;
-        }
-        if (($ySig + $sigBoxH + $labelH + $footerReserve) > $contentMaxY) {
-            $sigBoxH = max(16, $contentMaxY - $ySig - $labelH - $footerReserve);
+        if ($sigBoxH < 16) {
+            $sigBoxH = 16;
         }
 
         $x = 12;
@@ -192,21 +193,35 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         $pdf->Rect($x, $ySig, $sigHalf, $sigBoxH);
         $pdf->Rect($x + $sigHalf, $ySig, $sigHalf, $sigBoxH);
 
-        // Labels AFTER (below) the signature box border
-        $pdf->SetY($ySig + $sigBoxH + 1);
+        // 1) Labels directly under the boxes
+        $labelY = $ySig + $sigBoxH + $gapAfterBox;
+        $pdf->SetXY($x, $labelY);
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->Cell($sigHalf, $labelH, 'Signature of Parent / Guardian *', 0, 0, 'C');
         $pdf->Cell($sigHalf, $labelH, 'Signature of Student (if applicable)', 0, 1, 'C');
 
-        // Footer below labels, inside page border
-        $footerY = $pdf->GetY() + 1.5;
-        if ($footerY > $contentMaxY - 6) {
-            $footerY = $contentMaxY - 6;
-        }
-        $pdf->SetY($footerY);
-        $pdf->SetFont('helvetica', 'I', 7.5);
+        // 2) Footer under the labels only (never move upward into labels)
+        $footerY = $labelY + $labelH + $gapAfterLabel;
+        $pdf->SetXY(12, $footerY);
+        $pdf->SetFont('helvetica', 'I', 7);
         $pdf->SetTextColor(110, 110, 110);
-        $pdf->MultiCell(0, 3, '* Mandatory fields. Aadhar is optional. Passport photo and Parent/Guardian signature are mandatory. For office use: enter details into the NIELIT student system after verification.', 0, 'L');
+        $pdf->MultiCell(
+            $fullW,
+            3,
+            '* Mandatory fields. Aadhar is optional. Passport photo and Parent/Guardian signature are mandatory. For office use: enter details into the NIELIT student system after verification.',
+            0,
+            'L',
+            false,
+            1,
+            12,
+            $footerY,
+            true,
+            0,
+            false,
+            true,
+            $footerH,
+            'T'
+        );
         $pdf->SetTextColor(0, 0, 0);
 
         $filename = 'NIELIT_Workshop_Registration_Form.pdf';
