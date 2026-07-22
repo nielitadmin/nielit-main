@@ -196,26 +196,41 @@ if (!function_exists('outputWorkshopBlankRegistrationPdf')) {
         workshopPdfTwoCol($pdf, 'Date', 'Place', $fullW, $rowH);
         $pdf->Ln(1.5);
 
-        // 6 + 7 Signatures side by side
+        // 6 (left) + 7 (right) — each is one bordered block: header + signing space
         $sigHalf = $fullW / 2;
-        $sigBoxH = 32;
-        $room = 284 - $pdf->GetY() - 12;
-        if ($room < $sigBoxH + 7) {
-            $sigBoxH = max(20, $room - 7);
+        $headerH = 7;
+        $sigBoxH = 30;
+        $room = 284 - $pdf->GetY() - 10;
+        if ($room < ($headerH + $sigBoxH)) {
+            $sigBoxH = max(18, $room - $headerH);
         }
 
-        $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->SetFillColor(232, 240, 254);
+        $x = 12;
+        $y0 = $pdf->GetY();
         $pdf->SetDrawColor(180, 200, 230);
-        $pdf->Cell($sigHalf, 6.5, '  6. Signature of Student (if applicable)', 1, 0, 'L', true);
-        $pdf->Cell($sigHalf, 6.5, '  7. Signature of HoD / Principal / Coordinator', 1, 1, 'L', true);
-
-        $pdf->SetFillColor(255, 255, 255);
         $pdf->SetLineWidth(0.4);
-        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 0, 'C', true);
-        $pdf->Cell($sigHalf, $sigBoxH, '', 1, 1, 'C', true);
-        $pdf->Ln(1.2);
 
+        // Left block: 6. Student
+        $pdf->SetFillColor(232, 240, 254);
+        $pdf->Rect($x, $y0, $sigHalf, $headerH + $sigBoxH);
+        $pdf->Rect($x, $y0, $sigHalf, $headerH, 'DF');
+        $pdf->SetFont('helvetica', 'B', 8.5);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetXY($x, $y0 + 1.2);
+        $pdf->Cell($sigHalf, 4.5, '  6. Signature of Student (if applicable)', 0, 0, 'L');
+
+        // Right block: 7. HoD / Principal / Coordinator
+        $pdf->SetFillColor(232, 240, 254);
+        $pdf->Rect($x + $sigHalf, $y0, $sigHalf, $headerH + $sigBoxH);
+        $pdf->Rect($x + $sigHalf, $y0, $sigHalf, $headerH, 'DF');
+        $pdf->SetXY($x + $sigHalf, $y0 + 1.2);
+        $pdf->Cell($sigHalf, 4.5, '  7. Signature of HoD / Principal / Coordinator', 0, 0, 'L');
+
+        // Divider line under headers (signing space below)
+        $pdf->Line($x, $y0 + $headerH, $x + $fullW, $y0 + $headerH);
+        $pdf->Line($x + $sigHalf, $y0, $x + $sigHalf, $y0 + $headerH + $sigBoxH);
+
+        $pdf->SetY($y0 + $headerH + $sigBoxH + 1.5);
         $pdf->SetFont('helvetica', 'I', 7);
         $pdf->SetTextColor(110, 110, 110);
         $pdf->Cell(
