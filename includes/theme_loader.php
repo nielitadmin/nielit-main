@@ -194,10 +194,10 @@ function injectThemeCSS($theme) {
             color: #ffffff !important;
         }
 
-        /* Keep admin sidebar branded navy — never pure black */
+        /* Keep admin sidebar branded blue — never pure black */
         html[data-mode="night"] .admin-sidebar {
-            background: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%) !important;
-            background-color: #0c2340 !important;
+            background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
+            background-color: #1a56db !important;
             color: #ffffff !important;
         }
 

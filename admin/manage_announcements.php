@@ -106,7 +106,7 @@ $courses_result = $conn->query($sql_courses);
     <title>Manage Announcements - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>">
     <style>
         /* Global Fixes */
         * {
@@ -448,108 +448,7 @@ $courses_result = $conn->query($sql_courses);
     </style>
 </head>
 <body>
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-logo">
-            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
-            <h5 style="color: white; margin: 10px 0 0 0; font-size: 1.1rem;">NIELIT Admin</h5>
-            <small style="color: rgba(255, 255, 255, 0.7);">Bhubaneswar</small>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-home"></i>
-                    <span>Dashboard</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="students.php" class="nav-link">
-                    <i class="fas fa-users"></i>
-                    <span>Students</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="dashboard.php" class="nav-link">
-                    <i class="fas fa-book"></i>
-                    <span>Courses</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
-                    <i class="fas fa-layer-group"></i>
-                    <span>Batches</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" class="nav-link">
-                    <i class="fas fa-project-diagram"></i>
-                    <span>Schemes/Projects</span>
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            <div class="nav-section-title">System Settings</div>
-            
-            <div class="nav-item">
-                <a href="manage_centres.php" class="nav-link">
-                    <i class="fas fa-building"></i>
-                    <span>Training Centres</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_themes.php" class="nav-link">
-                    <i class="fas fa-palette"></i>
-                    <span>Themes</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_homepage.php" class="nav-link">
-                    <i class="fas fa-home"></i>
-                    <span>Homepage Content</span>
-                </a>
-            </div>
-            
-            <div class="nav-divider"></div>
-            
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/approve_students.php" class="nav-link">
-                    <i class="fas fa-user-check"></i>
-                    <span>Approve Students</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="manage_announcements.php" class="nav-link active">
-                    <i class="fas fa-bullhorn"></i>
-                    <span>Announcements</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="add_admin.php" class="nav-link">
-                    <i class="fas fa-user-shield"></i>
-                    <span>Add Admin</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="reset_password.php" class="nav-link">
-                    <i class="fas fa-key"></i>
-                    <span>Reset Password</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/index.php" class="nav-link">
-                    <i class="fas fa-globe"></i>
-                    <span>View Website</span>
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i>
-                    <span>Logout</span>
-                </a>
-            </div>
-        </nav>
-    </aside>
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- Main Content -->
     <div class="admin-main">
