@@ -1188,16 +1188,6 @@ if ($other_gender_count > 0) {
             justify-content: flex-end;
         }
 
-        .students-actions-cell {
-            min-width: 320px;
-            white-space: normal;
-            vertical-align: top;
-        }
-
-        .students-actions-cell .btn {
-            margin: 2px 4px 4px 0;
-        }
-
         .content-card > .card-header {
             flex-wrap: wrap;
             gap: 12px;
@@ -1222,17 +1212,57 @@ if ($other_gender_count > 0) {
             user-select: none;
         }
 
+        /* Compact students list — readable at 100% zoom without horizontal sprawl */
+        .students-list-card .table-responsive {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .students-table.modern-table {
+            table-layout: fixed;
+            width: 100%;
+            min-width: 980px;
+            font-size: 0.82rem;
+        }
+
+        .students-table.modern-table thead th {
+            padding: 8px 8px;
+            font-size: 0.68rem;
+            letter-spacing: 0.04em;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: var(--light, #f8fafc);
+        }
+
+        .students-table.modern-table tbody td {
+            padding: 7px 8px;
+            vertical-align: middle;
+        }
+
+        .students-table .col-check { width: 36px; }
+        .students-table .col-sl { width: 44px; }
+        .students-table .col-photo { width: 44px; }
+        .students-table .col-id { width: 132px; }
+        .students-table .col-student { width: 168px; }
+        .students-table .col-cat { width: 56px; }
+        .students-table .col-course { width: 120px; }
+        .students-table .col-scheme { width: 160px; }
+        .students-table .col-batch { width: 110px; }
+        .students-table .col-status { width: 88px; }
+        .students-table .col-date { width: 88px; }
+        .students-table .col-actions { width: 168px; }
+
         .student-photo-cell {
-            width: 52px;
             text-align: center;
             vertical-align: middle;
         }
 
         .student-photo-thumb {
-            width: 40px;
-            height: 48px;
+            width: 32px;
+            height: 38px;
             object-fit: cover;
-            border-radius: 6px;
+            border-radius: 5px;
             border: 1px solid var(--border-color, #e2e8f0);
             background: var(--bg-secondary, #f1f5f9);
             display: inline-block;
@@ -1240,16 +1270,16 @@ if ($other_gender_count > 0) {
         }
 
         .student-photo-placeholder {
-            width: 40px;
-            height: 48px;
-            border-radius: 6px;
+            width: 32px;
+            height: 38px;
+            border-radius: 5px;
             border: 1px dashed var(--border-color, #cbd5e1);
             background: var(--bg-secondary, #f8fafc);
             color: #94a3b8;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 1rem;
+            font-size: 0.85rem;
             vertical-align: middle;
         }
 
@@ -1260,6 +1290,114 @@ if ($other_gender_count > 0) {
 
         a.student-photo-link:hover .student-photo-thumb {
             box-shadow: 0 0 0 2px var(--primary-color, #0ea5e9);
+        }
+
+        .student-id-cell {
+            font-size: 0.74rem;
+            line-height: 1.25;
+            word-break: break-word;
+        }
+
+        .student-contact-cell .student-name {
+            display: block;
+            font-weight: 700;
+            color: var(--text-primary, #0f172a);
+            line-height: 1.25;
+            margin-bottom: 2px;
+        }
+
+        .student-contact-cell .student-meta {
+            display: block;
+            color: #64748b;
+            font-size: 0.72rem;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .students-table .cell-clip {
+            display: block;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .students-table .badge.cell-clip,
+        .students-table .badge-clip {
+            display: inline-block;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            vertical-align: middle;
+            font-size: 0.72rem;
+            padding: 0.28em 0.55em;
+            margin: 1px 0;
+            line-height: 1.25;
+        }
+
+        .students-actions-cell {
+            min-width: 0;
+            white-space: normal;
+            vertical-align: middle;
+        }
+
+        .students-actions-cell .action-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .students-actions-cell .btn {
+            margin: 0;
+            padding: 0.28rem 0.45rem;
+            font-size: 0.72rem;
+            line-height: 1.2;
+        }
+
+        .students-actions-cell .btn .btn-label {
+            display: none;
+        }
+
+        .overview-grid {
+            margin-bottom: 0.75rem;
+        }
+
+        .overview-card {
+            padding: 1rem 1.15rem;
+            border-radius: 14px;
+        }
+
+        .chart-wrap {
+            max-width: 260px;
+            height: 200px;
+        }
+
+        .chart-center-value {
+            font-size: 1.55rem;
+        }
+
+        .stats-grid {
+            gap: 0.85rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card {
+            padding: 0.85rem 1rem;
+        }
+
+        .stat-card .stat-value {
+            font-size: 1.35rem;
+        }
+
+        @media (min-width: 1400px) {
+            .students-table.modern-table {
+                min-width: 0;
+            }
         }
     </style>
 </head>
@@ -1626,7 +1764,7 @@ if ($other_gender_count > 0) {
             </div>
             <?php endif; ?>
 
-            <div class="content-card">
+            <div class="content-card students-list-card">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-users"></i> All Students
@@ -1673,23 +1811,21 @@ if ($other_gender_count > 0) {
                 </div>
 
                 <div class="table-responsive">
-                    <table class="modern-table">
+                    <table class="modern-table students-table">
                         <thead>
                             <tr>
-                                <th style="width:40px;"><input type="checkbox" id="select-all" title="Select All"></th>
-                                <th>Sl. No.</th>
-                                <th class="student-photo-cell">Photo</th>
-                                <th>Student ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Mobile</th>
-                                <th>Category</th>
-                                <th>Course</th>
-                                <th>Scheme / Project</th>
-                                <th>Batch</th>
-                                <th>Status</th>
-                                <th>Registration Date</th>
-                                <th>Actions</th>
+                                <th class="col-check"><input type="checkbox" id="select-all" title="Select All"></th>
+                                <th class="col-sl">#</th>
+                                <th class="col-photo student-photo-cell">Photo</th>
+                                <th class="col-id">Student ID</th>
+                                <th class="col-student">Student</th>
+                                <th class="col-cat">Cat.</th>
+                                <th class="col-course">Course</th>
+                                <th class="col-scheme">Scheme / Project</th>
+                                <th class="col-batch">Batch</th>
+                                <th class="col-status">Status</th>
+                                <th class="col-date">Registered</th>
+                                <th class="col-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1876,8 +2012,8 @@ if ($other_gender_count > 0) {
                                              src="<?php echo htmlspecialchars($photo_url); ?>"
                                              alt="<?php echo htmlspecialchars($row['name']); ?>"
                                              loading="lazy"
-                                             width="40"
-                                             height="48">
+                                             width="32"
+                                             height="38">
                                     </a>
                                 <?php else: ?>
                                     <span class="student-photo-placeholder" title="No photo uploaded">
@@ -1885,10 +2021,16 @@ if ($other_gender_count > 0) {
                                     </span>
                                 <?php endif; ?>
                             </td>
-                            <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($row['name']); ?></td>
-                            <td><?php echo htmlspecialchars($row['email']); ?></td>
-                            <td><?php echo htmlspecialchars($row['mobile']); ?></td>
+                            <td class="student-id-cell"><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
+                            <td class="student-contact-cell">
+                                <span class="student-name"><?php echo htmlspecialchars($row['name']); ?></span>
+                                <?php if (!empty($row['email'])): ?>
+                                    <span class="student-meta" title="<?php echo htmlspecialchars($row['email']); ?>"><?php echo htmlspecialchars($row['email']); ?></span>
+                                <?php endif; ?>
+                                <?php if (!empty($row['mobile'])): ?>
+                                    <span class="student-meta"><?php echo htmlspecialchars($row['mobile']); ?></span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php
                                 $student_category = trim((string)($row['category'] ?? ''));
@@ -1907,19 +2049,28 @@ if ($other_gender_count > 0) {
                                     <span class="text-muted small">—</span>
                                 <?php endif; ?>
                             </td>
-                            <td><span class="badge badge-primary"><?php echo $course_display; ?></span></td>
+                            <td>
+                                <span class="badge badge-primary badge-clip" title="<?php echo $course_display; ?>"><?php echo $course_display; ?></span>
+                            </td>
                             <td>
                                 <?php if (!empty($all_student_schemes)): ?>
-                                    <?php foreach ($all_student_schemes as $sch): ?>
-                                        <span class="badge badge-info"
-                                              style="margin:1px 2px 4px 0;display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;"
-                                              title="<?php echo htmlspecialchars($sch['scheme_name']); ?>">
-                                            <?php echo htmlspecialchars($sch['scheme_name']); ?>
+                                    <?php foreach ($all_student_schemes as $sch):
+                                        $scheme_full = (string)($sch['scheme_name'] ?? '');
+                                        $scheme_code = trim((string)($sch['scheme_code'] ?? ''));
+                                        $scheme_label = $scheme_code !== '' ? $scheme_code : $scheme_full;
+                                    ?>
+                                        <span class="badge badge-info badge-clip"
+                                              title="<?php echo htmlspecialchars($scheme_full); ?>">
+                                            <?php echo htmlspecialchars($scheme_label); ?>
                                         </span>
                                     <?php endforeach; ?>
-                                <?php elseif (!empty($row['scheme_name'])): ?>
-                                    <span class="badge badge-info" style="display:inline-block;max-width:100%;white-space:normal;text-align:left;line-height:1.3;">
-                                        <?php echo htmlspecialchars($row['scheme_name']); ?>
+                                <?php elseif (!empty($row['scheme_name'])):
+                                    $scheme_full = (string)$row['scheme_name'];
+                                    $scheme_code = trim((string)($row['scheme_code'] ?? ''));
+                                    $scheme_label = $scheme_code !== '' ? $scheme_code : $scheme_full;
+                                ?>
+                                    <span class="badge badge-info badge-clip" title="<?php echo htmlspecialchars($scheme_full); ?>">
+                                        <?php echo htmlspecialchars($scheme_label); ?>
                                     </span>
                                 <?php elseif ($has_linked_schemes): ?>
                                     <span class="badge badge-warning" title="Assign a scheme from this course">Not set</span>
@@ -1931,8 +2082,8 @@ if ($other_gender_count > 0) {
                                 <?php if (!empty($row_batches)): ?>
                                     <?php foreach ($row_batches as $rb): ?>
                                         <?php $batch_record_id = (int)($rb['student_record_id'] ?? $record_id); ?>
-                                        <span class="badge badge-success" style="margin:1px 4px 4px 0;display:inline-flex;align-items:center;gap:4px;max-width:100%;white-space:normal;text-align:left;line-height:1.3;"
-                                              title="<?php echo htmlspecialchars($rb['batch_code'] ?? ''); ?>">
+                                        <span class="badge badge-success badge-clip"
+                                              title="<?php echo htmlspecialchars(($rb['batch_name'] ?? '') . (!empty($rb['batch_code']) ? ' (' . $rb['batch_code'] . ')' : '')); ?>">
                                             <i class="fas fa-layer-group"></i>
                                             <?php echo htmlspecialchars($rb['batch_name']); ?>
                                             <?php if (!$is_front_office && $status !== 'rejected'): ?>
@@ -1949,7 +2100,7 @@ if ($other_gender_count > 0) {
                                         </span>
                                     <?php endforeach; ?>
                                 <?php else: ?>
-                                    <span class="badge badge-secondary"><i class="fas fa-minus-circle"></i> Not Assigned</span>
+                                    <span class="badge badge-secondary"><i class="fas fa-minus-circle"></i> None</span>
                                 <?php endif; ?>
                             </td>
                             <td>
@@ -1966,6 +2117,7 @@ if ($other_gender_count > 0) {
                             </td>
                             <td><?php echo date('d M Y', strtotime($display_created_at)); ?></td>
                             <td class="students-actions-cell">
+                                <div class="action-row">
                                 <?php if (!$is_front_office): ?>
                                     <?php if ($status === 'pending'): ?>
                                         <a href="javascript:void(0);"
@@ -1974,14 +2126,14 @@ if ($other_gender_count > 0) {
                                            data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                            data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?approve_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
-                                            <i class="fas fa-check"></i> Approve
+                                            <i class="fas fa-check"></i>
                                         </a>
                                         <a href="javascript:void(0);"
                                            class="btn btn-danger btn-sm reject-student-btn"
                                            title="Reject"
                                            data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
-                                            <i class="fas fa-times"></i> Reject
+                                            <i class="fas fa-times"></i>
                                         </a>
                                     <?php elseif (in_array($status, ['active', 'approved'], true)): ?>
                                         <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
@@ -1994,7 +2146,7 @@ if ($other_gender_count > 0) {
                                            data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>"
                                            data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?deapprove_id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>">
-                                            <i class="fas fa-undo"></i> De-Approve
+                                            <i class="fas fa-undo"></i>
                                         </a>
                                     <?php elseif ($status === 'rejected'): ?>
                                         <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
@@ -2019,11 +2171,10 @@ if ($other_gender_count > 0) {
                                                 data-scheme-id="<?php echo (int)($row['scheme_id'] ?? 0); ?>"
                                                 data-assigned-batch-ids="<?php echo htmlspecialchars(implode(',', $assigned_batch_ids)); ?>"
                                                 data-enrollments="<?php echo htmlspecialchars(json_encode($batch_assign_enrollments), ENT_QUOTES, 'UTF-8'); ?>">
-                                            <i class="fas fa-plus-circle"></i> <?php echo !empty($row_batches) ? 'Add Batch' : 'Assign Batch'; ?>
+                                            <i class="fas fa-plus-circle"></i>
                                         </button>
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    <!-- Front Office: edit only -->
                                     <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>"
                                        class="btn btn-warning btn-sm" title="Edit Student">
                                         <i class="fas fa-edit"></i>
@@ -2048,7 +2199,7 @@ if ($other_gender_count > 0) {
                                    data-course-name="<?php echo $course_display; ?>"
                                    data-has-other-courses="<?php echo $has_other_course_enrollments ? '1' : '0'; ?>"
                                    data-url="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>?remove_course_enrollment=1&amp;student_id=<?php echo urlencode($row['student_id']); ?>&amp;course_id=<?php echo $row_course_id; ?><?php echo $filter_suffix; ?>">
-                                    <i class="fas fa-user-minus"></i> Remove
+                                    <i class="fas fa-user-minus"></i>
                                 </a>
                                 <a href="javascript:void(0);"
                                    class="btn btn-danger btn-sm delete-student-btn"
@@ -2060,6 +2211,7 @@ if ($other_gender_count > 0) {
                                     <i class="fas fa-trash"></i>
                                 </a>
                                 <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                         <?php
@@ -2067,7 +2219,7 @@ if ($other_gender_count > 0) {
                         else:
                         ?>
                         <tr>
-                            <td colspan="14" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+                            <td colspan="12" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
                                 <strong>No students found for the selected filters.</strong>
                             </td>
                         </tr>
