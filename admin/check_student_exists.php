@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/activity_logger.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
@@ -152,6 +153,7 @@ $directoryCriteria = inspectorDirectoryCriteriaFromRequest($_GET);
 $directoryRows = [];
 $directorySearched = false;
 $directoryContextTitle = 'Student directory';
+$activityMentions = [];
 
 if ($searched) {
     $searchResult = inspectorRunSearch($conn, $searchCriteria);
@@ -178,6 +180,13 @@ if ($searched) {
         $summary = 'Partial record found (account/enrollment) but not in main students list.';
     } else {
         $summary = 'No matching student found for your search/filter.';
+        // Activity Log can still show the name after delete/purge.
+        if (($searchCriteria['name'] ?? '') !== '' || ($searchCriteria['student_id'] ?? '') !== '' || ($searchCriteria['mobile'] ?? '') !== '') {
+            $activityMentions = inspectorFindActivityMentions($conn, $searchCriteria, 15);
+            if (!empty($activityMentions)) {
+                $summary = 'No live student record found, but this name/ID appears in Activity Log (often means the student was deleted or purged later).';
+            }
+        }
     }
 
     $collectedIds = inspectorCollectIds($studentRows, $hiddenStudentRows, $accountRows, $enrollmentRows);
@@ -851,6 +860,55 @@ $active_theme = loadActiveTheme($conn);
         </div>
     </div>
     <?php endforeach; ?>
+
+    <?php if ($searched && !$exists && !empty($activityMentions)): ?>
+    <div class="page-card p-4 mb-4 border border-info">
+        <h2 class="h5 text-info"><i class="fas fa-history"></i> Found in Activity Log only</h2>
+        <p class="mb-3 small text-muted">
+            Activity Log keeps the student name from past actions even after the live
+            <code>students</code> row is deleted/purged. That is why
+            <a href="manage_activity.php?q=<?php echo rawurlencode($name !== '' ? $name : $studentId); ?>">manage_activity</a>
+            can show the name while this inspector finds nothing live.
+        </p>
+        <div class="table-responsive">
+            <table class="table table-sm table-bordered align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>Entity ID</th>
+                        <th>Name</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($activityMentions as $log): ?>
+                    <tr>
+                        <td class="text-nowrap small">
+                            <?php
+                            $when = (string)($log['created_at'] ?? '');
+                            echo htmlspecialchars(function_exists('formatActivityDateTime') ? formatActivityDateTime($when) : $when);
+                            ?>
+                        </td>
+                        <td><code><?php echo htmlspecialchars((string)($log['action'] ?? '')); ?></code></td>
+                        <td>
+                            <?php if (!empty($log['entity_id'])): ?>
+                            <a href="check_student_exists.php?student_id=<?php echo rawurlencode((string)$log['entity_id']); ?>">
+                                <?php echo htmlspecialchars((string)$log['entity_id']); ?>
+                            </a>
+                            <?php else: ?>
+                            —
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars((string)($log['entity_name'] ?? '—')); ?></td>
+                        <td class="small"><?php echo htmlspecialchars((string)($log['description'] ?? '')); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <?php if ($hasOrphanEnrollments): ?>
     <div class="page-card p-4 mb-4 border border-warning">

@@ -549,15 +549,141 @@ if (!function_exists('inspectorCriteriaFromRequest')) {
      */
     function inspectorCriteriaFromRequest(array $source): array
     {
+        $name = trim((string)($source['name'] ?? ''));
+        $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+
         return [
             'aadhar' => preg_replace('/\D+/', '', trim((string)($source['aadhar'] ?? ''))) ?? '',
             'mobile' => preg_replace('/\D+/', '', trim((string)($source['mobile'] ?? ''))) ?? '',
             'email' => strtolower(trim((string)($source['email'] ?? ''))),
             'student_id' => trim((string)($source['student_id'] ?? '')),
-            'name' => trim((string)($source['name'] ?? '')),
+            'name' => $name,
             'course_name' => trim((string)($source['course_name'] ?? '')),
             'course_id' => (int)($source['course_id'] ?? 0),
         ];
+    }
+}
+
+if (!function_exists('inspectorNameMatchSql')) {
+    /**
+     * Match names by each word (AND), so "Manoj Himirika" also finds
+     * "Manoj Kumar Himirika" and tolerates extra spaces in the DB value.
+     *
+     * @param array<int, mixed> $params
+     */
+    function inspectorNameMatchSql(string $column, string $name, array &$params, string &$types): string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+        if ($name === '') {
+            return '';
+        }
+
+        $words = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        if (count($words) <= 1) {
+            $params[] = '%' . $name . '%';
+            $types .= 's';
+            return "{$column} LIKE ?";
+        }
+
+        $parts = [];
+        foreach ($words as $word) {
+            $parts[] = "{$column} LIKE ?";
+            $params[] = '%' . $word . '%';
+            $types .= 's';
+        }
+
+        return '(' . implode(' AND ', $parts) . ')';
+    }
+}
+
+if (!function_exists('inspectorFindActivityMentions')) {
+    /**
+     * Activity Log keeps historical names even after a student row is deleted.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function inspectorFindActivityMentions(mysqli $conn, array $criteria, int $limit = 15): array
+    {
+        if (!inspectorTableExists($conn, 'activity_logs')) {
+            return [];
+        }
+
+        $where = [];
+        $params = [];
+        $types = '';
+
+        if (($criteria['student_id'] ?? '') !== '') {
+            $where[] = '(entity_id = ? OR description LIKE ? OR IFNULL(details, \'\') LIKE ?)';
+            $sid = (string)$criteria['student_id'];
+            $params[] = $sid;
+            $params[] = '%' . $sid . '%';
+            $params[] = '%' . $sid . '%';
+            $types .= 'sss';
+        }
+
+        if (($criteria['name'] ?? '') !== '') {
+            $name = (string)$criteria['name'];
+            $nameParts = [];
+            $nameParams = [];
+            $nameTypes = '';
+
+            $nameParts[] = 'entity_name LIKE ?';
+            $nameParams[] = '%' . $name . '%';
+            $nameTypes .= 's';
+            $nameParts[] = 'description LIKE ?';
+            $nameParams[] = '%' . $name . '%';
+            $nameTypes .= 's';
+
+            $words = preg_split('/\s+/u', $name, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (count($words) > 1) {
+                $wordAnd = [];
+                foreach ($words as $word) {
+                    $wordAnd[] = '(IFNULL(entity_name, \'\') LIKE ? OR description LIKE ?)';
+                    $nameParams[] = '%' . $word . '%';
+                    $nameParams[] = '%' . $word . '%';
+                    $nameTypes .= 'ss';
+                }
+                $nameParts[] = '(' . implode(' AND ', $wordAnd) . ')';
+            }
+
+            $where[] = '(' . implode(' OR ', $nameParts) . ')';
+            $params = array_merge($params, $nameParams);
+            $types .= $nameTypes;
+        }
+
+        if (($criteria['mobile'] ?? '') !== '') {
+            $where[] = '(description LIKE ? OR IFNULL(details, \'\') LIKE ? OR IFNULL(entity_id, \'\') LIKE ?)';
+            $m = (string)$criteria['mobile'];
+            $params[] = '%' . $m . '%';
+            $params[] = '%' . $m . '%';
+            $params[] = '%' . $m . '%';
+            $types .= 'sss';
+        }
+
+        if ($where === []) {
+            return [];
+        }
+
+        $sql = 'SELECT id, action, entity_type, entity_id, entity_name, description, result, created_at
+                FROM activity_logs
+                WHERE ' . implode(' AND ', $where) . '
+                ORDER BY created_at DESC, id DESC
+                LIMIT ' . (int)$limit;
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+
+        return $rows;
     }
 }
 
@@ -683,9 +809,10 @@ if (!function_exists('inspectorRunSearch')) {
             $identityTypes .= 's';
         }
         if (($criteria['name'] ?? '') !== '') {
-            $identityConds[] = 's.name LIKE ?';
-            $identityParams[] = '%' . $criteria['name'] . '%';
-            $identityTypes .= 's';
+            $nameSql = inspectorNameMatchSql('s.name', (string)$criteria['name'], $identityParams, $identityTypes);
+            if ($nameSql !== '') {
+                $identityConds[] = $nameSql;
+            }
         }
 
         $studentSelect = 'SELECT s.id, s.student_id, s.name, s.aadhar, s.mobile, s.email, s.dob, s.course_id,
@@ -761,9 +888,10 @@ if (!function_exists('inspectorRunSearch')) {
                 $accountTypes .= 's';
             }
             if (($criteria['name'] ?? '') !== '') {
-                $accountConds[] = 'sa.name LIKE ?';
-                $accountParams[] = '%' . $criteria['name'] . '%';
-                $accountTypes .= 's';
+                $nameSql = inspectorNameMatchSql('sa.name', (string)$criteria['name'], $accountParams, $accountTypes);
+                if ($nameSql !== '') {
+                    $accountConds[] = $nameSql;
+                }
             }
 
             if ($hasIdentity || $hasCourse) {
@@ -845,9 +973,10 @@ if (!function_exists('inspectorRunSearch')) {
                 $enrTypes .= 's';
             }
             if (($criteria['name'] ?? '') !== '') {
-                $enrConds[] = 'sa.name LIKE ?';
-                $enrParams[] = '%' . $criteria['name'] . '%';
-                $enrTypes .= 's';
+                $nameSql = inspectorNameMatchSql('sa.name', (string)$criteria['name'], $enrParams, $enrTypes);
+                if ($nameSql !== '') {
+                    $enrConds[] = $nameSql;
+                }
             }
 
             $where = [];

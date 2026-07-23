@@ -410,9 +410,10 @@ if (!function_exists('inspectorFetchDirectoryProfiles')) {
             }
             inspectorDirectoryApplyStatusFilter((string)($criteria['status'] ?? 'all'), $where, $types, $params);
             if (($criteria['name'] ?? '') !== '') {
-                $where[] = 's.name LIKE ?';
-                $types .= 's';
-                $params[] = '%' . $criteria['name'] . '%';
+                $nameSql = inspectorNameMatchSql('s.name', (string)$criteria['name'], $params, $types);
+                if ($nameSql !== '') {
+                    $where[] = $nameSql;
+                }
             }
             if (($criteria['mobile'] ?? '') !== '') {
                 $where[] = "REPLACE(REPLACE(s.mobile,' ',''),'-','') LIKE ?";
