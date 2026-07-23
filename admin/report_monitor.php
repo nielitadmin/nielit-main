@@ -1254,6 +1254,8 @@ Q4 (Jan–Mar)
 
                 <tr>
 
+                    <th class="text-center" style="width:70px;">Sl No.</th>
+
                     <th>Course</th>
 
                     <th>Code</th>
@@ -1292,7 +1294,7 @@ Q4 (Jan–Mar)
 
                 <tr>
 
-                    <td colspan="6" class="text-center">
+                    <td colspan="7" class="text-center">
 
                         No Records Found
 
@@ -1302,9 +1304,11 @@ Q4 (Jan–Mar)
 
                 <?php else: ?>
 
-                <?php foreach($courseStats as $course): ?>
+                <?php foreach($courseStats as $courseIndex => $course): ?>
 
                 <tr>
+
+                    <td class="text-center"><?php echo (int)$courseIndex + 1; ?></td>
 
                     <td>
 
@@ -1410,6 +1414,7 @@ Q4 (Jan–Mar)
             <table class="table table-bordered table-hover mb-0" id="categoryQuarterTable">
                 <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Category</th>
                     <th>Schemes</th>
                     <th>Start Date – End Date</th>
@@ -1423,7 +1428,7 @@ Q4 (Jan–Mar)
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
+                <?php foreach ($categoryQuarterSummary as $categoryIndex => $categoryRow): ?>
                     <?php
                     $achievement = $categoryRow['achievement_pct'] ?? null;
                     $achievementClass = '';
@@ -1442,6 +1447,7 @@ Q4 (Jan–Mar)
                     $categorySafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $categoryKey);
                     ?>
                     <tr class="table-light category-summary-row">
+                        <td class="text-center"><?php echo (int)$categoryIndex + 1; ?></td>
                         <td class="fw-semibold">
                             <?php if ($categoryDetailCount > 0): ?>
                                 <button type="button"
@@ -1477,6 +1483,7 @@ Q4 (Jan–Mar)
                     </tr>
                     <?php foreach ($categoryCourseRows as $courseRow): ?>
                     <tr class="category-detail-row d-none" data-category-group="<?php echo htmlspecialchars($categorySafeKey); ?>">
+                        <td class="text-center text-muted">—</td>
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
                             <?php echo htmlspecialchars($courseRow['course_name']); ?>
@@ -1499,6 +1506,7 @@ Q4 (Jan–Mar)
                 </tbody>
                 <tfoot class="table-light">
                 <tr>
+                    <th></th>
                     <th>Grand Total</th>
                     <th></th>
                     <th></th>
@@ -1561,6 +1569,7 @@ Q4 (Jan–Mar)
             <table class="table table-bordered table-hover mb-0" id="socialCategoryQuarterTable">
                 <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Social Category</th>
                     <th>Schemes</th>
                     <th>Start Date – End Date</th>
@@ -1574,7 +1583,7 @@ Q4 (Jan–Mar)
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($socialCategoryQuarterSummary as $socialRow): ?>
+                <?php foreach ($socialCategoryQuarterSummary as $socialIndex => $socialRow): ?>
                     <?php
                     $socialAchievement = $socialRow['achievement_pct'] ?? null;
                     $socialAchievementClass = '';
@@ -1593,6 +1602,7 @@ Q4 (Jan–Mar)
                     $socialSafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $socialKey);
                     ?>
                     <tr class="table-light social-category-summary-row">
+                        <td class="text-center"><?php echo (int)$socialIndex + 1; ?></td>
                         <td class="fw-semibold">
                             <?php if ($socialDetailCount > 0): ?>
                                 <button type="button"
@@ -1628,6 +1638,7 @@ Q4 (Jan–Mar)
                     </tr>
                     <?php foreach ($socialCourseRows as $courseRow): ?>
                     <tr class="social-category-detail-row d-none" data-social-group="<?php echo htmlspecialchars($socialSafeKey); ?>">
+                        <td class="text-center text-muted">—</td>
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
                             <?php echo htmlspecialchars($courseRow['course_name']); ?>
@@ -1650,6 +1661,7 @@ Q4 (Jan–Mar)
                 </tbody>
                 <tfoot class="table-light">
                 <tr>
+                    <th></th>
                     <th>Grand Total</th>
                     <th></th>
                     <th></th>
@@ -1689,6 +1701,7 @@ Q4 (Jan–Mar)
             <table class="table table-bordered table-hover mb-0">
                 <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Course</th>
                     <th>Code</th>
                     <th>Centre</th>
@@ -1700,8 +1713,9 @@ Q4 (Jan–Mar)
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($internshipCourseSummary as $courseRow): ?>
+                <?php foreach ($internshipCourseSummary as $internshipIndex => $courseRow): ?>
                     <tr>
+                        <td class="text-center"><?php echo (int)$internshipIndex + 1; ?></td>
                         <td><?php echo htmlspecialchars($courseRow['course_name']); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['course_code']); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['centre_name']); ?></td>
@@ -1743,6 +1757,8 @@ Q4 (Jan–Mar)
 
                 <tr>
 
+                    <th class="text-center" style="width:70px;">Sl No.</th>
+
                     <th>Centre</th>
 
                     <th class="text-end">
@@ -1775,9 +1791,11 @@ Q4 (Jan–Mar)
 
                 <tbody>
 
-                <?php foreach($centreStats as $centre): ?>
+                <?php foreach($centreStats as $centreIndex => $centre): ?>
 
                 <tr>
+
+                    <td class="text-center"><?php echo (int)$centreIndex + 1; ?></td>
 
                     <td>
 
@@ -1951,6 +1969,7 @@ Q4 (Jan–Mar)
             <table class="table table-hover table-bordered mb-0">
                 <thead class="table-light">
                 <tr>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Batch</th>
                     <th>Course</th>
                     <th>Centre</th>
@@ -1960,11 +1979,12 @@ Q4 (Jan–Mar)
                 <tbody>
                 <?php if (empty($admissionsByBatch)): ?>
                     <tr>
-                        <td colspan="4" class="text-center text-muted py-4">No admissions found for this period</td>
+                        <td colspan="5" class="text-center text-muted py-4">No admissions found for this period</td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($admissionsByBatch as $row): ?>
+                    <?php foreach ($admissionsByBatch as $batchAdmitIndex => $row): ?>
                         <tr>
+                            <td class="text-center"><?php echo (int)$batchAdmitIndex + 1; ?></td>
                             <td>
                                 <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
                                 <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
@@ -2015,6 +2035,8 @@ Q4 (Jan–Mar)
 
                 <tr>
 
+                    <th class="text-center" style="width:70px;">Sl No.</th>
+
                     <th>Batch</th>
 
                     <th>Course</th>
@@ -2059,7 +2081,7 @@ Q4 (Jan–Mar)
 
                 <tr>
 
-                    <td colspan="11" class="text-center">
+                    <td colspan="12" class="text-center">
 
                         No Batch Found
 
@@ -2069,9 +2091,11 @@ Q4 (Jan–Mar)
 
                 <?php else: ?>
 
-                <?php foreach($batchDetails as $batch): ?>
+                <?php foreach($batchDetails as $batchDetailIndex => $batch): ?>
 
                 <tr>
+
+                    <td class="text-center"><?php echo (int)$batchDetailIndex + 1; ?></td>
 
                     <td>
 
@@ -2226,7 +2250,7 @@ Q4 (Jan–Mar)
 
                 <tr>
 
-                    <th>#</th>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
 
                     <th>Faculty Name</th>
 
@@ -2264,7 +2288,7 @@ Q4 (Jan–Mar)
 
                 <tr>
 
-                    <td><?php echo $index + 1; ?></td>
+                    <td class="text-center"><?php echo $index + 1; ?></td>
 
                     <td><strong><?php echo htmlspecialchars($faculty['name']); ?></strong></td>
 
@@ -2332,14 +2356,16 @@ Q4 (Jan–Mar)
                         <table class="table table-sm table-bordered align-middle mb-0">
                             <thead class="table-light">
                             <tr>
+                                <th class="text-center" style="width:70px;">Sl No.</th>
                                 <th>Category</th>
                                 <th class="text-end" style="width: 200px;">Annual Target</th>
                             </tr>
                             </thead>
                             <tbody>
-                            <?php foreach ($categoryQuarterSummary as $categoryRow): ?>
+                            <?php foreach ($categoryQuarterSummary as $categoryTargetIndex => $categoryRow): ?>
                                 <?php $savedTarget = (int) ($categoryAdmissionTargets[$categoryRow['key']] ?? 0); ?>
                                 <tr>
+                                    <td class="text-center"><?php echo (int)$categoryTargetIndex + 1; ?></td>
                                     <td><?php echo htmlspecialchars($categoryRow['label']); ?></td>
                                     <td>
                                         <input
@@ -2394,14 +2420,16 @@ Q4 (Jan–Mar)
                         <table class="table table-sm table-bordered align-middle mb-0">
                             <thead class="table-light">
                             <tr>
+                                <th class="text-center" style="width:70px;">Sl No.</th>
                                 <th>Social Category</th>
                                 <th class="text-end" style="width: 200px;">Annual Target</th>
                             </tr>
                             </thead>
                             <tbody>
-                            <?php foreach ($socialCategoryQuarterSummary as $socialRow): ?>
+                            <?php foreach ($socialCategoryQuarterSummary as $socialTargetIndex => $socialRow): ?>
                                 <?php $socialSavedTarget = (int) ($socialCategoryAdmissionTargets[$socialRow['key']] ?? 0); ?>
                                 <tr>
+                                    <td class="text-center"><?php echo (int)$socialTargetIndex + 1; ?></td>
                                     <td><?php echo htmlspecialchars($socialRow['label']); ?></td>
                                     <td>
                                         <input type="number" class="form-control text-end" name="targets[<?php echo htmlspecialchars($socialRow['key']); ?>]" min="0" step="1" placeholder="e.g. 100" value="<?php echo $socialSavedTarget > 0 ? $socialSavedTarget : ''; ?>">
