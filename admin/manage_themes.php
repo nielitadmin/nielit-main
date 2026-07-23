@@ -4,6 +4,8 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/audit_logger.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/themes_schema.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/preset_themes_catalog.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: ' . relative_url('login.php'));
@@ -29,6 +31,20 @@ $theme_logo = getThemeLogo($active_theme);
 if (!ensureThemesSchema($conn)) {
     $_SESSION['message'] = 'Theme database setup failed. Please run migrations/upgrade_themes_table.php or contact support.';
     $_SESSION['message_type'] = 'danger';
+} else {
+    // Keep preset catalog available (idempotent)
+    try {
+        seedPresetAppThemes($conn);
+    } catch (Throwable $e) {
+        error_log('seedPresetAppThemes: ' . $e->getMessage());
+    }
+}
+
+$activeSidebarStyle = getActiveSidebarTheme($conn);
+$activeSidebarLabel = sidebarThemePresets()[$activeSidebarStyle]['label'] ?? $activeSidebarStyle;
+$suggestedPresetNames = [];
+foreach (presetThemesSuggestedForSidebar($activeSidebarStyle) as $suggested) {
+    $suggestedPresetNames[$suggested['theme_name']] = true;
 }
 
 // Function to validate theme input
@@ -431,8 +447,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch all themes for display
+// Fetch all themes for display (suggested for active sidebar first)
 $result = getAllThemes($conn);
+$themesList = [];
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $row['_suggested'] = isset($suggestedPresetNames[$row['theme_name']]);
+        $themesList[] = $row;
+    }
+}
+usort($themesList, static function ($a, $b) {
+    if (!empty($a['is_active']) !== !empty($b['is_active'])) {
+        return !empty($b['is_active']) <=> !empty($a['is_active']);
+    }
+    if (($a['_suggested'] ?? false) !== ($b['_suggested'] ?? false)) {
+        return ($b['_suggested'] ?? false) <=> ($a['_suggested'] ?? false);
+    }
+    return strcmp((string) $a['theme_name'], (string) $b['theme_name']);
+});
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -478,6 +510,11 @@ $result = getAllThemes($conn);
         .theme-preview-card.active-theme {
             border-color: #10b981;
             box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+        }
+
+        .theme-preview-card.theme-suggested {
+            border-color: #f59e0b;
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.18);
         }
         
         .theme-status-badge {
@@ -697,18 +734,31 @@ $result = getAllThemes($conn);
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-list"></i> Application Themes
+                        <i class="fas fa-list"></i> Application Themes (<?php echo count($themesList); ?>)
                     </h5>
-                    <button class="btn btn-primary" onclick="openAddModal()">
-                        <i class="fas fa-plus"></i> Add Theme
-                    </button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                        <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="btn btn-secondary btn-sm">
+                            <i class="fas fa-columns"></i> Sidebar Themes
+                        </a>
+                        <button class="btn btn-primary" onclick="openAddModal()">
+                            <i class="fas fa-plus"></i> Add Theme
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="card-body">
-                    <?php if ($result && $result->num_rows > 0): ?>
+                    <div class="alert alert-info" style="margin-bottom:1.25rem;">
+                        <i class="fas fa-lightbulb"></i>
+                        Active sidebar style: <strong><?php echo htmlspecialchars($activeSidebarLabel); ?></strong>.
+                        Themes marked <strong>Suggested for sidebar</strong> match that look.
+                        <?php if (count($suggestedPresetNames) > 0): ?>
+                            (<?php echo count($suggestedPresetNames); ?> suggestions)
+                        <?php endif; ?>
+                    </div>
+                    <?php if (!empty($themesList)): ?>
                         <div class="themes-grid">
-                            <?php while ($theme = $result->fetch_assoc()): ?>
-                                <div class="theme-preview-card <?php echo $theme['is_active'] ? 'active-theme' : ''; ?>">
+                            <?php foreach ($themesList as $theme): ?>
+                                <div class="theme-preview-card <?php echo $theme['is_active'] ? 'active-theme' : ''; ?><?php echo !empty($theme['_suggested']) ? ' theme-suggested' : ''; ?>">
                                     <!-- Status Badge -->
                                     <div class="theme-status-badge">
                                         <?php if ($theme['is_active']): ?>
@@ -717,6 +767,11 @@ $result = getAllThemes($conn);
                                             </span>
                                         <?php else: ?>
                                             <span class="badge badge-secondary">Inactive</span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($theme['_suggested'])): ?>
+                                            <span class="badge badge-warning" style="margin-left:6px;" title="Matches your active sidebar style">
+                                                <i class="fas fa-link"></i> Suggested for sidebar
+                                            </span>
                                         <?php endif; ?>
                                     </div>
                                     
@@ -803,7 +858,7 @@ $result = getAllThemes($conn);
                                         <?php endif; ?>
                                     </div>
                                 </div>
-                            <?php endwhile; ?>
+                            <?php endforeach; ?>
                         </div>
                     <?php else: ?>
                         <div class="empty-state">
