@@ -420,8 +420,17 @@ if (!function_exists('fetchActivityLogs')) {
             if ($types !== '') {
                 $countStmt->bind_param($types, ...$params);
             }
-            $countStmt->execute();
-            $total = (int) ($countStmt->get_result()->fetch_assoc()['c'] ?? 0);
+            if ($countStmt->execute()) {
+                $countRes = $countStmt->get_result();
+                if ($countRes instanceof mysqli_result) {
+                    $total = (int) ($countRes->fetch_assoc()['c'] ?? 0);
+                } else {
+                    $countStmt->bind_result($c);
+                    if ($countStmt->fetch()) {
+                        $total = (int) $c;
+                    }
+                }
+            }
             $countStmt->close();
         }
 
@@ -434,32 +443,35 @@ if (!function_exists('fetchActivityLogs')) {
             $bindTypes = $types . 'ii';
             $bindParams = array_merge($params, [$limit, $offset]);
             $stmt->bind_param($bindTypes, ...$bindParams);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            $res = $stmt->get_result();
-            $lookupsThisPage = 0;
-            while ($row = $res->fetch_assoc()) {
-                // Backfill location for older rows (cap lookups so page stays fast)
-                if (
-                    $lookupsThisPage < 8
-                    && empty($row['ip_location'])
-                    && !empty($row['ip_address'])
-                    && isset($row['id'])
-                ) {
-                    $loc = activityLookupIpLocation((string) $row['ip_address']);
-                    $lookupsThisPage++;
-                    if ($loc !== '') {
-                        $row['ip_location'] = $loc;
-                        $upd = $conn->prepare('UPDATE activity_logs SET ip_location = ? WHERE id = ? AND (ip_location IS NULL OR ip_location = \'\')');
-                        if ($upd) {
-                            $rid = (int) $row['id'];
-                            $upd->bind_param('si', $loc, $rid);
-                            $upd->execute();
-                            $upd->close();
+            if ($stmt->execute()) {
+                $res = $stmt->get_result();
+                $lookupsThisPage = 0;
+                if ($res instanceof mysqli_result) {
+                    while ($row = $res->fetch_assoc()) {
+                        if (
+                            $lookupsThisPage < 8
+                            && empty($row['ip_location'])
+                            && !empty($row['ip_address'])
+                            && isset($row['id'])
+                        ) {
+                            $loc = activityLookupIpLocation((string) $row['ip_address']);
+                            $lookupsThisPage++;
+                            if ($loc !== '') {
+                                $row['ip_location'] = $loc;
+                                $upd = $conn->prepare('UPDATE activity_logs SET ip_location = ? WHERE id = ? AND (ip_location IS NULL OR ip_location = \'\')');
+                                if ($upd) {
+                                    $rid = (int) $row['id'];
+                                    $upd->bind_param('si', $loc, $rid);
+                                    $upd->execute();
+                                    $upd->close();
+                                }
+                            }
                         }
+                        $rows[] = $row;
                     }
                 }
-                $rows[] = $row;
+            } else {
+                error_log('fetchActivityLogs execute failed: ' . $stmt->error);
             }
             $stmt->close();
         }
