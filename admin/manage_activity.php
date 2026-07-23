@@ -273,6 +273,7 @@ function activityDetailPreview($details)
                         <thead>
                             <tr>
                                 <th>When (IST)</th>
+                                <th>IP / Location</th>
                                 <th>Who</th>
                                 <th>Action</th>
                                 <th>What happened</th>
@@ -282,7 +283,7 @@ function activityDetailPreview($details)
                         <tbody>
                             <?php if (empty($rows)): ?>
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-5">
+                                    <td colspan="6" class="text-center text-muted py-5">
                                         No activity recorded yet. Log out and log back in, or edit a course/batch — new actions will appear here.
                                     </td>
                                 </tr>
@@ -299,8 +300,19 @@ function activityDetailPreview($details)
                                     <tr>
                                         <td style="white-space:nowrap;">
                                             <?php echo htmlspecialchars(formatActivityDateTime($row['created_at'])); ?>
+                                        </td>
+                                        <td style="max-width:220px;">
                                             <?php if (!empty($row['ip_address'])): ?>
-                                                <div class="activity-meta"><?php echo htmlspecialchars($row['ip_address']); ?></div>
+                                                <div style="font-family:ui-monospace,Consolas,monospace;font-size:0.85rem;word-break:break-all;">
+                                                    <?php echo htmlspecialchars($row['ip_address']); ?>
+                                                </div>
+                                                <?php if (!empty($row['ip_location'])): ?>
+                                                    <div class="activity-meta"><?php echo htmlspecialchars($row['ip_location']); ?></div>
+                                                <?php else: ?>
+                                                    <div class="activity-meta text-muted">Location unavailable</div>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">—</span>
                                             <?php endif; ?>
                                         </td>
                                         <td>

@@ -87,6 +87,7 @@ if (!function_exists('ensureActivityLogsTable')) {
             description TEXT NOT NULL,
             details TEXT DEFAULT NULL,
             ip_address VARCHAR(45) DEFAULT NULL,
+            ip_location VARCHAR(255) DEFAULT NULL,
             user_agent VARCHAR(500) DEFAULT NULL,
             result ENUM('success','failure','info') NOT NULL DEFAULT 'success',
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -100,6 +101,13 @@ if (!function_exists('ensureActivityLogsTable')) {
 
         try {
             $ok = (bool) $conn->query($sql);
+            if ($ok) {
+                // Add location column for existing installs
+                $col = $conn->query("SHOW COLUMNS FROM activity_logs LIKE 'ip_location'");
+                if ($col && $col->num_rows === 0) {
+                    @$conn->query("ALTER TABLE activity_logs ADD COLUMN ip_location VARCHAR(255) DEFAULT NULL AFTER ip_address");
+                }
+            }
             $ready = $ok;
             return $ok;
         } catch (Throwable $e) {
@@ -115,6 +123,8 @@ if (!function_exists('activityClientIp')) {
     {
         $candidates = [
             $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
+            $_SERVER['HTTP_TRUE_CLIENT_IP'] ?? '',
+            $_SERVER['HTTP_X_REAL_IP'] ?? '',
             $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
             $_SERVER['REMOTE_ADDR'] ?? '',
         ];
@@ -131,6 +141,73 @@ if (!function_exists('activityClientIp')) {
             }
         }
         return '';
+    }
+}
+
+if (!function_exists('activityLookupIpLocation')) {
+    /**
+     * Resolve approximate geo location for an IP (IPv4 or IPv6).
+     * Returns e.g. "Bhubaneswar, Odisha, India" or empty string.
+     */
+    function activityLookupIpLocation(string $ip): string
+    {
+        $ip = trim($ip);
+        if ($ip === '' || !filter_var($ip, FILTER_VALIDATE_IP)) {
+            return '';
+        }
+        // Skip private / reserved ranges
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return 'Local / Private Network';
+        }
+
+        static $cache = [];
+        if (isset($cache[$ip])) {
+            return $cache[$ip];
+        }
+
+        $location = '';
+        try {
+            $url = 'https://ipwho.is/' . rawurlencode($ip) . '?fields=success,city,region,country';
+            $json = '';
+            if (function_exists('curl_init')) {
+                $ch = curl_init($url);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_CONNECTTIMEOUT => 2,
+                    CURLOPT_TIMEOUT => 3,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_SSL_VERIFYPEER => true,
+                    CURLOPT_USERAGENT => 'NIELIT-ActivityLog/1.0',
+                ]);
+                $json = (string) curl_exec($ch);
+                curl_close($ch);
+            } else {
+                $ctx = stream_context_create([
+                    'http' => ['timeout' => 3, 'header' => "User-Agent: NIELIT-ActivityLog/1.0\r\n"],
+                    'ssl' => ['verify_peer' => true, 'verify_peer_name' => true],
+                ]);
+                $json = (string) @file_get_contents($url, false, $ctx);
+            }
+
+            if ($json !== '') {
+                $data = json_decode($json, true);
+                if (is_array($data) && !empty($data['success'])) {
+                    $parts = [];
+                    foreach (['city', 'region', 'country'] as $key) {
+                        $val = trim((string) ($data[$key] ?? ''));
+                        if ($val !== '' && !in_array($val, $parts, true)) {
+                            $parts[] = $val;
+                        }
+                    }
+                    $location = implode(', ', $parts);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('activityLookupIpLocation: ' . $e->getMessage());
+        }
+
+        $cache[$ip] = $location;
+        return $location;
     }
 }
 
@@ -224,14 +301,15 @@ if (!function_exists('logActivity')) {
             }
 
             $ip = activityClientIp();
+            $ipLocation = $ip !== '' ? activityLookupIpLocation($ip) : '';
             $ua = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
             activityEnsureAppTimezone();
             $createdAt = date('Y-m-d H:i:s');
 
             $stmt = $conn->prepare(
                 "INSERT INTO activity_logs
-                (actor_type, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_name, description, details, ip_address, user_agent, result, created_at)
-                VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?)"
+                (actor_type, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_name, description, details, ip_address, ip_location, user_agent, result, created_at)
+                VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?)"
             );
             if (!$stmt) {
                 error_log('logActivity prepare failed: ' . $conn->error);
@@ -246,7 +324,7 @@ if (!function_exists('logActivity')) {
             $description = (string) $description;
 
             $stmt->bind_param(
-                'ssssssssssssss',
+                'sssssssssssssss',
                 $actorType,
                 $actorId,
                 $actorName,
@@ -258,6 +336,7 @@ if (!function_exists('logActivity')) {
                 $description,
                 $details,
                 $ip,
+                $ipLocation,
                 $ua,
                 $result,
                 $createdAt
@@ -318,9 +397,9 @@ if (!function_exists('fetchActivityLogs')) {
         }
         if (!empty($filters['q'])) {
             $q = '%' . $filters['q'] . '%';
-            $where[] = '(actor_name LIKE ? OR actor_id LIKE ? OR description LIKE ? OR entity_name LIKE ? OR action LIKE ?)';
-            array_push($params, $q, $q, $q, $q, $q);
-            $types .= 'sssss';
+            $where[] = '(actor_name LIKE ? OR actor_id LIKE ? OR description LIKE ? OR entity_name LIKE ? OR action LIKE ? OR ip_address LIKE ? OR IFNULL(ip_location, \'\') LIKE ?)';
+            array_push($params, $q, $q, $q, $q, $q, $q, $q);
+            $types .= 'sssssss';
         }
         if (!empty($filters['date_from'])) {
             $where[] = 'DATE(created_at) >= ?';
@@ -357,7 +436,29 @@ if (!function_exists('fetchActivityLogs')) {
             $stmt->bind_param($bindTypes, ...$bindParams);
             $stmt->execute();
             $res = $stmt->get_result();
+            $res = $stmt->get_result();
+            $lookupsThisPage = 0;
             while ($row = $res->fetch_assoc()) {
+                // Backfill location for older rows (cap lookups so page stays fast)
+                if (
+                    $lookupsThisPage < 8
+                    && empty($row['ip_location'])
+                    && !empty($row['ip_address'])
+                    && isset($row['id'])
+                ) {
+                    $loc = activityLookupIpLocation((string) $row['ip_address']);
+                    $lookupsThisPage++;
+                    if ($loc !== '') {
+                        $row['ip_location'] = $loc;
+                        $upd = $conn->prepare('UPDATE activity_logs SET ip_location = ? WHERE id = ? AND (ip_location IS NULL OR ip_location = \'\')');
+                        if ($upd) {
+                            $rid = (int) $row['id'];
+                            $upd->bind_param('si', $loc, $rid);
+                            $upd->execute();
+                            $upd->close();
+                        }
+                    }
+                }
                 $rows[] = $row;
             }
             $stmt->close();
