@@ -2,7 +2,60 @@
 /**
  * System-wide activity logger for admin Activity module.
  * Safe to call from anywhere — failures never break the main request.
+ * All activity times use Asia/Kolkata (IST).
  */
+
+if (!function_exists('activityAppTimezone')) {
+    function activityAppTimezone(): string
+    {
+        return 'Asia/Kolkata';
+    }
+}
+
+if (!function_exists('activityEnsureAppTimezone')) {
+    function activityEnsureAppTimezone(): void
+    {
+        @date_default_timezone_set(activityAppTimezone());
+    }
+}
+
+if (!function_exists('activitySetDbTimezone')) {
+    function activitySetDbTimezone(?mysqli $conn = null): void
+    {
+        if (!$conn) {
+            global $conn;
+        }
+        if ($conn instanceof mysqli) {
+            // IST = UTC+05:30 — MySQL TIMESTAMP converts to/from this session zone
+            @$conn->query("SET time_zone = '+05:30'");
+        }
+        activityEnsureAppTimezone();
+    }
+}
+
+if (!function_exists('formatActivityDateTime')) {
+    /**
+     * Format activity timestamp for display in Asia/Kolkata.
+     * Handles values already in IST (after SET time_zone) or UTC wall-clock strings.
+     */
+    function formatActivityDateTime($createdAt, string $format = 'd M Y, h:i A'): string
+    {
+        activityEnsureAppTimezone();
+        $raw = trim((string) $createdAt);
+        if ($raw === '' || $raw === '0000-00-00 00:00:00') {
+            return '—';
+        }
+
+        try {
+            // Prefer interpreting DB value in IST (session time_zone +05:30 on fetch).
+            $dt = new DateTime($raw, new DateTimeZone(activityAppTimezone()));
+            return $dt->format($format);
+        } catch (Throwable $e) {
+            $ts = strtotime($raw);
+            return $ts ? date($format, $ts) : $raw;
+        }
+    }
+}
 
 if (!function_exists('ensureActivityLogsTable')) {
     function ensureActivityLogsTable(?mysqli $conn = null): bool
@@ -13,6 +66,8 @@ if (!function_exists('ensureActivityLogsTable')) {
         if (!$conn instanceof mysqli) {
             return false;
         }
+
+        activitySetDbTimezone($conn);
 
         static $ready = null;
         if ($ready === true) {
@@ -135,6 +190,7 @@ if (!function_exists('logActivity')) {
             if (!$conn instanceof mysqli) {
                 return false;
             }
+            activitySetDbTimezone($conn);
             if (!ensureActivityLogsTable($conn)) {
                 return false;
             }
@@ -169,11 +225,13 @@ if (!function_exists('logActivity')) {
 
             $ip = activityClientIp();
             $ua = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 500);
+            activityEnsureAppTimezone();
+            $createdAt = date('Y-m-d H:i:s');
 
             $stmt = $conn->prepare(
                 "INSERT INTO activity_logs
-                (actor_type, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_name, description, details, ip_address, user_agent, result)
-                VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?)"
+                (actor_type, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_name, description, details, ip_address, user_agent, result, created_at)
+                VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, ?)"
             );
             if (!$stmt) {
                 error_log('logActivity prepare failed: ' . $conn->error);
@@ -188,7 +246,7 @@ if (!function_exists('logActivity')) {
             $description = (string) $description;
 
             $stmt->bind_param(
-                'sssssssssssss',
+                'ssssssssssssss',
                 $actorType,
                 $actorId,
                 $actorName,
@@ -201,7 +259,8 @@ if (!function_exists('logActivity')) {
                 $details,
                 $ip,
                 $ua,
-                $result
+                $result,
+                $createdAt
             );
             $ok = $stmt->execute();
             if (!$ok) {
@@ -233,6 +292,7 @@ if (!function_exists('fetchActivityLogs')) {
      */
     function fetchActivityLogs(mysqli $conn, array $filters = [], int $limit = 50, int $offset = 0): array
     {
+        activitySetDbTimezone($conn);
         if (!ensureActivityLogsTable($conn)) {
             return ['rows' => [], 'total' => 0];
         }

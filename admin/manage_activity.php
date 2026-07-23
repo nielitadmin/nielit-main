@@ -272,7 +272,7 @@ function activityDetailPreview($details)
                     <table class="activity-table">
                         <thead>
                             <tr>
-                                <th>When</th>
+                                <th>When (IST)</th>
                                 <th>Who</th>
                                 <th>Action</th>
                                 <th>What happened</th>
@@ -298,7 +298,7 @@ function activityDetailPreview($details)
                                     ?>
                                     <tr>
                                         <td style="white-space:nowrap;">
-                                            <?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($row['created_at']))); ?>
+                                            <?php echo htmlspecialchars(formatActivityDateTime($row['created_at'])); ?>
                                             <?php if (!empty($row['ip_address'])): ?>
                                                 <div class="activity-meta"><?php echo htmlspecialchars($row['ip_address']); ?></div>
                                             <?php endif; ?>
