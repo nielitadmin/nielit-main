@@ -62,12 +62,24 @@ if ($total === 0) {
 }
 $actionLabels = activityActionLabels();
 
-$entityTypes = [];
+$entityTypes = [
+    'admin' => 'Admin',
+    'student' => 'Student',
+    'course' => 'Course',
+    'batch' => 'Batch',
+    'centre' => 'Centre',
+    'theme' => 'Theme',
+    'homepage_content' => 'Homepage',
+    'system' => 'System',
+];
 if ($tableReady) {
     $etRes = $conn->query("SELECT DISTINCT entity_type FROM activity_logs WHERE entity_type IS NOT NULL AND entity_type != '' ORDER BY entity_type ASC LIMIT 100");
     if ($etRes) {
         while ($r = $etRes->fetch_assoc()) {
-            $entityTypes[] = $r['entity_type'];
+            $et = (string) ($r['entity_type'] ?? '');
+            if ($et !== '' && !isset($entityTypes[$et])) {
+                $entityTypes[$et] = ucwords(str_replace('_', ' ', $et));
+            }
         }
     }
 }
@@ -229,9 +241,9 @@ function activityDetailPreview($details)
                         <label class="form-label" for="entity_type">Entity</label>
                         <select name="entity_type" id="entity_type" class="form-select">
                             <option value="">All</option>
-                            <?php foreach ($entityTypes as $et): ?>
-                                <option value="<?php echo htmlspecialchars($et); ?>" <?php echo $filters['entity_type'] === $et ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(ucfirst($et)); ?>
+                            <?php foreach ($entityTypes as $etKey => $etLabel): ?>
+                                <option value="<?php echo htmlspecialchars($etKey); ?>" <?php echo $filters['entity_type'] === $etKey ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($etLabel); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
