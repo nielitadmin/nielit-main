@@ -182,28 +182,22 @@ function finalizeRegistrationRedirect(string $url): void
  * @return bool True on success, false on failure
  */
 function sendRegistrationEmail($to_email, $student_name, $student_id, $password, $course_name, $training_center) {
-    $mail = new PHPMailer(true);
-    
-    try {
-        configurePhpMailerSmtp($mail, ['timeout' => 8, 'keep_alive' => false]);
-        
-        // Recipients
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to_email, $student_name, $student_id, $password, $course_name, $training_center) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $student_name);
         $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Registration Successful - NIELIT Bhubaneswar';
         $mail->Body = getRegistrationEmailTemplate($student_name, $student_id, $password, $course_name, $training_center);
         $mail->AltBody = getRegistrationEmailPlainText($student_name, $student_id, $password, $course_name, $training_center);
-        
-        $mail->send();
+    }, ['timeout' => 12]);
+
+    if (!empty($result['ok'])) {
         return true;
-    } catch (Exception $e) {
-        error_log("Email sending failed: {$mail->ErrorInfo}");
-        return false;
     }
+
+    error_log('Registration email failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 /**
@@ -381,34 +375,32 @@ TEXT;
  * @return bool True on success, false on failure
  */
 function sendPasswordResetEmail($to_email, $student_name, $student_id, $new_password) {
-    $mail = new PHPMailer(true);
-    
-    try {
-        configurePhpMailerSmtp($mail);
-        
-        // Recipients
+    $safeName = htmlspecialchars((string) $student_name, ENT_QUOTES, 'UTF-8');
+    $safeId = htmlspecialchars((string) $student_id, ENT_QUOTES, 'UTF-8');
+    $safePassword = htmlspecialchars((string) $new_password, ENT_QUOTES, 'UTF-8');
+
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to_email, $student_name, $safeName, $safeId, $safePassword) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $student_name);
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Password Reset - NIELIT Bhubaneswar';
         $mail->Body = "
             <h2>Password Reset Successful</h2>
-            <p>Dear {$student_name},</p>
+            <p>Dear {$safeName},</p>
             <p>Your password has been reset successfully.</p>
-            <p><strong>Student ID:</strong> {$student_id}</p>
-            <p><strong>New Password:</strong> {$new_password}</p>
+            <p><strong>Student ID:</strong> {$safeId}</p>
+            <p><strong>New Password:</strong> {$safePassword}</p>
             <p>Please login with your new credentials and change your password immediately.</p>
             <p>Best regards,<br>NIELIT Bhubaneswar</p>
         ";
-        
-        $mail->send();
+    }, ['timeout' => 12]);
+
+    if (!empty($result['ok'])) {
         return true;
-    } catch (Exception $e) {
-        error_log("Email sending failed: {$mail->ErrorInfo}");
-        return false;
     }
+
+    error_log('Password reset email failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 /**
@@ -426,15 +418,17 @@ function sendRegistrationRejectionEmail(
         return false;
     }
 
-    $mail = new PHPMailer(true);
-
-    try {
-        configurePhpMailerSmtp($mail);
-
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use (
+        $to_email,
+        $student_name,
+        $student_id,
+        $course_label,
+        $rejection_reason,
+        $rejection_note
+    ) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $student_name);
         $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-
         $mail->isHTML(true);
         $mail->Subject = 'Registration Update - NIELIT Bhubaneswar';
         $mail->Body = getRegistrationRejectionEmailTemplate(
@@ -451,13 +445,14 @@ function sendRegistrationRejectionEmail(
             $rejection_reason,
             $rejection_note
         );
+    }, ['timeout' => 12]);
 
-        $mail->send();
+    if (!empty($result['ok'])) {
         return true;
-    } catch (Exception $e) {
-        error_log("Rejection email failed: {$mail->ErrorInfo}");
-        return false;
     }
+
+    error_log('Rejection email failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 function getRegistrationRejectionEmailTemplate(
@@ -612,25 +607,20 @@ TEXT;
  * @return array Result array with success status and message
  */
 function testEmailConfiguration($test_email) {
-    $mail = new PHPMailer(true);
-    
-    try {
-        configurePhpMailerSmtp($mail);
-        
-        // Recipients
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($test_email) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($test_email);
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Test Email - NIELIT Bhubaneswar';
         $mail->Body = '<h2>Email Configuration Test</h2><p>If you receive this email, your email configuration is working correctly!</p>';
-        
-        $mail->send();
-        return ['success' => true, 'message' => 'Test email sent successfully!'];
-    } catch (Exception $e) {
-        return ['success' => false, 'message' => "Email sending failed: {$mail->ErrorInfo}"];
+    }, ['timeout' => 12]);
+
+    if (!empty($result['ok'])) {
+        $via = !empty($result['profile']) ? ' (via ' . $result['profile'] . ')' : '';
+        return ['success' => true, 'message' => 'Test email sent successfully!' . $via];
     }
+
+    return ['success' => false, 'message' => 'Email sending failed: ' . ($result['error'] ?? 'unknown')];
 }
 
 /**
@@ -643,28 +633,22 @@ function testEmailConfiguration($test_email) {
  * @return bool True on success, false on failure
  */
 function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '', $department = '') {
-    $mail = new PHPMailer(true);
-    
-    try {
-        configurePhpMailerSmtp($mail);
-        
-        // Recipients
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to_email, $faculty_name, $designation, $department) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $faculty_name);
         $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-        
-        // Content
         $mail->isHTML(true);
         $mail->Subject = 'Faculty Account Registered - NIELIT Bhubaneswar';
         $mail->Body = getFacultyEmailTemplate($faculty_name, $designation, $department, $to_email);
         $mail->AltBody = getFacultyEmailPlainText($faculty_name, $designation, $department);
-        
-        $mail->send();
+    }, ['timeout' => 12]);
+
+    if (!empty($result['ok'])) {
         return true;
-    } catch (Exception $e) {
-        error_log("Faculty email sending failed: {$mail->ErrorInfo}");
-        return false;
     }
+
+    error_log('Faculty email sending failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 /**
