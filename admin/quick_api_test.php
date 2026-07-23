@@ -6,6 +6,10 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../api/config/api_config.php';
 
 // Check if admin is logged in
@@ -125,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_test'])) {
         $results['cleanup'] = ['success' => true];
     }
 }
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -132,15 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_test'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quick API Test - NIELIT Bhubaneswar</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Admin Theme CSS -->
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
+    <?php adminEmitHeadAssets($active_theme); ?>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
     <div class="wrapper">
         <!-- Sidebar -->
         <?php include 'includes/sidebar.php'; ?>

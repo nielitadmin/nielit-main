@@ -6,6 +6,10 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/attendance_qr_helper.php';
 
 // Check if admin is logged in
@@ -94,6 +98,7 @@ if (empty($courses)) {
     $courses_result_all = $conn->query($courses_query_all);
     $courses = $courses_result_all ? $courses_result_all->fetch_all(MYSQLI_ASSOC) : [];
 }
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -101,14 +106,7 @@ if (empty($courses)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>QR Attendance Scanner - NIELIT Bhubaneswar</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Admin Theme CSS -->
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .session-card {
             border-left: 4px solid #007bff;
@@ -181,7 +179,7 @@ if (empty($courses)) {
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
     <!-- Sidebar -->
     <?php 
     // Include sidebar navigation

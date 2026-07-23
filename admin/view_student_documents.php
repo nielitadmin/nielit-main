@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 
 // Check if admin is logged in
@@ -60,6 +63,7 @@ if ($stmt_education) {
     }
     $stmt_education->close();
 }
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -67,9 +71,7 @@ if ($stmt_education) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Documents - <?php echo htmlspecialchars($student['name']); ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .document-card {
             background: #fff;
@@ -155,7 +157,7 @@ if ($stmt_education) {
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
     <!-- Sidebar -->

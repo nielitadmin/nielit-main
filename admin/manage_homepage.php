@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/audit_logger.php';
 require_once __DIR__ . '/../includes/url_helper.php';
@@ -681,11 +683,7 @@ if ($content_sections) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; script-src-attr 'unsafe-inline'; object-src 'none';">
     <title>Manage Homepage Content - NIELIT Bhubaneswar</title>
-    <?php injectThemeCSS($active_theme); ?>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         /* Content Sections Styles */
         .content-sections-table {
@@ -1172,7 +1170,7 @@ if ($content_sections) {
         }
 
         .homepage-news-card-header {
-            background: linear-gradient(135deg, #1a56db 0%, #1e40af 100%);
+            background: linear-gradient(135deg, var(--secondary-color, #1a56db) 0%, #1e40af 100%);
             color: #fff;
             padding: 16px;
         }
@@ -1248,7 +1246,7 @@ if ($content_sections) {
         }
     </style>
 </head>
-<body class="admin-body">
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
     <?php include 'includes/sidebar.php'; ?>
 
     <!-- Main Content -->

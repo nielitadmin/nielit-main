@@ -2,6 +2,10 @@
 // Start session and include the database connection
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/theme_loader.php';
+require_once __DIR__ . '/../../includes/url_helper.php';
+require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 
 // Check if the admin is logged in
@@ -56,6 +60,7 @@ if (!$batch) {
     header("Location: manage_batches.php");
     exit();
 }
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -63,12 +68,9 @@ if (!$batch) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generate Admission Order - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../../assets/css/admin-theme.css') ?: time(); ?>">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
     <?php include __DIR__ . '/../../admin/includes/sidebar.php'; ?>

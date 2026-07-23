@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/theme_loader.php';
+require_once __DIR__ . '/../../includes/url_helper.php';
+require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../../includes/session_manager.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../includes/batch_certificate_helper.php';
@@ -319,18 +323,15 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     fclose($output);
     exit();
 }
+$active_theme = loadActiveTheme($conn);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Batch Details - <?php echo htmlspecialchars($batch['batch_name']); ?></title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .stats-grid {
             display: grid;
@@ -339,14 +340,14 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             margin-bottom: 24px;
         }
         .stat-card {
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, #112240 100%);
             color: white;
             padding: 20px;
             border-radius: 8px;
             text-align: center;
         }
         .stat-card:nth-child(2) {
-            background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%);
+            background: linear-gradient(135deg, var(--primary-color, #0c2340) 0%, var(--secondary-color, #123a66) 100%);
         }
         .stat-card:nth-child(3) {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
@@ -389,7 +390,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>

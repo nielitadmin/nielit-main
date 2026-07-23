@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 
 // Check if user is logged in and is admin
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
@@ -86,8 +90,7 @@ if ($table_exists) {
 }
 
 // Load active theme for CSS
-$active_theme_result = $conn->query("SELECT * FROM themes WHERE is_active = 1 LIMIT 1");
-$active_theme = $active_theme_result ? $active_theme_result->fetch_assoc() : null;
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -95,14 +98,12 @@ $active_theme = $active_theme_result ? $active_theme_result->fetch_assoc() : nul
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maintenance Mode Management - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo time(); ?>">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background: #f5f5f5;
+            background: var(--bg-body, #f5f5f5);
         }
         
         .main-content {
@@ -415,7 +416,7 @@ $active_theme = $active_theme_result ? $active_theme_result->fetch_assoc() : nul
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <?php include __DIR__ . '/includes/sidebar.php'; ?>
 

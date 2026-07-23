@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
@@ -211,6 +215,7 @@ if ($searched
 }
 
 $page_title = 'Student Record Inspector';
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -218,8 +223,7 @@ $page_title = 'Student Record Inspector';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - NIELIT Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         body { background: #f1f5f9; }
         .page-card { background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(15,23,42,.08); }
@@ -232,8 +236,11 @@ $page_title = 'Student Record Inspector';
         .section-actions { display: flex; gap: 0.5rem; align-items: center; }
     </style>
 </head>
-<body>
-<div class="container py-4">
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<div class="admin-wrapper">
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
+    <main class="admin-content">
+        <div class="admin-main container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h1 class="h3 mb-1"><i class="fas fa-user-check text-primary"></i> Student Record Inspector</h1>
@@ -822,6 +829,8 @@ $page_title = 'Student Record Inspector';
     </div>
     <?php endif; ?>
     <?php endif; ?>
+        </div>
+    </main>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <?php

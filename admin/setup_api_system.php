@@ -6,6 +6,10 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -130,6 +134,7 @@ foreach ($check_tables as $table) {
 }
 
 $all_tables_exist = !in_array(false, $tables_exist);
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -137,15 +142,9 @@ $all_tables_exist = !in_array(false, $tables_exist);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API System Setup - NIELIT Bhubaneswar</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Admin Theme CSS -->
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
+    <?php adminEmitHeadAssets($active_theme); ?>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
     <div class="wrapper">
         <!-- Sidebar -->
         <?php include 'includes/sidebar.php'; ?>

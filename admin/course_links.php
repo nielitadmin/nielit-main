@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 session_start();
 if (!isset($_SESSION['admin_logged_in'])) {
     header('Location: login.php');
@@ -9,6 +13,7 @@ require_once '../config/database.php';
 
 // Fetch all active courses with links
 $courses = $conn->query("SELECT * FROM courses WHERE status='active' ORDER BY course_name");
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -16,9 +21,7 @@ $courses = $conn->query("SELECT * FROM courses WHERE status='active' ORDER BY co
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Registration Links - NIELIT Admin</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .link-card {
             transition: transform 0.2s;
@@ -34,7 +37,7 @@ $courses = $conn->query("SELECT * FROM courses WHERE status='active' ORDER BY co
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
     <?php include 'includes/sidebar.php'; ?>
 

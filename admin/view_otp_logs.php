@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 session_start();
 if (!isset($_SESSION['admin_logged_in'])) {
     header('Location: login.php');
@@ -29,23 +32,18 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OTP Logs - NIELIT Admin</title>
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
+
     
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
     
     <!-- Core CSS -->
-    <?php injectThemeCSS($active_theme); ?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    <link href="../assets/css/toast-notifications.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
-    
     <style>
         :root {
-            --navy: #0a1628;
+            --navy: var(--primary-color, #0a1628);
             --navy-mid: #112240;
-            --blue: #1a56db;
+            --blue: var(--secondary-color, #1a56db);
             --blue-light: #3b82f6;
             --gold: #f59e0b;
             --gold-light: #fcd34d;
@@ -596,7 +594,7 @@ $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
     <?php include 'includes/sidebar.php'; ?>
 

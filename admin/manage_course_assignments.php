@@ -16,6 +16,7 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
@@ -167,12 +168,7 @@ $stats = $stats_result->fetch_assoc();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Assignments - NIELIT Admin</title>
-    <?php injectThemeCSS($active_theme); ?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>" rel="stylesheet">
-    <link href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         :root {
             --ca-primary: var(--primary-color, #0c2340);
@@ -309,7 +305,7 @@ $stats = $stats_result->fetch_assoc();
         .empty-state i { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.35; color: var(--ca-secondary); }
     </style>
 </head>
-<body class="admin-body <?php echo htmlspecialchars(sidebarThemeBodyClass(getActiveSidebarTheme($conn))); ?>">
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 

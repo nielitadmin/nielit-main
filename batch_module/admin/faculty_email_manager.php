@@ -6,6 +6,9 @@
 
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/url_helper.php';
+require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 
 // Check if the admin is logged in
@@ -45,6 +48,7 @@ if ($batch_id) {
 
 // Include theme loader
 require_once __DIR__ . '/../../includes/theme_loader.php';
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -52,10 +56,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Email Management - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../../assets/css/admin-theme.css') ?: time(); ?>">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .faculty-card {
             background: white;
@@ -68,7 +69,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
         
         .faculty-card:hover {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            border-color: #1a56db;
+            border-color: var(--secondary-color, #1a56db);
         }
         
         .faculty-header {
@@ -81,7 +82,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
         .faculty-name {
             font-size: 16px;
             font-weight: 600;
-            color: #0a1628;
+            color: var(--primary-color, #0a1628);
             flex: 1;
         }
         
@@ -92,7 +93,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
         }
         
         .faculty-email {
-            color: #1a56db;
+            color: var(--secondary-color, #1a56db);
             font-size: 14px;
             margin: 4px 0;
         }
@@ -177,9 +178,9 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
         }
         
         .filter-tab.active {
-            background: #1a56db;
+            background: var(--secondary-color, #1a56db);
             color: white;
-            border-color: #1a56db;
+            border-color: var(--secondary-color, #1a56db);
         }
         
         .empty-state {
@@ -196,7 +197,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
     <?php include __DIR__ . '/../../admin/includes/sidebar.php'; ?>

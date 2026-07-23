@@ -1,6 +1,10 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -97,6 +101,7 @@ $result = $conn->query($sql);
 // Fetch courses for dropdown
 $sql_courses = "SELECT DISTINCT course_code, course_name FROM courses ORDER BY course_name";
 $courses_result = $conn->query($sql_courses);
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -104,9 +109,7 @@ $courses_result = $conn->query($sql_courses);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Announcements - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         /* Global Fixes */
         * {
@@ -447,7 +450,7 @@ $courses_result = $conn->query($sql_courses);
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- Main Content -->

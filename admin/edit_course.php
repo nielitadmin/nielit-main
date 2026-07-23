@@ -5,6 +5,10 @@ error_reporting(E_ALL);
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
@@ -461,6 +465,7 @@ $registration_form_display = (($course['registration_form'] ?? 'full') === 'work
 if ($registration_form_display === 'full' && (sub_category_matches($selected_sub_category, 'Workshop') || sub_category_matches($selected_sub_category, 'Awareness Program'))) {
     $registration_form_display = 'workshop';
 }
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -468,10 +473,7 @@ if ($registration_form_display === 'full' && (sub_category_matches($selected_sub
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Course - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo time(); ?>">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css?v=<?php echo time(); ?>">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .eligibility-textarea {
             resize: vertical;
@@ -482,7 +484,7 @@ if ($registration_form_display === 'full' && (sub_category_matches($selected_sub
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
     <!-- Sidebar -->

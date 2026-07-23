@@ -6,6 +6,10 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/migration_runner_helper.php';
 
 if (!isset($_SESSION['admin'])) {
@@ -34,6 +38,7 @@ if (!in_array($categoryFilter, ['all', 'install', 'schema', 'fix', 'data', 'chec
 }
 
 $page_title = 'DB Migrations';
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -41,10 +46,7 @@ $page_title = 'DB Migrations';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - NIELIT Bhubaneswar</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>" rel="stylesheet">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .migration-output {
             background: #0f172a;
@@ -70,7 +72,7 @@ $page_title = 'DB Migrations';
         .filter-pills .btn { margin: 0 4px 8px 0; }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
     <?php include __DIR__ . '/includes/sidebar.php'; ?>
 

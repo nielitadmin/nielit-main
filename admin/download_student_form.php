@@ -8,6 +8,10 @@
 ob_start();
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/student_form_helpers.php';
 
 if (!isset($_SESSION['admin'])) {
@@ -39,17 +43,17 @@ if (!empty($_GET['record_id'])) {
             ob_end_clean();
         }
         $page_title = 'Download Admission Forms';
-        ?>
-        <!DOCTYPE html>
+        $active_theme = loadActiveTheme($conn);
+?>
+<!DOCTYPE html>
         <html lang="en">
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Download Forms - NIELIT Admin</title>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-            <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <?php adminEmitHeadAssets($active_theme); ?>
         </head>
-        <body>
+        <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
         <div class="admin-wrapper">
             <?php include __DIR__ . '/includes/sidebar.php'; ?>
             <main class="admin-content">

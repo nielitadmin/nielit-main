@@ -6,6 +6,10 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 
 // Check if admin is logged in
@@ -73,9 +77,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     header('Expires: 0');
 
     // Start Excel HTML content
-    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    echo '
+$active_theme = loadActiveTheme($conn);
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>';
-    echo '<body>';
+    echo '<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">';
     echo '<table border="1">';
     
     // Report header
@@ -220,14 +226,7 @@ $quarters = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Attendance Reports - NIELIT Bhubaneswar</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Admin Theme CSS -->
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .report-card {
             border-left: 4px solid #007bff;
@@ -250,7 +249,7 @@ $quarters = [
         .percentage-poor { color: #dc3545; }
         
         .filter-card {
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, #112240 100%);
             color: white;
         }
         

@@ -6,6 +6,9 @@ if (!isset($_SESSION['admin'])) {
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
@@ -448,11 +451,7 @@ if (!empty($params)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Courses - NIELIT Admin</title>
-    <?php injectThemeCSS($active_theme); ?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme); ?>
     <style>
         .eligibility-textarea {
             resize: vertical;
@@ -463,7 +462,7 @@ if (!empty($params)) {
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
     <?php include 'includes/sidebar.php'; ?>
 
@@ -1007,7 +1006,7 @@ if (!empty($params)) {
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <img id="qr_code_image" src="" alt="QR Code" style="max-width: 100%; height: auto; border: 2px solid #0a1628; border-radius: 8px; padding: 10px;">
+                    <img id="qr_code_image" src="" alt="QR Code" style="max-width: 100%; height: auto; border: 2px solid var(--primary-color, #0a1628); border-radius: 8px; padding: 10px;">
                     <div class="mt-3">
                         <p class="text-muted mb-2">Scan this QR code to register for the course</p>
                         <a id="qr_download_link" href="" download class="btn btn-primary">

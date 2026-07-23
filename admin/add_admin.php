@@ -19,6 +19,10 @@ if ($_SESSION['admin_role'] !== 'master_admin') {
 
 // Database connection
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 require_once __DIR__ . '/../includes/session_manager.php';
 
@@ -208,18 +212,15 @@ if (isset($_POST['resend_otp'])) {
 if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_message) && empty($error_message)) {
     $show_otp_form = true;
 }
+$active_theme = loadActiveTheme($conn);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Admin - NIELIT Bhubaneswar</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
-    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .otp-input {
             font-size: 24px;
@@ -257,7 +258,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
         
         .step.active .step-circle {
-            background: linear-gradient(135deg, #0a1628 0%, #112240 100%);
+            background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, #112240 100%);
             color: white;
             box-shadow: 0 4px 12px rgba(10, 22, 40, 0.4);
         }
@@ -273,7 +274,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
         
         .step.active .step-label {
-            color: #0a1628;
+            color: var(--primary-color, #0a1628);
         }
         
         .step.completed .step-label {
@@ -316,7 +317,7 @@ if (isset($_SESSION['temp_admin_data']) && !$show_otp_form && empty($success_mes
         }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
     <!-- Sidebar -->
