@@ -517,6 +517,44 @@ $pageTitle="Report Monitor";
             width:100%;
             box-sizing:border-box;
         }
+        .course-fy-range-bar{
+            display:inline-flex;
+            flex-wrap:wrap;
+            align-items:center;
+            gap:2px;
+            padding:4px;
+            border-radius:999px;
+            background:#e8edf5;
+            border:1px solid #d0d7e4;
+            margin:0 auto 10px;
+        }
+        .course-fy-range-bar .course-fy-range-btn{
+            border:0;
+            background:transparent;
+            color:#64748b;
+            font-size:0.78rem;
+            font-weight:700;
+            letter-spacing:0.02em;
+            padding:0.35rem 0.75rem;
+            border-radius:999px;
+            line-height:1.2;
+            cursor:pointer;
+            transition:background .15s ease, color .15s ease, box-shadow .15s ease;
+        }
+        .course-fy-range-bar .course-fy-range-btn:hover{
+            color:#0f172a;
+            background:rgba(255,255,255,0.65);
+        }
+        .course-fy-range-bar .course-fy-range-btn.active{
+            background:#fff;
+            color:#ea580c;
+            box-shadow:0 1px 3px rgba(15,23,42,0.12);
+        }
+        .course-fy-range-wrap{
+            display:flex;
+            justify-content:center;
+            width:100%;
+        }
         .course-fy-day-scroll{
             display:block;
             width:100%;
@@ -1800,6 +1838,15 @@ Q4 (Jan–Mar)
                 <strong class="text-primary"><i class="fas fa-chart-area me-1"></i> Course Duration Graph</strong>
                 <span class="text-muted small">Area graph · black Total line · hover a date for course-wise sum</span>
             </div>
+            <div class="course-fy-range-wrap">
+                <div class="course-fy-range-bar" id="courseFyRangeBar" role="group" aria-label="Timeline range">
+                    <button type="button" class="course-fy-range-btn" data-range="Q1" title="Apr–Jun">Q1</button>
+                    <button type="button" class="course-fy-range-btn" data-range="Q2" title="Jul–Sep">Q2</button>
+                    <button type="button" class="course-fy-range-btn" data-range="Q3" title="Oct–Dec">Q3</button>
+                    <button type="button" class="course-fy-range-btn" data-range="Q4" title="Jan–Mar">Q4</button>
+                    <button type="button" class="course-fy-range-btn active" data-range="FY" title="Full financial year">FULL YEAR</button>
+                </div>
+            </div>
             <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
                 <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollLeft" title="Scroll left">
                     <i class="fas fa-chevron-left"></i> Earlier days
@@ -2678,6 +2725,7 @@ let courseFyTimeChartInstance = null;
 let courseFyTimelineCache = null;
 const courseFyZoomSteps = [0.75, 1, 1.5, 2, 2.5, 3];
 let courseFyZoomIndex = 1; // 100%
+let courseFyActiveRange = 'FY';
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
@@ -2707,6 +2755,90 @@ function applyCourseFyZoom(nextIndex, keepScrollRatio) {
             scrollEl.scrollLeft = ratio * maxScroll;
         });
     }
+}
+
+function setCourseFyRangeActive(rangeKey) {
+    courseFyActiveRange = rangeKey || 'FY';
+    document.querySelectorAll('#courseFyRangeBar .course-fy-range-btn').forEach(function (btn) {
+        btn.classList.toggle('active', btn.getAttribute('data-range') === courseFyActiveRange);
+    });
+}
+
+function findCourseFyRangeStartIndex(rangeKey, dayIsoList) {
+    if (!dayIsoList || !dayIsoList.length) {
+        return 0;
+    }
+    if (rangeKey === 'FY') {
+        return 0;
+    }
+    const monthSets = {
+        Q1: { 4: 1, 5: 1, 6: 1 },
+        Q2: { 7: 1, 8: 1, 9: 1 },
+        Q3: { 10: 1, 11: 1, 12: 1 },
+        Q4: { 1: 1, 2: 1, 3: 1 }
+    };
+    const months = monthSets[rangeKey] || null;
+    if (!months) {
+        return 0;
+    }
+    for (let i = 0; i < dayIsoList.length; i++) {
+        const iso = String(dayIsoList[i] || '');
+        if (iso.length < 10) {
+            continue;
+        }
+        const month = Number(iso.slice(5, 7));
+        if (months[month]) {
+            return i;
+        }
+    }
+    return 0;
+}
+
+function scrollCourseFyToDayIndex(dayIndex) {
+    const scrollEl = document.getElementById('courseFyDayScroll');
+    const timeline = courseFyTimelineCache || {};
+    const dayCount = Number(timeline.day_count || 0) || 1;
+    if (!scrollEl) {
+        return;
+    }
+    const maxScroll = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
+    const ratio = Math.max(0, Math.min(1, dayIndex / Math.max(1, dayCount - 1)));
+    // Keep selected quarter near the left of the viewport
+    const target = Math.min(maxScroll, Math.max(0, (dayIndex / dayCount) * scrollEl.scrollWidth - 40));
+    scrollEl.scrollLeft = target;
+    if (!Number.isFinite(target)) {
+        scrollEl.scrollLeft = ratio * maxScroll;
+    }
+}
+
+function applyCourseFyRange(rangeKey) {
+    const key = ['Q1', 'Q2', 'Q3', 'Q4', 'FY'].indexOf(rangeKey) >= 0 ? rangeKey : 'FY';
+    setCourseFyRangeActive(key);
+
+    // Quarters get a closer zoom so the window is easier to read; full year stays at 100%.
+    applyCourseFyZoom(key === 'FY' ? 1 : 2, false);
+
+    requestAnimationFrame(function () {
+        const dayIso = (courseFyTimelineCache && courseFyTimelineCache.day_iso) || [];
+        const startIdx = findCourseFyRangeStartIndex(key, dayIso);
+        scrollCourseFyToDayIndex(startIdx);
+    });
+}
+
+function initCourseFyRangeBar() {
+    const bar = document.getElementById('courseFyRangeBar');
+    if (!bar || bar.getAttribute('data-bound') === '1') {
+        return;
+    }
+    bar.setAttribute('data-bound', '1');
+    bar.addEventListener('click', function (event) {
+        const btn = event.target.closest('.course-fy-range-btn');
+        if (!btn) {
+            return;
+        }
+        applyCourseFyRange(btn.getAttribute('data-range') || 'FY');
+    });
+    setCourseFyRangeActive(courseFyActiveRange);
 }
 
 function renderCourseFyGanttChart(timeline) {
@@ -3332,9 +3464,12 @@ function renderCourseFyGanttChart(timeline) {
     }
     if (zoomResetBtn) {
         zoomResetBtn.onclick = function () {
+            setCourseFyRangeActive('FY');
             applyCourseFyZoom(1, true);
         };
     }
+
+    initCourseFyRangeBar();
 
     if (hoverPanel) {
         hoverPanel.onmouseenter = cancelHideCourseDetail;
