@@ -1377,6 +1377,7 @@ if ($other_gender_count > 0) {
             color: var(--text-primary, #0f172a);
             line-height: 1.25;
             margin-bottom: 2px;
+            text-transform: uppercase;
         }
 
         .student-contact-cell .student-meta {
