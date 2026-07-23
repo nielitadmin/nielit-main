@@ -970,7 +970,7 @@ Q4 (Jan–Mar)
 
                 <small>
 
-                    Total Students Registered
+                    Total Students Applied
 
                 </small>
 
@@ -1264,7 +1264,7 @@ Q4 (Jan–Mar)
 
         <div>
             <strong>Course Wise Summary</strong>
-            <small class="text-muted ms-2">Registration counts for the selected period</small>
+            <small class="text-muted ms-2">Applied and admission counts for the selected period</small>
             <?php if (!empty($courseStats)): ?>
                 <span class="badge bg-secondary ms-2"><?php echo number_format(count($courseStats)); ?> courses</span>
             <?php endif; ?>
@@ -1297,7 +1297,7 @@ Q4 (Jan–Mar)
 
                     <th class="text-end">
 
-                        Registered
+                        Applied
 
                     </th>
 
@@ -1790,7 +1790,7 @@ Q4 (Jan–Mar)
 
                     <th class="text-end">
 
-                        Registered
+                        Applied
 
                     </th>
 
@@ -1878,7 +1878,7 @@ Q4 (Jan–Mar)
 
         <div class="d-flex gap-2 flex-wrap">
             <span class="badge bg-dark"><?php echo number_format($courseFyTimeline['grand_totals']['courses'] ?? 0); ?> Courses</span>
-            <span class="badge bg-primary"><?php echo number_format($courseFyTimeline['grand_totals']['registered'] ?? 0); ?> Total Reg.</span>
+            <span class="badge bg-primary"><?php echo number_format($courseFyTimeline['grand_totals']['registered'] ?? 0); ?> Total Applied</span>
             <span class="badge bg-success"><?php echo number_format($courseFyTimeline['grand_totals']['footfall'] ?? 0); ?> Total Footfall</span>
             <span class="badge bg-warning text-dark"><?php echo number_format($courseFyTimeline['grand_totals']['batches'] ?? 0); ?> Batches</span>
         </div>
@@ -2438,7 +2438,7 @@ datasets:[
 
 {
 
-label:'Registered',
+label:'Applied',
 
 data:
 reportPayload.batchMonthly.applications,
@@ -2555,7 +2555,7 @@ datasets:[
 
 {
 
-label:'Registered',
+label:'Applied',
 
 data:
 reportPayload.centreStats.map(
@@ -2653,7 +2653,7 @@ datasets:[
 
 {
 
-label:'Registered',
+label:'Applied',
 
 data:
 reportPayload.courseStats.map(
@@ -2917,7 +2917,7 @@ function renderCourseFyDaySummary(dayIndex) {
     title.textContent = 'One-day view · ' + dateLabel;
     let html = '<div style="margin-bottom:8px"><strong>Admissions: ' +
         totalAdmissions.toLocaleString() +
-        '</strong> · Registered: <strong>' +
+        '</strong> · Applied: <strong>' +
         totalRegistered.toLocaleString() +
         '</strong></div>';
 
@@ -2928,7 +2928,7 @@ function renderCourseFyDaySummary(dayIndex) {
         rows.forEach(function (row) {
             html += '<div class="day-summary-row"><span>' + escapeHtmlAttr(row.name) +
                 '</span><strong>Adm ' + Number(row.admissions).toLocaleString() +
-                ' · Reg ' + Number(row.registered).toLocaleString() + '</strong></div>';
+                ' · Applied ' + Number(row.registered).toLocaleString() + '</strong></div>';
         });
         html += '</div>';
     }
@@ -3477,7 +3477,7 @@ function renderCourseFyGanttChart(timeline) {
                 (meta.centre_name ? ('Centre: <strong>' + escapeHtmlAttr(meta.centre_name) + '</strong><br>') : '') +
                 'Batch seats: <strong>' + Number(meta.footfall || 0).toLocaleString() + ' / ' +
                 Number(meta.seats_total || 0).toLocaleString() + '</strong>' +
-                ' · Registered: <strong>' + Number(meta.registered || 0).toLocaleString() + '</strong>' +
+                ' · Applied: <strong>' + Number(meta.registered || 0).toLocaleString() + '</strong>' +
                 '<br>Period: ' + (meta.start_label || '—') + ' → ' + (meta.end_label || '—') +
                 ' · Batches: <strong>' + Number((meta.batches || []).length).toLocaleString() + '</strong>';
         }
