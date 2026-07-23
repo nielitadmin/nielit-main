@@ -402,6 +402,62 @@ $active_theme = loadActiveTheme($conn);
             font-weight: 600;
             margin: 0;
         }
+
+        .nielit-reg-input {
+            min-width: 160px;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid #94a3b8 !important;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .nielit-reg-input::placeholder {
+            color: #475569 !important;
+            opacity: 1 !important;
+            font-weight: 500;
+        }
+
+        .nielit-reg-input:focus {
+            border-color: #2563eb !important;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18) !important;
+            outline: none;
+        }
+
+        .nielit-reg-input:disabled,
+        .nielit-reg-input[disabled] {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-color: #64748b !important;
+            opacity: 1 !important;
+            -webkit-text-fill-color: #0f172a;
+            cursor: not-allowed;
+        }
+
+        .nielit-reg-input:disabled::placeholder,
+        .nielit-reg-input[disabled]::placeholder {
+            color: #334155 !important;
+            opacity: 1 !important;
+        }
+
+        html[data-mode="night"] .nielit-reg-input {
+            background: #13243c !important;
+            color: #f8fafc !important;
+            border-color: #64748b !important;
+            -webkit-text-fill-color: #f8fafc;
+        }
+
+        html[data-mode="night"] .nielit-reg-input::placeholder {
+            color: #cbd5e1 !important;
+        }
+
+        html[data-mode="night"] .nielit-reg-input:disabled,
+        html[data-mode="night"] .nielit-reg-input[disabled] {
+            background: #1e293b !important;
+            color: #e2e8f0 !important;
+            border-color: #94a3b8 !important;
+            -webkit-text-fill-color: #e2e8f0;
+        }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -1380,10 +1436,9 @@ function downloadScannedOrder(batchId) {
                                             <div style="display: flex; gap: 5px; align-items: center;">
                                                 <input type="text" 
                                                        id="nielit_reg_<?php echo $student['id']; ?>"
-                                                       class="form-control form-control-sm" 
+                                                       class="form-control form-control-sm nielit-reg-input" 
                                                        value="<?php echo htmlspecialchars($student['nielit_registration_no'] ?? ''); ?>" 
                                                        placeholder="Enter Reg. No."
-                                                       style="min-width: 150px;"
                                                        <?php echo $is_locked ? 'disabled' : ''; ?>>
                                                 <?php if ($is_locked): ?>
                                                     <button type="button" class="btn btn-secondary btn-sm" disabled title="Batch is locked">
