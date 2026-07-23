@@ -98,6 +98,10 @@ function injectThemeCSS($theme) {
             --accent-color: {$accent_color};
             --bg-body: #fafaf8;
             --bg-card: #ffffff;
+            --sidebar-top: #0c2340;
+            --sidebar-mid: #123a66;
+            --sidebar-bottom: #1a56db;
+            --bg-sidebar: linear-gradient(180deg, #0c2340 0%, #123a66 55%, #0f3d7a 100%);
             --text-primary: #1e293b;
             --text-secondary: #64748b;
             --text-muted: #94a3b8;
@@ -113,11 +117,15 @@ function injectThemeCSS($theme) {
         }
 
         html[data-mode="night"] {
-            --primary-color: #050e1a;
-            --secondary-color: #0f1b2d;
+            --primary-color: #0c2340;
+            --secondary-color: #1a56db;
             --accent-color: #f59e0b;
             --bg-body: #050b16;
             --bg-card: #0f1b2d;
+            --sidebar-top: #0c2340;
+            --sidebar-mid: #143a68;
+            --sidebar-bottom: #1a56db;
+            --bg-sidebar: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%);
             --text-primary: #e5eefb;
             --text-secondary: #a7b8d0;
             --text-muted: #7f93ad;
@@ -179,11 +187,32 @@ function injectThemeCSS($theme) {
         html[data-mode="night"] .modal-header,
         html[data-mode="night"] .navbar,
         html[data-mode="night"] .student-navbar,
-        html[data-mode="night"] .admin-sidebar,
         html[data-mode="night"] .page-header,
         html[data-mode="night"] .top-bar,
         html[data-mode="night"] .header {
-            background: linear-gradient(135deg, #050e1a 0%, #0f1b2d 100%) !important;
+            background: linear-gradient(135deg, #0c2340 0%, #143a68 100%) !important;
+            color: #ffffff !important;
+        }
+
+        /* Keep admin sidebar branded navy — never pure black */
+        html[data-mode="night"] .admin-sidebar {
+            background: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%) !important;
+            background-color: #0c2340 !important;
+            color: #ffffff !important;
+        }
+
+        html[data-mode="night"] .admin-sidebar .nav-link,
+        html[data-mode="night"] .admin-sidebar .sidebar-logo h5,
+        html[data-mode="night"] .admin-sidebar .sidebar-logo small,
+        html[data-mode="night"] .admin-sidebar .sidebar-clock,
+        html[data-mode="night"] .admin-sidebar .sidebar-clock-time,
+        html[data-mode="night"] .admin-sidebar .sidebar-clock-date {
+            color: #ffffff !important;
+        }
+
+        html[data-mode="night"] .admin-sidebar .nav-link:hover,
+        html[data-mode="night"] .admin-sidebar .nav-link.active {
+            background: rgba(255, 255, 255, 0.12) !important;
             color: #ffffff !important;
         }
 
