@@ -179,11 +179,15 @@ if (isset($_POST['google_credential'])) {
 }
 
 if (isset($_POST['login'])) {
-    $username = $_POST['username'] ?? '';
+    $loginId = trim((string) ($_POST['username'] ?? ''));
     $password = $_POST['password'] ?? '';
 
-    $stmt = $conn->prepare("SELECT * FROM admin WHERE LOWER(username) = LOWER(?) LIMIT 1");
-    $stmt->bind_param("s", $username);
+    $stmt = $conn->prepare(
+        "SELECT * FROM admin
+         WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)
+         LIMIT 1"
+    );
+    $stmt->bind_param("ss", $loginId, $loginId);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -196,11 +200,12 @@ if (isset($_POST['login'])) {
                 startAdminLoginOtpFlow($admin);
             }
         } else {
-            $error_message = "Invalid username or password.";
+            $error_message = "Invalid username/email or password.";
         }
     } else {
-        $error_message = "Invalid username or password.";
+        $error_message = "Invalid username/email or password.";
     }
+    $stmt->close();
 }
 
 if (isset($_POST['verify_otp'])) {
@@ -438,7 +443,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                             <div id="googleSignInContainer" class="google-signin-overlay" aria-label="Continue with Google"></div>
                         </div>
                     </form>
-                    <div class="divider">or sign in with username</div>
+                    <div class="divider">or sign in with username / email</div>
                     <?php else: ?>
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle"></i>
@@ -449,10 +454,10 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                     <form method="POST" action="login.php">
                         <div class="form-group">
                             <label for="username" class="form-label">
-                                <i class="fas fa-user"></i> Username
+                                <i class="fas fa-user"></i> Username or Email
                             </label>
                             <input type="text" class="form-control" id="username" name="username"
-                                   placeholder="Enter your username" required autofocus>
+                                   placeholder="Enter username or email" required autofocus>
                         </div>
 
                         <div class="form-group">
