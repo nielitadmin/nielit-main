@@ -1295,9 +1295,18 @@ Q4 (Jan–Mar)
         <div>
             <strong>Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
-            <i class="fas fa-bullseye me-1"></i> Set Targets
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-success"
+               href="<?php echo htmlspecialchars(APP_URL . '/admin/export_category_quarterly_excel.php?' . http_build_query([
+                   'year' => $selectedYear,
+                   'centre_id' => $centreId,
+               ])); ?>">
+                <i class="fas fa-file-excel me-1"></i> Download Excel
+            </a>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
+                <i class="fas fa-bullseye me-1"></i> Set Targets
+            </button>
+        </div>
     </div>
     <?php if ($categoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
