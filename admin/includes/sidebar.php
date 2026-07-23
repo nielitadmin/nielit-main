@@ -19,83 +19,21 @@ $is_placement_coordinator = ($_SESSION['admin_role'] === 'placement_coordinator'
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
-<style id="admin-sidebar-critical">
-/* Critical sidebar styles — always apply (even if CSS cache is stale) */
-.admin-sidebar {
-    background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
-    background-color: #1a56db !important;
-    color: #ffffff !important;
-}
-.admin-sidebar .sidebar-logo h5,
-.admin-sidebar .sidebar-logo small,
-.admin-sidebar .nav-link,
-.admin-sidebar .nav-section-title {
-    color: #ffffff !important;
-}
-.admin-sidebar .nav-link {
-    color: rgba(255, 255, 255, 0.92) !important;
-}
-.admin-sidebar .nav-link:hover,
-.admin-sidebar .nav-link.active {
-    background: rgba(255, 255, 255, 0.16) !important;
-    color: #ffffff !important;
-}
-.admin-sidebar .sidebar-clock {
-    display: block !important;
-    margin: 0 12px 14px !important;
-    padding: 12px 10px !important;
-    border-radius: 12px !important;
-    background: rgba(255, 255, 255, 0.18) !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
-    text-align: center !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
-}
-.admin-sidebar .sidebar-clock-time {
-    display: block !important;
-    font-size: 1.2rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.03em !important;
-    color: #ffffff !important;
-    font-variant-numeric: tabular-nums !important;
-    line-height: 1.25 !important;
-}
-.admin-sidebar .sidebar-clock-date {
-    display: block !important;
-    margin-top: 3px !important;
-    font-size: 0.78rem !important;
-    color: #ffffff !important;
-    opacity: 0.95 !important;
-}
-.admin-sidebar .sidebar-clock-label {
-    display: block !important;
-    margin-top: 5px !important;
-    font-size: 0.68rem !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.08em !important;
-    color: #fbbf24 !important;
-}
-html[data-mode="night"] .admin-sidebar {
-    background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
-    background-color: #1a56db !important;
-}
-</style>
-
 <button type="button" class="sidebar-toggle-btn" aria-label="Toggle navigation" onclick="toggleAdminSidebar()">
     <i class="fas fa-bars"></i>
 </button>
 
 <aside class="admin-sidebar" id="adminSidebar">
-    <div class="sidebar-clock" id="sidebarClock" aria-live="polite" title="India Standard Time (Asia/Kolkata)">
-        <span class="sidebar-clock-time" id="sidebarClockTime">--:--:--</span>
-        <span class="sidebar-clock-date" id="sidebarClockDate">Loading…</span>
-        <span class="sidebar-clock-label">IST · Asia/Kolkata</span>
-    </div>
-
     <div class="sidebar-logo">
         <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
         <h5>NIELIT Admin</h5>
         <small>Bhubaneswar</small>
+    </div>
+
+    <div class="sidebar-clock" id="sidebarClock" aria-live="polite" title="India Standard Time (Asia/Kolkata)">
+        <span class="sidebar-clock-time" id="sidebarClockTime">--:--:--</span>
+        <span class="sidebar-clock-date" id="sidebarClockDate">Loading…</span>
+        <span class="sidebar-clock-label">IST · Asia/Kolkata</span>
     </div>
     
     <nav class="sidebar-nav">
