@@ -157,8 +157,18 @@ if (isset($_POST['google_credential'])) {
                 $admin = $result->fetch_assoc();
                 if (isset($admin['is_active']) && !$admin['is_active']) {
                     $error_message = 'Your admin account is inactive. Please contact support.';
+                } elseif (init_admin_session($admin['username'])) {
+                    // Google already verified the email identity — skip OTP and log in.
+                    unset(
+                        $_SESSION['login_otp'],
+                        $_SESSION['otp_generated_time'],
+                        $_SESSION['temp_admin_username'],
+                        $_SESSION['temp_admin_email']
+                    );
+                    header('Location: ' . get_admin_post_login_url());
+                    exit();
                 } else {
-                    startAdminLoginOtpFlow($admin);
+                    $error_message = 'Failed to initialize session. Please contact support.';
                 }
             } else {
                 $error_message = 'No admin account is linked to this Google email.';
