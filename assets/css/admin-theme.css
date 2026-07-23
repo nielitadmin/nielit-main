@@ -2278,3 +2278,31 @@ html[data-mode="night"] .toggle-switch-label input[type="checkbox"]:checked + .s
         scroll-behavior: auto !important;
     }
 }
+
+/* ============================================
+   SIDEBAR THEME PRESETS (site-wide)
+   ============================================ */
+body.sidebar-style-icon .admin-content {
+    margin-left: 72px;
+}
+
+@media (max-width: 768px) {
+    body.sidebar-style-icon .admin-content {
+        margin-left: 0;
+    }
+}
+
+body.sidebar-style-dark .admin-sidebar {
+    background: #1e293b;
+}
+
+body.sidebar-style-light .admin-sidebar {
+    background: #ffffff;
+    border-right: 1px solid var(--border-color, #e2e8f0);
+}
+
+body.sidebar-style-soft-navy .admin-sidebar {
+    background: var(--bg-sidebar);
+    background-color: #0c2340;
+}
+

@@ -5,6 +5,7 @@
 // Include config for APP_URL and other constants
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/url_helper.php';
+require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
 
 // Ensure session is started and role is set
 if (!isset($_SESSION['admin_role'])) {
@@ -17,30 +18,160 @@ $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
 $is_placement_coordinator = ($_SESSION['admin_role'] === 'placement_coordinator');
 $current_page = basename($_SERVER['PHP_SELF']);
+
+global $conn;
+$sidebarStyleKey = getActiveSidebarTheme($conn instanceof mysqli ? $conn : null);
+$sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
 ?>
 
+<script>
+(function () {
+    var cls = <?php echo json_encode($sidebarStyleClass); ?>;
+    if (!cls) return;
+    document.documentElement.classList.add(cls);
+    if (document.body) {
+        document.body.classList.add(cls);
+    } else {
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.classList.add(cls);
+        });
+    }
+})();
+</script>
+
 <style id="admin-sidebar-critical">
-/* Middle style: soft navy sidebar + clear IST clock (logo first) */
-.admin-sidebar {
+/* Soft Navy (default) */
+body.sidebar-style-soft-navy .admin-sidebar,
+html.sidebar-style-soft-navy .admin-sidebar {
     background: linear-gradient(180deg, #0c2340 0%, #123a66 55%, #0f3d7a 100%) !important;
     background-color: #0c2340 !important;
     color: #ffffff !important;
 }
-.admin-sidebar .sidebar-logo h5,
-.admin-sidebar .sidebar-logo small,
-.admin-sidebar .nav-link,
-.admin-sidebar .nav-section-title {
+/* Dark */
+body.sidebar-style-dark .admin-sidebar,
+html.sidebar-style-dark .admin-sidebar {
+    background: #1e293b !important;
+    background-color: #1e293b !important;
     color: #ffffff !important;
 }
-.admin-sidebar .nav-link {
+/* Light */
+body.sidebar-style-light .admin-sidebar,
+html.sidebar-style-light .admin-sidebar {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+body.sidebar-style-light .admin-sidebar .sidebar-logo h5,
+body.sidebar-style-light .admin-sidebar .sidebar-logo small,
+body.sidebar-style-light .admin-sidebar .nav-section-title,
+html.sidebar-style-light .admin-sidebar .sidebar-logo h5,
+html.sidebar-style-light .admin-sidebar .sidebar-logo small,
+html.sidebar-style-light .admin-sidebar .nav-section-title {
+    color: #0f172a !important;
+}
+body.sidebar-style-light .admin-sidebar .nav-link,
+html.sidebar-style-light .admin-sidebar .nav-link {
+    color: #334155 !important;
+}
+body.sidebar-style-light .admin-sidebar .nav-link:hover,
+body.sidebar-style-light .admin-sidebar .nav-link.active,
+html.sidebar-style-light .admin-sidebar .nav-link:hover,
+html.sidebar-style-light .admin-sidebar .nav-link.active {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+}
+body.sidebar-style-light .admin-sidebar .sidebar-clock,
+html.sidebar-style-light .admin-sidebar .sidebar-clock {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+}
+body.sidebar-style-light .admin-sidebar .sidebar-clock-time,
+body.sidebar-style-light .admin-sidebar .sidebar-clock-date,
+html.sidebar-style-light .admin-sidebar .sidebar-clock-time,
+html.sidebar-style-light .admin-sidebar .sidebar-clock-date {
+    color: #0f172a !important;
+}
+/* Icon rail */
+body.sidebar-style-icon .admin-sidebar,
+html.sidebar-style-icon .admin-sidebar {
+    width: 72px !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-right: 1px solid #e2e8f0 !important;
+}
+body.sidebar-style-icon .admin-content,
+html.sidebar-style-icon .admin-content {
+    margin-left: 72px !important;
+}
+body.sidebar-style-icon .admin-sidebar .sidebar-logo h5,
+body.sidebar-style-icon .admin-sidebar .sidebar-logo small,
+body.sidebar-style-icon .admin-sidebar .sidebar-clock,
+body.sidebar-style-icon .admin-sidebar .nav-section-title,
+body.sidebar-style-icon .admin-sidebar .nav-divider,
+html.sidebar-style-icon .admin-sidebar .sidebar-logo h5,
+html.sidebar-style-icon .admin-sidebar .sidebar-logo small,
+html.sidebar-style-icon .admin-sidebar .sidebar-clock,
+html.sidebar-style-icon .admin-sidebar .nav-section-title,
+html.sidebar-style-icon .admin-sidebar .nav-divider {
+    display: none !important;
+}
+body.sidebar-style-icon .admin-sidebar .sidebar-logo {
+    padding: 16px 8px 8px !important;
+}
+body.sidebar-style-icon .admin-sidebar .sidebar-logo img {
+    width: 40px !important;
+    height: 40px !important;
+    margin: 0 auto !important;
+}
+body.sidebar-style-icon .admin-sidebar .nav-link,
+html.sidebar-style-icon .admin-sidebar .nav-link {
+    font-size: 0 !important;
+    justify-content: center !important;
+    padding: 12px !important;
+    color: #334155 !important;
+}
+body.sidebar-style-icon .admin-sidebar .nav-link i,
+html.sidebar-style-icon .admin-sidebar .nav-link i {
+    font-size: 18px !important;
+    margin: 0 !important;
+    color: inherit !important;
+}
+body.sidebar-style-icon .admin-sidebar .nav-link:hover,
+body.sidebar-style-icon .admin-sidebar .nav-link.active,
+html.sidebar-style-icon .admin-sidebar .nav-link:hover,
+html.sidebar-style-icon .admin-sidebar .nav-link.active {
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+}
+body.sidebar-style-icon .admin-sidebar .nav-item {
+    margin: 4px 8px !important;
+}
+/* Dark / Soft Navy text defaults */
+body.sidebar-style-soft-navy .admin-sidebar .sidebar-logo h5,
+body.sidebar-style-soft-navy .admin-sidebar .sidebar-logo small,
+body.sidebar-style-soft-navy .admin-sidebar .nav-link,
+body.sidebar-style-soft-navy .admin-sidebar .nav-section-title,
+body.sidebar-style-dark .admin-sidebar .sidebar-logo h5,
+body.sidebar-style-dark .admin-sidebar .sidebar-logo small,
+body.sidebar-style-dark .admin-sidebar .nav-link,
+body.sidebar-style-dark .admin-sidebar .nav-section-title {
+    color: #ffffff !important;
+}
+body.sidebar-style-soft-navy .admin-sidebar .nav-link,
+body.sidebar-style-dark .admin-sidebar .nav-link {
     color: rgba(255, 255, 255, 0.88) !important;
 }
-.admin-sidebar .nav-link:hover,
-.admin-sidebar .nav-link.active {
+body.sidebar-style-soft-navy .admin-sidebar .nav-link:hover,
+body.sidebar-style-soft-navy .admin-sidebar .nav-link.active,
+body.sidebar-style-dark .admin-sidebar .nav-link:hover,
+body.sidebar-style-dark .admin-sidebar .nav-link.active {
     background: rgba(255, 255, 255, 0.12) !important;
     color: #ffffff !important;
 }
-.admin-sidebar .sidebar-clock {
+body.sidebar-style-soft-navy .admin-sidebar .sidebar-clock,
+body.sidebar-style-dark .admin-sidebar .sidebar-clock {
     display: block !important;
     margin: 0 14px 16px !important;
     padding: 10px 12px !important;
@@ -49,33 +180,14 @@ $current_page = basename($_SERVER['PHP_SELF']);
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     text-align: center !important;
 }
-.admin-sidebar .sidebar-clock-time {
-    display: block !important;
-    font-size: 1.15rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.04em !important;
+body.sidebar-style-soft-navy .admin-sidebar .sidebar-clock-time,
+body.sidebar-style-dark .admin-sidebar .sidebar-clock-time {
     color: #ffffff !important;
-    font-variant-numeric: tabular-nums !important;
-    line-height: 1.2 !important;
 }
-.admin-sidebar .sidebar-clock-date {
-    display: block !important;
-    margin-top: 2px !important;
-    font-size: 0.72rem !important;
-    color: rgba(255, 255, 255, 0.9) !important;
-}
-.admin-sidebar .sidebar-clock-label {
-    display: block !important;
-    margin-top: 4px !important;
-    font-size: 0.65rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.08em !important;
+body.sidebar-style-soft-navy .admin-sidebar .sidebar-clock-label,
+body.sidebar-style-dark .admin-sidebar .sidebar-clock-label,
+body.sidebar-style-light .admin-sidebar .sidebar-clock-label {
     color: #f59e0b !important;
-}
-html[data-mode="night"] .admin-sidebar {
-    background: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%) !important;
-    background-color: #0c2340 !important;
 }
 </style>
 
@@ -83,7 +195,7 @@ html[data-mode="night"] .admin-sidebar {
     <i class="fas fa-bars"></i>
 </button>
 
-<aside class="admin-sidebar" id="adminSidebar">
+<aside class="admin-sidebar <?php echo htmlspecialchars($sidebarStyleClass); ?>" id="adminSidebar">
     <div class="sidebar-logo">
         <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
         <h5>NIELIT Admin</h5>
@@ -180,8 +292,13 @@ html[data-mode="night"] .admin-sidebar {
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('admin/manage_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>" title="Themes">
                 <i class="fas fa-palette"></i> Themes
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_sidebar_themes.php') ? 'active' : ''; ?>" title="Sidebar Themes">
+                <i class="fas fa-columns"></i> Sidebar Themes
             </a>
         </div>
         <div class="nav-item">
@@ -354,6 +471,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     document.querySelectorAll('.admin-sidebar .nav-link').forEach(function (link) {
+        if (!link.getAttribute('title')) {
+            link.setAttribute('title', (link.textContent || '').trim());
+        }
         link.addEventListener('click', function () {
             if (window.innerWidth <= 768) {
                 closeAdminSidebar();

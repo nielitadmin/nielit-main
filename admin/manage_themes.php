@@ -674,6 +674,9 @@ $result = getAllThemes($conn);
                 <small>Customize application appearance with colors and logos</small>
             </div>
             <div class="topbar-right">
+                <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="btn btn-secondary btn-sm" style="margin-right:12px;">
+                    <i class="fas fa-columns"></i> Sidebar Themes
+                </a>
                 <div class="user-info">
                     <div class="user-details">
                         <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
