@@ -591,6 +591,10 @@ function updateNielitRegNo(studentId, batchId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            const input = document.getElementById('nielit_reg_' + studentId);
+            if (input && typeof data.nielit_reg_no === 'string') {
+                input.value = data.nielit_reg_no;
+            }
             // Show success feedback
             btn.innerHTML = '<i class="fas fa-check"></i>';
             btn.classList.remove('btn-success');

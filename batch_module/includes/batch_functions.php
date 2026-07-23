@@ -412,8 +412,21 @@ function getBatchStudents($batch_id, $conn) {
     $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
     $has_nielit_column = ($check_column && $check_column->num_rows > 0);
 
+    $check_student_nielit = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
+    $has_student_nielit = ($check_student_nielit && $check_student_nielit->num_rows > 0);
+
     if ($has_batch_students_table) {
-        $nielitSelect = $has_nielit_column ? 'bs.nielit_registration_no' : 'NULL as nielit_registration_no';
+        // Prefer batch_students value, fall back to students value.
+        // Must be selected AFTER s.* so it overwrites the duplicate column name.
+        if ($has_nielit_column && $has_student_nielit) {
+            $nielitSelect = "COALESCE(NULLIF(TRIM(bs.nielit_registration_no), ''), NULLIF(TRIM(s.nielit_registration_no), '')) AS nielit_registration_no";
+        } elseif ($has_nielit_column) {
+            $nielitSelect = "NULLIF(TRIM(bs.nielit_registration_no), '') AS nielit_registration_no";
+        } elseif ($has_student_nielit) {
+            $nielitSelect = "NULLIF(TRIM(s.nielit_registration_no), '') AS nielit_registration_no";
+        } else {
+            $nielitSelect = "NULL AS nielit_registration_no";
+        }
         $certSelect = '';
         if (file_exists(__DIR__ . '/batch_certificate_helper.php')) {
             require_once __DIR__ . '/batch_certificate_helper.php';
