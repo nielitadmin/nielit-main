@@ -1221,6 +1221,46 @@ if ($other_gender_count > 0) {
             padding: 0 0.25rem;
             user-select: none;
         }
+
+        .student-photo-cell {
+            width: 52px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .student-photo-thumb {
+            width: 40px;
+            height: 48px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--border-color, #e2e8f0);
+            background: var(--bg-secondary, #f1f5f9);
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .student-photo-placeholder {
+            width: 40px;
+            height: 48px;
+            border-radius: 6px;
+            border: 1px dashed var(--border-color, #cbd5e1);
+            background: var(--bg-secondary, #f8fafc);
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            vertical-align: middle;
+        }
+
+        a.student-photo-link {
+            display: inline-block;
+            line-height: 0;
+        }
+
+        a.student-photo-link:hover .student-photo-thumb {
+            box-shadow: 0 0 0 2px var(--primary-color, #0ea5e9);
+        }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -1638,6 +1678,7 @@ if ($other_gender_count > 0) {
                             <tr>
                                 <th style="width:40px;"><input type="checkbox" id="select-all" title="Select All"></th>
                                 <th>Sl. No.</th>
+                                <th class="student-photo-cell">Photo</th>
                                 <th>Student ID</th>
                                 <th>Name</th>
                                 <th>Email</th>
@@ -1817,6 +1858,33 @@ if ($other_gender_count > 0) {
                                 <?php endif; ?>
                             </td>
                             <td><?php echo $sl_no++; ?></td>
+                            <td class="student-photo-cell">
+                                <?php
+                                $photo_rel = trim((string)($row['passport_photo'] ?? ''));
+                                $photo_rel = ltrim(str_replace('\\', '/', $photo_rel), '/');
+                                $photo_fs = $photo_rel !== '' ? (__DIR__ . '/../' . $photo_rel) : '';
+                                $photo_ok = $photo_fs !== '' && is_file($photo_fs);
+                                if ($photo_ok):
+                                    $photo_url = APP_URL . '/' . $photo_rel;
+                                ?>
+                                    <a class="student-photo-link"
+                                       href="<?php echo htmlspecialchars($photo_url); ?>"
+                                       target="_blank"
+                                       rel="noopener"
+                                       title="View photo — <?php echo htmlspecialchars($row['name']); ?>">
+                                        <img class="student-photo-thumb"
+                                             src="<?php echo htmlspecialchars($photo_url); ?>"
+                                             alt="<?php echo htmlspecialchars($row['name']); ?>"
+                                             loading="lazy"
+                                             width="40"
+                                             height="48">
+                                    </a>
+                                <?php else: ?>
+                                    <span class="student-photo-placeholder" title="No photo uploaded">
+                                        <i class="fas fa-user"></i>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
                             <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
                             <td><?php echo htmlspecialchars($row['name']); ?></td>
                             <td><?php echo htmlspecialchars($row['email']); ?></td>
@@ -1999,7 +2067,7 @@ if ($other_gender_count > 0) {
                         else:
                         ?>
                         <tr>
-                            <td colspan="13" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+                            <td colspan="14" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
                                 <strong>No students found for the selected filters.</strong>
                             </td>
                         </tr>
