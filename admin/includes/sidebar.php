@@ -20,10 +20,10 @@ $current_page = basename($_SERVER['PHP_SELF']);
 ?>
 
 <style id="admin-sidebar-critical">
-/* Critical sidebar styles — always apply (even if CSS cache is stale) */
+/* Middle style: soft navy sidebar + clear IST clock (logo first) */
 .admin-sidebar {
-    background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
-    background-color: #1a56db !important;
+    background: linear-gradient(180deg, #0c2340 0%, #123a66 55%, #0f3d7a 100%) !important;
+    background-color: #0c2340 !important;
     color: #ffffff !important;
 }
 .admin-sidebar .sidebar-logo h5,
@@ -33,51 +33,49 @@ $current_page = basename($_SERVER['PHP_SELF']);
     color: #ffffff !important;
 }
 .admin-sidebar .nav-link {
-    color: rgba(255, 255, 255, 0.92) !important;
+    color: rgba(255, 255, 255, 0.88) !important;
 }
 .admin-sidebar .nav-link:hover,
 .admin-sidebar .nav-link.active {
-    background: rgba(255, 255, 255, 0.16) !important;
+    background: rgba(255, 255, 255, 0.12) !important;
     color: #ffffff !important;
 }
 .admin-sidebar .sidebar-clock {
     display: block !important;
-    margin: 0 12px 14px !important;
-    padding: 12px 10px !important;
-    border-radius: 12px !important;
-    background: rgba(255, 255, 255, 0.18) !important;
-    border: 1px solid rgba(255, 255, 255, 0.35) !important;
+    margin: 0 14px 16px !important;
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
     text-align: center !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15) !important;
 }
 .admin-sidebar .sidebar-clock-time {
     display: block !important;
-    font-size: 1.2rem !important;
+    font-size: 1.15rem !important;
     font-weight: 700 !important;
-    letter-spacing: 0.03em !important;
+    letter-spacing: 0.04em !important;
     color: #ffffff !important;
     font-variant-numeric: tabular-nums !important;
-    line-height: 1.25 !important;
+    line-height: 1.2 !important;
 }
 .admin-sidebar .sidebar-clock-date {
     display: block !important;
-    margin-top: 3px !important;
-    font-size: 0.78rem !important;
-    color: #ffffff !important;
-    opacity: 0.95 !important;
+    margin-top: 2px !important;
+    font-size: 0.72rem !important;
+    color: rgba(255, 255, 255, 0.9) !important;
 }
 .admin-sidebar .sidebar-clock-label {
     display: block !important;
-    margin-top: 5px !important;
-    font-size: 0.68rem !important;
-    font-weight: 700 !important;
+    margin-top: 4px !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
-    color: #fbbf24 !important;
+    color: #f59e0b !important;
 }
 html[data-mode="night"] .admin-sidebar {
-    background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
-    background-color: #1a56db !important;
+    background: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%) !important;
+    background-color: #0c2340 !important;
 }
 </style>
 
@@ -86,16 +84,16 @@ html[data-mode="night"] .admin-sidebar {
 </button>
 
 <aside class="admin-sidebar" id="adminSidebar">
-    <div class="sidebar-clock" id="sidebarClock" aria-live="polite" title="India Standard Time (Asia/Kolkata)">
-        <span class="sidebar-clock-time" id="sidebarClockTime">--:--:--</span>
-        <span class="sidebar-clock-date" id="sidebarClockDate">Loading…</span>
-        <span class="sidebar-clock-label">IST · Asia/Kolkata</span>
-    </div>
-
     <div class="sidebar-logo">
         <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
         <h5>NIELIT Admin</h5>
         <small>Bhubaneswar</small>
+    </div>
+
+    <div class="sidebar-clock" id="sidebarClock" aria-live="polite" title="India Standard Time (Asia/Kolkata)">
+        <span class="sidebar-clock-time" id="sidebarClockTime">--:--:--</span>
+        <span class="sidebar-clock-date" id="sidebarClockDate">Loading…</span>
+        <span class="sidebar-clock-label">IST · Asia/Kolkata</span>
     </div>
     
     <nav class="sidebar-nav">

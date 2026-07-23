@@ -131,11 +131,11 @@ body::before {
     z-index: 1;
 }
 
-/* Sidebar — branded blue (never pure black; stable day + night) */
+/* Sidebar — soft navy (middle style you liked; never pure black) */
 .admin-sidebar {
     width: 260px;
-    background: linear-gradient(180deg, #1a56db 0%, #123a8c 45%, #0c2340 100%) !important;
-    background-color: #1a56db !important;
+    background: var(--bg-sidebar);
+    background-color: #0c2340;
     position: fixed;
     top: 0;
     left: 0;
@@ -1021,41 +1021,40 @@ html[data-mode="night"] .card-header {
 
 .sidebar-clock {
     margin: 0 var(--spacing-md) var(--spacing-md);
-    padding: 12px 10px;
+    padding: 10px 12px;
     border-radius: var(--radius-md);
-    background: rgba(255, 255, 255, 0.18);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.18);
     text-align: center;
     color: #ffffff;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar-clock-time {
     display: block;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
     font-variant-numeric: tabular-nums;
-    line-height: 1.25;
+    line-height: 1.2;
     color: #ffffff !important;
 }
 
 .sidebar-clock-date {
     display: block;
-    margin-top: 3px;
-    font-size: 0.78rem;
-    color: #ffffff !important;
-    opacity: 0.95;
+    margin-top: 2px;
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.85) !important;
+    letter-spacing: 0.02em;
 }
 
 .sidebar-clock-label {
     display: block;
-    margin-top: 5px;
-    font-size: 0.68rem;
-    font-weight: 700;
+    margin-top: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #fbbf24 !important;
+    color: var(--accent-gold, #f59e0b) !important;
 }
 
 .sidebar-logo img {
