@@ -15,8 +15,10 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
     exit();
 }
 
-require_once '../config/database.php';
-require_once '../includes/theme_loader.php';
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 
 // ── Flash helper ──────────────────────────────────────────────────────────────
 function setFlash($msg, $type) {
@@ -168,68 +170,163 @@ $stats = $stats_result->fetch_assoc();
     <?php injectThemeCSS($active_theme); ?>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link href="../assets/css/admin-theme.css" rel="stylesheet">
-    <link href="../assets/css/toast-notifications.css" rel="stylesheet">
+    <link href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../assets/css/admin-theme.css') ?: time(); ?>" rel="stylesheet">
+    <link href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css" rel="stylesheet">
     <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
     <style>
-        .modern-card { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); border: none; border-radius: 20px; color: white; transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .modern-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%); pointer-events: none; }
-        .modern-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
-        .stats-card { background: white; border-radius: 15px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; transition: all 0.3s ease; position: relative; overflow: hidden; }
-        .stats-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: linear-gradient(to bottom, #1a56db, #0a1628); }
-        .stats-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,0,0,0.15); }
-        .stats-number { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .stats-label { color: #6c757d; font-size: 0.9rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stats-icon { width: 60px; height: 60px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; color: white; }
-        .icon-primary { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); }
-        .icon-success { background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); }
-        .icon-info    { background: linear-gradient(135deg, #3498db 0%, #85c1e9 100%); }
-        .icon-warning { background: linear-gradient(135deg, #f39c12 0%, #f7dc6f 100%); }
-        .modern-table { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: none; }
+        :root {
+            --ca-primary: var(--primary-color, #0c2340);
+            --ca-secondary: var(--secondary-color, #123a66);
+            --ca-accent: var(--accent-color, #f59e0b);
+            --ca-gradient: linear-gradient(135deg, var(--ca-primary) 0%, var(--ca-secondary) 100%);
+        }
+        .modern-card {
+            background: var(--ca-gradient);
+            border: none;
+            border-radius: 16px;
+            color: #fff;
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .modern-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+            pointer-events: none;
+        }
+        .modern-card:hover { transform: translateY(-3px); box-shadow: 0 16px 32px rgba(15, 23, 42, 0.18); }
+        .stats-card {
+            background: var(--bg-card, #fff);
+            border-radius: 14px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 4px; height: 100%;
+            background: var(--ca-gradient);
+        }
+        .stats-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12); }
+        .stats-number {
+            font-size: 2.25rem;
+            font-weight: 700;
+            background: var(--ca-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stats-label {
+            color: var(--text-secondary, #64748b);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .stats-icon {
+            width: 56px; height: 56px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.35rem; color: #fff;
+        }
+        .icon-primary { background: var(--ca-gradient); }
+        .icon-success { background: linear-gradient(135deg, #059669 0%, #34d399 100%); }
+        .icon-info    { background: linear-gradient(135deg, var(--ca-secondary) 0%, #38bdf8 100%); }
+        .modern-table {
+            background: var(--bg-card, #fff);
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(15, 23, 42, 0.06);
+        }
         .modern-table .table { margin: 0; }
-        .modern-table .table thead th { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; border: none; padding: 1.2rem 1rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; }
-        .modern-table .table tbody td { padding: 1rem; border-color: #f8f9fa; vertical-align: middle; }
-        .modern-table .table tbody tr:hover { background-color: #f8f9fa; }
+        .modern-table .table thead th {
+            background: var(--ca-gradient);
+            color: #fff;
+            border: none;
+            padding: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-size: 0.8rem;
+        }
+        .modern-table .table tbody td {
+            padding: 0.9rem 1rem;
+            border-color: rgba(15, 23, 42, 0.06);
+            vertical-align: middle;
+            color: var(--text-primary, #1e293b);
+        }
+        .modern-table .table tbody tr:hover { background-color: rgba(15, 23, 42, 0.03); }
         .text-break { word-break: break-word; }
-        .table td { max-width: 200px; }
-        .table td:nth-child(2) { max-width: 180px; } /* Email column */
-        .table td:nth-child(3) { max-width: 220px; } /* Course name column */
-        .modern-btn { border-radius: 10px; padding: 0.6rem 1.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; transition: all 0.3s ease; border: none; cursor: pointer; }
-        .modern-btn-primary { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; }
-        .modern-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102,126,234,0.3); color: white; }
-        .modern-btn-danger { background: linear-gradient(135deg, #e74c3c 0%, #f1948a 100%); color: white; }
-        .form-control, .form-select { border-radius: 10px; border: 2px solid #e9ecef; padding: 0.75rem 1rem; transition: all 0.3s ease; }
-        .form-control:focus, .form-select:focus { border-color: #667eea; box-shadow: 0 0 0 0.2rem rgba(102,126,234,0.25); }
-        .badge-modern { padding: 0.5rem 1rem; border-radius: 20px; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        .badge-auto   { background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%); color: white; }
-        .badge-manual { background: linear-gradient(135deg, #3498db 0%, #85c1e9 100%); color: white; }
-        .page-header  { background: linear-gradient(135deg, #1a56db 0%, #0a1628 100%); color: white; padding: 2rem 0; margin-bottom: 2rem; border-radius: 0 0 30px 30px; }
-        .empty-state  { text-align: center; padding: 3rem; color: #6c757d; }
-        .empty-state i { font-size: 4rem; margin-bottom: 1rem; opacity: 0.3; }
+        .modern-btn {
+            border-radius: 10px;
+            padding: 0.55rem 1.25rem;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .modern-btn-primary {
+            background: var(--ca-gradient);
+            color: #fff;
+        }
+        .modern-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.2);
+            color: #fff;
+        }
+        .modern-btn-danger { background: linear-gradient(135deg, #dc2626 0%, #f87171 100%); color: #fff; }
+        .form-control:focus, .form-select:focus {
+            border-color: var(--ca-secondary);
+            box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--ca-secondary) 25%, transparent);
+        }
+        .badge-modern {
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .badge-auto   { background: linear-gradient(135deg, #059669 0%, #34d399 100%); color: #fff; }
+        .badge-manual { background: linear-gradient(135deg, var(--ca-secondary) 0%, #38bdf8 100%); color: #fff; }
+        #assignCoursesModal .modal-header {
+            background: var(--ca-gradient) !important;
+            color: #fff;
+            border: none;
+        }
+        #coursesContainer {
+            border-color: color-mix(in srgb, var(--ca-primary) 18%, #e2e8f0) !important;
+        }
+        .empty-state { text-align: center; padding: 3rem; color: var(--text-muted, #94a3b8); }
+        .empty-state i { font-size: 3.5rem; margin-bottom: 1rem; opacity: 0.35; color: var(--ca-secondary); }
     </style>
 </head>
-<body>
+<body class="admin-body <?php echo htmlspecialchars(sidebarThemeBodyClass(getActiveSidebarTheme($conn))); ?>">
 <div class="admin-wrapper">
-    <?php include 'includes/sidebar.php'; ?>
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <main class="admin-content">
-
-        <div class="page-header">
-            <div class="container-fluid">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h1 class="h2 mb-1"><i class="fas fa-user-tie"></i> Course Assignments</h1>
-                        <p class="mb-0 opacity-75">Manage course coordinator assignments and permissions</p>
-                    </div>
-                    <div>
-                        <button class="modern-btn modern-btn-primary" data-bs-toggle="modal" data-bs-target="#assignCoursesModal">
-                            <i class="fas fa-plus"></i> Assign Courses
-                        </button>
-                    </div>
-                </div>
+        <div class="admin-topbar">
+            <div class="topbar-left">
+                <h4><i class="fas fa-user-tie"></i> Course Assignments</h4>
+                <small>Manage course coordinator assignments and permissions</small>
+            </div>
+            <div class="topbar-right">
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignCoursesModal">
+                    <i class="fas fa-plus"></i> Assign Courses
+                </button>
             </div>
         </div>
 
+        <div class="admin-main">
         <div class="content-body">
 
             <!-- Stats -->
@@ -238,7 +335,7 @@ $stats = $stats_result->fetch_assoc();
                     <div class="stats-card">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="stats-number"><?php echo $stats['total_coordinators_with_assignments']; ?></div>
+                                <div class="stats-number"><?php echo (int) ($stats['total_coordinators_with_assignments'] ?? 0); ?></div>
                                 <div class="stats-label">Coordinators</div>
                                 <small class="text-muted">With assignments</small>
                             </div>
@@ -250,7 +347,7 @@ $stats = $stats_result->fetch_assoc();
                     <div class="stats-card">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="stats-number"><?php echo $stats['total_assignments']; ?></div>
+                                <div class="stats-number"><?php echo (int) ($stats['total_assignments'] ?? 0); ?></div>
                                 <div class="stats-label">Total Assignments</div>
                                 <small class="text-muted">Active assignments</small>
                             </div>
@@ -262,7 +359,7 @@ $stats = $stats_result->fetch_assoc();
                     <div class="stats-card">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
-                                <div class="stats-number"><?php echo $stats['total_courses_assigned']; ?></div>
+                                <div class="stats-number"><?php echo (int) ($stats['total_courses_assigned'] ?? 0); ?></div>
                                 <div class="stats-label">Courses Assigned</div>
                                 <small class="text-muted">Unique courses</small>
                             </div>
@@ -273,14 +370,12 @@ $stats = $stats_result->fetch_assoc();
             </div>
 
             <!-- Table -->
-            <div class="modern-table">
+            <div class="modern-table content-card">
                 <div class="d-flex justify-content-between align-items-center p-3 border-bottom">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0"><i class="fas fa-list"></i> Current Course Assignments</h5>
-                        <button class="btn btn-outline-primary btn-sm" onclick="refreshAssignments()">
-                            <i class="fas fa-sync-alt"></i> Refresh
-                        </button>
-                    </div>
+                    <h5 class="mb-0"><i class="fas fa-list"></i> Current Course Assignments</h5>
+                    <button class="btn btn-outline-primary btn-sm" onclick="refreshAssignments()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
                 </div>
                 <div class="table-responsive">
                     <div id="assignments-loading" style="display: none; text-align: center; padding: 2rem;">
@@ -288,17 +383,17 @@ $stats = $stats_result->fetch_assoc();
                         <p class="mt-2">Loading assignments...</p>
                     </div>
                     <div id="assignments-table-container">
-                        <!-- Table content will be loaded here via AJAX -->
                         <div class="text-center py-4">
                             <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
                             <p class="mt-2">Loading assignments...</p>
                         </div>
                     </div>
+                </div>
             </div>
 
             <!-- Info Box -->
             <div class="modern-card mt-4">
-                <div class="card-body">
+                <div class="card-body" style="position:relative;z-index:1;">
                     <h6><i class="fas fa-lightbulb"></i> How Course Assignments Work:</h6>
                     <ul class="mb-3">
                         <li><strong>Course Coordinators</strong> can only see students enrolled in their assigned courses</li>
@@ -313,6 +408,7 @@ $stats = $stats_result->fetch_assoc();
             </div>
 
         </div>
+        </div>
     </main>
 </div>
 
@@ -320,7 +416,7 @@ $stats = $stats_result->fetch_assoc();
 <div class="modal fade" id="assignCoursesModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header">
                 <h5 class="modal-title">Assign Courses to Coordinator</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
@@ -372,8 +468,8 @@ $stats = $stats_result->fetch_assoc();
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="../assets/js/toast-notifications.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
 
 // ── Show flash toast on page load ─────────────────────────────────────────────
