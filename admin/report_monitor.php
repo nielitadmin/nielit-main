@@ -1958,25 +1958,29 @@ Q4 (Jan–Mar)
 
 <!-- BATCH DETAILS -->
 
-<div class="card table-card mb-4">
+<div class="card table-card mb-4" id="activeBatchDetailsCard">
 
-    <div class="card-header d-flex justify-content-between align-items-center">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-        <strong>
+        <div>
+            <strong>Active Batch Details</strong>
+            <span class="badge bg-primary ms-2">
+                <?php echo number_format(count($batchDetails)); ?> Batches
+            </span>
+        </div>
 
-            Active Batch Details
-
-        </strong>
-
-        <span class="badge bg-primary">
-
-            <?php echo count($batchDetails); ?> Batches
-
-        </span>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="activeBatchDetailsToggle"
+                aria-expanded="false"
+                aria-controls="activeBatchDetailsBody">
+            <i class="fas fa-chevron-down me-1" id="activeBatchDetailsToggleIcon"></i>
+            <span id="activeBatchDetailsToggleLabel">Show Details</span>
+        </button>
 
     </div>
 
-    <div class="card-body p-0">
+    <div class="card-body p-0 d-none" id="activeBatchDetailsBody">
 
         <div class="table-responsive">
 
@@ -3766,6 +3770,46 @@ ADMISSIONS BY BATCH DROPDOWN
         document.addEventListener('DOMContentLoaded', initAdmissionsByBatchToggle);
     } else {
         initAdmissionsByBatchToggle();
+    }
+})();
+
+/*==================================================
+ACTIVE BATCH DETAILS DROPDOWN
+==================================================*/
+
+(function () {
+    function initActiveBatchDetailsToggle() {
+        const btn = document.getElementById('activeBatchDetailsToggle');
+        const body = document.getElementById('activeBatchDetailsBody');
+        const icon = document.getElementById('activeBatchDetailsToggleIcon');
+        const label = document.getElementById('activeBatchDetailsToggleLabel');
+        if (!btn || !body) {
+            return;
+        }
+
+        btn.addEventListener('click', function () {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            const next = !open;
+            btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            if (next) {
+                body.classList.remove('d-none');
+            } else {
+                body.classList.add('d-none');
+            }
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !next);
+                icon.classList.toggle('fa-chevron-up', next);
+            }
+            if (label) {
+                label.textContent = next ? 'Hide Details' : 'Show Details';
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initActiveBatchDetailsToggle);
+    } else {
+        initActiveBatchDetailsToggle();
     }
 })();
 
