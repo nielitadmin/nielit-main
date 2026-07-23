@@ -17,6 +17,12 @@ require_once __DIR__ . '/../includes/google_auth.php';
 
 require_once __DIR__ . '/../includes/phpmailer_smtp.php';
 
+// Already signed in — skip login and go to the role landing page
+if (is_session_valid()) {
+    header('Location: ' . get_admin_post_login_url());
+    exit;
+}
+
 // Ensure all custom roles exist in the enum (runs silently)
 $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
 
