@@ -194,36 +194,14 @@ function injectThemeCSS($theme) {
             color: #ffffff !important;
         }
 
-        /* Night mode: only force dark navy when Soft Navy / Dark sidebar styles are active */
+        /* Night mode: keep Soft Navy / Dark family looking correct; leave light/icon presets alone */
         html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar,
         html[data-mode="night"].sidebar-style-dark .admin-sidebar,
+        html[data-mode="night"].sidebar-style-slate .admin-sidebar,
+        html[data-mode="night"].sidebar-style-midnight .admin-sidebar,
+        html[data-mode="night"].sidebar-style-gold-navy .admin-sidebar,
         html[data-mode="night"] body.sidebar-style-soft-navy .admin-sidebar,
         html[data-mode="night"] body.sidebar-style-dark .admin-sidebar {
-            background: linear-gradient(180deg, #0c2340 0%, #143a68 55%, #0f3d7a 100%) !important;
-            background-color: #0c2340 !important;
-            color: #ffffff !important;
-        }
-
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .nav-link,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .sidebar-logo h5,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .sidebar-logo small,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .sidebar-clock,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .sidebar-clock-time,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .sidebar-clock-date,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .nav-link,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .sidebar-logo h5,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .sidebar-logo small,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .sidebar-clock,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .sidebar-clock-time,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .sidebar-clock-date {
-            color: #ffffff !important;
-        }
-
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .nav-link:hover,
-        html[data-mode="night"].sidebar-style-soft-navy .admin-sidebar .nav-link.active,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .nav-link:hover,
-        html[data-mode="night"].sidebar-style-dark .admin-sidebar .nav-link.active {
-            background: rgba(255, 255, 255, 0.12) !important;
             color: #ffffff !important;
         }
 

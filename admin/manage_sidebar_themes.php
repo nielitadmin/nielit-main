@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['activate_sidebar_styl
 }
 
 $activeStyle = getActiveSidebarTheme($conn);
+$definitions = sidebarThemeStyleDefinitions();
 $presets = sidebarThemePresets();
 $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
 ?>
@@ -89,7 +90,6 @@ $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
             justify-content: center;
         }
         .sb-mini {
-            width: 92px;
             border-radius: 10px;
             overflow: hidden;
             box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
@@ -97,22 +97,14 @@ $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
             flex-direction: column;
             padding: 10px 8px;
             gap: 6px;
-        }
-        .sb-mini.soft_navy {
             width: 120px;
-            background: linear-gradient(180deg, #0c2340 0%, #123a66 55%, #0f3d7a 100%);
         }
-        .sb-mini.dark { width: 120px; background: #1e293b; }
-        .sb-mini.light {
-            width: 120px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-        }
-        .sb-mini.icon {
+        .sb-mini.is-icon {
             width: 52px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
             align-items: center;
+        }
+        .sb-mini.is-light {
+            border: 1px solid #e2e8f0;
         }
         .sb-mini-logo {
             width: 28px;
@@ -121,28 +113,33 @@ $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
             margin: 0 auto 4px;
             background: #fff;
         }
-        .sb-mini.light .sb-mini-logo { background: #dbeafe; }
-        .sb-mini.icon .sb-mini-logo { width: 24px; height: 24px; }
+        .sb-mini.is-light .sb-mini-logo { background: #dbeafe; }
+        .sb-mini.is-icon .sb-mini-logo { width: 24px; height: 24px; }
         .sb-mini-line {
             height: 10px;
             border-radius: 6px;
             background: rgba(255,255,255,0.22);
         }
-        .sb-mini.light .sb-mini-line { background: #e2e8f0; }
-        .sb-mini.icon .sb-mini-line {
+        .sb-mini.is-light .sb-mini-line { background: rgba(15,23,42,0.12); }
+        .sb-mini.is-icon .sb-mini-line {
             width: 22px;
             height: 22px;
             border-radius: 8px;
-            background: #e2e8f0;
         }
-        .sb-mini-line.active {
-            background: rgba(255,255,255,0.38);
-        }
-        .sb-mini.light .sb-mini-line.active { background: #dbeafe; }
-        .sb-mini.icon .sb-mini-line.active { background: #bfdbfe; }
+        .sb-mini-line.active { background: rgba(255,255,255,0.4); }
+        .sb-mini.is-light .sb-mini-line.active { background: rgba(29,78,216,0.25); }
         .sb-theme-body { padding: 1rem 1.1rem 1.15rem; flex: 1; display: flex; flex-direction: column; }
         .sb-theme-body h6 { margin: 0 0 0.35rem; font-size: 1rem; color: #0f172a; }
         .sb-theme-body p { margin: 0 0 1rem; color: #64748b; font-size: 0.85rem; flex: 1; }
+        .sb-theme-meta {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
         .sb-theme-actions { display: flex; gap: 0.5rem; align-items: center; }
         .sb-badge-active {
             display: inline-flex;
@@ -183,17 +180,22 @@ $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
 
             <div class="content-card">
                 <div class="card-header">
-                    <h5 class="card-title"><i class="fas fa-sliders-h"></i> Available Sidebar Styles</h5>
+                    <h5 class="card-title"><i class="fas fa-sliders-h"></i> Available Sidebar Styles (<?php echo count($definitions); ?>)</h5>
                 </div>
                 <div class="card-body">
                     <div class="sb-themes-grid">
-                        <?php foreach ($presets as $key => $meta): ?>
-                            <?php $isActive = ($key === $activeStyle); ?>
+                        <?php foreach ($definitions as $key => $def): ?>
+                            <?php
+                            $isActive = ($key === $activeStyle);
+                            $isIcon = (($def['layout'] ?? '') === 'icon');
+                            $isLight = (($def['tone'] ?? '') === 'light');
+                            $miniClass = 'sb-mini' . ($isIcon ? ' is-icon' : '') . ($isLight ? ' is-light' : '');
+                            ?>
                             <div class="sb-theme-card <?php echo $isActive ? 'is-active' : ''; ?>">
                                 <div class="sb-theme-preview">
-                                    <div class="sb-mini <?php echo htmlspecialchars($key); ?>">
+                                    <div class="<?php echo $miniClass; ?>" style="background: <?php echo htmlspecialchars($def['bg']); ?>;">
                                         <div class="sb-mini-logo"></div>
-                                        <?php if ($key !== 'icon'): ?>
+                                        <?php if (!$isIcon): ?>
                                             <div class="sb-mini-line" style="width:70%;margin:0 auto;"></div>
                                             <div class="sb-mini-line" style="width:50%;margin:0 auto 6px;"></div>
                                         <?php endif; ?>
@@ -205,8 +207,9 @@ $bodySidebarClass = sidebarThemeBodyClass($activeStyle);
                                     </div>
                                 </div>
                                 <div class="sb-theme-body">
-                                    <h6><?php echo htmlspecialchars($meta['label']); ?></h6>
-                                    <p><?php echo htmlspecialchars($meta['description']); ?></p>
+                                    <span class="sb-theme-meta"><?php echo $isIcon ? 'Icon rail' : 'Expanded'; ?> · <?php echo $isLight ? 'Light' : 'Dark'; ?></span>
+                                    <h6><?php echo htmlspecialchars($def['label']); ?></h6>
+                                    <p><?php echo htmlspecialchars($def['description']); ?></p>
                                     <div class="sb-theme-actions">
                                         <?php if ($isActive): ?>
                                             <span class="sb-badge-active"><i class="fas fa-check-circle"></i> Active</span>
