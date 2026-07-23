@@ -2462,3 +2462,14 @@ body.sidebar-style-soft-navy .admin-sidebar {
     }
 }
 
+/* Filled metric cards (batch details and similar): always keep white numbers */
+.stat-card.stat-card-filled {
+    color: #ffffff !important;
+    border: none;
+}
+
+.stat-card.stat-card-filled .stat-value,
+.stat-card.stat-card-filled .stat-label {
+    color: #ffffff !important;
+}
+

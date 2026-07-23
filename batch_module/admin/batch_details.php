@@ -341,28 +341,42 @@ $active_theme = loadActiveTheme($conn);
         }
         .stat-card {
             background: linear-gradient(135deg, var(--primary-color, #0a1628) 0%, #112240 100%);
-            color: white;
+            color: #ffffff;
             padding: 20px;
             border-radius: 8px;
             text-align: center;
+            border: none;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
         }
         .stat-card:nth-child(2) {
             background: linear-gradient(135deg, var(--primary-color, #0c2340) 0%, var(--secondary-color, #123a66) 100%);
         }
         .stat-card:nth-child(3) {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%);
         }
         .stat-card:nth-child(4) {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+        }
+        .stat-card:nth-child(5) {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+        }
+        .stat-card .stat-value,
+        .stat-card .stat-label {
+            color: #ffffff !important;
+            position: relative;
+            z-index: 1;
         }
         .stat-value {
             font-size: 32px;
-            font-weight: bold;
+            font-weight: 800;
             margin-bottom: 8px;
+            line-height: 1.1;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
         }
         .stat-label {
             font-size: 14px;
-            opacity: 0.9;
+            font-weight: 600;
+            opacity: 0.95;
         }
         .batch-info-grid {
             display: grid;
@@ -371,19 +385,19 @@ $active_theme = loadActiveTheme($conn);
             margin-bottom: 24px;
         }
         .info-box {
-            background: #f8fafc;
+            background: var(--bg-card, #f8fafc);
             padding: 16px;
             border-radius: 8px;
-            border-left: 4px solid #3b82f6;
+            border-left: 4px solid var(--primary-color, #3b82f6);
         }
         .info-box h6 {
-            color: #64748b;
+            color: var(--text-secondary, #64748b);
             font-size: 12px;
             margin-bottom: 8px;
             text-transform: uppercase;
         }
         .info-box p {
-            color: #1e293b;
+            color: var(--text-primary, #1e293b);
             font-size: 16px;
             font-weight: 600;
             margin: 0;
@@ -952,24 +966,24 @@ function downloadScannedOrder(batchId) {
 
             <!-- Statistics -->
             <div class="stats-grid">
-                <div class="stat-card">
+                <div class="stat-card stat-card-filled">
                     <div class="stat-value"><?php echo $stats['total_students'] ?? 0; ?></div>
                     <div class="stat-label">Total Students</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card stat-card-filled">
                     <div class="stat-value"><?php echo $stats['fees_paid_count'] ?? 0; ?></div>
                     <div class="stat-label">Fees Paid</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card stat-card-filled">
                     <div class="stat-value">₹<?php echo number_format($stats['total_fees_collected'] ?? 0); ?></div>
                     <div class="stat-label">Fees Collected</div>
                 </div>
-                <div class="stat-card">
+                <div class="stat-card stat-card-filled">
                     <div class="stat-value"><?php echo number_format($stats['avg_attendance'] ?? 0, 1); ?>%</div>
                     <div class="stat-label">Avg Attendance</div>
                 </div>
                 <?php if ($can_view_placement): ?>
-                <div class="stat-card">
+                <div class="stat-card stat-card-filled">
                     <div class="stat-value"><?php echo (int) ($placement_stats['placed'] ?? 0); ?> / <?php echo (int) ($placement_stats['total'] ?? 0); ?></div>
                     <div class="stat-label">Students Placed</div>
                 </div>

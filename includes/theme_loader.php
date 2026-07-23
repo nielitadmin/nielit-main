@@ -283,6 +283,153 @@ function injectThemeCSS($theme) {
             color: var(--accent-color) !important;
         }
 
+        /* Night mode: admin surfaces & readable text across all pages */
+        html[data-mode="night"] .admin-content,
+        html[data-mode="night"] .admin-main,
+        html[data-mode="night"] .content-card,
+        html[data-mode="night"] .filter-card,
+        html[data-mode="night"] .overview-card,
+        html[data-mode="night"] .summary-card,
+        html[data-mode="night"] .metric-item,
+        html[data-mode="night"] .batch-modal-content,
+        html[data-mode="night"] .empty-chart-state {
+            background: var(--site-surface) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        html[data-mode="night"] .admin-topbar {
+            background: var(--site-surface) !important;
+            color: var(--text-primary) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        html[data-mode="night"] .admin-topbar h1,
+        html[data-mode="night"] .admin-topbar h2,
+        html[data-mode="night"] .admin-topbar h3,
+        html[data-mode="night"] .admin-topbar h4,
+        html[data-mode="night"] .admin-topbar h5,
+        html[data-mode="night"] .topbar-left h4,
+        html[data-mode="night"] .card-title,
+        html[data-mode="night"] .content-card h5,
+        html[data-mode="night"] .content-card h6,
+        html[data-mode="night"] .user-name,
+        html[data-mode="night"] .modern-table strong,
+        html[data-mode="night"] .student-contact-cell .student-name,
+        html[data-mode="night"] .student-id-cell,
+        html[data-mode="night"] .info-box p,
+        html[data-mode="night"] .overview-title,
+        html[data-mode="night"] .metric-label,
+        html[data-mode="night"] .metric-value,
+        html[data-mode="night"] .summary-value,
+        html[data-mode="night"] .chart-center-value {
+            color: var(--text-primary) !important;
+        }
+
+        html[data-mode="night"] .topbar-left small,
+        html[data-mode="night"] .user-role,
+        html[data-mode="night"] .text-muted,
+        html[data-mode="night"] .info-box h6,
+        html[data-mode="night"] .overview-kicker,
+        html[data-mode="night"] .metric-note,
+        html[data-mode="night"] .summary-label,
+        html[data-mode="night"] .chart-center-label,
+        html[data-mode="night"] .student-contact-cell .student-meta,
+        html[data-mode="night"] .students-pagination-info,
+        html[data-mode="night"] .form-label {
+            color: var(--text-secondary) !important;
+        }
+
+        html[data-mode="night"] .stat-card {
+            background: var(--site-surface) !important;
+            border-color: var(--border-color) !important;
+            color: var(--text-primary) !important;
+        }
+
+        html[data-mode="night"] .stat-card .stat-value,
+        html[data-mode="night"] .stat-value {
+            color: #f8fafc !important;
+        }
+
+        html[data-mode="night"] .stat-card .stat-label,
+        html[data-mode="night"] .stat-label {
+            color: var(--text-secondary) !important;
+        }
+
+        /* Keep filled/gradient metric cards colorful + white text */
+        html[data-mode="night"] .stat-card.stat-card-filled,
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled {
+            background-image: none;
+            border: none !important;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35) !important;
+        }
+
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled,
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled .stat-value,
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled .stat-label,
+        html[data-mode="night"] .stat-card.stat-card-filled .stat-value,
+        html[data-mode="night"] .stat-card.stat-card-filled .stat-label {
+            color: #ffffff !important;
+        }
+
+        /* Batch-style gradient cards: do not flatten their background in night mode */
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled {
+            background: linear-gradient(135deg, #0c2340 0%, #1a56db 100%) !important;
+        }
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled:nth-child(2) {
+            background: linear-gradient(135deg, #0c2340 0%, #123a66 100%) !important;
+        }
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled:nth-child(3) {
+            background: linear-gradient(135deg, #0284c7 0%, #06b6d4 100%) !important;
+        }
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled:nth-child(4) {
+            background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+        }
+        html[data-mode="night"] .stats-grid > .stat-card.stat-card-filled:nth-child(5) {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%) !important;
+        }
+
+        html[data-mode="night"] .modern-table,
+        html[data-mode="night"] .modern-table tbody td,
+        html[data-mode="night"] .modern-table thead th {
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        html[data-mode="night"] .modern-table thead th {
+            background: #13243c !important;
+        }
+
+        html[data-mode="night"] .modern-table tbody tr:hover {
+            background: rgba(245, 158, 11, 0.08) !important;
+        }
+
+        html[data-mode="night"] .card-header {
+            background: rgba(19, 36, 60, 0.9) !important;
+            color: var(--text-primary) !important;
+            border-bottom-color: var(--border-color) !important;
+        }
+
+        html[data-mode="night"] .students-pagination,
+        html[data-mode="night"] .filter-grid,
+        html[data-mode="night"] .batch-info,
+        html[data-mode="night"] .photo-preview {
+            background: var(--site-surface-alt) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        html[data-mode="night"] .form-control,
+        html[data-mode="night"] .form-select {
+            background: #13243c !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-color) !important;
+        }
+
+        html[data-mode="night"] a:not(.btn):not(.nav-link):not(.sidebar-link) {
+            color: #93c5fd;
+        }
+
         .theme-mode-toggle {
             position: fixed;
             right: 18px;
