@@ -1290,12 +1290,20 @@ Q4 (Jan–Mar)
 </div>
 <?php endif; ?>
 
-<div class="card table-card mb-4">
+<div class="card table-card mb-4" id="categoryQuarterCard">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <strong>Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
         </div>
         <div class="d-flex flex-wrap gap-2">
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="categoryDetailsToggle"
+                    aria-expanded="false"
+                    aria-controls="categoryQuarterTable">
+                <i class="fas fa-chevron-down me-1" id="categoryDetailsToggleIcon"></i>
+                <span id="categoryDetailsToggleLabel">Show Details</span>
+            </button>
             <a class="btn btn-outline-success"
                href="<?php echo htmlspecialchars(APP_URL . '/admin/export_category_quarterly_excel.php?' . http_build_query([
                    'year' => $selectedYear,
@@ -1322,7 +1330,7 @@ Q4 (Jan–Mar)
     <?php endif; ?>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
+            <table class="table table-bordered table-hover mb-0" id="categoryQuarterTable">
                 <thead class="table-light">
                 <tr>
                     <th>Category</th>
@@ -1353,9 +1361,25 @@ Q4 (Jan–Mar)
                     }
                     $categoryKey = (string) ($categoryRow['key'] ?? '');
                     $categoryCourseRows = $categoryCourseQuarterSummary[$categoryKey] ?? [];
+                    $categoryDetailCount = count($categoryCourseRows);
+                    $categorySafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $categoryKey);
                     ?>
-                    <tr class="table-light">
-                        <td class="fw-semibold"><?php echo htmlspecialchars($categoryRow['label']); ?></td>
+                    <tr class="table-light category-summary-row">
+                        <td class="fw-semibold">
+                            <?php if ($categoryDetailCount > 0): ?>
+                                <button type="button"
+                                        class="btn btn-sm btn-link p-0 me-1 category-row-toggle text-decoration-none"
+                                        data-category-group="<?php echo htmlspecialchars($categorySafeKey); ?>"
+                                        aria-expanded="false"
+                                        title="Show course list">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($categoryRow['label']); ?>
+                            <?php if ($categoryDetailCount > 0): ?>
+                                <small class="text-muted fw-normal">(<?php echo number_format($categoryDetailCount); ?> courses)</small>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
                         <td class="text-end">
@@ -1375,7 +1399,7 @@ Q4 (Jan–Mar)
                         </td>
                     </tr>
                     <?php foreach ($categoryCourseRows as $courseRow): ?>
-                    <tr>
+                    <tr class="category-detail-row d-none" data-category-group="<?php echo htmlspecialchars($categorySafeKey); ?>">
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
                             <?php echo htmlspecialchars($courseRow['course_name']); ?>
@@ -3311,6 +3335,112 @@ Chart.helpers.each(Chart.instances, function(instance){ if (typeof courseFyTimeC
 });
 
 });
+
+/*==================================================
+CATEGORY DETAIL DROPDOWN
+==================================================*/
+
+(function () {
+    function setCategoryDetailsExpanded(expanded) {
+        const detailRows = document.querySelectorAll('.category-detail-row');
+        const rowToggles = document.querySelectorAll('.category-row-toggle');
+        const masterBtn = document.getElementById('categoryDetailsToggle');
+        const masterIcon = document.getElementById('categoryDetailsToggleIcon');
+        const masterLabel = document.getElementById('categoryDetailsToggleLabel');
+
+        detailRows.forEach(function (row) {
+            if (expanded) {
+                row.classList.remove('d-none');
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        rowToggles.forEach(function (btn) {
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-right', !expanded);
+                icon.classList.toggle('fa-chevron-down', expanded);
+            }
+        });
+
+        if (masterBtn) {
+            masterBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (masterIcon) {
+            masterIcon.classList.toggle('fa-chevron-down', !expanded);
+            masterIcon.classList.toggle('fa-chevron-up', expanded);
+        }
+        if (masterLabel) {
+            masterLabel.textContent = expanded ? 'Hide Details' : 'Show Details';
+        }
+    }
+
+    function syncCategoryMasterToggle() {
+        const masterBtn = document.getElementById('categoryDetailsToggle');
+        const masterIcon = document.getElementById('categoryDetailsToggleIcon');
+        const masterLabel = document.getElementById('categoryDetailsToggleLabel');
+        if (!masterBtn) {
+            return;
+        }
+        const total = document.querySelectorAll('.category-detail-row').length;
+        const hidden = document.querySelectorAll('.category-detail-row.d-none').length;
+        const allOpen = total > 0 && hidden === 0;
+        masterBtn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+        if (masterIcon) {
+            masterIcon.classList.toggle('fa-chevron-down', !allOpen);
+            masterIcon.classList.toggle('fa-chevron-up', allOpen);
+        }
+        if (masterLabel) {
+            masterLabel.textContent = allOpen ? 'Hide Details' : 'Show Details';
+        }
+    }
+
+    function initCategoryDetailsToggle() {
+        const masterBtn = document.getElementById('categoryDetailsToggle');
+        if (!masterBtn) {
+            return;
+        }
+
+        masterBtn.addEventListener('click', function () {
+            const expanded = masterBtn.getAttribute('aria-expanded') === 'true';
+            setCategoryDetailsExpanded(!expanded);
+        });
+
+        document.querySelectorAll('.category-row-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const group = btn.getAttribute('data-category-group') || '';
+                const rows = document.querySelectorAll('.category-detail-row[data-category-group="' + group + '"]');
+                if (!rows.length) {
+                    return;
+                }
+                const open = btn.getAttribute('aria-expanded') === 'true';
+                const next = !open;
+                rows.forEach(function (row) {
+                    if (next) {
+                        row.classList.remove('d-none');
+                    } else {
+                        row.classList.add('d-none');
+                    }
+                });
+                btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-right', !next);
+                    icon.classList.toggle('fa-chevron-down', next);
+                }
+                syncCategoryMasterToggle();
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCategoryDetailsToggle);
+    } else {
+        initCategoryDetailsToggle();
+    }
+})();
 
 /*==================================================
 SOCIAL CATEGORY DETAIL DROPDOWN
