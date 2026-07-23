@@ -1120,64 +1120,6 @@ Q4 (Jan–Mar)
 
 </div>
 
-<!-- ADMISSIONS BY BATCH (for selected quarter) -->
-<div class="card table-card mb-4" id="admissionsByBatchCard">
-    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-        <div>
-            <strong>
-                Admissions by Batch (<?php echo htmlspecialchars($monthScopeLabel); ?>)
-            </strong>
-            <span class="badge bg-primary ms-2">
-                <?php echo number_format((int) array_sum(array_column($admissionsByBatch, 'admissions'))); ?> Admissions
-            </span>
-            <?php if (!empty($admissionsByBatch)): ?>
-                <span class="badge bg-secondary ms-1"><?php echo number_format(count($admissionsByBatch)); ?> batches</span>
-            <?php endif; ?>
-        </div>
-        <button type="button"
-                class="btn btn-outline-secondary"
-                id="admissionsByBatchToggle"
-                aria-expanded="false"
-                aria-controls="admissionsByBatchBody">
-            <i class="fas fa-chevron-down me-1" id="admissionsByBatchToggleIcon"></i>
-            <span id="admissionsByBatchToggleLabel">Show Details</span>
-        </button>
-    </div>
-    <div class="card-body p-0 d-none" id="admissionsByBatchBody">
-        <div class="table-responsive">
-            <table class="table table-hover table-bordered mb-0">
-                <thead class="table-light">
-                <tr>
-                    <th>Batch</th>
-                    <th>Course</th>
-                    <th>Centre</th>
-                    <th class="text-end">Admissions</th>
-                </tr>
-                </thead>
-                <tbody>
-                <?php if (empty($admissionsByBatch)): ?>
-                    <tr>
-                        <td colspan="4" class="text-center text-muted py-4">No admissions found for this period</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($admissionsByBatch as $row): ?>
-                        <tr>
-                            <td>
-                                <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
-                                <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
-                            </td>
-                            <td><?php echo htmlspecialchars($row['course_name']); ?></td>
-                            <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
-                            <td class="text-end"><?php echo number_format($row['admissions']); ?></td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
 <!-- CHARTS -->
 
 <div class="row">
@@ -1994,6 +1936,64 @@ Q4 (Jan–Mar)
 
     </div>
 
+</div>
+
+<!-- ADMISSIONS BY BATCH (for selected quarter / full year) -->
+<div class="card table-card mb-4" id="admissionsByBatchCard">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>
+                Admissions by Batch (<?php echo htmlspecialchars($monthScopeLabel); ?>)
+            </strong>
+            <span class="badge bg-primary ms-2">
+                <?php echo number_format((int) array_sum(array_column($admissionsByBatch, 'admissions'))); ?> Admissions
+            </span>
+            <?php if (!empty($admissionsByBatch)): ?>
+                <span class="badge bg-secondary ms-1"><?php echo number_format(count($admissionsByBatch)); ?> batches</span>
+            <?php endif; ?>
+        </div>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="admissionsByBatchToggle"
+                aria-expanded="false"
+                aria-controls="admissionsByBatchBody">
+            <i class="fas fa-chevron-down me-1" id="admissionsByBatchToggleIcon"></i>
+            <span id="admissionsByBatchToggleLabel">Show Details</span>
+        </button>
+    </div>
+    <div class="card-body p-0 d-none" id="admissionsByBatchBody">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Batch</th>
+                    <th>Course</th>
+                    <th>Centre</th>
+                    <th class="text-end">Admissions</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($admissionsByBatch)): ?>
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">No admissions found for this period</td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($admissionsByBatch as $row): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
+                                <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
+                            </td>
+                            <td><?php echo htmlspecialchars($row['course_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
+                            <td class="text-end"><?php echo number_format($row['admissions']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <!-- BATCH DETAILS -->
