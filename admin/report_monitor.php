@@ -1153,21 +1153,30 @@ Q4 (Jan–Mar)
 
 <!-- COURSE WISE SUMMARY TABLE -->
 
-<div class="card table-card mb-4">
+<div class="card table-card mb-4" id="courseWiseSummaryCard">
 
-    <div class="card-header">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-        <strong>
+        <div>
+            <strong>Course Wise Summary</strong>
+            <small class="text-muted ms-2">Registration counts for the selected period</small>
+            <?php if (!empty($courseStats)): ?>
+                <span class="badge bg-secondary ms-2"><?php echo number_format(count($courseStats)); ?> courses</span>
+            <?php endif; ?>
+        </div>
 
-            Course Wise Summary
-
-        </strong>
-
-        <small class="text-muted ms-2">Registration counts for the selected period</small>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="courseWiseSummaryToggle"
+                aria-expanded="false"
+                aria-controls="courseWiseSummaryBody">
+            <i class="fas fa-chevron-down me-1" id="courseWiseSummaryToggleIcon"></i>
+            <span id="courseWiseSummaryToggleLabel">Show Details</span>
+        </button>
 
     </div>
 
-    <div class="card-body p-0">
+    <div class="card-body p-0 d-none" id="courseWiseSummaryBody">
 
         <div class="table-responsive">
 
@@ -3335,6 +3344,46 @@ Chart.helpers.each(Chart.instances, function(instance){ if (typeof courseFyTimeC
 });
 
 });
+
+/*==================================================
+COURSE WISE SUMMARY DROPDOWN
+==================================================*/
+
+(function () {
+    function initCourseWiseSummaryToggle() {
+        const btn = document.getElementById('courseWiseSummaryToggle');
+        const body = document.getElementById('courseWiseSummaryBody');
+        const icon = document.getElementById('courseWiseSummaryToggleIcon');
+        const label = document.getElementById('courseWiseSummaryToggleLabel');
+        if (!btn || !body) {
+            return;
+        }
+
+        btn.addEventListener('click', function () {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            const next = !open;
+            btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            if (next) {
+                body.classList.remove('d-none');
+            } else {
+                body.classList.add('d-none');
+            }
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !next);
+                icon.classList.toggle('fa-chevron-up', next);
+            }
+            if (label) {
+                label.textContent = next ? 'Hide Details' : 'Show Details';
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCourseWiseSummaryToggle);
+    } else {
+        initCourseWiseSummaryToggle();
+    }
+})();
 
 /*==================================================
 CATEGORY DETAIL DROPDOWN
