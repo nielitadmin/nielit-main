@@ -29,12 +29,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <h5>NIELIT Admin</h5>
         <small>Bhubaneswar</small>
     </div>
-
-    <div class="sidebar-clock" id="sidebarClock" aria-live="polite" title="India Standard Time (Asia/Kolkata)">
-        <span class="sidebar-clock-time" id="sidebarClockTime">--:--:--</span>
-        <span class="sidebar-clock-date" id="sidebarClockDate">Loading…</span>
-        <span class="sidebar-clock-label">IST · Asia/Kolkata</span>
-    </div>
     
     <nav class="sidebar-nav">
         <!-- Core Features (All Roles) -->
@@ -254,39 +248,6 @@ function toggleAdminSidebar() {
 function closeAdminSidebar() {
     document.body.classList.remove('sidebar-open');
 }
-
-(function initSidebarClock() {
-    var timeEl = document.getElementById('sidebarClockTime');
-    var dateEl = document.getElementById('sidebarClockDate');
-    if (!timeEl || !dateEl) {
-        return;
-    }
-
-    var tz = 'Asia/Kolkata';
-    var timeFmt = new Intl.DateTimeFormat('en-IN', {
-        timeZone: tz,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-    });
-    var dateFmt = new Intl.DateTimeFormat('en-IN', {
-        timeZone: tz,
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
-
-    function tick() {
-        var now = new Date();
-        timeEl.textContent = timeFmt.format(now);
-        dateEl.textContent = dateFmt.format(now);
-    }
-
-    tick();
-    setInterval(tick, 1000);
-})();
 
 document.addEventListener('DOMContentLoaded', function () {
     if (window.innerWidth <= 480) {
