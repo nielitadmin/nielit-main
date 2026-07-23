@@ -181,16 +181,16 @@ $active_theme = loadActiveTheme($conn);
                     <table class="modern-table">
                         <thead>
                             <tr>
-                                <th>Sl. No.</th>
-                                <th>Scheme Code</th>
-                                <th>Scheme Name</th>
-                                <th>Sponsor Agency</th>
+                                <th>#</th>
+                                <th>Code</th>
+                                <th>Scheme / Project</th>
+                                <th>Sponsor</th>
                                 <th>Duration</th>
-                                <th>Physical Target</th>
+                                <th>Target</th>
                                 <th>Batches</th>
-                                <th>Registered Students</th>
-                                <th>Project Incharge</th>
-                                <th>Target Beneficiary</th>
+                                <th>Students</th>
+                                <th>Incharge</th>
+                                <th>Beneficiary</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -202,33 +202,47 @@ $active_theme = loadActiveTheme($conn);
                                 while ($scheme = $schemes_result->fetch_assoc()): ?>
                                 <tr>
                                     <td><?php echo $sl_no++; ?></td>
-                                    <td><strong><?php echo htmlspecialchars($scheme['scheme_code']); ?></strong></td>
                                     <td>
-                                        <div style="font-weight: 600; color: #1e293b;"><?php echo htmlspecialchars($scheme['scheme_name']); ?></div>
+                                        <strong class="cell-clip-sm" title="<?php echo htmlspecialchars($scheme['scheme_code']); ?>">
+                                            <?php echo htmlspecialchars($scheme['scheme_code']); ?>
+                                        </strong>
+                                    </td>
+                                    <td>
+                                        <div class="cell-clip-2" style="font-weight: 600; color: var(--text-primary, #1e293b);"
+                                             title="<?php echo htmlspecialchars($scheme['scheme_name']); ?>">
+                                            <?php echo htmlspecialchars($scheme['scheme_name']); ?>
+                                        </div>
                                         <?php if (!empty($scheme['description'])): ?>
-                                            <small style="color: #64748b;"><?php echo htmlspecialchars(substr($scheme['description'], 0, 60)) . (strlen($scheme['description']) > 60 ? '...' : ''); ?></small>
+                                            <small class="cell-meta cell-clip"
+                                                   title="<?php echo htmlspecialchars($scheme['description']); ?>">
+                                                <?php echo htmlspecialchars(substr($scheme['description'], 0, 50)) . (strlen($scheme['description']) > 50 ? '…' : ''); ?>
+                                            </small>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?php echo htmlspecialchars($scheme['sponsor_agency'] ?? 'Not specified'); ?></td>
+                                    <td>
+                                        <span class="cell-clip" title="<?php echo htmlspecialchars($scheme['sponsor_agency'] ?? 'Not specified'); ?>">
+                                            <?php echo htmlspecialchars($scheme['sponsor_agency'] ?? 'Not specified'); ?>
+                                        </span>
+                                    </td>
                                     <td>
                                         <?php if ($scheme['start_date'] && $scheme['end_date']): ?>
-                                            <div style="font-size: 12px;">
-                                                <div><strong>Start:</strong> <?php echo date('d M Y', strtotime($scheme['start_date'])); ?></div>
-                                                <div><strong>End:</strong> <?php echo date('d M Y', strtotime($scheme['end_date'])); ?></div>
+                                            <div style="font-size: 0.72rem; line-height: 1.35; white-space: nowrap;">
+                                                <div><?php echo date('d M Y', strtotime($scheme['start_date'])); ?></div>
+                                                <div><?php echo date('d M Y', strtotime($scheme['end_date'])); ?></div>
                                             </div>
                                         <?php elseif ($scheme['start_date']): ?>
-                                            <div style="font-size: 12px;">
-                                                <strong>Start:</strong> <?php echo date('d M Y', strtotime($scheme['start_date'])); ?>
+                                            <div style="font-size: 0.72rem; white-space: nowrap;">
+                                                <?php echo date('d M Y', strtotime($scheme['start_date'])); ?>
                                             </div>
                                         <?php else: ?>
-                                            <span style="color: #64748b; font-size: 12px;">Not specified</span>
+                                            <span class="text-muted" style="font-size: 0.72rem;">—</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($scheme['physical_target']): ?>
                                             <span class="badge badge-info"><?php echo number_format($scheme['physical_target']); ?></span>
                                         <?php else: ?>
-                                            <span style="color: #64748b; font-size: 12px;">Not set</span>
+                                            <span class="text-muted" style="font-size: 0.72rem;">—</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -237,22 +251,27 @@ $active_theme = loadActiveTheme($conn);
                                     <td>
                                         <span class="badge badge-success"><?php echo number_format((int)($scheme['registered_student_count'] ?? 0)); ?></span>
                                     </td>
-                                    <td><?php echo htmlspecialchars($scheme['project_incharge_name'] ?? 'Not assigned'); ?></td>
+                                    <td>
+                                        <span class="cell-clip-sm" style="text-transform: uppercase;"
+                                              title="<?php echo htmlspecialchars($scheme['project_incharge_name'] ?? 'Not assigned'); ?>">
+                                            <?php echo htmlspecialchars($scheme['project_incharge_name'] ?? 'Not assigned'); ?>
+                                        </span>
+                                    </td>
                                     <td>
                                         <?php if (!empty($scheme['target_beneficiary'])): ?>
-                                            <?php 
+                                            <?php
                                             $beneficiaries = explode(',', $scheme['target_beneficiary']);
-                                            foreach ($beneficiaries as $beneficiary): 
+                                            foreach ($beneficiaries as $beneficiary):
                                                 $beneficiary = trim($beneficiary);
                                                 if (!empty($beneficiary)):
                                             ?>
-                                                <span class="badge badge-outline" style="margin: 1px; font-size: 10px;"><?php echo htmlspecialchars($beneficiary); ?></span>
-                                            <?php 
+                                                <span class="badge badge-outline" style="margin: 1px;"><?php echo htmlspecialchars($beneficiary); ?></span>
+                                            <?php
                                                 endif;
-                                            endforeach; 
+                                            endforeach;
                                             ?>
                                         <?php else: ?>
-                                            <span style="color: #64748b; font-size: 12px;">Not specified</span>
+                                            <span class="text-muted" style="font-size: 0.72rem;">—</span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
@@ -266,8 +285,8 @@ $active_theme = loadActiveTheme($conn);
                                         <a href="edit_scheme.php?id=<?php echo $scheme['id']; ?>" class="btn btn-warning btn-sm" title="Edit Scheme">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="javascript:void(0);" 
-                                           class="btn btn-danger btn-sm delete-scheme-btn" 
+                                        <a href="javascript:void(0);"
+                                           class="btn btn-danger btn-sm delete-scheme-btn"
                                            title="Delete Scheme"
                                            data-scheme-id="<?php echo $scheme['id']; ?>"
                                            data-scheme-name="<?php echo htmlspecialchars($scheme['scheme_name']); ?>"
@@ -279,7 +298,7 @@ $active_theme = loadActiveTheme($conn);
                             <?php endwhile;
                             else: ?>
                                 <tr>
-                                    <td colspan="10" style="text-align: center; padding: 40px;">
+                                    <td colspan="12" style="text-align: center; padding: 40px;">
                                         <i class="fas fa-inbox" style="font-size: 48px; color: #cbd5e0; margin-bottom: 16px;"></i>
                                         <p style="color: #64748b;">No schemes found. Click "Add New Scheme" to create one.</p>
                                     </td>
