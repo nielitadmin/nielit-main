@@ -474,6 +474,29 @@ if (!function_exists('inspectorHandleRosterPost')) {
             $adminName
         );
 
+        if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../../includes/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                logStudentAdminActivity(
+                    $conn,
+                    'student_roster_copy',
+                    (string)($result['message'] ?? 'Batch roster copy via Student Record Inspector.'),
+                    (string)$sourceBatchId,
+                    'roster copy',
+                    [
+                        'source' => 'student_record_inspector',
+                        'admin_name' => $adminName,
+                        'source_batch_id' => $sourceBatchId,
+                        'target_course_id' => $targetCourseId,
+                        'target_scheme_id' => $targetSchemeId,
+                        'target_batch_id' => $assignToBatch ? $targetBatchId : null,
+                        'stats' => $result['stats'] ?? [],
+                    ],
+                    !empty($result['success']) ? 'success' : 'failure'
+                );
+            }
+        }
+
         return [
             'message' => $result['message'],
             'type' => $result['type'] ?? ($result['success'] ? 'success' : 'danger'),

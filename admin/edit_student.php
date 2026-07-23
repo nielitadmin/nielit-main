@@ -525,6 +525,26 @@ if (isset($_POST['update_student'])) {
         
         $_SESSION['message'] = "Student information updated successfully!";
         $_SESSION['message_type'] = "success";
+
+        if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../includes/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                logStudentAdminActivity(
+                    $conn,
+                    'student_edit',
+                    'Updated student record for "' . ($name ?: $student_id) . '" (' . $student_id . ').',
+                    (string)$student_id,
+                    (string)($name ?: $student_id),
+                    [
+                        'source' => 'edit_student',
+                        'course' => $course ?? null,
+                        'email' => $email ?? null,
+                        'mobile' => $mobile ?? null,
+                        'status' => $status ?? null,
+                    ]
+                );
+            }
+        }
         
         // Build return URL with filters
         $return_url = 'students.php';

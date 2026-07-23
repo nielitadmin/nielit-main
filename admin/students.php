@@ -103,6 +103,19 @@ if (isset($_GET['delete_id'])) {
     if ($stmt->execute()) {
         $_SESSION['message'] = "Student deleted from all courses successfully!";
         $_SESSION['message_type'] = "success";
+        if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../includes/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                logStudentAdminActivity(
+                    $conn,
+                    'student_delete',
+                    'Deleted student ' . $delete_id . ' from all courses.',
+                    (string)$delete_id,
+                    (string)$delete_id,
+                    ['source' => 'manage_students']
+                );
+            }
+        }
     } else {
         $_SESSION['message'] = "Error deleting student: " . $conn->error;
         $_SESSION['message_type'] = "danger";

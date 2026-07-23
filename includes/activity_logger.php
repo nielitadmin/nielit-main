@@ -365,6 +365,83 @@ if (!function_exists('logActivityEvent')) {
     }
 }
 
+if (!function_exists('studentActivityLogSuppressed')) {
+    function studentActivityLogSuppressed(): bool
+    {
+        return !empty($GLOBALS['_nielit_skip_student_activity_log']);
+    }
+}
+
+if (!function_exists('withSuppressedStudentActivityLog')) {
+    /**
+     * Run a callback without nested student activity logs (e.g. bulk scheme sync).
+     * @template T
+     * @param callable():T $callback
+     * @return T
+     */
+    function withSuppressedStudentActivityLog(callable $callback)
+    {
+        $prev = $GLOBALS['_nielit_skip_student_activity_log'] ?? false;
+        $GLOBALS['_nielit_skip_student_activity_log'] = true;
+        try {
+            return $callback();
+        } finally {
+            $GLOBALS['_nielit_skip_student_activity_log'] = $prev;
+        }
+    }
+}
+
+if (!function_exists('logStudentAdminActivity')) {
+    /**
+     * Track admin/coordinator student record changes in Activity Log.
+     *
+     * @param array<string,mixed> $details
+     */
+    function logStudentAdminActivity(
+        ?mysqli $conn,
+        string $action,
+        string $description,
+        string $studentId = '',
+        string $studentName = '',
+        array $details = [],
+        string $result = 'success'
+    ): bool {
+        if (studentActivityLogSuppressed()) {
+            return false;
+        }
+        if (!$conn instanceof mysqli) {
+            global $conn;
+        }
+        if (!$conn instanceof mysqli) {
+            return false;
+        }
+
+        $adminName = (string) ($_SESSION['admin'] ?? ($details['admin_name'] ?? 'Admin'));
+        $adminRole = (string) ($_SESSION['admin_role'] ?? ($details['admin_role'] ?? ''));
+        unset($details['admin_name'], $details['admin_role']);
+
+        if ($studentName === '' && $studentId !== '') {
+            $studentName = $studentId;
+        }
+
+        return logActivity($conn, [
+            'actor_type' => 'admin',
+            'actor_name' => $adminName,
+            'actor_role' => $adminRole,
+            'action' => $action,
+            'entity_type' => 'student',
+            'entity_id' => $studentId !== '' ? $studentId : null,
+            'entity_name' => $studentName !== '' ? $studentName : null,
+            'description' => $description,
+            'details' => array_merge([
+                'source' => (string) ($details['source'] ?? 'admin'),
+                'admin_role' => $adminRole,
+            ], $details),
+            'result' => $result,
+        ]);
+    }
+}
+
 if (!function_exists('fetchActivityLogs')) {
     /**
      * @return array{rows:array,total:int}

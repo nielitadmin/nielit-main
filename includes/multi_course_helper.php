@@ -867,6 +867,26 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $message .= ' No other active course enrollments remain for this student ID.';
         }
 
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                logStudentAdminActivity(
+                    $conn,
+                    'student_remove_course',
+                    'Removed student ' . $studentIdStr . ' from course "' . $courseName . '".',
+                    $studentIdStr,
+                    $studentIdStr,
+                    [
+                        'source' => 'manage_students',
+                        'course_id' => $courseId,
+                        'course_name' => $courseName,
+                        'remaining_courses' => $remainingCourses,
+                        'removed_record_ids' => $recordIds,
+                    ]
+                );
+            }
+        }
+
         return [
             'success' => true,
             'message' => $message,
@@ -1514,74 +1534,92 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $toAdd = array_values(array_diff($targetIds, $enrolledIds));
         $toRemove = array_values(array_diff($enrolledIds, $targetIds));
 
-        $cleared = 0;
-        $clearErrors = [];
-        foreach ($toRemove as $schemeId) {
-            $recordId = $enrolledBySchemeId[$schemeId] ?? 0;
-            if ($recordId <= 0) {
-                continue;
-            }
-            $result = adminUnsetSchemeEnrollment($conn, $recordId, $schemeId, $studentIdStr, $courseId);
-            if ($result['success']) {
-                $cleared++;
-            } else {
-                $clearErrors[] = $result['message'];
-            }
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
         }
 
-        $orphanStmt = $conn->prepare("SELECT id FROM students
-            WHERE student_id = ? AND course_id = ?
-            AND scheme_id IS NULL
-            AND LOWER(status) NOT IN ('rejected')
-            ORDER BY id ASC");
-        $orphans = [];
-        if ($orphanStmt) {
-            $orphanStmt->bind_param('si', $studentIdStr, $courseId);
-            $orphanStmt->execute();
-            $res = $orphanStmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $orphans[] = (int)$row['id'];
-            }
-            $orphanStmt->close();
-        }
-
-        $added = 0;
-        $errors = [];
-        foreach ($toAdd as $schemeId) {
-            $restoreStmt = $conn->prepare("SELECT id FROM students
-                WHERE student_id = ? AND course_id = ? AND scheme_id = ?
-                AND LOWER(status) = 'inactive' LIMIT 1");
-            if ($restoreStmt) {
-                $restoreStmt->bind_param('sii', $studentIdStr, $courseId, $schemeId);
-                $restoreStmt->execute();
-                $inactiveRow = $restoreStmt->get_result()->fetch_assoc();
-                $restoreStmt->close();
-                if ($inactiveRow) {
-                    $result = adminRestoreSchemeEnrollment($conn, (int)$inactiveRow['id']);
-                    if ($result['success']) {
-                        $added++;
-                        continue;
-                    }
-                    $errors[] = $result['message'];
+        $syncWork = function () use (
+            $conn, $studentIdStr, $courseId, $adminName, $toAdd, $toRemove, $enrolledBySchemeId
+        ) {
+            $cleared = 0;
+            $clearErrors = [];
+            foreach ($toRemove as $schemeId) {
+                $recordId = $enrolledBySchemeId[$schemeId] ?? 0;
+                if ($recordId <= 0) {
                     continue;
+                }
+                $result = adminUnsetSchemeEnrollment($conn, $recordId, $schemeId, $studentIdStr, $courseId);
+                if ($result['success']) {
+                    $cleared++;
+                } else {
+                    $clearErrors[] = $result['message'];
                 }
             }
 
-            if (!empty($orphans)) {
-                $orphanId = (int)array_shift($orphans);
-                $result = adminUpdateStudentScheme($conn, $orphanId, $schemeId);
-            } else {
-                $result = adminAssignCourseToStudent($conn, $studentIdStr, $courseId, null, $adminName, $schemeId);
+            $orphanStmt = $conn->prepare("SELECT id FROM students
+                WHERE student_id = ? AND course_id = ?
+                AND scheme_id IS NULL
+                AND LOWER(status) NOT IN ('rejected')
+                ORDER BY id ASC");
+            $orphans = [];
+            if ($orphanStmt) {
+                $orphanStmt->bind_param('si', $studentIdStr, $courseId);
+                $orphanStmt->execute();
+                $res = $orphanStmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $orphans[] = (int)$row['id'];
+                }
+                $orphanStmt->close();
             }
 
-            if ($result['success']) {
-                $added++;
-            } elseif (stripos($result['message'], 'already') !== false) {
-                continue;
-            } else {
-                $errors[] = $result['message'];
+            $added = 0;
+            $errors = [];
+            foreach ($toAdd as $schemeId) {
+                $restoreStmt = $conn->prepare("SELECT id FROM students
+                    WHERE student_id = ? AND course_id = ? AND scheme_id = ?
+                    AND LOWER(status) = 'inactive' LIMIT 1");
+                if ($restoreStmt) {
+                    $restoreStmt->bind_param('sii', $studentIdStr, $courseId, $schemeId);
+                    $restoreStmt->execute();
+                    $inactiveRow = $restoreStmt->get_result()->fetch_assoc();
+                    $restoreStmt->close();
+                    if ($inactiveRow) {
+                        $result = adminRestoreSchemeEnrollment($conn, (int)$inactiveRow['id']);
+                        if ($result['success']) {
+                            $added++;
+                            continue;
+                        }
+                        $errors[] = $result['message'];
+                        continue;
+                    }
+                }
+
+                if (!empty($orphans)) {
+                    $orphanId = (int)array_shift($orphans);
+                    $result = adminUpdateStudentScheme($conn, $orphanId, $schemeId);
+                } else {
+                    $result = adminAssignCourseToStudent($conn, $studentIdStr, $courseId, null, $adminName, $schemeId);
+                }
+
+                if ($result['success']) {
+                    $added++;
+                } elseif (stripos($result['message'], 'already') !== false) {
+                    continue;
+                } else {
+                    $errors[] = $result['message'];
+                }
             }
-        }
+
+            return compact('added', 'cleared', 'clearErrors', 'errors');
+        };
+
+        $workResult = function_exists('withSuppressedStudentActivityLog')
+            ? withSuppressedStudentActivityLog($syncWork)
+            : $syncWork();
+        $added = (int)($workResult['added'] ?? 0);
+        $cleared = (int)($workResult['cleared'] ?? 0);
+        $clearErrors = $workResult['clearErrors'] ?? [];
+        $errors = $workResult['errors'] ?? [];
 
         $removedOrphans = cleanupOrphanSchemeEnrollments($conn, $studentIdStr, $courseId);
 
@@ -1601,8 +1639,31 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!empty($clearErrors)) {
                 $msg .= ' ' . $clearErrors[0];
             }
+            $ok = ($added > 0 || $cleared > 0 || $removedOrphans > 0) && empty($clearErrors);
+            if (file_exists(__DIR__ . '/activity_logger.php')) {
+                require_once __DIR__ . '/activity_logger.php';
+                if (function_exists('logStudentAdminActivity')) {
+                    logStudentAdminActivity(
+                        $conn,
+                        'student_scheme_sync',
+                        'Scheme sync for student ' . $studentIdStr . ' (course #' . $courseId . '): ' . implode(', ', $parts) . '.',
+                        $studentIdStr,
+                        $studentIdStr,
+                        [
+                            'source' => 'student_record_inspector',
+                            'admin_name' => $adminName,
+                            'course_id' => $courseId,
+                            'scheme_ids' => $targetIds,
+                            'added' => $added,
+                            'cleared' => $cleared,
+                            'removed_orphans' => $removedOrphans,
+                        ],
+                        $ok ? 'success' : 'failure'
+                    );
+                }
+            }
             return [
-                'success' => ($added > 0 || $cleared > 0 || $removedOrphans > 0) && empty($clearErrors),
+                'success' => $ok,
                 'warning' => !empty($clearErrors) && ($added > 0 || $cleared > 0 || $removedOrphans > 0),
                 'message' => $msg,
             ];
@@ -2312,6 +2373,41 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         syncStudentEnrollmentRecord($conn, $studentRecordId);
 
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                $schemeLabel = 'Not set';
+                if ($schemeId !== null) {
+                    $sn = $conn->prepare('SELECT scheme_name, scheme_code FROM schemes WHERE id = ? LIMIT 1');
+                    if ($sn) {
+                        $sn->bind_param('i', $schemeId);
+                        $sn->execute();
+                        $sr = $sn->get_result()->fetch_assoc();
+                        $sn->close();
+                        if ($sr) {
+                            $schemeLabel = trim(($sr['scheme_code'] ?? '') . ' ' . ($sr['scheme_name'] ?? ''));
+                        }
+                    }
+                }
+                $sid = (string)($studentRow['student_id'] ?? '');
+                $sname = (string)($studentRow['name'] ?? $sid);
+                logStudentAdminActivity(
+                    $conn,
+                    'student_scheme_update',
+                    'Changed scheme/project for student "' . $sname . '" (' . $sid . ') to "' . trim($schemeLabel) . '".',
+                    $sid,
+                    $sname,
+                    [
+                        'source' => 'student_record_inspector',
+                        'student_record_id' => $studentRecordId,
+                        'course_id' => $courseId,
+                        'old_scheme_id' => $currentScheme,
+                        'new_scheme_id' => $schemeId,
+                    ]
+                );
+            }
+        }
+
         return ['success' => true, 'message' => 'Scheme/project updated successfully.'];
     }
 
@@ -2498,6 +2594,31 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if ($schemeName !== '') {
             $msg = "Student assigned to {$courseRow['course_name']} ({$schemeName}) successfully (status: Pending).";
         }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                $sname = (string)($profile['name'] ?? $studentIdStr);
+                logStudentAdminActivity(
+                    $conn,
+                    'student_assign_course',
+                    'Assigned student "' . $sname . '" (' . $studentIdStr . ') to course "' . $courseRow['course_name'] . '"'
+                        . ($schemeName !== '' ? ' / scheme "' . $schemeName . '"' : '') . '.',
+                    $studentIdStr,
+                    $sname,
+                    [
+                        'source' => 'student_record_inspector',
+                        'admin_name' => $adminName,
+                        'course_id' => $courseId,
+                        'course_name' => $courseRow['course_name'],
+                        'scheme_id' => $schemeId,
+                        'scheme_name' => $schemeName,
+                        'student_record_id' => $studentRecordId ?? null,
+                    ]
+                );
+            }
+        }
+
         return ['success' => true, 'message' => $msg];
     }
 

@@ -216,6 +216,29 @@ if (!function_exists('inspectorHandleEnrollmentPost')) {
             }
 
             $type = $assigned > 0 ? 'success' : ($failed !== [] ? 'danger' : 'warning');
+            if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../../includes/activity_logger.php';
+                if (function_exists('logStudentAdminActivity')) {
+                    logStudentAdminActivity(
+                        $conn,
+                        'student_assign_course_bulk',
+                        'Bulk course assign from Student Record Inspector: ' . $message,
+                        $studentIds[0] ?? '',
+                        'bulk (' . count($studentIds) . ' students)',
+                        [
+                            'source' => 'student_record_inspector',
+                            'admin_name' => $adminName,
+                            'course_id' => $courseId,
+                            'scheme_id' => $schemeId,
+                            'student_ids' => $studentIds,
+                            'assigned' => $assigned,
+                            'skipped' => $skipped,
+                            'failed' => $failed,
+                        ],
+                        $assigned > 0 ? 'success' : 'failure'
+                    );
+                }
+            }
             return ['message' => $message, 'type' => $type];
         }
 
@@ -266,6 +289,23 @@ if (!function_exists('inspectorHandleEnrollmentPost')) {
             }
 
             $removed = cleanupOrphanSchemeEnrollments($conn, $studentIdStr, $courseId);
+            if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../../includes/activity_logger.php';
+                if (function_exists('logStudentAdminActivity')) {
+                    logStudentAdminActivity(
+                        $conn,
+                        'student_orphan_cleanup',
+                        'Cleaned up ' . $removed . ' orphan scheme enrollment row(s) for student ' . $studentIdStr . '.',
+                        $studentIdStr,
+                        $studentIdStr,
+                        [
+                            'source' => 'student_record_inspector',
+                            'course_id' => $courseId,
+                            'removed' => $removed,
+                        ]
+                    );
+                }
+            }
             return [
                 'message' => $removed > 0
                     ? "Removed {$removed} empty duplicate enrollment row(s)."

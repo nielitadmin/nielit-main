@@ -61,10 +61,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = inspectorPurgeAllRelated($conn, $ids);
             $flashMessage = $result['message'];
             $flashType = $result['success'] ? 'success' : 'danger';
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                if (function_exists('logStudentAdminActivity')) {
+                    $sidList = implode(', ', array_slice($ids['student_id_strings'], 0, 5));
+                    logStudentAdminActivity(
+                        $conn,
+                        'student_inspector_purge',
+                        'Purged related student records via Student Record Inspector'
+                            . ($sidList !== '' ? (' for: ' . $sidList) : '') . '.',
+                        $ids['student_id_strings'][0] ?? '',
+                        $ids['student_id_strings'][0] ?? 'inspector purge',
+                        [
+                            'source' => 'student_record_inspector',
+                            'record_ids' => $ids['record_ids'],
+                            'account_ids' => $ids['account_ids'],
+                            'student_id_strings' => $ids['student_id_strings'],
+                            'result_message' => $result['message'] ?? '',
+                        ],
+                        !empty($result['success']) ? 'success' : 'failure'
+                    );
+                }
+            }
         } elseif (($_POST['delete_action'] ?? '') === 'delete_one') {
-            $result = inspectorDeleteRecord($conn, (string)($_POST['record_type'] ?? ''), (int)($_POST['record_id'] ?? 0));
+            $recordType = (string)($_POST['record_type'] ?? '');
+            $recordId = (int)($_POST['record_id'] ?? 0);
+            $result = inspectorDeleteRecord($conn, $recordType, $recordId);
             $flashMessage = $result['message'];
             $flashType = $result['success'] ? 'success' : 'danger';
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                if (function_exists('logStudentAdminActivity')) {
+                    logStudentAdminActivity(
+                        $conn,
+                        'student_inspector_delete',
+                        'Deleted inspector record type "' . $recordType . '" (#' . $recordId . ').',
+                        (string)$recordId,
+                        $recordType . ' #' . $recordId,
+                        [
+                            'source' => 'student_record_inspector',
+                            'record_type' => $recordType,
+                            'record_id' => $recordId,
+                            'result_message' => $result['message'] ?? '',
+                        ],
+                        !empty($result['success']) ? 'success' : 'failure'
+                    );
+                }
+            }
         }
     }
 

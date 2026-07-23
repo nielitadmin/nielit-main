@@ -86,6 +86,37 @@ if ($has_batch_students) {
 }
 
 if ($updated) {
+    if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../../includes/activity_logger.php';
+        if (function_exists('logStudentAdminActivity')) {
+            $studentLabel = (string)$student_id;
+            $studentName = $studentLabel;
+            $nameStmt = $conn->prepare('SELECT student_id, name FROM students WHERE id = ? LIMIT 1');
+            if ($nameStmt) {
+                $nameStmt->bind_param('i', $student_id);
+                $nameStmt->execute();
+                $nr = $nameStmt->get_result()->fetch_assoc();
+                $nameStmt->close();
+                if ($nr) {
+                    $studentLabel = (string)($nr['student_id'] ?? $student_id);
+                    $studentName = (string)($nr['name'] ?? $studentLabel);
+                }
+            }
+            logStudentAdminActivity(
+                $conn,
+                'student_nielit_reg_update',
+                'Updated NIELIT Portal Reg. No. for student "' . $studentName . '" (' . $studentLabel . ').',
+                $studentLabel,
+                $studentName,
+                [
+                    'source' => 'batch_details',
+                    'batch_id' => $batch_id,
+                    'student_record_id' => $student_id,
+                    'nielit_reg_no' => $nielit_reg_no,
+                ]
+            );
+        }
+    }
     echo json_encode([
         'success' => true,
         'message' => 'NIELIT Registration Number updated successfully',
