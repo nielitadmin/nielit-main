@@ -66,7 +66,29 @@ if (!function_exists('presetAppThemesCatalog')) {
             ['theme_name' => 'Scholar Navy', 'primary_color' => '#172554', 'secondary_color' => '#3b82f6', 'accent_color' => '#fde68a', 'suggested_sidebars' => ['soft_navy', 'indigo', 'icon_navy'], 'tag' => 'Institution'],
             ['theme_name' => 'Modern Ice', 'primary_color' => '#0f172a', 'secondary_color' => '#64748b', 'accent_color' => '#38bdf8', 'suggested_sidebars' => ['slate', 'light', 'icon'], 'tag' => 'Institution'],
             ['theme_name' => 'Odisha Coast', 'primary_color' => '#0e7490', 'secondary_color' => '#67e8f9', 'accent_color' => '#f59e0b', 'suggested_sidebars' => ['ocean_blue', 'teal', 'sky_light'], 'tag' => 'Regional'],
-            ['theme_name' => 'Temple Amber', 'primary_color' => '#7c2d12', 'secondary_color' => '#ea580c', 'accent_color' => '#fcd34d', 'suggested_sidebars' => ['cream', 'gold_navy'], 'tag' => 'Regional'],
+            ['theme_name' => 'Temple Amber', 'primary_color' => '#7c2d12', 'secondary_color' => '#ea580c', 'accent_color' => '#fcd34d', 'suggested_sidebars' => ['cream', 'gold_navy', 'sunset', 'copper'], 'tag' => 'Regional'],
+
+            // Matched to newer sidebar presets (20)
+            ['theme_name' => 'Violet Campus', 'primary_color' => '#2e1065', 'secondary_color' => '#7c3aed', 'accent_color' => '#fbbf24', 'suggested_sidebars' => ['violet', 'plum', 'lavender_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Rose Authority', 'primary_color' => '#4c0519', 'secondary_color' => '#e11d48', 'accent_color' => '#fde68a', 'suggested_sidebars' => ['rose', 'burgundy'], 'tag' => 'Match'],
+            ['theme_name' => 'Forest Canopy', 'primary_color' => '#14532d', 'secondary_color' => '#15803d', 'accent_color' => '#fbbf24', 'suggested_sidebars' => ['forest', 'moss', 'emerald', 'icon_emerald'], 'tag' => 'Match'],
+            ['theme_name' => 'Graphite Studio', 'primary_color' => '#18181b', 'secondary_color' => '#3f3f46', 'accent_color' => '#a78bfa', 'suggested_sidebars' => ['graphite', 'charcoal', 'dark', 'icon_slate'], 'tag' => 'Match'],
+            ['theme_name' => 'Copper Forge', 'primary_color' => '#431407', 'secondary_color' => '#c2410c', 'accent_color' => '#fde68a', 'suggested_sidebars' => ['copper', 'sunset', 'cream'], 'tag' => 'Match'],
+            ['theme_name' => 'Azure Stream', 'primary_color' => '#0c4a6e', 'secondary_color' => '#38bdf8', 'accent_color' => '#fef08a', 'suggested_sidebars' => ['azure', 'ocean_blue', 'ice_blue', 'sky_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Plum Orchid', 'primary_color' => '#4a044e', 'secondary_color' => '#c026d3', 'accent_color' => '#fde68a', 'suggested_sidebars' => ['plum', 'violet', 'lavender_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Burgundy Hall', 'primary_color' => '#3f0d12', 'secondary_color' => '#991b1b', 'accent_color' => '#fbbf24', 'suggested_sidebars' => ['burgundy', 'rose'], 'tag' => 'Match'],
+            ['theme_name' => 'Steel Console', 'primary_color' => '#1e293b', 'secondary_color' => '#475569', 'accent_color' => '#38bdf8', 'suggested_sidebars' => ['steel', 'slate', 'graphite', 'icon_slate'], 'tag' => 'Match'],
+            ['theme_name' => 'Sunset Desk', 'primary_color' => '#7c2d12', 'secondary_color' => '#ea580c', 'accent_color' => '#fef08a', 'suggested_sidebars' => ['sunset', 'copper', 'cream'], 'tag' => 'Match'],
+            ['theme_name' => 'Moss Field', 'primary_color' => '#365314', 'secondary_color' => '#65a30d', 'accent_color' => '#fde68a', 'suggested_sidebars' => ['moss', 'forest', 'mint_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Royal Institute', 'primary_color' => '#172554', 'secondary_color' => '#3730a3', 'accent_color' => '#fbbf24', 'suggested_sidebars' => ['royal', 'indigo', 'soft_navy'], 'tag' => 'Match'],
+            ['theme_name' => 'Charcoal Focus', 'primary_color' => '#111827', 'secondary_color' => '#374151', 'accent_color' => '#60a5fa', 'suggested_sidebars' => ['charcoal', 'graphite', 'midnight', 'icon_dark'], 'tag' => 'Match'],
+            ['theme_name' => 'Arctic Workspace', 'primary_color' => '#0369a1', 'secondary_color' => '#64748b', 'accent_color' => '#0ea5e9', 'suggested_sidebars' => ['arctic', 'ice_blue', 'light', 'sky_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Sand Office', 'primary_color' => '#44403c', 'secondary_color' => '#a8a29e', 'accent_color' => '#b45309', 'suggested_sidebars' => ['sand', 'cream', 'light'], 'tag' => 'Match'],
+            ['theme_name' => 'Lavender Desk', 'primary_color' => '#5b21b6', 'secondary_color' => '#a78bfa', 'accent_color' => '#7c3aed', 'suggested_sidebars' => ['lavender_light', 'violet', 'plum'], 'tag' => 'Match'],
+            ['theme_name' => 'Mint Campus', 'primary_color' => '#047857', 'secondary_color' => '#34d399', 'accent_color' => '#059669', 'suggested_sidebars' => ['mint_light', 'emerald', 'moss', 'icon_emerald'], 'tag' => 'Match'],
+            ['theme_name' => 'Ice Blue Admin', 'primary_color' => '#1d4ed8', 'secondary_color' => '#93c5fd', 'accent_color' => '#2563eb', 'suggested_sidebars' => ['ice_blue', 'arctic', 'sky_light', 'azure'], 'tag' => 'Match'],
+            ['theme_name' => 'Emerald Icon Match', 'primary_color' => '#064e3b', 'secondary_color' => '#047857', 'accent_color' => '#fbbf24', 'suggested_sidebars' => ['icon_emerald', 'emerald', 'forest', 'mint_light'], 'tag' => 'Match'],
+            ['theme_name' => 'Slate Icon Match', 'primary_color' => '#0f172a', 'secondary_color' => '#334155', 'accent_color' => '#38bdf8', 'suggested_sidebars' => ['icon_slate', 'slate', 'steel', 'graphite'], 'tag' => 'Match'],
         ];
     }
 }
