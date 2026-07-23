@@ -53,7 +53,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Faculty Email Management - NIELIT Bhubaneswar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css">
+    <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/admin-theme.css?v=<?php echo @filemtime(__DIR__ . '/../../assets/css/admin-theme.css') ?: time(); ?>">
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/toast-notifications.css">
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico" type="image/x-icon">
     <style>
@@ -199,43 +199,7 @@ require_once __DIR__ . '/../../includes/theme_loader.php';
 <body>
 
 <div class="admin-wrapper">
-    <!-- Sidebar -->
-    <aside class="admin-sidebar">
-        <div class="sidebar-logo">
-            <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
-            <h5>NIELIT Admin</h5>
-            <small>Bhubaneswar</small>
-        </div>
-        
-        <nav class="sidebar-nav">
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/admin/dashboard.php" class="nav-link">
-                    <i class="fas fa-home"></i> Dashboard
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_batches.php" class="nav-link">
-                    <i class="fas fa-layer-group"></i> Batches
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/batch_module/admin/manage_faculty.php" class="nav-link active">
-                    <i class="fas fa-chalkboard-user"></i> Faculty
-                </a>
-            </div>
-            <div class="nav-divider"></div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/index.php" class="nav-link">
-                    <i class="fas fa-globe"></i> View Website
-                </a>
-            </div>
-            <div class="nav-item">
-                <a href="<?php echo APP_URL; ?>/admin/logout.php" class="nav-link">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </nav>
-    </aside>
+    <?php include __DIR__ . '/../../admin/includes/sidebar.php'; ?>
 
     <!-- Main Content -->
     <main class="admin-content">
