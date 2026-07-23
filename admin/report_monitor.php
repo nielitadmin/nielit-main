@@ -1414,15 +1414,25 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
-<div class="card table-card mb-4">
+<div class="card table-card mb-4" id="socialCategoryQuarterCard">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <strong>Social Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
             <span class="badge bg-secondary ms-2">General / OBC / SC / ST / EWS / PWD</span>
         </div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">
-            <i class="fas fa-bullseye me-1"></i> Set Targets
-        </button>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="socialCategoryDetailsToggle"
+                    aria-expanded="false"
+                    aria-controls="socialCategoryQuarterTable">
+                <i class="fas fa-chevron-down me-1" id="socialCategoryDetailsToggleIcon"></i>
+                <span id="socialCategoryDetailsToggleLabel">Show Details</span>
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">
+                <i class="fas fa-bullseye me-1"></i> Set Targets
+            </button>
+        </div>
     </div>
     <?php if ($socialCategoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
@@ -1438,7 +1448,7 @@ Q4 (Jan–Mar)
     <?php endif; ?>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
+            <table class="table table-bordered table-hover mb-0" id="socialCategoryQuarterTable">
                 <thead class="table-light">
                 <tr>
                     <th>Social Category</th>
@@ -1469,9 +1479,25 @@ Q4 (Jan–Mar)
                     }
                     $socialKey = (string) ($socialRow['key'] ?? '');
                     $socialCourseRows = $socialCategoryCourseQuarterSummary[$socialKey] ?? [];
+                    $socialDetailCount = count($socialCourseRows);
+                    $socialSafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $socialKey);
                     ?>
-                    <tr class="table-light">
-                        <td class="fw-semibold"><?php echo htmlspecialchars($socialRow['label']); ?></td>
+                    <tr class="table-light social-category-summary-row">
+                        <td class="fw-semibold">
+                            <?php if ($socialDetailCount > 0): ?>
+                                <button type="button"
+                                        class="btn btn-sm btn-link p-0 me-1 social-category-row-toggle text-decoration-none"
+                                        data-social-group="<?php echo htmlspecialchars($socialSafeKey); ?>"
+                                        aria-expanded="false"
+                                        title="Show course details">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($socialRow['label']); ?>
+                            <?php if ($socialDetailCount > 0): ?>
+                                <small class="text-muted fw-normal">(<?php echo number_format($socialDetailCount); ?> courses)</small>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
                         <td class="text-end">
@@ -1491,7 +1517,7 @@ Q4 (Jan–Mar)
                         </td>
                     </tr>
                     <?php foreach ($socialCourseRows as $courseRow): ?>
-                    <tr>
+                    <tr class="social-category-detail-row d-none" data-social-group="<?php echo htmlspecialchars($socialSafeKey); ?>">
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
                             <?php echo htmlspecialchars($courseRow['course_name']); ?>
@@ -3276,6 +3302,110 @@ Chart.helpers.each(Chart.instances, function(instance){ if (typeof courseFyTimeC
 });
 
 });
+
+/*==================================================
+SOCIAL CATEGORY DETAIL DROPDOWN
+==================================================*/
+
+(function () {
+    function setSocialDetailsExpanded(expanded) {
+        const detailRows = document.querySelectorAll('.social-category-detail-row');
+        const rowToggles = document.querySelectorAll('.social-category-row-toggle');
+        const masterBtn = document.getElementById('socialCategoryDetailsToggle');
+        const masterIcon = document.getElementById('socialCategoryDetailsToggleIcon');
+        const masterLabel = document.getElementById('socialCategoryDetailsToggleLabel');
+
+        detailRows.forEach(function (row) {
+            if (expanded) {
+                row.classList.remove('d-none');
+            } else {
+                row.classList.add('d-none');
+            }
+        });
+
+        rowToggles.forEach(function (btn) {
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-right', !expanded);
+                icon.classList.toggle('fa-chevron-down', expanded);
+            }
+        });
+
+        if (masterBtn) {
+            masterBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (masterIcon) {
+            masterIcon.classList.toggle('fa-chevron-down', !expanded);
+            masterIcon.classList.toggle('fa-chevron-up', expanded);
+        }
+        if (masterLabel) {
+            masterLabel.textContent = expanded ? 'Hide Details' : 'Show Details';
+        }
+    }
+
+    function initSocialCategoryDetailsToggle() {
+        const masterBtn = document.getElementById('socialCategoryDetailsToggle');
+        if (!masterBtn) {
+            return;
+        }
+
+        masterBtn.addEventListener('click', function () {
+            const expanded = masterBtn.getAttribute('aria-expanded') === 'true';
+            setSocialDetailsExpanded(!expanded);
+        });
+
+        document.querySelectorAll('.social-category-row-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const group = btn.getAttribute('data-social-group') || '';
+                const rows = document.querySelectorAll('.social-category-detail-row[data-social-group="' + group + '"]');
+                if (!rows.length) {
+                    return;
+                }
+                const open = btn.getAttribute('aria-expanded') === 'true';
+                const next = !open;
+                rows.forEach(function (row) {
+                    if (next) {
+                        row.classList.remove('d-none');
+                    } else {
+                        row.classList.add('d-none');
+                    }
+                });
+                btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-right', !next);
+                    icon.classList.toggle('fa-chevron-down', next);
+                }
+
+                const anyOpen = document.querySelectorAll('.social-category-detail-row:not(.d-none)').length > 0;
+                const allOpen = document.querySelectorAll('.social-category-detail-row.d-none').length === 0
+                    && document.querySelectorAll('.social-category-detail-row').length > 0;
+                const masterIcon = document.getElementById('socialCategoryDetailsToggleIcon');
+                const masterLabel = document.getElementById('socialCategoryDetailsToggleLabel');
+                masterBtn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+                if (masterIcon) {
+                    masterIcon.classList.toggle('fa-chevron-down', !allOpen);
+                    masterIcon.classList.toggle('fa-chevron-up', allOpen);
+                }
+                if (masterLabel) {
+                    masterLabel.textContent = (allOpen || anyOpen) && allOpen ? 'Hide Details' : (anyOpen ? 'Show Details' : 'Show Details');
+                    if (allOpen) {
+                        masterLabel.textContent = 'Hide Details';
+                    } else {
+                        masterLabel.textContent = 'Show Details';
+                    }
+                }
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSocialCategoryDetailsToggle);
+    } else {
+        initSocialCategoryDetailsToggle();
+    }
+})();
 
 /*==================================================
 CATEGORY TARGETS SAVE (AJAX)
