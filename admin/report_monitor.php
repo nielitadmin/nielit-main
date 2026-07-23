@@ -700,7 +700,7 @@ $pageTitle="Report Monitor";
             position:fixed;
             left:0;
             top:0;
-            width:300px;
+            width:320px;
             max-width:calc(100vw - 24px);
             background:#fff;
             border:1px solid #94a3b8;
@@ -708,7 +708,7 @@ $pageTitle="Report Monitor";
             box-shadow:0 12px 32px rgba(15,23,42,.22);
             padding:12px;
             z-index:10050;
-            pointer-events:auto;
+            pointer-events:none;
             opacity:0;
             visibility:hidden;
             transform:translateY(4px);
@@ -717,19 +717,55 @@ $pageTitle="Report Monitor";
         .course-fy-hover-panel.is-visible{
             opacity:1;
             visibility:visible;
+            pointer-events:auto;
             transform:translateY(0);
         }
+        .course-fy-hover-panel.is-pinned{
+            box-shadow:0 14px 36px rgba(15,23,42,.28);
+            border-color:#ea580c;
+        }
+        .course-fy-hover-panel .hover-panel-head{
+            display:flex;
+            align-items:flex-start;
+            justify-content:space-between;
+            gap:8px;
+            margin-bottom:4px;
+        }
         .course-fy-hover-panel h6{
-            margin:0 0 4px;
+            margin:0;
             font-size:13px;
             font-weight:700;
             color:#0f172a;
+            flex:1;
+        }
+        .course-fy-hover-panel .hover-panel-close{
+            border:0;
+            background:#f1f5f9;
+            color:#475569;
+            width:24px;
+            height:24px;
+            border-radius:999px;
+            line-height:1;
+            cursor:pointer;
+            flex:0 0 auto;
+        }
+        .course-fy-hover-panel .hover-panel-close:hover{
+            background:#e2e8f0;
+            color:#0f172a;
+        }
+        .course-fy-hover-panel .hover-panel-hint{
+            font-size:10px;
+            color:#94a3b8;
+            margin:0 0 6px;
         }
         .course-fy-hover-panel .hover-meta{
             font-size:11px;
             color:#64748b;
             margin-bottom:0;
             line-height:1.45;
+            max-height:220px;
+            overflow:auto;
+            overscroll-behavior:contain;
         }
         .course-fy-x-caption{
             display:flex;
@@ -1943,7 +1979,11 @@ Q4 (Jan–Mar)
                 <span><i class="fas fa-arrows-alt-h me-1"></i> Day wise → use horizontal scroll</span>
             </div>
             <div class="course-fy-hover-panel" id="courseFyHoverPanel">
-                <h6 id="courseFyHoverTitle">Course Detail</h6>
+                <div class="hover-panel-head">
+                    <h6 id="courseFyHoverTitle">Course Detail</h6>
+                    <button type="button" class="hover-panel-close" id="courseFyHoverClose" title="Close">&times;</button>
+                </div>
+                <div class="hover-panel-hint">Click a point to pin this box, then scroll the list. Click × to close.</div>
                 <div class="hover-meta" id="courseFyHoverMeta">Hover a course line/area to see that course’s data.</div>
             </div>
             <div class="course-fy-gantt-hint">
@@ -3373,22 +3413,62 @@ function renderCourseFyGanttChart(timeline) {
         document.body.appendChild(hoverPanel);
     }
 
-    function hideCourseDetail() {
+    let hoverHideTimer = null;
+    let courseFyHoverPinned = false;
+
+    function isHoverPanelInteractive() {
+        if (!hoverPanel) {
+            return false;
+        }
+        if (courseFyHoverPinned) {
+            return true;
+        }
+        try {
+            return hoverPanel.matches(':hover');
+        } catch (err) {
+            return false;
+        }
+    }
+
+    function hideCourseDetail(force) {
+        if (!force && isHoverPanelInteractive()) {
+            return;
+        }
+        courseFyHoverPinned = false;
         if (hoverPanel) {
             hoverPanel.classList.remove('is-visible');
+            hoverPanel.classList.remove('is-pinned');
         }
+    }
+
+    function pinCourseDetail() {
+        courseFyHoverPinned = true;
+        if (hoverPanel) {
+            hoverPanel.classList.add('is-visible');
+            hoverPanel.classList.add('is-pinned');
+        }
+        cancelHideCourseDetail();
     }
 
     function placeHoverAtEvent(evt) {
         if (!hoverPanel || !evt) {
             return;
         }
-        const panelWidth = Math.min(300, window.innerWidth - 24);
+        if (courseFyHoverPinned) {
+            return;
+        }
+        try {
+            if (hoverPanel.matches(':hover')) {
+                return;
+            }
+        } catch (err) {}
+
+        const panelWidth = Math.min(320, window.innerWidth - 24);
         const panelHeight = hoverPanel.offsetHeight || 120;
-        let left = (evt.clientX || 0) + 16;
-        let top = (evt.clientY || 0) - 20;
+        let left = (evt.clientX || 0) + 18;
+        let top = (evt.clientY || 0) - 24;
         if (left + panelWidth > window.innerWidth - 12) {
-            left = Math.max(12, (evt.clientX || 0) - panelWidth - 16);
+            left = Math.max(12, (evt.clientX || 0) - panelWidth - 18);
         }
         if (top < 12) {
             top = 12;
@@ -3401,7 +3481,7 @@ function renderCourseFyGanttChart(timeline) {
         hoverPanel.style.top = top + 'px';
     }
 
-    function showDayBreakdown(dayIndex, evt) {
+    function showDayBreakdown(dayIndex, evt, pin) {
         if (!hoverPanel || !Number.isFinite(dayIndex) || dayIndex < 0 || dayIndex >= dayCount) {
             return;
         }
@@ -3436,7 +3516,6 @@ function renderCourseFyGanttChart(timeline) {
             if (!rows.length) {
                 html += '<div class="text-muted">No course admissions on this date yet.</div>';
             } else {
-                html += '<div style="max-height:180px;overflow:auto">';
                 rows.forEach(function (row) {
                     html += '<div style="display:flex;justify-content:space-between;gap:10px;padding:2px 0;border-bottom:1px solid #f1f5f9">' +
                         '<span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' +
@@ -3444,15 +3523,17 @@ function renderCourseFyGanttChart(timeline) {
                         escapeHtmlAttr(row.label) + '</span>' +
                         '<strong>' + Number(row.value).toLocaleString() + '</strong></div>';
                 });
-                html += '</div>';
             }
             hoverMeta.innerHTML = html;
         }
         hoverPanel.classList.add('is-visible');
+        if (pin) {
+            pinCourseDetail();
+        }
         placeHoverAtEvent(evt);
     }
 
-    function showCourseDetail(meta, evt, dayIndex) {
+    function showCourseDetail(meta, evt, dayIndex, pin) {
         if (!hoverPanel || !meta) {
             return;
         }
@@ -3486,13 +3567,20 @@ function renderCourseFyGanttChart(timeline) {
                 ' · Batches: <strong>' + Number((meta.batches || []).length).toLocaleString() + '</strong>';
         }
         hoverPanel.classList.add('is-visible');
+        if (pin) {
+            pinCourseDetail();
+        }
         placeHoverAtEvent(evt);
     }
 
-    let hoverHideTimer = null;
     function scheduleHideCourseDetail() {
+        if (courseFyHoverPinned || isHoverPanelInteractive()) {
+            return;
+        }
         clearTimeout(hoverHideTimer);
-        hoverHideTimer = setTimeout(hideCourseDetail, 280);
+        hoverHideTimer = setTimeout(function () {
+            hideCourseDetail(false);
+        }, 900);
     }
     function cancelHideCourseDetail() {
         clearTimeout(hoverHideTimer);
@@ -3607,6 +3695,9 @@ function renderCourseFyGanttChart(timeline) {
                     }
                 },
                 onHover: function (evt, elements) {
+                    if (courseFyHoverPinned || isHoverPanelInteractive()) {
+                        return;
+                    }
                     const picked = pickNearest(evt, elements);
                     if (!picked) {
                         scheduleHideCourseDetail();
@@ -3618,10 +3709,10 @@ function renderCourseFyGanttChart(timeline) {
                     }
                     const native = evt && (evt.native || evt);
                     if (ds.isTotal) {
-                        showDayBreakdown(picked.index, native);
+                        showDayBreakdown(picked.index, native, false);
                         return;
                     }
-                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
+                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index, false);
                 },
                 onClick: function (evt, elements) {
                     const picked = pickNearest(evt, elements);
@@ -3634,10 +3725,10 @@ function renderCourseFyGanttChart(timeline) {
                     }
                     const native = evt && (evt.native || evt);
                     if (ds.isTotal) {
-                        showDayBreakdown(picked.index, native);
+                        showDayBreakdown(picked.index, native, true);
                         return;
                     }
-                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index);
+                    showCourseDetail(courseMeta[ds.metaIndex], native, picked.index, true);
                 },
                 scales: {
                     x: {
@@ -3712,8 +3803,23 @@ function renderCourseFyGanttChart(timeline) {
     initCourseFyRangeBar();
 
     if (hoverPanel) {
-        hoverPanel.onmouseenter = cancelHideCourseDetail;
-        hoverPanel.onmouseleave = scheduleHideCourseDetail;
+        hoverPanel.onmouseenter = function () {
+            cancelHideCourseDetail();
+        };
+        hoverPanel.onmouseleave = function () {
+            if (!courseFyHoverPinned) {
+                scheduleHideCourseDetail();
+            }
+        };
+    }
+
+    const hoverCloseBtn = document.getElementById('courseFyHoverClose');
+    if (hoverCloseBtn) {
+        hoverCloseBtn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            hideCourseDetail(true);
+        };
     }
 }
 
