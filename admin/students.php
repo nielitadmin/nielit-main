@@ -1286,10 +1286,83 @@ if ($other_gender_count > 0) {
         a.student-photo-link {
             display: inline-block;
             line-height: 0;
+            cursor: zoom-in;
         }
 
         a.student-photo-link:hover .student-photo-thumb {
             box-shadow: 0 0 0 2px var(--primary-color, #0ea5e9);
+        }
+
+        .student-photo-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 10050;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            background: rgba(15, 23, 42, 0.72);
+            cursor: zoom-out;
+        }
+
+        .student-photo-lightbox.is-open {
+            display: flex;
+        }
+
+        .student-photo-lightbox-inner {
+            position: relative;
+            max-width: min(92vw, 520px);
+            max-height: 88vh;
+            text-align: center;
+            cursor: default;
+        }
+
+        .student-photo-lightbox-inner img {
+            display: block;
+            max-width: 100%;
+            max-height: min(78vh, 640px);
+            width: auto;
+            height: auto;
+            margin: 0 auto;
+            border-radius: 10px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+            background: #fff;
+            object-fit: contain;
+        }
+
+        .student-photo-lightbox-caption {
+            margin-top: 0.75rem;
+            color: #f8fafc;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+        }
+
+        .student-photo-lightbox-hint {
+            margin-top: 0.35rem;
+            color: rgba(248, 250, 252, 0.75);
+            font-size: 0.78rem;
+        }
+
+        .student-photo-lightbox-close {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            width: 36px;
+            height: 36px;
+            border: none;
+            border-radius: 999px;
+            background: #fff;
+            color: #0f172a;
+            font-size: 1.25rem;
+            line-height: 1;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+        }
+
+        .student-photo-lightbox-close:hover {
+            background: #fee2e2;
+            color: #b91c1c;
         }
 
         .student-id-cell {
@@ -2005,8 +2078,8 @@ if ($other_gender_count > 0) {
                                 ?>
                                     <a class="student-photo-link"
                                        href="<?php echo htmlspecialchars($photo_url); ?>"
-                                       target="_blank"
-                                       rel="noopener"
+                                       data-photo-url="<?php echo htmlspecialchars($photo_url); ?>"
+                                       data-photo-name="<?php echo htmlspecialchars($row['name']); ?>"
                                        title="View photo — <?php echo htmlspecialchars($row['name']); ?>">
                                         <img class="student-photo-thumb"
                                              src="<?php echo htmlspecialchars($photo_url); ?>"
@@ -3023,6 +3096,67 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target === document.getElementById('bulkRemoveCourseModal')) closeBulkRemoveCourseModal();
     });
 });
+</script>
+
+<div id="studentPhotoLightbox" class="student-photo-lightbox" role="dialog" aria-modal="true" aria-label="Student photo" hidden>
+    <div class="student-photo-lightbox-inner">
+        <button type="button" class="student-photo-lightbox-close" id="studentPhotoLightboxClose" aria-label="Close photo">&times;</button>
+        <img id="studentPhotoLightboxImg" src="" alt="Student photo">
+        <div class="student-photo-lightbox-caption" id="studentPhotoLightboxCaption"></div>
+        <div class="student-photo-lightbox-hint">Click anywhere to close</div>
+    </div>
+</div>
+<script>
+(function () {
+    const lightbox = document.getElementById('studentPhotoLightbox');
+    const lightboxImg = document.getElementById('studentPhotoLightboxImg');
+    const lightboxCaption = document.getElementById('studentPhotoLightboxCaption');
+    const closeBtn = document.getElementById('studentPhotoLightboxClose');
+    if (!lightbox || !lightboxImg) return;
+
+    function openStudentPhoto(url, name) {
+        lightboxImg.src = url;
+        lightboxImg.alt = name ? (name + ' photo') : 'Student photo';
+        lightboxCaption.textContent = name || '';
+        lightbox.hidden = false;
+        lightbox.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeStudentPhoto() {
+        lightbox.classList.remove('is-open');
+        lightbox.hidden = true;
+        lightboxImg.removeAttribute('src');
+        lightboxCaption.textContent = '';
+        document.body.style.overflow = '';
+    }
+
+    document.addEventListener('click', function (e) {
+        const link = e.target.closest('.student-photo-link');
+        if (link) {
+            e.preventDefault();
+            openStudentPhoto(link.dataset.photoUrl || link.getAttribute('href'), link.dataset.photoName || '');
+            return;
+        }
+        if (lightbox.classList.contains('is-open')) {
+            closeStudentPhoto();
+        }
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeStudentPhoto();
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && lightbox.classList.contains('is-open')) {
+            closeStudentPhoto();
+        }
+    });
+})();
 </script>
 </body>
 </html>
