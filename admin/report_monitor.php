@@ -69,10 +69,10 @@ $selectedYear = isset($_GET['year'])
 
 $selectedQuarter = isset($_GET['quarter'])
     ? $_GET['quarter']
-    : report_monitor_get_current_financial_quarter();
+    : 'FY';
 
 if (!in_array($selectedQuarter, ['Q1', 'Q2', 'Q3', 'Q4', 'FY'], true)) {
-    $selectedQuarter = report_monitor_get_current_financial_quarter();
+    $selectedQuarter = 'FY';
 }
 
 $selectedCentreName = "";
@@ -993,16 +993,29 @@ Q4 (Jan–Mar)
 </div>
 
 <!-- ADMISSIONS BY BATCH (for selected quarter) -->
-<div class="card table-card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>
-            Admissions by Batch (<?php echo htmlspecialchars($monthScopeLabel); ?>)
-        </strong>
-        <span class="badge bg-primary">
-            <?php echo array_sum(array_column($admissionsByBatch, 'admissions')); ?> Admissions
-        </span>
+<div class="card table-card mb-4" id="admissionsByBatchCard">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>
+                Admissions by Batch (<?php echo htmlspecialchars($monthScopeLabel); ?>)
+            </strong>
+            <span class="badge bg-primary ms-2">
+                <?php echo number_format((int) array_sum(array_column($admissionsByBatch, 'admissions'))); ?> Admissions
+            </span>
+            <?php if (!empty($admissionsByBatch)): ?>
+                <span class="badge bg-secondary ms-1"><?php echo number_format(count($admissionsByBatch)); ?> batches</span>
+            <?php endif; ?>
+        </div>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="admissionsByBatchToggle"
+                aria-expanded="false"
+                aria-controls="admissionsByBatchBody">
+            <i class="fas fa-chevron-down me-1" id="admissionsByBatchToggleIcon"></i>
+            <span id="admissionsByBatchToggleLabel">Show Details</span>
+        </button>
     </div>
-    <div class="card-body p-0">
+    <div class="card-body p-0 d-none" id="admissionsByBatchBody">
         <div class="table-responsive">
             <table class="table table-hover table-bordered mb-0">
                 <thead class="table-light">
@@ -3344,6 +3357,46 @@ Chart.helpers.each(Chart.instances, function(instance){ if (typeof courseFyTimeC
 });
 
 });
+
+/*==================================================
+ADMISSIONS BY BATCH DROPDOWN
+==================================================*/
+
+(function () {
+    function initAdmissionsByBatchToggle() {
+        const btn = document.getElementById('admissionsByBatchToggle');
+        const body = document.getElementById('admissionsByBatchBody');
+        const icon = document.getElementById('admissionsByBatchToggleIcon');
+        const label = document.getElementById('admissionsByBatchToggleLabel');
+        if (!btn || !body) {
+            return;
+        }
+
+        btn.addEventListener('click', function () {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            const next = !open;
+            btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            if (next) {
+                body.classList.remove('d-none');
+            } else {
+                body.classList.add('d-none');
+            }
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !next);
+                icon.classList.toggle('fa-chevron-up', next);
+            }
+            if (label) {
+                label.textContent = next ? 'Hide Details' : 'Show Details';
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAdmissionsByBatchToggle);
+    } else {
+        initAdmissionsByBatchToggle();
+    }
+})();
 
 /*==================================================
 COURSE WISE SUMMARY DROPDOWN
