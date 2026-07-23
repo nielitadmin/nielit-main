@@ -18,7 +18,23 @@ if (($_SESSION['admin_role'] ?? '') !== 'master_admin') {
 }
 
 $active_theme = loadActiveTheme($conn);
-ensureActivityLogsTable($conn);
+$tableReady = ensureActivityLogsTable($conn);
+
+// If tracking just started and log is empty, record that this admin opened Activity Log
+if ($tableReady) {
+    $countRes = $conn->query('SELECT COUNT(*) AS c FROM activity_logs');
+    $existingCount = $countRes ? (int) ($countRes->fetch_assoc()['c'] ?? 0) : 0;
+    if ($existingCount === 0) {
+        logActivity($conn, [
+            'actor_type' => 'admin',
+            'action' => 'other',
+            'entity_type' => 'system',
+            'entity_name' => 'Activity Log',
+            'description' => 'Activity tracking is now active. New admin and student actions will appear here.',
+            'result' => 'info',
+        ]);
+    }
+}
 
 $filters = [
     'actor_type' => trim((string) ($_GET['actor_type'] ?? '')),
@@ -32,21 +48,31 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $perPage = 50;
 $offset = ($page - 1) * $perPage;
 
-$result = fetchActivityLogs($conn, array_filter($filters), $perPage, $offset);
+$cleanFilters = array_filter($filters, static function ($v) {
+    return $v !== null && $v !== '';
+});
+$result = $tableReady
+    ? fetchActivityLogs($conn, $cleanFilters, $perPage, $offset)
+    : ['rows' => [], 'total' => 0];
 $rows = $result['rows'];
 $total = $result['total'];
-$totalPages = max(1, (int) ceil($total / $perPage));
+$totalPages = max(1, (int) ceil(max(1, $total) / $perPage));
+if ($total === 0) {
+    $totalPages = 1;
+}
 $actionLabels = activityActionLabels();
 
 $entityTypes = [];
-$etRes = $conn->query("SELECT DISTINCT entity_type FROM activity_logs WHERE entity_type IS NOT NULL AND entity_type != '' ORDER BY entity_type ASC LIMIT 100");
-if ($etRes) {
-    while ($r = $etRes->fetch_assoc()) {
-        $entityTypes[] = $r['entity_type'];
+if ($tableReady) {
+    $etRes = $conn->query("SELECT DISTINCT entity_type FROM activity_logs WHERE entity_type IS NOT NULL AND entity_type != '' ORDER BY entity_type ASC LIMIT 100");
+    if ($etRes) {
+        while ($r = $etRes->fetch_assoc()) {
+            $entityTypes[] = $r['entity_type'];
+        }
     }
 }
 
-function activityBadgeClass(string $actorType): string
+function activityBadgeClass($actorType)
 {
     if ($actorType === 'admin') {
         return 'badge-admin';
@@ -55,6 +81,18 @@ function activityBadgeClass(string $actorType): string
         return 'badge-student';
     }
     return 'badge-system';
+}
+
+function activityDetailPreview($details)
+{
+    $details = (string) $details;
+    if ($details === '') {
+        return '';
+    }
+    if (function_exists('mb_strimwidth')) {
+        return mb_strimwidth($details, 0, 180, '…');
+    }
+    return strlen($details) > 180 ? substr($details, 0, 177) . '...' : $details;
 }
 ?>
 <!DOCTYPE html>
@@ -75,6 +113,13 @@ function activityBadgeClass(string $actorType): string
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
             margin-bottom: 1.25rem;
         }
+        .activity-filters .form-label {
+            display: block;
+            margin-bottom: 0.35rem;
+            color: #475569;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
         .activity-table-wrap {
             background: #fff;
             border-radius: 14px;
@@ -92,6 +137,7 @@ function activityBadgeClass(string $actorType): string
             border-bottom: 1px solid #eef2f7;
             vertical-align: top;
             font-size: 0.92rem;
+            color: #0f172a;
         }
         .activity-table th {
             background: #f8fafc;
@@ -117,164 +163,185 @@ function activityBadgeClass(string $actorType): string
             padding: 1rem 1.25rem;
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
             margin-bottom: 1.25rem;
+            color: #334155;
         }
-        .activity-kpi strong { font-size: 1.4rem; color: #0f172a; }
+        .activity-kpi strong { font-size: 1.35rem; color: #0f172a; }
+        .activity-alert {
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            color: #9a3412;
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+        }
     </style>
 </head>
-<body>
-<?php include __DIR__ . '/includes/sidebar.php'; ?>
-<div class="main-content">
-    <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <div>
-                <h2 class="mb-1"><i class="fas fa-stream"></i> Activity Log</h2>
-                <p class="text-muted mb-0">Track admin and student actions across the system.</p>
+<body class="admin-body">
+<div class="admin-wrapper">
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
+
+    <main class="admin-content">
+        <div class="admin-topbar">
+            <div class="topbar-left">
+                <h4><i class="fas fa-stream"></i> Activity Log</h4>
+                <small>Track admin and student actions across the system</small>
             </div>
         </div>
 
-        <div class="activity-kpi">
-            Showing <strong><?php echo number_format(count($rows)); ?></strong>
-            of <strong><?php echo number_format($total); ?></strong> activities
-            <?php if ($totalPages > 1): ?>
-                · Page <?php echo $page; ?> / <?php echo $totalPages; ?>
+        <div class="admin-main">
+            <?php if (!$tableReady): ?>
+                <div class="activity-alert">
+                    Could not create or open the <code>activity_logs</code> table. Check database permissions, then reload this page.
+                </div>
             <?php endif; ?>
-        </div>
 
-        <form method="get" class="activity-filters">
-            <div class="row g-2 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label">Actor</label>
-                    <select name="actor_type" class="form-select">
-                        <option value="">All</option>
-                        <option value="admin" <?php echo $filters['actor_type'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                        <option value="student" <?php echo $filters['actor_type'] === 'student' ? 'selected' : ''; ?>>Student</option>
-                        <option value="system" <?php echo $filters['actor_type'] === 'system' ? 'selected' : ''; ?>>System</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Action</label>
-                    <select name="action" class="form-select">
-                        <option value="">All</option>
-                        <?php foreach ($actionLabels as $key => $label): ?>
-                            <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $filters['action'] === $key ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($label); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Entity</label>
-                    <select name="entity_type" class="form-select">
-                        <option value="">All</option>
-                        <?php foreach ($entityTypes as $et): ?>
-                            <option value="<?php echo htmlspecialchars($et); ?>" <?php echo $filters['entity_type'] === $et ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars(ucfirst($et)); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">From</label>
-                    <input type="date" name="date_from" class="form-control" value="<?php echo htmlspecialchars($filters['date_from']); ?>">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">To</label>
-                    <input type="date" name="date_to" class="form-control" value="<?php echo htmlspecialchars($filters['date_to']); ?>">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Search</label>
-                    <input type="text" name="q" class="form-control" placeholder="Name, ID, text…" value="<?php echo htmlspecialchars($filters['q']); ?>">
-                </div>
-                <div class="col-12 d-flex gap-2 mt-2">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
-                    <a href="manage_activity.php" class="btn btn-outline-secondary">Reset</a>
-                </div>
+            <div class="activity-kpi">
+                Showing <strong><?php echo number_format(count($rows)); ?></strong>
+                of <strong><?php echo number_format($total); ?></strong> activities
+                <?php if ($totalPages > 1): ?>
+                    · Page <?php echo (int) $page; ?> / <?php echo (int) $totalPages; ?>
+                <?php endif; ?>
             </div>
-        </form>
 
-        <div class="activity-table-wrap">
-            <div class="table-responsive">
-                <table class="activity-table">
-                    <thead>
-                        <tr>
-                            <th>When</th>
-                            <th>Who</th>
-                            <th>Action</th>
-                            <th>What happened</th>
-                            <th>Entity</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($rows)): ?>
+            <form method="get" class="activity-filters">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label" for="actor_type">Actor</label>
+                        <select name="actor_type" id="actor_type" class="form-select">
+                            <option value="">All</option>
+                            <option value="admin" <?php echo $filters['actor_type'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                            <option value="student" <?php echo $filters['actor_type'] === 'student' ? 'selected' : ''; ?>>Student</option>
+                            <option value="system" <?php echo $filters['actor_type'] === 'system' ? 'selected' : ''; ?>>System</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="action">Action</label>
+                        <select name="action" id="action" class="form-select">
+                            <option value="">All</option>
+                            <?php foreach ($actionLabels as $key => $label): ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>" <?php echo $filters['action'] === $key ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="entity_type">Entity</label>
+                        <select name="entity_type" id="entity_type" class="form-select">
+                            <option value="">All</option>
+                            <?php foreach ($entityTypes as $et): ?>
+                                <option value="<?php echo htmlspecialchars($et); ?>" <?php echo $filters['entity_type'] === $et ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(ucfirst($et)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="date_from">From</label>
+                        <input type="date" name="date_from" id="date_from" class="form-control" value="<?php echo htmlspecialchars($filters['date_from']); ?>">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="date_to">To</label>
+                        <input type="date" name="date_to" id="date_to" class="form-control" value="<?php echo htmlspecialchars($filters['date_to']); ?>">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="q">Search</label>
+                        <input type="text" name="q" id="q" class="form-control" placeholder="Name, ID, text…" value="<?php echo htmlspecialchars($filters['q']); ?>">
+                    </div>
+                    <div class="col-12 d-flex gap-2 mt-2">
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                        <a href="manage_activity.php" class="btn btn-outline-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
+
+            <div class="activity-table-wrap">
+                <div class="table-responsive">
+                    <table class="activity-table">
+                        <thead>
                             <tr>
-                                <td colspan="5" class="text-center text-muted py-5">No activity recorded yet. New actions will appear here automatically.</td>
+                                <th>When</th>
+                                <th>Who</th>
+                                <th>Action</th>
+                                <th>What happened</th>
+                                <th>Entity</th>
                             </tr>
-                        <?php else: ?>
-                            <?php foreach ($rows as $row): ?>
-                                <?php
-                                $label = $actionLabels[$row['action']] ?? ucwords(str_replace('_', ' ', (string) $row['action']));
-                                $who = trim(($row['actor_name'] ?? '') . ($row['actor_role'] ? ' (' . $row['actor_role'] . ')' : ''));
-                                if ($who === '') {
-                                    $who = $row['actor_id'] ?: 'System';
-                                }
-                                ?>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($rows)): ?>
                                 <tr>
-                                    <td style="white-space:nowrap;">
-                                        <?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($row['created_at']))); ?>
-                                        <?php if (!empty($row['ip_address'])): ?>
-                                            <div class="activity-meta"><?php echo htmlspecialchars($row['ip_address']); ?></div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <span class="badge-actor <?php echo activityBadgeClass($row['actor_type']); ?>">
-                                            <?php echo htmlspecialchars(ucfirst($row['actor_type'])); ?>
-                                        </span>
-                                        <div class="activity-meta mt-1"><?php echo htmlspecialchars($who); ?></div>
-                                    </td>
-                                    <td><?php echo htmlspecialchars($label); ?></td>
-                                    <td>
-                                        <div class="activity-desc"><?php echo htmlspecialchars($row['description']); ?></div>
-                                        <?php if (!empty($row['details'])): ?>
-                                            <div class="activity-meta"><?php echo htmlspecialchars(mb_strimwidth((string) $row['details'], 0, 180, '…')); ?></div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <?php if (!empty($row['entity_type'])): ?>
-                                            <strong><?php echo htmlspecialchars(ucfirst($row['entity_type'])); ?></strong>
-                                            <?php if (!empty($row['entity_name'])): ?>
-                                                <div class="activity-meta"><?php echo htmlspecialchars($row['entity_name']); ?></div>
-                                            <?php elseif (!empty($row['entity_id'])): ?>
-                                                <div class="activity-meta">#<?php echo htmlspecialchars($row['entity_id']); ?></div>
-                                            <?php endif; ?>
-                                        <?php else: ?>
-                                            <span class="text-muted">—</span>
-                                        <?php endif; ?>
+                                    <td colspan="5" class="text-center text-muted py-5">
+                                        No activity recorded yet. Log out and log back in, or edit a course/batch — new actions will appear here.
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            <?php else: ?>
+                                <?php foreach ($rows as $row): ?>
+                                    <?php
+                                    $label = $actionLabels[$row['action']] ?? ucwords(str_replace('_', ' ', (string) $row['action']));
+                                    $who = trim(($row['actor_name'] ?? '') . (!empty($row['actor_role']) ? ' (' . $row['actor_role'] . ')' : ''));
+                                    if ($who === '') {
+                                        $who = $row['actor_id'] ?: 'System';
+                                    }
+                                    $detailPreview = activityDetailPreview($row['details'] ?? '');
+                                    ?>
+                                    <tr>
+                                        <td style="white-space:nowrap;">
+                                            <?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($row['created_at']))); ?>
+                                            <?php if (!empty($row['ip_address'])): ?>
+                                                <div class="activity-meta"><?php echo htmlspecialchars($row['ip_address']); ?></div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <span class="badge-actor <?php echo activityBadgeClass($row['actor_type']); ?>">
+                                                <?php echo htmlspecialchars(ucfirst($row['actor_type'])); ?>
+                                            </span>
+                                            <div class="activity-meta mt-1"><?php echo htmlspecialchars($who); ?></div>
+                                        </td>
+                                        <td><?php echo htmlspecialchars($label); ?></td>
+                                        <td>
+                                            <div class="activity-desc"><?php echo htmlspecialchars($row['description']); ?></div>
+                                            <?php if ($detailPreview !== ''): ?>
+                                                <div class="activity-meta"><?php echo htmlspecialchars($detailPreview); ?></div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($row['entity_type'])): ?>
+                                                <strong><?php echo htmlspecialchars(ucfirst($row['entity_type'])); ?></strong>
+                                                <?php if (!empty($row['entity_name'])): ?>
+                                                    <div class="activity-meta"><?php echo htmlspecialchars($row['entity_name']); ?></div>
+                                                <?php elseif (!empty($row['entity_id'])): ?>
+                                                    <div class="activity-meta">#<?php echo htmlspecialchars($row['entity_id']); ?></div>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="text-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
 
-        <?php if ($totalPages > 1): ?>
-            <nav class="mt-3">
-                <ul class="pagination">
-                    <?php
-                    $queryBase = $_GET;
-                    for ($p = 1; $p <= $totalPages; $p++):
-                        $queryBase['page'] = $p;
-                        $href = 'manage_activity.php?' . http_build_query($queryBase);
-                    ?>
-                        <li class="page-item <?php echo $p === $page ? 'active' : ''; ?>">
-                            <a class="page-link" href="<?php echo htmlspecialchars($href); ?>"><?php echo $p; ?></a>
-                        </li>
-                    <?php endfor; ?>
-                </ul>
-            </nav>
-        <?php endif; ?>
-    </div>
+            <?php if ($totalPages > 1): ?>
+                <nav class="mt-3">
+                    <ul class="pagination">
+                        <?php
+                        $queryBase = $_GET;
+                        for ($p = 1; $p <= min($totalPages, 30); $p++):
+                            $queryBase['page'] = $p;
+                            $href = 'manage_activity.php?' . http_build_query($queryBase);
+                        ?>
+                            <li class="page-item <?php echo $p === $page ? 'active' : ''; ?>">
+                                <a class="page-link" href="<?php echo htmlspecialchars($href); ?>"><?php echo $p; ?></a>
+                            </li>
+                        <?php endfor; ?>
+                    </ul>
+                </nav>
+            <?php endif; ?>
+        </div>
+    </main>
 </div>
 </body>
 </html>

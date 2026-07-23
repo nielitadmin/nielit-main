@@ -146,18 +146,24 @@ if (!function_exists('logActivity')) {
             }
 
             $actor = activityResolveActor($data);
-            $entityType = isset($data['entity_type']) ? (string) $data['entity_type'] : null;
-            $entityId = isset($data['entity_id']) ? (string) $data['entity_id'] : null;
-            $entityName = isset($data['entity_name']) ? (string) $data['entity_name'] : null;
+            $entityType = array_key_exists('entity_type', $data) && $data['entity_type'] !== null && $data['entity_type'] !== ''
+                ? (string) $data['entity_type'] : '';
+            $entityId = array_key_exists('entity_id', $data) && $data['entity_id'] !== null && $data['entity_id'] !== ''
+                ? (string) $data['entity_id'] : '';
+            $entityName = array_key_exists('entity_name', $data) && $data['entity_name'] !== null && $data['entity_name'] !== ''
+                ? (string) $data['entity_name'] : '';
             $result = (string) ($data['result'] ?? 'success');
             if (!in_array($result, ['success', 'failure', 'info'], true)) {
                 $result = 'info';
             }
 
-            $details = $data['details'] ?? null;
+            $details = $data['details'] ?? '';
             if (is_array($details)) {
                 $details = json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            } elseif ($details !== null) {
+                if ($details === false) {
+                    $details = '';
+                }
+            } else {
                 $details = (string) $details;
             }
 
@@ -167,17 +173,19 @@ if (!function_exists('logActivity')) {
             $stmt = $conn->prepare(
                 "INSERT INTO activity_logs
                 (actor_type, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_name, description, details, ip_address, user_agent, result)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                VALUES (?, ?, ?, ?, ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?, NULLIF(?, ''), NULLIF(?, ''), NULLIF(?, ''), ?)"
             );
             if (!$stmt) {
                 error_log('logActivity prepare failed: ' . $conn->error);
                 return false;
             }
 
-            $actorType = $actor['actor_type'];
-            $actorId = $actor['actor_id'];
-            $actorName = $actor['actor_name'];
-            $actorRole = $actor['actor_role'];
+            $actorType = (string) $actor['actor_type'];
+            $actorId = (string) ($actor['actor_id'] ?? '');
+            $actorName = (string) ($actor['actor_name'] ?? '');
+            $actorRole = (string) ($actor['actor_role'] ?? '');
+            $action = (string) $action;
+            $description = (string) $description;
 
             $stmt->bind_param(
                 'sssssssssssss',
