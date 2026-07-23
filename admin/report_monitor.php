@@ -553,7 +553,61 @@ $pageTitle="Report Monitor";
         .course-fy-range-wrap{
             display:flex;
             justify-content:center;
+            align-items:center;
+            flex-wrap:wrap;
+            gap:10px;
             width:100%;
+            margin-bottom:8px;
+        }
+        .course-fy-day-picker{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:4px 10px;
+            border-radius:999px;
+            background:#fff;
+            border:1px solid #d0d7e4;
+        }
+        .course-fy-day-picker label{
+            margin:0;
+            font-size:0.78rem;
+            font-weight:700;
+            color:#475569;
+            white-space:nowrap;
+        }
+        .course-fy-day-picker input[type="date"]{
+            border:0;
+            background:transparent;
+            color:#0f172a;
+            font-size:0.85rem;
+            font-weight:600;
+            min-width:9.5rem;
+        }
+        .course-fy-day-summary{
+            display:none;
+            margin:0 0 10px;
+            padding:10px 12px;
+            border:1px solid #e2e8f0;
+            border-radius:10px;
+            background:#fff;
+        }
+        .course-fy-day-summary.is-visible{ display:block; }
+        .course-fy-day-summary h6{
+            margin:0 0 6px;
+            font-size:0.95rem;
+            color:#0f172a;
+        }
+        .course-fy-day-summary .day-summary-list{
+            max-height:180px;
+            overflow:auto;
+        }
+        .course-fy-day-summary .day-summary-row{
+            display:flex;
+            justify-content:space-between;
+            gap:10px;
+            padding:3px 0;
+            border-bottom:1px solid #f1f5f9;
+            font-size:0.85rem;
         }
         .course-fy-day-scroll{
             display:block;
@@ -1840,12 +1894,21 @@ Q4 (Jan–Mar)
             </div>
             <div class="course-fy-range-wrap">
                 <div class="course-fy-range-bar" id="courseFyRangeBar" role="group" aria-label="Timeline range">
+                    <button type="button" class="course-fy-range-btn" data-range="DAY" title="Pick one day">1 DAY</button>
                     <button type="button" class="course-fy-range-btn" data-range="Q1" title="Apr–Jun">Q1</button>
                     <button type="button" class="course-fy-range-btn" data-range="Q2" title="Jul–Sep">Q2</button>
                     <button type="button" class="course-fy-range-btn" data-range="Q3" title="Oct–Dec">Q3</button>
                     <button type="button" class="course-fy-range-btn" data-range="Q4" title="Jan–Mar">Q4</button>
                     <button type="button" class="course-fy-range-btn active" data-range="FY" title="Full financial year">FULL YEAR</button>
                 </div>
+                <div class="course-fy-day-picker" id="courseFyDayPickerWrap" title="Choose a date in this financial year">
+                    <label for="courseFyDayPicker"><i class="fas fa-calendar-day me-1"></i> Date</label>
+                    <input type="date" id="courseFyDayPicker">
+                </div>
+            </div>
+            <div class="course-fy-day-summary" id="courseFyDaySummary">
+                <h6 id="courseFyDaySummaryTitle">Select a date to see one-day figures</h6>
+                <div id="courseFyDaySummaryBody" class="text-muted small">Use the calendar or click <strong>1 DAY</strong>.</div>
             </div>
             <div class="d-flex gap-2 mb-2 flex-wrap align-items-center">
                 <button type="button" class="btn btn-sm btn-outline-primary" id="courseFyScrollLeft" title="Scroll left">
@@ -2726,6 +2789,7 @@ let courseFyTimelineCache = null;
 const courseFyZoomSteps = [0.75, 1, 1.5, 2, 2.5, 3];
 let courseFyZoomIndex = 1; // 100%
 let courseFyActiveRange = 'FY';
+let courseFySelectedDayIso = '';
 
 const courseFyTimelineData = reportPayload.courseFyTimeline || {};
 renderCourseFyGanttChart(courseFyTimelineData);
@@ -2762,13 +2826,155 @@ function setCourseFyRangeActive(rangeKey) {
     document.querySelectorAll('#courseFyRangeBar .course-fy-range-btn').forEach(function (btn) {
         btn.classList.toggle('active', btn.getAttribute('data-range') === courseFyActiveRange);
     });
+    const pickerWrap = document.getElementById('courseFyDayPickerWrap');
+    if (pickerWrap) {
+        pickerWrap.style.outline = courseFyActiveRange === 'DAY' ? '2px solid #ea580c' : 'none';
+        pickerWrap.style.outlineOffset = '2px';
+    }
+}
+
+function syncCourseFyDayPickerBounds() {
+    const picker = document.getElementById('courseFyDayPicker');
+    const timeline = courseFyTimelineCache || {};
+    if (!picker) {
+        return;
+    }
+    const fyStart = String(timeline.fy_start || '').slice(0, 10);
+    const fyEnd = String(timeline.fy_end || '').slice(0, 10);
+    if (fyStart) {
+        picker.min = fyStart;
+    }
+    if (fyEnd) {
+        picker.max = fyEnd;
+    }
+    if (!picker.value) {
+        const today = new Date();
+        const todayIso = today.getFullYear() + '-' +
+            String(today.getMonth() + 1).padStart(2, '0') + '-' +
+            String(today.getDate()).padStart(2, '0');
+        if (fyStart && fyEnd && todayIso >= fyStart && todayIso <= fyEnd) {
+            picker.value = todayIso;
+        } else if (fyStart) {
+            picker.value = fyStart;
+        }
+    }
+}
+
+function findCourseFyDayIndex(isoDate) {
+    const dayIso = (courseFyTimelineCache && courseFyTimelineCache.day_iso) || [];
+    const target = String(isoDate || '').slice(0, 10);
+    if (!target) {
+        return -1;
+    }
+    for (let i = 0; i < dayIso.length; i++) {
+        if (String(dayIso[i] || '').slice(0, 10) === target) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function renderCourseFyDaySummary(dayIndex) {
+    const box = document.getElementById('courseFyDaySummary');
+    const title = document.getElementById('courseFyDaySummaryTitle');
+    const body = document.getElementById('courseFyDaySummaryBody');
+    const timeline = courseFyTimelineCache || {};
+    const dayLabels = timeline.day_labels || [];
+    const dayIso = timeline.day_iso || [];
+    const courses = timeline.courses || [];
+
+    if (!box || !title || !body) {
+        return;
+    }
+    if (!Number.isFinite(dayIndex) || dayIndex < 0) {
+        box.classList.remove('is-visible');
+        return;
+    }
+
+    const dateLabel = dayLabels[dayIndex] || dayIso[dayIndex] || ('Day ' + (dayIndex + 1));
+    const rows = [];
+    let totalAdmissions = 0;
+    let totalRegistered = 0;
+
+    courses.forEach(function (course) {
+        const adm = Number((course.daily_admissions && course.daily_admissions[dayIndex]) || 0);
+        const reg = Number((course.daily_registered && course.daily_registered[dayIndex]) || 0);
+        if (adm <= 0 && reg <= 0) {
+            return;
+        }
+        totalAdmissions += adm;
+        totalRegistered += reg;
+        rows.push({
+            name: (course.course_name || 'Course') + (course.course_code ? ' (' + course.course_code + ')' : ''),
+            admissions: adm,
+            registered: reg
+        });
+    });
+    rows.sort(function (a, b) {
+        return (b.admissions + b.registered) - (a.admissions + a.registered);
+    });
+
+    title.textContent = 'One-day view · ' + dateLabel;
+    let html = '<div style="margin-bottom:8px"><strong>Admissions: ' +
+        totalAdmissions.toLocaleString() +
+        '</strong> · Registered: <strong>' +
+        totalRegistered.toLocaleString() +
+        '</strong></div>';
+
+    if (!rows.length) {
+        html += '<div class="text-muted">No course activity recorded on this date.</div>';
+    } else {
+        html += '<div class="day-summary-list">';
+        rows.forEach(function (row) {
+            html += '<div class="day-summary-row"><span>' + escapeHtmlAttr(row.name) +
+                '</span><strong>Adm ' + Number(row.admissions).toLocaleString() +
+                ' · Reg ' + Number(row.registered).toLocaleString() + '</strong></div>';
+        });
+        html += '</div>';
+    }
+    body.innerHTML = html;
+    box.classList.add('is-visible');
+}
+
+function applyCourseFyDay(isoDate) {
+    const iso = String(isoDate || '').slice(0, 10);
+    if (!iso) {
+        return;
+    }
+    courseFySelectedDayIso = iso;
+    setCourseFyRangeActive('DAY');
+
+    const picker = document.getElementById('courseFyDayPicker');
+    if (picker && picker.value !== iso) {
+        picker.value = iso;
+    }
+
+    // Strong zoom so a single day is easy to see on the timeline
+    applyCourseFyZoom(courseFyZoomSteps.length - 1, false);
+
+    requestAnimationFrame(function () {
+        const dayIndex = findCourseFyDayIndex(iso);
+        if (dayIndex < 0) {
+            const box = document.getElementById('courseFyDaySummary');
+            const title = document.getElementById('courseFyDaySummaryTitle');
+            const body = document.getElementById('courseFyDaySummaryBody');
+            if (box && title && body) {
+                title.textContent = 'Date not in this financial year';
+                body.innerHTML = '<span class="text-danger">Choose a date between the FY start and end.</span>';
+                box.classList.add('is-visible');
+            }
+            return;
+        }
+        scrollCourseFyToDayIndex(dayIndex);
+        renderCourseFyDaySummary(dayIndex);
+    });
 }
 
 function findCourseFyRangeStartIndex(rangeKey, dayIsoList) {
     if (!dayIsoList || !dayIsoList.length) {
         return 0;
     }
-    if (rangeKey === 'FY') {
+    if (rangeKey === 'FY' || rangeKey === 'DAY') {
         return 0;
     }
     const monthSets = {
@@ -2803,19 +3009,37 @@ function scrollCourseFyToDayIndex(dayIndex) {
     }
     const maxScroll = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
     const ratio = Math.max(0, Math.min(1, dayIndex / Math.max(1, dayCount - 1)));
-    // Keep selected quarter near the left of the viewport
     const target = Math.min(maxScroll, Math.max(0, (dayIndex / dayCount) * scrollEl.scrollWidth - 40));
-    scrollEl.scrollLeft = target;
-    if (!Number.isFinite(target)) {
-        scrollEl.scrollLeft = ratio * maxScroll;
-    }
+    scrollEl.scrollLeft = Number.isFinite(target) ? target : (ratio * maxScroll);
 }
 
 function applyCourseFyRange(rangeKey) {
-    const key = ['Q1', 'Q2', 'Q3', 'Q4', 'FY'].indexOf(rangeKey) >= 0 ? rangeKey : 'FY';
-    setCourseFyRangeActive(key);
+    const key = ['DAY', 'Q1', 'Q2', 'Q3', 'Q4', 'FY'].indexOf(rangeKey) >= 0 ? rangeKey : 'FY';
 
-    // Quarters get a closer zoom so the window is easier to read; full year stays at 100%.
+    if (key === 'DAY') {
+        const picker = document.getElementById('courseFyDayPicker');
+        syncCourseFyDayPickerBounds();
+        const iso = (picker && picker.value) || courseFySelectedDayIso;
+        if (iso) {
+            applyCourseFyDay(iso);
+            if (picker) {
+                try { picker.showPicker(); } catch (e) { picker.focus(); }
+            }
+        } else {
+            setCourseFyRangeActive('DAY');
+            if (picker) {
+                picker.focus();
+            }
+        }
+        return;
+    }
+
+    const summary = document.getElementById('courseFyDaySummary');
+    if (summary) {
+        summary.classList.remove('is-visible');
+    }
+
+    setCourseFyRangeActive(key);
     applyCourseFyZoom(key === 'FY' ? 1 : 2, false);
 
     requestAnimationFrame(function () {
@@ -2827,17 +3051,29 @@ function applyCourseFyRange(rangeKey) {
 
 function initCourseFyRangeBar() {
     const bar = document.getElementById('courseFyRangeBar');
-    if (!bar || bar.getAttribute('data-bound') === '1') {
-        return;
+    const picker = document.getElementById('courseFyDayPicker');
+
+    if (bar && bar.getAttribute('data-bound') !== '1') {
+        bar.setAttribute('data-bound', '1');
+        bar.addEventListener('click', function (event) {
+            const btn = event.target.closest('.course-fy-range-btn');
+            if (!btn) {
+                return;
+            }
+            applyCourseFyRange(btn.getAttribute('data-range') || 'FY');
+        });
     }
-    bar.setAttribute('data-bound', '1');
-    bar.addEventListener('click', function (event) {
-        const btn = event.target.closest('.course-fy-range-btn');
-        if (!btn) {
-            return;
-        }
-        applyCourseFyRange(btn.getAttribute('data-range') || 'FY');
-    });
+
+    if (picker && picker.getAttribute('data-bound') !== '1') {
+        picker.setAttribute('data-bound', '1');
+        picker.addEventListener('change', function () {
+            if (picker.value) {
+                applyCourseFyDay(picker.value);
+            }
+        });
+    }
+
+    syncCourseFyDayPickerBounds();
     setCourseFyRangeActive(courseFyActiveRange);
 }
 
