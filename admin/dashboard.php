@@ -316,6 +316,23 @@ if (isset($_POST['add_course'])) {
             $_SESSION['message'] = "Course added successfully! Generate registration link to create QR code. Course automatically assigned to you.";
         }
         $_SESSION['message_type'] = "success";
+
+        if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../includes/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'action' => 'course_create',
+                'entity_type' => 'course',
+                'entity_id' => (string) $course_id,
+                'entity_name' => $course_name . (!empty($course_code) ? ' (' . $course_code . ')' : ''),
+                'description' => 'Course "' . $course_name . '" was created'
+                    . (!empty($course_code) ? ' (' . $course_code . ')' : '') . '.',
+                'details' => [
+                    'training_center' => $training_center ?? null,
+                    'category' => $category ?? null,
+                ],
+            ]);
+        }
     } else {
         $_SESSION['message'] = "Error adding course: " . $conn->error;
         $_SESSION['message_type'] = "danger";

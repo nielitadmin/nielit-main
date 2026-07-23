@@ -70,6 +70,21 @@ function init_admin_session($username) {
             
             // Log successful session initialization
             error_log("Session Manager: Session initialized for user " . $username . " with role " . $admin['role']);
+
+            if (file_exists(__DIR__ . '/activity_logger.php')) {
+                require_once __DIR__ . '/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'admin',
+                    'actor_id' => (string) $admin['id'],
+                    'actor_name' => $admin['username'],
+                    'actor_role' => $admin['role'],
+                    'action' => 'admin_login',
+                    'entity_type' => 'admin',
+                    'entity_id' => (string) $admin['id'],
+                    'entity_name' => $admin['username'],
+                    'description' => 'Admin "' . $admin['username'] . '" logged in (' . $admin['role'] . ').',
+                ]);
+            }
             
             $stmt->close();
             return true;

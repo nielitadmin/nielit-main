@@ -58,6 +58,28 @@ function createBatch($data, $conn) {
     $result = $stmt->execute();
     $batch_id = $stmt->insert_id;
     $stmt->close();
+
+    if ($result && $batch_id && file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../../includes/activity_logger.php';
+        $createdBy = $data['created_by'] ?? ($_SESSION['admin'] ?? 'Admin');
+        logActivity($conn, [
+            'actor_type' => 'admin',
+            'actor_name' => is_numeric($createdBy) ? ($_SESSION['admin'] ?? (string) $createdBy) : (string) $createdBy,
+            'action' => 'batch_create',
+            'entity_type' => 'batch',
+            'entity_id' => (string) $batch_id,
+            'entity_name' => ($data['batch_name'] ?? '') . ' ' . ($data['batch_code'] ?? ''),
+            'description' => 'Batch "' . ($data['batch_name'] ?? ('#' . $batch_id)) . '" created'
+                . (!empty($data['batch_code']) ? ' (' . $data['batch_code'] . ')' : '')
+                . (!empty($data['course_id']) ? ' for course #' . $data['course_id'] : '') . '.',
+            'details' => [
+                'course_id' => $data['course_id'] ?? null,
+                'start_date' => $data['start_date'] ?? null,
+                'end_date' => $data['end_date'] ?? null,
+                'status' => $data['status'] ?? null,
+            ],
+        ]);
+    }
     
     return $result ? $batch_id : false;
 }
@@ -104,6 +126,24 @@ function updateBatch($batch_id, $data, $conn) {
     
     $result = $stmt->execute();
     $stmt->close();
+
+    if ($result && file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../../includes/activity_logger.php';
+        logActivity($conn, [
+            'actor_type' => 'admin',
+            'action' => 'batch_update',
+            'entity_type' => 'batch',
+            'entity_id' => (string) $batch_id,
+            'entity_name' => $data['batch_name'] ?? ('Batch #' . $batch_id),
+            'description' => 'Batch "' . ($data['batch_name'] ?? ('#' . $batch_id)) . '" was updated.',
+            'details' => [
+                'status' => $data['status'] ?? null,
+                'start_date' => $data['start_date'] ?? null,
+                'end_date' => $data['end_date'] ?? null,
+                'location' => $data['location'] ?? null,
+            ],
+        ]);
+    }
     
     return $result;
 }
@@ -124,12 +164,36 @@ function deleteBatch($batch_id, $conn) {
     if ($row['count'] > 0) {
         return ['success' => false, 'message' => 'Cannot delete batch with enrolled students'];
     }
+
+    $batchLabel = 'Batch #' . $batch_id;
+    $info = $conn->prepare('SELECT batch_name, batch_code FROM batches WHERE id = ? LIMIT 1');
+    if ($info) {
+        $info->bind_param('i', $batch_id);
+        $info->execute();
+        $infoRow = $info->get_result()->fetch_assoc();
+        $info->close();
+        if ($infoRow) {
+            $batchLabel = trim(($infoRow['batch_name'] ?? '') . ' ' . ($infoRow['batch_code'] ?? '')) ?: $batchLabel;
+        }
+    }
     
     $sql = "DELETE FROM batches WHERE id = ?";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $batch_id);
     $result = $stmt->execute();
     $stmt->close();
+
+    if ($result && file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../../includes/activity_logger.php';
+        logActivity($conn, [
+            'actor_type' => 'admin',
+            'action' => 'batch_delete',
+            'entity_type' => 'batch',
+            'entity_id' => (string) $batch_id,
+            'entity_name' => $batchLabel,
+            'description' => 'Batch "' . $batchLabel . '" was deleted.',
+        ]);
+    }
     
     return ['success' => $result, 'message' => $result ? 'Batch deleted successfully' : 'Error deleting batch'];
 }

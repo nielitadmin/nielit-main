@@ -40,6 +40,31 @@ function logAuditAction($conn, $admin_username, $action_type, $resource_type, $r
         }
         
         $stmt->close();
+
+        // Mirror into system-wide activity log
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            $actionMap = [
+                'create' => $resource_type . '_create',
+                'update' => $resource_type . '_update',
+                'delete' => $resource_type . '_delete',
+                'activate' => $resource_type . '_update',
+                'deactivate' => $resource_type . '_update',
+                'reorder' => $resource_type . '_update',
+            ];
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $admin_username,
+                'action' => $actionMap[$action_type] ?? ($resource_type . '_' . $action_type),
+                'entity_type' => $resource_type,
+                'entity_id' => $resource_id !== null ? (string) $resource_id : null,
+                'entity_name' => $resource_name,
+                'description' => ucfirst($action_type) . ' ' . $resource_type . ': ' . $resource_name,
+                'details' => $details,
+                'result' => ($result === 'failure') ? 'failure' : 'success',
+            ]);
+        }
+
         return $success;
         
     } catch (Exception $e) {

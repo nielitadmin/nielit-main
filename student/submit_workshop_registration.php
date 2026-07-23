@@ -303,6 +303,21 @@ if ($is_returning_student) {
     }
     $_SESSION['registration_email_sent'] = false;
     $_SESSION['registration_email_queued'] = $email_queued;
+
+    if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../includes/activity_logger.php';
+        logActivity($conn, [
+            'actor_type' => 'student',
+            'actor_id' => (string) $student_id,
+            'actor_name' => $name,
+            'action' => 'student_register',
+            'entity_type' => 'course',
+            'entity_id' => isset($course_id) ? (string) $course_id : null,
+            'entity_name' => $course_name,
+            'description' => 'Student "' . $name . '" (' . $student_id . ') registered for workshop/course "' . $course_name . '".',
+            'details' => ['email' => $email, 'form' => 'workshop'],
+        ]);
+    }
 }
 
 $_SESSION['student_id'] = $student_id;

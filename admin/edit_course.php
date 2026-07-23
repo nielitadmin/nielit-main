@@ -422,6 +422,25 @@ if (isset($_POST['update_course'])) {
         } else {
             $_SESSION['message'] = 'Course updated successfully!';
         }
+
+        if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../includes/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'action' => 'course_update',
+                'entity_type' => 'course',
+                'entity_id' => (string) $course_id,
+                'entity_name' => $course_name . (!empty($course_code) ? ' (' . $course_code . ')' : ''),
+                'description' => 'Course "' . $course_name . '" was updated'
+                    . (!empty($course_code) ? ' (' . $course_code . ')' : '') . '.',
+                'details' => [
+                    'training_center' => $training_center ?? null,
+                    'enrollment_status' => $enrollment_status ?? null,
+                    'link_published' => $link_published ?? null,
+                ],
+            ]);
+        }
+
         header("Location: edit_course.php?id=$course_id");
         exit();
     } else {

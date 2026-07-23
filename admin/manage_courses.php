@@ -137,6 +137,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $success = "Course added successfully! Generate registration link to create QR code. Course automatically assigned to you.";
             }
+
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'admin',
+                    'action' => 'course_create',
+                    'entity_type' => 'course',
+                    'entity_id' => (string) $course_id,
+                    'entity_name' => $course_name . (!empty($course_code) ? ' (' . $course_code . ')' : ''),
+                    'description' => 'Course "' . $course_name . '" was created'
+                        . (!empty($course_code) ? ' (' . $course_code . ')' : '') . '.',
+                ]);
+            }
         } else {
             $error = "Error: " . $conn->error;
         }
@@ -239,6 +252,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $success = "Course updated successfully!";
             }
+
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'admin',
+                    'action' => 'course_update',
+                    'entity_type' => 'course',
+                    'entity_id' => (string) $id,
+                    'entity_name' => $course_name . (!empty($course_code) ? ' (' . $course_code . ')' : ''),
+                    'description' => 'Course "' . $course_name . '" was updated'
+                        . (!empty($course_code) ? ' (' . $course_code . ')' : '') . '.',
+                ]);
+            }
         } else {
             $error = "Error: " . $conn->error;
         }
@@ -268,6 +294,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $success = "Course deactivated successfully!";
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'admin',
+                    'action' => 'course_delete',
+                    'entity_type' => 'course',
+                    'entity_id' => (string) $id,
+                    'entity_name' => 'Course #' . $id,
+                    'description' => 'Course #' . $id . ' was deactivated.',
+                ]);
+            }
         } else {
             $error = "Error: " . $conn->error;
         }

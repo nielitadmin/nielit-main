@@ -84,6 +84,19 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $_SESSION['student_id'] = $student_id;
             $_SESSION['student_name'] = $display_name;
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'student',
+                    'actor_id' => (string) $student_id,
+                    'actor_name' => $display_name ?: $student_id,
+                    'action' => 'student_login',
+                    'entity_type' => 'student',
+                    'entity_id' => (string) $student_id,
+                    'entity_name' => $display_name ?: $student_id,
+                    'description' => 'Student "' . ($display_name ?: $student_id) . '" logged in.',
+                ]);
+            }
             header("Location: dashboard.php");
             exit;
         }

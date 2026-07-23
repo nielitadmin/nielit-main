@@ -1202,6 +1202,19 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             return ['success' => false, 'message' => 'Student not found or already rejected.'];
         }
 
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $adminName,
+                'action' => 'student_approve',
+                'entity_type' => 'student',
+                'entity_id' => $studentIdStr,
+                'entity_name' => $studentIdStr,
+                'description' => 'Admin "' . $adminName . '" approved student ' . $studentIdStr . '.',
+            ]);
+        }
+
         return [
             'success' => true,
             'message' => 'Student approved successfully! Documents verified — enrollment is now Active and the student is confirmed for this program.',
@@ -1263,6 +1276,19 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
 
         if ($affected <= 0 && empty($recordIds)) {
             return ['success' => false, 'message' => 'Student not found or is not currently approved.'];
+        }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $adminName,
+                'action' => 'student_deapprove',
+                'entity_type' => 'student',
+                'entity_id' => $studentIdStr,
+                'entity_name' => $studentIdStr,
+                'description' => 'Admin "' . $adminName . '" de-approved student ' . $studentIdStr . ' (returned to pending).',
+            ]);
         }
 
         return [
@@ -1382,6 +1408,24 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 : ' Rejection saved, but the email could not be sent. Please contact the student manually.';
         } elseif ($sendEmail) {
             $message .= ' No valid email address was found, so the student was not notified automatically.';
+        }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $_SESSION['admin'] ?? 'Admin',
+                'action' => 'student_reject',
+                'entity_type' => 'student',
+                'entity_id' => $studentIdStr,
+                'entity_name' => $studentName !== '' ? $studentName : $studentIdStr,
+                'description' => 'Student ' . $studentIdStr . ' rejected. Reason: ' . $rejectionReason,
+                'details' => [
+                    'reason' => $rejectionReason,
+                    'note' => $rejectionNote,
+                    'email_sent' => $emailSent,
+                ],
+            ]);
         }
 
         return [
@@ -2109,6 +2153,33 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $batchUpd->bind_param('i', $batchId);
             $batchUpd->execute();
             $batchUpd->close();
+        }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            $sid = (string) ($studentRow['student_id'] ?? $studentRecordId);
+            $sname = (string) ($studentRow['name'] ?? $sid);
+            $bname = '';
+            $bn = $conn->prepare('SELECT batch_name, batch_code FROM batches WHERE id = ? LIMIT 1');
+            if ($bn) {
+                $bn->bind_param('i', $batchId);
+                $bn->execute();
+                $br = $bn->get_result()->fetch_assoc();
+                $bn->close();
+                if ($br) {
+                    $bname = trim(($br['batch_name'] ?? '') . ' ' . ($br['batch_code'] ?? ''));
+                }
+            }
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $adminName !== '' ? $adminName : ($_SESSION['admin'] ?? 'Admin'),
+                'action' => 'batch_assign',
+                'entity_type' => 'batch',
+                'entity_id' => (string) $batchId,
+                'entity_name' => $bname !== '' ? $bname : ('Batch #' . $batchId),
+                'description' => 'Student "' . $sname . '" (' . $sid . ') assigned to batch "' . ($bname !== '' ? $bname : ('#' . $batchId)) . '".',
+                'details' => ['student_record_id' => $studentRecordId],
+            ]);
         }
 
         return ['success' => true, 'message' => 'Student assigned to batch successfully.'];

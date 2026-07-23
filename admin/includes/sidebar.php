@@ -129,6 +129,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_activity'); ?>" class="nav-link <?php echo ($current_page === 'manage_activity.php') ? 'active' : ''; ?>">
+                <i class="fas fa-stream"></i> Activity Log
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/visitor_stats'); ?>" class="nav-link <?php echo ($current_page === 'visitor_stats.php') ? 'active' : ''; ?>">
                 <i class="fas fa-eye"></i> Visitor Statistics
             </a>
