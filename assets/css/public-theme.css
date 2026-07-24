@@ -262,6 +262,17 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 3rem;
 }
 
+.public-toolbar,
+.courses-filter-bar,
+.courses-quick-nav-bar {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.courses-filter-bar {
+    border-bottom-width: 2px;
+}
+
 .section-header {
     background: var(--white);
     padding: 1.5rem;
@@ -670,3 +681,285 @@ footer a:hover {
         font-size: 1.5rem;
     }
 }
+
+/* ============================================
+   PUBLIC SITE NIGHT MODE
+   Applies on body.public-site (all public pages)
+   ============================================ */
+html[data-mode="night"] body.public-site {
+    --cream: #07101c;
+    --text: #e8eef8;
+    --muted: #9db0c9;
+    --border: rgba(148, 163, 184, 0.2);
+    --border-color: rgba(148, 163, 184, 0.2);
+    --light-bg: #13243c;
+    --text-dark: #e8eef8;
+    --text-muted: #9db0c9;
+    --hp-surface: #0f1b2d;
+    --hp-surface-2: #13243c;
+    --hp-heading: #f1f5f9;
+    background: #050b16 !important;
+    color: var(--text) !important;
+}
+
+html[data-mode="night"] body.public-site .top-bar {
+    background: #0b1524 !important;
+    background-color: #0b1524 !important;
+    border-bottom-color: var(--border) !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+}
+
+html[data-mode="night"] body.public-site .top-bar .text-primary,
+html[data-mode="night"] body.public-site .top-bar .fw-bold.text-primary,
+html[data-mode="night"] body.public-site .top-bar [style*="color: var(--blue)"] {
+    color: #93c5fd !important;
+}
+
+html[data-mode="night"] body.public-site .top-bar .text-dark,
+html[data-mode="night"] body.public-site .top-bar .fw-bold.text-dark,
+html[data-mode="night"] body.public-site .top-bar .text-secondary,
+html[data-mode="night"] body.public-site .top-bar .ministry-text,
+html[data-mode="night"] body.public-site .top-bar [style*="color: var(--navy)"],
+html[data-mode="night"] body.public-site .top-bar [style*="color: var(--muted)"],
+html[data-mode="night"] body.public-site .top-bar [style*="color: var(--text)"] {
+    color: var(--hp-heading) !important;
+}
+
+html[data-mode="night"] body.public-site .navbar,
+html[data-mode="night"] body.public-site .navbar.sticky-top,
+html[data-mode="night"] body.public-site .navbar.navbar-dark {
+    background: #0a1628 !important;
+    background-color: #0a1628 !important;
+    color: #fff !important;
+    border-bottom: 3px solid var(--gold) !important;
+}
+
+html[data-mode="night"] body.public-site .navbar .nav-link,
+html[data-mode="night"] body.public-site .navbar .navbar-brand {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
+html[data-mode="night"] body.public-site .navbar .nav-link:hover,
+html[data-mode="night"] body.public-site .navbar .nav-link.active {
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site .dropdown-menu {
+    background: #112240 !important;
+    background-color: #112240 !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+}
+
+html[data-mode="night"] body.public-site .dropdown-item {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+html[data-mode="night"] body.public-site .dropdown-item:hover,
+html[data-mode="night"] body.public-site .dropdown-item.active {
+    background: rgba(245, 158, 11, 0.18) !important;
+    color: var(--gold) !important;
+}
+
+html[data-mode="night"] body.public-site .page-header {
+    background: linear-gradient(135deg, #0a1628 0%, #112240 100%) !important;
+    color: #fff !important;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-mode="night"] body.public-site .page-header h1,
+html[data-mode="night"] body.public-site .page-header p,
+html[data-mode="night"] body.public-site .page-header .lead {
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site .card,
+html[data-mode="night"] body.public-site .section-header,
+html[data-mode="night"] body.public-site .empty-state,
+html[data-mode="night"] body.public-site .info-box,
+html[data-mode="night"] body.public-site .bg-light,
+html[data-mode="night"] body.public-site .bg-white {
+    background: var(--hp-surface) !important;
+    background-color: var(--hp-surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28) !important;
+}
+
+html[data-mode="night"] body.public-site .info-box:hover {
+    background-color: var(--hp-surface-2) !important;
+    border-color: rgba(59, 130, 246, 0.45) !important;
+}
+
+html[data-mode="night"] body.public-site .card-title,
+html[data-mode="night"] body.public-site .card h3,
+html[data-mode="night"] body.public-site .card h4,
+html[data-mode="night"] body.public-site .card h5,
+html[data-mode="night"] body.public-site .card h6,
+html[data-mode="night"] body.public-site .content-section h4,
+html[data-mode="night"] body.public-site .section-header h3,
+html[data-mode="night"] body.public-site .text-dark,
+html[data-mode="night"] body.public-site .fw-bold.text-dark {
+    color: var(--hp-heading) !important;
+}
+
+html[data-mode="night"] body.public-site .text-muted,
+html[data-mode="night"] body.public-site .text-secondary,
+html[data-mode="night"] body.public-site .card-text,
+html[data-mode="night"] body.public-site .info-label,
+html[data-mode="night"] body.public-site small {
+    color: var(--muted) !important;
+}
+
+html[data-mode="night"] body.public-site .info-value,
+html[data-mode="night"] body.public-site .content-section,
+html[data-mode="night"] body.public-site .content-section p,
+html[data-mode="night"] body.public-site .lead,
+html[data-mode="night"] body.public-site .contact-item h5 {
+    color: var(--text) !important;
+}
+
+html[data-mode="night"] body.public-site .text-primary,
+html[data-mode="night"] body.public-site a:not(.btn):not(.nav-link):not(.dropdown-item):not(.navbar-brand) {
+    color: #93c5fd !important;
+}
+
+html[data-mode="night"] body.public-site .btn-outline-primary,
+html[data-mode="night"] body.public-site .btn-outline-modern {
+    color: #93c5fd !important;
+    border-color: rgba(147, 197, 253, 0.55) !important;
+    background: transparent !important;
+}
+
+html[data-mode="night"] body.public-site .btn-outline-primary:hover,
+html[data-mode="night"] body.public-site .btn-outline-modern:hover {
+    background: rgba(59, 130, 246, 0.2) !important;
+    color: #fff !important;
+    border-color: #60a5fa !important;
+}
+
+html[data-mode="night"] body.public-site .btn-outline-secondary {
+    color: #cbd5e1 !important;
+    border-color: rgba(148, 163, 184, 0.45) !important;
+    background: transparent !important;
+}
+
+html[data-mode="night"] body.public-site .btn-outline-secondary:hover,
+html[data-mode="night"] body.public-site .btn-primary {
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site .course-card {
+    background: var(--hp-surface) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-mode="night"] body.public-site .course-card-body {
+    background: var(--hp-surface) !important;
+    color: var(--text) !important;
+}
+
+html[data-mode="night"] body.public-site .course-card-footer {
+    background: var(--hp-surface-2) !important;
+    border-top-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+html[data-mode="night"] body.public-site .course-card-header {
+    background: linear-gradient(135deg, #0a1628 0%, #112240 100%) !important;
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site .public-toolbar,
+html[data-mode="night"] body.public-site .courses-filter-bar,
+html[data-mode="night"] body.public-site .courses-quick-nav-bar {
+    background: #0b1524 !important;
+    border-bottom-color: var(--border) !important;
+    color: var(--text) !important;
+}
+
+html[data-mode="night"] body.public-site .public-toolbar label,
+html[data-mode="night"] body.public-site .courses-filter-bar label {
+    color: var(--hp-heading) !important;
+}
+
+html[data-mode="night"] body.public-site .alert {
+    background: var(--hp-surface-2) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+html[data-mode="night"] body.public-site .alert-warning {
+    background: rgba(245, 158, 11, 0.12) !important;
+    color: #fde68a !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+html[data-mode="night"] body.public-site footer,
+html[data-mode="night"] body.public-site .footer {
+    background: #050e1a !important;
+    background-color: #050e1a !important;
+    color: rgba(255, 255, 255, 0.62) !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+}
+
+html[data-mode="night"] body.public-site footer h5,
+html[data-mode="night"] body.public-site footer .brand-name {
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site footer a,
+html[data-mode="night"] body.public-site footer .text-muted,
+html[data-mode="night"] body.public-site .copyright-bar {
+    color: rgba(255, 255, 255, 0.55) !important;
+}
+
+html[data-mode="night"] body.public-site footer a:hover {
+    color: var(--gold) !important;
+}
+
+html[data-mode="night"] body.public-site .copyright-bar {
+    background: #030912 !important;
+    border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html[data-mode="night"] body.public-site .profile-shell,
+html[data-mode="night"] body.public-site .profile-card,
+html[data-mode="night"] body.public-site .field-card,
+html[data-mode="night"] body.public-site .staff-profile-card,
+html[data-mode="night"] body.public-site .form-card,
+html[data-mode="night"] body.public-site .success-card,
+html[data-mode="night"] body.public-site .alert-modern,
+html[data-mode="night"] body.public-site [style*="background:#f8fafc"],
+html[data-mode="night"] body.public-site [style*="background: #f8fafc"] {
+    background: var(--hp-surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+
+html[data-mode="night"] body.public-site {
+    background: #050b16 !important;
+}
+
+html[data-mode="night"] body.public-site .page-header {
+    background: linear-gradient(135deg, #0a1628 0%, #1e4a7a 100%) !important;
+}
+
+html[data-mode="night"] body.public-site .brand-title,
+html[data-mode="night"] body.public-site .brand-subtitle {
+    color: #fff !important;
+}
+
+html[data-mode="night"] body.public-site input,
+html[data-mode="night"] body.public-site select,
+html[data-mode="night"] body.public-site textarea,
+html[data-mode="night"] body.public-site .form-control,
+html[data-mode="night"] body.public-site .form-select {
+    background: #13243c !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+}
+

@@ -475,7 +475,7 @@ require_once __DIR__ . '/../includes/public_skeleton_helper.php';
 public_skeleton_render_head();
 ?>
 </head>
-<body class="public-page-loading">
+<body class="public-page-loading public-site">
 <?php public_skeleton_render_loader('courses'); ?>
 
 <!-- Top Bar (Government Header) -->
@@ -562,11 +562,11 @@ public_skeleton_render_head();
 <?php unset($_SESSION['courses_notice']); endif; ?>
 
 <!-- Filter Section - Compact Horizontal Layout -->
-<section class="py-2" style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+<section class="py-2 public-toolbar courses-filter-bar" style="border-bottom: 2px solid #e2e8f0;">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-3">
-                <label style="font-weight: 600; color: #0a1628; margin-bottom: 0; font-size: 0.9rem;">
+                <label style="font-weight: 600; margin-bottom: 0; font-size: 0.9rem;">
                     <i class="fas fa-map-marker-alt" style="color: #f59e0b; margin-right: 0.5rem;"></i>
                     Training Centre:
                 </label>
@@ -616,7 +616,7 @@ public_skeleton_render_head();
 </section>
 
 <!-- Quick Navigation Buttons -->
-<section class="py-2" style="background: #fff; border-bottom: 1px solid #e2e8f0;">
+<section class="py-2 public-toolbar courses-quick-nav-bar">
     <div class="container">
         <div class="d-flex flex-wrap gap-2 justify-content-center courses-quick-nav">
             <a href="#skill-long" class="btn btn-sm btn-outline-primary" style="border-radius: 20px; font-size: 0.8rem;">

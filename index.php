@@ -1456,7 +1456,7 @@ require_once __DIR__ . '/includes/public_skeleton_helper.php';
 public_skeleton_render_head();
 ?>
 </head>
-<body class="public-page-loading homepage-public">
+<body class="public-page-loading homepage-public public-site">
 <?php public_skeleton_render_loader('home'); ?>
 
 <!-- ===== TOP BAR ===== -->

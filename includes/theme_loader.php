@@ -430,20 +430,24 @@ function injectThemeCSS($theme) {
             color: #93c5fd;
         }
 
-        /* Public homepage footer/nav keep their own night palette (see index.php) */
+        /* Public homepage/site footer/nav keep their own night palette */
         html[data-mode="night"] body.homepage-public footer,
-        html[data-mode="night"] body.homepage-public .footer {
+        html[data-mode="night"] body.homepage-public .footer,
+        html[data-mode="night"] body.public-site footer,
+        html[data-mode="night"] body.public-site .footer {
             background: #050e1a !important;
             color: rgba(255, 255, 255, 0.62) !important;
             box-shadow: none !important;
         }
 
-        html[data-mode="night"] body.homepage-public .navbar {
+        html[data-mode="night"] body.homepage-public .navbar,
+        html[data-mode="night"] body.public-site .navbar {
             background: #0a1628 !important;
             color: #ffffff !important;
         }
 
-        html[data-mode="night"] body.homepage-public .top-bar {
+        html[data-mode="night"] body.homepage-public .top-bar,
+        html[data-mode="night"] body.public-site .top-bar {
             background: #0b1524 !important;
             color: #e8eef8 !important;
             box-shadow: none !important;
