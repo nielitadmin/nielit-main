@@ -81,6 +81,11 @@ require_once __DIR__ . '/../../includes/institute_branding.php';
                         </a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="online_classes.php">
+                            <i class="fas fa-video"></i> Online Classes
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="fees.php">
                             <i class="fas fa-rupee-sign"></i> Fees
                         </a>

@@ -116,6 +116,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_online_classes'); ?>" class="nav-link <?php echo ($current_page === 'manage_online_classes.php') ? 'active' : ''; ?>">
+                <i class="fas fa-video"></i> Online Classes
+            </a>
+        </div>
         <?php endif; ?>
         
         <?php if ($is_master_admin): ?>
