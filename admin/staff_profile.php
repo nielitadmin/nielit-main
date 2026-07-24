@@ -63,7 +63,18 @@ $error_message = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_profile') {
     $result = saveStaffProfile($conn, $facultyId, $_POST);
-    if ($result['success'] && !empty($_FILES['profile_photo']['name'])) {
+    if ($result['success']) {
+        $visibility = saveStaffWebsiteVisibility($conn, $facultyId, [
+            'show_on_website' => isset($_POST['show_on_website']) ? 1 : 0,
+            'show_on_contact' => isset($_POST['show_on_contact']) ? 1 : 0,
+            'display_order' => (int) ($_POST['display_order'] ?? 0),
+            'public_bio' => trim((string) ($_POST['public_bio'] ?? '')),
+        ]);
+        if (!$visibility['success']) {
+            $error_message = $visibility['message'];
+        }
+    }
+    if ($result['success'] && empty($error_message) && !empty($_FILES['profile_photo']['name'])) {
         $photoResult = uploadStaffProfilePhoto($conn, $facultyId, $_FILES['profile_photo']);
         if (!$photoResult['success']) {
             $error_message = $photoResult['message'];
@@ -99,7 +110,7 @@ function staffFieldValue(array $staff, string $key, string $col): string
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NIELIT Centre Staff Profile - <?php echo htmlspecialchars($staff['name']); ?></title>
+    <title>Staff & Faculty Profile - <?php echo htmlspecialchars($staff['name']); ?></title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .profile-hero {
@@ -139,11 +150,38 @@ function staffFieldValue(array $staff, string $key, string $col): string
         .sticky-actions {
             position: sticky;
             bottom: 0;
-            background: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,0.98);
             border-top: 1px solid #e2e8f0;
-            padding: 1rem 0;
+            padding: 1rem 11rem 1rem 1rem;
             margin-top: 1rem;
-            z-index: 10;
+            z-index: 20;
+            box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.06);
+        }
+        .sticky-actions .btn {
+            min-width: 120px;
+        }
+        @media (max-width: 991.98px) {
+            .sticky-actions {
+                padding: 1rem 1rem 5.5rem;
+            }
+            .sticky-actions .btn {
+                min-width: 0;
+            }
+        }
+        html[data-mode="night"] .sticky-actions {
+            background: rgba(15, 23, 42, 0.96);
+            border-top-color: rgba(148, 163, 184, 0.25);
+        }
+        html[data-mode="night"] .sticky-actions .text-muted {
+            color: #cbd5e1 !important;
+        }
+        .website-visibility-card {
+            border: 1px dashed #93c5fd;
+            background: #f8fbff;
+        }
+        html[data-mode="night"] .website-visibility-card {
+            background: rgba(30, 58, 95, 0.35);
+            border-color: rgba(147, 197, 253, 0.35);
         }
         .profile-link-timer {
             background: #eff6ff;
@@ -167,8 +205,8 @@ function staffFieldValue(array $staff, string $key, string $col): string
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-id-card"></i> NIELIT Centre Staff Profile</h4>
-                <small>Non - Scientific and Technical staffs — detailed profile & PDF</small>
+                <h4><i class="fas fa-id-card"></i> Staff & Faculty Profile</h4>
+                <small>Photo, position, contact details, achievements — and publish to Our Team / Contact</small>
             </div>
             <div class="topbar-right">
                 <a href="manage_faculty.php" class="btn btn-outline-secondary btn-sm">
@@ -230,12 +268,12 @@ function staffFieldValue(array $staff, string $key, string $col): string
                         <div class="border border-2 border-light rounded p-2 text-center bg-white bg-opacity-10" style="min-height: 150px;">
                             <?php if (!empty($staff['profile_photo']) && is_file(__DIR__ . '/../' . ltrim($staff['profile_photo'], '/'))): ?>
                                 <img src="<?php echo APP_URL . '/' . htmlspecialchars(ltrim($staff['profile_photo'], '/')); ?>" alt="Staff photo" class="img-fluid rounded mb-2" style="max-height: 120px;">
-                                <div class="small opacity-75">Photo saved — appears on PDF</div>
+                                <div class="small opacity-75">Photo saved — shows on Our Team, Contact & PDF</div>
                             <?php else: ?>
                                 <div class="text-white-50 py-3">
                                     <i class="fas fa-camera fa-2x mb-2"></i><br>
                                     <strong>Upload Photo</strong><br>
-                                    <small>Required for PDF (top-right box)</small>
+                                    <small>Used on Our Team, Contact & PDF</small>
                                 </div>
                             <?php endif; ?>
                         </div>
@@ -302,16 +340,53 @@ function staffFieldValue(array $staff, string $key, string $col): string
                 </div>
                 <?php endforeach; ?>
 
+                <div class="profile-section website-visibility-card">
+                    <div class="profile-section-title">
+                        <i class="fas fa-globe me-2"></i>
+                        Website Visibility
+                    </div>
+                    <p class="text-muted small mb-3">
+                        Control where this person appears on the public website. Photo, designation, email and phone are shown on published cards.
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="show_on_website" value="1" id="show_on_website"
+                                    <?php echo !empty($staff['show_on_website']) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="show_on_website">Show on Our Team page</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="show_on_contact" value="1" id="show_on_contact"
+                                    <?php echo !empty($staff['show_on_contact']) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="show_on_contact">Show as key contact on Contact page</label>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label" for="display_order">Display order</label>
+                            <input type="number" class="form-control" id="display_order" name="display_order" min="0"
+                                   value="<?php echo (int) ($staff['display_order'] ?? 0); ?>">
+                            <div class="form-text">Lower numbers appear first.</div>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label" for="public_bio">Short public bio</label>
+                            <textarea class="form-control" id="public_bio" name="public_bio" rows="2" maxlength="500"
+                                      placeholder="Optional one-line summary for the website"><?php echo htmlspecialchars((string) ($staff['public_bio'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="sticky-actions d-flex flex-wrap gap-2 justify-content-between align-items-center">
-                    <span class="text-muted small">
-                        <i class="fas fa-info-circle"></i> Save profile before downloading PDF for latest data.
+                    <span class="text-muted small pe-3">
+                        <i class="fas fa-info-circle"></i> Click <strong>Save Profile</strong> to keep changes. Download PDF after saving for the latest data.
                     </span>
-                    <div class="d-flex gap-2">
-                        <a href="manage_faculty.php" class="btn btn-outline-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="manage_faculty.php" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="saveStaffProfileBtn">
                             <i class="fas fa-save"></i> Save Profile
                         </button>
-                        <a href="generate_staff_profile_pdf.php?id=<?php echo $facultyId; ?>" target="_blank" class="btn btn-danger">
+                        <a href="generate_staff_profile_pdf.php?id=<?php echo $facultyId; ?>" target="_blank" class="btn btn-outline-danger">
                             <i class="fas fa-file-pdf"></i> PDF
                         </a>
                     </div>

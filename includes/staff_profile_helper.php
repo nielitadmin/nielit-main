@@ -681,6 +681,51 @@ if (!function_exists('saveStaffProfile')) {
     }
 }
 
+if (!function_exists('saveStaffWebsiteVisibility')) {
+    /**
+     * @param array<string, mixed> $data
+     * @return array{success: bool, message: string}
+     */
+    function saveStaffWebsiteVisibility(mysqli $conn, int $facultyId, array $data): array
+    {
+        ensureStaffProfileSchema($conn);
+        if ($facultyId <= 0) {
+            return ['success' => false, 'message' => 'Invalid staff member.'];
+        }
+
+        $showOnWebsite = !empty($data['show_on_website']) ? 1 : 0;
+        $showOnContact = !empty($data['show_on_contact']) ? 1 : 0;
+        $displayOrder = max(0, (int) ($data['display_order'] ?? 0));
+        $publicBio = trim((string) ($data['public_bio'] ?? ''));
+        if (function_exists('mb_substr')) {
+            $publicBio = mb_substr($publicBio, 0, 500);
+        } else {
+            $publicBio = substr($publicBio, 0, 500);
+        }
+
+        if (!facultyTableHasColumn($conn, 'show_on_website')) {
+            return ['success' => true, 'message' => ''];
+        }
+
+        $stmt = $conn->prepare(
+            'UPDATE faculty
+             SET show_on_website = ?, show_on_contact = ?, display_order = ?, public_bio = ?
+             WHERE id = ?'
+        );
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not save website visibility: ' . $conn->error];
+        }
+
+        $stmt->bind_param('iiisi', $showOnWebsite, $showOnContact, $displayOrder, $publicBio, $facultyId);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return $ok
+            ? ['success' => true, 'message' => 'Website visibility updated.']
+            : ['success' => false, 'message' => 'Could not save website visibility.'];
+    }
+}
+
 if (!function_exists('staffProfileCompletionPercent')) {
     function staffProfileCompletionPercent(array $staff): int
     {
