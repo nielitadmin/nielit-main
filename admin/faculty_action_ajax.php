@@ -1,88 +1,113 @@
 <?php
-session_start();
+/**
+ * Faculty AJAX actions — always return clean JSON (no notices/HTML after the payload).
+ */
+ob_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/staff_profile_helper.php';
 
-header('Content-Type: application/json');
+/**
+ * @param array<string, mixed> $payload
+ */
+function faculty_ajax_json_exit(array $payload, int $status = 200): void
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
 
-// Auth check
+    if (!headers_sent()) {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+    }
+
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit();
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Unauthorized'], 401);
 }
 
-$admin_id   = $_SESSION['admin_id'];
-$admin_role = $_SESSION['admin_role'] ?? '';
+$admin_id = (int) $_SESSION['admin_id'];
+$admin_role = (string) ($_SESSION['admin_role'] ?? '');
 
-$data = json_decode(file_get_contents('php://input'), true);
-
-if (!isset($data['action']) || !isset($data['faculty_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Missing required fields']);
-    exit();
+$raw = file_get_contents('php://input');
+$data = json_decode($raw ?: '[]', true);
+if (!is_array($data)) {
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Invalid JSON request body'], 400);
 }
 
-$faculty_id = intval($data['faculty_id']);
-$action     = $data['action'];
+if (!isset($data['action'], $data['faculty_id'])) {
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Missing required fields'], 400);
+}
 
-// Fetch faculty to check permissions
-$check = $conn->prepare("SELECT id, name, created_by FROM faculty WHERE id = ?");
-$check->bind_param("i", $faculty_id);
+$faculty_id = (int) $data['faculty_id'];
+$action = (string) $data['action'];
+
+if ($faculty_id <= 0) {
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Invalid faculty id'], 400);
+}
+
+ensureStaffProfileSchema($conn);
+
+$check = $conn->prepare('SELECT id, name, created_by FROM faculty WHERE id = ?');
+if (!$check) {
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Database error'], 500);
+}
+$check->bind_param('i', $faculty_id);
 $check->execute();
 $faculty = $check->get_result()->fetch_assoc();
 $check->close();
 
 if (!$faculty) {
-    echo json_encode(['success' => false, 'message' => 'Faculty member not found']);
-    exit();
+    faculty_ajax_json_exit(['success' => false, 'message' => 'Faculty member not found'], 404);
 }
 
-// Permission check: master_admin can do anything; coordinator only their own
-if ($admin_role !== 'master_admin' && $faculty['created_by'] != $admin_id) {
-    echo json_encode(['success' => false, 'message' => 'You can only modify faculty members you have added']);
-    exit();
+if ($admin_role !== 'master_admin' && (int) ($faculty['created_by'] ?? 0) !== $admin_id) {
+    faculty_ajax_json_exit(['success' => false, 'message' => 'You can only modify faculty members you have added'], 403);
 }
 
 switch ($action) {
     case 'deactivate':
-        $stmt = $conn->prepare("UPDATE faculty SET is_active = 0 WHERE id = ?");
-        $stmt->bind_param("i", $faculty_id);
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Faculty deactivated successfully']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
+        $stmt = $conn->prepare('UPDATE faculty SET is_active = 0 WHERE id = ?');
+        if (!$stmt) {
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Database error'], 500);
         }
+        $stmt->bind_param('i', $faculty_id);
+        $ok = $stmt->execute();
         $stmt->close();
-        break;
+        faculty_ajax_json_exit($ok
+            ? ['success' => true, 'message' => 'Faculty deactivated successfully']
+            : ['success' => false, 'message' => 'Database error: ' . $conn->error], $ok ? 200 : 500);
 
     case 'delete':
-        // Only master_admin can permanently delete
         if ($admin_role !== 'master_admin') {
-            echo json_encode(['success' => false, 'message' => 'Only master admins can permanently delete faculty']);
-            exit();
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Only master admins can permanently delete faculty'], 403);
         }
-        $stmt = $conn->prepare("DELETE FROM faculty WHERE id = ?");
-        $stmt->bind_param("i", $faculty_id);
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Faculty permanently deleted']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Database error: ' . $conn->error]);
+        $stmt = $conn->prepare('DELETE FROM faculty WHERE id = ?');
+        if (!$stmt) {
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Database error'], 500);
         }
+        $stmt->bind_param('i', $faculty_id);
+        $ok = $stmt->execute();
         $stmt->close();
-        break;
+        faculty_ajax_json_exit($ok
+            ? ['success' => true, 'message' => 'Faculty permanently deleted']
+            : ['success' => false, 'message' => 'Database error: ' . $conn->error], $ok ? 200 : 500);
 
     case 'regenerate_profile_link':
         if ($admin_role !== 'master_admin') {
-            echo json_encode(['success' => false, 'message' => 'Only master admin can generate staff profile links']);
-            exit();
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Only master admin can generate staff profile links'], 403);
         }
-
         $result = regenerateStaffProfileToken($conn, $faculty_id);
-        echo json_encode($result);
-        break;
+        faculty_ajax_json_exit($result, !empty($result['success']) ? 200 : 400);
 
     default:
-        echo json_encode(['success' => false, 'message' => 'Unknown action']);
+        faculty_ajax_json_exit(['success' => false, 'message' => 'Unknown action'], 400);
 }
-
-$conn->close();
-?>

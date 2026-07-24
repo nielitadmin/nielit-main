@@ -14,6 +14,11 @@ if (!function_exists('facultyTableHasColumn')) {
 if (!function_exists('ensureStaffProfileSchema')) {
     function ensureStaffProfileSchema(mysqli $conn): void
     {
+        static $ensured = false;
+        if ($ensured) {
+            return;
+        }
+
         ensureMysqlIstTimezone($conn);
 
         $columnDefinitions = [
@@ -60,10 +65,10 @@ if (!function_exists('ensureStaffProfileSchema')) {
             if ($afterColumn !== '') {
                 $sql .= " AFTER `$afterColumn`";
             }
-            $conn->query($sql);
+            @$conn->query($sql);
 
             if (!facultyTableHasColumn($conn, $column)) {
-                $conn->query("ALTER TABLE faculty ADD COLUMN `$column` $definition");
+                @$conn->query("ALTER TABLE faculty ADD COLUMN `$column` $definition");
             }
 
             if (facultyTableHasColumn($conn, $column)) {
@@ -74,9 +79,11 @@ if (!function_exists('ensureStaffProfileSchema')) {
         if (facultyTableHasColumn($conn, 'profile_token')) {
             $idx = $conn->query("SHOW INDEX FROM faculty WHERE Key_name = 'uniq_profile_token'");
             if ($idx && $idx->num_rows === 0) {
-                $conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
+                @$conn->query('ALTER TABLE faculty ADD UNIQUE KEY uniq_profile_token (profile_token)');
             }
         }
+
+        $ensured = true;
     }
 }
 

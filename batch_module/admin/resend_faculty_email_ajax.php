@@ -1,92 +1,103 @@
 <?php
-session_start();
+/**
+ * Resend faculty confirmation email — clean JSON only.
+ */
+ob_start();
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/email_helper.php';
 
-// Set JSON header
-header('Content-Type: application/json');
+/**
+ * @param array<string, mixed> $payload
+ */
+function faculty_resend_json_exit(array $payload, int $status = 200): void
+{
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        http_response_code($status);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+    }
+    echo json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
-// Check if admin is logged in
 if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit();
+    faculty_resend_json_exit(['success' => false, 'message' => 'Unauthorized'], 401);
 }
 
-// Get JSON input
-$json = file_get_contents('php://input');
-$data = json_decode($json, true);
-
-// Validate action
-if (!isset($data['action']) || $data['action'] !== 'resend_email') {
-    echo json_encode(['success' => false, 'message' => 'Invalid action']);
-    exit();
+$raw = file_get_contents('php://input');
+$data = json_decode($raw ?: '[]', true);
+if (!is_array($data)) {
+    faculty_resend_json_exit(['success' => false, 'message' => 'Invalid JSON request body'], 400);
 }
 
-// Validate required fields
-if (!isset($data['faculty_id']) || empty($data['faculty_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Faculty ID is required']);
-    exit();
+if (($data['action'] ?? '') !== 'resend_email') {
+    faculty_resend_json_exit(['success' => false, 'message' => 'Invalid action'], 400);
 }
 
-$faculty_id = intval($data['faculty_id']);
+$faculty_id = (int) ($data['faculty_id'] ?? 0);
+if ($faculty_id <= 0) {
+    faculty_resend_json_exit(['success' => false, 'message' => 'Faculty ID is required'], 400);
+}
 
 try {
-    // Fetch faculty details
-    $sql = "SELECT id, name, email, designation, department FROM faculty WHERE id = ?";
-    $stmt = $conn->prepare($sql);
-    
+    $stmt = $conn->prepare('SELECT id, name, email, designation, department FROM faculty WHERE id = ?');
     if (!$stmt) {
         throw new Exception('Database error: ' . $conn->error);
     }
-    
-    $stmt->bind_param("i", $faculty_id);
+
+    $stmt->bind_param('i', $faculty_id);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $faculty = $result->fetch_assoc();
+    $faculty = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    
+
     if (!$faculty) {
         throw new Exception('Faculty member not found');
     }
-    
-    if (empty($faculty['email'])) {
+
+    $email = trim((string) ($faculty['email'] ?? ''));
+    if ($email === '') {
         throw new Exception('No email address on file for this faculty member');
     }
-    
-    if (!filter_var($faculty['email'], FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         throw new Exception('Invalid email address on file');
     }
-    
-    // Send confirmation email
+
     $email_sent = sendFacultyConfirmationEmail(
-        $faculty['email'],
-        $faculty['name'],
-        $faculty['designation'],
-        $faculty['department']
+        $email,
+        (string) ($faculty['name'] ?? ''),
+        (string) ($faculty['designation'] ?? ''),
+        (string) ($faculty['department'] ?? '')
     );
-    
-    if ($email_sent) {
-        // Update last email sent timestamp
-        $update_sql = "UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?";
-        $update_stmt = $conn->prepare($update_sql);
-        $update_stmt->bind_param("i", $faculty_id);
-        $update_stmt->execute();
-        $update_stmt->close();
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Confirmation email sent successfully to ' . htmlspecialchars($faculty['email'])
-        ]);
-    } else {
+
+    if (!$email_sent) {
         throw new Exception('Failed to send email. Please try again later.');
     }
-    
-} catch (Exception $e) {
-    echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
-    ]);
-}
 
-$conn->close();
-?>
+    $column_check = $conn->query("SHOW COLUMNS FROM faculty LIKE 'email_confirmed_at'");
+    if ($column_check && $column_check->num_rows > 0) {
+        $update_stmt = $conn->prepare('UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?');
+        if ($update_stmt) {
+            $update_stmt->bind_param('i', $faculty_id);
+            $update_stmt->execute();
+            $update_stmt->close();
+        }
+    }
+
+    faculty_resend_json_exit([
+        'success' => true,
+        'message' => 'Confirmation email sent successfully to ' . $email,
+    ]);
+} catch (Throwable $e) {
+    faculty_resend_json_exit([
+        'success' => false,
+        'message' => $e->getMessage(),
+    ], 400);
+}

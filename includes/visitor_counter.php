@@ -24,6 +24,17 @@ if (!function_exists('visitorCounterShouldTrack')) {
             return false;
         }
 
+        // Any JSON API / XHR endpoint should never be counted as a page view.
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+        if (strpos($accept, 'application/json') !== false) {
+            return false;
+        }
+
+        $contentType = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? $_SERVER['HTTP_CONTENT_TYPE'] ?? ''));
+        if (strpos($contentType, 'application/json') !== false) {
+            return false;
+        }
+
         $path = visitorCounterNormalizePath();
         if ($path === '' || preg_match('#/(?:api|migrations)(?:/|$)#i', $path)) {
             return false;

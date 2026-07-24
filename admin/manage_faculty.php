@@ -283,7 +283,11 @@ if (!empty($where_conditions)) {
     $base_query .= " WHERE " . implode(" AND ", $where_conditions);
 }
 
-$base_query .= " ORDER BY is_active DESC, display_order ASC, staff_category ASC, name ASC";
+$orderBy = 'ORDER BY is_active DESC, staff_category ASC, name ASC';
+if (facultyTableHasColumn($conn, 'display_order')) {
+    $orderBy = 'ORDER BY is_active DESC, display_order ASC, staff_category ASC, name ASC';
+}
+$base_query .= ' ' . $orderBy;
 
 // Execute query
 if (!empty($bind_params)) {
@@ -898,6 +902,26 @@ function editStaff(staff) {
     new bootstrap.Modal(document.getElementById('editStaffModal')).show();
 }
 
+function facultyAjaxParseJson(response) {
+    return response.text().then(function (text) {
+        var trimmed = (text || '').replace(/^\uFEFF/, '').trim();
+        try {
+            return JSON.parse(trimmed);
+        } catch (firstError) {
+            var start = trimmed.indexOf('{');
+            var end = trimmed.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                try {
+                    return JSON.parse(trimmed.slice(start, end + 1));
+                } catch (secondError) {
+                    // fall through
+                }
+            }
+            throw new Error('Invalid server response');
+        }
+    });
+}
+
 function deactivateStaff(staffId, staffName) {
     showConfirm({
         title: 'Deactivate Staff Member',
@@ -913,10 +937,10 @@ function deactivateStaff(staffId, staffName) {
 
         fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ action: 'deactivate', faculty_id: staffId })
         })
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return facultyAjaxParseJson(r); })
         .then(result => {
             // Remove loading toast
             toast.remove(loadingToast);
@@ -954,10 +978,10 @@ function deleteStaffPermanent(staffId, staffName) {
 
         fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ action: 'delete', faculty_id: staffId })
         })
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return facultyAjaxParseJson(r); })
         .then(result => {
             if (result.success) {
                 toast.deleted(`${staffName} has been permanently deleted.`);
@@ -996,10 +1020,10 @@ function resendStaffEmail(staffId, staffName, btn) {
 
         fetch('<?php echo APP_URL; ?>/batch_module/admin/resend_faculty_email_ajax.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ action: 'resend_email', faculty_id: staffId })
         })
-        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return facultyAjaxParseJson(r); })
         .then(result => {
             // Remove loading toast
             toast.remove(loadingToast);

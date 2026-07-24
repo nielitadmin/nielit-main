@@ -365,7 +365,7 @@ function generateProfileLink() {
 
         fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
                 action: 'regenerate_profile_link',
                 faculty_id: STAFF_FACULTY_ID
@@ -375,7 +375,19 @@ function generateProfileLink() {
             if (!response.ok) {
                 throw new Error('HTTP ' + response.status);
             }
-            return response.json();
+            return response.text().then(function (text) {
+                var trimmed = (text || '').replace(/^\uFEFF/, '').trim();
+                try {
+                    return JSON.parse(trimmed);
+                } catch (e1) {
+                    var start = trimmed.indexOf('{');
+                    var end = trimmed.lastIndexOf('}');
+                    if (start >= 0 && end > start) {
+                        return JSON.parse(trimmed.slice(start, end + 1));
+                    }
+                    throw new Error('Invalid server response');
+                }
+            });
         })
         .then(function (data) {
             toast.remove(loadingToast);
