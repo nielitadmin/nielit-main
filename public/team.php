@@ -78,44 +78,7 @@ public_skeleton_render_head();
 
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                    <li class="nav-item"><a class="nav-link" href="<?php echo app_url('index'); ?>">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a></li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo app_url('Membership_Form/index'); ?>">Membership Form</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Courses Offered</a></li>
-                            <li><a class="dropdown-item" href="<?php echo app_url('student/login'); ?>">Student Portal</a></li>
-                            <li><a class="dropdown-item" href="<?php echo app_url('public/courses'); ?>">Course Registration</a></li>
-                            <li><a class="dropdown-item" href="<?php echo htmlspecialchars(getMockTestPortalUrl()); ?>" target="_blank" rel="noopener">Mock Test Portal</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">About</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo app_url('public/management'); ?>">Management</a></li>
-                            <li><a class="dropdown-item active" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
-                            <li><a class="dropdown-item" href="<?php echo app_url('public/news'); ?>">News</a></li>
-                        </ul>
-                    </li>
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="<?php echo app_url('admin/login'); ?>">Admin Login</a></li>
-                            <li><a class="dropdown-item" href="/Salary_Slip/login.php">Salary Slip</a></li>
-                            <li><a class="dropdown-item" href="/Nielit_Project/index.php">Certificate</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item"><a class="nav-link" href="<?php echo app_url('public/contact'); ?>">Contact</a></li>
+                    <?php echo getPublicSiteNavigationHtml($conn, 'team.php'); ?>
                 </ul>
             </div>
         </div>
@@ -164,8 +127,8 @@ public_skeleton_render_head();
                 <a href="<?php echo app_url('public/contact'); ?>" class="btn btn-outline-primary me-2">
                     <i class="fas fa-envelope me-1"></i> Contact Us
                 </a>
-                <a href="<?php echo app_url('public/management'); ?>" class="btn btn-outline-secondary">
-                    <i class="fas fa-sitemap me-1"></i> Management
+                <a href="<?php echo app_url('public/news'); ?>" class="btn btn-outline-secondary">
+                    <i class="fas fa-newspaper me-1"></i> Latest News
                 </a>
             </div>
         </div>
@@ -187,8 +150,8 @@ public_skeleton_render_head();
                 <div class="col-lg-4 col-md-6">
                     <h5>Quick Explore</h5>
                     <ul class="list-unstyled">
-                        <li><a href="<?php echo app_url('public/management'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Management</a></li>
                         <li><a href="<?php echo app_url('public/team'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Our Team</a></li>
+                        <li><a href="<?php echo app_url('public/news'); ?>"><i class="fas fa-chevron-right me-2 small"></i>News</a></li>
                         <li><a href="<?php echo app_url('public/contact'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
                     </ul>
                 </div>

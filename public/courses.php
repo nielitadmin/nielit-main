@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/maintenance_check.php';
 // Include the database connection
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/navigation_helper.php';
 require_once __DIR__ . '/../includes/public_theme_helper.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
@@ -595,20 +597,7 @@ public_skeleton_render_head();
 
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/index.php">Home</a></li>
-                <li class="nav-item"><a class="nav-link active" href="<?php echo APP_URL; ?>/public/courses.php">Courses Offered</a></li>
-                
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="<?php echo APP_URL; ?>/student/login.php">Student Portal</a></li>
-                    </ul>
-                </li>
-
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/management.php">Management</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/news.php">News</a></li>
-                <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/contact.php">Contact</a></li>
+                <?php echo getPublicSiteNavigationHtml($conn, 'courses.php'); ?>
             </ul>
         </div>
     </div>
@@ -1334,7 +1323,7 @@ public_skeleton_render_head();
                 <ul class="list-unstyled">
                     <li><a href="<?php echo APP_URL; ?>/index.php"><i class="fas fa-chevron-right me-2 small"></i>Home</a></li>
                     <li><a href="<?php echo APP_URL; ?>/public/courses.php"><i class="fas fa-chevron-right me-2 small"></i>Courses Offered</a></li>
-                    <li><a href="<?php echo APP_URL; ?>/public/management.php"><i class="fas fa-chevron-right me-2 small"></i>Management</a></li>
+                    <li><a href="<?php echo app_url('public/team'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Our Team</a></li>
                     <li><a href="<?php echo APP_URL; ?>/public/news.php"><i class="fas fa-chevron-right me-2 small"></i>News</a></li>
                     <li><a href="<?php echo APP_URL; ?>/public/contact.php"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
                 </ul>

@@ -97,6 +97,153 @@ function renderNavigationMenu($menu_items, $current_page = '') {
 }
 
 /**
+ * Labels that must not appear on the public website navbar.
+ */
+function publicNavLabelIsExcluded(string $label): bool
+{
+    $label = strtolower(trim($label));
+    if ($label === '') {
+        return false;
+    }
+
+    return strpos($label, 'pm shri') !== false
+        || strpos($label, 'kv jnv') !== false
+        || $label === 'management'
+        || strpos($label, 'organisational structure') !== false
+        || strpos($label, 'organizational structure') !== false;
+}
+
+/**
+ * URLs that must not appear on the public website navbar.
+ */
+function publicNavUrlIsExcluded(string $url): bool
+{
+    $url = strtolower(str_replace('\\', '/', trim($url)));
+    if ($url === '') {
+        return false;
+    }
+
+    return (bool) preg_match('#(^|/)(public/)?management(\.php)?(/|$|\?)#', $url)
+        || (bool) preg_match('#membership_form#', $url);
+}
+
+/**
+ * Remove PM SHRI / Management entries from a hierarchical navigation menu.
+ *
+ * @param array<int, array<string, mixed>> $menuItems
+ * @return array<int, array<string, mixed>>
+ */
+function filterPublicNavigationMenuItems(array $menuItems): array
+{
+    $filtered = [];
+
+    foreach ($menuItems as $item) {
+        $label = (string) ($item['label'] ?? '');
+        $url = (string) ($item['url'] ?? '');
+
+        if (publicNavLabelIsExcluded($label) || publicNavUrlIsExcluded($url)) {
+            continue;
+        }
+
+        if (!empty($item['children']) && is_array($item['children'])) {
+            $children = [];
+            foreach ($item['children'] as $child) {
+                $childLabel = (string) ($child['label'] ?? '');
+                $childUrl = (string) ($child['url'] ?? '');
+                if (publicNavLabelIsExcluded($childLabel) || publicNavUrlIsExcluded($childUrl)) {
+                    continue;
+                }
+                $children[] = $child;
+            }
+            $item['children'] = $children;
+        }
+
+        $filtered[] = $item;
+    }
+
+    return array_values($filtered);
+}
+
+/**
+ * Shared public-site navbar items (homepage + public pages).
+ * Uses DB menu when available, otherwise a consistent fallback.
+ */
+function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): string
+{
+    $html = '';
+
+    if ($conn instanceof mysqli && navigationMenuTableExists($conn)) {
+        $menuItems = getNavigationMenu($conn);
+        $menuItems = filterPublicNavigationMenuItems($menuItems);
+        $menuItems = ensurePublicAboutNavigationItems($menuItems);
+        $html = renderNavigationMenu($menuItems, $currentPage);
+    }
+
+    if (trim($html) === '') {
+        $html = getFallbackNavigationMenu($currentPage);
+    }
+
+    return $html;
+}
+
+/**
+ * Ensure About dropdown always includes Our Team and News (never Management).
+ *
+ * @param array<int, array<string, mixed>> $menuItems
+ * @return array<int, array<string, mixed>>
+ */
+function ensurePublicAboutNavigationItems(array $menuItems): array
+{
+    $required = [
+        'Our Team' => app_url('public/team'),
+        'News' => app_url('public/news'),
+    ];
+
+    $aboutIndex = null;
+    foreach ($menuItems as $index => $item) {
+        if (strcasecmp(trim((string) ($item['label'] ?? '')), 'About') === 0) {
+            $aboutIndex = $index;
+            break;
+        }
+    }
+
+    if ($aboutIndex === null) {
+        $menuItems[] = [
+            'id' => 0,
+            'label' => 'About',
+            'url' => '#',
+            'target' => '_self',
+            'children' => [],
+        ];
+        $aboutIndex = count($menuItems) - 1;
+    }
+
+    $children = $menuItems[$aboutIndex]['children'] ?? [];
+    if (!is_array($children)) {
+        $children = [];
+    }
+
+    $existingLabels = [];
+    foreach ($children as $child) {
+        $existingLabels[strtolower(trim((string) ($child['label'] ?? '')))] = true;
+    }
+
+    foreach ($required as $label => $url) {
+        if (!isset($existingLabels[strtolower($label)])) {
+            $children[] = [
+                'id' => 0,
+                'label' => $label,
+                'url' => $url,
+                'target' => '_self',
+            ];
+        }
+    }
+
+    $menuItems[$aboutIndex]['children'] = $children;
+    return $menuItems;
+}
+
+/**
  * Check if navigation menu table exists
  * @param mysqli $conn Database connection
  * @return bool True if table exists, false otherwise
@@ -122,33 +269,51 @@ function getMockTestPortalUrl() {
 
 /**
  * Get fallback hardcoded navigation menu (for backward compatibility)
+ * @param string $currentPage Current page filename for active state
  * @return string HTML markup for hardcoded navigation menu
  */
-function getFallbackNavigationMenu() {
+function getFallbackNavigationMenu($currentPage = '') {
     $job_fair_url = htmlspecialchars(getJobFairPortalUrl(), ENT_QUOTES, 'UTF-8');
     $mock_test_url = htmlspecialchars(getMockTestPortalUrl(), ENT_QUOTES, 'UTF-8');
+    $currentPage = strtolower(basename((string) $currentPage));
+
+    $is = static function (string $needle) use ($currentPage): string {
+        return ($currentPage !== '' && strpos($currentPage, $needle) !== false) ? ' active' : '';
+    };
+
+    $aboutActive = ($is('team') || $is('news')) ? ' active' : '';
+
     return '
-        <li class="nav-item"><a class="nav-link active" href="' . relative_url('index.php') . '">Home</a></li>
+        <li class="nav-item"><a class="nav-link' . ($currentPage === '' || $currentPage === 'index.php' ? ' active' : '') . '" href="' . htmlspecialchars(app_url('index'), ENT_QUOTES, 'UTF-8') . '">Home</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $job_fair_url . '" target="_blank" rel="noopener">Job Fair</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test</a></li>
 
         <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Student Zone</a>
+            <a class="nav-link dropdown-toggle' . $is('courses') . '" href="#" data-bs-toggle="dropdown">Student Zone</a>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="' . relative_url('public/courses.php') . '">Courses Offered</a></li>
-                <li><a class="dropdown-item" href="' . relative_url('student/login.php') . '">Student Portal</a></li>
+                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('public/courses'), ENT_QUOTES, 'UTF-8') . '">Courses Offered</a></li>
+                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('student/login'), ENT_QUOTES, 'UTF-8') . '">Student Portal</a></li>
+                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('public/courses'), ENT_QUOTES, 'UTF-8') . '">Course Registration</a></li>
                 <li><a class="dropdown-item" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test Portal</a></li>
             </ul>
         </li>
 
         <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Admin</a>
+            <a class="nav-link dropdown-toggle' . $aboutActive . '" href="#" data-bs-toggle="dropdown">About</a>
             <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="' . relative_url('admin/login.php') . '">Admin Login</a></li>
+                <li><a class="dropdown-item' . $is('team') . '" href="' . htmlspecialchars(app_url('public/team'), ENT_QUOTES, 'UTF-8') . '">Our Team</a></li>
+                <li><a class="dropdown-item' . $is('news') . '" href="' . htmlspecialchars(app_url('public/news'), ENT_QUOTES, 'UTF-8') . '">News</a></li>
+            </ul>
+        </li>
+
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle' . $is('login') . '" href="#" data-bs-toggle="dropdown">Admin</a>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('admin/login'), ENT_QUOTES, 'UTF-8') . '">Admin Login</a></li>
                 <li><a class="dropdown-item" href="/Salary_Slip/login">Finance Login</a></li>
                 <li><a class="dropdown-item" href="/Certificate/index">Certificate</a></li>
             </ul>
         </li>
-        <li class="nav-item"><a class="nav-link" href="' . relative_url('public/contact.php') . '">Contact</a></li>
+        <li class="nav-item"><a class="nav-link' . $is('contact') . '" href="' . htmlspecialchars(app_url('public/contact'), ENT_QUOTES, 'UTF-8') . '">Contact</a></li>
     ';
 }

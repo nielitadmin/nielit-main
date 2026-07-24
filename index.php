@@ -25,14 +25,13 @@ $theme_logo = getThemeLogo($active_theme);
 $navigation_menu_html = '';
 if (navigationMenuTableExists($conn)) {
     $menu_items = getNavigationMenu($conn);
-    $menu_items = array_values(array_filter($menu_items, static function (array $item): bool {
-        return stripos((string)($item['label'] ?? ''), 'PM SHRI') === false;
-    }));
+    $menu_items = filterPublicNavigationMenuItems($menu_items);
+    $menu_items = ensurePublicAboutNavigationItems($menu_items);
     $current_page = basename($_SERVER['PHP_SELF']);
     $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
 }
 if (empty($navigation_menu_html)) {
-    $navigation_menu_html = getFallbackNavigationMenu();
+    $navigation_menu_html = getFallbackNavigationMenu(basename($_SERVER['PHP_SELF'] ?? 'index.php'));
 }
 injectThemeCSS($active_theme);
 emitPublicThemeHead($conn);

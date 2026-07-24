@@ -655,7 +655,7 @@ if ($count_result) {
 
                     <div class="mb-2 form-check">
                         <input type="checkbox" class="form-check-input" id="show_on_website" name="show_on_website" value="1">
-                        <label class="form-check-label" for="show_on_website">Show on Our Team / Management pages</label>
+                        <label class="form-check-label" for="show_on_website">Show on Our Team page</label>
                     </div>
                     <div class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="show_on_contact" name="show_on_contact" value="1">
@@ -751,7 +751,7 @@ if ($count_result) {
 
                     <div class="mb-2 form-check">
                         <input type="checkbox" class="form-check-input" id="edit_show_on_website" name="show_on_website" value="1">
-                        <label class="form-check-label" for="edit_show_on_website">Show on Our Team / Management pages</label>
+                        <label class="form-check-label" for="edit_show_on_website">Show on Our Team page</label>
                     </div>
                     <div class="mb-2 form-check">
                         <input type="checkbox" class="form-check-input" id="edit_show_on_contact" name="show_on_contact" value="1">
