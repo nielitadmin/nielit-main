@@ -749,8 +749,20 @@ html[data-mode="night"] body.public-site .top-bar .fw-bold:not(.top-bar-title-hi
 
 html[data-mode="night"] body.public-site .top-bar-ministry-hi,
 html[data-mode="night"] body.public-site .top-bar .text-secondary,
-html[data-mode="night"] body.public-site .top-bar .ministry-text {
-    color: #cbd5e1 !important;
+html[data-mode="night"] body.public-site .top-bar .ministry-text,
+html[data-mode="night"] body.public-site .top-bar small {
+    color: #e2e8f0 !important;
+}
+
+/* National Emblem: dark artwork — lift it on a light plate in night mode */
+html[data-mode="night"] body.public-site .gov-logos .national-emblem,
+html[data-mode="night"] body.public-site .top-bar .national-emblem,
+html[data-mode="night"] body.public-site img.national-emblem {
+    background: #ffffff !important;
+    border-radius: 10px;
+    padding: 5px 6px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+    object-fit: contain;
 }
 
 html[data-mode="night"] body.public-site .navbar,

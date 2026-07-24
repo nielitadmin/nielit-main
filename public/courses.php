@@ -445,8 +445,19 @@ $result_internship = $conn->query($sql_internship);
         html[data-mode="night"] body.public-site .top-bar-ministry-en {
             color: #f8fafc !important;
         }
-        html[data-mode="night"] body.public-site .top-bar-ministry-hi {
-            color: #cbd5e1 !important;
+        html[data-mode="night"] body.public-site .top-bar-ministry-hi,
+        html[data-mode="night"] body.public-site .top-bar small.top-bar-ministry-hi {
+            color: #e2e8f0 !important;
+        }
+        html[data-mode="night"] body.public-site .top-bar-ministry-en,
+        html[data-mode="night"] body.public-site .top-bar small.top-bar-ministry-en {
+            color: #ffffff !important;
+        }
+        html[data-mode="night"] body.public-site .national-emblem {
+            background: #ffffff !important;
+            border-radius: 10px;
+            padding: 5px 6px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
         }
         html[data-mode="night"] body.public-site .section-header {
             background: #0f1b2d !important;
@@ -565,7 +576,7 @@ public_skeleton_render_head();
                     <small class="d-block top-bar-ministry-hi d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
                     <small class="d-block fw-bold top-bar-ministry-en"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
+                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" class="national-emblem" style="height: 50px;">
             </div>
         </div>
     </div>

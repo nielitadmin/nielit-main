@@ -248,11 +248,30 @@ function injectThemeCSS($theme) {
         }
 
         html[data-mode="night"] .text-muted,
-        html[data-mode="night"] small,
+        html[data-mode="night"] small:not(.top-bar-ministry-hi):not(.top-bar-ministry-en),
         html[data-mode="night"] .small,
         html[data-mode="night"] .form-text,
         html[data-mode="night"] .help-text {
             color: var(--text-muted) !important;
+        }
+
+        html[data-mode="night"] body.public-site .top-bar small.top-bar-ministry-hi,
+        html[data-mode="night"] body.public-site .top-bar .top-bar-ministry-hi {
+            color: #e2e8f0 !important;
+        }
+
+        html[data-mode="night"] body.public-site .top-bar small.top-bar-ministry-en,
+        html[data-mode="night"] body.public-site .top-bar .top-bar-ministry-en {
+            color: #ffffff !important;
+        }
+
+        html[data-mode="night"] body.public-site .national-emblem,
+        html[data-mode="night"] body.homepage-public .national-emblem {
+            background: #ffffff !important;
+            border-radius: 10px;
+            padding: 5px 6px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+            object-fit: contain;
         }
 
         html[data-mode="night"] .btn-light,

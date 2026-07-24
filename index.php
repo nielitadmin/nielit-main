@@ -1249,7 +1249,18 @@ $homepage_map = [];
         }
         html[data-mode="night"] body.homepage-public .top-bar .inst-name-en,
         html[data-mode="night"] body.homepage-public .top-bar .ministry-hi {
-            color: var(--hp-heading) !important;
+            color: #f8fafc !important;
+        }
+        html[data-mode="night"] body.homepage-public .top-bar .ministry-badge {
+            background: rgba(255, 255, 255, 0.12) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+        }
+        html[data-mode="night"] body.homepage-public .national-emblem {
+            background: #ffffff !important;
+            border-radius: 10px;
+            padding: 5px 6px;
+            box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
         }
 
         /* Keep brand navbar deep navy (do not flatten with admin night chrome) */
@@ -1475,7 +1486,7 @@ public_skeleton_render_head();
                     <div class="ministry-hi"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
                     <div class="ministry-badge"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
-                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 48px;">
+                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" class="national-emblem" style="height: 48px;">
             </div>
         </div>
     </div>
