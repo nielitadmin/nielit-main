@@ -17,8 +17,22 @@ $activeRecordId = isset($_SESSION['active_record_id']) ? (int) $_SESSION['active
 
 ensureOnlineClassesTable($conn);
 $batchIds = getStudentOnlineClassBatchIds($conn, $student_id, $activeRecordId);
-$classes = listOnlineClassesForBatches($conn, $batchIds);
+$courseIds = getStudentOnlineClassCourseIds($conn, $student_id);
+$classes = listOnlineClassesForStudent($conn, $student_id, $activeRecordId);
 $batchLabels = !empty($batchIds) ? getStudentOnlineClassBatchLabels($conn, $batchIds) : [];
+
+$courseLabels = [];
+if (!empty($courseIds)) {
+    $inCourses = implode(',', array_map('intval', $courseIds));
+    $cRes = $conn->query("SELECT course_name FROM courses WHERE id IN ($inCourses) ORDER BY course_name");
+    if ($cRes) {
+        while ($cr = $cRes->fetch_assoc()) {
+            if (!empty($cr['course_name'])) {
+                $courseLabels[] = $cr['course_name'];
+            }
+        }
+    }
+}
 
 // Split for display
 $live = [];
@@ -43,27 +57,31 @@ include __DIR__ . '/includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-video"></i> Online Classes</h2>
-            <p class="text-muted mb-0">Join live sessions for your batch and watch recordings when available.</p>
+            <p class="text-muted mb-0">Join live sessions for your courses/batches and watch recordings when available.</p>
+            <?php if (!empty($courseLabels)): ?>
+                <p class="text-muted small mb-0 mt-1">
+                    Your course<?php echo count($courseLabels) > 1 ? 's' : ''; ?>:
+                    <strong><?php echo htmlspecialchars(implode(', ', $courseLabels)); ?></strong>
+                </p>
+            <?php endif; ?>
             <?php if (!empty($batchLabels)): ?>
                 <p class="text-muted small mb-0 mt-1">
-                    Your batch<?php echo count($batchLabels) > 1 ? 'es' : ''; ?>:
+                    Assigned batch<?php echo count($batchLabels) > 1 ? 'es' : ''; ?>:
                     <strong><?php echo htmlspecialchars(implode(', ', $batchLabels)); ?></strong>
                 </p>
             <?php endif; ?>
         </div>
     </div>
 
-    <?php if (empty($batchIds)): ?>
+    <?php if (empty($batchIds) && empty($courseIds)): ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle"></i>
-            You are not assigned to a batch yet. Once your enrollment is assigned to a batch, online classes will appear here.
+            You have no active course enrollment yet. Online classes will appear here after enrollment.
         </div>
     <?php elseif (empty($classes)): ?>
         <div class="alert alert-secondary">
             <i class="fas fa-calendar-times"></i>
-            No online classes have been scheduled for
-            <strong><?php echo htmlspecialchars(implode(', ', $batchLabels) ?: 'your batch'); ?></strong> yet.
-            Classes appear here only when admin schedules them for your exact batch.
+            No online classes have been scheduled for your courses yet. Check back later.
         </div>
     <?php else: ?>
 

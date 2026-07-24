@@ -300,8 +300,31 @@ if (!function_exists('onlineClassStudentMayAccess')) {
         if ($batchId <= 0) {
             return false;
         }
+
         $ids = getStudentOnlineClassBatchIds($conn, $studentIdStr, $activeRecordId);
-        return in_array($batchId, $ids, true);
+        if (in_array($batchId, $ids, true)) {
+            return true;
+        }
+
+        // Allow enrolled course students even when their batch is not assigned yet
+        $courseId = (int) ($classRow['course_id'] ?? 0);
+        if ($courseId <= 0) {
+            $stmt = $conn->prepare('SELECT course_id FROM batches WHERE id = ? LIMIT 1');
+            if ($stmt) {
+                $stmt->bind_param('i', $batchId);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                $courseId = (int) ($row['course_id'] ?? 0);
+            }
+        }
+
+        if ($courseId <= 0) {
+            return false;
+        }
+
+        $courseIds = getStudentOnlineClassCourseIds($conn, $studentIdStr);
+        return in_array($courseId, $courseIds, true);
     }
 }
 
@@ -478,36 +501,116 @@ if (!function_exists('listOnlineClassesForBatches')) {
      */
     function listOnlineClassesForBatches($conn, array $batchIds): array
     {
+        return listOnlineClassesForStudentScope($conn, $batchIds, []);
+    }
+}
+
+if (!function_exists('getStudentOnlineClassCourseIds')) {
+    /**
+     * Active course IDs for a student login (includes enrollments with no batch yet).
+     *
+     * @return array<int, int>
+     */
+    function getStudentOnlineClassCourseIds($conn, string $studentIdStr): array
+    {
+        $ids = [];
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return [];
+        }
+
+        $stmt = $conn->prepare(
+            "SELECT DISTINCT course_id FROM students
+             WHERE student_id = ?
+               AND course_id IS NOT NULL AND course_id > 0
+               AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive', 'cancelled')"
+        );
+        if ($stmt) {
+            $stmt->bind_param('s', $studentIdStr);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $cid = (int) ($row['course_id'] ?? 0);
+                if ($cid > 0) {
+                    $ids[$cid] = $cid;
+                }
+            }
+            $stmt->close();
+        }
+
+        return array_values($ids);
+    }
+}
+
+if (!function_exists('listOnlineClassesForStudentScope')) {
+    /**
+     * Classes visible to a student: assigned batches OR batches under enrolled courses.
+     * (So Test_course classes show even when batch is still "Not assigned".)
+     *
+     * @param array<int, int> $batchIds
+     * @param array<int, int> $courseIds
+     * @return array<int, array<string, mixed>>
+     */
+    function listOnlineClassesForStudentScope($conn, array $batchIds, array $courseIds): array
+    {
         ensureOnlineClassesTable($conn);
         $batchIds = array_values(array_unique(array_filter(array_map('intval', $batchIds), static function ($id) {
             return $id > 0;
         })));
-        if (empty($batchIds)) {
+        $courseIds = array_values(array_unique(array_filter(array_map('intval', $courseIds), static function ($id) {
+            return $id > 0;
+        })));
+
+        if (empty($batchIds) && empty($courseIds)) {
             return [];
         }
 
-        // Use intval list (not bind_param unpack) — PHP 7.4 mysqli bind_param + ...$arr is unreliable.
-        $inList = implode(',', $batchIds);
-        $sql = "SELECT oc.*, b.batch_name, b.batch_code, c.course_name
+        $where = [];
+        if (!empty($batchIds)) {
+            $where[] = 'oc.batch_id IN (' . implode(',', $batchIds) . ')';
+        }
+        if (!empty($courseIds)) {
+            $where[] = 'b.course_id IN (' . implode(',', $courseIds) . ')';
+        }
+
+        $sql = "SELECT oc.*, b.batch_name, b.batch_code, b.course_id, c.course_name
                 FROM online_classes oc
                 LEFT JOIN batches b ON b.id = oc.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
                 WHERE oc.is_active = 1
                   AND oc.status != 'cancelled'
-                  AND oc.batch_id IN ($inList)
+                  AND (" . implode(' OR ', $where) . ")
                 ORDER BY oc.scheduled_at DESC, oc.id DESC";
 
         $result = $conn->query($sql);
         if (!$result) {
-            error_log('listOnlineClassesForBatches query failed: ' . $conn->error);
+            error_log('listOnlineClassesForStudentScope query failed: ' . $conn->error);
             return [];
         }
 
         $rows = [];
+        $seen = [];
         while ($row = $result->fetch_assoc()) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0 && isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
             $rows[] = onlineClassEnrichRow($row);
         }
         return $rows;
+    }
+}
+
+if (!function_exists('listOnlineClassesForStudent')) {
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    function listOnlineClassesForStudent($conn, string $studentIdStr, ?int $activeRecordId = null): array
+    {
+        $batchIds = getStudentOnlineClassBatchIds($conn, $studentIdStr, $activeRecordId);
+        $courseIds = getStudentOnlineClassCourseIds($conn, $studentIdStr);
+        return listOnlineClassesForStudentScope($conn, $batchIds, $courseIds);
     }
 }
 
