@@ -1,7 +1,10 @@
 <?php
 /**
- * On-site live classroom — join via site-generated link.
- * Video room is hosted inside this page (Jitsi).
+ * On-site classroom gate — auth + batch check, then enter free live room.
+ *
+ * Public meet.jit.si cannot be embedded for production (5-minute cut).
+ * Default: open the room full-page (free, no time limit for normal use).
+ * Self-hosted Jitsi: set ONLINE_CLASS_JITSI_DOMAIN + VIDEO_MODE=embed to keep video inside the site.
  */
 session_start();
 require_once __DIR__ . '/../config/config.php';
@@ -54,6 +57,16 @@ $when = !empty($class['scheduled_at']) ? date('d M Y, h:i A', strtotime($class['
 $status = $class['display_status'] ?? onlineClassComputeStatus($class);
 $enter = isset($_GET['enter']) && $_GET['enter'] === '1';
 $canEnter = !empty($gate['allowed']);
+$videoMode = onlineClassVideoMode();
+$jitsiDomain = onlineClassJitsiDomain();
+$externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName);
+$leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php';
+
+// Full-page open mode: leave our lobby and join the free room (no iframe = no 5-min cut)
+if ($enter && $canEnter && $videoMode === 'open') {
+    header('Location: ' . $externalRoomUrl);
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -77,9 +90,7 @@ $canEnter = !empty($gate['allowed']);
         }
         .oc-top h1 { font-size: 1rem; margin: 0; font-weight: 600; }
         .oc-top .meta { font-size: 0.8rem; opacity: 0.85; }
-        .oc-lobby {
-            max-width: 720px; margin: 3rem auto; padding: 0 1rem;
-        }
+        .oc-lobby { max-width: 720px; margin: 3rem auto; padding: 0 1rem; }
         .oc-lobby-card {
             background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 1.75rem;
         }
@@ -103,9 +114,7 @@ $canEnter = !empty($gate['allowed']);
         </div>
         <div class="d-flex gap-2 align-items-center">
             <span class="small"><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($roleLabel); ?>)</span>
-            <a class="btn btn-sm btn-outline-light" href="<?php echo $isAdmin ? htmlspecialchars(app_url('admin/manage_online_classes')) : 'online_classes.php'; ?>">
-                Leave
-            </a>
+            <a class="btn btn-sm btn-outline-light" href="<?php echo htmlspecialchars($leaveUrl); ?>">Leave</a>
         </div>
     </div>
 
@@ -114,8 +123,8 @@ $canEnter = !empty($gate['allowed']);
             <div class="oc-lobby-card">
                 <h2>NIELIT Classroom</h2>
                 <p class="mb-3 text-secondary">
-                    Your class opens on this website. Click Enter Classroom when you are ready
-                    (camera/mic permission may be requested).
+                    Your secure join link is on this website. When you enter, the live class opens
+                    in a free open-source video room — no 5-minute limit.
                 </p>
                 <?php if (!empty($class['description'])): ?>
                     <p class="mb-3"><?php echo nl2br(htmlspecialchars($class['description'])); ?></p>
@@ -126,50 +135,42 @@ $canEnter = !empty($gate['allowed']);
                         <i class="fas fa-info-circle"></i>
                         <?php echo htmlspecialchars($gate['reason'] ?? 'Classroom is closed.'); ?>
                     </div>
-                    <a class="back-link" href="<?php echo $isAdmin ? htmlspecialchars(app_url('admin/manage_online_classes')) : 'online_classes.php'; ?>">
-                        ← Back to Online Classes
-                    </a>
+                    <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
                 <?php else: ?>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <a class="btn btn-enter btn-lg" href="?t=<?php echo rawurlencode($token); ?>&enter=1">
                             <i class="fas fa-door-open"></i> Enter Classroom
                         </a>
                         <button type="button" class="btn btn-outline-light btn-sm" onclick="navigator.clipboard.writeText(<?php echo json_encode($joinUrl); ?>).then(()=>alert('Join link copied'))">
-                            <i class="fas fa-copy"></i> Copy join link
+                            <i class="fas fa-copy"></i> Copy site join link
                         </button>
                     </div>
                     <p class="small text-secondary mt-3 mb-0">
-                        Join link (on this site): <code style="color:#fde68a;word-break:break-all;"><?php echo htmlspecialchars($joinUrl); ?></code>
+                        Site join link: <code style="color:#fde68a;word-break:break-all;"><?php echo htmlspecialchars($joinUrl); ?></code>
                     </p>
                 <?php endif; ?>
             </div>
         </div>
-    <?php else: ?>
+    <?php elseif ($videoMode === 'embed'): ?>
         <div class="oc-classroom">
             <div id="jitsi-container"></div>
         </div>
-        <script src="https://meet.jit.si/external_api.js"></script>
+        <script src="https://<?php echo htmlspecialchars($jitsiDomain); ?>/external_api.js"></script>
         <script>
         (function () {
-            var domain = 'meet.jit.si';
+            var domain = <?php echo json_encode($jitsiDomain); ?>;
             var options = {
                 roomName: <?php echo json_encode($roomName); ?>,
                 parentNode: document.querySelector('#jitsi-container'),
                 width: '100%',
                 height: '100%',
-                userInfo: {
-                    displayName: <?php echo json_encode($displayName); ?>
-                },
+                userInfo: { displayName: <?php echo json_encode($displayName); ?> },
                 configOverwrite: {
                     startWithAudioMuted: true,
-                    startWithVideoMuted: false,
                     prejoinPageEnabled: true,
                     disableDeepLinking: true
                 },
                 interfaceConfigOverwrite: {
-                    SHOW_JITSI_WATERMARK: false,
-                    SHOW_WATERMARK_FOR_GUESTS: false,
-                    DEFAULT_REMOTE_DISPLAY_NAME: 'Participant',
                     TOOLBAR_BUTTONS: [
                         'microphone', 'camera', 'desktop', 'fullscreen',
                         'fodeviceselection', 'hangup', 'chat', 'raisehand',
@@ -179,7 +180,7 @@ $canEnter = !empty($gate['allowed']);
             };
             var api = new JitsiMeetExternalAPI(domain, options);
             api.addListener('readyToClose', function () {
-                window.location.href = <?php echo json_encode($isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php'); ?>;
+                window.location.href = <?php echo json_encode($leaveUrl); ?>;
             });
         })();
         </script>

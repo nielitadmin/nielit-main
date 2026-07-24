@@ -72,6 +72,72 @@ if (!function_exists('onlineClassRoomName')) {
     }
 }
 
+if (!function_exists('onlineClassLoadVideoConfig')) {
+    function onlineClassLoadVideoConfig(): void
+    {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+        $cfg = __DIR__ . '/online_class_config.php';
+        if (is_file($cfg)) {
+            require_once $cfg;
+        }
+        $loaded = true;
+    }
+}
+
+if (!function_exists('onlineClassJitsiDomain')) {
+    function onlineClassJitsiDomain(): string
+    {
+        onlineClassLoadVideoConfig();
+        $domain = defined('ONLINE_CLASS_JITSI_DOMAIN') ? trim((string) ONLINE_CLASS_JITSI_DOMAIN) : 'meet.jit.si';
+        $domain = preg_replace('#^https?://#i', '', $domain) ?? '';
+        $domain = rtrim($domain, '/');
+        return $domain !== '' ? $domain : 'meet.jit.si';
+    }
+}
+
+if (!function_exists('onlineClassVideoMode')) {
+    /**
+     * @return 'open'|'embed'
+     */
+    function onlineClassVideoMode(): string
+    {
+        onlineClassLoadVideoConfig();
+        $mode = defined('ONLINE_CLASS_VIDEO_MODE') ? strtolower(trim((string) ONLINE_CLASS_VIDEO_MODE)) : 'open';
+        $domain = strtolower(onlineClassJitsiDomain());
+
+        // Never embed public meet.jit.si — they force a 5-minute disconnect.
+        if ($domain === 'meet.jit.si' || $domain === '8x8.vc') {
+            return 'open';
+        }
+
+        return $mode === 'embed' ? 'embed' : 'open';
+    }
+}
+
+if (!function_exists('onlineClassExternalRoomUrl')) {
+    /**
+     * Full-page Jitsi room URL (free when using meet.jit.si without iframe embed).
+     */
+    function onlineClassExternalRoomUrl(string $roomName, string $displayName = ''): string
+    {
+        $domain = onlineClassJitsiDomain();
+        $roomName = trim($roomName);
+        $url = 'https://' . $domain . '/' . rawurlencode($roomName);
+
+        $parts = [];
+        if ($displayName !== '') {
+            $parts[] = 'userInfo.displayName="' . str_replace(['"', '#'], '', $displayName) . '"';
+        }
+        $parts[] = 'config.startWithAudioMuted=true';
+        $parts[] = 'config.disableDeepLinking=true';
+
+        return $url . '#' . implode('&', $parts);
+    }
+}
+
 if (!function_exists('onlineClassSiteJoinUrl')) {
     /** Join URL hosted on this website. */
     function onlineClassSiteJoinUrl(string $token): string
