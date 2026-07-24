@@ -41,12 +41,13 @@ if (!function_exists('ensureOnlineClassesTable')) {
 
         // Upgrade older installs that lack join_token
         $col = @$conn->query("SHOW COLUMNS FROM online_classes LIKE 'join_token'");
-        if ($col && $col->num_rows === 0) {
+        if (!$col || $col->num_rows === 0) {
             if (!$conn->query("ALTER TABLE online_classes ADD COLUMN join_token VARCHAR(64) NULL AFTER meeting_url")) {
                 error_log('ensureOnlineClassesTable add join_token failed: ' . $conn->error);
-                return false;
+                // Continue — lookups may still work via meeting_url once column exists later
+            } else {
+                @$conn->query('ALTER TABLE online_classes ADD UNIQUE KEY uq_oc_join_token (join_token)');
             }
-            @$conn->query('ALTER TABLE online_classes ADD UNIQUE KEY uq_oc_join_token (join_token)');
         }
 
         onlineClassBackfillJoinTokens($conn);
@@ -175,13 +176,20 @@ if (!function_exists('onlineClassEnrichRow')) {
 if (!function_exists('onlineClassBackfillJoinTokens')) {
     function onlineClassBackfillJoinTokens($conn): void
     {
-        $res = @$conn->query("SELECT id FROM online_classes WHERE join_token IS NULL OR join_token = ''");
+        $res = @$conn->query("SELECT id, meeting_url, join_token FROM online_classes WHERE join_token IS NULL OR join_token = ''");
         if (!$res) {
             return;
         }
         while ($row = $res->fetch_assoc()) {
             $id = (int) $row['id'];
-            $token = onlineClassGenerateJoinToken();
+            $token = '';
+            // Reuse token already present in meeting_url if possible
+            if (preg_match('/[?&]t=([a-fA-F0-9]{16,64})/', (string) ($row['meeting_url'] ?? ''), $m)) {
+                $token = strtolower($m[1]);
+            }
+            if ($token === '') {
+                $token = onlineClassGenerateJoinToken();
+            }
             $url = onlineClassSiteJoinUrl($token);
             $stmt = $conn->prepare('UPDATE online_classes SET join_token = ?, meeting_url = ?, platform = COALESCE(NULLIF(platform, \'\'), ?) WHERE id = ?');
             if ($stmt) {
@@ -198,25 +206,52 @@ if (!function_exists('getOnlineClassByJoinToken')) {
     function getOnlineClassByJoinToken($conn, string $token): ?array
     {
         ensureOnlineClassesTable($conn);
-        $token = trim($token);
-        if ($token === '') {
+        $token = strtolower(trim($token));
+        if ($token === '' || !preg_match('/^[a-f0-9]{16,64}$/', $token)) {
             return null;
         }
-        $stmt = $conn->prepare(
-            "SELECT oc.*, b.batch_name, b.batch_code, c.course_name
-             FROM online_classes oc
-             LEFT JOIN batches b ON b.id = oc.batch_id
-             LEFT JOIN courses c ON c.id = b.course_id
-             WHERE oc.join_token = ? LIMIT 1"
-        );
+
+        $sql = "SELECT oc.*, b.batch_name, b.batch_code, c.course_name
+                FROM online_classes oc
+                LEFT JOIN batches b ON b.id = oc.batch_id
+                LEFT JOIN courses c ON c.id = b.course_id
+                WHERE oc.join_token = ?
+                   OR oc.meeting_url LIKE ?
+                   OR oc.meeting_url LIKE ?
+                LIMIT 1";
+        $stmt = $conn->prepare($sql);
         if (!$stmt) {
+            error_log('getOnlineClassByJoinToken prepare failed: ' . $conn->error);
             return null;
         }
-        $stmt->bind_param('s', $token);
+
+        $likePlain = '%t=' . $token . '%';
+        $likeEncoded = '%t%3D' . $token . '%';
+        $stmt->bind_param('sss', $token, $likePlain, $likeEncoded);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return $row ? onlineClassEnrichRow($row) : null;
+
+        if (!$row) {
+            return null;
+        }
+
+        // Repair: ensure join_token matches the URL token students are using
+        $storedToken = strtolower(trim((string) ($row['join_token'] ?? '')));
+        if ($storedToken !== $token) {
+            $url = onlineClassSiteJoinUrl($token);
+            $fix = $conn->prepare('UPDATE online_classes SET join_token = ?, meeting_url = ? WHERE id = ?');
+            if ($fix) {
+                $id = (int) $row['id'];
+                $fix->bind_param('ssi', $token, $url, $id);
+                $fix->execute();
+                $fix->close();
+                $row['join_token'] = $token;
+                $row['meeting_url'] = $url;
+            }
+        }
+
+        return onlineClassEnrichRow($row);
     }
 }
 

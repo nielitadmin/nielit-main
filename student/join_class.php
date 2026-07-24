@@ -29,7 +29,7 @@ $class = $token !== '' ? getOnlineClassByJoinToken($conn, $token) : null;
 if (!$class) {
     http_response_code(404);
     $errorTitle = 'Class not found';
-    $errorMsg = 'This join link is invalid or the class was removed.';
+    $errorMsg = 'This join link does not match any scheduled class. Ask your admin to open Admin → Online Classes and use Copy / Open on the current Site Join Link (old links stop working if the class was deleted or recreated).';
     include __DIR__ . '/includes/join_class_error.php';
     exit;
 }
