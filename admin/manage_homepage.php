@@ -69,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['add_news']) || isset
         'image_url' => $_POST['image_url'] ?? '',
         'is_featured' => isset($_POST['is_featured']) ? 1 : 0,
         'is_active' => isset($_POST['is_active']) ? 1 : 0,
-    ], $_FILES['image_file'] ?? null, (string) $_SESSION['admin']);
+        'remove_image_ids' => $_POST['remove_image_ids'] ?? [],
+    ], $_FILES['image_file'] ?? null, (string) $_SESSION['admin'], $_FILES['image_files'] ?? null);
 
     $_SESSION['message'] = $result['message'];
     $_SESSION['message_type'] = $result['success'] ? 'success' : ($result['message'] === 'No file uploaded' ? 'warning' : 'danger');
@@ -1504,6 +1505,14 @@ if ($content_sections) {
                                             <?php if (!empty($news['category'])): ?>
                                                 <span class="badge bg-info text-dark"><?php echo htmlspecialchars($news['category'], ENT_QUOTES, 'UTF-8'); ?></span>
                                             <?php endif; ?>
+                                            <?php
+                                            $newsImgCount = count(newsArticleImageUrls($news));
+                                            if ($newsImgCount > 0):
+                                            ?>
+                                                <span class="badge bg-secondary">
+                                                    <i class="fas fa-images"></i> <?php echo $newsImgCount; ?> photo<?php echo $newsImgCount > 1 ? 's' : ''; ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="d-flex gap-2">
                                             <a href="<?php echo htmlspecialchars(relative_url('manage_homepage.php?edit_news=' . (int) $news['id'] . '#homepage-news'), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-sm btn-primary">
@@ -1727,16 +1736,59 @@ if ($content_sections) {
                             </select>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">News Image</label>
-                            <input type="file" class="form-control" id="homepage_news_image_file" name="image_file" accept="image/*">
-                            <div class="form-text">Optional. JPG, PNG, WebP, GIF up to 5MB. Recommended 1200x600px.</div>
-                            <div id="homepage-news-image-preview" class="mt-3" style="<?php echo (!$edit_news || empty($edit_news['image_url'])) ? 'display:none;' : ''; ?>">
-                                <img id="homepage-news-preview-img" src="<?php echo $edit_news ? htmlspecialchars((string) ($edit_news['image_url'] ?? ''), ENT_QUOTES, 'UTF-8') : ''; ?>" alt="News preview" style="max-width: 280px; border-radius: 8px;">
-                            </div>
+                            <label class="form-label">News Images (slideshow)</label>
+                            <input type="file" class="form-control" id="homepage_news_image_files" name="image_files[]" accept="image/*" multiple>
+                            <div class="form-text">Select one or more images. They will appear as a slideshow on the homepage and news page. JPG, PNG, WebP, GIF up to 5MB each.</div>
+                            <div id="homepage-news-new-previews" class="d-flex flex-wrap gap-2 mt-3"></div>
+                            <?php
+                            $editNewsImages = [];
+                            if ($edit_news) {
+                                $editNewsImages = array_values(array_filter(
+                                    $edit_news['images'] ?? [],
+                                    static function ($img) {
+                                        return (int) ($img['id'] ?? 0) > 0;
+                                    }
+                                ));
+                                if ($editNewsImages === [] && !empty($edit_news['image_url'])) {
+                                    $editNewsImages = [[
+                                        'id' => 0,
+                                        'image_url' => $edit_news['image_url'],
+                                    ]];
+                                }
+                            }
+                            ?>
+                            <?php if (!empty($editNewsImages)): ?>
+                                <div class="mt-3">
+                                    <div class="fw-semibold mb-2">Current images</div>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <?php foreach ($editNewsImages as $newsImg): ?>
+                                            <?php
+                                            $imgId = (int) ($newsImg['id'] ?? 0);
+                                            $imgSrc = newsImageUrl($newsImg['image_url'] ?? '');
+                                            if ($imgSrc === '') {
+                                                continue;
+                                            }
+                                            ?>
+                                            <div class="border rounded p-2 text-center" style="width: 140px;">
+                                                <img src="<?php echo htmlspecialchars($imgSrc, ENT_QUOTES, 'UTF-8'); ?>" alt="News image" style="width: 120px; height: 80px; object-fit: cover; border-radius: 6px;">
+                                                <?php if ($imgId > 0): ?>
+                                                    <div class="form-check mt-2 text-start">
+                                                        <input class="form-check-input" type="checkbox" name="remove_image_ids[]" value="<?php echo $imgId; ?>" id="remove_news_img_<?php echo $imgId; ?>">
+                                                        <label class="form-check-label small" for="remove_news_img_<?php echo $imgId; ?>">Remove</label>
+                                                    </div>
+                                                <?php else: ?>
+                                                    <div class="small text-muted mt-2">Legacy cover</div>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            <?php endif; ?>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Or Image URL</label>
-                            <input type="url" class="form-control" name="image_url" value="<?php echo $edit_news ? htmlspecialchars((string) ($edit_news['image_url'] ?? ''), ENT_QUOTES, 'UTF-8') : ''; ?>" placeholder="https://example.com/image.jpg">
+                            <label class="form-label">Or add image by URL</label>
+                            <input type="url" class="form-control" name="image_url" value="" placeholder="https://example.com/image.jpg">
+                            <div class="form-text">Optional. Paste an image URL to add it as another slideshow picture.</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">Article Content *</label>
@@ -2034,21 +2086,29 @@ if ($content_sections) {
                 <?php endif; ?>
             }
 
-            const imageInput = document.getElementById('homepage_news_image_file');
-            const previewWrap = document.getElementById('homepage-news-image-preview');
-            const previewImg = document.getElementById('homepage-news-preview-img');
-            if (imageInput && previewWrap && previewImg) {
+            const imageInput = document.getElementById('homepage_news_image_files');
+            const previewWrap = document.getElementById('homepage-news-new-previews');
+            if (imageInput && previewWrap) {
                 imageInput.addEventListener('change', function(event) {
-                    const file = event.target.files && event.target.files[0];
-                    if (!file) {
-                        return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = function(loadEvent) {
-                        previewImg.src = loadEvent.target.result;
-                        previewWrap.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
+                    previewWrap.innerHTML = '';
+                    const files = event.target.files || [];
+                    Array.prototype.forEach.call(files, function(file) {
+                        if (!file || !file.type || file.type.indexOf('image/') !== 0) {
+                            return;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = function(loadEvent) {
+                            const img = document.createElement('img');
+                            img.src = loadEvent.target.result;
+                            img.alt = file.name;
+                            img.style.width = '120px';
+                            img.style.height = '80px';
+                            img.style.objectFit = 'cover';
+                            img.style.borderRadius = '6px';
+                            previewWrap.appendChild(img);
+                        };
+                        reader.readAsDataURL(file);
+                    });
                 });
             }
 

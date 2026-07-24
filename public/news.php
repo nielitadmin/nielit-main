@@ -46,9 +46,33 @@
             height: 180px; display: flex; align-items: center; justify-content: center;
             background: linear-gradient(135deg, #e8eef7, #f8fafc); color: #64748b; font-size: 2.5rem;
         }
-        .news-article-hero {
-            max-height: 420px; width: 100%; object-fit: cover; border-radius: 12px;
+        .news-article-hero,
+        .news-article-carousel {
+            max-height: 420px; width: 100%; border-radius: 12px; overflow: hidden;
             background: #e8eef7;
+        }
+        .news-article-carousel .carousel-item,
+        .news-article-carousel .news-slide-image,
+        .news-article-hero .news-slide-image {
+            height: 420px; object-fit: cover; width: 100%;
+        }
+        .news-list-carousel,
+        .news-list-carousel .carousel-inner,
+        .news-list-carousel .carousel-item {
+            height: 180px;
+        }
+        .news-list-carousel .news-slide-image {
+            height: 180px; object-fit: cover;
+        }
+        .news-list-carousel .carousel-control-prev,
+        .news-list-carousel .carousel-control-next {
+            width: 12%;
+        }
+        .news-list-carousel .carousel-indicators {
+            margin-bottom: .4rem;
+        }
+        .news-list-carousel .carousel-indicators [data-bs-target] {
+            width: 7px; height: 7px; border-radius: 50%;
         }
         .news-article-body { line-height: 1.75; font-size: 1.05rem; white-space: pre-wrap; }
         .news-article-body p { margin-bottom: 1rem; }
@@ -191,7 +215,7 @@ public_skeleton_render_head();
 
             <?php if ($selected_news): ?>
                 <?php
-                $detail_image = newsImageUrl($selected_news['image_url'] ?? '');
+                $detail_images = newsArticleImageUrls($selected_news);
                 $detail_html = (string) ($selected_news['content'] ?? '');
                 $looks_like_html = $detail_html !== strip_tags($detail_html);
                 ?>
@@ -203,10 +227,21 @@ public_skeleton_render_head();
 
                 <article class="card border-0 shadow-sm mb-5">
                     <div class="card-body p-4 p-md-5">
-                        <?php if ($detail_image !== ''): ?>
-                            <img src="<?php echo htmlspecialchars($detail_image, ENT_QUOTES, 'UTF-8'); ?>"
-                                 alt="<?php echo htmlspecialchars($selected_news['title'], ENT_QUOTES, 'UTF-8'); ?>"
-                                 class="news-article-hero mb-4">
+                        <?php if (!empty($detail_images)): ?>
+                            <div class="mb-4">
+                                <?php
+                                echo renderNewsImageSlideshow(
+                                    'newsDetailCarousel' . (int) $selected_news['id'],
+                                    $detail_images,
+                                    [
+                                        'alt' => (string) $selected_news['title'],
+                                        'class' => 'news-article-carousel',
+                                        'interval' => 4500,
+                                        'fade' => true,
+                                    ]
+                                );
+                                ?>
+                            </div>
                         <?php endif; ?>
 
                         <div class="news-article-body text-dark">
@@ -232,13 +267,25 @@ public_skeleton_render_head();
                 <div class="row g-4">
                     <?php foreach ($related as $item): ?>
                         <?php
-                        $img = newsImageUrl($item['image_url'] ?? '');
+                        $imgUrls = newsArticleImageUrls($item);
                         $cat = (string) ($item['category'] ?? '');
                         ?>
                         <div class="col-md-6 col-lg-4">
                             <div class="card h-100 border-0 shadow-sm news-list-card">
-                                <?php if ($img !== ''): ?>
-                                    <img src="<?php echo htmlspecialchars($img, ENT_QUOTES, 'UTF-8'); ?>" class="news-list-thumb card-img-top" alt="">
+                                <?php if (!empty($imgUrls)): ?>
+                                    <?php
+                                    echo renderNewsImageSlideshow(
+                                        'newsRelatedCarousel' . (int) $item['id'],
+                                        $imgUrls,
+                                        [
+                                            'alt' => (string) $item['title'],
+                                            'class' => 'news-list-carousel',
+                                            'interval' => 4000,
+                                            'controls' => count($imgUrls) > 1,
+                                            'indicators' => count($imgUrls) > 1,
+                                        ]
+                                    );
+                                    ?>
                                 <?php else: ?>
                                     <div class="news-list-thumb-placeholder"><i class="fas fa-newspaper"></i></div>
                                 <?php endif; ?>
@@ -272,16 +319,26 @@ public_skeleton_render_head();
                         <?php foreach ($news_items as $item): ?>
                             <?php
                             $item_id = (int) $item['id'];
-                            $img = newsImageUrl($item['image_url'] ?? '');
+                            $imgUrls = newsArticleImageUrls($item);
                             $cat = (string) ($item['category'] ?? '');
                             $is_featured = !empty($item['is_featured']);
                             ?>
                             <div class="col-md-6 col-lg-4" id="news-<?php echo $item_id; ?>">
                                 <div class="card h-100 border-0 shadow-sm news-list-card">
-                                    <?php if ($img !== ''): ?>
-                                        <img src="<?php echo htmlspecialchars($img, ENT_QUOTES, 'UTF-8'); ?>"
-                                             class="news-list-thumb card-img-top"
-                                             alt="<?php echo htmlspecialchars($item['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                                    <?php if (!empty($imgUrls)): ?>
+                                        <?php
+                                        echo renderNewsImageSlideshow(
+                                            'newsListCarousel' . $item_id,
+                                            $imgUrls,
+                                            [
+                                                'alt' => (string) $item['title'],
+                                                'class' => 'news-list-carousel',
+                                                'interval' => 4000,
+                                                'controls' => count($imgUrls) > 1,
+                                                'indicators' => count($imgUrls) > 1,
+                                            ]
+                                        );
+                                        ?>
                                     <?php else: ?>
                                         <div class="news-list-thumb-placeholder"><i class="fas fa-newspaper"></i></div>
                                     <?php endif; ?>

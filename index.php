@@ -917,10 +917,31 @@ $homepage_map = [];
             font-size: 3rem;
             color: rgba(26,86,219,0.2);
         }
-        .news-card-image img {
+        .news-card-image img,
+        .news-card-image .news-slide-image {
             width: 100%;
             height: 100%;
             object-fit: cover;
+        }
+        .news-card-image .news-image-carousel,
+        .news-card-image .news-slide-single,
+        .news-card-image .carousel-inner,
+        .news-card-image .carousel-item {
+            width: 100%;
+            height: 100%;
+        }
+        .news-card-image .carousel-control-prev,
+        .news-card-image .carousel-control-next {
+            width: 14%;
+            opacity: .85;
+        }
+        .news-card-image .carousel-indicators {
+            margin-bottom: .5rem;
+        }
+        .news-card-image .carousel-indicators [data-bs-target] {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
         }
         .news-card-body {
             padding: 24px;
@@ -1860,10 +1881,20 @@ if ($has_database_content):
                         
                         <div class="news-card-image">
                             <?php
-                            $news_image = newsImageUrl($news['image_url'] ?? '');
-                            if ($news_image !== ''): ?>
-                                <img src="<?php echo htmlspecialchars($news_image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($news['title'], ENT_QUOTES, 'UTF-8'); ?>">
-                            <?php else: ?>
+                            $news_images = newsArticleImageUrls($news);
+                            if (!empty($news_images)):
+                                echo renderNewsImageSlideshow(
+                                    'homeNewsCarousel' . (int) $news['id'],
+                                    $news_images,
+                                    [
+                                        'alt' => (string) $news['title'],
+                                        'interval' => 4000,
+                                        'fade' => true,
+                                        'controls' => count($news_images) > 1,
+                                        'indicators' => count($news_images) > 1,
+                                    ]
+                                );
+                            else: ?>
                                 <i class="fas fa-newspaper"></i>
                             <?php endif; ?>
                         </div>
