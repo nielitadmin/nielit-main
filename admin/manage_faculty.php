@@ -325,6 +325,30 @@ if ($count_result) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff & Faculty Directory - NIELIT Admin</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
+    <style>
+        /* Keep Add/Edit staff modals usable on short screens */
+        #addStaffModal .modal-dialog,
+        #editStaffModal .modal-dialog {
+            max-height: calc(100vh - 2rem);
+            margin: 1rem auto;
+        }
+        #addStaffModal .modal-content,
+        #editStaffModal .modal-content {
+            max-height: calc(100vh - 2rem);
+        }
+        #addStaffModal .modal-body,
+        #editStaffModal .modal-body {
+            overflow-y: auto;
+            max-height: calc(100vh - 11rem);
+        }
+        #addStaffModal .modal-footer,
+        #editStaffModal .modal-footer {
+            position: sticky;
+            bottom: 0;
+            background: #fff;
+            z-index: 2;
+        }
+    </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
@@ -603,7 +627,7 @@ if ($count_result) {
 
 <!-- Add Staff Modal -->
 <div class="modal fade" id="addStaffModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Add Staff Member</h5>
@@ -612,6 +636,18 @@ if ($count_result) {
             <form method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="add_staff">
+
+                    <div class="alert alert-primary py-2 small mb-3">
+                        <strong>Publish on website:</strong> tick the boxes below.
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="show_on_website" name="show_on_website" value="1">
+                        <label class="form-check-label" for="show_on_website">Show on Our Team page</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="show_on_contact" name="show_on_contact" value="1">
+                        <label class="form-check-label" for="show_on_contact">Show as key contact on Contact page</label>
+                    </div>
                     
                     <div class="mb-3">
                         <label for="staff_category" class="form-label">Staff Category *</label>
@@ -665,15 +701,6 @@ if ($count_result) {
                         <input type="number" class="form-control" id="display_order" name="display_order" value="0" min="0">
                         <div class="form-text">Lower numbers appear first on the website.</div>
                     </div>
-
-                    <div class="mb-2 form-check">
-                        <input type="checkbox" class="form-check-input" id="show_on_website" name="show_on_website" value="1">
-                        <label class="form-check-label" for="show_on_website">Show on Our Team page</label>
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="show_on_contact" name="show_on_contact" value="1">
-                        <label class="form-check-label" for="show_on_contact">Show as key contact on Contact page</label>
-                    </div>
                     
                     <p class="text-muted small mb-0">
                         <i class="fas fa-info-circle"></i> After adding, open <strong>Profile</strong> to fill academic & research details and download PDF.
@@ -690,7 +717,7 @@ if ($count_result) {
 
 <!-- Edit Staff Modal -->
 <div class="modal fade" id="editStaffModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Edit Staff Member</h5>
