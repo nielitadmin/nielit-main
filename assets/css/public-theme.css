@@ -75,6 +75,29 @@ h1, h2, h3, h4, h5, h6 {
     font-size: 0.85rem;
 }
 
+.top-bar-title-hi {
+    color: var(--blue);
+    font-size: 0.82rem;
+    font-family: 'Sora', 'Poppins', sans-serif;
+}
+
+.top-bar-title-en {
+    color: var(--navy);
+    font-size: 0.82rem;
+    font-family: 'Sora', 'Poppins', sans-serif;
+    line-height: 1.35;
+}
+
+.top-bar-ministry-hi {
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+.top-bar-ministry-en {
+    color: var(--navy);
+    font-size: 0.78rem;
+}
+
 .gov-logos img {
     height: 45px;
     width: auto;
@@ -706,24 +729,28 @@ html[data-mode="night"] body.public-site .top-bar {
     background: #0b1524 !important;
     background-color: #0b1524 !important;
     border-bottom-color: var(--border) !important;
-    color: var(--text) !important;
+    color: #e8eef8 !important;
     box-shadow: none !important;
 }
 
+html[data-mode="night"] body.public-site .top-bar-title-hi,
 html[data-mode="night"] body.public-site .top-bar .text-primary,
-html[data-mode="night"] body.public-site .top-bar .fw-bold.text-primary,
-html[data-mode="night"] body.public-site .top-bar [style*="color: var(--blue)"] {
+html[data-mode="night"] body.public-site .top-bar .fw-bold.text-primary {
     color: #93c5fd !important;
 }
 
+html[data-mode="night"] body.public-site .top-bar-title-en,
+html[data-mode="night"] body.public-site .top-bar-ministry-en,
 html[data-mode="night"] body.public-site .top-bar .text-dark,
 html[data-mode="night"] body.public-site .top-bar .fw-bold.text-dark,
+html[data-mode="night"] body.public-site .top-bar .fw-bold:not(.top-bar-title-hi) {
+    color: #f8fafc !important;
+}
+
+html[data-mode="night"] body.public-site .top-bar-ministry-hi,
 html[data-mode="night"] body.public-site .top-bar .text-secondary,
-html[data-mode="night"] body.public-site .top-bar .ministry-text,
-html[data-mode="night"] body.public-site .top-bar [style*="color: var(--navy)"],
-html[data-mode="night"] body.public-site .top-bar [style*="color: var(--muted)"],
-html[data-mode="night"] body.public-site .top-bar [style*="color: var(--text)"] {
-    color: var(--hp-heading) !important;
+html[data-mode="night"] body.public-site .top-bar .ministry-text {
+    color: #cbd5e1 !important;
 }
 
 html[data-mode="night"] body.public-site .navbar,

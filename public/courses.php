@@ -438,6 +438,16 @@ $result_internship = $conn->query($sql_internship);
         }
 
         /* Courses page night mode — loaded last so it always wins */
+        html[data-mode="night"] body.public-site .top-bar-title-hi {
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.public-site .top-bar-title-en,
+        html[data-mode="night"] body.public-site .top-bar-ministry-en {
+            color: #f8fafc !important;
+        }
+        html[data-mode="night"] body.public-site .top-bar-ministry-hi {
+            color: #cbd5e1 !important;
+        }
         html[data-mode="night"] body.public-site .section-header {
             background: #0f1b2d !important;
             background-color: #0f1b2d !important;
@@ -546,14 +556,14 @@ public_skeleton_render_head();
             <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
                 <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-md-3" style="height: 50px; flex-shrink: 0;">
                 <div class="top-bar-text" style="min-width: 0;">
-                    <div class="fw-bold d-none d-sm-block" style="color: var(--blue); font-size: 0.82rem; font-family: 'Sora', sans-serif;"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
-                    <div class="fw-bold" style="color: var(--navy); font-size: 0.82rem; font-family: 'Sora', sans-serif; line-height: 1.35;"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
+                    <div class="fw-bold d-none d-sm-block top-bar-title-hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="fw-bold top-bar-title-en"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
                 <div class="text-end me-3 d-none d-lg-block">
-                    <small class="d-block text-secondary d-none d-md-block" style="color: var(--muted);"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
-                    <small class="d-block fw-bold" style="color: var(--navy);"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
+                    <small class="d-block top-bar-ministry-hi d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
+                    <small class="d-block fw-bold top-bar-ministry-en"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
                 <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" style="height: 50px;">
             </div>
