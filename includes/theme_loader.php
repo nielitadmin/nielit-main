@@ -426,8 +426,27 @@ function injectThemeCSS($theme) {
             border-color: var(--border-color) !important;
         }
 
-        html[data-mode="night"] a:not(.btn):not(.nav-link):not(.sidebar-link) {
+        html[data-mode="night"] a:not(.btn):not(.nav-link):not(.sidebar-link):not(.dropdown-item):not(.stat-pill a):not(.quick-btn):not(.news-read-more):not(.btn-hero-primary):not(.btn-hero-outline):not(.jobfair-btn-primary):not(.jobfair-btn-secondary):not(.mocktest-btn-primary):not(.mocktest-btn-secondary) {
             color: #93c5fd;
+        }
+
+        /* Public homepage footer/nav keep their own night palette (see index.php) */
+        html[data-mode="night"] body.homepage-public footer,
+        html[data-mode="night"] body.homepage-public .footer {
+            background: #050e1a !important;
+            color: rgba(255, 255, 255, 0.62) !important;
+            box-shadow: none !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .navbar {
+            background: #0a1628 !important;
+            color: #ffffff !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .top-bar {
+            background: #0b1524 !important;
+            color: #e8eef8 !important;
+            box-shadow: none !important;
         }
 
         .theme-mode-toggle {

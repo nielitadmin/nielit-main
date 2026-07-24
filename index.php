@@ -1224,13 +1224,239 @@ $homepage_map = [];
             .info-card { padding: 28px 22px; }
             .quick-grid { grid-template-columns: 1fr; }
         }
+
+        /* ===== HOMEPAGE NIGHT MODE ===== */
+        html[data-mode="night"] body.homepage-public {
+            --cream: #07101c;
+            --text: #e8eef8;
+            --muted: #9db0c9;
+            --border: rgba(148, 163, 184, 0.2);
+            --hp-surface: #0f1b2d;
+            --hp-surface-2: #13243c;
+            --hp-heading: #f1f5f9;
+            background: #050b16 !important;
+            color: var(--text) !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .top-bar {
+            background: #0b1524 !important;
+            border-bottom-color: var(--border) !important;
+            color: var(--text) !important;
+            box-shadow: none !important;
+        }
+        html[data-mode="night"] body.homepage-public .top-bar .inst-name-hi {
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.homepage-public .top-bar .inst-name-en,
+        html[data-mode="night"] body.homepage-public .top-bar .ministry-hi {
+            color: var(--hp-heading) !important;
+        }
+
+        /* Keep brand navbar deep navy (do not flatten with admin night chrome) */
+        html[data-mode="night"] body.homepage-public .navbar {
+            background: var(--navy) !important;
+            color: #fff !important;
+            border-bottom: 3px solid var(--gold) !important;
+        }
+        html[data-mode="night"] body.homepage-public .navbar .nav-link,
+        html[data-mode="night"] body.homepage-public .navbar .navbar-brand {
+            color: rgba(255, 255, 255, 0.88) !important;
+        }
+        html[data-mode="night"] body.homepage-public .navbar .nav-link:hover,
+        html[data-mode="night"] body.homepage-public .navbar .nav-link.active {
+            color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public .dropdown-menu {
+            background: var(--navy-mid) !important;
+            border-color: rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+        }
+        html[data-mode="night"] body.homepage-public .dropdown-item {
+            color: rgba(255, 255, 255, 0.82) !important;
+        }
+        html[data-mode="night"] body.homepage-public .dropdown-item:hover {
+            background: rgba(255, 255, 255, 0.1) !important;
+            color: #fff !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .section-title,
+        html[data-mode="night"] body.homepage-public .feat-card h5,
+        html[data-mode="night"] body.homepage-public .info-card h4,
+        html[data-mode="night"] body.homepage-public .mocktest-title,
+        html[data-mode="night"] body.homepage-public .course-card h5,
+        html[data-mode="night"] body.homepage-public .news-card-title {
+            color: var(--hp-heading) !important;
+        }
+        html[data-mode="night"] body.homepage-public .section-eyebrow {
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.homepage-public .feat-card p,
+        html[data-mode="night"] body.homepage-public .info-card p,
+        html[data-mode="night"] body.homepage-public .mocktest-lead,
+        html[data-mode="night"] body.homepage-public .news-card-excerpt,
+        html[data-mode="night"] body.homepage-public .news-date,
+        html[data-mode="night"] body.homepage-public .text-muted {
+            color: var(--muted) !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .features-section,
+        html[data-mode="night"] body.homepage-public .section-white-pattern,
+        html[data-mode="night"] body.homepage-public .mocktest-section,
+        html[data-mode="night"] body.homepage-public .info-section,
+        html[data-mode="night"] body.homepage-public .news-section,
+        html[data-mode="night"] body.homepage-public .dynamic-course {
+            background: #07101c !important;
+            color: var(--text) !important;
+        }
+        html[data-mode="night"] body.homepage-public .section-white-pattern {
+            background: linear-gradient(180deg, #07101c 0%, #0b1524 100%) !important;
+        }
+        html[data-mode="night"] body.homepage-public .dynamic-banner {
+            background: linear-gradient(135deg, #0f1b2d 0%, #07101c 100%) !important;
+        }
+        html[data-mode="night"] body.homepage-public .dynamic-banner h2 {
+            color: var(--hp-heading) !important;
+        }
+        html[data-mode="night"] body.homepage-public .course-icon {
+            color: #93c5fd !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .feat-card,
+        html[data-mode="night"] body.homepage-public .mocktest-panel,
+        html[data-mode="night"] body.homepage-public .info-card,
+        html[data-mode="night"] body.homepage-public .course-card,
+        html[data-mode="night"] body.homepage-public .news-card {
+            background: var(--hp-surface) !important;
+            border-color: var(--border) !important;
+            color: var(--text) !important;
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35) !important;
+        }
+        html[data-mode="night"] body.homepage-public .feat-card:hover,
+        html[data-mode="night"] body.homepage-public .info-card:hover,
+        html[data-mode="night"] body.homepage-public .course-card:hover,
+        html[data-mode="night"] body.homepage-public .news-card:hover {
+            background: var(--hp-surface-2) !important;
+            border-color: rgba(245, 158, 11, 0.28) !important;
+            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45) !important;
+        }
+        html[data-mode="night"] body.homepage-public .news-card-image {
+            background: linear-gradient(135deg, #13243c 0%, #0f1b2d 100%) !important;
+            color: rgba(147, 197, 253, 0.35) !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .mocktest-feature,
+        html[data-mode="night"] body.homepage-public .quick-btn {
+            background: var(--hp-surface-2) !important;
+            border-color: var(--border) !important;
+            color: var(--hp-heading) !important;
+        }
+        html[data-mode="night"] body.homepage-public .quick-btn i {
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.homepage-public .quick-btn:hover {
+            background: var(--navy) !important;
+            color: var(--gold) !important;
+            border-color: var(--navy) !important;
+        }
+        html[data-mode="night"] body.homepage-public .quick-btn:hover i {
+            color: var(--gold) !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .check-list li {
+            color: var(--text) !important;
+            border-bottom-color: rgba(148, 163, 184, 0.16) !important;
+        }
+        html[data-mode="night"] body.homepage-public .mocktest-eyebrow {
+            background: rgba(59, 130, 246, 0.16) !important;
+            border-color: rgba(59, 130, 246, 0.35) !important;
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.homepage-public .mocktest-btn-secondary {
+            background: var(--hp-surface-2) !important;
+            color: var(--hp-heading) !important;
+            border-color: var(--border) !important;
+        }
+        html[data-mode="night"] body.homepage-public .mocktest-btn-secondary:hover {
+            border-color: #60a5fa !important;
+            color: #93c5fd !important;
+        }
+        html[data-mode="night"] body.homepage-public .mocktest-btn-primary {
+            color: #fff !important;
+        }
+
+        html[data-mode="night"] body.homepage-public .news-read-more,
+        html[data-mode="night"] body.homepage-public .news-card:hover .news-read-more {
+            color: #93c5fd !important;
+        }
+
+        /* Dark brand bands stay rich navy/gold — restore link colors */
+        html[data-mode="night"] body.homepage-public .welcome-strip,
+        html[data-mode="night"] body.homepage-public .announcements-section,
+        html[data-mode="night"] body.homepage-public .jobfair-section,
+        html[data-mode="night"] body.homepage-public .hero-section {
+            color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public .welcome-strip .section-title,
+        html[data-mode="night"] body.homepage-public .announcements-section .section-title,
+        html[data-mode="night"] body.homepage-public .jobfair-title,
+        html[data-mode="night"] body.homepage-public .announce-card h6 {
+            color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public .stat-pill,
+        html[data-mode="night"] body.homepage-public .stat-pill a {
+            color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public .btn-hero-primary,
+        html[data-mode="night"] body.homepage-public .jobfair-btn-primary {
+            color: var(--navy) !important;
+        }
+        html[data-mode="night"] body.homepage-public .btn-hero-outline,
+        html[data-mode="night"] body.homepage-public .jobfair-btn-secondary {
+            color: #fff !important;
+        }
+
+        /* Footer: keep deep night look; undo generic night surface + blue links */
+        html[data-mode="night"] body.homepage-public footer,
+        html[data-mode="night"] body.homepage-public .footer {
+            background: #050e1a !important;
+            color: rgba(255, 255, 255, 0.62) !important;
+            box-shadow: none !important;
+            border-color: transparent !important;
+        }
+        html[data-mode="night"] body.homepage-public footer h5,
+        html[data-mode="night"] body.homepage-public .footer-brand .brand-name {
+            color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public footer a,
+        html[data-mode="night"] body.homepage-public .footer-bottom a {
+            color: rgba(255, 255, 255, 0.55) !important;
+        }
+        html[data-mode="night"] body.homepage-public footer a:hover,
+        html[data-mode="night"] body.homepage-public .footer-bottom a:hover {
+            color: var(--gold) !important;
+        }
+        html[data-mode="night"] body.homepage-public .footer-bottom {
+            color: rgba(255, 255, 255, 0.35) !important;
+            border-top-color: rgba(255, 255, 255, 0.08) !important;
+        }
+
+        /* Cards injected by theme_loader night rules */
+        html[data-mode="night"] body.homepage-public .card,
+        html[data-mode="night"] body.homepage-public .section-card,
+        html[data-mode="night"] body.homepage-public .section-block,
+        html[data-mode="night"] body.homepage-public .notice-card,
+        html[data-mode="night"] body.homepage-public .info-box {
+            background: var(--hp-surface) !important;
+            color: var(--text) !important;
+            border-color: var(--border) !important;
+        }
     </style>
 <?php
 require_once __DIR__ . '/includes/public_skeleton_helper.php';
 public_skeleton_render_head();
 ?>
 </head>
-<body class="public-page-loading">
+<body class="public-page-loading homepage-public">
 <?php public_skeleton_render_loader('home'); ?>
 
 <!-- ===== TOP BAR ===== -->
