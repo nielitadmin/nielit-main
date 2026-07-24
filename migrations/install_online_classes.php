@@ -30,7 +30,7 @@ try {
     if (!ensureOnlineClassesTable($conn)) {
         throw new RuntimeException('Could not create online_classes: ' . ($conn->error ?: 'unknown error'));
     }
-    echo 'OK table online_classes ready.' . $nl;
+    echo 'OK table online_classes ready (with auto site join links).' . $nl;
 
     $countRes = $conn->query('SELECT COUNT(*) AS c FROM online_classes');
     $count = $countRes ? (int) ($countRes->fetch_assoc()['c'] ?? 0) : 0;

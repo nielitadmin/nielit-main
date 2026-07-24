@@ -19,6 +19,7 @@ if (!function_exists('ensureOnlineClassesTable')) {
             scheduled_at DATETIME NOT NULL,
             duration_minutes INT NOT NULL DEFAULT 60,
             meeting_url VARCHAR(1000) NOT NULL,
+            join_token VARCHAR(64) NULL,
             recording_url VARCHAR(1000) NULL,
             platform VARCHAR(50) NULL,
             status VARCHAR(30) NOT NULL DEFAULT 'scheduled',
@@ -29,7 +30,8 @@ if (!function_exists('ensureOnlineClassesTable')) {
             KEY idx_oc_batch (batch_id),
             KEY idx_oc_scheduled (scheduled_at),
             KEY idx_oc_active (is_active),
-            KEY idx_oc_status (status)
+            KEY idx_oc_status (status),
+            UNIQUE KEY uq_oc_join_token (join_token)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
         if (!$conn->query($sql)) {
@@ -37,8 +39,168 @@ if (!function_exists('ensureOnlineClassesTable')) {
             return false;
         }
 
+        // Upgrade older installs that lack join_token
+        $col = @$conn->query("SHOW COLUMNS FROM online_classes LIKE 'join_token'");
+        if ($col && $col->num_rows === 0) {
+            if (!$conn->query("ALTER TABLE online_classes ADD COLUMN join_token VARCHAR(64) NULL AFTER meeting_url")) {
+                error_log('ensureOnlineClassesTable add join_token failed: ' . $conn->error);
+                return false;
+            }
+            @$conn->query('ALTER TABLE online_classes ADD UNIQUE KEY uq_oc_join_token (join_token)');
+        }
+
+        onlineClassBackfillJoinTokens($conn);
+
         $ready = true;
         return true;
+    }
+}
+
+if (!function_exists('onlineClassGenerateJoinToken')) {
+    function onlineClassGenerateJoinToken(): string
+    {
+        return bin2hex(random_bytes(16));
+    }
+}
+
+if (!function_exists('onlineClassRoomName')) {
+    /** Stable Jitsi room name derived from join token. */
+    function onlineClassRoomName(string $token): string
+    {
+        $token = preg_replace('/[^a-zA-Z0-9]/', '', $token) ?? '';
+        return 'NIELITBBSR' . strtoupper(substr($token, 0, 24));
+    }
+}
+
+if (!function_exists('onlineClassSiteJoinUrl')) {
+    /** Join URL hosted on this website. */
+    function onlineClassSiteJoinUrl(string $token): string
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return '';
+        }
+        if (!function_exists('app_url')) {
+            require_once __DIR__ . '/url_helper.php';
+        }
+        return app_url('student/join_class') . '?t=' . rawurlencode($token);
+    }
+}
+
+if (!function_exists('onlineClassEnrichRow')) {
+    /** Attach computed join_url / room_name / display_status. */
+    function onlineClassEnrichRow(array $row): array
+    {
+        $token = trim((string) ($row['join_token'] ?? ''));
+        if ($token !== '') {
+            $row['join_url'] = onlineClassSiteJoinUrl($token);
+            $row['room_name'] = onlineClassRoomName($token);
+            // Keep meeting_url aligned with site join link
+            $row['meeting_url'] = $row['join_url'];
+        } else {
+            $row['join_url'] = trim((string) ($row['meeting_url'] ?? ''));
+            $row['room_name'] = '';
+        }
+        $row['display_status'] = onlineClassComputeStatus($row);
+        return $row;
+    }
+}
+
+if (!function_exists('onlineClassBackfillJoinTokens')) {
+    function onlineClassBackfillJoinTokens($conn): void
+    {
+        $res = @$conn->query("SELECT id FROM online_classes WHERE join_token IS NULL OR join_token = ''");
+        if (!$res) {
+            return;
+        }
+        while ($row = $res->fetch_assoc()) {
+            $id = (int) $row['id'];
+            $token = onlineClassGenerateJoinToken();
+            $url = onlineClassSiteJoinUrl($token);
+            $stmt = $conn->prepare('UPDATE online_classes SET join_token = ?, meeting_url = ?, platform = COALESCE(NULLIF(platform, \'\'), ?) WHERE id = ?');
+            if ($stmt) {
+                $platform = 'NIELIT Classroom';
+                $stmt->bind_param('sssi', $token, $url, $platform, $id);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+    }
+}
+
+if (!function_exists('getOnlineClassByJoinToken')) {
+    function getOnlineClassByJoinToken($conn, string $token): ?array
+    {
+        ensureOnlineClassesTable($conn);
+        $token = trim($token);
+        if ($token === '') {
+            return null;
+        }
+        $stmt = $conn->prepare(
+            "SELECT oc.*, b.batch_name, b.batch_code, c.course_name
+             FROM online_classes oc
+             LEFT JOIN batches b ON b.id = oc.batch_id
+             LEFT JOIN courses c ON c.id = b.course_id
+             WHERE oc.join_token = ? LIMIT 1"
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ? onlineClassEnrichRow($row) : null;
+    }
+}
+
+if (!function_exists('onlineClassCanJoinNow')) {
+    /**
+     * Allow join from 30 minutes before start until 30 minutes after scheduled end.
+     */
+    function onlineClassCanJoinNow(array $row, ?DateTimeInterface $now = null): array
+    {
+        $status = onlineClassComputeStatus($row, $now);
+        if ($status === 'cancelled' || empty($row['is_active'])) {
+            return ['allowed' => false, 'reason' => 'This class is not available.'];
+        }
+
+        $now = $now ?? new DateTimeImmutable('now');
+        $start = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) ($row['scheduled_at'] ?? ''));
+        if (!$start) {
+            $start = new DateTimeImmutable((string) ($row['scheduled_at'] ?? 'now'));
+        }
+        $duration = max(1, (int) ($row['duration_minutes'] ?? 60));
+        $end = $start->modify('+' . $duration . ' minutes');
+        $openFrom = $start->modify('-30 minutes');
+        $openUntil = $end->modify('+30 minutes');
+
+        if ($now < $openFrom) {
+            return [
+                'allowed' => false,
+                'reason' => 'Classroom opens 30 minutes before the scheduled start (' . $start->format('d M Y, h:i A') . ').',
+            ];
+        }
+        if ($now > $openUntil) {
+            return [
+                'allowed' => false,
+                'reason' => 'This live session has ended. Check Online Classes for a recording link.',
+            ];
+        }
+
+        return ['allowed' => true, 'reason' => ''];
+    }
+}
+
+if (!function_exists('onlineClassStudentMayAccess')) {
+    function onlineClassStudentMayAccess($conn, array $classRow, string $studentIdStr, ?int $activeRecordId = null): bool
+    {
+        $batchId = (int) ($classRow['batch_id'] ?? 0);
+        if ($batchId <= 0) {
+            return false;
+        }
+        $ids = getStudentOnlineClassBatchIds($conn, $studentIdStr, $activeRecordId);
+        return in_array($batchId, $ids, true);
     }
 }
 
@@ -146,7 +308,7 @@ if (!function_exists('getOnlineClassById')) {
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
-        return $row ?: null;
+        return $row ? onlineClassEnrichRow($row) : null;
     }
 }
 
@@ -190,16 +352,14 @@ if (!function_exists('listOnlineClassesAdmin')) {
             $stmt->execute();
             $result = $stmt->get_result();
             while ($row = $result->fetch_assoc()) {
-                $row['display_status'] = onlineClassComputeStatus($row);
-                $rows[] = $row;
+                $rows[] = onlineClassEnrichRow($row);
             }
             $stmt->close();
         } else {
             $result = $conn->query($sql);
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
-                    $row['display_status'] = onlineClassComputeStatus($row);
-                    $rows[] = $row;
+                    $rows[] = onlineClassEnrichRow($row);
                 }
             }
         }
@@ -244,8 +404,7 @@ if (!function_exists('listOnlineClassesForBatches')) {
         $result = $stmt->get_result();
         $rows = [];
         while ($row = $result->fetch_assoc()) {
-            $row['display_status'] = onlineClassComputeStatus($row);
-            $rows[] = $row;
+            $rows[] = onlineClassEnrichRow($row);
         }
         $stmt->close();
         return $rows;
@@ -255,9 +414,10 @@ if (!function_exists('listOnlineClassesForBatches')) {
 if (!function_exists('saveOnlineClass')) {
     /**
      * Create or update an online class.
+     * Meeting join links are auto-generated on this site (join_token).
      *
      * @param array<string, mixed> $data
-     * @return array{success:bool,message:string,id?:int}
+     * @return array{success:bool,message:string,id?:int,join_url?:string}
      */
     function saveOnlineClass($conn, array $data, ?int $id = null): array
     {
@@ -268,7 +428,6 @@ if (!function_exists('saveOnlineClass')) {
         $description = trim(strip_tags((string) ($data['description'] ?? '')));
         $scheduledAt = trim((string) ($data['scheduled_at'] ?? ''));
         $duration = max(15, min(480, (int) ($data['duration_minutes'] ?? 60)));
-        $meetingUrl = onlineClassSanitizeUrl((string) ($data['meeting_url'] ?? ''));
         $recordingUrl = onlineClassSanitizeUrl((string) ($data['recording_url'] ?? ''));
         $platform = trim(strip_tags((string) ($data['platform'] ?? '')));
         $status = strtolower(trim((string) ($data['status'] ?? 'scheduled')));
@@ -289,7 +448,6 @@ if (!function_exists('saveOnlineClass')) {
             return ['success' => false, 'message' => 'Date and time are required.'];
         }
 
-        // Normalize datetime-local (YYYY-MM-DDTHH:MM) → MySQL DATETIME
         $scheduledAt = str_replace('T', ' ', $scheduledAt);
         if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $scheduledAt)) {
             $scheduledAt .= ':00';
@@ -300,20 +458,19 @@ if (!function_exists('saveOnlineClass')) {
         }
         $scheduledAt = $dt->format('Y-m-d H:i:s');
 
-        if (!onlineClassIsValidUrl($meetingUrl)) {
-            return ['success' => false, 'message' => 'Please enter a valid meeting/join URL.'];
-        }
         if ($recordingUrl !== '' && !onlineClassIsValidUrl($recordingUrl)) {
             return ['success' => false, 'message' => 'Recording link must be a valid URL (e.g. Google Drive).'];
         }
         if (mb_strlen($title) > 255) {
             return ['success' => false, 'message' => 'Title is too long (max 255 characters).'];
         }
+        if ($platform === '') {
+            $platform = 'NIELIT Classroom';
+        }
         if (mb_strlen($platform) > 50) {
             $platform = mb_substr($platform, 0, 50);
         }
 
-        // Confirm batch exists
         $check = $conn->prepare('SELECT id FROM batches WHERE id = ? LIMIT 1');
         if ($check) {
             $check->bind_param('i', $batchId);
@@ -325,27 +482,39 @@ if (!function_exists('saveOnlineClass')) {
             $check->close();
         }
 
+        $descVal = $description;
+        $recVal = $recordingUrl;
+        $platVal = $platform;
+
         if ($id !== null && $id > 0) {
+            $existing = getOnlineClassById($conn, $id);
+            if (!$existing) {
+                return ['success' => false, 'message' => 'Class not found.'];
+            }
+            $token = trim((string) ($existing['join_token'] ?? ''));
+            if ($token === '') {
+                $token = onlineClassGenerateJoinToken();
+            }
+            $meetingUrl = onlineClassSiteJoinUrl($token);
+
             $stmt = $conn->prepare(
                 "UPDATE online_classes
                  SET batch_id=?, title=?, description=?, scheduled_at=?, duration_minutes=?,
-                     meeting_url=?, recording_url=?, platform=?, status=?, is_active=?
+                     meeting_url=?, join_token=?, recording_url=?, platform=?, status=?, is_active=?
                  WHERE id=?"
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
-            $descVal = $description;
-            $recVal = $recordingUrl;
-            $platVal = $platform;
             $stmt->bind_param(
-                'isssissssii',
+                'isssisssssii',
                 $batchId,
                 $title,
                 $descVal,
                 $scheduledAt,
                 $duration,
                 $meetingUrl,
+                $token,
                 $recVal,
                 $platVal,
                 $status,
@@ -358,28 +527,34 @@ if (!function_exists('saveOnlineClass')) {
                 return ['success' => false, 'message' => 'Failed to update class: ' . $err];
             }
             $stmt->close();
-            return ['success' => true, 'message' => 'Online class updated successfully.', 'id' => $id];
+            return [
+                'success' => true,
+                'message' => 'Online class updated successfully.',
+                'id' => $id,
+                'join_url' => $meetingUrl,
+            ];
         }
+
+        $token = onlineClassGenerateJoinToken();
+        $meetingUrl = onlineClassSiteJoinUrl($token);
 
         $stmt = $conn->prepare(
             "INSERT INTO online_classes
-             (batch_id, title, description, scheduled_at, duration_minutes, meeting_url, recording_url, platform, status, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+             (batch_id, title, description, scheduled_at, duration_minutes, meeting_url, join_token, recording_url, platform, status, is_active, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
-        $descVal = $description;
-        $recVal = $recordingUrl;
-        $platVal = $platform;
         $stmt->bind_param(
-            'isssissssis',
+            'isssisssssis',
             $batchId,
             $title,
             $descVal,
             $scheduledAt,
             $duration,
             $meetingUrl,
+            $token,
             $recVal,
             $platVal,
             $status,
@@ -393,7 +568,12 @@ if (!function_exists('saveOnlineClass')) {
         }
         $newId = (int) $stmt->insert_id;
         $stmt->close();
-        return ['success' => true, 'message' => 'Online class created successfully.', 'id' => $newId];
+        return [
+            'success' => true,
+            'message' => 'Online class created. Join link generated on your site.',
+            'id' => $newId,
+            'join_url' => $meetingUrl,
+        ];
     }
 }
 

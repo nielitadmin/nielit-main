@@ -1,7 +1,7 @@
 <?php
 /**
  * Partial: single online class card for student portal.
- * Expects $oc array with display_status, title, etc.
+ * Expects $oc array with display_status, title, join_url, etc.
  */
 $ds = $oc['display_status'] ?? 'upcoming';
 $when = !empty($oc['scheduled_at'])
@@ -9,7 +9,7 @@ $when = !empty($oc['scheduled_at'])
     : '—';
 $duration = (int) ($oc['duration_minutes'] ?? 60);
 $isLive = ($ds === 'live');
-$meetingUrl = trim((string) ($oc['meeting_url'] ?? ''));
+$meetingUrl = trim((string) ($oc['join_url'] ?? $oc['meeting_url'] ?? ''));
 $recordingUrl = trim((string) ($oc['recording_url'] ?? ''));
 ?>
 <div class="col-md-6 col-lg-4 mb-3">
@@ -40,15 +40,8 @@ $recordingUrl = trim((string) ($oc['recording_url'] ?? ''));
         <div class="oc-card-actions">
             <?php if ($meetingUrl !== '' && in_array($ds, ['live', 'upcoming'], true)): ?>
                 <a href="<?php echo htmlspecialchars($meetingUrl); ?>"
-                   class="btn btn-sm <?php echo $isLive ? 'btn-danger' : 'btn-primary'; ?>"
-                   target="_blank" rel="noopener noreferrer">
+                   class="btn btn-sm <?php echo $isLive ? 'btn-danger' : 'btn-primary'; ?>">
                     <i class="fas fa-video"></i> <?php echo $isLive ? 'Join Now' : 'Join Class'; ?>
-                </a>
-            <?php elseif ($meetingUrl !== '' && $ds === 'completed'): ?>
-                <a href="<?php echo htmlspecialchars($meetingUrl); ?>"
-                   class="btn btn-sm btn-outline-secondary"
-                   target="_blank" rel="noopener noreferrer">
-                    <i class="fas fa-link"></i> Meeting Link
                 </a>
             <?php endif; ?>
 

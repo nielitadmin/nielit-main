@@ -52,15 +52,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'description' => $_POST['description'] ?? '',
             'scheduled_at' => $_POST['scheduled_at'] ?? '',
             'duration_minutes' => (int) ($_POST['duration_minutes'] ?? 60),
-            'meeting_url' => $_POST['meeting_url'] ?? '',
             'recording_url' => $_POST['recording_url'] ?? '',
-            'platform' => $_POST['platform'] ?? '',
+            'platform' => $_POST['platform'] ?? 'NIELIT Classroom',
             'status' => ($_POST['status'] ?? 'scheduled') === 'cancelled' ? 'cancelled' : 'scheduled',
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
             'created_by' => (string) ($_SESSION['admin'] ?? 'admin'),
         ];
         $result = saveOnlineClass($conn, $payload, $editId > 0 ? $editId : null);
         $_SESSION['message'] = $result['message'];
+        if (!empty($result['join_url'])) {
+            $_SESSION['message'] .= ' Join link: ' . $result['join_url'];
+        }
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -197,7 +199,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <th>When</th>
                                 <th>Duration</th>
                                 <th>Status</th>
-                                <th>Join / Recording</th>
+                                <th>Site Join Link</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -246,14 +248,26 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                             </span>
                                         </td>
                                         <td>
-                                            <?php if (!empty($oc['meeting_url'])): ?>
-                                                <a href="<?php echo htmlspecialchars($oc['meeting_url']); ?>" target="_blank" rel="noopener noreferrer" class="oc-link-truncate" title="<?php echo htmlspecialchars($oc['meeting_url']); ?>">
-                                                    <i class="fas fa-external-link-alt"></i> Join
-                                                </a>
+                                            <?php
+                                            $joinUrl = (string) ($oc['join_url'] ?? $oc['meeting_url'] ?? '');
+                                            if ($joinUrl !== ''):
+                                            ?>
+                                                <div class="oc-actions">
+                                                    <a href="<?php echo htmlspecialchars($joinUrl); ?>" target="_blank" rel="noopener" class="btn btn-sm btn-success" title="Open classroom">
+                                                        <i class="fas fa-video"></i> Open
+                                                    </a>
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy link"
+                                                            onclick="navigator.clipboard.writeText(<?php echo htmlspecialchars(json_encode($joinUrl), ENT_QUOTES); ?>).then(function(){alert('Join link copied');})">
+                                                        <i class="fas fa-copy"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="oc-muted oc-link-truncate" title="<?php echo htmlspecialchars($joinUrl); ?>">
+                                                    <?php echo htmlspecialchars($joinUrl); ?>
+                                                </div>
                                             <?php endif; ?>
                                             <?php if (!empty($oc['recording_url'])): ?>
-                                                <div>
-                                                    <a href="<?php echo htmlspecialchars($oc['recording_url']); ?>" target="_blank" rel="noopener noreferrer" class="oc-link-truncate" title="<?php echo htmlspecialchars($oc['recording_url']); ?>">
+                                                <div class="mt-1">
+                                                    <a href="<?php echo htmlspecialchars($oc['recording_url']); ?>" target="_blank" rel="noopener noreferrer">
                                                         <i class="fas fa-play-circle"></i> Recording
                                                     </a>
                                                 </div>
@@ -338,15 +352,25 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <input type="number" class="form-control" id="oc_duration" name="duration_minutes" value="60" min="15" max="480" step="15">
                         </div>
                         <div class="form-group" style="flex:1;min-width:160px;">
-                            <label for="oc_platform">Platform (optional)</label>
-                            <input type="text" class="form-control" id="oc_platform" name="platform" maxlength="50" placeholder="Zoom / Meet / Jitsi…">
+                            <label for="oc_platform">Label (optional)</label>
+                            <input type="text" class="form-control" id="oc_platform" name="platform" maxlength="50" value="NIELIT Classroom" placeholder="NIELIT Classroom">
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="oc_meeting_url">Meeting / Join Link <span class="text-danger">*</span></label>
-                        <input type="url" class="form-control" id="oc_meeting_url" name="meeting_url" required placeholder="https://meet.google.com/... or Zoom / Jitsi link">
-                        <div class="oc-help">Paste any meeting URL. Students will open this to join live.</div>
+                    <div class="form-group" id="oc_join_link_wrap" style="display:none;">
+                        <label>Site Join Link (auto-generated)</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" class="form-control" id="oc_join_url_display" readonly>
+                            <button type="button" class="btn btn-secondary" onclick="copyJoinLink()"><i class="fas fa-copy"></i></button>
+                            <a class="btn btn-success" id="oc_open_join" href="#" target="_blank"><i class="fas fa-video"></i></a>
+                        </div>
+                        <div class="oc-help">Students join through your website — no Zoom/Meet link to paste.</div>
+                    </div>
+
+                    <div class="alert alert-info" id="oc_new_link_hint" style="font-size:0.9rem;">
+                        <i class="fas fa-magic"></i>
+                        When you save, a unique classroom link is created on this site automatically
+                        (e.g. <code>…/student/join_class?t=…</code>).
                     </div>
 
                     <div class="form-group">
@@ -394,6 +418,12 @@ function toDatetimeLocal(mysqlDt) {
     return s;
 }
 
+function copyJoinLink() {
+    var el = document.getElementById('oc_join_url_display');
+    if (!el || !el.value) return;
+    navigator.clipboard.writeText(el.value).then(function () { alert('Join link copied'); });
+}
+
 function openClassModal(row) {
     var form = document.getElementById('classForm');
     form.reset();
@@ -401,7 +431,10 @@ function openClassModal(row) {
     document.getElementById('oc_is_active').checked = true;
     document.getElementById('oc_status').value = 'scheduled';
     document.getElementById('oc_duration').value = '60';
+    document.getElementById('oc_platform').value = 'NIELIT Classroom';
     document.getElementById('classModalTitle').textContent = 'Schedule Online Class';
+    document.getElementById('oc_join_link_wrap').style.display = 'none';
+    document.getElementById('oc_new_link_hint').style.display = 'block';
 
     if (row && row.id) {
         document.getElementById('classModalTitle').textContent = 'Edit Online Class';
@@ -410,12 +443,19 @@ function openClassModal(row) {
         document.getElementById('oc_batch_id').value = row.batch_id || '';
         document.getElementById('oc_scheduled_at').value = toDatetimeLocal(row.scheduled_at);
         document.getElementById('oc_duration').value = row.duration_minutes || 60;
-        document.getElementById('oc_platform').value = row.platform || '';
-        document.getElementById('oc_meeting_url').value = row.meeting_url || '';
+        document.getElementById('oc_platform').value = row.platform || 'NIELIT Classroom';
         document.getElementById('oc_recording_url').value = row.recording_url || '';
         document.getElementById('oc_description').value = row.description || '';
         document.getElementById('oc_status').value = (row.status === 'cancelled') ? 'cancelled' : 'scheduled';
         document.getElementById('oc_is_active').checked = String(row.is_active) === '1' || row.is_active === true || row.is_active === 1;
+
+        var joinUrl = row.join_url || row.meeting_url || '';
+        if (joinUrl) {
+            document.getElementById('oc_join_link_wrap').style.display = 'block';
+            document.getElementById('oc_new_link_hint').style.display = 'none';
+            document.getElementById('oc_join_url_display').value = joinUrl;
+            document.getElementById('oc_open_join').href = joinUrl;
+        }
     }
 
     if (typeof jQuery !== 'undefined' && jQuery.fn.modal) {

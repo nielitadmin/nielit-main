@@ -13,6 +13,12 @@ if (function_exists('repairEnrollmentStatusMismatch')) {
 
 // Check if the student is already logged in
 if (isset($_SESSION['student_id'])) {
+    if (!empty($_SESSION['oc_join_redirect_token'])) {
+        $t = (string) $_SESSION['oc_join_redirect_token'];
+        unset($_SESSION['oc_join_redirect_token']);
+        header('Location: join_class.php?t=' . rawurlencode($t));
+        exit;
+    }
     header("Location: dashboard.php");
     exit;
 }
@@ -96,6 +102,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     'entity_name' => $display_name ?: $student_id,
                     'description' => 'Student "' . ($display_name ?: $student_id) . '" logged in.',
                 ]);
+            }
+            if (!empty($_SESSION['oc_join_redirect_token'])) {
+                $t = (string) $_SESSION['oc_join_redirect_token'];
+                unset($_SESSION['oc_join_redirect_token']);
+                header('Location: join_class.php?t=' . rawurlencode($t));
+                exit;
             }
             header("Location: dashboard.php");
             exit;
