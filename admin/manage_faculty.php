@@ -52,6 +52,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $designation = trim($_POST['designation'] ?? '');
                 $department = trim($_POST['department'] ?? '');
                 $staff_category = trim($_POST['staff_category'] ?? '');
+                $public_bio = trim($_POST['public_bio'] ?? '');
+                $display_order = (int) ($_POST['display_order'] ?? 0);
+                $show_on_website = isset($_POST['show_on_website']) ? 1 : 0;
+                $show_on_contact = isset($_POST['show_on_contact']) ? 1 : 0;
 
                 // UNIQUE(email) allows many NULLs but only one empty string
                 if ($email === '') {
@@ -70,16 +74,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     break;
                 }
 
-                $stmt = $conn->prepare("INSERT INTO faculty (name, email, phone, designation, department, staff_category, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt = $conn->prepare(
+                    "INSERT INTO faculty
+                    (name, email, phone, designation, department, staff_category, public_bio, display_order, show_on_website, show_on_contact, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                );
                 if (!$stmt) {
                     $error_message = "Error preparing add request: " . $conn->error;
                     break;
                 }
 
-                $stmt->bind_param("ssssssi", $name, $email, $phone, $designation, $department, $staff_category, $admin_id);
+                $stmt->bind_param(
+                    "sssssssiiii",
+                    $name,
+                    $email,
+                    $phone,
+                    $designation,
+                    $department,
+                    $staff_category,
+                    $public_bio,
+                    $display_order,
+                    $show_on_website,
+                    $show_on_contact,
+                    $admin_id
+                );
                 if ($stmt->execute()) {
                     $success_message = "Staff member added successfully!";
                     $newFacultyId = (int) $conn->insert_id;
+
+                    if (!empty($_FILES['profile_photo']['name'])) {
+                        $photoResult = uploadStaffProfilePhoto($conn, $newFacultyId, $_FILES['profile_photo']);
+                        if (!$photoResult['success']) {
+                            $success_message .= ' (Photo: ' . $photoResult['message'] . ')';
+                        }
+                    }
 
                     // Auto-send confirmation email if email is provided
                     if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -91,10 +119,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($email_sent) {
                             $column_check = $conn->query("SHOW COLUMNS FROM faculty LIKE 'email_confirmed_at'");
                             if ($column_check && $column_check->num_rows > 0) {
-                                $faculty_id = (int) $conn->insert_id;
                                 $update_stmt = $conn->prepare("UPDATE faculty SET email_confirmed_at = NOW() WHERE id = ?");
                                 if ($update_stmt) {
-                                    $update_stmt->bind_param("i", $faculty_id);
+                                    $update_stmt->bind_param("i", $newFacultyId);
                                     $update_stmt->execute();
                                     $update_stmt->close();
                                 }
@@ -114,13 +141,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             case 'update_staff':
-                $faculty_id = $_POST['faculty_id'];
-                $name = trim($_POST['name']);
-                $email = trim($_POST['email']);
-                $phone = trim($_POST['phone']);
-                $designation = trim($_POST['designation']);
-                $department = trim($_POST['department']);
-                $staff_category = $_POST['staff_category'];
+                $faculty_id = (int) ($_POST['faculty_id'] ?? 0);
+                $name = trim($_POST['name'] ?? '');
+                $email = trim($_POST['email'] ?? '');
+                $phone = trim($_POST['phone'] ?? '');
+                $designation = trim($_POST['designation'] ?? '');
+                $department = trim($_POST['department'] ?? '');
+                $staff_category = trim($_POST['staff_category'] ?? '');
+                $public_bio = trim($_POST['public_bio'] ?? '');
+                $display_order = (int) ($_POST['display_order'] ?? 0);
+                $show_on_website = isset($_POST['show_on_website']) ? 1 : 0;
+                $show_on_contact = isset($_POST['show_on_contact']) ? 1 : 0;
                 $is_active = isset($_POST['is_active']) ? 1 : 0;
 
                 if ($email === '') {
@@ -129,15 +160,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($phone === '') {
                     $phone = null;
                 }
+
+                if ($faculty_id <= 0 || $name === '' || $staff_category === '') {
+                    $error_message = "Please fill all required staff fields.";
+                    break;
+                }
                 
-                $stmt = $conn->prepare("UPDATE faculty SET name = ?, email = ?, phone = ?, designation = ?, department = ?, staff_category = ?, is_active = ? WHERE id = ?");
+                $stmt = $conn->prepare(
+                    "UPDATE faculty SET
+                        name = ?, email = ?, phone = ?, designation = ?, department = ?,
+                        staff_category = ?, public_bio = ?, display_order = ?,
+                        show_on_website = ?, show_on_contact = ?, is_active = ?
+                     WHERE id = ?"
+                );
                 if (!$stmt) {
                     $error_message = "Error preparing update request: " . $conn->error;
                     break;
                 }
-                $stmt->bind_param("ssssssii", $name, $email, $phone, $designation, $department, $staff_category, $is_active, $faculty_id);
+                $stmt->bind_param(
+                    "sssssssiiiii",
+                    $name,
+                    $email,
+                    $phone,
+                    $designation,
+                    $department,
+                    $staff_category,
+                    $public_bio,
+                    $display_order,
+                    $show_on_website,
+                    $show_on_contact,
+                    $is_active,
+                    $faculty_id
+                );
                 if ($stmt->execute()) {
                     $success_message = "Staff member updated successfully!";
+                    if (!empty($_FILES['profile_photo']['name'])) {
+                        $photoResult = uploadStaffProfilePhoto($conn, $faculty_id, $_FILES['profile_photo']);
+                        if (!$photoResult['success']) {
+                            $error_message = $photoResult['message'];
+                            $success_message = '';
+                        } elseif (!empty($photoResult['message'])) {
+                            $success_message .= ' Photo updated.';
+                        }
+                    }
                 } else {
                     $error_message = ($conn->errno === 1062)
                         ? "Another staff member already uses this email address."
@@ -218,7 +283,7 @@ if (!empty($where_conditions)) {
     $base_query .= " WHERE " . implode(" AND ", $where_conditions);
 }
 
-$base_query .= " ORDER BY is_active DESC, staff_category ASC, name ASC";
+$base_query .= " ORDER BY is_active DESC, display_order ASC, staff_category ASC, name ASC";
 
 // Execute query
 if (!empty($bind_params)) {
@@ -254,7 +319,7 @@ if ($count_result) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Non - Scientific and Technical staffs - NIELIT Admin</title>
+    <title>Staff & Faculty Directory - NIELIT Admin</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -265,8 +330,8 @@ if ($count_result) {
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-users-cog"></i> Non - Scientific and Technical staffs</h4>
-                <small>Manage faculty, scientists, and technical staff across all categories</small>
+                <h4><i class="fas fa-users-cog"></i> Staff & Faculty Directory</h4>
+                <small>Manage faculty and staff with photos, positions, and public website visibility</small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -326,7 +391,11 @@ if ($count_result) {
             </div>
 
             <!-- Add Staff Button -->
-            <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+            <div style="margin-bottom: 20px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center;">
+                <div class="text-muted small">
+                    Tick <strong>Show on Our Team</strong> / <strong>Show on Contact</strong> so people appear on the public website.
+                    <a href="<?php echo htmlspecialchars(app_url('public/team'), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Preview Our Team</a>
+                </div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffModal">
                     <i class="fas fa-plus"></i> Add Staff Member
                 </button>
@@ -357,12 +426,12 @@ if ($count_result) {
                         <table class="table table-striped table-hover">
                             <thead>
                                 <tr>
+                                    <th>Photo</th>
                                     <th>Name</th>
                                     <th>Category</th>
-                                    <th>Email</th>
-                                    <th>Phone</th>
-                                    <th>Designation</th>
-                                    <th>Department</th>
+                                    <th>Contact</th>
+                                    <th>Position</th>
+                                    <th>Website</th>
                                     <th>Status</th>
                                     <th>Profile</th>
                                     <th>Send Email</th>
@@ -372,6 +441,16 @@ if ($count_result) {
                             <tbody>
                                 <?php foreach ($faculty_members as $faculty): ?>
                                 <tr data-faculty-id="<?php echo (int)$faculty['id']; ?>">
+                                    <td>
+                                        <?php $adminPhoto = staffPhotoUrl($faculty); ?>
+                                        <?php if ($adminPhoto !== ''): ?>
+                                            <img src="<?php echo htmlspecialchars($adminPhoto, ENT_QUOTES, 'UTF-8'); ?>" alt="" style="width:42px;height:42px;object-fit:cover;border-radius:50%;">
+                                        <?php else: ?>
+                                            <div style="width:42px;height:42px;border-radius:50%;background:#e8eef7;display:flex;align-items:center;justify-content:center;color:#64748b;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <strong><?php echo htmlspecialchars($faculty['name']); ?></strong>
                                         <?php if ($faculty['created_by'] == $admin_id): ?>
@@ -398,10 +477,25 @@ if ($count_result) {
                                             <?php echo htmlspecialchars($faculty['staff_category']); ?>
                                         </span>
                                     </td>
-                                    <td><?php echo htmlspecialchars($faculty['email']); ?></td>
-                                    <td><?php echo htmlspecialchars($faculty['phone']); ?></td>
-                                    <td><?php echo htmlspecialchars($faculty['designation']); ?></td>
-                                    <td><?php echo htmlspecialchars($faculty['department']); ?></td>
+                                    <td>
+                                        <div class="small"><?php echo htmlspecialchars((string) ($faculty['email'] ?? '')); ?></div>
+                                        <div class="small text-muted"><?php echo htmlspecialchars((string) ($faculty['phone'] ?? '')); ?></div>
+                                    </td>
+                                    <td>
+                                        <div><?php echo htmlspecialchars((string) ($faculty['designation'] ?? '')); ?></div>
+                                        <div class="small text-muted"><?php echo htmlspecialchars((string) ($faculty['department'] ?? '')); ?></div>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($faculty['show_on_website'])): ?>
+                                            <span class="badge bg-primary mb-1">Team</span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($faculty['show_on_contact'])): ?>
+                                            <span class="badge bg-info text-dark">Contact</span>
+                                        <?php endif; ?>
+                                        <?php if (empty($faculty['show_on_website']) && empty($faculty['show_on_contact'])): ?>
+                                            <span class="text-muted small">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <span class="badge <?php echo $faculty['is_active'] ? 'bg-success' : 'bg-secondary'; ?>">
                                             <?php echo $faculty['is_active'] ? 'Active' : 'Inactive'; ?>
@@ -502,7 +596,7 @@ if ($count_result) {
                 <h5 class="modal-title">Add Staff Member</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="add_staff">
                     
@@ -533,13 +627,39 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="designation" class="form-label">Designation</label>
+                        <label for="designation" class="form-label">Designation / Position</label>
                         <input type="text" class="form-control" id="designation" name="designation" placeholder="e.g., Professor, Assistant Professor, Scientist">
                     </div>
                     
                     <div class="mb-3">
                         <label for="department" class="form-label">Department / School</label>
                         <input type="text" class="form-control" id="department" name="department" placeholder="e.g., Computer Science, IT, Research">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="profile_photo" class="form-label">Photo</label>
+                        <input type="file" class="form-control" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png">
+                        <div class="form-text">JPG or PNG, max 5MB. Shown on Our Team and Contact pages.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="public_bio" class="form-label">Short public bio</label>
+                        <textarea class="form-control" id="public_bio" name="public_bio" rows="2" maxlength="500" placeholder="Optional short line shown on the website"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="display_order" class="form-label">Display order</label>
+                        <input type="number" class="form-control" id="display_order" name="display_order" value="0" min="0">
+                        <div class="form-text">Lower numbers appear first on the website.</div>
+                    </div>
+
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="show_on_website" name="show_on_website" value="1">
+                        <label class="form-check-label" for="show_on_website">Show on Our Team / Management pages</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="show_on_contact" name="show_on_contact" value="1">
+                        <label class="form-check-label" for="show_on_contact">Show as key contact on Contact page</label>
                     </div>
                     
                     <p class="text-muted small mb-0">
@@ -563,7 +683,7 @@ if ($count_result) {
                 <h5 class="modal-title">Edit Staff Member</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" id="editStaffForm">
+            <form method="POST" id="editStaffForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update_staff">
                     <input type="hidden" name="faculty_id" id="edit_staff_id">
@@ -595,7 +715,7 @@ if ($count_result) {
                     </div>
                     
                     <div class="mb-3">
-                        <label for="edit_designation" class="form-label">Designation</label>
+                        <label for="edit_designation" class="form-label">Designation / Position</label>
                         <input type="text" class="form-control" id="edit_designation" name="designation">
                     </div>
                     
@@ -603,11 +723,39 @@ if ($count_result) {
                         <label for="edit_department" class="form-label">Department / School</label>
                         <input type="text" class="form-control" id="edit_department" name="department">
                     </div>
+
+                    <div class="mb-3">
+                        <label for="edit_profile_photo" class="form-label">Photo</label>
+                        <div id="edit_photo_preview_wrap" class="mb-2" style="display:none;">
+                            <img id="edit_photo_preview" src="" alt="Current photo" style="width:72px;height:72px;object-fit:cover;border-radius:50%;">
+                        </div>
+                        <input type="file" class="form-control" id="edit_profile_photo" name="profile_photo" accept="image/jpeg,image/png">
+                        <div class="form-text">Leave empty to keep the current photo.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_public_bio" class="form-label">Short public bio</label>
+                        <textarea class="form-control" id="edit_public_bio" name="public_bio" rows="2" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_display_order" class="form-label">Display order</label>
+                        <input type="number" class="form-control" id="edit_display_order" name="display_order" value="0" min="0">
+                    </div>
                     
                     <div class="mb-3">
                         <a href="#" id="edit_open_full_profile" class="btn btn-sm btn-outline-info" target="_blank">
                             <i class="fas fa-id-card"></i> Open full profile (academic & research)
                         </a>
+                    </div>
+
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_show_on_website" name="show_on_website" value="1">
+                        <label class="form-check-label" for="edit_show_on_website">Show on Our Team / Management pages</label>
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_show_on_contact" name="show_on_contact" value="1">
+                        <label class="form-check-label" for="edit_show_on_contact">Show as key contact on Contact page</label>
                     </div>
                     
                     <div class="mb-3 form-check">
@@ -726,10 +874,26 @@ function editStaff(staff) {
     document.getElementById('edit_designation').value = staff.designation || '';
     document.getElementById('edit_department').value = staff.department || '';
     document.getElementById('edit_staff_category').value = staff.staff_category || '';
+    document.getElementById('edit_public_bio').value = staff.public_bio || '';
+    document.getElementById('edit_display_order').value = staff.display_order || 0;
+    document.getElementById('edit_show_on_website').checked = staff.show_on_website == 1;
+    document.getElementById('edit_show_on_contact').checked = staff.show_on_contact == 1;
     document.getElementById('edit_is_active').checked = staff.is_active == 1;
     const profileLink = document.getElementById('edit_open_full_profile');
     if (profileLink) {
         profileLink.href = 'staff_profile.php?id=' + encodeURIComponent(staff.id);
+    }
+    const previewWrap = document.getElementById('edit_photo_preview_wrap');
+    const previewImg = document.getElementById('edit_photo_preview');
+    if (previewWrap && previewImg) {
+        const photo = (staff.profile_photo || '').trim();
+        if (photo) {
+            previewImg.src = photo.indexOf('http') === 0 ? photo : '<?php echo rtrim(APP_URL, '/'); ?>/' + photo.replace(/^\/+/, '');
+            previewWrap.style.display = 'block';
+        } else {
+            previewImg.src = '';
+            previewWrap.style.display = 'none';
+        }
     }
     new bootstrap.Modal(document.getElementById('editStaffModal')).show();
 }

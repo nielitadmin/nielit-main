@@ -15,10 +15,12 @@
     require_once __DIR__ . '/../includes/navigation_helper.php';
     require_once __DIR__ . '/../includes/url_helper.php';
     require_once __DIR__ . '/../includes/public_theme_helper.php';
+    require_once __DIR__ . '/../includes/staff_profile_helper.php';
     
     // Load active theme
     $active_theme = loadActiveTheme($conn);
     $theme_logo = getThemeLogo($active_theme);
+    $team_preview = array_slice(listPublicTeamStaff($conn), 0, 8);
     
     // Inject theme CSS
     injectThemeCSS($active_theme);
@@ -26,6 +28,9 @@
     ?>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/public-theme.css">
     <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
+    <style>
+        <?php echo publicStaffCardCss(); ?>
+    </style>
 <?php
 require_once __DIR__ . '/../includes/public_skeleton_helper.php';
 public_skeleton_render_head();
@@ -92,6 +97,7 @@ public_skeleton_render_head();
                         <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">About</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item active" href="<?php echo app_url('public/management'); ?>">Management</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
                             <li><a class="dropdown-item" href="<?php echo app_url('public/news'); ?>">News</a></li>
                         </ul>
                     </li>
@@ -188,6 +194,29 @@ public_skeleton_render_head();
                 </div>
             </div>
         </div>
+
+        <?php if (!empty($team_preview)): ?>
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+                    <div>
+                        <h2 class="h4 mb-1 text-primary"><i class="fas fa-users me-2"></i>Our Team</h2>
+                        <p class="text-muted mb-0">Faculty and staff serving NIELIT Bhubaneswar</p>
+                    </div>
+                    <a href="<?php echo app_url('public/team'); ?>" class="btn btn-outline-primary btn-sm">
+                        View all team members
+                    </a>
+                </div>
+                <div class="row g-4">
+                    <?php foreach ($team_preview as $member): ?>
+                        <div class="col-sm-6 col-lg-3">
+                            <?php echo renderPublicStaffCard($member, ['compact' => true]); ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </main>
 

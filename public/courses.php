@@ -606,6 +606,7 @@ public_skeleton_render_head();
                 </li>
 
                 <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/management.php">Management</a></li>
+                <li class="nav-item"><a class="nav-link" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/news.php">News</a></li>
                 <li class="nav-item"><a class="nav-link" href="<?php echo APP_URL; ?>/public/contact.php">Contact</a></li>
             </ul>

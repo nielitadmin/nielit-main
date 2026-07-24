@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact Us - NIELIT Bhubaneswar</title>
+    <title>Our Team - NIELIT Bhubaneswar</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <?php 
+
+    <?php
     require_once __DIR__ . '/../includes/maintenance_check.php';
     require_once __DIR__ . '/../config/config.php';
     require_once __DIR__ . '/../includes/theme_loader.php';
@@ -17,13 +17,12 @@
     require_once __DIR__ . '/../includes/url_helper.php';
     require_once __DIR__ . '/../includes/public_theme_helper.php';
     require_once __DIR__ . '/../includes/staff_profile_helper.php';
-    
-    // Load active theme
+
     $active_theme = loadActiveTheme($conn);
     $theme_logo = getThemeLogo($active_theme);
-    $contact_staff = listPublicContactStaff($conn);
-    
-    // Inject theme CSS
+    $team_staff = listPublicTeamStaff($conn);
+    $team_grouped = groupStaffByCategory($team_staff);
+
     injectThemeCSS($active_theme);
     emitPublicThemeHead($conn);
     ?>
@@ -31,6 +30,13 @@
     <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">
     <style>
         <?php echo publicStaffCardCss(); ?>
+        .team-category-title {
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 1rem;
+            padding-bottom: .5rem;
+            border-bottom: 2px solid rgba(26, 86, 219, .2);
+        }
     </style>
 <?php
 require_once __DIR__ . '/../includes/public_skeleton_helper.php';
@@ -40,7 +46,6 @@ public_skeleton_render_head();
 <body class="public-page-loading public-site">
 <?php public_skeleton_render_loader('generic'); ?>
 
-    <!-- Top Bar -->
     <div class="top-bar">
         <div class="container">
             <div class="row align-items-center">
@@ -62,7 +67,6 @@ public_skeleton_render_head();
         </div>
     </div>
 
-    <!-- Main Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
             <a class="navbar-brand" href="<?php echo app_url('index'); ?>">
@@ -76,7 +80,7 @@ public_skeleton_render_head();
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
                     <li class="nav-item"><a class="nav-link" href="<?php echo app_url('index'); ?>">Home</a></li>
                     <li class="nav-item"><a class="nav-link" href="<?php echo htmlspecialchars(getJobFairPortalUrl()); ?>" target="_blank" rel="noopener">Job Fair</a></li>
-                    
+
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">PM SHRI KV JNV</a>
                         <ul class="dropdown-menu">
@@ -95,10 +99,10 @@ public_skeleton_render_head();
                     </li>
 
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">About</a>
+                        <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">About</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="<?php echo app_url('public/management'); ?>">Management</a></li>
-                            <li><a class="dropdown-item" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
+                            <li><a class="dropdown-item active" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
                             <li><a class="dropdown-item" href="<?php echo app_url('public/news'); ?>">News</a></li>
                         </ul>
                     </li>
@@ -111,187 +115,62 @@ public_skeleton_render_head();
                             <li><a class="dropdown-item" href="/Nielit_Project/index.php">Certificate</a></li>
                         </ul>
                     </li>
-                    <li class="nav-item"><a class="nav-link active" href="<?php echo app_url('public/contact'); ?>">Contact</a></li>
+                    <li class="nav-item"><a class="nav-link" href="<?php echo app_url('public/contact'); ?>">Contact</a></li>
                 </ul>
             </div>
         </div>
     </nav>
 
-    <!-- Notice Ticker -->
     <div class="notice-bar">
         <div class="notice-content">
-            <span class="badge bg-warning text-dark me-2">NEW</span> 
+            <span class="badge bg-warning text-dark me-2">NEW</span>
             Admissions Open! NIELIT Bhubaneswar offers NSQF-aligned courses with modern facilities. Visit our Baleshwar Extension Center today.
         </div>
     </div>
 
-    <!-- Page Header -->
     <section class="page-header">
         <div class="container text-center">
-            <h1 class="mb-0">Contact Us</h1>
-            <p class="lead mb-0 mt-2">Get in touch with NIELIT Bhubaneswar</p>
+            <h1 class="mb-0">Our Team</h1>
+            <p class="lead mb-0 mt-2">Faculty and staff of NIELIT Bhubaneswar</p>
         </div>
     </section>
 
-    <!-- Contact Information -->
     <section class="py-5">
         <div class="container">
-            <div class="row g-4">
-                <!-- Contact Details -->
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body p-4">
-                            <h3 class="mb-4 text-primary"><i class="fas fa-info-circle me-2"></i>Contact Information</h3>
-                            
-                            <div class="contact-item mb-4">
-                                <div class="d-flex align-items-start">
-                                    <div class="contact-icon me-3">
-                                        <i class="fas fa-map-marker-alt text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-2">Address</h5>
-                                        <p class="text-muted mb-0">
-                                            3rd Floor, OCAC Tower<br>
-                                            Acharya Vihar<br>
-                                            Bhubaneswar - 751013<br>
-                                            Odisha, India
-                                        </p>
-                                    </div>
+            <?php if (empty($team_staff)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-users text-muted" style="font-size: 4rem;"></i>
+                    <h4 class="mt-3 text-muted">Team profiles coming soon</h4>
+                    <p class="text-muted mb-0">Faculty and staff details will appear here once published by the admin.</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($team_grouped as $category => $members): ?>
+                    <div class="mb-5">
+                        <h2 class="h4 team-category-title">
+                            <i class="fas fa-users me-2 text-primary"></i><?php echo htmlspecialchars($category, ENT_QUOTES, 'UTF-8'); ?>
+                        </h2>
+                        <div class="row g-4">
+                            <?php foreach ($members as $member): ?>
+                                <div class="col-sm-6 col-lg-4 col-xl-3">
+                                    <?php echo renderPublicStaffCard($member); ?>
                                 </div>
-                            </div>
-
-                            <div class="contact-item mb-4">
-                                <div class="d-flex align-items-start">
-                                    <div class="contact-icon me-3">
-                                        <i class="fas fa-phone-alt text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-2">Phone</h5>
-                                        <p class="text-muted mb-0">
-                                            <a href="tel:06742960354" class="text-decoration-none">0674-2960354</a>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="contact-item mb-4">
-                                <div class="d-flex align-items-start">
-                                    <div class="contact-icon me-3">
-                                        <i class="fas fa-envelope text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-2">Email</h5>
-                                        <p class="text-muted mb-0">
-                                            <a href="mailto:dir-bbsr@nielit.gov.in" class="text-decoration-none">dir-bbsr@nielit.gov.in</a>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="contact-item">
-                                <div class="d-flex align-items-start">
-                                    <div class="contact-icon me-3">
-                                        <i class="fas fa-clock text-primary"></i>
-                                    </div>
-                                    <div>
-                                        <h5 class="mb-2">Working Hours</h5>
-                                        <p class="text-muted mb-0">
-                                            <strong>Monday - Friday:</strong> 09:00 AM - 05:30 PM<br>
-                                            <span class="text-danger">Saturday & Sunday: Closed</span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                            <?php endforeach; ?>
                         </div>
                     </div>
-                </div>
-
-                <!-- Map -->
-                <div class="col-lg-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body p-0">
-                            <div class="map-container" style="height: 100%; min-height: 500px;">
-                                <iframe 
-                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3766.964689486328!2d85.8283624!3d20.2990535!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3a1909c30a470d79%3A0xbc2f6caa4b6f64a4!2sNIELIT%20(National%20Institute%20of%20Electronics%20and%20Information%20Technology)%2C%20Bhubaneswar!5e0!3m2!1sen!2sin!4v1718117088431!5m2!1sen!2sin" 
-                                    width="100%" 
-                                    height="100%" 
-                                    style="border:0; border-radius: 8px;" 
-                                    allowfullscreen="" 
-                                    loading="lazy" 
-                                    referrerpolicy="no-referrer-when-downgrade">
-                                </iframe>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <?php if (!empty($contact_staff)): ?>
-            <div class="mt-5">
-                <div class="text-center mb-4">
-                    <h3 class="mb-2">Key Contacts</h3>
-                    <p class="text-muted mb-0">Reach out to the right faculty and staff members</p>
-                </div>
-                <div class="row g-4">
-                    <?php foreach ($contact_staff as $member): ?>
-                        <div class="col-sm-6 col-lg-4 col-xl-3">
-                            <?php echo renderPublicStaffCard($member, ['show_category' => true, 'compact' => true]); ?>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-                <div class="text-center mt-4">
-                    <a href="<?php echo app_url('public/team'); ?>" class="btn btn-outline-primary btn-sm">
-                        <i class="fas fa-users me-1"></i> View full team
-                    </a>
-                </div>
-            </div>
+                <?php endforeach; ?>
             <?php endif; ?>
 
-            <!-- Quick Contact Cards -->
-            <div class="row g-4 mt-4">
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm text-center h-100 hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-graduation-cap text-primary" style="font-size: 2.5rem;"></i>
-                            </div>
-                            <h5 class="card-title">Admissions</h5>
-                            <p class="card-text text-muted small">For course admissions and enrollment queries</p>
-                            <a href="<?php echo app_url('public/courses'); ?>" class="btn btn-outline-primary btn-sm">View Courses</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm text-center h-100 hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-user-circle text-success" style="font-size: 2.5rem;"></i>
-                            </div>
-                            <h5 class="card-title">Student Portal</h5>
-                            <p class="card-text text-muted small">Access your student account and resources</p>
-                            <a href="<?php echo app_url('student/login'); ?>" class="btn btn-outline-success btn-sm">Login</a>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm text-center h-100 hover-lift">
-                        <div class="card-body p-4">
-                            <div class="mb-3">
-                                <i class="fas fa-user-shield text-warning" style="font-size: 2.5rem;"></i>
-                            </div>
-                            <h5 class="card-title">Admin Portal</h5>
-                            <p class="card-text text-muted small">For administrative access and management</p>
-                            <a href="<?php echo app_url('admin/login'); ?>" class="btn btn-outline-warning btn-sm">Admin Login</a>
-                        </div>
-                    </div>
-                </div>
+            <div class="text-center mt-4">
+                <a href="<?php echo app_url('public/contact'); ?>" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-envelope me-1"></i> Contact Us
+                </a>
+                <a href="<?php echo app_url('public/management'); ?>" class="btn btn-outline-secondary">
+                    <i class="fas fa-sitemap me-1"></i> Management
+                </a>
             </div>
         </div>
     </section>
 
-    <!-- Footer -->
     <footer class="pt-5">
         <div class="container pb-4">
             <div class="row gy-4">
@@ -305,17 +184,14 @@ public_skeleton_render_head();
                         <li><a href="https://www.nielit.gov.in/" target="_blank"><i class="fas fa-chevron-right me-2 small"></i>NIELIT HQ</a></li>
                     </ul>
                 </div>
-
                 <div class="col-lg-4 col-md-6">
                     <h5>Quick Explore</h5>
                     <ul class="list-unstyled">
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>About Us</a></li>
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Privacy Policy</a></li>
-                        <li><a href="#"><i class="fas fa-chevron-right me-2 small"></i>Terms & Conditions</a></li>
+                        <li><a href="<?php echo app_url('public/management'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Management</a></li>
+                        <li><a href="<?php echo app_url('public/team'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Our Team</a></li>
                         <li><a href="<?php echo app_url('public/contact'); ?>"><i class="fas fa-chevron-right me-2 small"></i>Contact Us</a></li>
                     </ul>
                 </div>
-
                 <div class="col-lg-4 col-md-12">
                     <h5>Contact Info</h5>
                     <p class="small text-muted mb-3"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></p>
@@ -327,7 +203,6 @@ public_skeleton_render_head();
                 </div>
             </div>
         </div>
-
         <div class="copyright-bar text-center text-muted small">
             <div class="container">
                 <div class="row">

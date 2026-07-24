@@ -152,6 +152,7 @@ public_skeleton_render_head();
                         <a class="nav-link dropdown-toggle active" href="#" data-bs-toggle="dropdown">About</a>
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="<?php echo app_url('public/management'); ?>">Management</a></li>
+                            <li><a class="dropdown-item" href="<?php echo app_url('public/team'); ?>">Our Team</a></li>
                             <li><a class="dropdown-item active" href="<?php echo app_url('public/news'); ?>">News</a></li>
                         </ul>
                     </li>

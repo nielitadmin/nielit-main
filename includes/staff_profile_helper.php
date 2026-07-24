@@ -40,6 +40,10 @@ if (!function_exists('ensureStaffProfileSchema')) {
             'profile_updated_at'       => 'TIMESTAMP NULL DEFAULT NULL',
             'profile_token'            => 'VARCHAR(32) DEFAULT NULL',
             'profile_token_expires_at' => 'TIMESTAMP NULL DEFAULT NULL',
+            'show_on_website'          => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'show_on_contact'          => 'TINYINT(1) NOT NULL DEFAULT 0',
+            'display_order'            => 'INT NOT NULL DEFAULT 0',
+            'public_bio'               => 'VARCHAR(500) DEFAULT NULL',
         ];
 
         $orderedColumns = array_keys($columnDefinitions);
@@ -745,5 +749,220 @@ if (!function_exists('uploadStaffProfilePhoto')) {
         $stmt->close();
 
         return ['success' => true, 'message' => 'Photo uploaded.', 'path' => $relative];
+    }
+}
+
+if (!function_exists('staffPhotoUrl')) {
+    function staffPhotoUrl(?array $staff): string
+    {
+        $path = trim((string) ($staff['profile_photo'] ?? ''));
+        if ($path === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $path)) {
+            return $path;
+        }
+        $relative = ltrim(str_replace('\\', '/', $path), '/');
+        $full = dirname(__DIR__) . '/' . $relative;
+        if (!is_file($full)) {
+            return '';
+        }
+        $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+        return $base . '/' . $relative;
+    }
+}
+
+if (!function_exists('staffPublicDirectoryCategories')) {
+    /**
+     * @return array<int, string>
+     */
+    function staffPublicDirectoryCategories(): array
+    {
+        return [
+            'Faculty Staff',
+            'Scientists',
+            'Scientific and Technical Staff',
+            'Non S&T',
+        ];
+    }
+}
+
+if (!function_exists('listPublicTeamStaff')) {
+    /**
+     * Active staff marked for Our Team / Management website pages.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function listPublicTeamStaff(mysqli $conn, int $limit = 200): array
+    {
+        ensureStaffProfileSchema($conn);
+        $limit = max(1, min(500, $limit));
+
+        if (!facultyTableHasColumn($conn, 'show_on_website')) {
+            return [];
+        }
+
+        $orderCol = facultyTableHasColumn($conn, 'display_order') ? 'display_order ASC,' : '';
+        $sql = "SELECT * FROM faculty
+                WHERE is_active = 1 AND show_on_website = 1
+                ORDER BY {$orderCol} staff_category ASC, name ASC
+                LIMIT {$limit}";
+        $result = $conn->query($sql);
+        if (!$result) {
+            return [];
+        }
+
+        $items = [];
+        while ($row = $result->fetch_assoc()) {
+            $items[] = $row;
+        }
+        return $items;
+    }
+}
+
+if (!function_exists('listPublicContactStaff')) {
+    /**
+     * Active staff marked as key contacts on the Contact page.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function listPublicContactStaff(mysqli $conn, int $limit = 50): array
+    {
+        ensureStaffProfileSchema($conn);
+        $limit = max(1, min(200, $limit));
+
+        if (!facultyTableHasColumn($conn, 'show_on_contact')) {
+            return [];
+        }
+
+        $orderCol = facultyTableHasColumn($conn, 'display_order') ? 'display_order ASC,' : '';
+        $sql = "SELECT * FROM faculty
+                WHERE is_active = 1 AND show_on_contact = 1
+                ORDER BY {$orderCol} name ASC
+                LIMIT {$limit}";
+        $result = $conn->query($sql);
+        if (!$result) {
+            return [];
+        }
+
+        $items = [];
+        while ($row = $result->fetch_assoc()) {
+            $items[] = $row;
+        }
+        return $items;
+    }
+}
+
+if (!function_exists('groupStaffByCategory')) {
+    /**
+     * @param array<int, array<string, mixed>> $staffList
+     * @return array<string, array<int, array<string, mixed>>>
+     */
+    function groupStaffByCategory(array $staffList): array
+    {
+        $grouped = [];
+        foreach (staffPublicDirectoryCategories() as $category) {
+            $grouped[$category] = [];
+        }
+
+        foreach ($staffList as $staff) {
+            $category = trim((string) ($staff['staff_category'] ?? ''));
+            if ($category === '') {
+                $category = 'Other';
+            }
+            if (!isset($grouped[$category])) {
+                $grouped[$category] = [];
+            }
+            $grouped[$category][] = $staff;
+        }
+
+        foreach ($grouped as $category => $members) {
+            if ($members === []) {
+                unset($grouped[$category]);
+            }
+        }
+
+        return $grouped;
+    }
+}
+
+if (!function_exists('renderPublicStaffCard')) {
+    /**
+     * HTML card for public team / contact listings.
+     *
+     * @param array<string, mixed> $staff
+     * @param array<string, mixed> $options
+     */
+    function renderPublicStaffCard(array $staff, array $options = []): string
+    {
+        $photo = staffPhotoUrl($staff);
+        $name = htmlspecialchars((string) ($staff['name'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $designation = htmlspecialchars((string) ($staff['designation'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $department = htmlspecialchars((string) ($staff['department'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $email = trim((string) ($staff['email'] ?? ''));
+        $phone = trim((string) ($staff['phone'] ?? ''));
+        $bio = trim((string) ($staff['public_bio'] ?? ''));
+        $category = htmlspecialchars((string) ($staff['staff_category'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $showCategory = !empty($options['show_category']);
+        $compact = !empty($options['compact']);
+
+        $html = '<div class="card h-100 border-0 shadow-sm public-staff-card">';
+        $html .= '<div class="card-body ' . ($compact ? 'p-3' : 'p-4') . ' text-center">';
+        if ($photo !== '') {
+            $html .= '<img src="' . htmlspecialchars($photo, ENT_QUOTES, 'UTF-8') . '" alt="' . $name .
+                '" class="public-staff-photo mb-3">';
+        } else {
+            $html .= '<div class="public-staff-photo-placeholder mb-3"><i class="fas fa-user"></i></div>';
+        }
+        $html .= '<h5 class="mb-1 public-staff-name">' . $name . '</h5>';
+        if ($designation !== '') {
+            $html .= '<div class="text-primary fw-semibold small mb-1">' . $designation . '</div>';
+        }
+        if ($department !== '') {
+            $html .= '<div class="text-muted small mb-2">' . $department . '</div>';
+        }
+        if ($showCategory && $category !== '') {
+            $html .= '<span class="badge bg-light text-dark border mb-2">' . $category . '</span>';
+        }
+        if ($bio !== '' && empty($options['hide_bio'])) {
+            $html .= '<p class="text-muted small mt-2 mb-3">' . htmlspecialchars($bio, ENT_QUOTES, 'UTF-8') . '</p>';
+        }
+        $html .= '<div class="public-staff-contacts mt-auto">';
+        if ($email !== '') {
+            $html .= '<div class="small mb-1"><i class="fas fa-envelope me-1 text-primary"></i>' .
+                '<a class="text-decoration-none" href="mailto:' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '">' .
+                htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '</a></div>';
+        }
+        if ($phone !== '' && empty($options['hide_phone'])) {
+            $tel = preg_replace('/\s+/', '', $phone);
+            $html .= '<div class="small"><i class="fas fa-phone-alt me-1 text-primary"></i>' .
+                '<a class="text-decoration-none" href="tel:' . htmlspecialchars((string) $tel, ENT_QUOTES, 'UTF-8') . '">' .
+                htmlspecialchars($phone, ENT_QUOTES, 'UTF-8') . '</a></div>';
+        }
+        $html .= '</div></div></div>';
+
+        return $html;
+    }
+}
+
+if (!function_exists('publicStaffCardCss')) {
+    function publicStaffCardCss(): string
+    {
+        return <<<'CSS'
+.public-staff-card { transition: transform .2s ease, box-shadow .2s ease; }
+.public-staff-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(15,23,42,.12) !important; }
+.public-staff-photo {
+    width: 120px; height: 120px; object-fit: cover; border-radius: 50%;
+    border: 3px solid #e8eef7; box-shadow: 0 4px 12px rgba(15,23,42,.08);
+}
+.public-staff-photo-placeholder {
+    width: 120px; height: 120px; margin-left: auto; margin-right: auto; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #e8eef7, #f8fafc); color: #64748b; font-size: 2.4rem;
+}
+.public-staff-name { font-weight: 700; color: #0f172a; }
+.public-staff-contacts a { color: inherit; word-break: break-word; }
+.public-staff-card .card-body { display: flex; flex-direction: column; align-items: center; }
+CSS;
     }
 }

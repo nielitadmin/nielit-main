@@ -125,10 +125,10 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-project-diagram"></i> Schemes/Projects
             </a>
         </div>
-        <!-- Non - Scientific and Technical staffs - Master Admin Only -->
+        <!-- Staff & Faculty Directory - Master Admin Only -->
         <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_faculty'); ?>" class="nav-link <?php echo ($current_page === 'manage_faculty.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Non - Scientific and Technical staffs
+                <i class="fas fa-chalkboard-teacher"></i> Staff & Faculty
             </a>
         </div>
         <?php endif; ?>
