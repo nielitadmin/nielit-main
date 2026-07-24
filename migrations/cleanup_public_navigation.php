@@ -21,6 +21,8 @@ $sql = "UPDATE navigation_menu
             LOWER(label) LIKE '%pm shri%'
             OR LOWER(label) LIKE '%kv jnv%'
             OR LOWER(label) = 'management'
+            OR LOWER(label) = 'course registration'
+            OR LOWER(label) = 'mock test portal'
             OR LOWER(url) LIKE '%management%'
             OR LOWER(url) LIKE '%membership_form%'
           )";

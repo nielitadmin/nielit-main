@@ -109,6 +109,8 @@ function publicNavLabelIsExcluded(string $label): bool
     return strpos($label, 'pm shri') !== false
         || strpos($label, 'kv jnv') !== false
         || $label === 'management'
+        || $label === 'course registration'
+        || $label === 'mock test portal'
         || strpos($label, 'organisational structure') !== false
         || strpos($label, 'organizational structure') !== false;
 }
@@ -293,8 +295,6 @@ function getFallbackNavigationMenu($currentPage = '') {
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('public/courses'), ENT_QUOTES, 'UTF-8') . '">Courses Offered</a></li>
                 <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('student/login'), ENT_QUOTES, 'UTF-8') . '">Student Portal</a></li>
-                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('public/courses'), ENT_QUOTES, 'UTF-8') . '">Course Registration</a></li>
-                <li><a class="dropdown-item" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test Portal</a></li>
             </ul>
         </li>
 
