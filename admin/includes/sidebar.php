@@ -149,6 +149,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_public_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_public_themes.php') ? 'active' : ''; ?>" title="Public Themes">
+                <i class="fas fa-globe"></i> Public Themes
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_sidebar_themes.php') ? 'active' : ''; ?>" title="Sidebar Themes">
                 <i class="fas fa-columns"></i> Sidebar Themes
             </a>

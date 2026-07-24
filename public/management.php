@@ -14,6 +14,7 @@
     require_once __DIR__ . '/../includes/theme_loader.php';
     require_once __DIR__ . '/../includes/navigation_helper.php';
     require_once __DIR__ . '/../includes/url_helper.php';
+    require_once __DIR__ . '/../includes/public_theme_helper.php';
     
     // Load active theme
     $active_theme = loadActiveTheme($conn);
@@ -21,6 +22,7 @@
     
     // Inject theme CSS
     injectThemeCSS($active_theme);
+    emitPublicThemeHead($conn);
     ?>
     <link rel="stylesheet" href="<?php echo APP_URL; ?>/assets/css/public-theme.css">
     <link rel="icon" href="<?php echo getThemeFaviconUrl($active_theme); ?>" type="image/x-icon">

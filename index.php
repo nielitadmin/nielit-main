@@ -16,6 +16,7 @@ require_once __DIR__ . '/includes/homepage_loader.php';
 require_once __DIR__ . '/includes/hero_banner_helper.php';
 require_once __DIR__ . '/includes/navigation_helper.php';
 require_once __DIR__ . '/includes/url_helper.php';
+require_once __DIR__ . '/includes/public_theme_helper.php';
 
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
@@ -33,6 +34,7 @@ if (empty($navigation_menu_html)) {
     $navigation_menu_html = getFallbackNavigationMenu();
 }
 injectThemeCSS($active_theme);
+emitPublicThemeHead($conn);
 echo '<link rel="icon" href="' . htmlspecialchars(getThemeFaviconUrl($active_theme), ENT_QUOTES, 'UTF-8') . '" type="image/x-icon">' . "\n";
 
 $banners = [];
@@ -104,15 +106,12 @@ $homepage_map = [];
 
     <style>
         :root {
-            --navy: #0a1628;
-            --navy-mid: #112240;
-            --blue: #1a56db;
-            --blue-light: #3b82f6;
-            --gold: #f59e0b;
-            --gold-light: #fcd34d;
-            --cream: #fafaf8;
-            --text: #0f172a;
-            --muted: #64748b;
+            --navy: var(--primary-color, #0a1628);
+            --navy-mid: var(--navy-mid-color, #112240);
+            --blue: var(--secondary-color, #1a56db);
+            --blue-light: var(--secondary-color, #3b82f6);
+            --gold: var(--accent-color, #f59e0b);
+            --gold-light: var(--accent-color, #fcd34d);
             --border: rgba(0,0,0,0.08);
         }
 
