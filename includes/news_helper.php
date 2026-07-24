@@ -189,6 +189,126 @@ if (!function_exists('saveNewsArticle')) {
     }
 }
 
+if (!function_exists('listPublicNews')) {
+    /**
+     * Active news for public pages (featured first).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function listPublicNews($conn, int $limit = 50): array
+    {
+        if (!ensureNewsTable($conn)) {
+            return [];
+        }
+
+        $limit = max(1, min(200, $limit));
+        $sql = "SELECT * FROM news
+                WHERE is_active = 1
+                ORDER BY is_featured DESC, created_at DESC, id DESC
+                LIMIT " . (int) $limit;
+        $result = $conn->query($sql);
+        if (!$result) {
+            return [];
+        }
+
+        $items = [];
+        while ($row = $result->fetch_assoc()) {
+            $items[] = $row;
+        }
+
+        return $items;
+    }
+}
+
+if (!function_exists('getPublicNewsArticle')) {
+    /**
+     * Active news article for public detail view.
+     *
+     * @return array<string, mixed>|null
+     */
+    function getPublicNewsArticle($conn, int $id): ?array
+    {
+        $article = getNewsArticle($conn, $id);
+        if (!$article) {
+            return null;
+        }
+        if (empty($article['is_active'])) {
+            return null;
+        }
+        return $article;
+    }
+}
+
+if (!function_exists('newsImageUrl')) {
+    function newsImageUrl(?string $imageUrl): string
+    {
+        $imageUrl = trim((string) $imageUrl);
+        if ($imageUrl === '') {
+            return '';
+        }
+        if (preg_match('#^https?://#i', $imageUrl)) {
+            return $imageUrl;
+        }
+        $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+        return $base . '/' . ltrim($imageUrl, '/');
+    }
+}
+
+if (!function_exists('newsPublicUrl')) {
+    function newsPublicUrl(int $id = 0): string
+    {
+        if (function_exists('app_url')) {
+            $url = app_url('public/news');
+        } else {
+            $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+            $url = $base . '/public/news';
+        }
+        if ($id > 0) {
+            $url .= (strpos($url, '?') === false ? '?' : '&') . 'id=' . $id;
+        }
+        return $url;
+    }
+}
+
+if (!function_exists('newsCategoryBadgeClass')) {
+    function newsCategoryBadgeClass(?string $category): string
+    {
+        $key = strtolower(trim((string) $category));
+        if ($key === '') {
+            return 'bg-secondary';
+        }
+        if (strpos($key, 'achievement') !== false || strpos($key, 'success') !== false) {
+            return 'bg-success';
+        }
+        if (strpos($key, 'event') !== false || strpos($key, 'fair') !== false) {
+            return 'bg-warning text-dark';
+        }
+        if (strpos($key, 'update') !== false || strpos($key, 'notice') !== false) {
+            return 'bg-info text-dark';
+        }
+        if (strpos($key, 'course') !== false) {
+            return 'bg-primary';
+        }
+        return 'bg-secondary';
+    }
+}
+
+if (!function_exists('newsExcerpt')) {
+    function newsExcerpt(?string $content, int $length = 140): string
+    {
+        $plain = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $content)) ?? '');
+        if ($plain === '') {
+            return '';
+        }
+        if (function_exists('mb_substr')) {
+            $excerpt = mb_substr($plain, 0, $length);
+            return mb_strlen($plain) > $length ? $excerpt . '…' : $excerpt;
+        }
+        $excerpt = substr($plain, 0, $length);
+        return strlen($plain) > $length ? $excerpt . '…' : $excerpt;
+    }
+}
+
 if (!function_exists('deleteNewsArticle')) {
     function deleteNewsArticle($conn, int $id): array
     {

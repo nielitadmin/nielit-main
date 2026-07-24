@@ -17,6 +17,7 @@ require_once __DIR__ . '/includes/hero_banner_helper.php';
 require_once __DIR__ . '/includes/navigation_helper.php';
 require_once __DIR__ . '/includes/url_helper.php';
 require_once __DIR__ . '/includes/public_theme_helper.php';
+require_once __DIR__ . '/includes/news_helper.php';
 
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
@@ -42,32 +43,8 @@ $announcements_content = [];
 $featured_courses = [];
 $text_blocks = [];
 $image_blocks = [];
-$news_items = [];
+$news_items = listPublicNews($conn, 6);
 $homepage_map = [];
-
-    // Create news table if it doesn't exist
-    $create_table_sql = "CREATE TABLE IF NOT EXISTS news (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        title VARCHAR(255) NOT NULL,
-        content LONGTEXT NOT NULL,
-        category VARCHAR(100),
-        image_url VARCHAR(500),
-        is_featured TINYINT(1) DEFAULT 0,
-        is_active TINYINT(1) DEFAULT 1,
-        created_by VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )";
-    @$conn->query($create_table_sql);
-    
-    // Fetch news items
-    $news_sql = "SELECT * FROM news WHERE is_active = 1 ORDER BY is_featured DESC, created_at DESC LIMIT 6";
-    $news_result = $conn->query($news_sql);
-    if ($news_result) {
-        while ($row = $news_result->fetch_assoc()) {
-            $news_items[] = $row;
-        }
-    }
     
     $homepage_sections = loadHomepagePageSections($conn);
     extract($homepage_sections, EXTR_OVERWRITE);
@@ -1882,8 +1859,10 @@ if ($has_database_content):
                         <?php endif; ?>
                         
                         <div class="news-card-image">
-                            <?php if (!empty($news['image_url'])): ?>
-                                <img src="<?php echo htmlspecialchars($news['image_url']); ?>" alt="<?php echo htmlspecialchars($news['title']); ?>">
+                            <?php
+                            $news_image = newsImageUrl($news['image_url'] ?? '');
+                            if ($news_image !== ''): ?>
+                                <img src="<?php echo htmlspecialchars($news_image, ENT_QUOTES, 'UTF-8'); ?>" alt="<?php echo htmlspecialchars($news['title'], ENT_QUOTES, 'UTF-8'); ?>">
                             <?php else: ?>
                                 <i class="fas fa-newspaper"></i>
                             <?php endif; ?>
@@ -1892,7 +1871,7 @@ if ($has_database_content):
                         <div class="news-card-body">
                             <div class="news-card-meta">
                                 <?php if (!empty($news['category'])): ?>
-                                    <span class="news-category"><?php echo htmlspecialchars($news['category']); ?></span>
+                                    <span class="news-category"><?php echo htmlspecialchars($news['category'], ENT_QUOTES, 'UTF-8'); ?></span>
                                 <?php endif; ?>
                                 <span class="news-date">
                                     <i class="fas fa-calendar-alt"></i>
@@ -1900,13 +1879,13 @@ if ($has_database_content):
                                 </span>
                             </div>
                             
-                            <h3 class="news-card-title"><?php echo htmlspecialchars($news['title']); ?></h3>
+                            <h3 class="news-card-title"><?php echo htmlspecialchars($news['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
                             
                             <p class="news-card-excerpt">
-                                <?php echo htmlspecialchars(mb_substr(strip_tags($news['content']), 0, 120)); ?>
+                                <?php echo htmlspecialchars(newsExcerpt($news['content'] ?? '', 120), ENT_QUOTES, 'UTF-8'); ?>
                             </p>
                             
-                            <a href="<?php echo relative_url('public/news'); ?>#news-<?php echo $news['id']; ?>" class="news-read-more">
+                            <a href="<?php echo htmlspecialchars(newsPublicUrl((int) $news['id']), ENT_QUOTES, 'UTF-8'); ?>" class="news-read-more">
                                 Read More <i class="fas fa-arrow-right"></i>
                             </a>
                         </div>
@@ -1916,7 +1895,7 @@ if ($has_database_content):
         </div>
         
         <div class="text-center mt-5">
-            <a href="<?php echo relative_url('public/news'); ?>" class="btn btn-primary btn-lg" style="border-radius: 10px; padding: 12px 32px; font-weight: 600;">
+            <a href="<?php echo htmlspecialchars(newsPublicUrl(), ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-primary btn-lg" style="border-radius: 10px; padding: 12px 32px; font-weight: 600;">
                 <i class="fas fa-newspaper me-2"></i>View All News
             </a>
         </div>
