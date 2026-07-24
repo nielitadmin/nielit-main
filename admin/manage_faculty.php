@@ -397,7 +397,7 @@ if ($count_result) {
             <!-- Add Staff Button -->
             <div style="margin-bottom: 20px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center;">
                 <div class="text-muted small">
-                    Tick <strong>Show on Our Team</strong> / <strong>Show on Contact</strong> so people appear on the public website.
+                    Use the <strong>Website</strong> column checkboxes (Our Team / Contact), or click <strong>Edit</strong> / <strong>Profile</strong>.
                     <a href="<?php echo htmlspecialchars(app_url('public/team'), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Preview Our Team</a>
                 </div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addStaffModal">
@@ -435,7 +435,7 @@ if ($count_result) {
                                     <th>Category</th>
                                     <th>Contact</th>
                                     <th>Position</th>
-                                    <th>Website</th>
+                                    <th>Website<br><small class="fw-normal text-muted">Tick to publish</small></th>
                                     <th>Status</th>
                                     <th>Profile</th>
                                     <th>Send Email</th>
@@ -490,15 +490,24 @@ if ($count_result) {
                                         <div class="small text-muted"><?php echo htmlspecialchars((string) ($faculty['department'] ?? '')); ?></div>
                                     </td>
                                     <td>
-                                        <?php if (!empty($faculty['show_on_website'])): ?>
-                                            <span class="badge bg-primary mb-1">Team</span>
-                                        <?php endif; ?>
-                                        <?php if (!empty($faculty['show_on_contact'])): ?>
-                                            <span class="badge bg-info text-dark">Contact</span>
-                                        <?php endif; ?>
-                                        <?php if (empty($faculty['show_on_website']) && empty($faculty['show_on_contact'])): ?>
-                                            <span class="text-muted small">Hidden</span>
-                                        <?php endif; ?>
+                                        <div class="form-check mb-1">
+                                            <input class="form-check-input js-toggle-website" type="checkbox"
+                                                   id="team_<?php echo (int) $faculty['id']; ?>"
+                                                   data-faculty-id="<?php echo (int) $faculty['id']; ?>"
+                                                   data-field="show_on_website"
+                                                   <?php echo !empty($faculty['show_on_website']) ? 'checked' : ''; ?>
+                                                   <?php echo empty($faculty['is_active']) ? 'disabled' : ''; ?>>
+                                            <label class="form-check-label small" for="team_<?php echo (int) $faculty['id']; ?>">Our Team</label>
+                                        </div>
+                                        <div class="form-check mb-0">
+                                            <input class="form-check-input js-toggle-website" type="checkbox"
+                                                   id="contact_<?php echo (int) $faculty['id']; ?>"
+                                                   data-faculty-id="<?php echo (int) $faculty['id']; ?>"
+                                                   data-field="show_on_contact"
+                                                   <?php echo !empty($faculty['show_on_contact']) ? 'checked' : ''; ?>
+                                                   <?php echo empty($faculty['is_active']) ? 'disabled' : ''; ?>>
+                                            <label class="form-check-label small" for="contact_<?php echo (int) $faculty['id']; ?>">Contact</label>
+                                        </div>
                                     </td>
                                     <td>
                                         <span class="badge <?php echo $faculty['is_active'] ? 'bg-success' : 'bg-secondary'; ?>">
@@ -692,6 +701,18 @@ if ($count_result) {
                     <input type="hidden" name="action" value="update_staff">
                     <input type="hidden" name="faculty_id" id="edit_staff_id">
                     
+                    <div class="alert alert-primary py-2 small mb-3">
+                        <strong>Publish on website:</strong> tick the boxes below (or use the Website column in the list).
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_show_on_website" name="show_on_website" value="1">
+                        <label class="form-check-label" for="edit_show_on_website">Show on Our Team page</label>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_show_on_contact" name="show_on_contact" value="1">
+                        <label class="form-check-label" for="edit_show_on_contact">Show as key contact on Contact page</label>
+                    </div>
+
                     <div class="mb-3">
                         <label for="edit_staff_category" class="form-label">Staff Category *</label>
                         <select class="form-select" id="edit_staff_category" name="staff_category" required>
@@ -751,15 +772,6 @@ if ($count_result) {
                         <a href="#" id="edit_open_full_profile" class="btn btn-sm btn-outline-info" target="_blank">
                             <i class="fas fa-id-card"></i> Open full profile (academic & research)
                         </a>
-                    </div>
-
-                    <div class="mb-2 form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_show_on_website" name="show_on_website" value="1">
-                        <label class="form-check-label" for="edit_show_on_website">Show on Our Team page</label>
-                    </div>
-                    <div class="mb-2 form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_show_on_contact" name="show_on_contact" value="1">
-                        <label class="form-check-label" for="edit_show_on_contact">Show as key contact on Contact page</label>
                     </div>
                     
                     <div class="mb-3 form-check">
@@ -921,6 +933,50 @@ function facultyAjaxParseJson(response) {
         }
     });
 }
+
+document.addEventListener('change', function (event) {
+    var checkbox = event.target;
+    if (!checkbox || !checkbox.classList || !checkbox.classList.contains('js-toggle-website')) {
+        return;
+    }
+
+    var facultyId = parseInt(checkbox.getAttribute('data-faculty-id') || '0', 10);
+    var field = checkbox.getAttribute('data-field') || '';
+    var enabled = checkbox.checked ? 1 : 0;
+    if (!facultyId || !field) {
+        return;
+    }
+
+    checkbox.disabled = true;
+    fetch('<?php echo APP_URL; ?>/admin/faculty_action_ajax.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+            action: 'toggle_website_visibility',
+            faculty_id: facultyId,
+            field: field,
+            enabled: enabled
+        })
+    })
+    .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return facultyAjaxParseJson(r);
+    })
+    .then(function (result) {
+        checkbox.disabled = false;
+        if (result.success) {
+            toast.success(result.message || 'Updated');
+        } else {
+            checkbox.checked = !checkbox.checked;
+            toast.error(result.message || 'Could not update website visibility');
+        }
+    })
+    .catch(function (err) {
+        checkbox.checked = !checkbox.checked;
+        checkbox.disabled = false;
+        toast.error('Request failed: ' + err.message);
+    });
+});
 
 function deactivateStaff(staffId, staffName) {
     showConfirm({

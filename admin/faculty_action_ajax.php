@@ -108,6 +108,44 @@ switch ($action) {
         $result = regenerateStaffProfileToken($conn, $faculty_id);
         faculty_ajax_json_exit($result, !empty($result['success']) ? 200 : 400);
 
+    case 'toggle_website_visibility':
+        $field = (string) ($data['field'] ?? '');
+        if (!in_array($field, ['show_on_website', 'show_on_contact'], true)) {
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Invalid visibility field'], 400);
+        }
+
+        $enabled = !empty($data['enabled']) ? 1 : 0;
+        $rowStmt = $conn->prepare('SELECT show_on_website, show_on_contact, display_order, public_bio FROM faculty WHERE id = ? LIMIT 1');
+        if (!$rowStmt) {
+            faculty_ajax_json_exit(['success' => false, 'message' => 'Database error'], 500);
+        }
+        $rowStmt->bind_param('i', $faculty_id);
+        $rowStmt->execute();
+        $row = $rowStmt->get_result()->fetch_assoc() ?: [];
+        $rowStmt->close();
+
+        $payload = [
+            'show_on_website' => (int) ($row['show_on_website'] ?? 0),
+            'show_on_contact' => (int) ($row['show_on_contact'] ?? 0),
+            'display_order' => (int) ($row['display_order'] ?? 0),
+            'public_bio' => (string) ($row['public_bio'] ?? ''),
+        ];
+        $payload[$field] = $enabled;
+
+        $visibility = saveStaffWebsiteVisibility($conn, $faculty_id, $payload);
+        if (empty($visibility['success'])) {
+            faculty_ajax_json_exit($visibility, 400);
+        }
+
+        faculty_ajax_json_exit([
+            'success' => true,
+            'message' => $enabled
+                ? ($field === 'show_on_website' ? 'Shown on Our Team page' : 'Shown on Contact page')
+                : ($field === 'show_on_website' ? 'Hidden from Our Team page' : 'Hidden from Contact page'),
+            'field' => $field,
+            'enabled' => $enabled,
+        ]);
+
     default:
         faculty_ajax_json_exit(['success' => false, 'message' => 'Unknown action'], 400);
 }
