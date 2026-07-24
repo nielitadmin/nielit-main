@@ -479,35 +479,34 @@ if (!function_exists('listOnlineClassesForBatches')) {
     function listOnlineClassesForBatches($conn, array $batchIds): array
     {
         ensureOnlineClassesTable($conn);
-        $batchIds = array_values(array_unique(array_filter(array_map('intval', $batchIds))));
+        $batchIds = array_values(array_unique(array_filter(array_map('intval', $batchIds), static function ($id) {
+            return $id > 0;
+        })));
         if (empty($batchIds)) {
             return [];
         }
 
-        $placeholders = implode(',', array_fill(0, count($batchIds), '?'));
+        // Use intval list (not bind_param unpack) — PHP 7.4 mysqli bind_param + ...$arr is unreliable.
+        $inList = implode(',', $batchIds);
         $sql = "SELECT oc.*, b.batch_name, b.batch_code, c.course_name
                 FROM online_classes oc
                 LEFT JOIN batches b ON b.id = oc.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
                 WHERE oc.is_active = 1
                   AND oc.status != 'cancelled'
-                  AND oc.batch_id IN ($placeholders)
+                  AND oc.batch_id IN ($inList)
                 ORDER BY oc.scheduled_at DESC, oc.id DESC";
 
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
+        $result = $conn->query($sql);
+        if (!$result) {
+            error_log('listOnlineClassesForBatches query failed: ' . $conn->error);
             return [];
         }
 
-        $types = str_repeat('i', count($batchIds));
-        $stmt->bind_param($types, ...$batchIds);
-        $stmt->execute();
-        $result = $stmt->get_result();
         $rows = [];
         while ($row = $result->fetch_assoc()) {
             $rows[] = onlineClassEnrichRow($row);
         }
-        $stmt->close();
         return $rows;
     }
 }
@@ -709,38 +708,58 @@ if (!function_exists('getStudentOnlineClassBatchIds')) {
     function getStudentOnlineClassBatchIds($conn, string $studentIdStr, ?int $activeRecordId = null): array
     {
         $ids = [];
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return [];
+        }
 
-        // From enrollment rows (students.batch_id)
+        $recordIds = [];
+        if ($activeRecordId && $activeRecordId > 0) {
+            $recordIds[$activeRecordId] = $activeRecordId;
+        }
+
+        // All enrollment rows for this login
         $stmt = $conn->prepare(
-            "SELECT DISTINCT batch_id FROM students
-             WHERE student_id = ? AND batch_id IS NOT NULL AND batch_id > 0
-               AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')"
+            "SELECT id, batch_id, status FROM students
+             WHERE student_id = ?"
         );
         if ($stmt) {
             $stmt->bind_param('s', $studentIdStr);
             $stmt->execute();
             $res = $stmt->get_result();
             while ($row = $res->fetch_assoc()) {
-                $ids[(int) $row['batch_id']] = (int) $row['batch_id'];
+                $status = strtolower(trim((string) ($row['status'] ?? '')));
+                if (in_array($status, ['rejected', 'inactive', 'cancelled'], true)) {
+                    continue;
+                }
+                $rid = (int) ($row['id'] ?? 0);
+                if ($rid > 0) {
+                    $recordIds[$rid] = $rid;
+                }
+                $bid = (int) ($row['batch_id'] ?? 0);
+                if ($bid > 0) {
+                    $ids[$bid] = $bid;
+                }
             }
             $stmt->close();
         }
 
-        // From batch_students junction
         $batchFunctions = dirname(__DIR__) . '/batch_module/includes/batch_functions.php';
         if (is_file($batchFunctions)) {
             require_once $batchFunctions;
-            if ($activeRecordId && $activeRecordId > 0 && function_exists('getBatchesForStudentRecord')) {
-                foreach (getBatchesForStudentRecord($conn, $activeRecordId) as $b) {
-                    $bid = (int) ($b['id'] ?? 0);
-                    if ($bid > 0) {
-                        $ids[$bid] = $bid;
+            if (function_exists('getBatchesForStudentRecord')) {
+                foreach ($recordIds as $rid) {
+                    foreach (getBatchesForStudentRecord($conn, (int) $rid) as $b) {
+                        $bid = (int) ($b['id'] ?? 0);
+                        if ($bid > 0) {
+                            $ids[$bid] = $bid;
+                        }
                     }
                 }
             }
         }
 
-        // Also join batch_students via students.id for this login
+        // batch_students via students.id
         $sql = "SELECT DISTINCT bs.batch_id
                 FROM batch_students bs
                 INNER JOIN students s ON s.id = bs.student_id
@@ -776,5 +795,32 @@ if (!function_exists('getStudentOnlineClassBatchIds')) {
         }
 
         return array_values($ids);
+    }
+}
+
+if (!function_exists('getStudentOnlineClassBatchLabels')) {
+    /**
+     * @param array<int, int> $batchIds
+     * @return array<int, string>
+     */
+    function getStudentOnlineClassBatchLabels($conn, array $batchIds): array
+    {
+        $batchIds = array_values(array_unique(array_filter(array_map('intval', $batchIds))));
+        if (empty($batchIds)) {
+            return [];
+        }
+        $inList = implode(',', $batchIds);
+        $labels = [];
+        $res = $conn->query("SELECT id, batch_name, batch_code FROM batches WHERE id IN ($inList)");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $label = trim((string) ($row['batch_name'] ?? ''));
+                if (!empty($row['batch_code'])) {
+                    $label .= ' (' . $row['batch_code'] . ')';
+                }
+                $labels[] = $label !== '' ? $label : ('Batch #' . $row['id']);
+            }
+        }
+        return $labels;
     }
 }

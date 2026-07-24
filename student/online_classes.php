@@ -18,6 +18,7 @@ $activeRecordId = isset($_SESSION['active_record_id']) ? (int) $_SESSION['active
 ensureOnlineClassesTable($conn);
 $batchIds = getStudentOnlineClassBatchIds($conn, $student_id, $activeRecordId);
 $classes = listOnlineClassesForBatches($conn, $batchIds);
+$batchLabels = !empty($batchIds) ? getStudentOnlineClassBatchLabels($conn, $batchIds) : [];
 
 // Split for display
 $live = [];
@@ -43,6 +44,12 @@ include __DIR__ . '/includes/header.php';
         <div class="col-12">
             <h2><i class="fas fa-video"></i> Online Classes</h2>
             <p class="text-muted mb-0">Join live sessions for your batch and watch recordings when available.</p>
+            <?php if (!empty($batchLabels)): ?>
+                <p class="text-muted small mb-0 mt-1">
+                    Your batch<?php echo count($batchLabels) > 1 ? 'es' : ''; ?>:
+                    <strong><?php echo htmlspecialchars(implode(', ', $batchLabels)); ?></strong>
+                </p>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -54,7 +61,9 @@ include __DIR__ . '/includes/header.php';
     <?php elseif (empty($classes)): ?>
         <div class="alert alert-secondary">
             <i class="fas fa-calendar-times"></i>
-            No online classes have been scheduled for your batch yet. Check back later.
+            No online classes have been scheduled for
+            <strong><?php echo htmlspecialchars(implode(', ', $batchLabels) ?: 'your batch'); ?></strong> yet.
+            Classes appear here only when admin schedules them for your exact batch.
         </div>
     <?php else: ?>
 
