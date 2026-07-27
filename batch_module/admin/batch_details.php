@@ -1311,6 +1311,7 @@ function downloadScannedOrder(batchId) {
                                 <tr>
                                     <th style="width:40px;"><input type="checkbox" id="select-all-eligible" title="Select All"></th>
                                     <th>Student ID</th>
+                                    <th>NIELIT Reg. No.</th>
                                     <th>Name</th>
                                     <th>Email</th>
                                     <th>Mobile</th>
@@ -1324,6 +1325,7 @@ function downloadScannedOrder(batchId) {
                                         <input type="checkbox" class="eligible-student-checkbox" name="student_record_ids[]" value="<?php echo (int)$estu['id']; ?>">
                                     </td>
                                     <td><strong><?php echo htmlspecialchars($estu['student_id']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars($estu['nielit_registration_no'] ?? ''); ?></td>
                                     <td><?php echo htmlspecialchars($estu['name']); ?></td>
                                     <td><?php echo htmlspecialchars($estu['email']); ?></td>
                                     <td><?php echo htmlspecialchars($estu['mobile']); ?></td>

@@ -523,7 +523,8 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
         $hasScheme = function_exists('hasSchemeEnrollmentColumns') && hasSchemeEnrollmentColumns($conn);
     }
 
-    $sql = "SELECT s.id, s.student_id, s.name, s.email, s.mobile, s.status, c.course_name, s.scheme_id
+        $sql = "SELECT s.id, s.student_id, s.name, s.email, s.mobile, s.status, c.course_name, s.scheme_id,
+            NULLIF(TRIM(s.nielit_registration_no), '') AS nielit_registration_no
             FROM students s
             LEFT JOIN courses c ON c.id = s.course_id
             WHERE s.course_id = ?
