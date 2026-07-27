@@ -1409,6 +1409,7 @@ function downloadScannedOrder(batchId) {
                                         <input type="checkbox" id="select-all-enrolled" title="Select All">
                                     </th>
                                     <?php endif; ?>
+                                    <th style="width:60px;">SL.</th>
                                     <th>Student ID</th>
                                     <th>NIELIT Portal Reg. No.</th>
                                     <th>Name</th>
@@ -1425,7 +1426,7 @@ function downloadScannedOrder(batchId) {
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($students as $student): ?>
+                                <?php $sn = 0; foreach ($students as $student): $sn++; ?>
                                     <tr>
                                         <?php if (!$is_locked && !empty($move_target_batches)): ?>
                                         <td>
@@ -1435,6 +1436,7 @@ function downloadScannedOrder(batchId) {
                                                    data-name="<?php echo htmlspecialchars($student['name'], ENT_QUOTES); ?>">
                                         </td>
                                         <?php endif; ?>
+                                        <td><?php echo $sn; ?></td>
                                         <td><strong><?php echo htmlspecialchars($student['student_id'] ?? 'N/A'); ?></strong></td>
                                         <td>
                                             <div style="display: flex; gap: 5px; align-items: center;">
