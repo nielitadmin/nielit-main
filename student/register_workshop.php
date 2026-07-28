@@ -422,11 +422,11 @@ function workshopRenderFilePreview(input, file) {
         zone.appendChild(preview);
     }
 
-    const fileName = file.name;
-    const fileSize = workshopFormatFileSize(file.size);
+    const fileName = (file && file.name) ? file.name : '';
+    const fileSize = file && file.size ? workshopFormatFileSize(file.size) : '';
     const fieldName = input.getAttribute('name') || '';
-    const isImage = file.type.startsWith('image/');
-    const isPdf = file.type === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+    const isImage = (file && file.type) ? file.type.startsWith('image/') : false;
+    const isPdf = (file && file.type === 'application/pdf') || (fileName || '').toLowerCase().endsWith('.pdf');
     const showImagePreview = isImage && (fieldName === 'passport_photo' || fieldName === 'aadhar_card');
 
     zone.classList.add('has-preview');

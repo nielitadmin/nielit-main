@@ -2135,24 +2135,24 @@ if ($content_sections) {
             if (homepageJsonKeys.includes(sectionKey)) {
                 if (sectionKey === 'hero_typing_lines') {
                     helpEl.textContent = 'Enter a JSON array, e.g. [{"line1":"Code Tomorrow.","line2":"Transform Today."}]';
-                } else if (sectionKey.endsWith('_checklist')) {
+                } else if ((sectionKey || '').endsWith('_checklist')) {
                     helpEl.textContent = 'Enter a JSON array of strings, e.g. ["Item one","Item two"]';
                 } else {
                     helpEl.textContent = 'Enter valid JSON. For links use objects with label, url, icon, and optional external/link fields. Portal placeholders: __JOB_FAIR__, __MOCK_TEST__, __MAIN_WEBSITE__.';
                 }
                 return;
             }
-            if (sectionKey.startsWith('hero_btn_') || sectionKey.startsWith('jobfair_btn_') || sectionKey.startsWith('mocktest_btn_')) {
+            if ((sectionKey || '').startsWith('hero_btn_') || (sectionKey || '').startsWith('jobfair_btn_') || (sectionKey || '').startsWith('mocktest_btn_')) {
                 helpEl.textContent = 'Title = button label. Content = URL path (/public/courses), full URL, or __JOB_FAIR__ / __MOCK_TEST__ / __MAIN_WEBSITE__.';
-            } else if (sectionKey.startsWith('portal_')) {
+            } else if ((sectionKey || '').startsWith('portal_')) {
                 helpEl.textContent = 'Enter the full portal URL in Content (Title is for admin reference only).';
-            } else if (sectionKey.startsWith('hero_stat_') || sectionKey.startsWith('jobfair_stat_') || sectionKey.startsWith('mocktest_stat_')) {
+            } else if ((sectionKey || '').startsWith('hero_stat_') || (sectionKey || '').startsWith('jobfair_stat_') || (sectionKey || '').startsWith('mocktest_stat_')) {
                 helpEl.textContent = 'Title = number/value shown large. Content = label below it.';
-            } else if (sectionKey.startsWith('mocktest_feature_')) {
+            } else if ((sectionKey || '').startsWith('mocktest_feature_')) {
                 helpEl.textContent = 'Title = Font Awesome icon class (e.g. fa-user-graduate). Content = feature text.';
-            } else if (sectionKey.startsWith('feature_') && sectionKey.endsWith('_icon')) {
+            } else if ((sectionKey || '').startsWith('feature_') && (sectionKey || '').endsWith('_icon')) {
                 helpEl.textContent = 'Enter Font Awesome icon class in Content, e.g. fa-laptop-code';
-            } else if (sectionKey.startsWith('feature_') || sectionKey.endsWith('_title')) {
+            } else if ((sectionKey || '').startsWith('feature_') || (sectionKey || '').endsWith('_title')) {
                 helpEl.textContent = 'Use Title for the heading/number and Content for the description text shown on index.php.';
             } else {
                 helpEl.textContent = 'Plain text shown on index.php. HTML is stripped on the public page for these sections.';

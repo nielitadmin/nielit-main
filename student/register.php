@@ -3284,10 +3284,9 @@ function clearFileError(inputElement) {
 
 // ===== FILE UPLOAD PREVIEW WITH VALIDATION =====
 function renderFilePreviewForInput(input, file) {
-    const fileName = file.name;
-    const fileSize = (file.size / 1024).toFixed(2) + ' KB';
+    const fileName = (file && file.name) ? file.name : '';
+    const fileSize = file && file.size ? (file.size / 1024).toFixed(2) + ' KB' : '';
     const fieldName = input.getAttribute('name');
-
     let preview = input.parentElement.querySelector('.file-preview');
     if (!preview) {
         preview = document.createElement('div');
@@ -3295,9 +3294,9 @@ function renderFilePreviewForInput(input, file) {
         input.parentElement.appendChild(preview);
     }
 
-    const fileIcon = fileName.endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
+    const fileIcon = (fileName || '').toLowerCase().endsWith('.pdf') ? 'fa-file-pdf' : 'fa-file-image';
     const isImageField = (fieldName === 'passport_photo' || fieldName === 'signature' || fieldName === 'left_thumb_impression' || fieldName === 'aadhar_card' || fieldName === 'tenth_marksheet' || fieldName === 'twelfth_certificate' || fieldName === 'twelfth_marksheet' || fieldName === 'caste_certificate' || fieldName === 'graduation_certificate' || fieldName === 'bank_passbook' || fieldName === 'income_certificate' || fieldName === 'aadhaar_bank_seeding_proof');
-    const isImageFile = file.type.startsWith('image/');
+    const isImageFile = (file && file.type) ? file.type.startsWith('image/') : false;
     const previewLabels = {
         passport_photo: 'Passport Photo',
         signature: 'Signature',
