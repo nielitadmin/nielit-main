@@ -32,6 +32,30 @@ $flashMessage = '';
 $flashType = 'success';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // If OCR text is posted from client-side Tesseract.js, parse it and redirect
+    if (!empty($_POST['ocr_text'])) {
+        $extracted = trim((string)$_POST['ocr_text']);
+        $foundId = '';
+        if (!empty($extracted)) {
+            if (preg_match('/(NIELIT\/[0-9]{4}\/[A-Z]{2,6}\/[0-9]{2,6})/i', $extracted, $m)) {
+                $foundId = strtoupper(trim($m[1]));
+            }
+            if ($foundId === '' && preg_match('/\b(\d{12})\b/', $extracted, $m2)) {
+                $foundId = trim($m2[1]);
+            }
+            if ($foundId === '' && preg_match('/\b(\d{10})\b/', $extracted, $m3)) {
+                $foundId = trim($m3[1]);
+            }
+        }
+        if ($foundId !== '') {
+            $qs = http_build_query(['student_id' => $foundId]);
+            header('Location: check_student_exists.php?' . $qs);
+            exit();
+        }
+        $_SESSION['inspector_flash'] = ['message' => 'Could not extract an identifiable student ID from the image OCR result. Try a clearer photo.', 'type' => 'warning'];
+        header('Location: check_student_exists.php');
+        exit();
+    }
     // Photo-scan handling: extract text (OCR) and redirect to search by parsed identifier
     if (!empty($_FILES['scan_photo']['tmp_name']) && isset($_POST['do_photo_scan'])) {
         $tmp = $_FILES['scan_photo']['tmp_name'];
@@ -390,12 +414,14 @@ $active_theme = loadActiveTheme($conn);
     <div class="page-card p-4 mb-4">
         <div class="row g-3 mb-3">
             <div class="col-12">
-                <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                <form id="photoScanForm" method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
                     <label class="form-label mb-0">Scan Photo (student ID / documents)</label>
-                    <input type="file" name="scan_photo" accept="image/*" class="form-control" />
-                    <button type="submit" name="do_photo_scan" class="btn btn-secondary">Scan</button>
+                    <input type="file" id="scan_photo" name="scan_photo" accept="image/*" class="form-control" data-max="<?php echo (int)MAX_FILE_SIZE; ?>" />
+                    <button type="button" id="scanBtn" class="btn btn-secondary">Scan</button>
+                    <input type="hidden" name="ocr_text" id="ocr_text" value="" />
                     <small class="text-muted">Use phone photo of student ID or application form (5MB max).</small>
                 </form>
+                <div id="scan-status" class="small text-muted mt-2" style="display:none">Preparing OCR...</div>
             </div>
         </div>
         <form method="GET" class="row g-3">
@@ -1027,3 +1053,50 @@ if ($canManageEnrollment) {
 ?>
 </body>
 </html>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+    var scanBtn = document.getElementById('scanBtn');
+    var fileInput = document.getElementById('scan_photo');
+    var status = document.getElementById('scan-status');
+    var form = document.getElementById('photoScanForm');
+    scanBtn.addEventListener('click', async function(){
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Please choose an image file to scan.');
+            return;
+        }
+        var file = fileInput.files[0];
+        var max = parseInt(fileInput.dataset.max || '5242880', 10);
+        if (file.size > max) {
+            alert('File is too large. Maximum allowed is ' + Math.round(max/1024/1024) + ' MB.');
+            return;
+        }
+        status.style.display = 'block';
+        status.textContent = 'Initializing OCR...';
+        try {
+            var worker = Tesseract.createWorker({
+                logger: function(m) {
+                    if (m && m.progress != null) {
+                        status.textContent = 'OCR: ' + Math.round(m.progress * 100) + '% — ' + (m.status || '');
+                    }
+                }
+            });
+            await worker.load();
+            await worker.loadLanguage('eng');
+            await worker.initialize('eng');
+            var result = await worker.recognize(file);
+            await worker.terminate();
+            var text = result && result.data && result.data.text ? result.data.text.trim() : '';
+            if (!text) {
+                status.textContent = 'No text extracted. Try a clearer photo.';
+                return;
+            }
+            document.getElementById('ocr_text').value = text;
+            status.textContent = 'OCR complete — submitting...';
+            form.submit();
+        } catch (err) {
+            status.textContent = 'OCR error: ' + (err.message || err);
+        }
+    });
+});
+</script>
