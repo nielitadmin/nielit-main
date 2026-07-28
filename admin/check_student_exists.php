@@ -1260,7 +1260,19 @@ document.addEventListener('DOMContentLoaded', function(){
                 form.submit();
                 return;
             }
-            status.textContent='OCR complete — review result below.';
+            // No identifier found — try server-side photo-match fallback by submitting the file
+            try {
+                document.getElementById('ocr_text').value = '';
+                var hidden = document.querySelector('input[name="do_photo_scan"]');
+                if (!hidden) {
+                    hidden = document.createElement('input'); hidden.type='hidden'; hidden.name='do_photo_scan'; hidden.value='1'; form.appendChild(hidden);
+                } else { hidden.value='1'; }
+                status.textContent = 'No OCR identifier — trying photo-match on server...';
+                form.submit();
+                return;
+            } catch (e) {
+                status.textContent='OCR complete — review result below.';
+            }
         } catch (err) { console.error('OCR handler error', err); status.textContent = 'OCR error: ' + (err && err.message ? err.message : String(err)); }
     });
 
@@ -1281,7 +1293,12 @@ document.addEventListener('DOMContentLoaded', function(){
                     var parsed = parseIdentifier(txt);
                     document.getElementById('ocr_text').value = txt; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = txt; useTextBtn.style.display='inline-block';
                     if (parsed) { status.textContent='Identifier detected: ' + parsed + '. Submitting search...'; form.submit(); return; }
-                    status.textContent='OCR complete — review result below.';
+                    try {
+                        document.getElementById('ocr_text').value = '';
+                        var hidden = document.querySelector('input[name="do_photo_scan"]');
+                        if (!hidden) { hidden = document.createElement('input'); hidden.type='hidden'; hidden.name='do_photo_scan'; hidden.value='1'; form.appendChild(hidden); } else { hidden.value='1'; }
+                        status.textContent='No OCR identifier — trying photo-match on server...'; form.submit(); return;
+                    } catch (e) { status.textContent='OCR complete — review result below.'; }
                 } catch(err){ status.textContent='OCR error: '+(err.message||err); } }, 'image/jpeg', 0.9);
         }
         if (e.target && e.target.id === 'useTextBtn') { var val = (ocrResultBox && ocrResultBox.value) ? ocrResultBox.value.trim() : ''; if (!val){ alert('No OCR text available.'); return; } document.getElementById('ocr_text').value = val; form.submit(); }
