@@ -46,15 +46,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         function inspector_ocr_extract($filePath)
         {
             $text = '';
-            // Try tesseract if available
-            $tessCmd = 'tesseract ' . escapeshellarg($filePath) . ' stdout 2>&1';
-            $output = @shell_exec($tessCmd);
-            if (!empty($output)) {
-                $text = $output;
+            // Try tesseract if available and shell_exec is enabled
+            if (function_exists('shell_exec')) {
+                $tessCmd = 'tesseract ' . escapeshellarg($filePath) . ' stdout 2>&1';
+                $output = @shell_exec($tessCmd);
+                if (!empty($output)) {
+                    $text = $output;
+                }
             }
 
-            // Fallback to OCR.space if Tesseract not available and API key defined
-            if (trim($text) === '' && defined('OCR_SPACE_API_KEY') && OCR_SPACE_API_KEY !== '') {
+            // Fallback to OCR.space if Tesseract not available and API key defined and cURL is available
+            if (trim($text) === '' && defined('OCR_SPACE_API_KEY') && OCR_SPACE_API_KEY !== '' && function_exists('curl_init')) {
                 $ch = curl_init();
                 curl_setopt($ch, CURLOPT_URL, 'https://api.ocr.space/parse/image');
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
