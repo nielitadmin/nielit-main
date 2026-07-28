@@ -1139,7 +1139,27 @@ document.addEventListener('DOMContentLoaded', function(){
             var worker = Tesseract.createWorker({ logger:function(m){ if (m && m.progress!=null) status.textContent = 'OCR: '+Math.round(m.progress*100)+'% — '+(m.status||''); } });
             await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var result = await worker.recognize(preBlob); await worker.terminate(); var text = result && result.data && result.data.text ? result.data.text.trim() : '';
             if (!text) { status.textContent = 'No text extracted. Try a clearer photo.'; return; }
-            document.getElementById('ocr_text').value = text; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = text; useTextBtn.style.display='inline-block'; status.textContent='OCR complete — review result below.';
+            // Parse for identifiers and auto-submit if found
+            function parseIdentifier(t) {
+                if (!t || typeof t !== 'string') return '';
+                var m = t.match(/(NIELIT\/[0-9]{4}\/[A-Z]{2,6}\/[0-9]{2,6})/i);
+                if (m) return m[1].toUpperCase();
+                var m2 = t.match(/\b(\d{12})\b/);
+                if (m2) return m2[1];
+                var m3 = t.match(/\b(\d{10})\b/);
+                if (m3) return m3[1];
+                return '';
+            }
+            var parsed = parseIdentifier(text);
+            document.getElementById('ocr_text').value = text;
+            ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = text; useTextBtn.style.display='inline-block';
+            if (parsed) {
+                status.textContent = 'Identifier detected: ' + parsed + '. Submitting search...';
+                // submit OCR text to server which will redirect to the student inspector
+                form.submit();
+                return;
+            }
+            status.textContent='OCR complete — review result below.';
         } catch (err) { console.error('OCR handler error', err); status.textContent = 'OCR error: ' + (err && err.message ? err.message : String(err)); }
     });
 
@@ -1155,7 +1175,13 @@ document.addEventListener('DOMContentLoaded', function(){
             var sourceCanvas = cropper ? cropper.getCroppedCanvas({ maxWidth:1600, imageSmoothingQuality:'high' }) : canvas;
             if (!sourceCanvas) { alert('Could not obtain cropped image.'); return; }
             status.style.display='block'; status.textContent='Preparing cropped image...';
-            sourceCanvas.toBlob(async function(blob){ try{ var worker = Tesseract.createWorker({ logger:function(m){ if (m && m.progress!=null) status.textContent='OCR: '+Math.round(m.progress*100)+'% — '+(m.status||''); } }); await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var res = await worker.recognize(blob); await worker.terminate(); var txt = res && res.data && res.data.text ? res.data.text.trim() : ''; if (!txt){ status.textContent='No text extracted from crop. Try a larger crop or clearer image.'; return; } document.getElementById('ocr_text').value = txt; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = txt; useTextBtn.style.display='inline-block'; status.textContent='OCR complete — review result below.'; } catch(err){ status.textContent='OCR error: '+(err.message||err); } }, 'image/jpeg', 0.9);
+            sourceCanvas.toBlob(async function(blob){ try{ var worker = Tesseract.createWorker({ logger:function(m){ if (m && m.progress!=null) status.textContent='OCR: '+Math.round(m.progress*100)+'% — '+(m.status||''); } }); await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var res = await worker.recognize(blob); await worker.terminate(); var txt = res && res.data && res.data.text ? res.data.text.trim() : ''; if (!txt){ status.textContent='No text extracted from crop. Try a larger crop or clearer image.'; return; }
+                    function parseIdentifier(t) { if (!t || typeof t !== 'string') return ''; var m = t.match(/(NIELIT\/[0-9]{4}\/[A-Z]{2,6}\/[0-9]{2,6})/i); if (m) return m[1].toUpperCase(); var m2 = t.match(/\b(\d{12})\b/); if (m2) return m2[1]; var m3 = t.match(/\b(\d{10})\b/); if (m3) return m3[1]; return ''; }
+                    var parsed = parseIdentifier(txt);
+                    document.getElementById('ocr_text').value = txt; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = txt; useTextBtn.style.display='inline-block';
+                    if (parsed) { status.textContent='Identifier detected: ' + parsed + '. Submitting search...'; form.submit(); return; }
+                    status.textContent='OCR complete — review result below.';
+                } catch(err){ status.textContent='OCR error: '+(err.message||err); } }, 'image/jpeg', 0.9);
         }
         if (e.target && e.target.id === 'useTextBtn') { var val = (ocrResultBox && ocrResultBox.value) ? ocrResultBox.value.trim() : ''; if (!val){ alert('No OCR text available.'); return; } document.getElementById('ocr_text').value = val; form.submit(); }
     });
