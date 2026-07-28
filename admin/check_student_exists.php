@@ -32,6 +32,80 @@ $flashMessage = '';
 $flashType = 'success';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Photo-scan handling: extract text (OCR) and redirect to search by parsed identifier
+    if (!empty($_FILES['scan_photo']['tmp_name']) && isset($_POST['do_photo_scan'])) {
+        $tmp = $_FILES['scan_photo']['tmp_name'];
+        $size = $_FILES['scan_photo']['size'] ?? 0;
+        if ($size > MAX_FILE_SIZE) {
+            $_SESSION['inspector_flash'] = ['message' => 'Uploaded file exceeds maximum allowed size.', 'type' => 'danger'];
+            header('Location: check_student_exists.php');
+            exit();
+        }
+
+        // OCR extraction helper
+        function inspector_ocr_extract($filePath)
+        {
+            $text = '';
+            // Try tesseract if available
+            $tessCmd = 'tesseract ' . escapeshellarg($filePath) . ' stdout 2>&1';
+            $output = @shell_exec($tessCmd);
+            if (!empty($output)) {
+                $text = $output;
+            }
+
+            // Fallback to OCR.space if Tesseract not available and API key defined
+            if (trim($text) === '' && defined('OCR_SPACE_API_KEY') && OCR_SPACE_API_KEY !== '') {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, 'https://api.ocr.space/parse/image');
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                $post = [
+                    'apikey' => OCR_SPACE_API_KEY,
+                    'language' => 'eng',
+                ];
+                $cfile = new CURLFile($filePath);
+                $post['file'] = $cfile;
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+                $result = curl_exec($ch);
+                curl_close($ch);
+                if ($result) {
+                    $json = @json_decode($result, true);
+                    if (!empty($json['ParsedResults'][0]['ParsedText'])) {
+                        $text = $json['ParsedResults'][0]['ParsedText'];
+                    }
+                }
+            }
+            return trim($text);
+        }
+
+        $extracted = inspector_ocr_extract($tmp);
+        $foundId = '';
+        if (!empty($extracted)) {
+            // Try to find student id patterns like NIELIT/2026/BBSR/0123 or variants
+            if (preg_match('/(NIELIT\/[0-9]{4}\/[A-Z]{2,6}\/[0-9]{2,6})/i', $extracted, $m)) {
+                $foundId = strtoupper(trim($m[1]));
+            }
+            // Fallback: 12-digit Aadhar
+            if ($foundId === '' && preg_match('/\b(\d{12})\b/', $extracted, $m2)) {
+                $foundId = trim($m2[1]);
+            }
+            // Fallback: 10-digit mobile
+            if ($foundId === '' && preg_match('/\b(\d{10})\b/', $extracted, $m3)) {
+                $foundId = trim($m3[1]);
+            }
+        }
+
+        if ($foundId !== '') {
+            // Redirect to inspector with parsed identifier (student_id, aadhar or mobile)
+            $qs = http_build_query(['student_id' => $foundId]);
+            header('Location: check_student_exists.php?' . $qs);
+            exit();
+        }
+
+        $_SESSION['inspector_flash'] = ['message' => 'Could not extract an identifiable student ID from the image. Try a clearer photo or include visible student ID text.', 'type' => 'warning'];
+        header('Location: check_student_exists.php');
+        exit();
+    }
     $searchParams = [
         'aadhar' => trim($_POST['aadhar'] ?? ''),
         'mobile' => trim($_POST['mobile'] ?? ''),
@@ -312,6 +386,16 @@ $active_theme = loadActiveTheme($conn);
     <?php endif; ?>
 
     <div class="page-card p-4 mb-4">
+        <div class="row g-3 mb-3">
+            <div class="col-12">
+                <form method="POST" enctype="multipart/form-data" class="d-flex gap-2 align-items-center">
+                    <label class="form-label mb-0">Scan Photo (student ID / documents)</label>
+                    <input type="file" name="scan_photo" accept="image/*" class="form-control" />
+                    <button type="submit" name="do_photo_scan" class="btn btn-secondary">Scan</button>
+                    <small class="text-muted">Use phone photo of student ID or application form (5MB max).</small>
+                </form>
+            </div>
+        </div>
         <form method="GET" class="row g-3">
             <div class="col-md-3">
                 <label class="form-label">Aadhar Number</label>
