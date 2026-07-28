@@ -1062,6 +1062,20 @@ if ($canManageEnrollment) {
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script>
+// Global error handler to surface unexpected JS errors (helps catch .endsWith issues)
+window.addEventListener('error', function(ev) {
+    try {
+        console.error('Global error caught on inspector page:', ev.error || ev.message, ev.error && ev.error.stack ? ev.error.stack : ev.filename + ':' + ev.lineno + ':' + ev.colno);
+        var s = document.getElementById('scan-status');
+        if (s) {
+            s.style.display = 'block';
+            s.textContent = 'OCR error: ' + (ev.message || (ev.error && ev.error.message) || 'Unexpected error');
+        }
+    } catch (e) {
+        console.error('Error while handling global error', e);
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function(){
     var scanBtn = document.getElementById('scanBtn');
     var fileInput = document.getElementById('scan_photo');
@@ -1126,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', function(){
             await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var result = await worker.recognize(preBlob); await worker.terminate(); var text = result && result.data && result.data.text ? result.data.text.trim() : '';
             if (!text) { status.textContent = 'No text extracted. Try a clearer photo.'; return; }
             document.getElementById('ocr_text').value = text; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = text; useTextBtn.style.display='inline-block'; status.textContent='OCR complete — review result below.';
-        } catch (err) { status.textContent = 'OCR error: ' + (err.message || err); }
+        } catch (err) { console.error('OCR handler error', err); status.textContent = 'OCR error: ' + (err && err.message ? err.message : String(err)); }
     });
 
     // Handlers for crop and use text
