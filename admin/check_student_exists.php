@@ -422,6 +422,11 @@ $active_theme = loadActiveTheme($conn);
                     <small class="text-muted">Use phone photo of student ID or application form (5MB max).</small>
                 </form>
                 <div id="scan-status" class="small text-muted mt-2" style="display:none">Preparing OCR...</div>
+                <div id="scan-preview" class="mt-2" style="display:none">
+                    <div class="small text-muted">Preview (preprocessed):</div>
+                    <img id="scanPreview" style="max-width:240px; border:1px solid #ddd; padding:4px; margin-top:6px" src="" alt="Preview" />
+                </div>
+                <canvas id="scanCanvas" style="display:none"></canvas>
             </div>
         </div>
         <form method="GET" class="row g-3">
@@ -1060,6 +1065,9 @@ document.addEventListener('DOMContentLoaded', function(){
     var fileInput = document.getElementById('scan_photo');
     var status = document.getElementById('scan-status');
     var form = document.getElementById('photoScanForm');
+    var previewWrap = document.getElementById('scan-preview');
+    var previewImg = document.getElementById('scanPreview');
+    var canvas = document.getElementById('scanCanvas');
     scanBtn.addEventListener('click', async function(){
         if (!fileInput.files || fileInput.files.length === 0) {
             alert('Please choose an image file to scan.');
@@ -1074,6 +1082,51 @@ document.addEventListener('DOMContentLoaded', function(){
         status.style.display = 'block';
         status.textContent = 'Initializing OCR...';
         try {
+            // Preprocess image: resize and apply grayscale + contrast
+            async function preprocessFile(inputFile) {
+                return new Promise((resolve, reject) => {
+                    var url = URL.createObjectURL(inputFile);
+                    var img = new Image();
+                    img.onload = function() {
+                        // target width for OCR
+                        var targetW = Math.min(1600, img.width);
+                        var scale = targetW / img.width;
+                        var targetH = Math.round(img.height * scale);
+                        canvas.width = targetW;
+                        canvas.height = targetH;
+                        var ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0,0,canvas.width,canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        try {
+                            var imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+                            var data = imgData.data;
+                            // simple grayscale + contrast
+                            var contrast = 1.2; // >1 increases contrast
+                            var brightness = 0; // adjust if needed
+                            for (var i=0;i<data.length;i+=4) {
+                                var r = data[i], g = data[i+1], b = data[i+2];
+                                var lum = 0.299*r + 0.587*g + 0.114*b;
+                                var v = (lum-128) * contrast + 128 + brightness;
+                                v = Math.max(0, Math.min(255, v));
+                                data[i] = data[i+1] = data[i+2] = v;
+                            }
+                            ctx.putImageData(imgData,0,0);
+                        } catch (e) {
+                            // getImageData may fail on cross-origin images
+                        }
+                        canvas.toBlob(function(blob){
+                            // preview
+                            try { previewImg.src = canvas.toDataURL('image/jpeg',0.9); previewWrap.style.display='block'; } catch(e){}
+                            resolve(blob || inputFile);
+                        }, 'image/jpeg', 0.9);
+                    };
+                    img.onerror = function(err){ reject(err); };
+                    img.src = url;
+                });
+            }
+
+            var preBlob = await preprocessFile(file);
             var worker = Tesseract.createWorker({
                 logger: function(m) {
                     if (m && m.progress != null) {
@@ -1084,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', function(){
             await worker.load();
             await worker.loadLanguage('eng');
             await worker.initialize('eng');
-            var result = await worker.recognize(file);
+            var result = await worker.recognize(preBlob);
             await worker.terminate();
             var text = result && result.data && result.data.text ? result.data.text.trim() : '';
             if (!text) {
