@@ -376,6 +376,7 @@ $active_theme = loadActiveTheme($conn);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($page_title); ?> - NIELIT Admin</title>
         <?php adminEmitHeadAssets($active_theme); ?>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
     <style>
         body { background: #f1f5f9; }
         .page-card { background: #fff; border-radius: 12px; box-shadow: 0 4px 16px rgba(15,23,42,.08); }
@@ -1059,6 +1060,7 @@ if ($canManageEnrollment) {
 </body>
 </html>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function(){
     var scanBtn = document.getElementById('scanBtn');
@@ -1068,88 +1070,80 @@ document.addEventListener('DOMContentLoaded', function(){
     var previewWrap = document.getElementById('scan-preview');
     var previewImg = document.getElementById('scanPreview');
     var canvas = document.getElementById('scanCanvas');
-    scanBtn.addEventListener('click', async function(){
-        if (!fileInput.files || fileInput.files.length === 0) {
-            alert('Please choose an image file to scan.');
-            return;
+    var originalImg = null, cropper = null;
+    var cropBtn = null, cropScanBtn = null, useTextBtn = null, ocrResultBox = null;
+
+    function ensureCropUI() {
+        if (!cropBtn) {
+            cropBtn = document.createElement('button');
+            cropBtn.type = 'button'; cropBtn.id = 'enableCropBtn'; cropBtn.className = 'btn btn-outline-secondary ms-2'; cropBtn.textContent = 'Enable Crop';
+            scanBtn.parentNode.insertBefore(cropBtn, scanBtn.nextSibling);
         }
+        if (!cropScanBtn) {
+            cropScanBtn = document.createElement('button');
+            cropScanBtn.type = 'button'; cropScanBtn.id = 'cropScanBtn'; cropScanBtn.className = 'btn btn-primary ms-2'; cropScanBtn.textContent = 'Crop & Scan';
+            scanBtn.parentNode.insertBefore(cropScanBtn, scanBtn.nextSibling);
+        }
+        if (!ocrResultBox) {
+            ocrResultBox = document.createElement('textarea'); ocrResultBox.id = 'ocrResultBox'; ocrResultBox.className = 'form-control mt-2'; ocrResultBox.placeholder = 'OCR result will appear here...'; ocrResultBox.style.display='none'; scanBtn.parentNode.parentNode.appendChild(ocrResultBox);
+        }
+        if (!useTextBtn) {
+            useTextBtn = document.createElement('button'); useTextBtn.type='button'; useTextBtn.id='useTextBtn'; useTextBtn.className='btn btn-success mt-2'; useTextBtn.textContent='Use OCR Text to Search'; useTextBtn.style.display='none'; scanBtn.parentNode.parentNode.appendChild(useTextBtn);
+        }
+    }
+
+    scanBtn.addEventListener('click', async function(){
+        if (!fileInput.files || fileInput.files.length === 0) { alert('Please choose an image file to scan.'); return; }
         var file = fileInput.files[0];
         var max = parseInt(fileInput.dataset.max || '5242880', 10);
-        if (file.size > max) {
-            alert('File is too large. Maximum allowed is ' + Math.round(max/1024/1024) + ' MB.');
-            return;
-        }
-        status.style.display = 'block';
-        status.textContent = 'Initializing OCR...';
-        try {
-            // Preprocess image: resize and apply grayscale + contrast
-            async function preprocessFile(inputFile) {
-                return new Promise((resolve, reject) => {
-                    var url = URL.createObjectURL(inputFile);
-                    var img = new Image();
-                    img.onload = function() {
-                        // target width for OCR
-                        var targetW = Math.min(1600, img.width);
-                        var scale = targetW / img.width;
-                        var targetH = Math.round(img.height * scale);
-                        canvas.width = targetW;
-                        canvas.height = targetH;
-                        var ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0,0,canvas.width,canvas.height);
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        try {
-                            var imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
-                            var data = imgData.data;
-                            // simple grayscale + contrast
-                            var contrast = 1.2; // >1 increases contrast
-                            var brightness = 0; // adjust if needed
-                            for (var i=0;i<data.length;i+=4) {
-                                var r = data[i], g = data[i+1], b = data[i+2];
-                                var lum = 0.299*r + 0.587*g + 0.114*b;
-                                var v = (lum-128) * contrast + 128 + brightness;
-                                v = Math.max(0, Math.min(255, v));
-                                data[i] = data[i+1] = data[i+2] = v;
-                            }
-                            ctx.putImageData(imgData,0,0);
-                        } catch (e) {
-                            // getImageData may fail on cross-origin images
-                        }
-                        canvas.toBlob(function(blob){
-                            // preview
-                            try { previewImg.src = canvas.toDataURL('image/jpeg',0.9); previewWrap.style.display='block'; } catch(e){}
-                            resolve(blob || inputFile);
-                        }, 'image/jpeg', 0.9);
-                    };
-                    img.onerror = function(err){ reject(err); };
-                    img.src = url;
-                });
-            }
+        if (file.size > max) { alert('File is too large. Maximum allowed is ' + Math.round(max/1024/1024) + ' MB.'); return; }
+        status.style.display = 'block'; status.textContent = 'Initializing OCR...';
 
-            var preBlob = await preprocessFile(file);
-            var worker = Tesseract.createWorker({
-                logger: function(m) {
-                    if (m && m.progress != null) {
-                        status.textContent = 'OCR: ' + Math.round(m.progress * 100) + '% — ' + (m.status || '');
-                    }
-                }
+        // Preprocess image
+        async function preprocessFile(inputFile) {
+            return new Promise((resolve, reject) => {
+                var url = URL.createObjectURL(inputFile);
+                var img = new Image();
+                img.onload = function() {
+                    var targetW = Math.min(1600, img.width); var scale = targetW / img.width; var targetH = Math.round(img.height * scale);
+                    canvas.width = targetW; canvas.height = targetH; var ctx = canvas.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0,canvas.width,canvas.height);
+                    try { var imgData = ctx.getImageData(0,0,canvas.width,canvas.height); var data = imgData.data; var contrast=1.2; var brightness=0; for (var i=0;i<data.length;i+=4){ var r=data[i],g=data[i+1],b=data[i+2]; var lum=0.299*r+0.587*g+0.114*b; var v=(lum-128)*contrast+128+brightness; v=Math.max(0,Math.min(255,v)); data[i]=data[i+1]=data[i+2]=v; } ctx.putImageData(imgData,0,0); } catch(e) {}
+                    canvas.toBlob(function(blob){ try{ previewImg.src = canvas.toDataURL('image/jpeg',0.9); previewWrap.style.display='block'; }catch(e){} resolve(blob||inputFile); }, 'image/jpeg', 0.9);
+                };
+                img.onerror = function(err){ reject(err); };
+                img.src = url;
             });
-            await worker.load();
-            await worker.loadLanguage('eng');
-            await worker.initialize('eng');
-            var result = await worker.recognize(preBlob);
-            await worker.terminate();
-            var text = result && result.data && result.data.text ? result.data.text.trim() : '';
-            if (!text) {
-                status.textContent = 'No text extracted. Try a clearer photo.';
-                return;
-            }
-            document.getElementById('ocr_text').value = text;
-            status.textContent = 'OCR complete — submitting...';
-            form.submit();
-        } catch (err) {
-            status.textContent = 'OCR error: ' + (err.message || err);
         }
+
+        ensureCropUI();
+        // show original image for cropping
+        if (!originalImg) { originalImg = document.createElement('img'); originalImg.id='scanOriginal'; originalImg.style.maxWidth='480px'; originalImg.style.marginTop='8px'; scanBtn.parentNode.parentNode.appendChild(originalImg); }
+        originalImg.src = URL.createObjectURL(file);
+
+        try {
+            var preBlob = await preprocessFile(file);
+            var worker = Tesseract.createWorker({ logger:function(m){ if (m && m.progress!=null) status.textContent = 'OCR: '+Math.round(m.progress*100)+'% — '+(m.status||''); } });
+            await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var result = await worker.recognize(preBlob); await worker.terminate(); var text = result && result.data && result.data.text ? result.data.text.trim() : '';
+            if (!text) { status.textContent = 'No text extracted. Try a clearer photo.'; return; }
+            document.getElementById('ocr_text').value = text; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = text; useTextBtn.style.display='inline-block'; status.textContent='OCR complete — review result below.';
+        } catch (err) { status.textContent = 'OCR error: ' + (err.message || err); }
+    });
+
+    // Handlers for crop and use text
+    document.addEventListener('click', async function(e){
+        if (e.target && e.target.id === 'enableCropBtn') {
+            if (!originalImg) { alert('Choose a photo first.'); return; }
+            if (cropper) { cropper.destroy(); cropper=null; e.target.textContent='Enable Crop'; return; }
+            cropper = new Cropper(originalImg, { viewMode:1, autoCropArea:0.8 }); e.target.textContent='Disable Crop';
+        }
+        if (e.target && e.target.id === 'cropScanBtn') {
+            if (!originalImg) { alert('Choose a photo first.'); return; }
+            var sourceCanvas = cropper ? cropper.getCroppedCanvas({ maxWidth:1600, imageSmoothingQuality:'high' }) : canvas;
+            if (!sourceCanvas) { alert('Could not obtain cropped image.'); return; }
+            status.style.display='block'; status.textContent='Preparing cropped image...';
+            sourceCanvas.toBlob(async function(blob){ try{ var worker = Tesseract.createWorker({ logger:function(m){ if (m && m.progress!=null) status.textContent='OCR: '+Math.round(m.progress*100)+'% — '+(m.status||''); } }); await worker.load(); await worker.loadLanguage('eng'); await worker.initialize('eng'); var res = await worker.recognize(blob); await worker.terminate(); var txt = res && res.data && res.data.text ? res.data.text.trim() : ''; if (!txt){ status.textContent='No text extracted from crop. Try a larger crop or clearer image.'; return; } document.getElementById('ocr_text').value = txt; ensureCropUI(); ocrResultBox.style.display='block'; ocrResultBox.value = txt; useTextBtn.style.display='inline-block'; status.textContent='OCR complete — review result below.'; } catch(err){ status.textContent='OCR error: '+(err.message||err); } }, 'image/jpeg', 0.9);
+        }
+        if (e.target && e.target.id === 'useTextBtn') { var val = (ocrResultBox && ocrResultBox.value) ? ocrResultBox.value.trim() : ''; if (!val){ alert('No OCR text available.'); return; } document.getElementById('ocr_text').value = val; form.submit(); }
     });
 });
 </script>
