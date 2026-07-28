@@ -104,6 +104,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             return trim($text);
         }
 
+        // --- image hash helpers (aHash) for photo matching ---
+        if (!function_exists('inspector_image_ahash')) {
+            function inspector_image_ahash(string $filePath): string
+            {
+                if (!is_file($filePath)) return '';
+                $data = @file_get_contents($filePath);
+                if ($data === false) return '';
+                $im = @imagecreatefromstring($data);
+                if ($im === false) return '';
+                $thumb = imagecreatetruecolor(8, 8);
+                if (!$thumb) { imagedestroy($im); return ''; }
+                imagecopyresampled($thumb, $im, 0, 0, 0, 0, 8, 8, imagesx($im), imagesy($im));
+                imagedestroy($im);
+                $vals = [];
+                for ($y = 0; $y < 8; $y++) {
+                    for ($x = 0; $x < 8; $x++) {
+                        $rgb = imagecolorat($thumb, $x, $y);
+                        $r = ($rgb >> 16) & 0xFF;
+                        $g = ($rgb >> 8) & 0xFF;
+                        $b = $rgb & 0xFF;
+                        $lum = (0.299 * $r) + (0.587 * $g) + (0.114 * $b);
+                        $vals[] = (int)$lum;
+                    }
+                }
+                imagedestroy($thumb);
+                if (count($vals) !== 64) return '';
+                $avg = array_sum($vals) / 64.0;
+                $bits = '';
+                foreach ($vals as $v) { $bits .= ($v >= $avg) ? '1' : '0'; }
+                return $bits;
+            }
+        }
+
+        if (!function_exists('inspector_hamming_distance')) {
+            function inspector_hamming_distance(string $a, string $b): int
+            {
+                if ($a === '' || $b === '') return PHP_INT_MAX;
+                $len = min(strlen($a), strlen($b));
+                $d = 0;
+                for ($i = 0; $i < $len; $i++) { if ($a[$i] !== $b[$i]) $d++; }
+                $d += abs(strlen($a) - strlen($b));
+                return $d;
+            }
+        }
+
+        if (!function_exists('inspector_find_photo_match')) {
+            function inspector_find_photo_match(string $probePath, $conn, int $limit = 500, int $threshold = 14)
+            {
+                if (!is_file($probePath) || !($conn instanceof mysqli)) return null;
+                $cacheFile = __DIR__ . '/../storage/ocr_hashes.json';
+                $cache = [];
+                if (is_file($cacheFile)) {
+                    $raw = @file_get_contents($cacheFile);
+                    $j = @json_decode($raw, true);
+                    if (is_array($j)) $cache = $j;
+                }
+                $probeHash = inspector_image_ahash($probePath);
+                if ($probeHash === '') return null;
+                $sql = "SELECT id, student_id, passport_photo FROM students WHERE passport_photo IS NOT NULL AND passport_photo != '' ORDER BY id DESC LIMIT " . (int)$limit;
+                $res = $conn->query($sql);
+                if (!$res) return null;
+                $best = null; $bestDist = PHP_INT_MAX; $bestRow = null;
+                while ($row = $res->fetch_assoc()) {
+                    $rel = ltrim((string)$row['passport_photo'], '/\\');
+                    $full = __DIR__ . '/../' . $rel;
+                    if (!is_file($full)) continue;
+                    $stat = @filemtime($full) ?: 0;
+                    $cacheKey = $rel;
+                    $cached = $cache[$cacheKey] ?? null;
+                    if (!empty($cached) && isset($cached['mtime']) && $cached['mtime'] === $stat && !empty($cached['hash'])) {
+                        $h = $cached['hash'];
+                    } else {
+                        $h = inspector_image_ahash($full);
+                        if ($h !== '') { $cache[$cacheKey] = ['mtime' => $stat, 'hash' => $h]; }
+                    }
+                    if ($h === '') continue;
+                    $d = inspector_hamming_distance($probeHash, $h);
+                    if ($d < $bestDist) { $bestDist = $d; $best = $row['student_id']; $bestRow = $row; }
+                    if ($bestDist <= 8) break;
+                }
+                @mkdir(dirname($cacheFile), 0755, true);
+                @file_put_contents($cacheFile, json_encode($cache));
+                if ($best !== null && $bestDist <= $threshold) {
+                    return ['student_id' => $best, 'distance' => $bestDist, 'row' => $bestRow];
+                }
+                return null;
+            }
+        }
+
         $extracted = inspector_ocr_extract($tmp);
         $foundId = '';
         if (!empty($extracted)) {
@@ -124,6 +213,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($foundId !== '') {
             // Redirect to inspector with parsed identifier (student_id, aadhar or mobile)
             $qs = http_build_query(['student_id' => $foundId]);
+            header('Location: check_student_exists.php?' . $qs);
+            exit();
+        }
+
+        // Try photo-match fallback (server-side) if OCR didn't yield an identifier
+        $match = null;
+        if (function_exists('inspector_find_photo_match')) {
+            $match = inspector_find_photo_match($tmp, $conn, 500, 14);
+        }
+        if (!empty($match) && !empty($match['student_id'])) {
+            $_SESSION['inspector_flash'] = ['message' => 'No OCR identifier found — matched by photo to student ' . (string)$match['student_id'] . ' (distance=' . (int)$match['distance'] . ')', 'type' => 'info'];
+            $qs = http_build_query(['student_id' => $match['student_id']]);
             header('Location: check_student_exists.php?' . $qs);
             exit();
         }
