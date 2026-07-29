@@ -164,6 +164,21 @@ if (isset($_GET['deapprove_id'])) {
     exit();
 }
 
+// ─── HANDLE: Unreject student (POST with reason) ─────────────────────────────
+if (isset($_POST['unreject_student'])) {
+    $unreject_id     = trim($_POST['unreject_id'] ?? '');
+    $unreject_reason = trim($_POST['unreject_reason'] ?? '');
+    $unreject_note   = trim($_POST['unreject_note'] ?? '');
+    $admin_name      = $_SESSION['admin'] ?? 'Admin';
+
+    $result = adminUnrejectStudent($conn, $unreject_id, $unreject_reason, $unreject_note, $admin_name);
+    $_SESSION['message'] = $result['message'];
+    $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+
+    header('Location: ' . studentsRedirectFromSource($_POST));
+    exit();
+}
+
 // ─── HANDLE: Reject student (POST with reason) ────────────────────────────────
 if (isset($_POST['reject_student'])) {
     $reject_id        = trim($_POST['reject_id'] ?? '');
@@ -2236,6 +2251,13 @@ if ($other_gender_count > 0) {
                                             <i class="fas fa-undo"></i>
                                         </a>
                                     <?php elseif ($status === 'rejected'): ?>
+                                        <a href="javascript:void(0);"
+                                           class="btn btn-info btn-sm unreject-student-btn"
+                                           title="Unreject"
+                                           data-student-id="<?php echo htmlspecialchars($row['student_id']); ?>"
+                                           data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
+                                            <i class="fas fa-undo"></i>
+                                        </a>
                                         <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
@@ -2583,6 +2605,69 @@ if ($other_gender_count > 0) {
     </div>
 </div>
 
+    <!-- Unreject Reason Modal -->
+    <div id="unrejectModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10000;justify-content:center;align-items:center;">
+        <div style="background:white;border-radius:12px;padding:32px;max-width:520px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+            <div style="text-align:center;margin-bottom:20px;">
+                <div style="width:64px;height:64px;background:#dbeafe;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                    <i class="fas fa-undo" style="font-size:28px;color:#2563eb;"></i>
+                </div>
+                <h3 style="margin:0 0 6px;font-size:20px;color:#1e293b;">Unreject Student</h3>
+                <p style="margin:0 0 10px;color:#64748b;font-size:14px;">Student: <strong id="unrejectStudentName"></strong></p>
+                <p style="margin:0;color:#64748b;font-size:13px;">Choose why this rejected student is being moved back to pending review.</p>
+            </div>
+            <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="unrejectForm">
+                <input type="hidden" name="unreject_student" value="1">
+                <input type="hidden" name="unreject_id" id="unrejectStudentId">
+                <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
+                <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender ?? 'All'); ?>">
+                <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme ?? 'All'); ?>">
+                <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category ?? 'All'); ?>">
+                <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status ?? 'All'); ?>">
+                <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date ?? ''); ?>">
+                <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date ?? ''); ?>">
+                <input type="hidden" name="page" value="<?php echo (int)($page ?? 1); ?>">
+                <input type="hidden" name="per_page" value="<?php echo (int)($per_page ?? 25); ?>">
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:#374151;">Reason for Unreject *</label>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        <?php
+                        $unreject_reasons = [
+                            'Documents Verified' => 'Documents were reviewed and verified',
+                            'Eligibility Confirmed' => 'Eligibility criteria are now confirmed',
+                            'Appeal Accepted' => 'Student appeal or request was accepted',
+                            'Administrative Correction' => 'Original rejection was a processing mistake',
+                            'Manual Review Override' => 'Admin override after manual review',
+                            'Other' => 'Other reason',
+                        ];
+                        foreach ($unreject_reasons as $value => $label):
+                        ?>
+                        <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:2px solid #e5e7eb;border-radius:8px;cursor:pointer;" class="unreject-reason-label">
+                            <input type="radio" name="unreject_reason" value="<?php echo htmlspecialchars($value); ?>" required onchange="highlightUnrejectReason(this);">
+                            <span style="font-size:14px;color:#374151;"><?php echo htmlspecialchars($label); ?></span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div id="unrejectNoteDiv" style="display:none;margin-bottom:16px;">
+                    <label style="display:block;font-weight:600;margin-bottom:6px;color:#374151;">Additional Note</label>
+                    <textarea name="unreject_note" rows="2" placeholder="Add a short note..."
+                              style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;resize:vertical;box-sizing:border-box;"></textarea>
+                </div>
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+                    <button type="button" onclick="closeUnrejectModal()"
+                            style="padding:10px 24px;border:none;border-radius:8px;background:#6b7280;color:white;font-size:14px;cursor:pointer;">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            style="padding:10px 24px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:14px;font-weight:600;cursor:pointer;">
+                        <i class="fas fa-undo"></i> Confirm Unreject
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
@@ -2912,6 +2997,19 @@ function highlightReason(radio) {
     document.getElementById('otherNoteDiv').style.display = radio.value === 'Other' ? 'block' : 'none';
 }
 
+// ── Unreject modal ───────────────────────────────────────────────────────────
+function closeUnrejectModal() {
+    document.getElementById('unrejectModal').style.display = 'none';
+}
+function highlightUnrejectReason(radio) {
+    document.querySelectorAll('#unrejectModal .unreject-reason-label').forEach(l => {
+        l.style.borderColor = '#e5e7eb'; l.style.background = 'white';
+    });
+    radio.parentElement.style.borderColor = '#2563eb';
+    radio.parentElement.style.background  = '#eff6ff';
+    document.getElementById('unrejectNoteDiv').style.display = radio.value === 'Other' ? 'block' : 'none';
+}
+
 // ── Selection UI update ───────────────────────────────────────────────────────
 function updateSelectionUI() {
     const checked = document.querySelectorAll('.student-checkbox:checked');
@@ -3069,10 +3167,31 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // Unreject buttons → open reason modal
+    document.querySelectorAll('.unreject-student-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
+            document.getElementById('unrejectStudentName').textContent = this.dataset.studentName;
+            document.getElementById('unrejectStudentId').value         = this.dataset.studentId;
+            document.querySelectorAll('#unrejectModal input[type="radio"]').forEach(r => r.checked = false);
+            document.querySelectorAll('#unrejectModal .unreject-reason-label').forEach(l => {
+                l.style.borderColor = '#e5e7eb'; l.style.background = 'white';
+            });
+            document.getElementById('unrejectNoteDiv').style.display = 'none';
+            document.getElementById('unrejectModal').style.display  = 'flex';
+        });
+    });
+
     // Reject modal backdrop
     document.getElementById('rejectModal').addEventListener('click', function (e) {
         if (e.target === this) closeRejectModal();
     });
+
+    const unrejectModal = document.getElementById('unrejectModal');
+    if (unrejectModal) {
+        unrejectModal.addEventListener('click', function (e) {
+            if (e.target === this) closeUnrejectModal();
+        });
+    }
 
     // Select-all checkbox
     const selectAll = document.getElementById('select-all');

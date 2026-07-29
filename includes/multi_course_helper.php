@@ -1318,6 +1318,100 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Reverse a rejection and return the student to pending with an audit trail.
+     */
+    function adminUnrejectStudent(
+        mysqli $conn,
+        string $studentIdStr,
+        string $unrejectReason,
+        string $unrejectNote = '',
+        string $adminName = 'Admin'
+    ): array {
+        $studentIdStr = trim($studentIdStr);
+        $unrejectReason = trim($unrejectReason);
+        $unrejectNote = trim($unrejectNote);
+
+        if ($studentIdStr === '') {
+            return ['success' => false, 'message' => 'Invalid student ID.'];
+        }
+        if ($unrejectReason === '') {
+            return ['success' => false, 'message' => 'Unreject reason is required.'];
+        }
+
+        $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS unreject_reason VARCHAR(255) DEFAULT NULL");
+        $conn->query("ALTER TABLE students ADD COLUMN IF NOT EXISTS unreject_note TEXT DEFAULT NULL");
+
+        $stmt = $conn->prepare("UPDATE students SET status = 'pending', unreject_reason = ?, unreject_note = ? WHERE student_id = ? AND LOWER(status) = 'rejected'");
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('sss', $unrejectReason, $unrejectNote, $studentIdStr);
+        if (!$stmt->execute()) {
+            $err = $stmt->error;
+            $stmt->close();
+            return ['success' => false, 'message' => $err];
+        }
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        $recordIds = [];
+        $recordStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ?');
+        if ($recordStmt) {
+            $recordStmt->bind_param('s', $studentIdStr);
+            $recordStmt->execute();
+            $res = $recordStmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $recordIds[] = (int)$row['id'];
+            }
+            $recordStmt->close();
+        }
+
+        foreach ($recordIds as $recordId) {
+            syncStudentEnrollmentRecord($conn, $recordId);
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $account = getAccountByStudentId($conn, $studentIdStr);
+            if ($account) {
+                $accountId = (int)$account['id'];
+                $enr = $conn->prepare("UPDATE student_enrollments SET status = 'pending'
+                    WHERE account_id = ? AND LOWER(status) = 'rejected'");
+                if ($enr) {
+                    $enr->bind_param('i', $accountId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+
+        if ($affected <= 0 && empty($recordIds)) {
+            return ['success' => false, 'message' => 'Student not found or is not currently rejected.'];
+        }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            logActivity($conn, [
+                'actor_type' => 'admin',
+                'actor_name' => $adminName,
+                'action' => 'student_unreject',
+                'entity_type' => 'student',
+                'entity_id' => $studentIdStr,
+                'entity_name' => $studentIdStr,
+                'description' => 'Admin "' . $adminName . '" unrejected student ' . $studentIdStr . ' (returned to pending).',
+                'details' => [
+                    'reason' => $unrejectReason,
+                    'note' => $unrejectNote,
+                ],
+            ]);
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Student unrejected successfully. Status is now pending and they can be reviewed again.',
+        ];
+    }
+
+    /**
      * Reject a student registration, sync enrollments, and notify the applicant by email.
      */
     function adminRejectStudent(

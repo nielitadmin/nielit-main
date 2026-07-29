@@ -570,6 +570,7 @@ if (!function_exists('activityActionLabels')) {
             'student_approve' => 'Student Approved',
             'student_deapprove' => 'Student De-approved',
             'student_reject' => 'Student Rejected',
+            'student_unreject' => 'Student Unrejected',
             'batch_assign' => 'Batch Assignment',
             'course_create' => 'Course Created',
             'course_update' => 'Course Updated',
