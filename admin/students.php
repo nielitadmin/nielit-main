@@ -1149,6 +1149,12 @@ if ($other_gender_count > 0) {
         .summary-active .summary-icon { background: linear-gradient(135deg, #10b981, #34d399); }
         .summary-male .summary-icon { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
         .summary-female .summary-icon { background: linear-gradient(135deg, #f97316, #fb7185); }
+        .badge-general {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: #ffffff;
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+        }
         .empty-chart-state {
             min-height: 280px;
             display: flex;
@@ -2137,7 +2143,7 @@ if ($other_gender_count > 0) {
                                 <?php
                                 $student_category = trim((string)($row['category'] ?? ''));
                                 $category_badge_map = [
-                                    'General' => 'badge-secondary',
+                                    'General' => 'badge-general',
                                     'OBC'     => 'badge-info',
                                     'SC'      => 'badge-warning',
                                     'ST'      => 'badge-success',
