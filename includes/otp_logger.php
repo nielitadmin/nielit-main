@@ -75,12 +75,38 @@ function logOTP($email, $otp_code, $purpose = 'Login', $username = null, $status
         $ok = $stmt->execute();
         if (!$ok) {
             error_log('logOTP execute failed: ' . $stmt->error);
+            $stmt->close();
+            return false;
         }
+
+        $insertId = $stmt->insert_id;
         $stmt->close();
-        return $ok;
+
+        // Return inserted id so callers can update status later. Returns int on success, false on failure.
+        return $insertId ?: false;
     } catch (Throwable $e) {
         // Never break login/mail flow because of OTP logging.
         error_log('logOTP exception: ' . $e->getMessage());
+        return false;
+    }
+}
+
+function updateOtpStatus($id, $status) {
+    global $conn;
+    try {
+        if (!$conn || empty($id)) return false;
+        $stmt = $conn->prepare("UPDATE otp_logs SET status = ? WHERE id = ?");
+        if (!$stmt) {
+            error_log('updateOtpStatus prepare failed: ' . $conn->error);
+            return false;
+        }
+        $stmt->bind_param('si', $status, $id);
+        $ok = $stmt->execute();
+        if (!$ok) error_log('updateOtpStatus execute failed: ' . $stmt->error);
+        $stmt->close();
+        return $ok;
+    } catch (Throwable $e) {
+        error_log('updateOtpStatus exception: ' . $e->getMessage());
         return false;
     }
 }

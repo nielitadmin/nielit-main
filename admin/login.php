@@ -110,9 +110,17 @@ function startAdminLoginOtpFlow(array $admin): bool
     $_SESSION['login_otp'] = $otp;
     $_SESSION['otp_generated_time'] = time();
 
+    // Log OTP as queued (so it appears in admin logs immediately) and get log id
+    $logId = logOTP($_SESSION['temp_admin_email'], $otp, 'Admin Login', $admin['username'], 'queued');
+
     $sent = sendOTP($_SESSION['temp_admin_email'], $otp, $admin['username']);
     $ok = is_array($sent) ? !empty($sent['ok']) : (bool) $sent;
     $detail = is_array($sent) ? trim((string) ($sent['error'] ?? '')) : '';
+
+    // Update logged OTP status if we have an inserted id
+    if ($logId) {
+        updateOtpStatus($logId, $ok ? 'sent' : 'failed');
+    }
 
     if ($ok) {
         $success_message = 'OTP sent successfully to ' . maskEmailAddress($_SESSION['temp_admin_email']) . '. Check inbox and spam.';
