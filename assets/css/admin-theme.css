@@ -1608,6 +1608,11 @@ html[data-mode="night"] .card-header {
     color: var(--primary);
 }
 
+.badge-secondary {
+    background: rgba(15, 23, 42, 0.06);
+    color: #334155;
+}
+
 .badge-success {
     background: rgba(16, 185, 129, 0.1);
     color: var(--success);
