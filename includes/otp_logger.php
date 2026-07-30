@@ -75,6 +75,8 @@ function logOTP($email, $otp_code, $purpose = 'Login', $username = null, $status
         $ok = $stmt->execute();
         if (!$ok) {
             error_log('logOTP execute failed: ' . $stmt->error);
+            // file fallback
+            @file_put_contents(__DIR__ . '/../storage/logs/otp_debug.log', '['.date('Y-m-d H:i:s').'] DB insert failed: '. $stmt->error ." | data: ".json_encode([$email,$otp_code,$purpose,$username,$status]).PHP_EOL, FILE_APPEND | LOCK_EX);
             $stmt->close();
             return false;
         }

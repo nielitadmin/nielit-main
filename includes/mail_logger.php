@@ -51,4 +51,18 @@ function logMailSend(string $profileLabel, string $recipient, string $subject, s
     }
 }
 
+/**
+ * Also write a simple file-based debug log to storage to capture events
+ */
+function fileMailDebugLog(string $line): void
+{
+    $dir = __DIR__ . '/../storage/logs';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $file = $dir . '/mail_debug.log';
+    $entry = '[' . date('Y-m-d H:i:s') . '] ' . $line . PHP_EOL;
+    @file_put_contents($file, $entry, FILE_APPEND | LOCK_EX);
+}
+
 ?>

@@ -184,6 +184,12 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
                 } catch (Throwable $e) {
                     error_log('mail_logger failed (success path): ' . $e->getMessage());
                 }
+                // File fallback logging
+                try {
+                    if (function_exists('fileMailDebugLog')) {
+                        fileMailDebugLog(($profile['label'] ?? '') . ' => OK => ' . ($mail->getToAddresses()[0][0] ?? '') . ' / ' . ($mail->Subject ?? ''));
+                    }
+                } catch (Throwable $e) {}
 
                 return [
                     'ok' => true,
@@ -200,6 +206,12 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
                 } catch (Throwable $ee) {
                     error_log('mail_logger failed (failure path): ' . $ee->getMessage());
                 }
+                // File fallback logging
+                try {
+                    if (function_exists('fileMailDebugLog')) {
+                        fileMailDebugLog(($profile['label'] ?? '') . ' => FAILED => ' . ($mail->getToAddresses()[0][0] ?? '') . ' / ' . ($mail->Subject ?? '') . ' => ' . $info);
+                    }
+                } catch (Throwable $e) {}
             }
         }
 
