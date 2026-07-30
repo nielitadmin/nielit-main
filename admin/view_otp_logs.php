@@ -14,6 +14,8 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
 
 require_once '../config/database.php';
 require_once '../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/otp_logger.php';
+require_once __DIR__ . '/../includes/mail_logger.php';
 
 // Set timezone to Indian Standard Time
 date_default_timezone_set('Asia/Kolkata');
@@ -23,8 +25,13 @@ $conn->query("SET time_zone = '+05:30'");
 
 $active_theme = loadActiveTheme($conn);
 
+// Ensure tables exist and show errors if creation/query fails
+ensureOtpLogsTable();
+ensureMailLogsTable();
+
 // Get OTP logs from the last 24 hours
 $otp_logs_result = $conn->query("SELECT * FROM otp_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY created_at DESC LIMIT 50");
+$mail_logs_result = $conn->query("SELECT * FROM mail_send_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) ORDER BY created_at DESC LIMIT 50");
 ?>
 <!DOCTYPE html>
 <html lang="en">
