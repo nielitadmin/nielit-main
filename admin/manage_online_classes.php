@@ -112,14 +112,14 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .oc-muted { color: #64748b; font-size: 0.875rem; }
-        .oc-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .oc-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
         .oc-link-truncate {
-            max-width: 180px;
+            max-width: 200px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            display: inline-block;
-            vertical-align: bottom;
+            display: block;
+            margin-top: 4px;
         }
         .oc-modal .form-group { margin-bottom: 1rem; }
         .oc-modal label { font-weight: 500; color: #334155; margin-bottom: 6px; display: block; }
@@ -129,6 +129,10 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
         }
+        #onlineClassesTable th,
+        #onlineClassesTable td { white-space: nowrap; }
+        #onlineClassesTable td.oc-wrap { white-space: normal; min-width: 140px; }
+        #onlineClassesTable td.oc-link-cell { white-space: normal; min-width: 180px; }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -191,7 +195,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
 
                 <div class="table-responsive">
-                    <table class="data-table" id="onlineClassesTable">
+                    <table class="modern-table" id="onlineClassesTable">
                         <thead>
                             <tr>
                                 <th>Title</th>
@@ -200,13 +204,14 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <th>Duration</th>
                                 <th>Status</th>
                                 <th>Site Join Link</th>
+                                <th>Recording</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (empty($classes)): ?>
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted" style="padding:2rem;">
+                                    <td colspan="8" class="text-center text-muted" style="padding:2rem;white-space:normal;">
                                         No online classes yet. Click <strong>Schedule Class</strong> to create one.
                                     </td>
                                 </tr>
@@ -221,9 +226,10 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     $when = !empty($oc['scheduled_at'])
                                         ? date('d M Y, h:i A', strtotime($oc['scheduled_at']))
                                         : '—';
+                                    $joinUrl = (string) ($oc['join_url'] ?? $oc['meeting_url'] ?? '');
                                     ?>
                                     <tr>
-                                        <td>
+                                        <td class="oc-wrap">
                                             <strong><?php echo htmlspecialchars($oc['title'] ?? ''); ?></strong>
                                             <?php if (!empty($oc['platform'])): ?>
                                                 <div class="oc-muted"><?php echo htmlspecialchars($oc['platform']); ?></div>
@@ -232,7 +238,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                                 <span class="badge badge-secondary">Hidden</span>
                                             <?php endif; ?>
                                         </td>
-                                        <td>
+                                        <td class="oc-wrap">
                                             <?php echo htmlspecialchars($oc['batch_name'] ?? '—'); ?>
                                             <div class="oc-muted"><?php echo htmlspecialchars($oc['batch_code'] ?? ''); ?>
                                                 <?php if (!empty($oc['course_name'])): ?>
@@ -247,32 +253,31 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                                 <?php echo htmlspecialchars(onlineClassStatusLabel($ds)); ?>
                                             </span>
                                         </td>
-                                        <td>
-                                            <?php
-                                            $joinUrl = (string) ($oc['join_url'] ?? $oc['meeting_url'] ?? '');
-                                            if ($joinUrl !== ''):
-                                            ?>
+                                        <td class="oc-link-cell">
+                                            <?php if ($joinUrl !== ''): ?>
                                                 <div class="oc-actions">
-                                                    <a href="<?php echo htmlspecialchars($joinUrl); ?>" target="_blank" rel="noopener" class="btn btn-sm btn-success" title="Open classroom">
+                                                    <a href="<?php echo htmlspecialchars($joinUrl); ?>" target="_blank" rel="noopener" class="btn btn-sm btn-primary" title="Open classroom">
                                                         <i class="fas fa-video"></i> Open
                                                     </a>
-                                                    <button type="button" class="btn btn-sm btn-outline-secondary" title="Copy link"
+                                                    <button type="button" class="btn btn-sm btn-secondary" title="Copy link"
                                                             onclick="navigator.clipboard.writeText(<?php echo htmlspecialchars(json_encode($joinUrl), ENT_QUOTES); ?>).then(function(){alert('Join link copied');})">
                                                         <i class="fas fa-copy"></i>
                                                     </button>
                                                 </div>
-                                                <div class="oc-muted oc-link-truncate" title="<?php echo htmlspecialchars($joinUrl); ?>">
+                                                <span class="oc-muted oc-link-truncate" title="<?php echo htmlspecialchars($joinUrl); ?>">
                                                     <?php echo htmlspecialchars($joinUrl); ?>
-                                                </div>
-                                            <?php endif; ?>
-                                            <?php if (!empty($oc['recording_url'])): ?>
-                                                <div class="mt-1">
-                                                    <a href="<?php echo htmlspecialchars($oc['recording_url']); ?>" target="_blank" rel="noopener noreferrer">
-                                                        <i class="fas fa-play-circle"></i> Recording
-                                                    </a>
-                                                </div>
+                                                </span>
                                             <?php else: ?>
-                                                <div class="oc-muted">No recording yet</div>
+                                                <span class="oc-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if (!empty($oc['recording_url'])): ?>
+                                                <a href="<?php echo htmlspecialchars($oc['recording_url']); ?>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-secondary" title="Open recording">
+                                                    <i class="fas fa-play-circle"></i> Recording
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="oc-muted">—</span>
                                             <?php endif; ?>
                                         </td>
                                         <td>
