@@ -6,6 +6,7 @@
 use PHPMailer\PHPMailer\PHPMailer;
 
 require_once __DIR__ . '/../config/email.php';
+require_once __DIR__ . '/mail_logger.php';
 
 if (!function_exists('isLikelyHostingerSharedHosting')) {
     function isLikelyHostingerSharedHosting(): bool
@@ -177,6 +178,13 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
                 }
                 $configureMessage($mail);
                 $mail->send();
+                // Log successful send attempt
+                try {
+                    logMailSend($profile['label'] ?? '', ($mail->getToAddresses()[0][0] ?? ''), ($mail->Subject ?? ''), 'ok', '');
+                } catch (Throwable $e) {
+                    error_log('mail_logger failed (success path): ' . $e->getMessage());
+                }
+
                 return [
                     'ok' => true,
                     'error' => '',
@@ -186,6 +194,12 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
                 $info = trim((string) ($mail->ErrorInfo ?: $e->getMessage()));
                 $errors[] = $profile['label'] . ' => ' . $info;
                 error_log('Mail send failed via ' . $profile['label'] . ': ' . $info);
+                // Log failed attempt with error details
+                try {
+                    logMailSend($profile['label'] ?? '', ($mail->getToAddresses()[0][0] ?? ''), ($mail->Subject ?? ''), 'failed', $info);
+                } catch (Throwable $ee) {
+                    error_log('mail_logger failed (failure path): ' . $ee->getMessage());
+                }
             }
         }
 
