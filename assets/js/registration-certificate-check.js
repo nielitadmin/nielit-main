@@ -76,12 +76,20 @@
         return count ? total / count : 0;
     }
 
-    function findBrightDocumentBounds(data, width, height, lumThreshold) {
+    /**
+     * Find document bounds using contrast from corner background (brighter OR darker).
+     * Old "bright-only" logic falsely rejected cream certificates on light tables.
+     */
+    function findDocumentBounds(data, width, height, bgLum, contrast) {
+        contrast = contrast || 22;
+        function isDocPixel(r, g, b) {
+            return Math.abs(luminance(r, g, b) - bgLum) >= contrast;
+        }
         function colRatio(x) {
             var c = 0;
             for (var y = 0; y < height; y++) {
                 var idx = (y * width + x) * 4;
-                if (luminance(data[idx], data[idx + 1], data[idx + 2]) > lumThreshold) c++;
+                if (isDocPixel(data[idx], data[idx + 1], data[idx + 2])) c++;
             }
             return c / height;
         }
@@ -90,35 +98,43 @@
             var rs = y * width * 4;
             for (var x = 0; x < width; x++) {
                 var idx = rs + x * 4;
-                if (luminance(data[idx], data[idx + 1], data[idx + 2]) > lumThreshold) c++;
+                if (isDocPixel(data[idx], data[idx + 1], data[idx + 2])) c++;
             }
             return c / width;
         }
 
+        var lineThreshold = 0.45;
         var left = 0;
         var right = width - 1;
         var top = 0;
         var bottom = height - 1;
         for (var x = 0; x < width; x++) {
-            if (colRatio(x) >= 0.68) { left = x; break; }
+            if (colRatio(x) >= lineThreshold) { left = x; break; }
         }
         for (var x2 = width - 1; x2 >= 0; x2--) {
-            if (colRatio(x2) >= 0.68) { right = x2; break; }
+            if (colRatio(x2) >= lineThreshold) { right = x2; break; }
         }
         for (var y = 0; y < height; y++) {
-            if (rowRatio(y) >= 0.68) { top = y; break; }
+            if (rowRatio(y) >= lineThreshold) { top = y; break; }
         }
         for (var y2 = height - 1; y2 >= 0; y2--) {
-            if (rowRatio(y2) >= 0.68) { bottom = y2; break; }
+            if (rowRatio(y2) >= lineThreshold) { bottom = y2; break; }
         }
 
         if (left <= 2 && right >= width - 3 && top <= 2 && bottom >= height - 3) {
             return { skipped: true };
         }
 
+        var docW = Math.max(0, right - left + 1);
+        var docH = Math.max(0, bottom - top + 1);
+        if (docW < 20 || docH < 20) {
+            return { skipped: true };
+        }
+
         return {
-            docW: Math.max(0, right - left + 1),
-            docH: Math.max(0, bottom - top + 1),
+            docW: docW,
+            docH: docH,
+            fillRatio: (docW * docH) / (width * height),
             maxMargin: Math.max(left / width, (width - 1 - right) / width, top / height, (height - 1 - bottom) / height)
         };
     }
@@ -132,7 +148,7 @@
         var width = prepared.width;
         var height = prepared.height;
         var data = prepared.ctx.getImageData(0, 0, width, height).data;
-        var cornerSize = Math.max(8, Math.round(Math.min(width, height) * 0.08));
+        var cornerSize = Math.max(6, Math.round(Math.min(width, height) * 0.045));
         var bgLum = (
             sampleCorner(data, width, height, 0, 0, cornerSize) +
             sampleCorner(data, width, height, width - cornerSize, 0, cornerSize) +
@@ -140,22 +156,23 @@
             sampleCorner(data, width, height, width - cornerSize, height - cornerSize, cornerSize)
         ) / 4;
 
-        var bounds = findBrightDocumentBounds(data, width, height, bgLum + 35);
+        var bounds = findDocumentBounds(data, width, height, bgLum, 22);
         if (bounds.skipped) {
             return { valid: true, skipped: true };
         }
 
-        var fillRatio = (bounds.docW * bounds.docH) / (width * height);
         var limits = framingLimits();
-        if (fillRatio < limits.minFillRatio) {
+        if (bounds.fillRatio < limits.minFillRatio) {
             return {
                 valid: false,
+                soft: true,
                 message: 'Document is too small in the photo. Move closer so the ' + docLabel + ' fills most of the image.'
             };
         }
         if (bounds.maxMargin > limits.maxMarginRatio) {
             return {
                 valid: false,
+                soft: true,
                 message: 'Too much background around the document. Crop or retake so only the ' + docLabel + ' is visible.'
             };
         }
@@ -341,17 +358,31 @@
                 }
 
                 var framing = validateDocumentFraming(img, docLabel);
-                if (!framing.valid) {
-                    return framing;
-                }
+                var framingSoftFail = framing && framing.valid === false && framing.soft;
 
                 var skipPortrait = global.RegistrationAiConfig &&
                     global.RegistrationAiConfig.skipPortraitRejectionOnDocuments &&
                     global.RegistrationAiConfig.isLenient &&
                     global.RegistrationAiConfig.isLenient();
 
+                function afterPortraitCheck() {
+                    return ocrCertificateImage(img, type).then(function (ocrResult) {
+                        if (ocrResult && ocrResult.valid) {
+                            return ocrResult;
+                        }
+                        if (framingSoftFail) {
+                            return framing;
+                        }
+                        return ocrResult;
+                    });
+                }
+
+                if (!framing.valid && !framingSoftFail) {
+                    return framing;
+                }
+
                 if (skipPortrait) {
-                    return ocrCertificateImage(img, type);
+                    return afterPortraitCheck();
                 }
 
                 return detectPortrait(img).then(function (portrait) {
@@ -361,7 +392,7 @@
                             message: 'This looks like a personal photo. Upload your ' + docLabel + ' document.'
                         };
                     }
-                    return ocrCertificateImage(img, type);
+                    return afterPortraitCheck();
                 });
             });
         }

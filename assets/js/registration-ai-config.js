@@ -9,11 +9,11 @@
         /** Set false for strict verification (original behaviour). */
         lenientMode: true,
 
-        /** Document must fill at least this much of the photo (was 0.58). */
-        minFillRatio: 0.40,
+        /** Document must fill at least this much of the photo (was 0.58 / 0.40). */
+        minFillRatio: 0.28,
 
-        /** Max empty margin around document (was 0.10). */
-        maxMarginRatio: 0.22,
+        /** Max empty margin around document (was 0.10 / 0.22). */
+        maxMarginRatio: 0.32,
 
         /** BlazeFace confidence threshold (was 0.65). */
         minFaceProbability: 0.40,
