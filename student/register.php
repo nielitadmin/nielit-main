@@ -1515,7 +1515,9 @@ if (isset($_SESSION['info'])) {
     </div>
     <?php endif; ?>
 
-    <form method="POST" action="<?php echo APP_URL; ?>/student/submit_registration.php" enctype="multipart/form-data" id="registrationForm" novalidate>
+    <form method="POST" action="<?php echo APP_URL; ?>/student/submit_registration.php?token=<?php echo rawurlencode($registration_token); ?>" enctype="multipart/form-data" id="registrationForm" novalidate>
+        <input type="hidden" name="course_id" id="course_id" value="<?php echo (int)$course_details['id']; ?>">
+        <input type="hidden" name="registration_token" value="<?php echo htmlspecialchars($registration_token); ?>">
         <!-- LEVEL 1: COURSE & PERSONAL INFORMATION -->
         <div class="registration-level-section" id="level1" style="display: block;">
             <div class="level-header">
@@ -1549,8 +1551,6 @@ if (isset($_SESSION['info'])) {
                         <label class="form-label">Select Course <span class="required-mark">*</span></label>
                         <!-- Locked Course -->
                         <input type="text" class="form-control" value="<?php echo htmlspecialchars($course_details['course_name']); ?> (<?php echo htmlspecialchars($course_details['course_code']); ?>)" readonly style="background-color: #f0f9ff; cursor: not-allowed;">
-                        <input type="hidden" name="course_id" id="course_id" value="<?php echo (int)$course_details['id']; ?>">
-                        <input type="hidden" name="registration_token" value="<?php echo htmlspecialchars($registration_token); ?>">
                         <small class="text-muted"><i class="fas fa-lock"></i> Locked by registration link</small>
                     </div>
                 </div>

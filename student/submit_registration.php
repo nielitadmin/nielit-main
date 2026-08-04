@@ -279,9 +279,6 @@ function registrationFieldLabels() {
 function registrationStoreFormData(array $post) {
     $stored = [];
     foreach ($post as $key => $value) {
-        if ($key === 'registration_token') {
-            continue;
-        }
         if (is_array($value)) {
             $stored[$key] = array_map(static function ($item) {
                 return is_string($item) ? $item : $item;
@@ -330,6 +327,53 @@ function registrationFileUploadError($field) {
     return $codes[$code] ?? 'Upload error code ' . $code;
 }
 
+function registrationParseSizeToBytes($value) {
+    $value = trim((string) $value);
+    if ($value === '') {
+        return 0;
+    }
+    $unit = strtolower(substr($value, -1));
+    $num = (float) $value;
+    switch ($unit) {
+        case 'g':
+            return (int) round($num * 1024 * 1024 * 1024);
+        case 'm':
+            return (int) round($num * 1024 * 1024);
+        case 'k':
+            return (int) round($num * 1024);
+        default:
+            return (int) round((float) $value);
+    }
+}
+
+function registrationTokenFromReferer() {
+    $referer = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+    if ($referer === '') {
+        return '';
+    }
+    $parts = parse_url($referer);
+    if (empty($parts['query'])) {
+        return '';
+    }
+    parse_str($parts['query'], $query);
+    $token = normalizeRegistrationToken((string) ($query['token'] ?? ''));
+    if ($token !== '') {
+        return $token;
+    }
+    return normalizeRegistrationToken((string) ($query['course'] ?? ''));
+}
+
+function registrationPostTooLarge() {
+    $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+    $postMax = registrationParseSizeToBytes(ini_get('post_max_size'));
+    if ($contentLength > 0 && $postMax > 0 && $contentLength > $postMax) {
+        return true;
+    }
+    // PHP discards $_POST/$_FILES entirely when post_max_size is exceeded
+    $isMultipart = stripos((string) ($_SERVER['CONTENT_TYPE'] ?? ''), 'multipart/form-data') !== false;
+    return $isMultipart && $contentLength > 0 && empty($_POST) && empty($_FILES);
+}
+
 // ============================================================
 // MAIN
 // ============================================================
@@ -340,12 +384,36 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 error_log("=== REGISTRATION SUBMISSION ===");
 error_log("course_id raw: " . ($_POST['course_id'] ?? 'NOT SET'));
+error_log("CONTENT_LENGTH: " . ($_SERVER['CONTENT_LENGTH'] ?? 'n/a') . " post_max_size=" . ini_get('post_max_size'));
 
 // ----------------------------------------------------------
 // 1. Collect fields
 // ----------------------------------------------------------
-$course_id        = resolveCourseIdFromRegistrationPost($conn, $_POST);
-$registration_token = trim($_POST['registration_token'] ?? '');
+$registration_token = normalizeRegistrationToken((string) ($_POST['registration_token'] ?? ''));
+if ($registration_token === '') {
+    $registration_token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
+}
+if ($registration_token === '') {
+    $registration_token = registrationTokenFromReferer();
+}
+
+if (registrationPostTooLarge()) {
+    $msg = 'Your uploaded files are too large for one submission (server limit '
+        . ini_get('post_max_size') . '). Use smaller JPG/PNG files (under 2–3 MB each) and try again.';
+    error_log('REGISTRATION: post body exceeded post_max_size or arrived empty. token=' . $registration_token);
+    if ($registration_token !== '') {
+        $_SESSION['error'] = $msg;
+        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));
+    } else {
+        setCoursesPageNotice($msg . ' Then open the course again with Apply Now.');
+        header('Location: ' . APP_URL . '/public/courses.php');
+    }
+    exit();
+}
+
+$course_id        = resolveCourseIdFromRegistrationPost($conn, array_merge($_POST, [
+    'registration_token' => $registration_token,
+]));
 $scheme_id        = normalizeEnrollmentSchemeId($_POST['scheme_id'] ?? null);
 $training_center  = trim($_POST['training_center']  ?? '');
 $name             = trim($_POST['name']              ?? '');
@@ -398,7 +466,7 @@ if ($course_id <= 0) {
         $_SESSION['error'] = 'Course information was missing from the form. Please review and submit again.';
         header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));
     } else {
-        setCoursesPageNotice('Please tap Apply Now on a course to open the registration form.');
+        setCoursesPageNotice('Registration data was incomplete (often caused by large file uploads). Please tap Apply Now on a course and upload smaller files.');
         header('Location: ' . APP_URL . '/public/courses.php');
     }
     exit();
