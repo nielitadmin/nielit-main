@@ -399,15 +399,19 @@ if ($registration_token === '') {
 
 if (registrationPostTooLarge()) {
     $msg = 'Your uploaded files are too large for one submission (server limit '
-        . ini_get('post_max_size') . '). Use smaller JPG/PNG files (under 2–3 MB each) and try again.';
-    error_log('REGISTRATION: post body exceeded post_max_size or arrived empty. token=' . $registration_token);
+        . ini_get('post_max_size') . '). Compress photos to under 2 MB each (JPG), or upload fewer optional documents, then submit again.';
+    error_log('REGISTRATION: post body exceeded post_max_size or arrived empty. token=' . $registration_token
+        . ' CONTENT_LENGTH=' . ($_SERVER['CONTENT_LENGTH'] ?? '')
+        . ' post_max_size=' . ini_get('post_max_size'));
     if ($registration_token !== '') {
-        $_SESSION['error'] = $msg;
-        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));
-    } else {
-        setCoursesPageNotice($msg . ' Then open the course again with Apply Now.');
-        header('Location: ' . APP_URL . '/public/courses.php');
+        registrationRedirectWithErrors(
+            APP_URL . '/student/register.php?token=' . rawurlencode($registration_token),
+            [$msg, 'Important: You must re-select all document files before submitting again.'],
+            ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet']
+        );
     }
+    setCoursesPageNotice($msg . ' Then open the course again with Apply Now.');
+    header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 
@@ -463,12 +467,17 @@ $age = !empty($dob) ? (int)(new DateTime($dob))->diff(new DateTime())->y : 0;
 // ----------------------------------------------------------
 if ($course_id <= 0) {
     if ($registration_token !== '') {
-        $_SESSION['error'] = 'Course information was missing from the form. Please review and submit again.';
-        header('Location: ' . APP_URL . '/student/register.php?token=' . rawurlencode($registration_token));
-    } else {
-        setCoursesPageNotice('Registration data was incomplete (often caused by large file uploads). Please tap Apply Now on a course and upload smaller files.');
-        header('Location: ' . APP_URL . '/public/courses.php');
+        registrationRedirectWithErrors(
+            APP_URL . '/student/register.php?token=' . rawurlencode($registration_token),
+            [
+                'Course information was missing from the form (often caused by oversized uploads). Please re-select your documents and submit again.',
+                'Tip: use JPG photos under 2 MB each instead of large PDFs.'
+            ],
+            ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet']
+        );
     }
+    setCoursesPageNotice('Registration data was incomplete (often caused by large file uploads). Please tap Apply Now on a course and upload smaller files.');
+    header('Location: ' . APP_URL . '/public/courses.php');
     exit();
 }
 
@@ -516,9 +525,12 @@ $course_name  = $cRow['course_name'];
 $course_code  = $cRow['course_code'];
 $course_fee   = isset($cRow['fees']) ? (float)$cRow['fees'] : 0.00;
 
-$registration_token = trim($_POST['registration_token'] ?? '');
+$registration_token = normalizeRegistrationToken((string) ($_POST['registration_token'] ?? ''));
 if ($registration_token === '') {
-    $registration_token = trim($cRow['registration_token'] ?? '');
+    $registration_token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
+}
+if ($registration_token === '') {
+    $registration_token = normalizeRegistrationToken((string) ($cRow['registration_token'] ?? ''));
 }
 
 if ($registration_token !== '') {

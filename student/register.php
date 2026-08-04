@@ -1369,21 +1369,23 @@ $registrationMissingFields = $_SESSION['registration_missing_fields'] ?? [];
 $registrationFormData = $_SESSION['registration_form_data'] ?? [];
 unset($_SESSION['registration_errors'], $_SESSION['registration_missing_fields'], $_SESSION['registration_form_data']);
 
-if (isset($_SESSION['success'])) {
-    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.success('" . addslashes($_SESSION['success']) . "'); });</script>";
-    unset($_SESSION['success']);
+$sessionErrorMessage = isset($_SESSION['error']) ? (string) $_SESSION['error'] : '';
+$sessionSuccessMessage = isset($_SESSION['success']) ? (string) $_SESSION['success'] : '';
+$sessionWarningMessage = isset($_SESSION['warning']) ? (string) $_SESSION['warning'] : '';
+$sessionInfoMessage = isset($_SESSION['info']) ? (string) $_SESSION['info'] : '';
+unset($_SESSION['error'], $_SESSION['success'], $_SESSION['warning'], $_SESSION['info']);
+
+if ($sessionSuccessMessage !== '') {
+    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.success('" . addslashes($sessionSuccessMessage) . "'); });</script>";
 }
-if (isset($_SESSION['error'])) {
-    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.error('" . addslashes($_SESSION['error']) . "'); });</script>";
-    unset($_SESSION['error']);
+if ($sessionErrorMessage !== '') {
+    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.error('" . addslashes($sessionErrorMessage) . "'); });</script>";
 }
-if (isset($_SESSION['warning'])) {
-    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.warning('" . addslashes($_SESSION['warning']) . "'); });</script>";
-    unset($_SESSION['warning']);
+if ($sessionWarningMessage !== '') {
+    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.warning('" . addslashes($sessionWarningMessage) . "'); });</script>";
 }
-if (isset($_SESSION['info'])) {
-    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.info('" . addslashes($_SESSION['info']) . "'); });</script>";
-    unset($_SESSION['info']);
+if ($sessionInfoMessage !== '') {
+    echo "<script>document.addEventListener('DOMContentLoaded', function() { toast.info('" . addslashes($sessionInfoMessage) . "'); });</script>";
 }
 ?>
 
@@ -1396,8 +1398,27 @@ if (isset($_SESSION['info'])) {
                 <li><?php echo htmlspecialchars($err); ?></li>
             <?php endforeach; ?>
         </ul>
+        <p class="mb-0 mt-2 small"><strong>Note:</strong> Document files are not kept after a failed submit — please choose each required file again.</p>
     </div>
 </div>
+<?php elseif ($sessionErrorMessage !== ''): ?>
+<div class="container px-0 mb-3">
+    <div class="alert alert-danger border-0 shadow-sm" role="alert" id="registrationErrorSummary">
+        <i class="fas fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($sessionErrorMessage); ?>
+        <p class="mb-0 mt-2 small"><strong>Note:</strong> Document files are not kept after a failed submit — please choose each required file again.</p>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if (!empty($registrationErrors) || $sessionErrorMessage !== ''): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var el = document.getElementById('registrationErrorSummary');
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
+</script>
 <?php endif; ?>
 
 <div class="registration-container">
@@ -4218,8 +4239,29 @@ registrationFormEl.addEventListener('submit', function(e) {
     }
 
     const citySelect = document.getElementById('city');
-    if (citySelect && citySelect.value) {
+    if (citySelect) {
         citySelect.disabled = false;
+    }
+    const stateSelectSubmit = document.getElementById('state');
+    if (stateSelectSubmit) {
+        stateSelectSubmit.disabled = false;
+    }
+
+    let totalUploadBytes = 0;
+    form.querySelectorAll('input[type="file"]').forEach(function (input) {
+        if (input.files && input.files.length) {
+            for (let i = 0; i < input.files.length; i++) {
+                totalUploadBytes += input.files[i].size || 0;
+            }
+        }
+    });
+    const softLimitBytes = 55 * 1024 * 1024;
+    if (totalUploadBytes > softLimitBytes) {
+        return failValidation(
+            'Total documents are too large (' + (totalUploadBytes / (1024 * 1024)).toFixed(1) +
+            ' MB). Compress photos to under 2 MB each (JPG) and try again.',
+            'tenth_marksheet'
+        );
     }
 
     const requiredFields = ['name', 'father_name', 'mother_name', 'dob', 'gender', 'marital_status', 'mobile', 'email', 'aadhar', 'nationality', 'religion', 'category', 'position', 'state', 'city', 'pincode', 'address'];
