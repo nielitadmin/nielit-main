@@ -274,14 +274,15 @@ function downloadPDF() {
     }
     
     const opt = {
-        margin: [3, 8, 10, 8],
+        margin: [8, 8, 10, 8],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
             scale: 2,
             useCORS: true,
             letterRendering: false,
-            scrollY: 0
+            scrollY: 0,
+            windowWidth: 794
         },
         jsPDF: { 
             unit: 'mm', 
@@ -289,7 +290,11 @@ function downloadPDF() {
             orientation: 'portrait',
             compress: true
         },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], avoid: '.ao-footer-section' }
+        // avoid-all leaves orphaned table headers / large blank gaps; css+legacy is reliable
+        pagebreak: {
+            mode: ['css', 'legacy'],
+            avoid: ['.ao-keep-together', '.ao-footer-signature', 'tr', 'img']
+        }
     };
     
     // Show loading toast
@@ -363,7 +368,7 @@ function printOrder() {
         
         #printable-content {
             max-width: 100%;
-            padding: 0 5mm 14mm 5mm;
+            padding: 0 5mm 8mm 5mm;
             margin: 0;
             box-sizing: border-box;
             overflow: visible;
@@ -391,13 +396,32 @@ function printOrder() {
             page-break-inside: auto;
         }
         
-        .ao-students-table tr {
+        .ao-students-table {
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        .ao-students-table thead {
+            /* table-header-group orphans the header at page bottom in html2pdf/print */
+            display: table-row-group;
+        }
+
+        .ao-students-table thead tr {
             page-break-inside: avoid;
+            break-inside: avoid;
+            page-break-after: avoid;
+            break-after: avoid-page;
+        }
+
+        .ao-students-table tbody tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
             page-break-after: auto;
         }
         
-        thead {
-            display: table-header-group;
+        .ao-keep-together {
+            page-break-inside: avoid;
+            break-inside: avoid;
         }
         
         tfoot {
@@ -427,7 +451,6 @@ function printOrder() {
         .ao-students-table .ao-name,
         .ao-students-table .ao-father { font-size: 7.5pt; }
 
-        .ao-footer-section,
         .ao-footer-signature { page-break-inside: avoid; break-inside: avoid; }
         .ao-footer-signature td { border: none !important; }
         .ao-copy-list li { margin: 0 0 1px 0; line-height: 1.25; }
@@ -1153,13 +1176,32 @@ function resendFacultyEmail(facultyId, facultyName) {
         page-break-inside: auto;
     }
     
-    tr {
+    .ao-students-table {
+        page-break-inside: auto;
+        break-inside: auto;
+    }
+
+    .ao-students-table thead {
+        display: table-row-group;
+    }
+
+    .ao-students-table thead tr {
         page-break-inside: avoid;
+        break-inside: avoid;
+        page-break-after: avoid;
+        break-after: avoid-page;
+    }
+
+    .ao-students-table tbody tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
         page-break-after: auto;
     }
-    
-    thead {
-        display: table-header-group;
+
+    .ao-keep-together,
+    .ao-footer-signature {
+        page-break-inside: avoid;
+        break-inside: avoid;
     }
     
     th {

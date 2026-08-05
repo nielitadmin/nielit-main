@@ -413,7 +413,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         width: 100%;
         max-width: 100%;
         margin: 0 auto;
-        padding: 3mm 5mm 14mm 5mm;
+        padding: 2mm 5mm 8mm 5mm;
         box-sizing: border-box;
         font-size: 8.5pt;
         line-height: 1.15;
@@ -465,6 +465,25 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         color: #333;
         border-color: #aaa;
     }
+    .ao-students-table {
+        page-break-inside: auto;
+        break-inside: auto;
+    }
+    .ao-students-table thead {
+        /* Prevent orphan header row alone at bottom of page (html2pdf / Chrome print) */
+        display: table-row-group;
+    }
+    .ao-students-table thead tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        page-break-after: avoid;
+        break-after: avoid-page;
+    }
+    .ao-students-table tbody tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        page-break-after: auto;
+    }
     .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
     .ao-students-table .ao-reg { width: 13%; font-size: 7px; word-break: break-all; line-height: 1.25; }
     .ao-students-table .ao-name { width: 23%; font-size: 7.5px; text-align: left; }
@@ -474,7 +493,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
     .ao-students-table .ao-cat { width: 7%; text-align: center; font-size: 6.5px; white-space: nowrap; }
     .ao-students-table .ao-remark { width: 10%; font-size: 6px; text-align: center; word-break: break-all; }
-    .ao-footer-section { page-break-inside: avoid; break-inside: avoid; }
+    .ao-keep-together { page-break-inside: avoid; break-inside: avoid; }
     .ao-footer-block { margin-top: 5px; font-size: 7pt; line-height: 1.3; }
     .ao-footer-signature { margin-top: 6px; font-size: 7pt; line-height: 1.3; page-break-inside: avoid; break-inside: avoid; }
     .ao-footer-signature p { margin: 0 0 2px 0; font-weight: normal; }
