@@ -2783,9 +2783,10 @@ function batchOptionLabel(batch) {
 
 function getEligibleBatchesForEnrollment(enrollment, courseId, courseName) {
     const assigned = new Set((enrollment.assigned_batch_ids || []).map(String));
+    // Show every batch for this course (Regular + SCSP/TSP, etc.).
+    // Server aligns the student's scheme to the selected batch on assign.
     return ALL_BATCHES.filter(batch => {
         return courseMatchesBatch(courseId, batch.course_id, courseName, batch.course_name)
-            && schemeMatchesBatch(enrollment.scheme_id || 0, batch.scheme_id)
             && !assigned.has(String(batch.id));
     });
 }
@@ -2919,13 +2920,8 @@ function openBulkBatchModal() {
         const oc = (opt.dataset.course || '').trim().toLowerCase();
         const courseOk = (batchCourseId > 0 && courseIds.has(batchCourseId))
             || (courseIds.size === 0 && courses.has(oc));
-        let schemeOk = true;
-        checked.forEach(cb => {
-            if (!schemeMatchesBatch(cb.dataset.schemeId || '0', opt.dataset.schemeId)) {
-                schemeOk = false;
-            }
-        });
-        opt.style.display = (courseOk && schemeOk) ? '' : 'none';
+        // Show all batches for the course; scheme is adopted from the batch on assign
+        opt.style.display = courseOk ? '' : 'none';
     });
 
     document.getElementById('bulk-modal-batch-select').value = '';

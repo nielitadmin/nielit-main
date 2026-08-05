@@ -2424,9 +2424,33 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 return ['success' => false, 'message' => 'Batch course does not match student enrollment.'];
             }
             $studentScheme = normalizeEnrollmentSchemeId($studentRow['scheme_id'] ?? null);
-            if (hasSchemeEnrollmentColumns($conn) && ($studentScheme !== null || $batchScheme !== null)) {
-                if (!canAssignStudentSchemeToBatch($studentScheme, $batchScheme)) {
-                    return ['success' => false, 'message' => 'Student scheme/project does not match this batch.'];
+            // Multi-scheme courses: picking a batch adopts that batch's scheme.
+            if (hasSchemeEnrollmentColumns($conn) && $batchScheme !== null && $studentScheme !== $batchScheme) {
+                $schemeSync = adminUpdateStudentScheme($conn, $studentRecordId, $batchScheme);
+                if (empty($schemeSync['success'])) {
+                    // Student may already be linked to another batch; still allow scheme align for same-course reassignment
+                    $updScheme = $conn->prepare('UPDATE students SET scheme_id = ? WHERE id = ?');
+                    if (!$updScheme) {
+                        return ['success' => false, 'message' => $schemeSync['message'] ?? 'Could not update student scheme to match batch.'];
+                    }
+                    $updScheme->bind_param('ii', $batchScheme, $studentRecordId);
+                    if (!$updScheme->execute()) {
+                        $err = $updScheme->error;
+                        $updScheme->close();
+                        return ['success' => false, 'message' => $err ?: 'Could not update student scheme to match batch.'];
+                    }
+                    $updScheme->close();
+                    if (isMultiCourseSystemInstalled($conn)) {
+                        $enr = $conn->prepare('UPDATE student_enrollments SET scheme_id = ? WHERE student_record_id = ?');
+                        if ($enr) {
+                            $enr->bind_param('ii', $batchScheme, $studentRecordId);
+                            $enr->execute();
+                            $enr->close();
+                        }
+                    }
+                    if (function_exists('syncStudentEnrollmentRecord')) {
+                        syncStudentEnrollmentRecord($conn, $studentRecordId);
+                    }
                 }
             }
         }
