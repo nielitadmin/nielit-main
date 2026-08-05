@@ -2721,13 +2721,17 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
-     * Bulk-set scheme/project for all active enrollments of a course (e.g. after Edit Course ticks schemes).
+     * Bulk-set scheme/project for enrollments of a course.
      *
-     * @return array{success:bool,message:string,updated:int,skipped:int,already:int}
+     * @param list<int> $allowedSchemeIds schemes linked to the course after save
+     * @param string $mode 'force_all' = set every student to $schemeId;
+     *                     'preserve' = keep students already on an allowed scheme;
+     *                                  only update null / removed-scheme enrollments to $schemeId (fallback)
+     * @return array{success:bool,message:string,updated:int,skipped:int,already:int,kept:int}
      */
-    function adminSyncCourseStudentsToScheme(mysqli $conn, int $courseId, int $schemeId): array
+    function adminSyncCourseStudentsToScheme(mysqli $conn, int $courseId, int $schemeId, array $allowedSchemeIds = [], string $mode = 'force_all'): array
     {
-        $empty = ['success' => false, 'message' => '', 'updated' => 0, 'skipped' => 0, 'already' => 0];
+        $empty = ['success' => false, 'message' => '', 'updated' => 0, 'skipped' => 0, 'already' => 0, 'kept' => 0];
         if ($courseId <= 0 || $schemeId <= 0) {
             $empty['message'] = 'Invalid course or scheme.';
             return $empty;
@@ -2740,6 +2744,18 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $empty['message'] = 'Selected scheme is not linked to this course.';
             return $empty;
         }
+
+        $allowed = [];
+        foreach ($allowedSchemeIds as $aid) {
+            $aid = (int) $aid;
+            if ($aid > 0) {
+                $allowed[$aid] = $aid;
+            }
+        }
+        if (empty($allowed)) {
+            $allowed[$schemeId] = $schemeId;
+        }
+        $mode = ($mode === 'preserve') ? 'preserve' : 'force_all';
 
         $schemeLabel = 'Scheme #' . $schemeId;
         $sn = $conn->prepare('SELECT scheme_name, scheme_code FROM schemes WHERE id = ? LIMIT 1');
@@ -2770,6 +2786,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $updated = 0;
         $skipped = 0;
         $already = 0;
+        $kept = 0;
 
         while ($row = $res->fetch_assoc()) {
             $recordId = (int) ($row['id'] ?? 0);
@@ -2777,6 +2794,18 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 continue;
             }
             $current = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
+
+            if ($mode === 'preserve') {
+                // Multi-scheme course: leave Regular / SCSP / etc. alone if still linked
+                if ($current !== null && isset($allowed[$current])) {
+                    $kept++;
+                    continue;
+                }
+            } elseif ($current === $schemeId) {
+                $already++;
+                continue;
+            }
+
             if ($current === $schemeId) {
                 $already++;
                 continue;
@@ -2801,14 +2830,24 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $stmt->close();
 
         $parts = [];
-        if ($updated > 0) {
-            $parts[] = $updated . ' student(s) updated to ' . $schemeLabel;
-        }
-        if ($already > 0) {
-            $parts[] = $already . ' already on that scheme';
+        if ($mode === 'preserve') {
+            $parts[] = 'Multiple schemes kept on course';
+            if ($kept > 0) {
+                $parts[] = $kept . ' student(s) kept on their existing scheme';
+            }
+            if ($updated > 0) {
+                $parts[] = $updated . ' without a matching scheme set to ' . $schemeLabel;
+            }
+        } else {
+            if ($updated > 0) {
+                $parts[] = $updated . ' student(s) updated to ' . $schemeLabel;
+            }
+            if ($already > 0) {
+                $parts[] = $already . ' already on that scheme';
+            }
         }
         if ($skipped > 0) {
-            $parts[] = $skipped . ' skipped (batch scheme mismatch or error — remove from batch first if needed)';
+            $parts[] = $skipped . ' skipped (batch scheme mismatch or error)';
         }
         if (empty($parts)) {
             $parts[] = 'No enrolled students to update';
@@ -2820,6 +2859,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             'updated' => $updated,
             'skipped' => $skipped,
             'already' => $already,
+            'kept' => $kept,
         ];
     }
 

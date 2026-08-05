@@ -421,14 +421,24 @@ if (isset($_POST['update_course'])) {
             }
             $savedSchemeIds = array_values(array_unique($savedSchemeIds));
 
-            // Auto-update enrolled students' scheme when admin opts in (default on).
+            // Sync enrolled students with course schemes (supports multiple schemes).
             $syncStudents = isset($_POST['sync_student_schemes']);
             if ($syncStudents && !empty($savedSchemeIds) && function_exists('adminSyncCourseStudentsToScheme')) {
+                $syncMode = (string) ($_POST['sync_student_mode'] ?? '');
+                if ($syncMode !== 'force_all' && $syncMode !== 'preserve') {
+                    $syncMode = (count($savedSchemeIds) > 1) ? 'preserve' : 'force_all';
+                }
                 $syncTo = (int) ($_POST['sync_to_scheme_id'] ?? 0);
                 if ($syncTo <= 0 || !in_array($syncTo, $savedSchemeIds, true)) {
                     $syncTo = (int) $savedSchemeIds[0];
                 }
-                $syncResult = adminSyncCourseStudentsToScheme($conn, (int) $course_id, $syncTo);
+                $syncResult = adminSyncCourseStudentsToScheme(
+                    $conn,
+                    (int) $course_id,
+                    $syncTo,
+                    $savedSchemeIds,
+                    $syncMode
+                );
                 if (!empty($syncResult['message'])) {
                     $_SESSION['scheme_sync_message'] = $syncResult['message'];
                 }
@@ -733,17 +743,35 @@ $active_theme = loadActiveTheme($conn);
                             <?php endif; ?>
                         </div>
                         <div style="margin-top: 12px; padding: 12px; background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 6px;">
-                            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                            <p style="margin: 0 0 10px; font-size: 0.9rem; color: #0c5460;">
+                                <i class="fas fa-info-circle"></i>
+                                You can tick <strong>multiple</strong> schemes/projects for this course (e.g. Regular + SCSP/TSP).
+                                Each student keeps their own scheme; Assign Batch then shows matching batches only.
+                            </p>
+                            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 10px;">
                                 <input type="checkbox" name="sync_student_schemes" id="sync_student_schemes" value="1" checked style="width: 18px; height: 18px; margin-top: 2px;">
-                                <span>
-                                    <strong>Also update all enrolled students</strong> to the scheme below when you save.
-                                    <br><small class="text-muted">Students already in a batch with a different scheme are skipped.</small>
-                                </span>
+                                <span><strong>Sync student schemes</strong> when saving this course</span>
                             </label>
-                            <label for="sync_to_scheme_id" class="form-label" style="margin-bottom: 4px;">Apply this scheme to students</label>
-                            <select name="sync_to_scheme_id" id="sync_to_scheme_id" class="form-control" style="max-width: 420px;">
-                                <option value="">— Select a ticked scheme —</option>
-                            </select>
+                            <div id="sync_mode_wrap" style="margin-left: 4px;">
+                                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                    <input type="radio" name="sync_student_mode" id="sync_mode_preserve" value="preserve" checked style="margin-top: 3px;">
+                                    <span>
+                                        <strong>Keep multiple schemes</strong> — students already on a ticked scheme stay as they are
+                                        (Regular stays Regular, SCSP stays SCSP).
+                                        <br><small class="text-muted">Only students with no scheme / a removed scheme use the fallback below.</small>
+                                    </span>
+                                </label>
+                                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 10px;">
+                                    <input type="radio" name="sync_student_mode" id="sync_mode_force" value="force_all" style="margin-top: 3px;">
+                                    <span>
+                                        <strong>Force all students</strong> to one scheme (use only if this course has a single project)
+                                    </span>
+                                </label>
+                                <label for="sync_to_scheme_id" class="form-label" style="margin-bottom: 4px;" id="sync_to_scheme_label">Fallback scheme (for students without a matching scheme)</label>
+                                <select name="sync_to_scheme_id" id="sync_to_scheme_id" class="form-control" style="max-width: 420px;">
+                                    <option value="">— Select a ticked scheme —</option>
+                                </select>
+                            </div>
                         </div>
                         <small class="text-muted">Select one or more schemes/projects for this course</small>
                     </div>
@@ -1905,10 +1933,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <script>
 (function () {
+    function checkedSchemes() {
+        return Array.prototype.slice.call(document.querySelectorAll('.course-scheme-checkbox:checked'));
+    }
+
     function refreshSyncSchemeOptions(preferId) {
         var select = document.getElementById('sync_to_scheme_id');
         if (!select) return;
-        var checked = Array.prototype.slice.call(document.querySelectorAll('.course-scheme-checkbox:checked'));
+        var checked = checkedSchemes();
         var prev = preferId || select.value;
         select.innerHTML = '';
         if (checked.length === 0) {
@@ -1927,15 +1959,61 @@ document.addEventListener('DOMContentLoaded', function() {
         if (prev && checked.some(function (cb) { return String(cb.value) === String(prev); })) {
             select.value = String(prev);
         } else {
-            select.value = checked[checked.length - 1].value;
+            select.value = checked[0].value;
         }
     }
+
+    function refreshSyncModeUi() {
+        var count = checkedSchemes().length;
+        var preserve = document.getElementById('sync_mode_preserve');
+        var force = document.getElementById('sync_mode_force');
+        var label = document.getElementById('sync_to_scheme_label');
+        if (!preserve || !force) return;
+
+        if (count <= 1) {
+            force.checked = true;
+            if (label) label.textContent = 'Scheme to apply to all enrolled students';
+        } else {
+            // Multiple schemes: keep each student's project (Regular + SCSP/TSP, etc.)
+            if (!force.checked && !preserve.checked) {
+                preserve.checked = true;
+            }
+            if (!document.querySelector('input[name="sync_student_mode"]:checked')) {
+                preserve.checked = true;
+            }
+            // Prefer preserve when user just added a second scheme
+            if (count > 1 && force.checked === false) {
+                preserve.checked = true;
+            }
+            if (label) {
+                label.textContent = force.checked
+                    ? 'Force all students to this scheme'
+                    : 'Fallback scheme (only for students without a matching ticked scheme)';
+            }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         refreshSyncSchemeOptions();
+        refreshSyncModeUi();
+        // On load with 2+ schemes, default to preserve
+        if (checkedSchemes().length > 1) {
+            var preserve = document.getElementById('sync_mode_preserve');
+            if (preserve) preserve.checked = true;
+            refreshSyncModeUi();
+        }
         document.querySelectorAll('.course-scheme-checkbox').forEach(function (cb) {
             cb.addEventListener('change', function () {
                 refreshSyncSchemeOptions(cb.checked ? cb.value : null);
+                if (checkedSchemes().length > 1) {
+                    var preserve = document.getElementById('sync_mode_preserve');
+                    if (preserve) preserve.checked = true;
+                }
+                refreshSyncModeUi();
             });
+        });
+        document.querySelectorAll('input[name="sync_student_mode"]').forEach(function (r) {
+            r.addEventListener('change', refreshSyncModeUi);
         });
     });
 })();
