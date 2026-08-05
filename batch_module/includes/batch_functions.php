@@ -62,7 +62,10 @@ function createBatch($data, $conn) {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("isssssdisssi", 
+    // 11 placeholders in INSERT: course_id(i), batch_name(s), batch_description(s), batch_code(s),
+    // start_date(s), end_date(s), training_fees(d), seats_total(i), batch_coordinator(s),
+    // status(s), created_by(i)
+    $stmt->bind_param("isssssdissi", 
         $data['course_id'],
         $data['batch_name'],
         $batchDescription,
