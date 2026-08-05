@@ -55,6 +55,184 @@ if (!function_exists('classTimetableDayLabels')) {
     }
 }
 
+if (!function_exists('classTimetablePeriods')) {
+    /**
+     * Fixed hourly periods matching the institute spreadsheet layout.
+     * @return list<array{key:string,start:string,end:string,label:string,short:string}>
+     */
+    function classTimetablePeriods(): array
+    {
+        return [
+            ['key' => '07:00', 'start' => '07:00:00', 'end' => '08:00:00', 'label' => "7:00 AM to\n8:00 AM", 'short' => '7–8 AM'],
+            ['key' => '08:00', 'start' => '08:00:00', 'end' => '09:00:00', 'label' => "8:00 AM to\n9:00 AM", 'short' => '8–9 AM'],
+            ['key' => '09:00', 'start' => '09:00:00', 'end' => '10:00:00', 'label' => "9:00 AM to\n10:00 AM", 'short' => '9–10 AM'],
+            ['key' => '10:00', 'start' => '10:00:00', 'end' => '11:00:00', 'label' => "10:00 AM to\n11:00 AM", 'short' => '10–11 AM'],
+            ['key' => '11:00', 'start' => '11:00:00', 'end' => '12:00:00', 'label' => "11:00 AM to\n12:00 PM", 'short' => '11–12 PM'],
+            ['key' => '12:00', 'start' => '12:00:00', 'end' => '13:00:00', 'label' => "12:00 PM to\n01:00 PM", 'short' => '12–1 PM'],
+            ['key' => '13:30', 'start' => '13:30:00', 'end' => '14:30:00', 'label' => "01:30 PM to\n02:30 PM", 'short' => '1:30–2:30'],
+            ['key' => '14:30', 'start' => '14:30:00', 'end' => '15:30:00', 'label' => "02:30 PM to\n03:30 PM", 'short' => '2:30–3:30'],
+            ['key' => '15:30', 'start' => '15:30:00', 'end' => '16:30:00', 'label' => "03:30 PM to\n04:30 PM", 'short' => '3:30–4:30'],
+            ['key' => '16:30', 'start' => '16:30:00', 'end' => '17:30:00', 'label' => "04:30 PM to\n05:30 PM", 'short' => '4:30–5:30'],
+            ['key' => '17:30', 'start' => '17:30:00', 'end' => '18:30:00', 'label' => "05:30 PM to\n06:30 PM", 'short' => '5:30–6:30'],
+            ['key' => '18:30', 'start' => '18:30:00', 'end' => '19:30:00', 'label' => "06:30 PM to\n07:30 PM", 'short' => '6:30–7:30'],
+        ];
+    }
+}
+
+if (!function_exists('classTimetableTimeToMinutes')) {
+    function classTimetableTimeToMinutes(?string $time): int
+    {
+        $norm = classTimetableNormalizeTime((string) $time);
+        if ($norm === '') {
+            return -1;
+        }
+        $parts = explode(':', $norm);
+        return ((int) $parts[0] * 60) + (int) $parts[1];
+    }
+}
+
+if (!function_exists('classTimetableFacultyInitials')) {
+    function classTimetableFacultyInitials(?string $name): string
+    {
+        $name = trim((string) $name);
+        if ($name === '') {
+            return '';
+        }
+        // Already looks like initials (e.g. SLD / J.S.)
+        if (preg_match('/^[A-Za-z]{1,5}([.\s]*[A-Za-z]){0,4}$/', $name) && strlen(preg_replace('/[^A-Za-z]/', '', $name)) <= 5) {
+            $compact = strtoupper(preg_replace('/[^A-Za-z]/', '', $name));
+            if ($compact !== '') {
+                return $compact;
+            }
+        }
+        $parts = preg_split('/\s+/', $name) ?: [];
+        $initials = '';
+        foreach ($parts as $part) {
+            $part = preg_replace('/[^A-Za-z]/', '', $part);
+            if ($part !== '') {
+                $initials .= strtoupper($part[0]);
+            }
+        }
+        return $initials;
+    }
+}
+
+if (!function_exists('classTimetableCellLabel')) {
+    /** Spreadsheet-style: "CCC (JS)" */
+    function classTimetableCellLabel(array $slot): string
+    {
+        $subject = trim((string) ($slot['subject'] ?? ''));
+        $initials = classTimetableFacultyInitials($slot['faculty_name'] ?? '');
+        if ($subject === '') {
+            return $initials !== '' ? '(' . $initials . ')' : '';
+        }
+        return $initials !== '' ? ($subject . ' (' . $initials . ')') : $subject;
+    }
+}
+
+if (!function_exists('classTimetableMatchPeriodKey')) {
+    function classTimetableMatchPeriodKey(array $slot): ?string
+    {
+        $startMin = classTimetableTimeToMinutes($slot['start_time'] ?? '');
+        $endMin = classTimetableTimeToMinutes($slot['end_time'] ?? '');
+        if ($startMin < 0) {
+            return null;
+        }
+        foreach (classTimetablePeriods() as $period) {
+            $pStart = classTimetableTimeToMinutes($period['start']);
+            $pEnd = classTimetableTimeToMinutes($period['end']);
+            // Exact start, or slot overlaps majority of period
+            if ($startMin === $pStart) {
+                return $period['key'];
+            }
+            if ($endMin > $startMin && $startMin < $pEnd && $endMin > $pStart) {
+                $overlap = min($endMin, $pEnd) - max($startMin, $pStart);
+                if ($overlap >= 30) {
+                    return $period['key'];
+                }
+            }
+        }
+        return null;
+    }
+}
+
+if (!function_exists('classTimetableBuildGrid')) {
+    /**
+     * @param list<array<string,mixed>> $slots
+     * @return array{days:array<int,string>,periods:list<array>,grid:array<int,array<string,list<array>>>,unplaced:list<array>}
+     */
+    function classTimetableBuildGrid(array $slots): array
+    {
+        $days = classTimetableDayLabels();
+        // Match spreadsheet: Mon–Fri; include Saturday only when used
+        $hasSaturday = false;
+        foreach ($slots as $slot) {
+            if ((int) ($slot['day_of_week'] ?? 0) === 6) {
+                $hasSaturday = true;
+                break;
+            }
+        }
+        if (!$hasSaturday) {
+            unset($days[6]);
+        }
+
+        $periods = classTimetablePeriods();
+        $grid = [];
+        foreach ($days as $day => $_label) {
+            $grid[$day] = [];
+            foreach ($periods as $period) {
+                $grid[$day][$period['key']] = [];
+            }
+        }
+
+        $unplaced = [];
+        foreach ($slots as $slot) {
+            $day = (int) ($slot['day_of_week'] ?? 0);
+            $key = classTimetableMatchPeriodKey($slot);
+            if ($day > 0 && $key !== null && isset($grid[$day][$key])) {
+                $grid[$day][$key][] = $slot;
+            } else {
+                $unplaced[] = $slot;
+            }
+        }
+
+        return [
+            'days' => $days,
+            'periods' => $periods,
+            'grid' => $grid,
+            'unplaced' => $unplaced,
+        ];
+    }
+}
+
+if (!function_exists('classTimetableBuildLegends')) {
+    /**
+     * @param list<array<string,mixed>> $slots
+     * @return array{faculty:array<string,string>,subjects:array<string,string>}
+     */
+    function classTimetableBuildLegends(array $slots): array
+    {
+        $faculty = [];
+        $subjects = [];
+        foreach ($slots as $slot) {
+            $name = trim((string) ($slot['faculty_name'] ?? ''));
+            if ($name !== '') {
+                $ini = classTimetableFacultyInitials($name);
+                if ($ini !== '' && !isset($faculty[$ini])) {
+                    $faculty[$ini] = $name;
+                }
+            }
+            $subject = trim((string) ($slot['subject'] ?? ''));
+            if ($subject !== '') {
+                $subjects[$subject] = $subject;
+            }
+        }
+        ksort($faculty);
+        ksort($subjects);
+        return ['faculty' => $faculty, 'subjects' => $subjects];
+    }
+}
+
 if (!function_exists('classTimetableDayLabel')) {
     function classTimetableDayLabel(int $day): string
     {
