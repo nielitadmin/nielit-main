@@ -264,9 +264,9 @@ function downloadPDF() {
         showToast('Cannot download PDF: Batch is locked', 'error');
         return;
     <?php endif; ?>
-    
+
     const element = document.getElementById('printable-content');
-    
+
     if (!element) {
         showToast('Error: Content not found', 'error');
         return;
@@ -274,81 +274,79 @@ function downloadPDF() {
 
     showToast('Generating PDF...', 'info');
 
-    // Build a fully opaque off-screen copy. opacity:0 / z-index:-1 caused blank PDFs
-    // with only a thin content strip on the right edge.
-    const oldHost = document.getElementById('ao-pdf-render-host');
-    if (oldHost) {
-        oldHost.remove();
-    }
+    const opt = {
+        margin: [10, 10, 10, 10],
+        filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+            scrollX: 0,
+            scrollY: -window.scrollY,
+            onclone: function(clonedDoc) {
+                var body = clonedDoc.body;
+                body.style.margin = '0';
+                body.style.padding = '0';
+                body.style.width = '794px';
+                body.style.position = 'relative';
 
-    const host = document.createElement('div');
-    host.id = 'ao-pdf-render-host';
-    host.style.cssText = 'position:absolute;left:-10000px;top:0;width:794px;background:#ffffff;margin:0;padding:0;overflow:visible;';
+                var allSidebars = body.querySelectorAll('.admin-sidebar, .sidebar, nav, .admin-wrapper');
+                allSidebars.forEach(function(el) { el.style.display = 'none'; });
 
-    // Bring styles with the clone so table layout is preserved
-    const styleNodes = document.querySelectorAll('#admission-order-content style');
-    styleNodes.forEach((styleNode) => {
-        const styleCopy = document.createElement('style');
-        styleCopy.textContent = String(styleNode.textContent || '')
-            .replace(/#printable-content/g, '#ao-pdf-printable');
-        host.appendChild(styleCopy);
-    });
+                var content = body.querySelectorAll('.admin-content, .main-content, main');
+                content.forEach(function(el) {
+                    el.style.marginLeft = '0';
+                    el.style.paddingLeft = '0';
+                    el.style.width = '794px';
+                    el.style.maxWidth = '794px';
+                    el.style.transform = 'none';
+                    el.style.position = 'static';
+                });
 
-    const clone = element.cloneNode(true);
-    clone.id = 'ao-pdf-printable';
-    clone.style.cssText = 'display:block;width:794px;max-width:794px;margin:0;padding:10px 12px;box-sizing:border-box;background:#ffffff;overflow:visible;transform:none;position:static;left:auto;top:auto;';
-    host.appendChild(clone);
-    document.body.appendChild(host);
+                var pc = clonedDoc.getElementById('printable-content');
+                if (pc) {
+                    pc.style.width = '794px';
+                    pc.style.maxWidth = '794px';
+                    pc.style.margin = '0';
+                    pc.style.padding = '10px 12px';
+                    pc.style.boxSizing = 'border-box';
+                    pc.style.position = 'static';
+                    pc.style.transform = 'none';
+                    pc.style.left = '0';
+                    pc.style.background = '#ffffff';
+                }
 
-    const cleanup = () => {
-        if (host.parentNode) {
-            host.parentNode.removeChild(host);
+                var noPrint = body.querySelectorAll('.no-print, #editable-section');
+                noPrint.forEach(function(el) { el.style.display = 'none'; });
+
+                var tables = body.querySelectorAll('table');
+                tables.forEach(function(t) {
+                    t.style.width = '100%';
+                    t.style.maxWidth = '100%';
+                    t.style.tableLayout = 'fixed';
+                });
+            }
+        },
+        jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait',
+            compress: true
+        },
+        pagebreak: {
+            mode: ['css', 'legacy'],
+            avoid: ['.ao-footer-signature', 'img']
         }
     };
 
-    const run = () => {
-        const renderWidth = 794;
-        const renderHeight = Math.max(clone.scrollHeight, clone.offsetHeight, 400);
-
-        const opt = {
-            margin: [10, 10, 10, 10],
-            filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
-                backgroundColor: '#ffffff',
-                scrollX: 0,
-                scrollY: 0,
-                width: renderWidth,
-                windowWidth: renderWidth,
-                height: renderHeight,
-                windowHeight: renderHeight
-            },
-            jsPDF: {
-                unit: 'mm',
-                format: 'a4',
-                orientation: 'portrait',
-                compress: true
-            },
-            pagebreak: {
-                mode: ['css', 'legacy'],
-                avoid: ['.ao-footer-signature', 'img']
-            }
-        };
-
-        html2pdf().set(opt).from(clone).save().then(() => {
-            cleanup();
-            showToast('PDF downloaded successfully!', 'success');
-        }).catch((error) => {
-            cleanup();
-            showToast('Error generating PDF: ' + error.message, 'error');
-        });
-    };
-
-    setTimeout(run, 80);
+    html2pdf().set(opt).from(element).save().then(function() {
+        showToast('PDF downloaded successfully!', 'success');
+    }).catch(function(error) {
+        showToast('Error generating PDF: ' + error.message, 'error');
+    });
 }
 
 function printOrder() {
