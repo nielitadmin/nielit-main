@@ -68,6 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_locked) {
     } else {
         $data = [
             'batch_name' => $_POST['batch_name'],
+            'batch_description' => $_POST['batch_description'] ?? null,
             'start_date' => $_POST['start_date'],
             'end_date' => $_POST['end_date'],
             'training_fees' => $_POST['training_fees'],
@@ -299,6 +300,12 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Batch Coordinator *</label>
                             <input type="text" class="form-control" name="batch_coordinator" 
                                    value="<?php echo htmlspecialchars($batch['batch_coordinator']); ?>" required>
+                        </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label">Batch Description <small class="text-muted">(optional)</small></label>
+                            <textarea class="form-control" name="batch_description" rows="3"
+                                      placeholder="Short notes about this batch"><?php echo htmlspecialchars($batch['batch_description'] ?? ''); ?></textarea>
                         </div>
                         
                         <div class="form-group">

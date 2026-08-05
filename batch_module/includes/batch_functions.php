@@ -9,6 +9,17 @@ if (file_exists(__DIR__ . '/../../includes/nielit_registration_helper.php')) {
 }
 
 /**
+ * Ensure batches.batch_description column exists (optional notes about the batch).
+ */
+function ensureBatchDescriptionColumn(mysqli $conn): void
+{
+    $check = $conn->query("SHOW COLUMNS FROM batches LIKE 'batch_description'");
+    if (!$check || $check->num_rows === 0) {
+        $conn->query('ALTER TABLE batches ADD COLUMN batch_description TEXT NULL DEFAULT NULL AFTER batch_name');
+    }
+}
+
+/**
  * Generate unique batch code
  */
 function generateBatchCode($course_code, $conn) {
@@ -41,14 +52,20 @@ function generateBatchCode($course_code, $conn) {
  * Create new batch
  */
 function createBatch($data, $conn) {
-    $sql = "INSERT INTO batches (course_id, batch_name, batch_code, start_date, end_date, 
+    ensureBatchDescriptionColumn($conn);
+
+    $batchDescription = trim((string) ($data['batch_description'] ?? ''));
+    $batchDescription = $batchDescription === '' ? null : $batchDescription;
+
+    $sql = "INSERT INTO batches (course_id, batch_name, batch_description, batch_code, start_date, end_date, 
             training_fees, seats_total, batch_coordinator, status, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("issssdissi", 
+    $stmt->bind_param("isssssdisssi", 
         $data['course_id'],
         $data['batch_name'],
+        $batchDescription,
         $data['batch_code'],
         $data['start_date'],
         $data['end_date'],
@@ -92,13 +109,19 @@ function createBatch($data, $conn) {
  * Update batch
  */
 function updateBatch($batch_id, $data, $conn) {
+    ensureBatchDescriptionColumn($conn);
+
+    $batchDescription = trim((string) ($data['batch_description'] ?? ''));
+    $batchDescription = $batchDescription === '' ? null : $batchDescription;
+
     $sql = "UPDATE batches SET 
-            batch_name = ?, 
-            start_date = ?, 
-            end_date = ?, 
-            training_fees = ?, 
-            seats_total = ?, 
-            batch_coordinator = ?, 
+            batch_name = ?,
+            batch_description = ?,
+            start_date = ?,
+            end_date = ?,
+            training_fees = ?,
+            seats_total = ?,
+            batch_coordinator = ?,
             status = ?,
             scheme_id = ?,
             admission_order_ref = ?,
@@ -110,8 +133,9 @@ function updateBatch($batch_id, $data, $conn) {
             WHERE id = ?";
     
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssdisssssssssi", 
+    $stmt->bind_param("ssssdisssssssssi",
         $data['batch_name'],
+        $batchDescription,
         $data['start_date'],
         $data['end_date'],
         $data['training_fees'],

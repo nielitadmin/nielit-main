@@ -1151,6 +1151,12 @@ function downloadScannedOrder(batchId) {
                         </p>
                     </div>
                     <?php endif; ?>
+                    <?php if (!empty($batch['batch_description'])): ?>
+                    <div class="info-box" style="grid-column: 1 / -1;">
+                        <h6>Description</h6>
+                        <p style="white-space: pre-wrap;"><?php echo htmlspecialchars($batch['batch_description']); ?></p>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 

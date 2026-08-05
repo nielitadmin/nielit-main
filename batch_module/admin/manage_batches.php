@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $data = [
                         'course_id' => $_POST['course_id'],
                         'batch_name' => $_POST['batch_name'],
+                        'batch_description' => $_POST['batch_description'] ?? null,
                         'batch_code' => $batch_code,
                         'start_date' => $_POST['start_date'],
                         'end_date' => $_POST['end_date'],
@@ -100,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $data = [
                         'batch_name' => $_POST['batch_name'],
+                        'batch_description' => $_POST['batch_description'] ?? null,
                         'start_date' => $_POST['start_date'],
                         'end_date' => $_POST['end_date'],
                         'training_fees' => $_POST['training_fees'],
@@ -399,6 +401,11 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Batch Name *</label>
                             <input type="text" class="form-control" name="batch_name" placeholder="e.g., DBC Batch 25" required>
                         </div>
+
+                        <div class="form-group" style="grid-column: span 2;">
+                            <label class="form-label">Batch Description <small class="text-muted">(optional)</small></label>
+                            <textarea class="form-control" name="batch_description" rows="2" placeholder="Short notes about this batch, e.g. evening batch, special intake"></textarea>
+                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">Start Date *</label>
@@ -481,6 +488,9 @@ $active_theme = loadActiveTheme($conn);
                                         <td><strong><?php echo htmlspecialchars($batch['batch_code']); ?></strong></td>
                                         <td>
                                             <?php echo htmlspecialchars($batch['batch_name']); ?>
+                                            <?php if (!empty($batch['batch_description'])): ?>
+                                                <br><small class="text-muted"><?php echo htmlspecialchars($batch['batch_description']); ?></small>
+                                            <?php endif; ?>
                                             <?php if ($batch['is_locked']): ?>
                                                 <br><small class="text-muted"><i class="fas fa-lock"></i> Locked</small>
                                             <?php endif; ?>
