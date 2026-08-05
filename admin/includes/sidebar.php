@@ -271,7 +271,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         
         <!-- Common Links -->
         <div class="nav-item">
-            <a href="<?php echo app_url(); ?>" class="nav-link">
+            <a href="<?php echo app_url(); ?>" class="nav-link" target="_blank" rel="noopener noreferrer">
                 <i class="fas fa-globe"></i> View Website
             </a>
         </div>
