@@ -6,6 +6,7 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/google_auth.php';
 
 if (function_exists('repairEnrollmentStatusMismatch')) {
     repairEnrollmentStatusMismatch($conn);
@@ -23,95 +24,172 @@ if (isset($_SESSION['student_id'])) {
     exit;
 }
 
-// Handle form submission
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $student_id = trim($_POST['student_id']);
-    $password = $_POST['password'];
+/**
+ * Finish student login after identity is verified (password or Google).
+ */
+function completeStudentPortalLogin(mysqli $conn, string $student_id, string $display_name, ?string &$error_message): bool
+{
+    $enrollments = getEnrollmentsForStudentId($conn, $student_id);
+    $has_active = false;
+    $all_rejected = !empty($enrollments);
+
+    foreach ($enrollments as $enrollment) {
+        $status = strtolower($enrollment['status'] ?? '');
+        if (in_array($status, ['active', 'approved'], true)) {
+            $has_active = true;
+            $all_rejected = false;
+        }
+        if (!in_array($status, ['rejected', 'cancelled'], true)) {
+            $all_rejected = false;
+        }
+    }
+
+    if (!$has_active) {
+        $activeCheck = $conn->prepare("SELECT 1 FROM students
+            WHERE student_id = ? AND LOWER(status) IN ('active', 'approved') LIMIT 1");
+        if ($activeCheck) {
+            $activeCheck->bind_param('s', $student_id);
+            $activeCheck->execute();
+            if ($activeCheck->get_result()->num_rows > 0) {
+                $has_active = true;
+                repairEnrollmentStatusMismatch($conn);
+            }
+            $activeCheck->close();
+        }
+    }
+
+    if (!empty($enrollments) && $all_rejected && !$has_active) {
+        $error_message = "Your registration has been rejected. Please contact admin for more information.";
+        return false;
+    }
+
+    $_SESSION['student_id'] = $student_id;
+    $_SESSION['student_name'] = $display_name;
+    if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+        require_once __DIR__ . '/../includes/activity_logger.php';
+        logActivity($conn, [
+            'actor_type' => 'student',
+            'actor_id' => (string) $student_id,
+            'actor_name' => $display_name ?: $student_id,
+            'action' => 'student_login',
+            'entity_type' => 'student',
+            'entity_id' => (string) $student_id,
+            'entity_name' => $display_name ?: $student_id,
+            'description' => 'Student "' . ($display_name ?: $student_id) . '" logged in.',
+        ]);
+    }
+    if (!empty($_SESSION['oc_join_redirect_token'])) {
+        $t = (string) $_SESSION['oc_join_redirect_token'];
+        unset($_SESSION['oc_join_redirect_token']);
+        header('Location: join_class.php?t=' . rawurlencode($t));
+        exit;
+    }
+    header("Location: dashboard.php");
+    exit;
+}
+
+$error_message = null;
+
+// Google Sign-In
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['google_credential'])) {
+    if (!GOOGLE_OAUTH_ENABLED) {
+        $error_message = 'Google Sign-In is not configured yet.';
+    } else {
+        $payload = verifyGoogleIdToken((string) $_POST['google_credential'], GOOGLE_CLIENT_ID);
+        if ($payload === null) {
+            $error_message = 'Google sign-in verification failed. Please try again.';
+        } else {
+            $googleEmail = strtolower(trim((string) ($payload['email'] ?? '')));
+            $match = $googleEmail !== '' ? findStudentLoginByEmail($conn, $googleEmail) : null;
+            if (!$match || empty($match['student_id'])) {
+                $error_message = 'No student account is linked to this Google email. Use the email from your registration, or log in with Student ID and password.';
+            } else {
+                completeStudentPortalLogin(
+                    $conn,
+                    (string) $match['student_id'],
+                    (string) ($match['name'] ?? ''),
+                    $error_message
+                );
+            }
+        }
+    }
+}
+
+// Password login (Student ID or Email)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['google_credential'])) {
+    $login_id = trim((string) ($_POST['login_id'] ?? $_POST['student_id'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
 
     $authenticated = false;
+    $student_id = '';
     $display_name = '';
 
-    $account = getAccountByStudentId($conn, $student_id);
-    if ($account && password_verify($password, $account['password'])) {
-        $authenticated = true;
-        $display_name = $account['name'];
-    } else {
-        $sql = "SELECT student_id, password, name, status FROM students WHERE student_id = ? ORDER BY id DESC";
-        $stmt = $conn->prepare($sql);
-        if ($stmt) {
-            $stmt->bind_param("s", $student_id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            while ($row = $result->fetch_assoc()) {
-                if (password_verify($password, $row['password'])) {
-                    $authenticated = true;
-                    $display_name = $row['name'];
-                    break;
-                }
+    if ($login_id === '' || $password === '') {
+        $error_message = 'Please enter your Student ID or email and password.';
+    } elseif (strpos($login_id, '@') !== false) {
+        $candidates = findStudentLoginCandidatesByEmail($conn, $login_id);
+        foreach ($candidates as $candidate) {
+            $hash = (string) ($candidate['password'] ?? '');
+            if ($hash !== '' && password_verify($password, $hash)) {
+                $authenticated = true;
+                $student_id = (string) $candidate['student_id'];
+                $display_name = (string) ($candidate['name'] ?? '');
+                break;
             }
-            $stmt->close();
+        }
+        // Also try any leftover legacy rows with same email that share password across course rows
+        if (!$authenticated) {
+            $emailKey = strtolower(trim($login_id));
+            $stmt = $conn->prepare(
+                'SELECT student_id, password, name FROM students WHERE LOWER(TRIM(email)) = ? ORDER BY id DESC'
+            );
+            if ($stmt) {
+                $stmt->bind_param('s', $emailKey);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                while ($row = $result->fetch_assoc()) {
+                    if (!empty($row['password']) && password_verify($password, $row['password'])) {
+                        $authenticated = true;
+                        $student_id = (string) $row['student_id'];
+                        $display_name = (string) ($row['name'] ?? '');
+                        break;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+    } else {
+        $account = getAccountByStudentId($conn, $login_id);
+        if ($account && !empty($account['password']) && password_verify($password, $account['password'])) {
+            $authenticated = true;
+            $student_id = (string) ($account['student_id'] ?? $login_id);
+            $display_name = (string) ($account['name'] ?? '');
+        } else {
+            $sql = "SELECT student_id, password, name, status FROM students WHERE student_id = ? ORDER BY id DESC";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param("s", $login_id);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                while ($row = $result->fetch_assoc()) {
+                    if (!empty($row['password']) && password_verify($password, $row['password'])) {
+                        $authenticated = true;
+                        $student_id = (string) $row['student_id'];
+                        $display_name = (string) ($row['name'] ?? '');
+                        break;
+                    }
+                }
+                $stmt->close();
+            }
         }
     }
 
     if (!$authenticated) {
-        $error_message = "Invalid Student ID or Password.";
+        if ($error_message === null) {
+            $error_message = "Invalid Student ID / Email or Password.";
+        }
     } else {
-        $enrollments = getEnrollmentsForStudentId($conn, $student_id);
-        $has_active = false;
-        $all_rejected = !empty($enrollments);
-
-        foreach ($enrollments as $enrollment) {
-            $status = strtolower($enrollment['status'] ?? '');
-            if (in_array($status, ['active', 'approved'], true)) {
-                $has_active = true;
-                $all_rejected = false;
-            }
-            if (!in_array($status, ['rejected', 'cancelled'], true)) {
-                $all_rejected = false;
-            }
-        }
-
-        if (!$has_active) {
-            $activeCheck = $conn->prepare("SELECT 1 FROM students
-                WHERE student_id = ? AND LOWER(status) IN ('active', 'approved') LIMIT 1");
-            if ($activeCheck) {
-                $activeCheck->bind_param('s', $student_id);
-                $activeCheck->execute();
-                if ($activeCheck->get_result()->num_rows > 0) {
-                    $has_active = true;
-                    repairEnrollmentStatusMismatch($conn);
-                }
-                $activeCheck->close();
-            }
-        }
-
-        if (!empty($enrollments) && $all_rejected && !$has_active) {
-            $error_message = "Your registration has been rejected. Please contact admin for more information.";
-        } else {
-            $_SESSION['student_id'] = $student_id;
-            $_SESSION['student_name'] = $display_name;
-            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
-                require_once __DIR__ . '/../includes/activity_logger.php';
-                logActivity($conn, [
-                    'actor_type' => 'student',
-                    'actor_id' => (string) $student_id,
-                    'actor_name' => $display_name ?: $student_id,
-                    'action' => 'student_login',
-                    'entity_type' => 'student',
-                    'entity_id' => (string) $student_id,
-                    'entity_name' => $display_name ?: $student_id,
-                    'description' => 'Student "' . ($display_name ?: $student_id) . '" logged in.',
-                ]);
-            }
-            if (!empty($_SESSION['oc_join_redirect_token'])) {
-                $t = (string) $_SESSION['oc_join_redirect_token'];
-                unset($_SESSION['oc_join_redirect_token']);
-                header('Location: join_class.php?t=' . rawurlencode($t));
-                exit;
-            }
-            header("Location: dashboard.php");
-            exit;
-        }
+        completeStudentPortalLogin($conn, $student_id, $display_name, $error_message);
     }
 }
 ?>
@@ -127,6 +205,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     ?>
     <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
     <link rel="shortcut icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
+    <?php if (GOOGLE_OAUTH_ENABLED): ?>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <?php endif; ?>
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -314,6 +395,75 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             color: white;
         }
 
+        .login-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 1.25rem 0;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .login-divider::before,
+        .login-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .google-signin-wrap {
+            margin-bottom: 0.25rem;
+        }
+
+        .google-signin-stack {
+            position: relative;
+            width: 100%;
+            min-height: 44px;
+        }
+
+        .google-signin-stack .btn-google {
+            width: 100%;
+            pointer-events: none;
+        }
+
+        .google-signin-overlay {
+            position: absolute;
+            inset: 0;
+            opacity: 0.02;
+            overflow: hidden;
+        }
+
+        .google-signin-overlay > div,
+        .google-signin-overlay iframe {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .btn-google {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .btn-google svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+        }
+
         .alert {
             border-radius: 8px;
             border: none;
@@ -482,25 +632,41 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
 
                         <div class="login-body">
-                            <?php if (isset($error_message)): ?>
+                            <?php if (!empty($error_message)): ?>
                                 <div class="alert alert-danger" role="alert">
                                     <i class="fas fa-exclamation-circle me-2"></i>
                                     <?php echo htmlspecialchars($error_message); ?>
                                 </div>
                             <?php endif; ?>
 
-                            <form method="POST" action="login.php">
+                            <?php if (GOOGLE_OAUTH_ENABLED): ?>
+                            <form method="POST" action="login.php" id="googleLoginForm" class="google-signin-wrap">
+                                <input type="hidden" name="google_credential" id="googleCredentialInput">
+                                <div class="google-signin-stack" id="googleSignInStack">
+                                    <button type="button" class="btn-google" tabindex="-1" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                                        Continue with Google
+                                    </button>
+                                    <div id="googleSignInContainer" class="google-signin-overlay" aria-label="Continue with Google"></div>
+                                </div>
+                            </form>
+                            <div class="login-divider">or</div>
+                            <?php endif; ?>
+
+                            <form method="POST" action="login.php" id="passwordLoginForm">
                                 <div class="mb-4">
-                                    <label for="student_id" class="form-label">
-                                        <i class="fas fa-id-card me-2"></i>Student ID
+                                    <label for="login_id" class="form-label">
+                                        <i class="fas fa-id-card me-2"></i>Student ID or Email
                                     </label>
-                                    <input type="text" 
-                                           class="form-control" 
-                                           id="student_id" 
-                                           name="student_id" 
-                                           placeholder="Enter your Student ID" 
-                                           required 
-                                           autofocus>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="login_id"
+                                           name="login_id"
+                                           placeholder="NIELIT/2026/... or you@email.com"
+                                           required
+                                           autofocus
+                                           autocomplete="username"
+                                           value="<?php echo htmlspecialchars((string) ($_POST['login_id'] ?? $_POST['student_id'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                 </div>
 
                                 <div class="mb-4">
@@ -508,13 +674,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                                         <i class="fas fa-lock me-2"></i>Password
                                     </label>
                                     <div class="input-group">
-                                        <input type="password" 
-                                               class="form-control" 
-                                               id="password" 
-                                               name="password" 
-                                               placeholder="Enter your Password" 
-                                               required>
-                                        <span class="input-group-text" onclick="togglePassword()">
+                                        <input type="password"
+                                               class="form-control"
+                                               id="password"
+                                               name="password"
+                                               placeholder="Enter your Password"
+                                               required
+                                               autocomplete="current-password">
+                                        <span class="input-group-text" onclick="togglePassword()" role="button" tabindex="0" aria-label="Toggle password visibility">
                                             <i class="fas fa-eye" id="togglePasswordIcon"></i>
                                         </span>
                                     </div>
@@ -622,9 +789,15 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        window.STUDENT_LOGIN_CONFIG = {
+            googleClientId: <?php echo json_encode(GOOGLE_CLIENT_ID); ?>,
+            googleEnabled: <?php echo json_encode(GOOGLE_OAUTH_ENABLED); ?>
+        };
+
         function togglePassword() {
             const passwordInput = document.getElementById("password");
             const toggleIcon = document.getElementById("togglePasswordIcon");
+            if (!passwordInput || !toggleIcon) return;
 
             if (passwordInput.type === "password") {
                 passwordInput.type = "text";
@@ -636,6 +809,64 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 toggleIcon.classList.add("fa-eye");
             }
         }
+
+        function submitGoogleCredential(credential) {
+            const form = document.getElementById('googleLoginForm');
+            const input = document.getElementById('googleCredentialInput');
+            if (!form || !input) return;
+            input.value = credential;
+            form.submit();
+        }
+
+        window.handleStudentGoogleSignIn = function (response) {
+            if (response && response.credential) {
+                submitGoogleCredential(response.credential);
+            }
+        };
+
+        function initStudentGoogleSignIn() {
+            const config = window.STUDENT_LOGIN_CONFIG || {};
+            if (!config.googleEnabled || !config.googleClientId) return;
+            if (!window.google || !google.accounts || !google.accounts.id) return;
+
+            const stack = document.getElementById('googleSignInStack');
+            const container = document.getElementById('googleSignInContainer');
+            if (!stack || !container) return;
+
+            google.accounts.id.initialize({
+                client_id: config.googleClientId,
+                callback: window.handleStudentGoogleSignIn,
+                auto_select: false,
+                cancel_on_tap_outside: true
+            });
+
+            const buttonWidth = Math.min(400, Math.max(Math.floor(stack.getBoundingClientRect().width), 280));
+            google.accounts.id.renderButton(container, {
+                type: 'standard',
+                theme: 'outline',
+                size: 'large',
+                text: 'continue_with',
+                shape: 'rectangular',
+                width: buttonWidth,
+                logo_alignment: 'left'
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const config = window.STUDENT_LOGIN_CONFIG || {};
+            if (!config.googleEnabled) return;
+
+            let tries = 0;
+            const timer = setInterval(function () {
+                tries += 1;
+                if (window.google && google.accounts) {
+                    clearInterval(timer);
+                    initStudentGoogleSignIn();
+                } else if (tries > 40) {
+                    clearInterval(timer);
+                }
+            }, 100);
+        });
     </script>
 </body>
 </html>

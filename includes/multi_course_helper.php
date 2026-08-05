@@ -2137,6 +2137,221 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return $row ?: null;
     }
 
+    /**
+     * Find student_accounts row by email (case-insensitive).
+     */
+    function getAccountByEmail(mysqli $conn, string $email): ?array {
+        $email = strtolower(trim($email));
+        if ($email === '' || !isMultiCourseSystemInstalled($conn)) {
+            return null;
+        }
+        $stmt = $conn->prepare('SELECT * FROM student_accounts WHERE LOWER(TRIM(email)) = ? ORDER BY id DESC LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ?: null;
+    }
+
+    /**
+     * All login candidates for an email (student_accounts first, then legacy students).
+     *
+     * @return list<array{student_id:string,name:string,password:?string,email:string,source:string,sort_id:int}>
+     */
+    function findStudentLoginCandidatesByEmail(mysqli $conn, string $email): array {
+        $email = strtolower(trim($email));
+        $candidates = [];
+        if ($email === '' || strpos($email, '@') === false) {
+            return $candidates;
+        }
+
+        if (isMultiCourseSystemInstalled($conn)) {
+            $stmt = $conn->prepare(
+                'SELECT student_id, name, password, email, id
+                 FROM student_accounts
+                 WHERE LOWER(TRIM(email)) = ?
+                 ORDER BY id DESC'
+            );
+            if ($stmt) {
+                $stmt->bind_param('s', $email);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $candidates[] = [
+                        'student_id' => (string) ($row['student_id'] ?? ''),
+                        'name' => (string) ($row['name'] ?? ''),
+                        'password' => $row['password'] ?? null,
+                        'email' => (string) ($row['email'] ?? $email),
+                        'source' => 'account',
+                        'sort_id' => (int) ($row['id'] ?? 0),
+                    ];
+                }
+                $stmt->close();
+            }
+        }
+
+        $legacy = $conn->prepare(
+            'SELECT student_id, name, password, email, id
+             FROM students
+             WHERE LOWER(TRIM(email)) = ?
+             ORDER BY id DESC'
+        );
+        if ($legacy) {
+            $legacy->bind_param('s', $email);
+            $legacy->execute();
+            $res = $legacy->get_result();
+            $seen = [];
+            foreach ($candidates as $c) {
+                $seen[$c['student_id']] = true;
+            }
+            while ($row = $res->fetch_assoc()) {
+                $sid = (string) ($row['student_id'] ?? '');
+                if ($sid === '' || isset($seen[$sid])) {
+                    continue;
+                }
+                $seen[$sid] = true;
+                $candidates[] = [
+                    'student_id' => $sid,
+                    'name' => (string) ($row['name'] ?? ''),
+                    'password' => $row['password'] ?? null,
+                    'email' => (string) ($row['email'] ?? $email),
+                    'source' => 'legacy',
+                    'sort_id' => (int) ($row['id'] ?? 0),
+                ];
+            }
+            $legacy->close();
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Resolve login candidate by email for password or Google login.
+     * Prefers student_accounts, then legacy students rows.
+     * When multiple IDs share an email, pick the most recent with a non-rejected enrollment.
+     *
+     * @return array{student_id:string,name:string,password:?string,email:string}|null
+     */
+    function findStudentLoginByEmail(mysqli $conn, string $email): ?array {
+        $candidates = findStudentLoginCandidatesByEmail($conn, $email);
+        if (empty($candidates)) {
+            return null;
+        }
+
+        if (count($candidates) === 1) {
+            $one = $candidates[0];
+            return [
+                'student_id' => $one['student_id'],
+                'name' => $one['name'],
+                'password' => $one['password'],
+                'email' => $one['email'],
+            ];
+        }
+
+        error_log('findStudentLoginByEmail: multiple student IDs for email ' . strtolower(trim($email)) . ' count=' . count($candidates));
+
+        $best = null;
+        $bestScore = -1;
+        foreach ($candidates as $c) {
+            $sid = $c['student_id'];
+            if ($sid === '') {
+                continue;
+            }
+            $score = 0;
+            $enrollments = getEnrollmentsForStudentId($conn, $sid);
+            $hasNonRejected = false;
+            $hasActive = false;
+            foreach ($enrollments as $enrollment) {
+                $status = strtolower((string) ($enrollment['status'] ?? ''));
+                if (!in_array($status, ['rejected', 'cancelled', 'inactive'], true)) {
+                    $hasNonRejected = true;
+                }
+                if (in_array($status, ['active', 'approved'], true)) {
+                    $hasActive = true;
+                }
+            }
+            if ($hasActive) {
+                $score += 100;
+            }
+            if ($hasNonRejected) {
+                $score += 50;
+            }
+            if ($c['source'] === 'account') {
+                $score += 10;
+            }
+            $score += (int) min(40, $c['sort_id'] / 1000);
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $c;
+            }
+        }
+
+        if (!$best) {
+            $best = $candidates[0];
+        }
+
+        return [
+            'student_id' => $best['student_id'],
+            'name' => $best['name'],
+            'password' => $best['password'],
+            'email' => $best['email'],
+        ];
+    }
+
+    /**
+     * Resolve password-login identity from Student ID or email.
+     *
+     * @return array{student_id:string,name:string,password:?string}|null
+     */
+    function findStudentLoginByIdOrEmail(mysqli $conn, string $loginId): ?array {
+        $loginId = trim($loginId);
+        if ($loginId === '') {
+            return null;
+        }
+
+        if (strpos($loginId, '@') !== false) {
+            $byEmail = findStudentLoginByEmail($conn, $loginId);
+            if ($byEmail) {
+                return $byEmail;
+            }
+            return null;
+        }
+
+        $account = getAccountByStudentId($conn, $loginId);
+        if ($account) {
+            return [
+                'student_id' => (string) ($account['student_id'] ?? $loginId),
+                'name' => (string) ($account['name'] ?? ''),
+                'password' => $account['password'] ?? null,
+                'email' => (string) ($account['email'] ?? ''),
+            ];
+        }
+
+        $stmt = $conn->prepare(
+            'SELECT student_id, name, password, email FROM students WHERE student_id = ? ORDER BY id DESC LIMIT 1'
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $loginId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return null;
+        }
+        return [
+            'student_id' => (string) ($row['student_id'] ?? $loginId),
+            'name' => (string) ($row['name'] ?? ''),
+            'password' => $row['password'] ?? null,
+            'email' => (string) ($row['email'] ?? ''),
+        ];
+    }
+
     function getEnrollmentsForStudentId(mysqli $conn, string $studentId): array {
         $enrollments = [];
 
