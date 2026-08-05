@@ -72,6 +72,18 @@ $legends = classTimetableBuildLegends($slots);
     line-height: 1.3;
 }
 .ct-sheet .ct-cell-entry { display: block; margin: 2px 0; }
+.ct-sheet .ct-cell-block {
+    padding: 4px 2px;
+    border-bottom: 1px dashed #e2e8f0;
+}
+.ct-sheet .ct-cell-block:last-of-type { border-bottom: 0; }
+.ct-sheet .ct-cell-batch,
+.ct-sheet .ct-cell-room {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #64748b;
+}
 .ct-sheet .ct-cell-actions {
     display: flex;
     gap: 4px;
@@ -87,6 +99,12 @@ $legends = classTimetableBuildLegends($slots);
     font-size: 0.85rem;
     width: 100%;
     min-height: 40px;
+}
+.ct-sheet .ct-add-more {
+    min-height: 24px;
+    font-size: 0.72rem;
+    color: #0369a1;
+    margin-top: 2px;
 }
 .ct-sheet .ct-add-cell:hover { color: #0c2340; background: #eff6ff; }
 .ct-legend {
@@ -124,25 +142,40 @@ $legends = classTimetableBuildLegends($slots);
                         <td class="ct-cell <?php echo $filled ? 'ct-cell-filled' : 'ct-cell-empty'; ?>">
                             <?php if ($filled): ?>
                                 <?php foreach ($cellSlots as $slot): ?>
-                                    <span class="ct-cell-entry"><?php echo htmlspecialchars(classTimetableCellLabel($slot)); ?></span>
-                                    <?php if ($ctGridEditable): ?>
-                                        <div class="ct-cell-actions">
-                                            <button type="button" class="btn btn-sm btn-primary" title="Edit"
-                                                    onclick='openSlotModal(<?php echo json_encode($slot, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>
-                                                <i class="fas fa-edit"></i>
-                                            </button>
-                                            <form method="post" style="margin:0;display:inline;" onsubmit="return confirm('Delete this timetable slot?');">
-                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($ctGridCsrf); ?>">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">
-                                                <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $ctGridFilterBatch; ?>">
-                                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
-                                                    <i class="fas fa-trash"></i>
+                                    <div class="ct-cell-block">
+                                        <span class="ct-cell-entry"><?php echo htmlspecialchars(classTimetableCellLabel($slot)); ?></span>
+                                        <?php if ($ctGridFilterBatch <= 0 && !empty($slot['batch_name'])): ?>
+                                            <span class="ct-cell-batch"><?php echo htmlspecialchars($slot['batch_name']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if (!empty($slot['room'])): ?>
+                                            <span class="ct-cell-room"><?php echo htmlspecialchars($slot['room']); ?></span>
+                                        <?php endif; ?>
+                                        <?php if ($ctGridEditable): ?>
+                                            <div class="ct-cell-actions">
+                                                <button type="button" class="btn btn-sm btn-primary" title="Edit"
+                                                        onclick='openSlotModal(<?php echo json_encode($slot, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>
+                                                    <i class="fas fa-edit"></i>
                                                 </button>
-                                            </form>
-                                        </div>
-                                    <?php endif; ?>
+                                                <form method="post" style="margin:0;display:inline;" onsubmit="return confirm('Delete this timetable slot?');">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($ctGridCsrf); ?>">
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">
+                                                    <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $ctGridFilterBatch; ?>">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
                                 <?php endforeach; ?>
+                                <?php if ($ctGridEditable): ?>
+                                    <button type="button" class="ct-add-cell ct-add-more"
+                                            title="Add another class in this same period (another faculty/batch)"
+                                            onclick="openSlotModalForPeriod(<?php echo (int) $dayNum; ?>, '<?php echo htmlspecialchars($period['start'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($period['end'], ENT_QUOTES); ?>')">
+                                        + add
+                                    </button>
+                                <?php endif; ?>
                             <?php elseif ($ctGridEditable): ?>
                                 <button type="button" class="ct-add-cell"
                                         title="Add class in this period"

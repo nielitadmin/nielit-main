@@ -102,6 +102,7 @@ include __DIR__ . '/includes/header.php';
                 $slots = $batchSlots;
                 $ctGridEditable = false;
                 $ctGridShowLegends = true;
+                $ctGridFilterBatch = (int) $bid;
                 include __DIR__ . '/../includes/class_timetable_grid.php';
                 ?>
             <?php endforeach; ?>
@@ -109,6 +110,7 @@ include __DIR__ . '/includes/header.php';
             <?php
             $ctGridEditable = false;
             $ctGridShowLegends = true;
+            $ctGridFilterBatch = $selectedBatch > 0 ? $selectedBatch : 0;
             include __DIR__ . '/../includes/class_timetable_grid.php';
             ?>
         <?php endif; ?>
