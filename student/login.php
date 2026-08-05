@@ -121,6 +121,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Login - NIELIT Bhubaneswar</title>
+    <?php
+    $faviconFile = __DIR__ . '/../assets/images/favicon.ico';
+    $faviconVer = is_file($faviconFile) ? filemtime($faviconFile) : time();
+    ?>
+    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
+    <link rel="shortcut icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
 
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">

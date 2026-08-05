@@ -78,6 +78,12 @@ $has_dge_scheme_option = !empty($dge_scheme_ids);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Registration - NIELIT Bhubaneswar</title>
+    <?php
+    $faviconFile = __DIR__ . '/../assets/images/favicon.ico';
+    $faviconVer = is_file($faviconFile) ? filemtime($faviconFile) : time();
+    ?>
+    <link rel="icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
+    <link rel="shortcut icon" href="<?php echo APP_URL; ?>/assets/images/favicon.ico?v=<?php echo $faviconVer; ?>" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
