@@ -169,29 +169,18 @@ if (!empty($batch['copy_to_list'])) {
 
 // Fetch students linked to this batch - try multiple methods
 $students = [];
+require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+$nielitSql = sqlNielitRegistrationNo('s', 'bs');
 
 // Method 1: Try batch_students table first (preferred method)
 $check_batch_students = $conn->query("SHOW TABLES LIKE 'batch_students'");
 if ($check_batch_students && $check_batch_students->num_rows > 0) {
-    // Check if nielit_registration_no column exists
-    $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
-    $has_nielit_column = ($check_column && $check_column->num_rows > 0);
-    
-    if ($has_nielit_column) {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, bs.enrollment_date, bs.nielit_registration_no
-                           FROM batch_students bs
-                           INNER JOIN students s ON bs.student_id = s.id
-                           WHERE bs.batch_id = ?
-                           ORDER BY s.name";
-    } else {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, bs.enrollment_date, s.nielit_registration_no
-                           FROM batch_students bs
-                           INNER JOIN students s ON bs.student_id = s.id
-                           WHERE bs.batch_id = ?
-                           ORDER BY s.name";
-    }
+    $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
+                       s.gender, s.category, bs.enrollment_date, {$nielitSql}
+                       FROM batch_students bs
+                       INNER JOIN students s ON bs.student_id = s.id
+                       WHERE bs.batch_id = ?
+                       ORDER BY s.name";
     
     $stmt = $conn->prepare($students_query);
     if ($stmt) {
@@ -208,23 +197,12 @@ if ($check_batch_students && $check_batch_students->num_rows > 0) {
 
 // Method 2: If no students found, try students table with batch_id
 if (empty($students)) {
-    // Check if nielit_registration_no column exists in students table
-    $check_column = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
-    $has_nielit_column = ($check_column && $check_column->num_rows > 0);
-    
-    if ($has_nielit_column) {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, s.created_at as enrollment_date, s.nielit_registration_no
-                           FROM students s
-                           WHERE s.batch_id = ?
-                           ORDER BY s.name";
-    } else {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, s.created_at as enrollment_date, NULL as nielit_registration_no
-                           FROM students s
-                           WHERE s.batch_id = ?
-                           ORDER BY s.name";
-    }
+    $nielitSqlSolo = sqlNielitRegistrationNo('s');
+    $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
+                       s.gender, s.category, s.created_at as enrollment_date, {$nielitSqlSolo}
+                       FROM students s
+                       WHERE s.batch_id = ?
+                       ORDER BY s.name";
     
     $stmt = $conn->prepare($students_query);
     if ($stmt) {
@@ -595,7 +573,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             ?>
             <tr>
                 <td class="ao-sl"><?php echo $sl_no++; ?></td>
-                <td class="ao-reg"><?php echo htmlspecialchars(trim((string)($student['nielit_registration_no'] ?? ''))); ?></td>
+                <td class="ao-reg"><?php echo htmlspecialchars(trim((string) resolveNielitRegistrationNo($student))); ?></td>
                 <td class="ao-name"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
                 <td class="ao-father"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
                 <td class="ao-mobile"><?php echo htmlspecialchars($student['mobile']); ?></td>

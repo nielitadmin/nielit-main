@@ -967,6 +967,11 @@ error_log("INSERT SUCCESS: $student_id with documents: passport=$passport_photo_
 
 $student_record_id = (int)$conn->insert_id;
 
+if ($student_record_id > 0 && file_exists(__DIR__ . '/../includes/nielit_registration_helper.php')) {
+    require_once __DIR__ . '/../includes/nielit_registration_helper.php';
+    syncNielitRegistrationNoDefault($conn, $student_record_id, null);
+}
+
 if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
     $account_id = null;
     if ($is_returning_student) {

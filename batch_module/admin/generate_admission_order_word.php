@@ -91,10 +91,12 @@ $location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswa
 
 // Fetch students
 $students = [];
+require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+$nielitSql = sqlNielitRegistrationNo('s', 'bs');
 $check_batch_students = $conn->query("SHOW TABLES LIKE 'batch_students'");
 if ($check_batch_students && $check_batch_students->num_rows > 0) {
     $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                       s.gender, s.category, bs.enrollment_date, s.nielit_registration_no
+                       s.gender, s.category, bs.enrollment_date, {$nielitSql}
                        FROM batch_students bs
                        INNER JOIN students s ON bs.student_id = s.id
                        WHERE bs.batch_id = ?
@@ -114,8 +116,9 @@ if ($check_batch_students && $check_batch_students->num_rows > 0) {
 }
 
 if (empty($students)) {
+    $nielitSqlSolo = sqlNielitRegistrationNo('s');
     $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                       s.gender, s.category, s.created_at as enrollment_date, s.nielit_registration_no
+                       s.gender, s.category, s.created_at as enrollment_date, {$nielitSqlSolo}
                        FROM students s
                        WHERE s.batch_id = ?
                        ORDER BY s.name";
@@ -250,7 +253,7 @@ $sl_no = 1;
 foreach ($students as $student) {
     $studentsTable->addRow();
     $studentsTable->addCell(400)->addText($sl_no++, ['name' => 'Arial', 'size' => 6], ['alignment' => 'center']);
-    $studentsTable->addCell(1100)->addText(trim((string)($student['nielit_registration_no'] ?? '')), ['name' => 'Arial', 'size' => 6]);
+    $studentsTable->addCell(1100)->addText(trim((string) resolveNielitRegistrationNo($student)), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1900)->addText(strtoupper($student['full_name']), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1700)->addText(strtoupper($student['father_name'] ?? ''), ['name' => 'Arial', 'size' => 6]);
     $studentsTable->addCell(1000)->addText($student['mobile'], ['name' => 'Arial', 'size' => 6], ['alignment' => 'center']);

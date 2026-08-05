@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
 
 header('Content-Type: application/json');
 
@@ -18,14 +19,23 @@ if ($student_id <= 0 || $batch_id <= 0) {
     exit();
 }
 
+if ($nielit_reg_no === '') {
+    $lookup = $conn->prepare('SELECT student_id FROM students WHERE id = ? LIMIT 1');
+    if ($lookup) {
+        $lookup->bind_param('i', $student_id);
+        $lookup->execute();
+        $lr = $lookup->get_result()->fetch_assoc();
+        $lookup->close();
+        if ($lr && trim((string) ($lr['student_id'] ?? '')) !== '') {
+            $nielit_reg_no = trim((string) $lr['student_id']);
+        }
+    }
+}
+
 $updated = false;
 $errors = [];
 
-// Ensure students.nielit_registration_no exists
-$studentCol = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
-if (!$studentCol || $studentCol->num_rows === 0) {
-    $conn->query("ALTER TABLE students ADD COLUMN nielit_registration_no VARCHAR(100) NULL DEFAULT NULL");
-}
+ensureNielitRegistrationNoColumns($conn);
 
 // Always store on the student record (source of truth across pages)
 $stuStmt = $conn->prepare('UPDATE students SET nielit_registration_no = ? WHERE id = ?');
@@ -45,7 +55,7 @@ $has_batch_students = ($check_table && $check_table->num_rows > 0);
 if ($has_batch_students) {
     $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
     if (!$check_column || $check_column->num_rows === 0) {
-        $conn->query("ALTER TABLE batch_students ADD COLUMN nielit_registration_no VARCHAR(100) NULL DEFAULT NULL");
+        ensureNielitRegistrationNoColumns($conn);
     }
 
     $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");

@@ -55,10 +55,12 @@ $location = !empty($batch['location']) ? $batch['location'] : 'NIELIT Bhubaneswa
 
 // Fetch students
 $students = [];
+require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+$nielitSql = sqlNielitRegistrationNo('s', 'bs');
 $check_batch_students = $conn->query("SHOW TABLES LIKE 'batch_students'");
 if ($check_batch_students && $check_batch_students->num_rows > 0) {
     $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                       s.gender, s.category, bs.enrollment_date, s.nielit_registration_no
+                       s.gender, s.category, bs.enrollment_date, {$nielitSql}
                        FROM batch_students bs
                        INNER JOIN students s ON bs.student_id = s.id
                        WHERE bs.batch_id = ?
@@ -78,8 +80,9 @@ if ($check_batch_students && $check_batch_students->num_rows > 0) {
 }
 
 if (empty($students)) {
+    $nielitSqlSolo = sqlNielitRegistrationNo('s');
     $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                       s.gender, s.category, s.created_at as enrollment_date, s.nielit_registration_no
+                       s.gender, s.category, s.created_at as enrollment_date, {$nielitSqlSolo}
                        FROM students s
                        WHERE s.batch_id = ?
                        ORDER BY s.name";
@@ -267,7 +270,7 @@ header('Cache-Control: max-age=0');
         ?>
         <tr>
             <td><?php echo $sl_no++; ?></td>
-            <td><?php echo htmlspecialchars(trim((string)($student['nielit_registration_no'] ?? ''))); ?></td>
+            <td><?php echo htmlspecialchars(trim((string) resolveNielitRegistrationNo($student))); ?></td>
             <td style="text-align: left;"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
             <td style="text-align: left;"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
             <td><?php echo htmlspecialchars($student['mobile']); ?></td>

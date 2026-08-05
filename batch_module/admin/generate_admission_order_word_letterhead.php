@@ -174,29 +174,19 @@ echo "<!-- Extension Centre: " . htmlspecialchars($extension_centre) . " -->";
 
 // Fetch students linked to this batch - try multiple methods
 $students = [];
+require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+$nielitSql = sqlNielitRegistrationNo('s', 'bs');
+$nielitSqlSolo = sqlNielitRegistrationNo('s');
 
 // Method 1: Try batch_students table first (preferred method)
 $check_batch_students = $conn->query("SHOW TABLES LIKE 'batch_students'");
 if ($check_batch_students && $check_batch_students->num_rows > 0) {
-    // Check if nielit_registration_no column exists
-    $check_column = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
-    $has_nielit_column = ($check_column && $check_column->num_rows > 0);
-    
-    if ($has_nielit_column) {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, bs.enrollment_date, bs.nielit_registration_no
+    $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
+                           s.gender, s.category, bs.enrollment_date, {$nielitSql}
                            FROM batch_students bs
                            INNER JOIN students s ON bs.student_id = s.id
                            WHERE bs.batch_id = ?
                            ORDER BY s.name";
-    } else {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, bs.enrollment_date, s.nielit_registration_no
-                           FROM batch_students bs
-                           INNER JOIN students s ON bs.student_id = s.id
-                           WHERE bs.batch_id = ?
-                           ORDER BY s.name";
-    }
     
     $stmt = $conn->prepare($students_query);
     if ($stmt) {
@@ -213,23 +203,11 @@ if ($check_batch_students && $check_batch_students->num_rows > 0) {
 
 // Method 2: If no students found, try students table with batch_id
 if (empty($students)) {
-    // Check if nielit_registration_no column exists in students table
-    $check_column = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
-    $has_nielit_column = ($check_column && $check_column->num_rows > 0);
-    
-    if ($has_nielit_column) {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, s.created_at as enrollment_date, s.nielit_registration_no
+    $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
+                           s.gender, s.category, s.created_at as enrollment_date, {$nielitSqlSolo}
                            FROM students s
                            WHERE s.batch_id = ?
                            ORDER BY s.name";
-    } else {
-        $students_query = "SELECT s.id, s.name as full_name, s.father_name, s.mobile, s.aadhar as aadhar_number, 
-                           s.gender, s.category, s.created_at as enrollment_date, NULL as nielit_registration_no
-                           FROM students s
-                           WHERE s.batch_id = ?
-                           ORDER BY s.name";
-    }
     
     $stmt = $conn->prepare($students_query);
     if ($stmt) {
@@ -653,7 +631,7 @@ header('Cache-Control: max-age=0');
         ?>
         <tr>
             <td><?php echo $sl_no++; ?></td>
-            <td><?php echo htmlspecialchars(trim((string)($student['nielit_registration_no'] ?? ''))); ?></td>
+            <td><?php echo htmlspecialchars(trim((string) resolveNielitRegistrationNo($student))); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['full_name'])); ?></td>
             <td class="text-left"><?php echo strtoupper(htmlspecialchars($student['father_name'] ?? '')); ?></td>
             <td><?php echo htmlspecialchars($student['mobile']); ?></td>

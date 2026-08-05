@@ -4,6 +4,10 @@
  * NIELIT Bhubaneswar - Modular Batch System
  */
 
+if (file_exists(__DIR__ . '/../../includes/nielit_registration_helper.php')) {
+    require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+}
+
 /**
  * Generate unique batch code
  */
@@ -415,17 +419,18 @@ function getBatchStudents($batch_id, $conn) {
     $check_student_nielit = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
     $has_student_nielit = ($check_student_nielit && $check_student_nielit->num_rows > 0);
 
+    if (file_exists(__DIR__ . '/../../includes/nielit_registration_helper.php')) {
+        require_once __DIR__ . '/../../includes/nielit_registration_helper.php';
+    }
+
     if ($has_batch_students_table) {
-        // Prefer batch_students value, fall back to students value.
-        // Must be selected AFTER s.* so it overwrites the duplicate column name.
-        if ($has_nielit_column && $has_student_nielit) {
-            $nielitSelect = "COALESCE(NULLIF(TRIM(bs.nielit_registration_no), ''), NULLIF(TRIM(s.nielit_registration_no), '')) AS nielit_registration_no";
-        } elseif ($has_nielit_column) {
-            $nielitSelect = "NULLIF(TRIM(bs.nielit_registration_no), '') AS nielit_registration_no";
-        } elseif ($has_student_nielit) {
-            $nielitSelect = "NULLIF(TRIM(s.nielit_registration_no), '') AS nielit_registration_no";
+        // Prefer batch_students value, fall back to students value, then student_id.
+        if ($has_nielit_column || $has_student_nielit) {
+            $nielitSelect = function_exists('sqlNielitRegistrationNo')
+                ? sqlNielitRegistrationNo('s', $has_nielit_column ? 'bs' : null)
+                : "COALESCE(NULLIF(TRIM(s.nielit_registration_no), ''), NULLIF(TRIM(s.student_id), '')) AS nielit_registration_no";
         } else {
-            $nielitSelect = "NULL AS nielit_registration_no";
+            $nielitSelect = "NULLIF(TRIM(s.student_id), '') AS nielit_registration_no";
         }
         $certSelect = '';
         if (file_exists(__DIR__ . '/batch_certificate_helper.php')) {
@@ -475,6 +480,12 @@ function getBatchStudents($batch_id, $conn) {
         $result = $stmt->get_result();
         $students = [];
         while ($row = $result->fetch_assoc()) {
+            if (function_exists('syncNielitRegistrationNoDefault')
+                && trim((string) ($row['nielit_registration_no'] ?? '')) === ''
+                && trim((string) ($row['student_id'] ?? '')) !== '') {
+                syncNielitRegistrationNoDefault($conn, (int) $row['id'], $batch_id);
+                $row['nielit_registration_no'] = $row['student_id'];
+            }
             $students[] = $row;
         }
         $stmt->close();
@@ -482,9 +493,12 @@ function getBatchStudents($batch_id, $conn) {
     }
 
     // Legacy: no batch_students table — use students.batch_id only
+    $nielitLegacy = function_exists('sqlNielitRegistrationNo')
+        ? sqlNielitRegistrationNo('s')
+        : "COALESCE(NULLIF(TRIM(s.nielit_registration_no), ''), NULLIF(TRIM(s.student_id), '')) AS nielit_registration_no";
     $sql = "SELECT s.*, s.created_at as enrollment_date,
             'Not Paid' as fees_status, 0 as fees_paid, 0 as attendance_percentage,
-            s.nielit_registration_no
+            {$nielitLegacy}
             FROM students s
             WHERE s.batch_id = ?
             ORDER BY s.name ASC";
@@ -497,6 +511,12 @@ function getBatchStudents($batch_id, $conn) {
     $result = $stmt->get_result();
     $students = [];
     while ($row = $result->fetch_assoc()) {
+        if (function_exists('syncNielitRegistrationNoDefault')
+            && trim((string) ($row['nielit_registration_no'] ?? '')) === ''
+            && trim((string) ($row['student_id'] ?? '')) !== '') {
+            syncNielitRegistrationNoDefault($conn, (int) $row['id'], $batch_id);
+            $row['nielit_registration_no'] = $row['student_id'];
+        }
         $students[] = $row;
     }
     $stmt->close();

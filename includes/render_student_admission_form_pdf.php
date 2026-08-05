@@ -4,6 +4,7 @@
  */
 require_once __DIR__ . '/student_form_helpers.php';
 require_once __DIR__ . '/tcpdf_devanagari_font.php';
+require_once __DIR__ . '/nielit_registration_helper.php';
 
 if (!defined('INSTITUTE_NAME_EN')) {
     require_once __DIR__ . '/institute_branding.php';
@@ -301,7 +302,7 @@ $course_height = max(10, $pdf->getStringHeight(95, $course_text));
 $pdf->Cell(45, $course_height, ' Course Chosen', 1, 0, 'L'); 
 $pdf->MultiCell(95, $course_height, $course_text, 1, 'L', false, 1);
 $pdf->Cell(45, 10, ' Unique Student ID', 1, 0); $pdf->Cell(95, 10, ' ' . $student['student_id'], 1, 1);
-$pdf->Cell(45, 10, ' Registration No.', 1, 0); $pdf->Cell(95, 10, ' ' . ($student['nielit_registration_no'] ?: 'N/A'), 1, 1);
+$pdf->Cell(45, 10, ' Registration No.', 1, 0); $pdf->Cell(95, 10, ' ' . (resolveNielitRegistrationNo($student) ?: 'N/A'), 1, 1);
 $pdf->Cell(45, 10, ' APAAR ID', 1, 0); $pdf->Cell(95, 10, ' ' . ($student['apaar_id'] ?: 'N/A'), 1, 1);
 $pdf->Ln(4);
 

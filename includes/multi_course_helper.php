@@ -2411,7 +2411,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $studentScheme = null;
         $batchScheme = normalizeEnrollmentSchemeId($batch['scheme_id'] ?? null);
 
-        $stuStmt = $conn->prepare('SELECT id, course_id, scheme_id, batch_id FROM students WHERE id = ? LIMIT 1');
+        $stuStmt = $conn->prepare('SELECT id, course_id, scheme_id, batch_id, student_id FROM students WHERE id = ? LIMIT 1');
         if ($stuStmt) {
             $stuStmt->bind_param('i', $studentRecordId);
             $stuStmt->execute();
@@ -2574,6 +2574,11 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                 'description' => 'Student "' . $sname . '" (' . $sid . ') assigned to batch "' . ($bname !== '' ? $bname : ('#' . $batchId)) . '".',
                 'details' => ['student_record_id' => $studentRecordId],
             ]);
+        }
+
+        if (file_exists(__DIR__ . '/nielit_registration_helper.php')) {
+            require_once __DIR__ . '/nielit_registration_helper.php';
+            syncNielitRegistrationNoDefault($conn, $studentRecordId, $batchId);
         }
 
         return ['success' => true, 'message' => 'Student assigned to batch successfully.'];

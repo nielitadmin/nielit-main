@@ -294,7 +294,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             isset($student['created_at']) ? date('d-m-Y H:i:s', strtotime($student['created_at'])) : '',
             $student['course_id'] ?? '',
             $student['student_id'] ?? '',
-            $student['nielit_registration_no'] ?? '',
+            resolveNielitRegistrationNo($student),
             isset($student['registration_date']) ? date('d-m-Y', strtotime($student['registration_date'])) : '',
             $student['status'] ?? '',
             $student['approved_by'] ?? '',
@@ -1443,8 +1443,8 @@ function downloadScannedOrder(batchId) {
                                                 <input type="text" 
                                                        id="nielit_reg_<?php echo $student['id']; ?>"
                                                        class="form-control form-control-sm nielit-reg-input" 
-                                                       value="<?php echo htmlspecialchars($student['nielit_registration_no'] ?? ''); ?>" 
-                                                       placeholder="Enter Reg. No."
+                                                       value="<?php echo htmlspecialchars(resolveNielitRegistrationNo($student)); ?>" 
+                                                       placeholder="<?php echo htmlspecialchars($student['student_id'] ?? 'Same as Student ID'); ?>"
                                                        <?php echo $is_locked ? 'disabled' : ''; ?>>
                                                 <?php if ($is_locked): ?>
                                                     <button type="button" class="btn btn-secondary btn-sm" disabled title="Batch is locked">
