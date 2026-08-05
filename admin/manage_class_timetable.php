@@ -1,0 +1,486 @@
+<?php
+/**
+ * Admin: Manage Class Timetable
+ * Weekly per-batch schedule slots (Mon–Sat).
+ */
+require_once __DIR__ . '/../includes/url_helper.php';
+require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
+require_once __DIR__ . '/../includes/admin_assets.php';
+session_start();
+
+if (!isset($_SESSION['admin'])) {
+    header('Location: login.php');
+    exit();
+}
+
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/theme_loader.php';
+require_once __DIR__ . '/../includes/class_timetable_helper.php';
+
+$role = $_SESSION['admin_role'] ?? '';
+$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
+if ($blocked) {
+    $_SESSION['message'] = 'Access denied.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: ' . relative_url('dashboard.php'));
+    exit();
+}
+
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
+$active_theme = loadActiveTheme($conn);
+ensureClassTimetableTable($conn);
+
+$filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $filterBatch = isset($_POST['redirect_batch_id']) ? (int) $_POST['redirect_batch_id'] : $filterBatch;
+}
+
+$redirectUrl = 'manage_class_timetable.php' . ($filterBatch > 0 ? ('?batch_id=' . $filterBatch) : '');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $token = (string) ($_POST['csrf_token'] ?? '');
+    if (!hash_equals((string) $_SESSION['csrf_token'], $token)) {
+        $_SESSION['message'] = 'Invalid security token. Please try again.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . $redirectUrl);
+        exit();
+    }
+
+    $action = (string) ($_POST['action'] ?? '');
+
+    if ($action === 'save') {
+        $editId = (int) ($_POST['id'] ?? 0);
+        $payload = [
+            'batch_id' => (int) ($_POST['batch_id'] ?? 0),
+            'day_of_week' => (int) ($_POST['day_of_week'] ?? 0),
+            'start_time' => $_POST['start_time'] ?? '',
+            'end_time' => $_POST['end_time'] ?? '',
+            'subject' => $_POST['subject'] ?? '',
+            'faculty_name' => $_POST['faculty_name'] ?? '',
+            'room' => $_POST['room'] ?? '',
+            'notes' => $_POST['notes'] ?? '',
+            'is_active' => isset($_POST['is_active']) ? 1 : 0,
+            'created_by' => (string) ($_SESSION['admin'] ?? 'admin'),
+        ];
+        $result = saveClassTimetableSlot($conn, $payload, $editId > 0 ? $editId : null);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        if ($result['success']) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+            $savedBatch = (int) ($payload['batch_id'] ?? 0);
+            if ($savedBatch > 0) {
+                $redirectUrl = 'manage_class_timetable.php?batch_id=' . $savedBatch;
+            }
+        }
+        header('Location: ' . $redirectUrl);
+        exit();
+    }
+
+    if ($action === 'delete') {
+        $deleteId = (int) ($_POST['id'] ?? 0);
+        $result = deleteClassTimetableSlot($conn, $deleteId);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        if ($result['success']) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        header('Location: ' . $redirectUrl);
+        exit();
+    }
+}
+
+$allBatchesForSelect = [];
+$batchSql = "SELECT b.id, b.batch_name, b.batch_code, b.status, c.course_name
+             FROM batches b
+             LEFT JOIN courses c ON c.id = b.course_id
+             ORDER BY b.status = 'Active' DESC, b.start_date DESC";
+$batchRes = $conn->query($batchSql);
+if ($batchRes) {
+    while ($b = $batchRes->fetch_assoc()) {
+        $allBatchesForSelect[] = $b;
+    }
+}
+
+$slots = listClassTimetableAdmin($conn, $filterBatch > 0 ? $filterBatch : null);
+$grouped = groupClassTimetableByDay($slots);
+$dayLabels = classTimetableDayLabels();
+
+$message = $_SESSION['message'] ?? '';
+$message_type = $_SESSION['message_type'] ?? 'success';
+unset($_SESSION['message'], $_SESSION['message_type']);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Timetable - NIELIT Bhubaneswar</title>
+    <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
+    <style>
+        .ct-muted { color: #64748b; font-size: 0.875rem; }
+        .ct-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        .ct-modal .form-group { margin-bottom: 1rem; }
+        .ct-modal label { font-weight: 500; color: #334155; margin-bottom: 6px; display: block; }
+        .ct-help { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+        .ct-day-block { margin-bottom: 1.5rem; }
+        .ct-day-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0 0 0.75rem;
+            padding-bottom: 0.35rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .ct-empty-day { color: #94a3b8; font-size: 0.875rem; padding: 0.5rem 0; }
+        #classTimetableTable th,
+        #classTimetableTable td { white-space: nowrap; }
+        #classTimetableTable td.ct-wrap { white-space: normal; min-width: 140px; }
+    </style>
+</head>
+<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<div class="admin-wrapper">
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
+
+    <main class="admin-content">
+        <div class="admin-topbar">
+            <div class="topbar-left">
+                <h4><i class="fas fa-calendar-alt"></i> Class Timetable</h4>
+                <small>Weekly schedule per batch (Monday–Saturday)</small>
+            </div>
+            <div class="topbar-right">
+                <div class="user-info">
+                    <div class="user-details">
+                        <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
+                        <span class="user-role">Administrator</span>
+                    </div>
+                    <div class="user-avatar">
+                        <?php echo strtoupper(substr((string) $_SESSION['admin'], 0, 1)); ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="admin-main">
+            <?php if ($message !== ''): ?>
+                <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
+                    <?php echo htmlspecialchars($message); ?>
+                    <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+            <?php endif; ?>
+
+            <div class="content-card">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <h5 class="card-title" style="margin:0;">
+                        <i class="fas fa-list"></i> Timetable Slots
+                        <span class="ct-muted">(<?php echo count($slots); ?>)</span>
+                    </h5>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
+                            <select name="batch_id" class="form-control" style="min-width:220px;" onchange="this.form.submit()">
+                                <option value="0">All batches</option>
+                                <?php foreach ($allBatchesForSelect as $b): ?>
+                                    <option value="<?php echo (int) $b['id']; ?>" <?php echo $filterBatch === (int) $b['id'] ? 'selected' : ''; ?>>
+                                        <?php
+                                        echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')');
+                                        if (!empty($b['course_name'])) {
+                                            echo ' — ' . htmlspecialchars($b['course_name']);
+                                        }
+                                        ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </form>
+                        <button type="button" class="btn btn-primary" onclick="openSlotModal()">
+                            <i class="fas fa-plus"></i> Add Slot
+                        </button>
+                    </div>
+                </div>
+
+                <?php if ($filterBatch > 0): ?>
+                    <?php foreach ($dayLabels as $dayNum => $dayName): ?>
+                        <div class="ct-day-block" style="padding:0 1.25rem;">
+                            <h6 class="ct-day-title"><i class="fas fa-calendar-day"></i> <?php echo htmlspecialchars($dayName); ?></h6>
+                            <?php if (empty($grouped[$dayNum])): ?>
+                                <p class="ct-empty-day">No classes scheduled</p>
+                            <?php else: ?>
+                                <div class="table-responsive">
+                                    <table class="modern-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Time</th>
+                                                <th>Subject</th>
+                                                <th>Faculty</th>
+                                                <th>Room</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach ($grouped[$dayNum] as $slot): ?>
+                                                <tr>
+                                                    <td>
+                                                        <?php echo htmlspecialchars(classTimetableFormatTime($slot['start_time'] ?? '')); ?>
+                                                        –
+                                                        <?php echo htmlspecialchars(classTimetableFormatTime($slot['end_time'] ?? '')); ?>
+                                                    </td>
+                                                    <td class="ct-wrap">
+                                                        <strong><?php echo htmlspecialchars($slot['subject'] ?? ''); ?></strong>
+                                                        <?php if (!empty($slot['notes'])): ?>
+                                                            <div class="ct-muted"><?php echo htmlspecialchars($slot['notes']); ?></div>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td><?php echo htmlspecialchars($slot['faculty_name'] ?: '—'); ?></td>
+                                                    <td><?php echo htmlspecialchars($slot['room'] ?: '—'); ?></td>
+                                                    <td>
+                                                        <?php if (!empty($slot['is_active'])): ?>
+                                                            <span class="badge badge-success">Visible</span>
+                                                        <?php else: ?>
+                                                            <span class="badge badge-secondary">Hidden</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td>
+                                                        <div class="ct-actions">
+                                                            <button type="button" class="btn btn-sm btn-primary" title="Edit"
+                                                                    onclick='openSlotModal(<?php echo json_encode($slot, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>
+                                                                <i class="fas fa-edit"></i>
+                                                            </button>
+                                                            <form method="post" style="margin:0;display:inline;" onsubmit="return confirm('Delete this timetable slot?');">
+                                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                                                <input type="hidden" name="action" value="delete">
+                                                                <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">
+                                                                <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $filterBatch; ?>">
+                                                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="modern-table" id="classTimetableTable">
+                            <thead>
+                                <tr>
+                                    <th>Batch</th>
+                                    <th>Day</th>
+                                    <th>Time</th>
+                                    <th>Subject</th>
+                                    <th>Faculty</th>
+                                    <th>Room</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($slots)): ?>
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted" style="padding:2rem;white-space:normal;">
+                                            No timetable slots yet. Select a batch and click <strong>Add Slot</strong>.
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($slots as $slot): ?>
+                                        <tr>
+                                            <td class="ct-wrap">
+                                                <?php echo htmlspecialchars($slot['batch_name'] ?? '—'); ?>
+                                                <div class="ct-muted"><?php echo htmlspecialchars($slot['batch_code'] ?? ''); ?>
+                                                    <?php if (!empty($slot['course_name'])): ?>
+                                                        · <?php echo htmlspecialchars($slot['course_name']); ?>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </td>
+                                            <td><?php echo htmlspecialchars(classTimetableDayLabel((int) ($slot['day_of_week'] ?? 0))); ?></td>
+                                            <td>
+                                                <?php echo htmlspecialchars(classTimetableFormatTime($slot['start_time'] ?? '')); ?>
+                                                –
+                                                <?php echo htmlspecialchars(classTimetableFormatTime($slot['end_time'] ?? '')); ?>
+                                            </td>
+                                            <td class="ct-wrap">
+                                                <strong><?php echo htmlspecialchars($slot['subject'] ?? ''); ?></strong>
+                                            </td>
+                                            <td><?php echo htmlspecialchars($slot['faculty_name'] ?: '—'); ?></td>
+                                            <td><?php echo htmlspecialchars($slot['room'] ?: '—'); ?></td>
+                                            <td>
+                                                <?php if (!empty($slot['is_active'])): ?>
+                                                    <span class="badge badge-success">Visible</span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-secondary">Hidden</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <div class="ct-actions">
+                                                    <button type="button" class="btn btn-sm btn-primary" title="Edit"
+                                                            onclick='openSlotModal(<?php echo json_encode($slot, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>
+                                                        <i class="fas fa-edit"></i>
+                                                    </button>
+                                                    <form method="post" style="margin:0;display:inline;" onsubmit="return confirm('Delete this timetable slot?');">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                                        <input type="hidden" name="action" value="delete">
+                                                        <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">
+                                                        <input type="hidden" name="redirect_batch_id" value="0">
+                                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Add / Edit Modal -->
+<div class="modal fade ct-modal" id="slotModal" tabindex="-1" role="dialog" aria-labelledby="slotModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <form method="post" id="slotForm">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                <input type="hidden" name="action" value="save">
+                <input type="hidden" name="id" id="ct_id" value="0">
+                <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $filterBatch; ?>">
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="slotModalTitle">Add Timetable Slot</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                </div>
+                <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
+                    <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:220px;">
+                            <label for="ct_batch_id">Batch <span class="text-danger">*</span></label>
+                            <select class="form-control" id="ct_batch_id" name="batch_id" required>
+                                <option value="">Select batch…</option>
+                                <?php foreach ($allBatchesForSelect as $b): ?>
+                                    <option value="<?php echo (int) $b['id']; ?>">
+                                        <?php
+                                        echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')');
+                                        if (!empty($b['course_name'])) {
+                                            echo ' — ' . htmlspecialchars($b['course_name']);
+                                        }
+                                        if (($b['status'] ?? '') !== 'Active') {
+                                            echo ' [' . htmlspecialchars($b['status'] ?? '') . ']';
+                                        }
+                                        ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:180px;">
+                            <label for="ct_day">Day <span class="text-danger">*</span></label>
+                            <select class="form-control" id="ct_day" name="day_of_week" required>
+                                <option value="">Select day…</option>
+                                <?php foreach ($dayLabels as $dayNum => $dayName): ?>
+                                    <option value="<?php echo (int) $dayNum; ?>"><?php echo htmlspecialchars($dayName); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:140px;">
+                            <label for="ct_start">Start Time <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" id="ct_start" name="start_time" required>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:140px;">
+                            <label for="ct_end">End Time <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" id="ct_end" name="end_time" required>
+                        </div>
+                        <div class="form-group" style="flex:2;min-width:200px;">
+                            <label for="ct_subject">Subject <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ct_subject" name="subject" required maxlength="255" placeholder="e.g. Networking Fundamentals">
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:180px;">
+                            <label for="ct_faculty">Faculty (optional)</label>
+                            <input type="text" class="form-control" id="ct_faculty" name="faculty_name" maxlength="255" placeholder="Faculty name">
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:140px;">
+                            <label for="ct_room">Room (optional)</label>
+                            <input type="text" class="form-control" id="ct_room" name="room" maxlength="100" placeholder="e.g. Lab-2">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ct_notes">Notes (optional)</label>
+                        <textarea class="form-control" id="ct_notes" name="notes" rows="2" placeholder="Extra instructions…"></textarea>
+                    </div>
+
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-weight:500;display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" id="ct_is_active" name="is_active" value="1" checked>
+                            Visible to students
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Slot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toTimeInput(mysqlTime) {
+    if (!mysqlTime) return '';
+    var s = String(mysqlTime);
+    if (s.length >= 5) return s.substring(0, 5);
+    return s;
+}
+
+function openSlotModal(row) {
+    var form = document.getElementById('slotForm');
+    form.reset();
+    document.getElementById('ct_id').value = '0';
+    document.getElementById('ct_is_active').checked = true;
+    document.getElementById('slotModalTitle').textContent = 'Add Timetable Slot';
+
+    var filterBatch = <?php echo (int) $filterBatch; ?>;
+    if (filterBatch > 0) {
+        document.getElementById('ct_batch_id').value = String(filterBatch);
+    }
+
+    if (row && row.id) {
+        document.getElementById('slotModalTitle').textContent = 'Edit Timetable Slot';
+        document.getElementById('ct_id').value = row.id;
+        document.getElementById('ct_batch_id').value = row.batch_id || '';
+        document.getElementById('ct_day').value = row.day_of_week || '';
+        document.getElementById('ct_start').value = toTimeInput(row.start_time);
+        document.getElementById('ct_end').value = toTimeInput(row.end_time);
+        document.getElementById('ct_subject').value = row.subject || '';
+        document.getElementById('ct_faculty').value = row.faculty_name || '';
+        document.getElementById('ct_room').value = row.room || '';
+        document.getElementById('ct_notes').value = row.notes || '';
+        document.getElementById('ct_is_active').checked = String(row.is_active) === '1' || row.is_active === true || row.is_active === 1;
+    }
+
+    if (typeof jQuery !== 'undefined' && jQuery.fn.modal) {
+        jQuery('#slotModal').modal('show');
+    } else {
+        var el = document.getElementById('slotModal');
+        el.style.display = 'block';
+        el.classList.add('show');
+    }
+}
+</script>
+</body>
+</html>

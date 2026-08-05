@@ -2720,6 +2720,109 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         return ['success' => true, 'message' => 'Scheme/project updated successfully.'];
     }
 
+    /**
+     * Bulk-set scheme/project for all active enrollments of a course (e.g. after Edit Course ticks schemes).
+     *
+     * @return array{success:bool,message:string,updated:int,skipped:int,already:int}
+     */
+    function adminSyncCourseStudentsToScheme(mysqli $conn, int $courseId, int $schemeId): array
+    {
+        $empty = ['success' => false, 'message' => '', 'updated' => 0, 'skipped' => 0, 'already' => 0];
+        if ($courseId <= 0 || $schemeId <= 0) {
+            $empty['message'] = 'Invalid course or scheme.';
+            return $empty;
+        }
+        if (!hasSchemeEnrollmentColumns($conn)) {
+            $empty['message'] = 'Scheme support is not installed.';
+            return $empty;
+        }
+        if (!validateSchemeForCourse($conn, $courseId, $schemeId)) {
+            $empty['message'] = 'Selected scheme is not linked to this course.';
+            return $empty;
+        }
+
+        $schemeLabel = 'Scheme #' . $schemeId;
+        $sn = $conn->prepare('SELECT scheme_name, scheme_code FROM schemes WHERE id = ? LIMIT 1');
+        if ($sn) {
+            $sn->bind_param('i', $schemeId);
+            $sn->execute();
+            $sr = $sn->get_result()->fetch_assoc();
+            $sn->close();
+            if ($sr) {
+                $schemeLabel = trim(($sr['scheme_code'] ?? '') . ' — ' . ($sr['scheme_name'] ?? ''));
+            }
+        }
+
+        $sql = "SELECT s.id, s.scheme_id, s.batch_id, s.student_id, s.name, b.scheme_id AS batch_scheme_id
+                FROM students s
+                LEFT JOIN batches b ON b.id = s.batch_id
+                WHERE s.course_id = ?
+                  AND LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive', 'cancelled')";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            $empty['message'] = $conn->error ?: 'Could not load students.';
+            return $empty;
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+
+        $updated = 0;
+        $skipped = 0;
+        $already = 0;
+
+        while ($row = $res->fetch_assoc()) {
+            $recordId = (int) ($row['id'] ?? 0);
+            if ($recordId <= 0) {
+                continue;
+            }
+            $current = normalizeEnrollmentSchemeId($row['scheme_id'] ?? null);
+            if ($current === $schemeId) {
+                $already++;
+                continue;
+            }
+
+            $batchId = (int) ($row['batch_id'] ?? 0);
+            if ($batchId > 0) {
+                $batchScheme = normalizeEnrollmentSchemeId($row['batch_scheme_id'] ?? null);
+                if (!canAssignStudentSchemeToBatch($schemeId, $batchScheme)) {
+                    $skipped++;
+                    continue;
+                }
+            }
+
+            $result = adminUpdateStudentScheme($conn, $recordId, $schemeId);
+            if (!empty($result['success'])) {
+                $updated++;
+            } else {
+                $skipped++;
+            }
+        }
+        $stmt->close();
+
+        $parts = [];
+        if ($updated > 0) {
+            $parts[] = $updated . ' student(s) updated to ' . $schemeLabel;
+        }
+        if ($already > 0) {
+            $parts[] = $already . ' already on that scheme';
+        }
+        if ($skipped > 0) {
+            $parts[] = $skipped . ' skipped (batch scheme mismatch or error — remove from batch first if needed)';
+        }
+        if (empty($parts)) {
+            $parts[] = 'No enrolled students to update';
+        }
+
+        return [
+            'success' => true,
+            'message' => implode('. ', $parts) . '.',
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'already' => $already,
+        ];
+    }
+
     function adminAssignCourseToStudent(mysqli $conn, string $studentIdStr, int $courseId, ?int $batchId, string $adminName, ?int $schemeId = null): array {
         if (!isMultiCourseSystemInstalled($conn)) {
             return ['success' => false, 'message' => 'Multi-course system is not installed. Run migrations/install_multi_course_system.php first.'];

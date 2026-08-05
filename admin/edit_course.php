@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 
 // Function to generate short token
 function generateShortToken($length = 8) {
@@ -399,17 +400,37 @@ if (isset($_POST['update_course'])) {
             $stmt_delete->bind_param("i", $course_id);
             $stmt_delete->execute();
             $stmt_delete->close();
-            
+
+            $savedSchemeIds = [];
             if (isset($_POST['schemes']) && !empty($_POST['schemes'])) {
                 $insert_scheme_sql = "INSERT INTO course_schemes (course_id, scheme_id) VALUES (?, ?)";
                 $stmt_insert = $conn->prepare($insert_scheme_sql);
-                
+
                 if ($stmt_insert) {
                     foreach ($_POST['schemes'] as $scheme_id) {
+                        $scheme_id = (int) $scheme_id;
+                        if ($scheme_id <= 0) {
+                            continue;
+                        }
                         $stmt_insert->bind_param("ii", $course_id, $scheme_id);
                         $stmt_insert->execute();
+                        $savedSchemeIds[] = $scheme_id;
                     }
                     $stmt_insert->close();
+                }
+            }
+            $savedSchemeIds = array_values(array_unique($savedSchemeIds));
+
+            // Auto-update enrolled students' scheme when admin opts in (default on).
+            $syncStudents = isset($_POST['sync_student_schemes']);
+            if ($syncStudents && !empty($savedSchemeIds) && function_exists('adminSyncCourseStudentsToScheme')) {
+                $syncTo = (int) ($_POST['sync_to_scheme_id'] ?? 0);
+                if ($syncTo <= 0 || !in_array($syncTo, $savedSchemeIds, true)) {
+                    $syncTo = (int) $savedSchemeIds[0];
+                }
+                $syncResult = adminSyncCourseStudentsToScheme($conn, (int) $course_id, $syncTo);
+                if (!empty($syncResult['message'])) {
+                    $_SESSION['scheme_sync_message'] = $syncResult['message'];
                 }
             }
         } else {
@@ -425,6 +446,10 @@ if (isset($_POST['update_course'])) {
                 : 'Course updated, but QR sync failed: ' . ($sync['message'] ?? 'unknown error');
         } else {
             $_SESSION['message'] = 'Course updated successfully!';
+        }
+        if (!empty($_SESSION['scheme_sync_message'])) {
+            $_SESSION['message'] .= ' ' . $_SESSION['scheme_sync_message'];
+            unset($_SESSION['scheme_sync_message']);
         }
 
         if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
@@ -691,7 +716,9 @@ $active_theme = loadActiveTheme($conn);
                                     <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
                                         <input type="checkbox" 
                                                name="schemes[]" 
+                                               class="course-scheme-checkbox"
                                                value="<?php echo $scheme['id']; ?>"
+                                               data-label="<?php echo htmlspecialchars(($scheme['scheme_code'] ?? '') . ' — ' . ($scheme['scheme_name'] ?? ''), ENT_QUOTES); ?>"
                                                <?php echo in_array($scheme['id'], $selected_schemes) ? 'checked' : ''; ?>
                                                style="width: 18px; height: 18px;">
                                         <span style="font-weight: 500;"><?php echo htmlspecialchars($scheme['scheme_name']); ?></span>
@@ -704,6 +731,19 @@ $active_theme = loadActiveTheme($conn);
                                     <a href="<?php echo APP_URL; ?>/schemes_module/admin/manage_schemes.php" style="color: #007bff;">Create schemes</a>
                                 </p>
                             <?php endif; ?>
+                        </div>
+                        <div style="margin-top: 12px; padding: 12px; background: #e8f4fd; border: 1px solid #b6d4fe; border-radius: 6px;">
+                            <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+                                <input type="checkbox" name="sync_student_schemes" id="sync_student_schemes" value="1" checked style="width: 18px; height: 18px; margin-top: 2px;">
+                                <span>
+                                    <strong>Also update all enrolled students</strong> to the scheme below when you save.
+                                    <br><small class="text-muted">Students already in a batch with a different scheme are skipped.</small>
+                                </span>
+                            </label>
+                            <label for="sync_to_scheme_id" class="form-label" style="margin-bottom: 4px;">Apply this scheme to students</label>
+                            <select name="sync_to_scheme_id" id="sync_to_scheme_id" class="form-control" style="max-width: 420px;">
+                                <option value="">— Select a ticked scheme —</option>
+                            </select>
                         </div>
                         <small class="text-muted">Select one or more schemes/projects for this course</small>
                     </div>
@@ -1861,6 +1901,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+</script>
+
+<script>
+(function () {
+    function refreshSyncSchemeOptions(preferId) {
+        var select = document.getElementById('sync_to_scheme_id');
+        if (!select) return;
+        var checked = Array.prototype.slice.call(document.querySelectorAll('.course-scheme-checkbox:checked'));
+        var prev = preferId || select.value;
+        select.innerHTML = '';
+        if (checked.length === 0) {
+            var empty = document.createElement('option');
+            empty.value = '';
+            empty.textContent = '— Tick a scheme first —';
+            select.appendChild(empty);
+            return;
+        }
+        checked.forEach(function (cb) {
+            var opt = document.createElement('option');
+            opt.value = cb.value;
+            opt.textContent = cb.getAttribute('data-label') || ('Scheme #' + cb.value);
+            select.appendChild(opt);
+        });
+        if (prev && checked.some(function (cb) { return String(cb.value) === String(prev); })) {
+            select.value = String(prev);
+        } else {
+            select.value = checked[checked.length - 1].value;
+        }
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        refreshSyncSchemeOptions();
+        document.querySelectorAll('.course-scheme-checkbox').forEach(function (cb) {
+            cb.addEventListener('change', function () {
+                refreshSyncSchemeOptions(cb.checked ? cb.value : null);
+            });
+        });
+    });
+})();
 </script>
 
 </body>

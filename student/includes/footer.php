@@ -11,6 +11,7 @@
                         <li><a href="profile.php"><i class="fas fa-chevron-right me-2 small"></i>My Profile</a></li>
                         <li><a href="attendance.php"><i class="fas fa-chevron-right me-2 small"></i>Attendance</a></li>
                         <li><a href="online_classes.php"><i class="fas fa-chevron-right me-2 small"></i>Online Classes</a></li>
+                        <li><a href="class_timetable.php"><i class="fas fa-chevron-right me-2 small"></i>Timetable</a></li>
                         <li><a href="fees.php"><i class="fas fa-chevron-right me-2 small"></i>Fee Details</a></li>
                         <li><a href="support.php"><i class="fas fa-chevron-right me-2 small"></i>Support</a></li>
                     </ul>

@@ -121,6 +121,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-video"></i> Online Classes
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_class_timetable'); ?>" class="nav-link <?php echo ($current_page === 'manage_class_timetable.php') ? 'active' : ''; ?>">
+                <i class="fas fa-calendar-alt"></i> Class Timetable
+            </a>
+        </div>
         <?php endif; ?>
         
         <?php if ($is_master_admin): ?>
