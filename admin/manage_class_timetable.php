@@ -358,7 +358,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="slotModalTitle">Add Timetable Slot</h5>
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close" onclick="closeSlotModal()"></button>
                 </div>
                 <div class="modal-body" style="max-height:70vh;overflow-y:auto;">
                     <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
@@ -431,7 +431,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="closeSlotModal()">Cancel</button>
                     <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Slot</button>
                 </div>
             </form>
@@ -439,12 +439,37 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function toTimeInput(mysqlTime) {
     if (!mysqlTime) return '';
     var s = String(mysqlTime);
     if (s.length >= 5) return s.substring(0, 5);
     return s;
+}
+
+function getSlotModalInstance() {
+    var el = document.getElementById('slotModal');
+    if (!el) return null;
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        return bootstrap.Modal.getOrCreateInstance(el);
+    }
+    return null;
+}
+
+function closeSlotModal() {
+    var instance = getSlotModalInstance();
+    if (instance) {
+        instance.hide();
+        return;
+    }
+    var el = document.getElementById('slotModal');
+    if (!el) return;
+    el.classList.remove('show');
+    el.style.display = 'none';
+    el.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.querySelectorAll('.modal-backdrop').forEach(function (b) { b.remove(); });
 }
 
 function openSlotModal(row) {
@@ -473,13 +498,15 @@ function openSlotModal(row) {
         document.getElementById('ct_is_active').checked = String(row.is_active) === '1' || row.is_active === true || row.is_active === 1;
     }
 
-    if (typeof jQuery !== 'undefined' && jQuery.fn.modal) {
-        jQuery('#slotModal').modal('show');
-    } else {
-        var el = document.getElementById('slotModal');
-        el.style.display = 'block';
-        el.classList.add('show');
+    var instance = getSlotModalInstance();
+    if (instance) {
+        instance.show();
+        return;
     }
+    var el = document.getElementById('slotModal');
+    el.style.display = 'block';
+    el.classList.add('show');
+    el.setAttribute('aria-hidden', 'false');
 }
 </script>
 </body>
