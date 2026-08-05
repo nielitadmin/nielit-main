@@ -325,7 +325,7 @@ header('Cache-Control: max-age=0');
 <!-- Signature -->
 <div class="signature">
     <p><strong>Signature</strong></p>
-    <p><?php echo date('d-m-Y'); ?></p>
+    <p><?php echo date('d-m-Y', strtotime($order_date)); ?></p>
     <p><strong><?php echo htmlspecialchars($scheme_incharge); ?></strong></p>
     <p><strong>
     <?php 

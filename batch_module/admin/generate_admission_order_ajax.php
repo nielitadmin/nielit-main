@@ -664,7 +664,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             </td>
             <td style="width: 50%; vertical-align: top; text-align: right; border: none; padding-top: 4px;">
                 <p style="margin: 0 0 3px 0;">Signature</p>
-                <p style="margin: 0 0 3px 0;"><?php echo date('d-m-Y'); ?></p>
+                <p style="margin: 0 0 3px 0;"><span id="display_signature_date"><?php echo date('d-m-Y', strtotime($order_date)); ?></span></p>
                 <p class="ao-sig-name" style="margin: 0 0 2px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
                 <p style="margin: 0 0 2px 0;"><?php 
                     $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
@@ -693,10 +693,15 @@ function updateField(field, value) {
             document.getElementById('display_ref').textContent = value;
             break;
         case 'date':
-            // Convert YYYY-MM-DD to DD.MM.YYYY
+            // Convert YYYY-MM-DD to DD.MM.YYYY (header) and DD-MM-YYYY (signature)
             const parts = value.split('-');
             const formatted = parts[2] + '.' + parts[1] + '.' + parts[0];
+            const signatureFormatted = parts[2] + '-' + parts[1] + '-' + parts[0];
             document.getElementById('display_date').textContent = formatted;
+            const sigDateEl = document.getElementById('display_signature_date');
+            if (sigDateEl) {
+                sigDateEl.textContent = signatureFormatted;
+            }
             break;
         case 'location':
             document.getElementById('display_location').textContent = value;

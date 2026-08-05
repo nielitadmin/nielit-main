@@ -693,7 +693,7 @@ header('Cache-Control: max-age=0');
 <!-- Signature Section -->
 <div class="signature-section">
     <p><strong>Signature</strong></p>
-    <p><?php echo date('d-m-Y'); ?></p>
+    <p><?php echo date('d-m-Y', strtotime($order_date)); ?></p>
     <p><strong><?php 
         $signature_name = htmlspecialchars($scheme_incharge);
         // Check if (Scientist T) is already in the name to avoid duplication
