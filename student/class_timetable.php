@@ -1,6 +1,6 @@
 <?php
 /**
- * Student Portal — Class Timetable (spreadsheet-style weekly grid)
+ * Student Portal — Class Timetable (weekly grid + month-wise calendar)
  */
 session_start();
 require_once __DIR__ . '/../config/config.php';
@@ -40,6 +40,19 @@ if ($selectedBatch <= 0 && count($batchIds) === 1) {
     $selectedBatch = (int) $batchIds[0];
 }
 
+$viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
+if (!in_array($viewMode, ['week', 'month'], true)) {
+    $viewMode = 'week';
+}
+$ctMonthYear = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
+$ctMonthMonth = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('n');
+if ($ctMonthMonth < 1 || $ctMonthMonth > 12) {
+    $ctMonthMonth = (int) date('n');
+}
+if ($ctMonthYear < 2000 || $ctMonthYear > 2100) {
+    $ctMonthYear = (int) date('Y');
+}
+
 $viewBatchIds = $selectedBatch > 0 ? [$selectedBatch] : $batchIds;
 $slots = listClassTimetableForBatches($conn, $viewBatchIds);
 
@@ -52,15 +65,27 @@ foreach ($slots as $slot) {
     $byBatch[$bid][] = $slot;
 }
 
+$baseQuery = array_filter([
+    'batch_id' => $selectedBatch > 0 ? $selectedBatch : null,
+]);
+
 $page_title = 'Class Timetable';
 include __DIR__ . '/includes/header.php';
 ?>
 
 <div class="container py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h2><i class="fas fa-calendar-alt"></i> Class Timetable</h2>
-            <p class="text-muted mb-0">Weekly schedule grid for your assigned batch<?php echo count($batchIds) > 1 ? 'es' : ''; ?>.</p>
+    <div class="row mb-3">
+        <div class="col-12 d-flex flex-wrap justify-content-between align-items-start gap-2">
+            <div>
+                <h2><i class="fas fa-calendar-alt"></i> Class Timetable</h2>
+                <p class="text-muted mb-0">Weekly grid or month-wise calendar for your assigned batch<?php echo count($batchIds) > 1 ? 'es' : ''; ?>.</p>
+            </div>
+            <div class="btn-group" role="group">
+                <a class="btn btn-sm <?php echo $viewMode === 'week' ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+                   href="class_timetable.php?<?php echo http_build_query(array_merge($baseQuery, ['view' => 'week'])); ?>">Weekly</a>
+                <a class="btn btn-sm <?php echo $viewMode === 'month' ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+                   href="class_timetable.php?<?php echo http_build_query(array_merge($baseQuery, ['view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">Month-wise</a>
+            </div>
         </div>
     </div>
 
@@ -74,12 +99,13 @@ include __DIR__ . '/includes/header.php';
         <?php if (count($batchIds) > 1): ?>
             <ul class="nav nav-pills mb-4 flex-wrap gap-2">
                 <li class="nav-item">
-                    <a class="nav-link <?php echo $selectedBatch === 0 ? 'active' : ''; ?>" href="class_timetable.php">All batches</a>
+                    <a class="nav-link <?php echo $selectedBatch === 0 ? 'active' : ''; ?>"
+                       href="class_timetable.php?<?php echo http_build_query(['view' => $viewMode, 'year' => $ctMonthYear, 'month' => $ctMonthMonth]); ?>">All batches</a>
                 </li>
                 <?php foreach ($batchIds as $bid): ?>
                     <li class="nav-item">
                         <a class="nav-link <?php echo $selectedBatch === (int) $bid ? 'active' : ''; ?>"
-                           href="class_timetable.php?batch_id=<?php echo (int) $bid; ?>">
+                           href="class_timetable.php?<?php echo http_build_query(['batch_id' => (int) $bid, 'view' => $viewMode, 'year' => $ctMonthYear, 'month' => $ctMonthMonth]); ?>">
                             <?php echo htmlspecialchars($batchLabelsMap[(int) $bid] ?? ('Batch #' . $bid)); ?>
                         </a>
                     </li>
@@ -92,6 +118,14 @@ include __DIR__ . '/includes/header.php';
                 <i class="fas fa-calendar-times"></i>
                 No timetable has been published for your batch yet. Check back later.
             </div>
+        <?php elseif ($viewMode === 'month'): ?>
+            <?php
+            $ctMonthBaseUrl = 'class_timetable.php';
+            $ctMonthQuery = $baseQuery;
+            $ctMonthEditable = false;
+            $ctGridFilterBatch = $selectedBatch;
+            include __DIR__ . '/../includes/class_timetable_month.php';
+            ?>
         <?php elseif ($selectedBatch === 0 && count($byBatch) > 1): ?>
             <?php foreach ($byBatch as $bid => $batchSlots): ?>
                 <h4 class="mb-3 mt-2">

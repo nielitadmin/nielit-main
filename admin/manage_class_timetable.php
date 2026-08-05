@@ -34,11 +34,43 @@ $active_theme = loadActiveTheme($conn);
 ensureClassTimetableTable($conn);
 
 $filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $filterBatch = isset($_POST['redirect_batch_id']) ? (int) $_POST['redirect_batch_id'] : $filterBatch;
+$viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
+if (!in_array($viewMode, ['week', 'month'], true)) {
+    $viewMode = 'week';
+}
+$ctMonthYear = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
+$ctMonthMonth = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('n');
+if ($ctMonthMonth < 1 || $ctMonthMonth > 12) {
+    $ctMonthMonth = (int) date('n');
+}
+if ($ctMonthYear < 2000 || $ctMonthYear > 2100) {
+    $ctMonthYear = (int) date('Y');
 }
 
-$redirectUrl = 'manage_class_timetable.php' . ($filterBatch > 0 ? ('?batch_id=' . $filterBatch) : '');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $filterBatch = isset($_POST['redirect_batch_id']) ? (int) $_POST['redirect_batch_id'] : $filterBatch;
+    $postView = strtolower(trim((string) ($_POST['redirect_view'] ?? '')));
+    if (in_array($postView, ['week', 'month'], true)) {
+        $viewMode = $postView;
+    }
+    if (isset($_POST['redirect_year'])) {
+        $ctMonthYear = (int) $_POST['redirect_year'];
+    }
+    if (isset($_POST['redirect_month'])) {
+        $ctMonthMonth = (int) $_POST['redirect_month'];
+    }
+}
+
+$redirectQs = [];
+if ($filterBatch > 0) {
+    $redirectQs['batch_id'] = $filterBatch;
+}
+if ($viewMode === 'month') {
+    $redirectQs['view'] = 'month';
+    $redirectQs['year'] = $ctMonthYear;
+    $redirectQs['month'] = $ctMonthMonth;
+}
+$redirectUrl = 'manage_class_timetable.php' . (!empty($redirectQs) ? ('?' . http_build_query($redirectQs)) : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string) ($_POST['csrf_token'] ?? '');
@@ -72,8 +104,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             $savedBatch = (int) ($payload['batch_id'] ?? 0);
             if ($savedBatch > 0) {
-                $redirectUrl = 'manage_class_timetable.php?batch_id=' . $savedBatch;
+                $filterBatch = $savedBatch;
             }
+            $redirectQs = [];
+            if ($filterBatch > 0) {
+                $redirectQs['batch_id'] = $filterBatch;
+            }
+            if ($viewMode === 'month') {
+                $redirectQs['view'] = 'month';
+                $redirectQs['year'] = $ctMonthYear;
+                $redirectQs['month'] = $ctMonthMonth;
+            }
+            $redirectUrl = 'manage_class_timetable.php' . (!empty($redirectQs) ? ('?' . http_build_query($redirectQs)) : '');
         }
         header('Location: ' . $redirectUrl);
         exit();
@@ -159,11 +201,27 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
                     <h5 class="card-title" style="margin:0;">
-                        <i class="fas fa-th"></i> Weekly Timetable Grid
+                        <i class="fas fa-<?php echo $viewMode === 'month' ? 'calendar' : 'th'; ?>"></i>
+                        <?php echo $viewMode === 'month' ? 'Month-wise Timetable' : 'Weekly Timetable Grid'; ?>
                         <span class="ct-muted">(<?php echo count($slots); ?> slots)</span>
                     </h5>
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                        <div class="btn-group" role="group" aria-label="View mode">
+                            <a class="btn btn-sm <?php echo $viewMode === 'week' ? 'btn-primary' : 'btn-secondary'; ?>"
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'view' => 'week'])); ?>">
+                                Weekly
+                            </a>
+                            <a class="btn btn-sm <?php echo $viewMode === 'month' ? 'btn-primary' : 'btn-secondary'; ?>"
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">
+                                Month-wise
+                            </a>
+                        </div>
                         <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
+                            <input type="hidden" name="view" value="<?php echo htmlspecialchars($viewMode); ?>">
+                            <?php if ($viewMode === 'month'): ?>
+                                <input type="hidden" name="year" value="<?php echo (int) $ctMonthYear; ?>">
+                                <input type="hidden" name="month" value="<?php echo (int) $ctMonthMonth; ?>">
+                            <?php endif; ?>
                             <select name="batch_id" class="form-control" style="min-width:220px;" onchange="this.form.submit()">
                                 <option value="0">All batches (combined grid)</option>
                                 <?php foreach ($allBatchesForSelect as $b): ?>
@@ -185,17 +243,31 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
 
                 <div style="padding: 0 1rem 1rem;">
-                    <p class="ct-muted" style="margin: 0 0 12px;">
-                        Columns are time periods; rows are days. Cell text shows <strong>Subject (Faculty initials)</strong>.
-                        Click <strong>+</strong> in an empty cell to add a class for that period.
-                    </p>
-                    <?php
-                    $ctGridEditable = true;
-                    $ctGridCsrf = (string) $_SESSION['csrf_token'];
-                    $ctGridFilterBatch = $filterBatch;
-                    $ctGridShowLegends = true;
-                    include __DIR__ . '/../includes/class_timetable_grid.php';
-                    ?>
+                    <?php if ($viewMode === 'month'): ?>
+                        <p class="ct-muted" style="margin: 0 0 12px;">
+                            Month calendar filled from your weekly recurring slots (same class every matching weekday).
+                        </p>
+                        <?php
+                        $ctMonthBaseUrl = 'manage_class_timetable.php';
+                        $ctMonthQuery = array_filter(['batch_id' => $filterBatch ?: null]);
+                        $ctMonthEditable = true;
+                        $ctGridFilterBatch = $filterBatch;
+                        $ctGridCsrf = (string) $_SESSION['csrf_token'];
+                        include __DIR__ . '/../includes/class_timetable_month.php';
+                        ?>
+                    <?php else: ?>
+                        <p class="ct-muted" style="margin: 0 0 12px;">
+                            Columns are time periods; rows are days. Cell text shows <strong>Subject (Faculty initials)</strong>.
+                            Click <strong>+</strong> in an empty cell to add a class for that period.
+                        </p>
+                        <?php
+                        $ctGridEditable = true;
+                        $ctGridCsrf = (string) $_SESSION['csrf_token'];
+                        $ctGridFilterBatch = $filterBatch;
+                        $ctGridShowLegends = true;
+                        include __DIR__ . '/../includes/class_timetable_grid.php';
+                        ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -211,6 +283,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" id="ct_id" value="0">
                 <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $filterBatch; ?>">
+                <input type="hidden" name="redirect_view" value="<?php echo htmlspecialchars($viewMode); ?>">
+                <input type="hidden" name="redirect_year" value="<?php echo (int) $ctMonthYear; ?>">
+                <input type="hidden" name="redirect_month" value="<?php echo (int) $ctMonthMonth; ?>">
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="slotModalTitle">Add Timetable Slot</h5>

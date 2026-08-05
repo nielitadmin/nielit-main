@@ -233,6 +233,96 @@ if (!function_exists('classTimetableBuildLegends')) {
     }
 }
 
+if (!function_exists('classTimetableBuildMonth')) {
+    /**
+     * Expand weekly recurring slots onto a calendar month (Mon–Sat).
+     *
+     * @param list<array<string,mixed>> $slots
+     * @return array{
+     *   year:int,month:int,label:string,weeks:list<list<array{date:?string,day:int,in_month:bool,slots:list}>>,
+     *   by_date:array<string,list>
+     * }
+     */
+    function classTimetableBuildMonth(array $slots, int $year, int $month): array
+    {
+        if ($month < 1 || $month > 12) {
+            $month = (int) date('n');
+        }
+        if ($year < 2000 || $year > 2100) {
+            $year = (int) date('Y');
+        }
+
+        $byDow = [];
+        foreach ($slots as $slot) {
+            $d = (int) ($slot['day_of_week'] ?? 0);
+            if ($d < 1 || $d > 6) {
+                continue;
+            }
+            if (!isset($byDow[$d])) {
+                $byDow[$d] = [];
+            }
+            $byDow[$d][] = $slot;
+        }
+        foreach ($byDow as &$list) {
+            usort($list, static function ($a, $b) {
+                return strcmp((string) ($a['start_time'] ?? ''), (string) ($b['start_time'] ?? ''));
+            });
+        }
+        unset($list);
+
+        $daysInMonth = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+        // PHP N: 1=Mon … 7=Sun — align calendar to Monday start
+        $startN = (int) date('N', mktime(0, 0, 0, $month, 1, $year));
+        $cells = [];
+        // Leading blanks from previous month
+        for ($i = 1; $i < $startN; $i++) {
+            $cells[] = [
+                'date' => null,
+                'day' => 0,
+                'in_month' => false,
+                'slots' => [],
+            ];
+        }
+
+        $byDate = [];
+        for ($dom = 1; $dom <= $daysInMonth; $dom++) {
+            $ts = mktime(0, 0, 0, $month, $dom, $year);
+            $n = (int) date('N', $ts); // 1–7
+            $dateStr = date('Y-m-d', $ts);
+            $daySlots = ($n >= 1 && $n <= 6) ? ($byDow[$n] ?? []) : [];
+            $byDate[$dateStr] = $daySlots;
+            $cells[] = [
+                'date' => $dateStr,
+                'day' => $dom,
+                'dow' => $n,
+                'in_month' => true,
+                'slots' => $daySlots,
+            ];
+        }
+
+        // Trailing blanks to complete last week (7 columns Mon–Sun)
+        while (count($cells) % 7 !== 0) {
+            $cells[] = [
+                'date' => null,
+                'day' => 0,
+                'in_month' => false,
+                'slots' => [],
+            ];
+        }
+
+        $weeks = array_chunk($cells, 7);
+        $label = date('F Y', mktime(0, 0, 0, $month, 1, $year));
+
+        return [
+            'year' => $year,
+            'month' => $month,
+            'label' => $label,
+            'weeks' => $weeks,
+            'by_date' => $byDate,
+        ];
+    }
+}
+
 if (!function_exists('classTimetableDayLabel')) {
     function classTimetableDayLabel(int $day): string
     {
