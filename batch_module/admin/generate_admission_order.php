@@ -265,13 +265,49 @@ function downloadPDF() {
         return;
     <?php endif; ?>
     
-    // Get only the printable content (excludes editable section)
     const element = document.getElementById('printable-content');
     
     if (!element) {
         showToast('Error: Content not found', 'error');
         return;
     }
+
+    // Render from an isolated A4-width clone so admin layout/sidebar
+    // cannot shift or clip the html2canvas capture.
+    const host = document.createElement('div');
+    host.id = 'ao-pdf-render-host';
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = [
+        'position: fixed',
+        'left: 0',
+        'top: 0',
+        'width: 794px',
+        'max-width: 794px',
+        'background: #ffffff',
+        'z-index: -1',
+        'opacity: 0',
+        'pointer-events: none',
+        'overflow: visible'
+    ].join(';');
+
+    const clone = element.cloneNode(true);
+    clone.id = 'printable-content-pdf-clone';
+    clone.style.cssText = [
+        'width: 794px',
+        'max-width: 794px',
+        'margin: 0',
+        'padding: 8px 12px 12px 12px',
+        'box-sizing: border-box',
+        'background: #ffffff',
+        'overflow: visible',
+        'transform: none',
+        'position: relative',
+        'left: 0',
+        'top: 0'
+    ].join(';');
+
+    host.appendChild(clone);
+    document.body.appendChild(host);
     
     const opt = {
         margin: [8, 8, 10, 8],
@@ -280,9 +316,13 @@ function downloadPDF() {
         html2canvas: { 
             scale: 2,
             useCORS: true,
-            letterRendering: false,
+            letterRendering: true,
+            logging: false,
+            scrollX: 0,
             scrollY: 0,
-            windowWidth: 794
+            x: 0,
+            y: 0,
+            backgroundColor: '#ffffff'
         },
         jsPDF: { 
             unit: 'mm', 
@@ -290,19 +330,26 @@ function downloadPDF() {
             orientation: 'portrait',
             compress: true
         },
-        // avoid-all leaves orphaned table headers / large blank gaps; css+legacy is reliable
+        // Do not use avoid-all or avoid:['tr'] — both break multi-column tables in html2pdf
         pagebreak: {
             mode: ['css', 'legacy'],
-            avoid: ['.ao-keep-together', '.ao-footer-signature', 'tr', 'img']
+            avoid: ['.ao-keep-together', '.ao-footer-signature', 'img']
         }
     };
     
-    // Show loading toast
     showToast('Generating PDF...', 'info');
+
+    const cleanup = () => {
+        if (host.parentNode) {
+            host.parentNode.removeChild(host);
+        }
+    };
     
-    html2pdf().set(opt).from(element).save().then(() => {
+    html2pdf().set(opt).from(clone).save().then(() => {
+        cleanup();
         showToast('PDF downloaded successfully!', 'success');
     }).catch(error => {
+        cleanup();
         showToast('Error generating PDF: ' + error.message, 'error');
     });
 }
@@ -367,11 +414,13 @@ function printOrder() {
         }
         
         #printable-content {
-            max-width: 100%;
+            max-width: 794px;
+            width: 100%;
             padding: 0 5mm 8mm 5mm;
-            margin: 0;
+            margin: 0 auto;
             box-sizing: border-box;
             overflow: visible;
+            background: #ffffff;
         }
 
         .ao-ref-date .ao-date-cell { white-space: nowrap; text-align: right; }
@@ -410,7 +459,6 @@ function printOrder() {
             page-break-inside: avoid;
             break-inside: avoid;
             page-break-after: avoid;
-            break-after: avoid-page;
         }
 
         .ao-students-table tbody tr {
@@ -1189,7 +1237,6 @@ function resendFacultyEmail(facultyId, facultyName) {
         page-break-inside: avoid;
         break-inside: avoid;
         page-break-after: avoid;
-        break-after: avoid-page;
     }
 
     .ao-students-table tbody tr {

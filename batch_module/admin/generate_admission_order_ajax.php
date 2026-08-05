@@ -411,13 +411,17 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     #printable-content {
         font-family: Arial, sans-serif;
         width: 100%;
-        max-width: 100%;
+        max-width: 794px;
         margin: 0 auto;
         padding: 2mm 5mm 8mm 5mm;
         box-sizing: border-box;
         font-size: 8.5pt;
         line-height: 1.15;
         overflow: visible;
+        background: #ffffff;
+        position: relative;
+        left: 0;
+        transform: none;
     }
     .ao-header-block { width: 100%; border-collapse: collapse; margin: 0 0 10px 0; }
     .ao-header-block td { border: none; vertical-align: middle; }
@@ -446,7 +450,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-details-table td { padding: 2px 4px 2px 0; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; }
     .ao-details-table .ao-label { width: 18%; font-weight: 600; }
     .ao-details-table .ao-value { width: 32%; }
-    .ao-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2px 0; font-family: Arial, sans-serif; }
+    .ao-light-table { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin: 2px 0; font-family: Arial, sans-serif; }
     .ao-light-table th, .ao-light-table td {
         border: 0.5px solid #999;
         padding: 1px 2px;
@@ -477,7 +481,6 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         page-break-inside: avoid;
         break-inside: avoid;
         page-break-after: avoid;
-        break-after: avoid-page;
     }
     .ao-students-table tbody tr {
         page-break-inside: avoid;
