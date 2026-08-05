@@ -102,8 +102,8 @@
         var minCh = Math.min(r, g, b);
         var saturation = maxCh > 0 ? (maxCh - minCh) / maxCh : 0;
 
-        var darkInk = dist > 22 && lum < (bg.lum - 16) && lum < 220;
-        var coloredInk = saturation > 0.10 && dist > 26 && lum < (bg.lum + 8) && lum < 235;
+        var darkInk = dist > 18 && lum < (bg.lum - 12) && lum < 230;
+        var coloredInk = saturation > 0.08 && dist > 20 && lum < (bg.lum + 12) && lum < 240;
 
         return darkInk || coloredInk;
     }
@@ -190,7 +190,7 @@
             };
         }
 
-        if (inkRatio < 0.006) {
+        if (inkRatio < 0.003) {
             return {
                 valid: false,
                 message: 'Thumb impression not detected. Press your left thumb on white paper with ink/pad and upload a clear photo.'
@@ -310,6 +310,28 @@
         return loadImageFromFile(file);
     }
 
+    function minThumbSize() {
+        var cfg = global.RegistrationAiConfig;
+        if (cfg && cfg.isLenient && cfg.isLenient()) {
+            return {
+                width: cfg.minThumbWidth || 48,
+                height: cfg.minThumbHeight || 48,
+                area: cfg.minThumbArea || 2500
+            };
+        }
+        return { width: 80, height: 80, area: 6400 };
+    }
+
+    function isThumbTooSmall(img) {
+        var w = img.naturalWidth || img.width || 0;
+        var h = img.naturalHeight || img.height || 0;
+        var limits = minThumbSize();
+        if (w < limits.width || h < limits.height) {
+            return true;
+        }
+        return (w * h) < limits.area;
+    }
+
     global.RegistrationThumbCheck = {
         validate: function (file) {
             if (!file) {
@@ -317,7 +339,7 @@
             }
 
             return loadThumbImage(file).then(function (img) {
-                if (img.naturalWidth < 80 || img.naturalHeight < 80) {
+                if (isThumbTooSmall(img)) {
                     return {
                         valid: false,
                         message: 'Image is too small. Upload a clearer photo of your thumb impression.'
@@ -329,13 +351,11 @@
                     return analysis;
                 }
 
-                return detectPortrait(img).then(function (portrait) {
-                    if (portrait) {
-                        return {
-                            valid: false,
-                            message: 'This looks like a person\'s photo, not a thumb impression. Upload your thumb print on white paper.'
-                        };
-                    }
+                var skipPortrait = global.RegistrationAiConfig &&
+                    global.RegistrationAiConfig.isLenient &&
+                    global.RegistrationAiConfig.isLenient();
+
+                function finishOk() {
                     return ocrCheck(img).then(function (ocrResult) {
                         if (!ocrResult.valid) {
                             return ocrResult;
@@ -345,6 +365,20 @@
                             message: 'Thumb impression verified — image accepted.'
                         };
                     });
+                }
+
+                if (skipPortrait) {
+                    return finishOk();
+                }
+
+                return detectPortrait(img).then(function (portrait) {
+                    if (portrait) {
+                        return {
+                            valid: false,
+                            message: 'This looks like a person\'s photo, not a thumb impression. Upload your thumb print on white paper.'
+                        };
+                    }
+                    return finishOk();
                 });
             }).catch(function (err) {
                 return {

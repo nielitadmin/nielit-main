@@ -33,6 +33,15 @@
         /** Min document image height (was 200). */
         minDocumentHeight: 160,
 
+        /** Min thumb impression width (was hard-coded 80). */
+        minThumbWidth: 48,
+
+        /** Min thumb impression height (was hard-coded 80). */
+        minThumbHeight: 48,
+
+        /** Min thumb impression pixel area (width × height). */
+        minThumbArea: 2500,
+
         /** Accept upload when OCR cannot read text but image looks like a document. */
         acceptOnOcrUnreadable: true,
 
