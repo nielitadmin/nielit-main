@@ -272,86 +272,83 @@ function downloadPDF() {
         return;
     }
 
-    // Render from an isolated A4-width clone so admin layout/sidebar
-    // cannot shift or clip the html2canvas capture.
+    showToast('Generating PDF...', 'info');
+
+    // Build a fully opaque off-screen copy. opacity:0 / z-index:-1 caused blank PDFs
+    // with only a thin content strip on the right edge.
+    const oldHost = document.getElementById('ao-pdf-render-host');
+    if (oldHost) {
+        oldHost.remove();
+    }
+
     const host = document.createElement('div');
     host.id = 'ao-pdf-render-host';
-    host.setAttribute('aria-hidden', 'true');
-    host.style.cssText = [
-        'position: fixed',
-        'left: 0',
-        'top: 0',
-        'width: 794px',
-        'max-width: 794px',
-        'background: #ffffff',
-        'z-index: -1',
-        'opacity: 0',
-        'pointer-events: none',
-        'overflow: visible'
-    ].join(';');
+    host.style.cssText = 'position:absolute;left:-10000px;top:0;width:794px;background:#ffffff;margin:0;padding:0;overflow:visible;';
+
+    // Bring styles with the clone so table layout is preserved
+    const styleNodes = document.querySelectorAll('#admission-order-content style');
+    styleNodes.forEach((styleNode) => {
+        const styleCopy = document.createElement('style');
+        styleCopy.textContent = String(styleNode.textContent || '')
+            .replace(/#printable-content/g, '#ao-pdf-printable');
+        host.appendChild(styleCopy);
+    });
 
     const clone = element.cloneNode(true);
-    clone.id = 'printable-content-pdf-clone';
-    clone.style.cssText = [
-        'width: 794px',
-        'max-width: 794px',
-        'margin: 0',
-        'padding: 8px 12px 12px 12px',
-        'box-sizing: border-box',
-        'background: #ffffff',
-        'overflow: visible',
-        'transform: none',
-        'position: relative',
-        'left: 0',
-        'top: 0'
-    ].join(';');
-
+    clone.id = 'ao-pdf-printable';
+    clone.style.cssText = 'display:block;width:794px;max-width:794px;margin:0;padding:10px 12px;box-sizing:border-box;background:#ffffff;overflow:visible;transform:none;position:static;left:auto;top:auto;';
     host.appendChild(clone);
     document.body.appendChild(host);
-    
-    const opt = {
-        margin: [8, 8, 10, 8],
-        filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-            scale: 2,
-            useCORS: true,
-            letterRendering: true,
-            logging: false,
-            scrollX: 0,
-            scrollY: 0,
-            x: 0,
-            y: 0,
-            backgroundColor: '#ffffff'
-        },
-        jsPDF: { 
-            unit: 'mm', 
-            format: 'a4', 
-            orientation: 'portrait',
-            compress: true
-        },
-        // Do not use avoid-all or avoid:['tr'] — both break multi-column tables in html2pdf
-        pagebreak: {
-            mode: ['css', 'legacy'],
-            avoid: ['.ao-keep-together', '.ao-footer-signature', 'img']
-        }
-    };
-    
-    showToast('Generating PDF...', 'info');
 
     const cleanup = () => {
         if (host.parentNode) {
             host.parentNode.removeChild(host);
         }
     };
-    
-    html2pdf().set(opt).from(clone).save().then(() => {
-        cleanup();
-        showToast('PDF downloaded successfully!', 'success');
-    }).catch(error => {
-        cleanup();
-        showToast('Error generating PDF: ' + error.message, 'error');
-    });
+
+    const run = () => {
+        const renderWidth = 794;
+        const renderHeight = Math.max(clone.scrollHeight, clone.offsetHeight, 400);
+
+        const opt = {
+            margin: [10, 10, 10, 10],
+            filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                scrollX: 0,
+                scrollY: 0,
+                width: renderWidth,
+                windowWidth: renderWidth,
+                height: renderHeight,
+                windowHeight: renderHeight
+            },
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
+                orientation: 'portrait',
+                compress: true
+            },
+            pagebreak: {
+                mode: ['css', 'legacy'],
+                avoid: ['.ao-footer-signature', 'img']
+            }
+        };
+
+        html2pdf().set(opt).from(clone).save().then(() => {
+            cleanup();
+            showToast('PDF downloaded successfully!', 'success');
+        }).catch((error) => {
+            cleanup();
+            showToast('Error generating PDF: ' + error.message, 'error');
+        });
+    };
+
+    setTimeout(run, 80);
 }
 
 function printOrder() {
