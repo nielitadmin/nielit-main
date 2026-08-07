@@ -346,25 +346,29 @@ function bindBatchStartSync(batchId, startId, hintId) {
     var hint = hintId ? document.getElementById(hintId) : null;
     if (!batchSelect || !startInput) return;
 
+    function localToday() {
+        var today = new Date();
+        var y = today.getFullYear();
+        var m = String(today.getMonth() + 1).padStart(2, '0');
+        var d = String(today.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
     function sync() {
         var opt = batchSelect.options[batchSelect.selectedIndex];
         var batchVal = batchSelect.value;
         var start = opt ? (opt.getAttribute('data-start-date') || '') : '';
+        startInput.readOnly = false;
         if (batchVal) {
             if (start) {
                 startInput.value = start;
-                startInput.readOnly = true;
-                if (hint) hint.textContent = 'Filled from selected batch start date';
-            } else {
-                startInput.readOnly = false;
-                if (hint) hint.textContent = 'Batch has no start date — enter plan start date';
+                if (hint) hint.textContent = 'Auto-filled from batch — change via calendar if needed';
+            } else if (hint) {
+                hint.textContent = 'Batch has no start date — pick a date from the calendar';
             }
         } else {
-            startInput.readOnly = false;
-            if (!startInput.value) {
-                startInput.value = new Date().toISOString().slice(0, 10);
-            }
-            if (hint) hint.textContent = 'Enter plan start date (no batch selected)';
+            if (!startInput.value) startInput.value = localToday();
+            if (hint) hint.textContent = 'No batch — pick or type the plan start date';
         }
     }
 

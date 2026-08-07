@@ -108,6 +108,26 @@ if (!function_exists('lessonPlanOrdinal')) {
     }
 }
 
+if (!function_exists('lessonPlanNormalizeDate')) {
+    /** Return valid Y-m-d or null (rejects empty / 0000-00-00 / nonsense years). */
+    function lessonPlanNormalizeDate(?string $raw): ?string
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '' || $raw === '0000-00-00' || strpos($raw, '0000-') === 0) {
+            return null;
+        }
+        $ts = strtotime($raw . (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) ? ' 12:00:00' : ''));
+        if ($ts === false) {
+            return null;
+        }
+        $year = (int) date('Y', $ts);
+        if ($year < 1990 || $year > 2100) {
+            return null;
+        }
+        return date('Y-m-d', $ts);
+    }
+}
+
 if (!function_exists('lessonPlanEffectiveStartDate')) {
     /**
      * Prefer plan_start_date, else batch start_date. Returns Y-m-d or null.
@@ -115,15 +135,11 @@ if (!function_exists('lessonPlanEffectiveStartDate')) {
      */
     function lessonPlanEffectiveStartDate(array $plan): ?string
     {
-        $planStart = trim((string) ($plan['plan_start_date'] ?? ''));
-        if ($planStart !== '' && strtotime($planStart)) {
-            return date('Y-m-d', strtotime($planStart));
+        $planStart = lessonPlanNormalizeDate($plan['plan_start_date'] ?? null);
+        if ($planStart !== null) {
+            return $planStart;
         }
-        $batchStart = trim((string) ($plan['batch_start_date'] ?? ''));
-        if ($batchStart !== '' && strtotime($batchStart)) {
-            return date('Y-m-d', strtotime($batchStart));
-        }
-        return null;
+        return lessonPlanNormalizeDate($plan['batch_start_date'] ?? null);
     }
 }
 
@@ -416,11 +432,9 @@ if (!function_exists('saveLessonPlanHeader')) {
         }
 
         // Prefer posted plan start; else inherit from batch start when available
-        $planStartDate = null;
-        if ($planStartRaw !== '' && strtotime($planStartRaw)) {
-            $planStartDate = date('Y-m-d', strtotime($planStartRaw));
-        } elseif ($batchStartFromBatch) {
-            $planStartDate = $batchStartFromBatch;
+        $planStartDate = lessonPlanNormalizeDate($planStartRaw);
+        if ($planStartDate === null && $batchStartFromBatch) {
+            $planStartDate = lessonPlanNormalizeDate($batchStartFromBatch);
         }
         $planStartVal = $planStartDate ?? '';
         $hasPlanStart = $planStartDate !== null ? 1 : 0;
@@ -661,11 +675,13 @@ if (!function_exists('lessonPlanBuildMonthCalendar')) {
     {
         $totalWeeks = max(1, min(52, $totalWeeks));
         $daysPerWeek = max(1, min(6, $daysPerWeek));
-        if (!$batchStart || !strtotime($batchStart)) {
-            $batchStart = date('Y-m-d');
-        }
+        $normalized = lessonPlanNormalizeDate($batchStart);
+        $batchStart = $normalized ?: date('Y-m-d');
 
-        $startTs = strtotime($batchStart . ' 00:00:00');
+        $startTs = strtotime($batchStart . ' 12:00:00');
+        if ($startTs === false) {
+            $startTs = strtotime(date('Y-m-d') . ' 12:00:00');
+        }
         $startDow = (int) date('N', $startTs); // 1=Mon
         // First Monday on/before batch start
         $week1Monday = strtotime('-' . ($startDow - 1) . ' days', $startTs);

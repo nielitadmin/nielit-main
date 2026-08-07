@@ -373,19 +373,14 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <div class="col-md-3">
                                 <label class="form-label">Plan Start Date</label>
                                 <?php
-                                $startFieldVal = $plan['plan_start_date'] ?? '';
-                                if ($startFieldVal === '' || $startFieldVal === null) {
-                                    $startFieldVal = $effectiveStart ?? '';
-                                }
-                                $hasBatchSelected = !empty($plan['batch_id']);
+                                $startFieldVal = lessonPlanNormalizeDate($plan['plan_start_date'] ?? null)
+                                    ?: lessonPlanNormalizeDate($plan['batch_start_date'] ?? null)
+                                    ?: ($effectiveStart ?? '');
                                 ?>
                                 <input type="date" name="plan_start_date" id="lpPlanStartDate" class="form-control"
-                                       value="<?php echo htmlspecialchars((string) $startFieldVal); ?>"
-                                       <?php echo $hasBatchSelected ? 'readonly' : ''; ?>>
+                                       value="<?php echo htmlspecialchars((string) $startFieldVal); ?>">
                                 <small class="lp-muted" id="lpPlanStartHint">
-                                    <?php echo $hasBatchSelected
-                                        ? 'Filled from selected batch start date'
-                                        : 'Enter start date (no batch selected)'; ?>
+                                    Select a batch to auto-fill, or pick a date from the calendar
                                 </small>
                             </div>
                             <div class="col-md-3">
@@ -561,31 +556,44 @@ showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_
     var hint = document.getElementById('lpPlanStartHint');
     if (!batchSelect || !startInput) return;
 
-    function syncPlanStartFromBatch() {
+    function localToday() {
+        var today = new Date();
+        var y = today.getFullYear();
+        var m = String(today.getMonth() + 1).padStart(2, '0');
+        var d = String(today.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + d;
+    }
+
+    function isValidYmd(v) {
+        return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(v || '');
+    }
+
+    function syncPlanStartFromBatch(forceFromBatch) {
         var opt = batchSelect.options[batchSelect.selectedIndex];
         var batchId = batchSelect.value;
         var start = opt ? (opt.getAttribute('data-start-date') || '') : '';
+        startInput.readOnly = false;
         if (batchId) {
-            if (start) {
+            if (start && (forceFromBatch || !isValidYmd(startInput.value))) {
                 startInput.value = start;
-                startInput.readOnly = true;
-                if (hint) hint.textContent = 'Filled from selected batch start date';
-            } else {
-                startInput.readOnly = false;
-                if (hint) hint.textContent = 'Batch has no start date — enter plan start date';
-            }
-        } else {
-            startInput.readOnly = false;
-            if (!startInput.value) {
-                startInput.value = new Date().toISOString().slice(0, 10);
             }
             if (hint) {
-                hint.textContent = 'Enter plan start date (no batch selected)';
+                hint.textContent = start
+                    ? 'Auto-filled from batch — click the field to open the calendar'
+                    : 'Batch has no start date — click the field to open the calendar';
             }
+        } else {
+            if (!isValidYmd(startInput.value)) {
+                startInput.value = localToday();
+            }
+            if (hint) hint.textContent = 'No batch — click the field to open the calendar';
         }
     }
 
-    batchSelect.addEventListener('change', syncPlanStartFromBatch);
+    batchSelect.addEventListener('change', function () {
+        syncPlanStartFromBatch(true);
+    });
+    syncPlanStartFromBatch(false);
 })();
 </script>
 </body>
