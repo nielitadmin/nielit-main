@@ -231,7 +231,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
                 echo '<td class="day-col">' . htmlspecialchars($dayName)
                     . '<br><span class="date-sub">' . htmlspecialchars(date('j M Y', strtotime($dayInfo['date']))) . '</span></td>';
                 foreach ($periods as $period) {
-                    echo $renderCell($grid[$dow][$period['key']] ?? []);
+                    $exportCellSlots = $grid[$dow][$period['key']] ?? [];
+                    if (!empty($dayInfo['date'])) {
+                        $exportCellSlots = classTimetableFilterSlotsForDate($exportCellSlots, (string) $dayInfo['date']);
+                    }
+                    echo $renderCell($exportCellSlots);
                 }
                 echo '</tr>';
             }

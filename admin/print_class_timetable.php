@@ -362,7 +362,13 @@ $renderLegends = static function () use ($facultyDisplayMap, $legends, $courseNa
                                     <span class="ct-day-date"><?php echo htmlspecialchars(date('j M Y', strtotime($dayInfo['date']))); ?></span>
                                 </th>
                                 <?php foreach ($periods as $period): ?>
-                                    <?php echo $renderCell($grid[$dow][$period['key']] ?? []); ?>
+                                    <?php
+                                    $printCellSlots = $grid[$dow][$period['key']] ?? [];
+                                    if (!empty($dayInfo['date'])) {
+                                        $printCellSlots = classTimetableFilterSlotsForDate($printCellSlots, (string) $dayInfo['date']);
+                                    }
+                                    echo $renderCell($printCellSlots);
+                                    ?>
                                 <?php endforeach; ?>
                             </tr>
                         <?php endfor; ?>

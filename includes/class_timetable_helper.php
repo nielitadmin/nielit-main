@@ -286,9 +286,95 @@ if (!function_exists('classTimetableFacultyDisplayMap')) {
     }
 }
 
+if (!function_exists('classTimetableNormalizeDate')) {
+    /** Valid Y-m-d or null. */
+    function classTimetableNormalizeDate(?string $raw): ?string
+    {
+        $raw = trim((string) $raw);
+        if ($raw === '' || $raw === '0000-00-00' || strpos($raw, '0000-') === 0) {
+            return null;
+        }
+        $ts = strtotime($raw);
+        if ($ts === false) {
+            return null;
+        }
+        $year = (int) date('Y', $ts);
+        if ($year < 1990 || $year > 2100) {
+            return null;
+        }
+        return date('Y-m-d', $ts);
+    }
+}
+
+if (!function_exists('classTimetableSlotActiveOnDate')) {
+    /**
+     * Show a slot on a calendar date only when batch/course date window covers that day.
+     * If no start/end dates exist, the slot is treated as always active.
+     */
+    function classTimetableSlotActiveOnDate(array $slot, string $dateYmd): bool
+    {
+        $date = classTimetableNormalizeDate($dateYmd);
+        if ($date === null) {
+            return false;
+        }
+
+        $batchStatus = strtolower(trim((string) ($slot['batch_status'] ?? '')));
+        if (in_array($batchStatus, ['cancelled', 'deleted'], true)) {
+            return false;
+        }
+
+        $starts = [];
+        $batchStart = classTimetableNormalizeDate($slot['batch_start_date'] ?? null);
+        $courseStart = classTimetableNormalizeDate($slot['course_start_date'] ?? null);
+        if ($batchStart !== null) {
+            $starts[] = $batchStart;
+        }
+        if ($courseStart !== null) {
+            $starts[] = $courseStart;
+        }
+
+        $ends = [];
+        $batchEnd = classTimetableNormalizeDate($slot['batch_end_date'] ?? null);
+        $courseEnd = classTimetableNormalizeDate($slot['course_end_date'] ?? null);
+        if ($batchEnd !== null) {
+            $ends[] = $batchEnd;
+        }
+        if ($courseEnd !== null) {
+            $ends[] = $courseEnd;
+        }
+
+        $effectiveStart = !empty($starts) ? max($starts) : null;
+        $effectiveEnd = !empty($ends) ? min($ends) : null;
+
+        if ($effectiveStart !== null && $date < $effectiveStart) {
+            return false;
+        }
+        if ($effectiveEnd !== null && $date > $effectiveEnd) {
+            return false;
+        }
+
+        return true;
+    }
+}
+
+if (!function_exists('classTimetableFilterSlotsForDate')) {
+    /** @param list<array<string,mixed>> $slots @return list<array<string,mixed>> */
+    function classTimetableFilterSlotsForDate(array $slots, string $dateYmd): array
+    {
+        $out = [];
+        foreach ($slots as $slot) {
+            if (classTimetableSlotActiveOnDate($slot, $dateYmd)) {
+                $out[] = $slot;
+            }
+        }
+        return $out;
+    }
+}
+
 if (!function_exists('classTimetableBuildMonth')) {
     /**
-     * Expand weekly recurring slots onto a calendar month (Mon–Sat).
+     * Expand weekly recurring slots onto a calendar month (Mon–Sat),
+     * filtered by batch/course start–end dates for each calendar day.
      *
      * @param list<array<string,mixed>> $slots
      * @return array{
@@ -343,6 +429,7 @@ if (!function_exists('classTimetableBuildMonth')) {
             $n = (int) date('N', $ts); // 1–7
             $dateStr = date('Y-m-d', $ts);
             $daySlots = ($n >= 1 && $n <= 6) ? ($byDow[$n] ?? []) : [];
+            $daySlots = classTimetableFilterSlotsForDate($daySlots, $dateStr);
             $byDate[$dateStr] = $daySlots;
             $cells[] = [
                 'date' => $dateStr,
@@ -443,7 +530,9 @@ if (!function_exists('listClassTimetableAdmin')) {
     function listClassTimetableAdmin($conn, ?int $batchId = null, ?int $centreId = null): array
     {
         ensureClassTimetableTable($conn);
-        $sql = "SELECT ct.*, b.batch_name, b.batch_code, c.course_name, ctr.name AS centre_name
+        $sql = "SELECT ct.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
+                       b.status AS batch_status, c.course_name, c.start_date AS course_start_date, c.end_date AS course_end_date,
+                       c.status AS course_status, ctr.name AS centre_name
                 FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
@@ -504,7 +593,9 @@ if (!function_exists('listClassTimetableForBatches')) {
             return [];
         }
         $inList = implode(',', $batchIds);
-        $sql = "SELECT ct.*, b.batch_name, b.batch_code, c.course_name
+        $sql = "SELECT ct.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
+                       b.status AS batch_status, c.course_name, c.start_date AS course_start_date, c.end_date AS course_end_date,
+                       c.status AS course_status
                 FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id

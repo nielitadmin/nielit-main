@@ -194,7 +194,8 @@ if (!empty($currentWeek)) {
 </div>
 
 <p class="ct-muted" style="margin: 0 0 14px;">
-    Each week of the month is shown as a separate timetable (Monday–Friday) with dates. Saturday &amp; Sunday are holidays.
+    Each week of the month is shown as a separate timetable (Monday–Friday) with dates.
+    Slots appear only when the batch/course start–end dates cover that day. Saturday &amp; Sunday are holidays.
 </p>
 
 <?php foreach ($weeks as $wi => $weekDays): ?>
@@ -247,6 +248,9 @@ if (!empty($currentWeek)) {
                             <?php foreach ($periods as $period): ?>
                                 <?php
                                 $cellSlots = $grid[$dow][$period['key']] ?? [];
+                                if (!empty($dayInfo['date']) && function_exists('classTimetableFilterSlotsForDate')) {
+                                    $cellSlots = classTimetableFilterSlotsForDate($cellSlots, (string) $dayInfo['date']);
+                                }
                                 $filled = !empty($cellSlots);
                                 ?>
                                 <td class="ct-cell <?php echo $filled ? 'ct-cell-filled' : 'ct-cell-empty'; ?>">
