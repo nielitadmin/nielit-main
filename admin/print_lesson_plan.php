@@ -1,6 +1,6 @@
 <?php
 /**
- * Print Detailed Lesson Plan — NIELIT header/footer, dates, bordered week table.
+ * Print Course Action Plan — NIELIT header/footer, dates, bordered week table.
  */
 require_once __DIR__ . '/../includes/url_helper.php';
 session_start();
@@ -28,7 +28,7 @@ ensureLessonPlanTables($conn);
 $planId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $plan = $planId > 0 ? getLessonPlan($conn, $planId) : null;
 if (!$plan) {
-    $_SESSION['message'] = 'Lesson plan not found.';
+    $_SESSION['message'] = 'Course Action Plan not found.';
     $_SESSION['message_type'] = 'danger';
     header('Location: manage_lesson_plans.php');
     exit();
@@ -41,7 +41,7 @@ $autoPrint = !isset($_GET['noprint']);
 
 $title = trim((string) ($plan['plan_title'] ?? ''));
 if ($title === '') {
-    $title = 'Detailed Lesson Plan';
+    $title = 'Course Action Plan';
 }
 $module = trim((string) ($plan['module_code'] ?? ''));
 $courseName = trim((string) ($plan['course_name'] ?? ''));
@@ -53,19 +53,22 @@ $faculty = trim((string) ($plan['faculty_name'] ?? ''));
 $hours = $plan['total_hours'] ?? '';
 $batchStart = lessonPlanEffectiveStartDate($plan);
 
-$heading = 'Detailed Lesson Plan';
-if ($module !== '' || $title !== 'Detailed Lesson Plan') {
+$heading = 'Course Action Plan';
+if ($module !== '' || $title !== 'Course Action Plan') {
     $parts = [];
     if ($module !== '') {
         $parts[] = $module;
     }
-    if ($title !== '' && stripos($title, 'detailed lesson plan') === false) {
+    $titleIsGeneric = ($title === ''
+        || stripos($title, 'course action plan') !== false
+        || stripos($title, 'detailed lesson plan') !== false);
+    if (!$titleIsGeneric && $title !== '') {
         $parts[] = $title;
     } elseif ($courseName !== '') {
         $parts[] = $courseName;
     }
     if (!empty($parts)) {
-        $heading = 'Detailed Lesson Plan - ' . implode(' ', $parts);
+        $heading = 'Course Action Plan - ' . implode(' ', $parts);
     }
 }
 
@@ -361,7 +364,7 @@ $printedAt = date('d M Y, h:i A');
         <div class="lp-footer">
             <p class="lp-footer-meta">
                 NIELIT Bhubaneswar | Raipur | Baleshwar
-                &nbsp;·&nbsp; Detailed Lesson Plan
+                &nbsp;·&nbsp; Course Action Plan
                 <?php if (!empty($plan['notes'])): ?>
                     &nbsp;·&nbsp; <?php echo htmlspecialchars((string) $plan['notes']); ?>
                 <?php endif; ?>

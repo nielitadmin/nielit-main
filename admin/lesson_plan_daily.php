@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin: Daily Lesson Plan update — topic for today based on batch start + timetable week/day
+ * Admin: Daily Course Action Plan update — topic for today based on batch start + timetable week/day
  */
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
@@ -41,7 +41,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $logDate)) {
 
 $plan = $planId > 0 ? getLessonPlan($conn, $planId) : null;
 if (!$plan) {
-    $_SESSION['message'] = 'Select a lesson plan first.';
+    $_SESSION['message'] = 'Select a course action plan first.';
     $_SESSION['message_type'] = 'danger';
     header('Location: manage_lesson_plans.php');
     exit();
@@ -113,7 +113,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Daily Lesson Update — NIELIT Admin</title>
+    <title>Daily Course Action Plan Update — NIELIT Admin</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .lp-muted { color: #64748b; font-size: 0.875rem; }
@@ -146,7 +146,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-calendar-check"></i> Daily Lesson Update</h4>
+                <h4><i class="fas fa-calendar-check"></i> Daily Course Action Plan Update</h4>
                 <p class="lp-muted mb-0"><?php echo htmlspecialchars($plan['plan_title'] ?? ''); ?></p>
             </div>
             <div class="lp-nav">
@@ -187,7 +187,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             ?>
                         </div>
                         <?php if (!empty($topicInfo['is_holiday'])): ?>
-                            <p class="lp-topic">Holiday / Off — no class day in lesson plan</p>
+                            <p class="lp-topic">Holiday / Off — no class day in Course Action Plan</p>
                         <?php else: ?>
                             <div class="lp-muted" style="margin-top:6px;">
                                 Plan Week: <strong><?php echo htmlspecialchars(lessonPlanOrdinal((int) ($topicInfo['week_number'] ?? 1))); ?></strong>
@@ -237,12 +237,12 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 ?? ($topicInfo['topic'] ?? '');
                             ?>
                             <div class="mb-3">
-                                <label class="form-label">Topic Planned (from lesson plan)</label>
+                                <label class="form-label">Topic Planned (from Course Action Plan)</label>
                                 <textarea name="topic_planned" class="form-control" rows="3"
                                           placeholder="Enter or update the planned theory topic for this class day…"><?php
                                     echo htmlspecialchars((string) $plannedValue);
                                 ?></textarea>
-                                <small class="lp-muted">Editable — saving also updates this week/day on the master lesson plan.</small>
+                                <small class="lp-muted">Editable — saving also updates this week/day on the master Course Action Plan.</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Topic Covered Today (faculty update) <span class="text-danger">*</span></label>

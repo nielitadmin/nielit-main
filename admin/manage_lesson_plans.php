@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin: Manage Lesson Plans (list + create / import template)
+ * Admin: Manage Course Action Plans (list + create / import template)
  */
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
@@ -141,7 +141,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lesson Plans — NIELIT Admin</title>
+    <title>Course Action Plans — NIELIT Admin</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .lp-muted { color: #64748b; font-size: 0.875rem; }
@@ -157,7 +157,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-book-open"></i> Lesson Plans</h4>
+                <h4><i class="fas fa-book-open"></i> Course Action Plans</h4>
                 <p class="lp-muted mb-0">Monthly / weekly day-wise topics — faculty update daily as per timetable</p>
             </div>
         </div>
@@ -208,7 +208,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <div class="mb-2">
                                     <label class="form-label">Plan Title *</label>
                                     <input type="text" name="plan_title" class="form-control" required
-                                           placeholder="e.g. Detailed Lesson Plan - M1-R5 …">
+                                           placeholder="e.g. Course Action Plan - M1-R5 …">
                                 </div>
                                 <div class="row g-2 mb-2">
                                     <div class="col-md-6">
@@ -306,7 +306,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-                    <h5 class="card-title mb-0"><i class="fas fa-list"></i> All Lesson Plans (<?php echo count($plans); ?>)</h5>
+                    <h5 class="card-title mb-0"><i class="fas fa-list"></i> All Course Action Plans (<?php echo count($plans); ?>)</h5>
                     <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
                         <label class="lp-muted mb-0">Centre</label>
                         <select name="centre_id" class="form-control form-control-sm" style="min-width:180px;" onchange="this.form.submit()">
@@ -321,7 +321,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
                 <div style="padding:1rem;">
                     <?php if (empty($plans)): ?>
-                        <p class="lp-muted mb-0">No lesson plans yet. Create one or import the M1-R5 template.</p>
+                        <p class="lp-muted mb-0">No course action plans yet. Create one or import the M1-R5 template.</p>
                     <?php else: ?>
                         <?php foreach ($plans as $plan): ?>
                             <div class="lp-card" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
@@ -363,7 +363,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <a class="btn btn-sm btn-success" href="lesson_plan_daily.php?plan_id=<?php echo (int) $plan['id']; ?>">
                                         <i class="fas fa-calendar-check"></i> Daily Update
                                     </a>
-                                    <form method="post" style="margin:0;" onsubmit="return confirm('Delete this lesson plan and all topics?');">
+                                    <form method="post" style="margin:0;" onsubmit="return confirm('Delete this Course Action Plan and all topics?');">
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="id" value="<?php echo (int) $plan['id']; ?>">

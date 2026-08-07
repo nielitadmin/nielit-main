@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin: Edit Lesson Plan header + week × day topic grid
+ * Admin: Edit Course Action Plan header + week × day topic grid
  */
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
@@ -35,7 +35,7 @@ ensureLessonPlanTables($conn);
 $planId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $plan = $planId > 0 ? getLessonPlan($conn, $planId) : null;
 if (!$plan) {
-    $_SESSION['message'] = 'Lesson plan not found.';
+    $_SESSION['message'] = 'Course Action Plan not found.';
     $_SESSION['message_type'] = 'danger';
     header('Location: manage_lesson_plans.php');
     exit();
@@ -188,7 +188,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit Lesson Plan — NIELIT Admin</title>
+    <title>Edit Course Action Plan — NIELIT Admin</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .lp-muted { color: #64748b; font-size: 0.875rem; }
@@ -286,7 +286,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-edit"></i> Edit Lesson Plan</h4>
+                <h4><i class="fas fa-edit"></i> Edit Course Action Plan</h4>
                 <p class="lp-muted mb-0"><?php echo htmlspecialchars($plan['plan_title'] ?? ''); ?></p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">

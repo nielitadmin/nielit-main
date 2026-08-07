@@ -128,7 +128,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_lesson_plans'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_lesson_plans.php', 'edit_lesson_plan.php', 'lesson_plan_daily.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-book-open"></i> Lesson Plans
+                <i class="fas fa-book-open"></i> Course Action Plans
             </a>
         </div>
         <?php endif; ?>

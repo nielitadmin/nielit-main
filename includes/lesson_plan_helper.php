@@ -1,6 +1,6 @@
 <?php
 /**
- * Lesson Plan helper — monthly/weekly day-wise topics + daily faculty logs.
+ * Course Action Plan helper — monthly/weekly day-wise topics + daily faculty logs.
  */
 
 if (!function_exists('ensureLessonPlanTables')) {
@@ -151,13 +151,13 @@ if (!function_exists('lessonPlanEffectiveStartDate')) {
 
 if (!function_exists('lessonPlanM1R5Template')) {
     /**
-     * Sample Detailed Lesson Plan — M1-R5 IT Tools and Network Basics (O Level).
+     * Sample Course Action Plan — M1-R5 IT Tools and Network Basics (O Level).
      * @return array{header:array,rows:list<array{week:int,day:int,topic:string}>}
      */
     function lessonPlanM1R5Template(): array
     {
         $header = [
-            'plan_title' => "Detailed Lesson Plan - M1-R5 Information Technology Tools and Network Basics",
+            'plan_title' => "Course Action Plan - M1-R5 Information Technology Tools and Network Basics",
             'course_name' => "'O' Level",
             'module_code' => 'M1-R5',
             'semester' => '1st',
@@ -526,7 +526,7 @@ if (!function_exists('saveLessonPlanHeader')) {
             if (!$ok) {
                 return ['success' => false, 'message' => 'Could not update plan: ' . $err];
             }
-            return ['success' => true, 'message' => 'Lesson plan updated.', 'id' => $id];
+            return ['success' => true, 'message' => 'Course Action Plan updated.', 'id' => $id];
         }
 
         $stmt = $conn->prepare(
@@ -566,7 +566,7 @@ if (!function_exists('saveLessonPlanHeader')) {
         if (!$ok) {
             return ['success' => false, 'message' => 'Could not create plan: ' . $err];
         }
-        return ['success' => true, 'message' => 'Lesson plan created.', 'id' => $newId];
+        return ['success' => true, 'message' => 'Course Action Plan created.', 'id' => $newId];
     }
 }
 
@@ -670,7 +670,7 @@ if (!function_exists('importLessonPlanTemplate')) {
         }
         return [
             'success' => true,
-            'message' => 'Imported M1-R5 O Level lesson plan (' . count($tpl['rows']) . ' topics).',
+            'message' => 'Imported M1-R5 O Level Course Action Plan (' . count($tpl['rows']) . ' topics).',
             'id' => $planId,
         ];
     }
@@ -705,7 +705,7 @@ if (!function_exists('deleteLessonPlan')) {
             if ($affected < 1) {
                 return ['success' => false, 'message' => 'Plan not found.'];
             }
-            return ['success' => true, 'message' => 'Lesson plan deleted.'];
+            return ['success' => true, 'message' => 'Course Action Plan deleted.'];
         } catch (Throwable $e) {
             $conn->rollback();
             return ['success' => false, 'message' => 'Could not delete plan.'];
@@ -951,17 +951,17 @@ if (!function_exists('saveLessonPlanDailyLog')) {
             return ['success' => false, 'message' => 'Could not save daily update: ' . $err];
         }
 
-        // Keep master lesson plan topic in sync when faculty edits planned topic
+        // Keep master Course Action Plan topic in sync when faculty edits planned topic
         if ($weekVal > 0 && $dayVal > 0 && $plannedVal !== '') {
             upsertLessonPlanTopicCell($conn, $planId, $weekVal, $dayVal, $plannedVal);
         }
 
-        return ['success' => true, 'message' => 'Daily lesson update saved.'];
+        return ['success' => true, 'message' => 'Daily course action plan update saved.'];
     }
 }
 
 if (!function_exists('upsertLessonPlanTopicCell')) {
-    /** Create or update one week×day topic on the master lesson plan. */
+    /** Create or update one week×day topic on the master Course Action Plan. */
     function upsertLessonPlanTopicCell($conn, int $planId, int $week, int $day, string $topic): bool
     {
         ensureLessonPlanTables($conn);
