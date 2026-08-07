@@ -376,6 +376,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
                         $ctGridFilterBatch = $filterBatch;
                         $ctGridShowLegends = true;
+                        $ctGridCourses = $allCoursesForSelect;
                         include __DIR__ . '/../includes/class_timetable_grid.php';
                         ?>
                     <?php endif; ?>
@@ -490,9 +491,13 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="form-group" style="flex:2;min-width:200px;">
                             <label for="ct_course_select">Course</label>
                             <select class="form-control" id="ct_course_select" onchange="applyCourseToSubject()">
-                                <option value="">-- Pick a course or type below --</option>
-                                <?php foreach ($allCoursesForSelect as $c): ?>
-                                    <option value="<?php echo htmlspecialchars(($c['course_name'] ?? '') . ' (' . ($c['course_code'] ?? '') . ')'); ?>">
+                                <option value="" data-fullname="">-- Pick a course or type below --</option>
+                                <?php foreach ($allCoursesForSelect as $c):
+                                    $shortCode = strtoupper(preg_replace('/[-_].+$/', '', $c['course_code'] ?? ''));
+                                    if ($shortCode === '') $shortCode = $c['course_code'] ?? '';
+                                ?>
+                                    <option value="<?php echo htmlspecialchars($shortCode); ?>"
+                                            data-fullname="<?php echo htmlspecialchars($c['course_name'] ?? ''); ?>">
                                         <?php echo htmlspecialchars(($c['course_name'] ?? '') . ' (' . ($c['course_code'] ?? '') . ')'); ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -604,6 +609,19 @@ function applyCourseToSubject() {
     var sel = document.getElementById('ct_course_select');
     if (sel && sel.value) {
         document.getElementById('ct_subject').value = sel.value;
+    }
+}
+
+function syncCourseSelectFromSubject() {
+    var subj = (document.getElementById('ct_subject').value || '').toUpperCase().trim();
+    var sel = document.getElementById('ct_course_select');
+    if (!sel) return;
+    sel.value = '';
+    for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value.toUpperCase() === subj) {
+            sel.value = sel.options[i].value;
+            break;
+        }
     }
 }
 

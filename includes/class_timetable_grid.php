@@ -217,7 +217,25 @@ $cellLabel = $cellFacultyCode !== '' ? ($cellSubject . ' (' . $cellFacultyCode .
         <?php if (!empty($legends['subjects'])): ?>
             <div class="ct-legend">
                 <strong>Courses:</strong>
-                <?php echo htmlspecialchars(implode(', ', array_keys($legends['subjects']))); ?>
+                <?php
+                $courseFullNames = [];
+                $ctCourseList = isset($ctGridCourses) && is_array($ctGridCourses) ? $ctGridCourses : [];
+                foreach ($legends['subjects'] as $subj => $_) {
+                    $matched = false;
+                    foreach ($ctCourseList as $crs) {
+                        $shortCode = strtoupper(preg_replace('/[-_].+$/', '', $crs['course_code'] ?? ''));
+                        if ($shortCode !== '' && strtoupper(trim($subj)) === $shortCode) {
+                            $courseFullNames[] = htmlspecialchars($subj) . ' — ' . htmlspecialchars($crs['course_name']);
+                            $matched = true;
+                            break;
+                        }
+                    }
+                    if (!$matched) {
+                        $courseFullNames[] = htmlspecialchars($subj);
+                    }
+                }
+                echo implode(', ', $courseFullNames);
+                ?>
             </div>
         <?php endif; ?>
     <?php endif; ?>
