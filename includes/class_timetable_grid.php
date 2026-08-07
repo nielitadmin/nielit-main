@@ -169,7 +169,7 @@ $cellLabel = $cellFacultyCode !== '' ? ($cellSubject . ' (' . $cellFacultyCode .
                                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($ctGridCsrf); ?>">
                                                     <input type="hidden" name="action" value="delete">
                                                     <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">
-                                                    <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $ctGridFilterBatch; ?>">
+                                                    <input type="hidden" name="redirect_centre_id" value="<?php echo (int) ($ctGridFilterCentre ?? 0); ?>">
                                                     <button type="submit" class="btn btn-sm btn-danger" title="Delete">
                                                         <i class="fas fa-trash"></i>
                                                     </button>

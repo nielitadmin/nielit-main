@@ -35,15 +35,14 @@ ensureClassTimetableTable($conn);
 
 // Excel/CSV export — grid format (days × time periods) matching the on-screen timetable
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
-    $exportBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
     $exportCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
-    $exportSlots = listClassTimetableAdmin($conn, $exportBatch > 0 ? $exportBatch : null, $exportCentre > 0 ? $exportCentre : null);
+    $exportSlots = listClassTimetableAdmin($conn, null, $exportCentre > 0 ? $exportCentre : null);
     $built = classTimetableBuildGrid($exportSlots);
     $periods = $built['periods'];
     $days = $built['days'];
     $grid = $built['grid'];
 
-    $filename = 'class_timetable' . ($exportBatch > 0 ? '_batch_' . $exportBatch : '_all') . '_' . date('Ymd') . '.csv';
+    $filename = 'class_timetable' . ($exportCentre > 0 ? '_centre_' . $exportCentre : '_all') . '_' . date('Ymd') . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     $out = fopen('php://output', 'w');
@@ -93,7 +92,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     exit();
 }
 
-$filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
+$filterBatch = 0; // No batch filter on grid — always show combined timetable
 $filterCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
 $viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
 if (!in_array($viewMode, ['week', 'month'], true)) {
@@ -109,7 +108,7 @@ if ($ctMonthYear < 2000 || $ctMonthYear > 2100) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $filterBatch = isset($_POST['redirect_batch_id']) ? (int) $_POST['redirect_batch_id'] : $filterBatch;
+    $filterCentre = isset($_POST['redirect_centre_id']) ? (int) $_POST['redirect_centre_id'] : $filterCentre;
     $postView = strtolower(trim((string) ($_POST['redirect_view'] ?? '')));
     if (in_array($postView, ['week', 'month'], true)) {
         $viewMode = $postView;
@@ -123,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $redirectQs = [];
-if ($filterBatch > 0) {
-    $redirectQs['batch_id'] = $filterBatch;
+if ($filterCentre > 0) {
+    $redirectQs['centre_id'] = $filterCentre;
 }
 if ($viewMode === 'month') {
     $redirectQs['view'] = 'month';
@@ -190,13 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            $savedBatch = (int) ($payload['batch_id'] ?? 0);
-            if ($savedBatch > 0) {
-                $filterBatch = $savedBatch;
-            }
             $redirectQs = [];
-            if ($filterBatch > 0) {
-                $redirectQs['batch_id'] = $filterBatch;
+            if ($filterCentre > 0) {
+                $redirectQs['centre_id'] = $filterCentre;
             }
             if ($viewMode === 'month') {
                 $redirectQs['view'] = 'month';
@@ -314,11 +309,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                         <div class="btn-group" role="group" aria-label="View mode">
                             <a class="btn btn-sm <?php echo $viewMode === 'week' ? 'btn-primary' : 'btn-secondary'; ?>"
-                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'view' => 'week'])); ?>">
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'view' => 'week'])); ?>">
                                 Weekly
                             </a>
                             <a class="btn btn-sm <?php echo $viewMode === 'month' ? 'btn-primary' : 'btn-secondary'; ?>"
-                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">
                                 Month-wise
                             </a>
                         </div>
@@ -328,19 +323,6 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <input type="hidden" name="year" value="<?php echo (int) $ctMonthYear; ?>">
                                 <input type="hidden" name="month" value="<?php echo (int) $ctMonthMonth; ?>">
                             <?php endif; ?>
-                            <select name="batch_id" class="form-control" style="min-width:220px;" onchange="this.form.submit()">
-                                <option value="0">All batches (combined grid)</option>
-                                <?php foreach ($allBatchesForSelect as $b): ?>
-                                    <option value="<?php echo (int) $b['id']; ?>" <?php echo $filterBatch === (int) $b['id'] ? 'selected' : ''; ?>>
-                                        <?php
-                                        echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')');
-                                        if (!empty($b['course_name'])) {
-                                            echo ' — ' . htmlspecialchars($b['course_name']);
-                                        }
-                                        ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
                             <select name="centre_id" class="form-control" style="min-width:180px;" onchange="this.form.submit()">
                                 <option value="0">All centres</option>
                                 <?php foreach ($allCentresForSelect as $ctr): ?>
@@ -350,7 +332,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </select>
                         </form>
-                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
+                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
@@ -366,9 +348,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         </p>
                         <?php
                         $ctMonthBaseUrl = 'manage_class_timetable.php';
-                        $ctMonthQuery = array_filter(['batch_id' => $filterBatch ?: null]);
+                        $ctMonthQuery = array_filter(['centre_id' => $filterCentre ?: null]);
                         $ctMonthEditable = true;
-                        $ctGridFilterBatch = $filterBatch;
+                        $ctGridFilterBatch = 0;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
                         include __DIR__ . '/../includes/class_timetable_month.php';
                         ?>
@@ -380,7 +362,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <?php
                         $ctGridEditable = true;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
-                        $ctGridFilterBatch = $filterBatch;
+                        $ctGridFilterBatch = 0;
+                        $ctGridFilterCentre = $filterCentre;
                         $ctGridShowLegends = true;
                         $ctGridCourses = $allCoursesForSelect;
                         include __DIR__ . '/../includes/class_timetable_grid.php';
@@ -400,7 +383,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <input type="hidden" name="action" value="save">
                 <input type="hidden" name="id" id="ct_id" value="0">
-                <input type="hidden" name="redirect_batch_id" value="<?php echo (int) $filterBatch; ?>">
+                <input type="hidden" name="redirect_centre_id" value="<?php echo (int) $filterCentre; ?>">
                 <input type="hidden" name="redirect_view" value="<?php echo htmlspecialchars($viewMode); ?>">
                 <input type="hidden" name="redirect_year" value="<?php echo (int) $ctMonthYear; ?>">
                 <input type="hidden" name="redirect_month" value="<?php echo (int) $ctMonthMonth; ?>">
@@ -777,11 +760,6 @@ function openSlotModal(row) {
     document.getElementById('ct_period').value = '';
     document.querySelectorAll('.ct-day-check').forEach(function(c) { c.checked = false; });
     document.getElementById('ct_days_all').checked = false;
-
-    var filterBatch = <?php echo (int) $filterBatch; ?>;
-    if (filterBatch > 0) {
-        document.getElementById('ct_batch_id').value = String(filterBatch);
-    }
 
     var isEdit = false;
     if (row) {
