@@ -33,32 +33,61 @@ if (empty($_SESSION['csrf_token'])) {
 $active_theme = loadActiveTheme($conn);
 ensureClassTimetableTable($conn);
 
-// Excel/CSV export
+// Excel/CSV export — grid format (days × time periods) matching the on-screen timetable
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $exportBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
     $exportSlots = listClassTimetableAdmin($conn, $exportBatch > 0 ? $exportBatch : null);
-    $dayNames = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
+    $built = classTimetableBuildGrid($exportSlots);
+    $periods = $built['periods'];
+    $days = $built['days'];
+    $grid = $built['grid'];
+
     $filename = 'class_timetable' . ($exportBatch > 0 ? '_batch_' . $exportBatch : '_all') . '_' . date('Ymd') . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
     $out = fopen('php://output', 'w');
     fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
-    fputcsv($out, ['#', 'Batch', 'Day', 'Start Time', 'End Time', 'Subject', 'Faculty', 'Room', 'Notes', 'Active']);
-    $sl = 1;
-    foreach ($exportSlots as $slot) {
-        fputcsv($out, [
-            $sl++,
-            ($slot['batch_name'] ?? '') . ' (' . ($slot['batch_code'] ?? '') . ')',
-            $dayNames[(int) $slot['day_of_week']] ?? '',
-            substr($slot['start_time'], 0, 5),
-            substr($slot['end_time'], 0, 5),
-            $slot['subject'] ?? '',
-            $slot['faculty_name'] ?? '',
-            $slot['room'] ?? '',
-            $slot['notes'] ?? '',
-            ((int) ($slot['is_active'] ?? 1)) === 1 ? 'Yes' : 'No',
-        ]);
+
+    // Header row: Day | period columns
+    $header = ['Day'];
+    foreach ($periods as $period) {
+        $header[] = $period['short'];
     }
+    fputcsv($out, $header);
+
+    // One row per day
+    foreach ($days as $dayNum => $dayName) {
+        $row = [$dayName];
+        foreach ($periods as $period) {
+            $cellSlots = $grid[$dayNum][$period['key']] ?? [];
+            if (empty($cellSlots)) {
+                $row[] = '-';
+            } else {
+                $labels = [];
+                foreach ($cellSlots as $slot) {
+                    $label = classTimetableCellLabel($slot);
+                    if (!empty($slot['room'])) {
+                        $label .= ' [' . $slot['room'] . ']';
+                    }
+                    $labels[] = $label;
+                }
+                $row[] = implode(' / ', $labels);
+            }
+        }
+        fputcsv($out, $row);
+    }
+
+    // Faculty legend
+    $legends = classTimetableBuildLegends($exportSlots);
+    if (!empty($legends['faculty'])) {
+        fputcsv($out, []);
+        $facultyParts = [];
+        foreach ($legends['faculty'] as $ini => $full) {
+            $facultyParts[] = $ini . ' = ' . $full;
+        }
+        fputcsv($out, ['Faculty: ' . implode(', ', $facultyParts)]);
+    }
+
     fclose($out);
     exit();
 }
