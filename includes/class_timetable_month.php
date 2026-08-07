@@ -195,7 +195,7 @@ if (!empty($currentWeek)) {
 
 <p class="ct-muted" style="margin: 0 0 14px;">
     Each week of the month is shown as a separate timetable (Monday–Friday) with dates.
-    Slots appear only when the batch/course start–end dates cover that day. Saturday &amp; Sunday are holidays.
+    Slots appear on days covered by the <strong>batch</strong> start–end dates (course dates used only if batch dates are blank). Saturday &amp; Sunday are holidays.
 </p>
 
 <?php foreach ($weeks as $wi => $weekDays): ?>

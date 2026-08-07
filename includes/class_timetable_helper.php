@@ -308,8 +308,9 @@ if (!function_exists('classTimetableNormalizeDate')) {
 
 if (!function_exists('classTimetableSlotActiveOnDate')) {
     /**
-     * Show a slot on a calendar date only when batch/course date window covers that day.
-     * If no start/end dates exist, the slot is treated as always active.
+     * Show a slot on a calendar date when the batch (preferred) date window covers that day.
+     * Course dates are used only when batch start/end are missing.
+     * If neither has dates, the slot is treated as always active.
      */
     function classTimetableSlotActiveOnDate(array $slot, string $dateYmd): bool
     {
@@ -323,28 +324,15 @@ if (!function_exists('classTimetableSlotActiveOnDate')) {
             return false;
         }
 
-        $starts = [];
-        $batchStart = classTimetableNormalizeDate($slot['batch_start_date'] ?? null);
-        $courseStart = classTimetableNormalizeDate($slot['course_start_date'] ?? null);
-        if ($batchStart !== null) {
-            $starts[] = $batchStart;
+        // Timetable is per-batch: prefer batch window so course dates don't hide valid batch days
+        $effectiveStart = classTimetableNormalizeDate($slot['batch_start_date'] ?? null);
+        $effectiveEnd = classTimetableNormalizeDate($slot['batch_end_date'] ?? null);
+        if ($effectiveStart === null) {
+            $effectiveStart = classTimetableNormalizeDate($slot['course_start_date'] ?? null);
         }
-        if ($courseStart !== null) {
-            $starts[] = $courseStart;
+        if ($effectiveEnd === null) {
+            $effectiveEnd = classTimetableNormalizeDate($slot['course_end_date'] ?? null);
         }
-
-        $ends = [];
-        $batchEnd = classTimetableNormalizeDate($slot['batch_end_date'] ?? null);
-        $courseEnd = classTimetableNormalizeDate($slot['course_end_date'] ?? null);
-        if ($batchEnd !== null) {
-            $ends[] = $batchEnd;
-        }
-        if ($courseEnd !== null) {
-            $ends[] = $courseEnd;
-        }
-
-        $effectiveStart = !empty($starts) ? max($starts) : null;
-        $effectiveEnd = !empty($ends) ? min($ends) : null;
 
         if ($effectiveStart !== null && $date < $effectiveStart) {
             return false;
