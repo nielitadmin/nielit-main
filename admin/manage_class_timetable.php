@@ -33,9 +33,22 @@ if (empty($_SESSION['csrf_token'])) {
 $active_theme = loadActiveTheme($conn);
 ensureClassTimetableTable($conn);
 
-// Excel export — styled weekly grid (.xls) with course full names
+// Excel export — week grid OR full month (4 weekly tables with dates)
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $exportCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
+    $exportView = strtolower(trim((string) ($_GET['view'] ?? 'week')));
+    if (!in_array($exportView, ['week', 'month'], true)) {
+        $exportView = 'week';
+    }
+    $exportYear = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
+    $exportMonth = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('n');
+    if ($exportMonth < 1 || $exportMonth > 12) {
+        $exportMonth = (int) date('n');
+    }
+    if ($exportYear < 2000 || $exportYear > 2100) {
+        $exportYear = (int) date('Y');
+    }
+
     $exportSlots = listClassTimetableAdmin($conn, null, $exportCentre > 0 ? $exportCentre : null);
     $built = classTimetableBuildGrid($exportSlots);
     $periods = $built['periods'];
@@ -44,7 +57,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $facultyDisplayMap = classTimetableFacultyDisplayMap($exportSlots);
     $legends = classTimetableBuildLegends($exportSlots);
 
-    // Course short-code → full name map
     $courseNameMap = [];
     $courseRes = $conn->query("SELECT course_name, course_code FROM courses ORDER BY course_name ASC");
     if ($courseRes) {
@@ -56,7 +68,6 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             if ($short !== '') {
                 $courseNameMap[$short] = (string) ($c['course_name'] ?? '');
             }
-            // Also map full course name keys if subject stored as full name
             $full = trim((string) ($c['course_name'] ?? ''));
             if ($full !== '') {
                 $courseNameMap[strtoupper($full)] = $full;
@@ -79,7 +90,64 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     }
 
     $colCount = 1 + count($periods);
-    $filename = 'class_timetable_' . preg_replace('/[^a-zA-Z0-9]+/', '_', $centreName) . '_' . date('Ymd') . '.xls';
+    $monthLabel = date('F Y', mktime(0, 0, 0, $exportMonth, 1, $exportYear));
+    $filenameBase = 'class_timetable_' . preg_replace('/[^a-zA-Z0-9]+/', '_', $centreName);
+    if ($exportView === 'month') {
+        $filename = $filenameBase . '_month_' . date('Ym', mktime(0, 0, 0, $exportMonth, 1, $exportYear)) . '.xls';
+        $titleText = 'NIELIT Class Timetable — Month-wise (' . $monthLabel . ')';
+    } else {
+        $filename = $filenameBase . '_weekly_' . date('Ymd') . '.xls';
+        $titleText = 'NIELIT Class Timetable — Weekly Grid';
+    }
+
+    // Helper to render one cell's HTML
+    $renderCell = static function (array $cellSlots) use ($facultyDisplayMap, $courseNameMap): string {
+        if (empty($cellSlots)) {
+            return '<td class="empty">—</td>';
+        }
+        $html = '<td class="filled">';
+        $parts = [];
+        foreach ($cellSlots as $slot) {
+            $subject = trim((string) ($slot['subject'] ?? ''));
+            $facultyCode = $facultyDisplayMap[trim((string) ($slot['faculty_name'] ?? ''))] ?? '';
+            $line = htmlspecialchars($subject);
+            if ($facultyCode !== '') {
+                $line .= ' (' . htmlspecialchars($facultyCode) . ')';
+            }
+            $subjKey = strtoupper($subject);
+            $fullCourse = $courseNameMap[$subjKey] ?? '';
+            if ($fullCourse !== '' && strcasecmp($fullCourse, $subject) !== 0) {
+                $line .= '<br><span class="course-full">' . htmlspecialchars($fullCourse) . '</span>';
+            } elseif (!empty($slot['course_name']) && strcasecmp((string) $slot['course_name'], $subject) !== 0) {
+                $line .= '<br><span class="course-full">' . htmlspecialchars($slot['course_name']) . '</span>';
+            }
+            if (!empty($slot['batch_name'])) {
+                $line .= '<br><span class="batch">' . htmlspecialchars($slot['batch_name']);
+                if (!empty($slot['batch_code'])) {
+                    $line .= ' (' . htmlspecialchars($slot['batch_code']) . ')';
+                }
+                $line .= '</span>';
+            }
+            if (!empty($slot['room'])) {
+                $line .= '<br><span class="room">' . htmlspecialchars($slot['room']) . '</span>';
+            }
+            if (!empty($slot['centre_name'])) {
+                $line .= '<br><span class="room">' . htmlspecialchars($slot['centre_name']) . '</span>';
+            }
+            $parts[] = $line;
+        }
+        $html .= implode('<hr style="margin:4px 0;border:0;border-top:1px dashed #cbd5e1;">', $parts);
+        $html .= '</td>';
+        return $html;
+    };
+
+    $renderPeriodHeader = static function () use ($periods): string {
+        $h = '<tr><th class="day-col">Day / Date</th>';
+        foreach ($periods as $period) {
+            $h .= '<th>' . htmlspecialchars(str_replace("\n", ' ', $period['label'])) . '</th>';
+        }
+        return $h . '</tr>';
+    };
 
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $filename . '"');
@@ -89,82 +157,108 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">';
     echo '<style>
-        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
+        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; margin-bottom: 18px; }
         th, td { border: 1px solid #0f172a; padding: 6px 5px; vertical-align: middle; text-align: center; }
         th { background: #0f172a; color: #ffffff; font-weight: bold; }
-        .day-col { background: #e2e8f0; font-weight: bold; text-align: left; width: 90px; }
+        .day-col { background: #e2e8f0; font-weight: bold; text-align: left; width: 110px; }
         .filled { background: #fffbeb; font-weight: 600; text-align: left; }
         .empty { color: #94a3b8; }
         .title { font-size: 16px; font-weight: bold; text-align: center; border: none; }
         .meta { text-align: left; border: none; font-size: 12px; }
+        .week-title { font-size: 13px; font-weight: bold; text-align: left; border: none; background: #f1f5f9; padding: 8px; }
         .legend { text-align: left; border: none; font-size: 11px; }
         .batch { color: #475569; font-size: 10px; }
         .room { color: #64748b; font-size: 10px; }
         .course-full { color: #0369a1; font-size: 10px; }
+        .date-sub { color: #64748b; font-size: 10px; font-weight: normal; }
     </style></head><body>';
 
     echo '<table>';
-    echo '<tr><td class="title" colspan="' . $colCount . '">NIELIT Class Timetable — Weekly Grid</td></tr>';
+    echo '<tr><td class="title" colspan="' . $colCount . '">' . htmlspecialchars($titleText) . '</td></tr>';
     echo '<tr><td class="meta" colspan="' . $colCount . '"><b>Centre:</b> ' . htmlspecialchars($centreName) . ' &nbsp;|&nbsp; <b>Generated:</b> ' . date('d M Y, h:i A') . ' &nbsp;|&nbsp; <b>Slots:</b> ' . count($exportSlots) . '</td></tr>';
     echo '<tr><td colspan="' . $colCount . '" style="border:none;height:8px;"></td></tr>';
+    echo '</table>';
 
-    // Header
-    echo '<tr><th class="day-col">Day</th>';
-    foreach ($periods as $period) {
-        echo '<th>' . htmlspecialchars(str_replace("\n", ' ', $period['label'])) . '</th>';
-    }
-    echo '</tr>';
-
-    // Day rows
-    foreach ($days as $dayNum => $dayName) {
-        echo '<tr>';
-        echo '<td class="day-col">' . htmlspecialchars($dayName) . '</td>';
-        foreach ($periods as $period) {
-            $cellSlots = $grid[$dayNum][$period['key']] ?? [];
-            if (empty($cellSlots)) {
-                echo '<td class="empty">—</td>';
-            } else {
-                echo '<td class="filled">';
-                $parts = [];
-                foreach ($cellSlots as $slot) {
-                    $subject = trim((string) ($slot['subject'] ?? ''));
-                    $facultyCode = $facultyDisplayMap[trim((string) ($slot['faculty_name'] ?? ''))] ?? '';
-                    $line = htmlspecialchars($subject);
-                    if ($facultyCode !== '') {
-                        $line .= ' (' . htmlspecialchars($facultyCode) . ')';
-                    }
-                    // Full course name under short code
-                    $subjKey = strtoupper($subject);
-                    $fullCourse = $courseNameMap[$subjKey] ?? '';
-                    if ($fullCourse !== '' && strcasecmp($fullCourse, $subject) !== 0) {
-                        $line .= '<br><span class="course-full">' . htmlspecialchars($fullCourse) . '</span>';
-                    } elseif (!empty($slot['course_name']) && strcasecmp((string) $slot['course_name'], $subject) !== 0) {
-                        $line .= '<br><span class="course-full">' . htmlspecialchars($slot['course_name']) . '</span>';
-                    }
-                    if (!empty($slot['batch_name'])) {
-                        $line .= '<br><span class="batch">' . htmlspecialchars($slot['batch_name']);
-                        if (!empty($slot['batch_code'])) {
-                            $line .= ' (' . htmlspecialchars($slot['batch_code']) . ')';
-                        }
-                        $line .= '</span>';
-                    }
-                    if (!empty($slot['room'])) {
-                        $line .= '<br><span class="room">' . htmlspecialchars($slot['room']) . '</span>';
-                    }
-                    if (!empty($slot['centre_name'])) {
-                        $line .= '<br><span class="room">' . htmlspecialchars($slot['centre_name']) . '</span>';
-                    }
-                    $parts[] = $line;
-                }
-                echo implode('<hr style="margin:4px 0;border:0;border-top:1px dashed #cbd5e1;">', $parts);
-                echo '</td>';
+    if ($exportView === 'month') {
+        // Build Mon–Fri weeks for the selected month (same as month screen)
+        $daysInMonth = (int) date('t', mktime(0, 0, 0, $exportMonth, 1, $exportYear));
+        $weeks = [];
+        $currentWeek = [];
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $ts = mktime(0, 0, 0, $exportMonth, $d, $exportYear);
+            $dow = (int) date('N', $ts);
+            if ($dow > 5) {
+                continue;
             }
+            if ($dow === 1 || empty($currentWeek)) {
+                if (!empty($currentWeek)) {
+                    $weeks[] = $currentWeek;
+                }
+                $currentWeek = [];
+            }
+            $currentWeek[$dow] = [
+                'day' => $d,
+                'date' => date('Y-m-d', $ts),
+            ];
+        }
+        if (!empty($currentWeek)) {
+            $weeks[] = $currentWeek;
+        }
+
+        foreach ($weeks as $wi => $weekDays) {
+            $weekNum = $wi + 1;
+            $dateNums = array_map(static function ($info) {
+                return (int) $info['day'];
+            }, $weekDays);
+            $rangeText = '';
+            if (!empty($dateNums)) {
+                $firstTs = mktime(0, 0, 0, $exportMonth, min($dateNums), $exportYear);
+                $lastTs = mktime(0, 0, 0, $exportMonth, max($dateNums), $exportYear);
+                $rangeText = date('j M', $firstTs) . ' – ' . date('j M Y', $lastTs);
+            }
+
+            echo '<table>';
+            echo '<tr><td class="week-title" colspan="' . $colCount . '">Week ' . $weekNum . ($rangeText !== '' ? ' — ' . htmlspecialchars($rangeText) : '') . '</td></tr>';
+            echo $renderPeriodHeader();
+
+            for ($dow = 1; $dow <= 5; $dow++) {
+                $dayInfo = $weekDays[$dow] ?? null;
+                if ($dayInfo === null) {
+                    continue;
+                }
+                $dayName = $days[$dow] ?? date('l', strtotime($dayInfo['date']));
+                echo '<tr>';
+                echo '<td class="day-col">' . htmlspecialchars($dayName)
+                    . '<br><span class="date-sub">' . htmlspecialchars(date('j M Y', strtotime($dayInfo['date']))) . '</span></td>';
+                foreach ($periods as $period) {
+                    echo $renderCell($grid[$dow][$period['key']] ?? []);
+                }
+                echo '</tr>';
+            }
+            echo '</table>';
+        }
+    } else {
+        // Single weekly pattern table
+        echo '<table>';
+        echo '<tr><th class="day-col">Day</th>';
+        foreach ($periods as $period) {
+            echo '<th>' . htmlspecialchars(str_replace("\n", ' ', $period['label'])) . '</th>';
         }
         echo '</tr>';
+        foreach ($days as $dayNum => $dayName) {
+            echo '<tr>';
+            echo '<td class="day-col">' . htmlspecialchars($dayName) . '</td>';
+            foreach ($periods as $period) {
+                echo $renderCell($grid[$dayNum][$period['key']] ?? []);
+            }
+            echo '</tr>';
+        }
+        echo '</table>';
     }
 
     // Legends
-    echo '<tr><td colspan="' . $colCount . '" style="border:none;height:12px;"></td></tr>';
+    echo '<table>';
+    echo '<tr><td colspan="' . $colCount . '" style="border:none;height:8px;"></td></tr>';
     if (!empty($facultyDisplayMap)) {
         $facultyParts = [];
         foreach ($facultyDisplayMap as $fullName => $code) {
@@ -185,8 +279,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         }
         echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Courses:</b> ' . implode(', ', $courseParts) . '</td></tr>';
     }
-    echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Note:</b> Cells show Subject (Faculty). Full course name, batch and room appear below each entry.</td></tr>';
-
+    echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Note:</b> Cells show Subject (Faculty). Full course name, batch and room appear below each entry. Saturday &amp; Sunday are holidays.</td></tr>';
     echo '</table></body></html>';
     exit();
 }
@@ -431,7 +524,15 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </select>
                         </form>
-                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download styled Excel timetable with course names">
+                        <a class="btn btn-success" href="manage_class_timetable.php?<?php
+                            echo http_build_query(array_filter([
+                                'centre_id' => $filterCentre ?: null,
+                                'view' => $viewMode,
+                                'year' => $viewMode === 'month' ? $ctMonthYear : null,
+                                'month' => $viewMode === 'month' ? $ctMonthMonth : null,
+                                'export' => 'excel',
+                            ]));
+                        ?>" title="<?php echo $viewMode === 'month' ? 'Download full month Excel (all weeks with dates)' : 'Download weekly Excel timetable'; ?>">
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
