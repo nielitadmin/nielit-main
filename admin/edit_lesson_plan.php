@@ -41,14 +41,32 @@ if (!$plan) {
     exit();
 }
 
-$redirectUrl = 'edit_lesson_plan.php?id=' . $planId;
+$viewQs = '';
+if (isset($_GET['view']) && in_array(strtolower((string) $_GET['view']), ['month', 'week'], true)) {
+    $viewQs .= '&view=' . urlencode(strtolower((string) $_GET['view']));
+}
+if (isset($_GET['m'], $_GET['y'])) {
+    $viewQs .= '&m=' . (int) $_GET['m'] . '&y=' . (int) $_GET['y'];
+}
+$redirectUrl = 'edit_lesson_plan.php?id=' . $planId . $viewQs;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string) ($_POST['csrf_token'] ?? '');
+    $postView = strtolower(trim((string) ($_POST['return_view'] ?? 'month')));
+    if (!in_array($postView, ['month', 'week'], true)) {
+        $postView = 'month';
+    }
+    $postM = (int) ($_POST['return_m'] ?? 0);
+    $postY = (int) ($_POST['return_y'] ?? 0);
+    $postRedirect = 'edit_lesson_plan.php?id=' . $planId . '&view=' . urlencode($postView);
+    if ($postM >= 1 && $postM <= 12 && $postY >= 2000) {
+        $postRedirect .= '&m=' . $postM . '&y=' . $postY;
+    }
+
     if (!hash_equals((string) $_SESSION['csrf_token'], $token)) {
         $_SESSION['message'] = 'Invalid security token.';
         $_SESSION['message_type'] = 'danger';
-        header('Location: ' . $redirectUrl);
+        header('Location: ' . $postRedirect);
         exit();
     }
 
@@ -75,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result['success']) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
-        header('Location: ' . $redirectUrl);
+        header('Location: ' . $postRedirect);
         exit();
     }
 
@@ -86,9 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-            // If weeks changed via header earlier, ensure we still save what was posted
         }
-        header('Location: ' . $redirectUrl);
+        header('Location: ' . $postRedirect);
         exit();
     }
 }
@@ -97,6 +114,48 @@ $plan = getLessonPlan($conn, $planId);
 $rows = getLessonPlanRows($conn, $planId);
 $totalWeeks = max(1, (int) ($plan['total_weeks'] ?? 16));
 $daysPerWeek = max(1, min(6, (int) ($plan['days_per_week'] ?? 5)));
+$viewMode = strtolower(trim((string) ($_GET['view'] ?? 'month')));
+if (!in_array($viewMode, ['month', 'week'], true)) {
+    $viewMode = 'month';
+}
+$monthCalendar = lessonPlanBuildMonthCalendar(
+    $plan['batch_start_date'] ?? null,
+    $totalWeeks,
+    $daysPerWeek,
+    $rows
+);
+$focusMonth = isset($_GET['m']) ? (int) $_GET['m'] : 0;
+$focusYear = isset($_GET['y']) ? (int) $_GET['y'] : 0;
+if ($focusMonth < 1 || $focusMonth > 12 || $focusYear < 2000) {
+    // Default to first month in plan, or current month if inside plan
+    $todayYm = date('Y-n');
+    $focusYear = (int) ($monthCalendar[0]['year'] ?? date('Y'));
+    $focusMonth = (int) ($monthCalendar[0]['month'] ?? date('n'));
+    foreach ($monthCalendar as $mc) {
+        if ($mc['year'] . '-' . $mc['month'] === $todayYm) {
+            $focusYear = (int) $mc['year'];
+            $focusMonth = (int) $mc['month'];
+            break;
+        }
+    }
+}
+$activeMonthBlock = null;
+$monthIndex = 0;
+foreach ($monthCalendar as $idx => $mc) {
+    if ((int) $mc['year'] === $focusYear && (int) $mc['month'] === $focusMonth) {
+        $activeMonthBlock = $mc;
+        $monthIndex = $idx;
+        break;
+    }
+}
+if ($activeMonthBlock === null && !empty($monthCalendar)) {
+    $activeMonthBlock = $monthCalendar[0];
+    $monthIndex = 0;
+    $focusYear = (int) $activeMonthBlock['year'];
+    $focusMonth = (int) $activeMonthBlock['month'];
+}
+$prevMonth = $monthCalendar[$monthIndex - 1] ?? null;
+$nextMonth = $monthCalendar[$monthIndex + 1] ?? null;
 
 $batches = [];
 $batchRes = $conn->query(
@@ -147,7 +206,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             width: 70px;
             text-align: center;
         }
-        .lp-grid textarea {
+        .lp-grid textarea, .lp-month textarea {
             width: 100%;
             min-height: 52px;
             border: 1px solid #e2e8f0;
@@ -165,6 +224,50 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         }
         .lp-info div { background: #f8fafc; border-radius: 6px; padding: 8px 10px; }
         .lp-info strong { display: block; color: #64748b; font-size: 0.75rem; }
+        .lp-month-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .lp-month-nav h5 { margin: 0; font-weight: 700; }
+        .lp-week-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            background: #fff;
+        }
+        .lp-week-head {
+            background: #f1f5f9;
+            border-left: 4px solid #f59e0b;
+            padding: 8px 12px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .lp-week-head span { font-weight: 500; color: #64748b; }
+        .lp-day-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 0;
+            border-top: 1px solid #e2e8f0;
+        }
+        .lp-day-label {
+            background: #f8fafc;
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-right: 1px solid #e2e8f0;
+        }
+        .lp-day-label small { display: block; color: #64748b; font-weight: 500; margin-top: 2px; }
+        .lp-day-topic { padding: 8px 10px; }
+        .lp-day-row.today .lp-day-label { box-shadow: inset 3px 0 0 #f59e0b; background: #fffbeb; }
+        @media (max-width: 700px) {
+            .lp-day-row { grid-template-columns: 1fr; }
+            .lp-day-label { border-right: 0; border-bottom: 1px solid #e2e8f0; }
+        }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -279,39 +382,137 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-                    <h5 class="card-title mb-0">Topics (Week × Class Day)</h5>
-                    <span class="lp-muted">Theory topics for each allotted class day</span>
+                    <div>
+                        <h5 class="card-title mb-0">Topics by Month</h5>
+                        <span class="lp-muted">Theory topics mapped to batch class dates (Mon–Fri)</span>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        <a class="btn btn-sm <?php echo $viewMode === 'month' ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+                           href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>&view=month&m=<?php echo (int) $focusMonth; ?>&y=<?php echo (int) $focusYear; ?>">
+                            <i class="fas fa-calendar-alt"></i> Month
+                        </a>
+                        <a class="btn btn-sm <?php echo $viewMode === 'week' ? 'btn-primary' : 'btn-outline-secondary'; ?>"
+                           href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>&view=week">
+                            <i class="fas fa-th"></i> Week grid
+                        </a>
+                    </div>
                 </div>
-                <div style="padding:1rem;">
+                <div style="padding:1rem;" class="lp-month">
+                    <?php if (empty($plan['batch_start_date'])): ?>
+                        <div class="alert alert-warning">Set the batch start date so topics can follow the monthly calendar.</div>
+                    <?php endif; ?>
+
                     <form method="post">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="save_topics">
-                        <div class="lp-grid-wrap">
-                            <table class="lp-grid">
-                                <thead>
-                                    <tr>
-                                        <th>Week</th>
-                                        <?php for ($d = 1; $d <= $daysPerWeek; $d++): ?>
-                                            <th><?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?> Class Day<br><small>Topics to be Covered (Theory)</small></th>
-                                        <?php endfor; ?>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php for ($w = 1; $w <= $totalWeeks; $w++): ?>
+                        <input type="hidden" name="return_view" value="<?php echo htmlspecialchars($viewMode); ?>">
+                        <input type="hidden" name="return_m" value="<?php echo (int) $focusMonth; ?>">
+                        <input type="hidden" name="return_y" value="<?php echo (int) $focusYear; ?>">
+
+                        <?php if ($viewMode === 'month'): ?>
+                            <div class="lp-month-nav">
+                                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                                    <?php if ($prevMonth): ?>
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>&view=month&m=<?php echo (int) $prevMonth['month']; ?>&y=<?php echo (int) $prevMonth['year']; ?>">
+                                            <i class="fas fa-chevron-left"></i>
+                                            <?php echo htmlspecialchars($prevMonth['label']); ?>
+                                        </a>
+                                    <?php endif; ?>
+                                    <h5><?php echo htmlspecialchars($activeMonthBlock['label'] ?? '—'); ?></h5>
+                                    <?php if ($nextMonth): ?>
+                                        <a class="btn btn-sm btn-outline-secondary"
+                                           href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>&view=month&m=<?php echo (int) $nextMonth['month']; ?>&y=<?php echo (int) $nextMonth['year']; ?>">
+                                            <?php echo htmlspecialchars($nextMonth['label']); ?>
+                                            <i class="fas fa-chevron-right"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                                    <?php foreach ($monthCalendar as $mc): ?>
+                                        <?php
+                                        $isActive = (int) $mc['year'] === $focusYear && (int) $mc['month'] === $focusMonth;
+                                        ?>
+                                        <a class="btn btn-sm <?php echo $isActive ? 'btn-dark' : 'btn-outline-secondary'; ?>"
+                                           href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>&view=month&m=<?php echo (int) $mc['month']; ?>&y=<?php echo (int) $mc['year']; ?>">
+                                            <?php echo htmlspecialchars(date('M Y', mktime(0, 0, 0, (int) $mc['month'], 1, (int) $mc['year']))); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+
+                            <?php
+                            $todayYmd = date('Y-m-d');
+                            // Render all months so Save keeps full plan; show only active month
+                            foreach ($monthCalendar as $mc):
+                                $isVisible = (int) $mc['year'] === $focusYear && (int) $mc['month'] === $focusMonth;
+                            ?>
+                                <div <?php echo $isVisible ? '' : 'style="display:none"'; ?> aria-hidden="<?php echo $isVisible ? 'false' : 'true'; ?>">
+                                    <?php if (empty($mc['weeks'])): ?>
+                                        <p class="lp-muted">No class weeks in this month.</p>
+                                    <?php else: ?>
+                                        <?php foreach ($mc['weeks'] as $weekBlock): ?>
+                                            <div class="lp-week-card">
+                                                <div class="lp-week-head">
+                                                    Week <?php echo (int) $weekBlock['week']; ?>
+                                                    <span> · <?php echo htmlspecialchars($weekBlock['range']); ?></span>
+                                                </div>
+                                                <?php foreach ($weekBlock['days'] as $day): ?>
+                                                    <?php
+                                                    $w = (int) $day['week'];
+                                                    $d = (int) $day['dow'];
+                                                    $isToday = ($day['date'] === $todayYmd);
+                                                    ?>
+                                                    <div class="lp-day-row<?php echo $isToday ? ' today' : ''; ?>">
+                                                        <div class="lp-day-label">
+                                                            <?php echo htmlspecialchars($day['day_name']); ?>
+                                                            <small><?php echo htmlspecialchars(date('j M Y', strtotime($day['date']))); ?>
+                                                                · <?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?> class day
+                                                                <?php if ($isToday): ?> · Today<?php endif; ?>
+                                                            </small>
+                                                        </div>
+                                                        <div class="lp-day-topic">
+                                                            <textarea name="topics[<?php echo $w; ?>][<?php echo $d; ?>]"
+                                                                      rows="3"
+                                                                      placeholder="Topics to be covered (theory)…"><?php echo htmlspecialchars((string) ($day['topic'] ?? '')); ?></textarea>
+                                                        </div>
+                                                    </div>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+
+                        <?php else: ?>
+                            <div class="lp-grid-wrap">
+                                <table class="lp-grid">
+                                    <thead>
                                         <tr>
-                                            <td class="lp-week"><?php echo htmlspecialchars(lessonPlanOrdinal($w)); ?></td>
+                                            <th>Week</th>
                                             <?php for ($d = 1; $d <= $daysPerWeek; $d++): ?>
-                                                <?php $val = $rows[$w][$d]['topic'] ?? ''; ?>
-                                                <td>
-                                                    <textarea name="topics[<?php echo $w; ?>][<?php echo $d; ?>]"
-                                                              placeholder="Topic for week <?php echo $w; ?>, day <?php echo $d; ?>…"><?php echo htmlspecialchars($val); ?></textarea>
-                                                </td>
+                                                <th><?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?> Class Day<br><small>Topics to be Covered (Theory)</small></th>
                                             <?php endfor; ?>
                                         </tr>
-                                    <?php endfor; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        <?php for ($w = 1; $w <= $totalWeeks; $w++): ?>
+                                            <tr>
+                                                <td class="lp-week"><?php echo htmlspecialchars(lessonPlanOrdinal($w)); ?></td>
+                                                <?php for ($d = 1; $d <= $daysPerWeek; $d++): ?>
+                                                    <?php $val = $rows[$w][$d]['topic'] ?? ''; ?>
+                                                    <td>
+                                                        <textarea name="topics[<?php echo $w; ?>][<?php echo $d; ?>]"
+                                                                  placeholder="Topic for week <?php echo $w; ?>, day <?php echo $d; ?>…"><?php echo htmlspecialchars($val); ?></textarea>
+                                                    </td>
+                                                <?php endfor; ?>
+                                            </tr>
+                                        <?php endfor; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+
                         <div style="margin-top:12px;">
                             <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save All Topics</button>
                         </div>

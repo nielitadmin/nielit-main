@@ -596,6 +596,73 @@ if (!function_exists('deleteLessonPlan')) {
     }
 }
 
+if (!function_exists('lessonPlanBuildMonthCalendar')) {
+    /**
+     * Map plan weeks onto calendar months from batch start date.
+     * @param array<int, array<int, array<string,mixed>>> $rows week=>day=>row
+     * @return list<array{year:int,month:int,label:string,weeks:list<array{week:int,range:string,days:list<array{dow:int,date:string,label:string,topic:?string,row_id:?int}>}>}>
+     */
+    function lessonPlanBuildMonthCalendar(?string $batchStart, int $totalWeeks, int $daysPerWeek, array $rows): array
+    {
+        $totalWeeks = max(1, min(52, $totalWeeks));
+        $daysPerWeek = max(1, min(6, $daysPerWeek));
+        if (!$batchStart || !strtotime($batchStart)) {
+            $batchStart = date('Y-m-d');
+        }
+
+        $startTs = strtotime($batchStart . ' 00:00:00');
+        $startDow = (int) date('N', $startTs); // 1=Mon
+        // First Monday on/before batch start
+        $week1Monday = strtotime('-' . ($startDow - 1) . ' days', $startTs);
+
+        $byMonth = [];
+        for ($w = 1; $w <= $totalWeeks; $w++) {
+            $monday = strtotime('+' . (($w - 1) * 7) . ' days', $week1Monday);
+            $days = [];
+            for ($d = 1; $d <= $daysPerWeek; $d++) {
+                $dayTs = strtotime('+' . ($d - 1) . ' days', $monday);
+                $date = date('Y-m-d', $dayTs);
+                $year = (int) date('Y', $dayTs);
+                $month = (int) date('n', $dayTs);
+                $topic = $rows[$w][$d]['topic'] ?? null;
+                $rowId = isset($rows[$w][$d]['id']) ? (int) $rows[$w][$d]['id'] : null;
+                $days[] = [
+                    'dow' => $d,
+                    'date' => $date,
+                    'label' => date('D j M', $dayTs),
+                    'day_name' => date('l', $dayTs),
+                    'topic' => $topic,
+                    'row_id' => $rowId,
+                    'week' => $w,
+                ];
+            }
+            // Place week under the month of its Monday (or first day)
+            $anchorTs = strtotime($days[0]['date']);
+            $year = (int) date('Y', $anchorTs);
+            $month = (int) date('n', $anchorTs);
+            $key = sprintf('%04d-%02d', $year, $month);
+            if (!isset($byMonth[$key])) {
+                $byMonth[$key] = [
+                    'year' => $year,
+                    'month' => $month,
+                    'label' => date('F Y', $anchorTs),
+                    'weeks' => [],
+                ];
+            }
+            $first = $days[0]['date'];
+            $last = $days[count($days) - 1]['date'];
+            $byMonth[$key]['weeks'][] = [
+                'week' => $w,
+                'range' => date('j M', strtotime($first)) . ' – ' . date('j M Y', strtotime($last)),
+                'days' => $days,
+            ];
+        }
+
+        ksort($byMonth);
+        return array_values($byMonth);
+    }
+}
+
 if (!function_exists('lessonPlanWeekNumberForDate')) {
     /** Week number relative to batch start date (Mon-based weeks). */
     function lessonPlanWeekNumberForDate(?string $batchStart, string $dateYmd): int
