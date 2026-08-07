@@ -33,7 +33,7 @@ if (empty($_SESSION['csrf_token'])) {
 $active_theme = loadActiveTheme($conn);
 ensureClassTimetableTable($conn);
 
-// Excel/CSV export — grid format (days × time periods) matching the on-screen timetable
+// Excel export — styled weekly grid (.xls) with course full names
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $exportCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
     $exportSlots = listClassTimetableAdmin($conn, null, $exportCentre > 0 ? $exportCentre : null);
@@ -41,54 +41,153 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $periods = $built['periods'];
     $days = $built['days'];
     $grid = $built['grid'];
+    $facultyDisplayMap = classTimetableFacultyDisplayMap($exportSlots);
+    $legends = classTimetableBuildLegends($exportSlots);
 
-    $filename = 'class_timetable' . ($exportCentre > 0 ? '_centre_' . $exportCentre : '_all') . '_' . date('Ymd') . '.csv';
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    $out = fopen('php://output', 'w');
-    fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-    // Header row: Day | period columns
-    $header = ['Day'];
-    foreach ($periods as $period) {
-        $header[] = $period['short'];
+    // Course short-code → full name map
+    $courseNameMap = [];
+    $courseRes = $conn->query("SELECT course_name, course_code FROM courses ORDER BY course_name ASC");
+    if ($courseRes) {
+        while ($c = $courseRes->fetch_assoc()) {
+            $short = strtoupper(preg_replace('/[-_].+$/', '', $c['course_code'] ?? ''));
+            if ($short === '') {
+                $short = strtoupper((string) ($c['course_code'] ?? ''));
+            }
+            if ($short !== '') {
+                $courseNameMap[$short] = (string) ($c['course_name'] ?? '');
+            }
+            // Also map full course name keys if subject stored as full name
+            $full = trim((string) ($c['course_name'] ?? ''));
+            if ($full !== '') {
+                $courseNameMap[strtoupper($full)] = $full;
+            }
+        }
     }
-    fputcsv($out, $header);
 
-    // One row per day
+    $centreName = 'All Centres';
+    if ($exportCentre > 0) {
+        $cStmt = $conn->prepare('SELECT name FROM centres WHERE id = ? LIMIT 1');
+        if ($cStmt) {
+            $cStmt->bind_param('i', $exportCentre);
+            $cStmt->execute();
+            $cRow = $cStmt->get_result()->fetch_assoc();
+            $cStmt->close();
+            if ($cRow && !empty($cRow['name'])) {
+                $centreName = $cRow['name'];
+            }
+        }
+    }
+
+    $colCount = 1 + count($periods);
+    $filename = 'class_timetable_' . preg_replace('/[^a-zA-Z0-9]+/', '_', $centreName) . '_' . date('Ymd') . '.xls';
+
+    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">';
+    echo '<style>
+        table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11px; }
+        th, td { border: 1px solid #0f172a; padding: 6px 5px; vertical-align: middle; text-align: center; }
+        th { background: #0f172a; color: #ffffff; font-weight: bold; }
+        .day-col { background: #e2e8f0; font-weight: bold; text-align: left; width: 90px; }
+        .filled { background: #fffbeb; font-weight: 600; text-align: left; }
+        .empty { color: #94a3b8; }
+        .title { font-size: 16px; font-weight: bold; text-align: center; border: none; }
+        .meta { text-align: left; border: none; font-size: 12px; }
+        .legend { text-align: left; border: none; font-size: 11px; }
+        .batch { color: #475569; font-size: 10px; }
+        .room { color: #64748b; font-size: 10px; }
+        .course-full { color: #0369a1; font-size: 10px; }
+    </style></head><body>';
+
+    echo '<table>';
+    echo '<tr><td class="title" colspan="' . $colCount . '">NIELIT Class Timetable — Weekly Grid</td></tr>';
+    echo '<tr><td class="meta" colspan="' . $colCount . '"><b>Centre:</b> ' . htmlspecialchars($centreName) . ' &nbsp;|&nbsp; <b>Generated:</b> ' . date('d M Y, h:i A') . ' &nbsp;|&nbsp; <b>Slots:</b> ' . count($exportSlots) . '</td></tr>';
+    echo '<tr><td colspan="' . $colCount . '" style="border:none;height:8px;"></td></tr>';
+
+    // Header
+    echo '<tr><th class="day-col">Day</th>';
+    foreach ($periods as $period) {
+        echo '<th>' . htmlspecialchars(str_replace("\n", ' ', $period['label'])) . '</th>';
+    }
+    echo '</tr>';
+
+    // Day rows
     foreach ($days as $dayNum => $dayName) {
-        $row = [$dayName];
+        echo '<tr>';
+        echo '<td class="day-col">' . htmlspecialchars($dayName) . '</td>';
         foreach ($periods as $period) {
             $cellSlots = $grid[$dayNum][$period['key']] ?? [];
             if (empty($cellSlots)) {
-                $row[] = '-';
+                echo '<td class="empty">—</td>';
             } else {
-                $labels = [];
+                echo '<td class="filled">';
+                $parts = [];
                 foreach ($cellSlots as $slot) {
-                    $label = classTimetableCellLabel($slot);
-                    if (!empty($slot['room'])) {
-                        $label .= ' [' . $slot['room'] . ']';
+                    $subject = trim((string) ($slot['subject'] ?? ''));
+                    $facultyCode = $facultyDisplayMap[trim((string) ($slot['faculty_name'] ?? ''))] ?? '';
+                    $line = htmlspecialchars($subject);
+                    if ($facultyCode !== '') {
+                        $line .= ' (' . htmlspecialchars($facultyCode) . ')';
                     }
-                    $labels[] = $label;
+                    // Full course name under short code
+                    $subjKey = strtoupper($subject);
+                    $fullCourse = $courseNameMap[$subjKey] ?? '';
+                    if ($fullCourse !== '' && strcasecmp($fullCourse, $subject) !== 0) {
+                        $line .= '<br><span class="course-full">' . htmlspecialchars($fullCourse) . '</span>';
+                    } elseif (!empty($slot['course_name']) && strcasecmp((string) $slot['course_name'], $subject) !== 0) {
+                        $line .= '<br><span class="course-full">' . htmlspecialchars($slot['course_name']) . '</span>';
+                    }
+                    if (!empty($slot['batch_name'])) {
+                        $line .= '<br><span class="batch">' . htmlspecialchars($slot['batch_name']);
+                        if (!empty($slot['batch_code'])) {
+                            $line .= ' (' . htmlspecialchars($slot['batch_code']) . ')';
+                        }
+                        $line .= '</span>';
+                    }
+                    if (!empty($slot['room'])) {
+                        $line .= '<br><span class="room">' . htmlspecialchars($slot['room']) . '</span>';
+                    }
+                    if (!empty($slot['centre_name'])) {
+                        $line .= '<br><span class="room">' . htmlspecialchars($slot['centre_name']) . '</span>';
+                    }
+                    $parts[] = $line;
                 }
-                $row[] = implode(' / ', $labels);
+                echo implode('<hr style="margin:4px 0;border:0;border-top:1px dashed #cbd5e1;">', $parts);
+                echo '</td>';
             }
         }
-        fputcsv($out, $row);
+        echo '</tr>';
     }
 
-    // Faculty legend
-    $legends = classTimetableBuildLegends($exportSlots);
-    if (!empty($legends['faculty'])) {
-        fputcsv($out, []);
+    // Legends
+    echo '<tr><td colspan="' . $colCount . '" style="border:none;height:12px;"></td></tr>';
+    if (!empty($facultyDisplayMap)) {
         $facultyParts = [];
-        foreach ($legends['faculty'] as $ini => $full) {
-            $facultyParts[] = $ini . ' = ' . $full;
+        foreach ($facultyDisplayMap as $fullName => $code) {
+            $facultyParts[] = htmlspecialchars($code) . ' = ' . htmlspecialchars($fullName);
         }
-        fputcsv($out, ['Faculty: ' . implode(', ', $facultyParts)]);
+        echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Faculty:</b> ' . implode(', ', $facultyParts) . '</td></tr>';
     }
+    if (!empty($legends['subjects'])) {
+        $courseParts = [];
+        foreach ($legends['subjects'] as $subj => $_) {
+            $key = strtoupper(trim($subj));
+            $full = $courseNameMap[$key] ?? '';
+            if ($full !== '' && strcasecmp($full, $subj) !== 0) {
+                $courseParts[] = htmlspecialchars($subj) . ' — ' . htmlspecialchars($full);
+            } else {
+                $courseParts[] = htmlspecialchars($subj);
+            }
+        }
+        echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Courses:</b> ' . implode(', ', $courseParts) . '</td></tr>';
+    }
+    echo '<tr><td class="legend" colspan="' . $colCount . '"><b>Note:</b> Cells show Subject (Faculty). Full course name, batch and room appear below each entry.</td></tr>';
 
-    fclose($out);
+    echo '</table></body></html>';
     exit();
 }
 
@@ -332,7 +431,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </select>
                         </form>
-                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
+                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download styled Excel timetable with course names">
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
