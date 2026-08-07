@@ -223,7 +223,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $allBatchesForSelect = [];
-$batchSql = "SELECT b.id, b.batch_name, b.batch_code, b.status, c.course_name
+// Ensure optional batch_description column exists before selecting it
+$colCheck = $conn->query("SHOW COLUMNS FROM batches LIKE 'batch_description'");
+if ($colCheck && $colCheck->num_rows === 0) {
+    $conn->query('ALTER TABLE batches ADD COLUMN batch_description TEXT NULL DEFAULT NULL AFTER batch_name');
+}
+$batchSql = "SELECT b.id, b.batch_name, b.batch_code, b.batch_description, b.status,
+                    b.start_date, b.end_date, c.course_name, c.course_code
              FROM batches b
              LEFT JOIN courses c ON c.id = b.course_id
              ORDER BY b.status = 'Active' DESC, b.start_date DESC";
@@ -407,10 +413,23 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
                         <div class="form-group" style="flex:1;min-width:220px;">
                             <label for="ct_batch_id">Batch <span class="text-danger">*</span></label>
-                            <select class="form-control" id="ct_batch_id" name="batch_id" required>
+                            <select class="form-control" id="ct_batch_id" name="batch_id" required onchange="showBatchDetails()">
                                 <option value="">Select batch…</option>
-                                <?php foreach ($allBatchesForSelect as $b): ?>
-                                    <option value="<?php echo (int) $b['id']; ?>">
+                                <?php foreach ($allBatchesForSelect as $b):
+                                    $shortCode = strtoupper(preg_replace('/[-_].+$/', '', $b['course_code'] ?? ''));
+                                    if ($shortCode === '') {
+                                        $shortCode = (string) ($b['course_code'] ?? '');
+                                    }
+                                ?>
+                                    <option value="<?php echo (int) $b['id']; ?>"
+                                            data-name="<?php echo htmlspecialchars($b['batch_name'] ?? '', ENT_QUOTES); ?>"
+                                            data-code="<?php echo htmlspecialchars($b['batch_code'] ?? '', ENT_QUOTES); ?>"
+                                            data-description="<?php echo htmlspecialchars($b['batch_description'] ?? '', ENT_QUOTES); ?>"
+                                            data-course="<?php echo htmlspecialchars($b['course_name'] ?? '', ENT_QUOTES); ?>"
+                                            data-course-code="<?php echo htmlspecialchars($shortCode, ENT_QUOTES); ?>"
+                                            data-start="<?php echo htmlspecialchars($b['start_date'] ?? '', ENT_QUOTES); ?>"
+                                            data-end="<?php echo htmlspecialchars($b['end_date'] ?? '', ENT_QUOTES); ?>"
+                                            data-status="<?php echo htmlspecialchars($b['status'] ?? '', ENT_QUOTES); ?>">
                                         <?php
                                         echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')');
                                         if (!empty($b['course_name'])) {
@@ -449,6 +468,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </div>
                         </div>
+                    </div>
+
+                    <div class="form-group" id="ct_batch_details_wrap" style="display:none;margin-bottom:1rem;">
+                        <label>Batch Details</label>
+                        <div id="ct_batch_details" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:0.875rem;color:#334155;line-height:1.5;"></div>
                     </div>
 
                     <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
@@ -612,6 +636,80 @@ function applyCourseToSubject() {
     }
 }
 
+function formatBatchDate(ymd) {
+    if (!ymd) return '';
+    var parts = String(ymd).split('-');
+    if (parts.length !== 3) return ymd;
+    return parts[2] + '-' + parts[1] + '-' + parts[0];
+}
+
+function showBatchDetails() {
+    var sel = document.getElementById('ct_batch_id');
+    var wrap = document.getElementById('ct_batch_details_wrap');
+    var box = document.getElementById('ct_batch_details');
+    if (!sel || !wrap || !box) return;
+
+    if (!sel.value) {
+        wrap.style.display = 'none';
+        box.innerHTML = '';
+        return;
+    }
+
+    var opt = sel.options[sel.selectedIndex];
+    var name = opt.getAttribute('data-name') || '';
+    var code = opt.getAttribute('data-code') || '';
+    var desc = opt.getAttribute('data-description') || '';
+    var course = opt.getAttribute('data-course') || '';
+    var courseCode = opt.getAttribute('data-course-code') || '';
+    var start = opt.getAttribute('data-start') || '';
+    var end = opt.getAttribute('data-end') || '';
+    var status = opt.getAttribute('data-status') || '';
+
+    var lines = [];
+    lines.push('<strong>' + escapeHtml(name) + '</strong> <span class="ct-muted">(' + escapeHtml(code) + ')</span>');
+    if (course) {
+        lines.push('<div><strong>Course:</strong> ' + escapeHtml(course) + (courseCode ? ' (' + escapeHtml(courseCode) + ')' : '') + '</div>');
+    }
+    if (start || end) {
+        lines.push('<div><strong>Duration:</strong> ' + escapeHtml(formatBatchDate(start) || '—') + ' to ' + escapeHtml(formatBatchDate(end) || '—') + '</div>');
+    }
+    if (status) {
+        lines.push('<div><strong>Status:</strong> ' + escapeHtml(status) + '</div>');
+    }
+    if (desc) {
+        lines.push('<div style="margin-top:4px;white-space:pre-wrap;"><strong>Description:</strong> ' + escapeHtml(desc) + '</div>');
+    } else {
+        lines.push('<div class="ct-muted" style="margin-top:4px;">No batch description set.</div>');
+    }
+    box.innerHTML = lines.join('');
+    wrap.style.display = '';
+
+    // Auto-fill course/subject from batch when adding (not overwriting if subject already filled on edit)
+    if (courseCode) {
+        var courseSel = document.getElementById('ct_course_select');
+        var subjectEl = document.getElementById('ct_subject');
+        if (courseSel) {
+            for (var i = 0; i < courseSel.options.length; i++) {
+                if (courseSel.options[i].value.toUpperCase() === courseCode.toUpperCase()) {
+                    courseSel.value = courseSel.options[i].value;
+                    break;
+                }
+            }
+        }
+        if (subjectEl && !subjectEl.value) {
+            subjectEl.value = courseCode;
+        }
+    }
+}
+
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 function syncCourseSelectFromSubject() {
     var subj = (document.getElementById('ct_subject').value || '').toUpperCase().trim();
     var sel = document.getElementById('ct_course_select');
@@ -716,6 +814,7 @@ function openSlotModal(row) {
     }
 
     setDayMode(isEdit);
+    showBatchDetails();
 
     var instance = getSlotModalInstance();
     if (instance) {
