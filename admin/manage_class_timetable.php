@@ -343,15 +343,13 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
                 <div style="padding: 0 1rem 1rem;">
                     <?php if ($viewMode === 'month'): ?>
-                        <p class="ct-muted" style="margin: 0 0 12px;">
-                            Month calendar filled from your weekly recurring slots (same class every matching weekday).
-                        </p>
                         <?php
                         $ctMonthBaseUrl = 'manage_class_timetable.php';
                         $ctMonthQuery = array_filter(['centre_id' => $filterCentre ?: null]);
                         $ctMonthEditable = true;
                         $ctGridFilterBatch = 0;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
+                        $ctGridCourses = $allCoursesForSelect;
                         include __DIR__ . '/../includes/class_timetable_month.php';
                         ?>
                     <?php else: ?>
