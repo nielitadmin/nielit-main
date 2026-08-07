@@ -234,6 +234,14 @@ if ($batchRes) {
 $slots = listClassTimetableAdmin($conn, $filterBatch > 0 ? $filterBatch : null);
 $dayLabels = classTimetableDayLabels();
 
+$allCoursesForSelect = [];
+$courseRes = $conn->query("SELECT id, course_name, course_code FROM courses ORDER BY course_name ASC");
+if ($courseRes) {
+    while ($c = $courseRes->fetch_assoc()) {
+        $allCoursesForSelect[] = $c;
+    }
+}
+
 $message = $_SESSION['message'] ?? '';
 $message_type = $_SESSION['message_type'] ?? 'success';
 unset($_SESSION['message'], $_SESSION['message_type']);
@@ -447,12 +455,24 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <input type="time" class="form-control" id="ct_end" name="end_time" required>
                         </div>
                         <div class="form-group" style="flex:2;min-width:200px;">
-                            <label for="ct_subject">Subject <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="ct_subject" name="subject" required maxlength="255" placeholder="e.g. CCC / IT O Level (OL-10)">
+                            <label for="ct_course_select">Course</label>
+                            <select class="form-control" id="ct_course_select" onchange="applyCourseToSubject()">
+                                <option value="">-- Pick a course or type below --</option>
+                                <?php foreach ($allCoursesForSelect as $c): ?>
+                                    <option value="<?php echo htmlspecialchars(($c['course_name'] ?? '') . ' (' . ($c['course_code'] ?? '') . ')'); ?>">
+                                        <?php echo htmlspecialchars(($c['course_name'] ?? '') . ' (' . ($c['course_code'] ?? '') . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
 
                     <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:2;min-width:200px;">
+                            <label for="ct_subject">Subject / Course Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ct_subject" name="subject" required maxlength="255" placeholder="e.g. CCC / Course on Computer Concepts (CCC-01)">
+                            <div class="ct-help">Auto-filled from course above, or type manually.</div>
+                        </div>
                         <div class="form-group" style="flex:1;min-width:180px;">
                             <label for="ct_faculty">Faculty (optional)</label>
                             <input type="text" class="form-control" id="ct_faculty" name="faculty_name" maxlength="255" placeholder="Faculty name">
@@ -545,6 +565,13 @@ function applyPeriodTimes() {
     var opt = sel.options[sel.selectedIndex];
     document.getElementById('ct_start').value = opt.getAttribute('data-start') || '';
     document.getElementById('ct_end').value = opt.getAttribute('data-end') || '';
+}
+
+function applyCourseToSubject() {
+    var sel = document.getElementById('ct_course_select');
+    if (sel && sel.value) {
+        document.getElementById('ct_subject').value = sel.value;
+    }
 }
 
 function syncPeriodSelectFromTimes() {

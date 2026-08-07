@@ -218,8 +218,18 @@ if (!function_exists('classTimetableBuildLegends')) {
             $name = trim((string) ($slot['faculty_name'] ?? ''));
             if ($name !== '') {
                 $ini = classTimetableFacultyInitials($name);
-                if ($ini !== '' && !isset($faculty[$ini])) {
-                    $faculty[$ini] = $name;
+                if ($ini !== '') {
+                    // Handle duplicate initials for different faculty names
+                    if (!isset($faculty[$ini])) {
+                        $faculty[$ini] = $name;
+                    } elseif ($faculty[$ini] !== $name) {
+                        // Different person, same initials — append number
+                        $counter = 2;
+                        while (isset($faculty[$ini . $counter])) {
+                            $counter++;
+                        }
+                        $faculty[$ini . $counter] = $name;
+                    }
                 }
             }
             $subject = trim((string) ($slot['subject'] ?? ''));
@@ -230,6 +240,42 @@ if (!function_exists('classTimetableBuildLegends')) {
         ksort($faculty);
         ksort($subjects);
         return ['faculty' => $faculty, 'subjects' => $subjects];
+    }
+}
+
+if (!function_exists('classTimetableFacultyDisplayMap')) {
+    /**
+     * Build map: faculty_name → unique display code (e.g. "FT", "FT2" if duplicates).
+     * @param list<array<string,mixed>> $slots
+     * @return array<string,string>
+     */
+    function classTimetableFacultyDisplayMap(array $slots): array
+    {
+        $nameToBase = [];
+        foreach ($slots as $slot) {
+            $name = trim((string) ($slot['faculty_name'] ?? ''));
+            if ($name !== '' && !isset($nameToBase[$name])) {
+                $nameToBase[$name] = classTimetableFacultyInitials($name);
+            }
+        }
+        // Detect collisions and number them
+        $baseCount = [];
+        foreach ($nameToBase as $name => $base) {
+            $baseCount[$base][] = $name;
+        }
+        $displayMap = [];
+        foreach ($baseCount as $base => $names) {
+            if (count($names) === 1) {
+                $displayMap[$names[0]] = $base;
+            } else {
+                $n = 1;
+                foreach ($names as $name) {
+                    $displayMap[$name] = $base . $n;
+                    $n++;
+                }
+            }
+        }
+        return $displayMap;
     }
 }
 

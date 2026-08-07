@@ -23,6 +23,7 @@ $periods = $built['periods'];
 $grid = $built['grid'];
 $unplaced = $built['unplaced'];
 $legends = classTimetableBuildLegends($slots);
+$facultyDisplayMap = classTimetableFacultyDisplayMap($slots);
 ?>
 <style>
 .ct-sheet-wrap { overflow-x: auto; padding: 0 0 1rem; }
@@ -143,7 +144,12 @@ $legends = classTimetableBuildLegends($slots);
                             <?php if ($filled): ?>
                                 <?php foreach ($cellSlots as $slot): ?>
                                     <div class="ct-cell-block">
-                                        <span class="ct-cell-entry"><?php echo htmlspecialchars(classTimetableCellLabel($slot)); ?></span>
+                                        <?php
+$cellSubject = trim((string) ($slot['subject'] ?? ''));
+$cellFacultyCode = $facultyDisplayMap[trim((string) ($slot['faculty_name'] ?? ''))] ?? '';
+$cellLabel = $cellFacultyCode !== '' ? ($cellSubject . ' (' . $cellFacultyCode . ')') : $cellSubject;
+?>
+                                        <span class="ct-cell-entry"><?php echo htmlspecialchars($cellLabel); ?></span>
                                         <?php if ($ctGridFilterBatch <= 0 && !empty($slot['batch_name'])): ?>
                                             <span class="ct-cell-batch"><?php echo htmlspecialchars($slot['batch_name']); ?></span>
                                         <?php endif; ?>
@@ -192,14 +198,14 @@ $legends = classTimetableBuildLegends($slots);
         </tbody>
     </table>
 
-    <?php if ($ctGridShowLegends && (!empty($legends['faculty']) || !empty($legends['subjects']))): ?>
-        <?php if (!empty($legends['faculty'])): ?>
+    <?php if ($ctGridShowLegends && (!empty($facultyDisplayMap) || !empty($legends['subjects']))): ?>
+        <?php if (!empty($facultyDisplayMap)): ?>
             <div class="ct-legend">
                 <strong>Faculty:</strong>
                 <?php
                 $parts = [];
-                foreach ($legends['faculty'] as $ini => $full) {
-                    $parts[] = htmlspecialchars($ini) . '-' . htmlspecialchars(strtoupper($full));
+                foreach ($facultyDisplayMap as $fullName => $code) {
+                    $parts[] = htmlspecialchars($code) . '-' . htmlspecialchars(strtoupper($fullName));
                 }
                 echo implode(', ', $parts);
                 ?>
