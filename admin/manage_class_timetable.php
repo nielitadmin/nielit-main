@@ -536,8 +536,15 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
                         <a class="btn btn-secondary" target="_blank" rel="noopener"
-                           href="print_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null])); ?>"
-                           title="Print weekly timetable with logo and header">
+                           href="print_class_timetable.php?<?php
+                            echo http_build_query(array_filter([
+                                'centre_id' => $filterCentre ?: null,
+                                'view' => $viewMode,
+                                'year' => $viewMode === 'month' ? $ctMonthYear : null,
+                                'month' => $viewMode === 'month' ? $ctMonthMonth : null,
+                            ]));
+                           ?>"
+                           title="<?php echo $viewMode === 'month' ? 'Print month-wise timetable (each week with dates)' : 'Print weekly timetable with logo and header'; ?>">
                             <i class="fas fa-print"></i> Print Timetable
                         </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
