@@ -461,7 +461,7 @@ if (!function_exists('saveLessonPlanHeader')) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iiisssssiidisissi',
+                'iiisssssiiidissii',
                 $batchIdVal,
                 $courseIdVal,
                 $facultyIdVal,
@@ -499,7 +499,7 @@ if (!function_exists('saveLessonPlanHeader')) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
         $stmt->bind_param(
-            'iiisssssiidisissis',
+            'iiisssssiiidissis',
             $batchIdVal,
             $courseIdVal,
             $facultyIdVal,
