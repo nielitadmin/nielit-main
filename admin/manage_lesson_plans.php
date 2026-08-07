@@ -144,13 +144,6 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         </div>
 
         <div class="admin-main">
-            <?php if ($message !== ''): ?>
-                <div class="alert alert-<?php echo htmlspecialchars($message_type === 'danger' ? 'danger' : 'success'); ?> alert-dismissible fade show">
-                    <?php echo htmlspecialchars($message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            <?php endif; ?>
-
             <div class="content-card" style="margin-bottom:1rem;">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                     <h5 class="card-title mb-0"><i class="fas fa-plus-circle"></i> Create / Import</h5>
@@ -306,5 +299,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     </main>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script>
+<?php if ($message !== ''): ?>
+showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_type === 'danger' ? 'error' : ($message_type ?: 'success')); ?>);
+<?php endif; ?>
+</script>
 </body>
 </html>
