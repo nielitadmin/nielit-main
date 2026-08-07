@@ -156,9 +156,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <input type="hidden" name="action" value="create">
                                 <h6 class="lp-title">New blank plan</h6>
                                 <div class="mb-2">
-                                    <label class="form-label">Batch *</label>
-                                    <select name="batch_id" class="form-control" required>
-                                        <option value="">Select batch…</option>
+                                    <label class="form-label">Batch <span class="lp-muted">(optional)</span></label>
+                                    <select name="batch_id" class="form-control">
+                                        <option value="">No batch / leave blank</option>
                                         <?php foreach ($batches as $b): ?>
                                             <option value="<?php echo (int) $b['id']; ?>">
                                                 <?php
@@ -226,9 +226,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     (120 hours) — ready to edit faculty name and batch.
                                 </p>
                                 <div class="mb-3">
-                                    <label class="form-label">Assign to Batch *</label>
-                                    <select name="batch_id" class="form-control" required>
-                                        <option value="">Select batch…</option>
+                                    <label class="form-label">Assign to Batch <span class="lp-muted">(optional)</span></label>
+                                    <select name="batch_id" class="form-control">
+                                        <option value="">No batch / leave blank</option>
                                         <?php foreach ($batches as $b): ?>
                                             <option value="<?php echo (int) $b['id']; ?>">
                                                 <?php echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')'); ?>
@@ -266,7 +266,13 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                             · Sem <?php echo htmlspecialchars($plan['semester']); ?>
                                         <?php endif; ?>
                                         <br>
-                                        Batch: <?php echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')'); ?>
+                                        Batch: <?php
+                                        if (!empty($plan['batch_name'])) {
+                                            echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')');
+                                        } else {
+                                            echo '—';
+                                        }
+                                        ?>
                                         · Faculty: <?php echo htmlspecialchars($plan['faculty_name'] ?: '—'); ?>
                                         · <?php echo (int) $plan['days_per_week']; ?> days/week
                                         · <?php echo (int) $plan['total_weeks']; ?> weeks

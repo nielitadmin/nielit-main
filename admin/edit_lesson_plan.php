@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_header') {
         $payload = [
-            'batch_id' => (int) ($_POST['batch_id'] ?? $plan['batch_id']),
+            'batch_id' => (int) ($_POST['batch_id'] ?? 0),
             'plan_title' => $_POST['plan_title'] ?? '',
             'course_name' => $_POST['course_name'] ?? '',
             'module_code' => $_POST['module_code'] ?? '',
@@ -308,10 +308,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <input type="hidden" name="action" value="save_header">
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
-                                <label class="form-label">Batch *</label>
-                                <select name="batch_id" class="form-control" required>
+                                <label class="form-label">Batch <span class="text-muted">(optional)</span></label>
+                                <select name="batch_id" class="form-control">
+                                    <option value="">No batch / leave blank</option>
                                     <?php foreach ($batches as $b): ?>
-                                        <option value="<?php echo (int) $b['id']; ?>" <?php echo (int) $plan['batch_id'] === (int) $b['id'] ? 'selected' : ''; ?>>
+                                        <option value="<?php echo (int) $b['id']; ?>" <?php echo (int) ($plan['batch_id'] ?? 0) === (int) $b['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')'); ?>
                                         </option>
                                     <?php endforeach; ?>

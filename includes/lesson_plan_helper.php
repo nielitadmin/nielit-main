@@ -13,7 +13,7 @@ if (!function_exists('ensureLessonPlanTables')) {
 
         $plans = "CREATE TABLE IF NOT EXISTS lesson_plans (
             id INT PRIMARY KEY AUTO_INCREMENT,
-            batch_id INT NOT NULL,
+            batch_id INT NULL,
             course_id INT NULL,
             faculty_id INT NULL,
             faculty_name VARCHAR(255) NULL,
@@ -49,7 +49,7 @@ if (!function_exists('ensureLessonPlanTables')) {
             id INT PRIMARY KEY AUTO_INCREMENT,
             lesson_plan_id INT NOT NULL,
             lesson_plan_row_id INT NULL,
-            batch_id INT NOT NULL,
+            batch_id INT NULL,
             log_date DATE NOT NULL,
             week_number INT NULL,
             class_day TINYINT NULL,
@@ -77,6 +77,10 @@ if (!function_exists('ensureLessonPlanTables')) {
             error_log('ensureLessonPlanTables logs failed: ' . $conn->error);
             return false;
         }
+
+        // Allow plans/logs without a batch (existing installs may still be NOT NULL)
+        @$conn->query('ALTER TABLE lesson_plans MODIFY batch_id INT NULL');
+        @$conn->query('ALTER TABLE lesson_plan_daily_logs MODIFY batch_id INT NULL');
 
         $ready = true;
         return true;
@@ -359,26 +363,26 @@ if (!function_exists('saveLessonPlanHeader')) {
         $isActive = !empty($data['is_active']) ? 1 : 0;
         $createdBy = trim((string) ($data['created_by'] ?? 'admin'));
 
-        if ($batchId <= 0) {
-            return ['success' => false, 'message' => 'Please select a batch.'];
-        }
         if ($planTitle === '') {
             return ['success' => false, 'message' => 'Plan title is required.'];
         }
 
-        $check = $conn->prepare('SELECT id, course_id FROM batches WHERE id = ? LIMIT 1');
-        if (!$check) {
-            return ['success' => false, 'message' => 'Could not validate batch.'];
-        }
-        $check->bind_param('i', $batchId);
-        $check->execute();
-        $batchRow = $check->get_result()->fetch_assoc();
-        $check->close();
-        if (!$batchRow) {
-            return ['success' => false, 'message' => 'Selected batch was not found.'];
-        }
-        if ($courseId === null && !empty($batchRow['course_id'])) {
-            $courseId = (int) $batchRow['course_id'];
+        $batchIdVal = $batchId > 0 ? $batchId : 0;
+        if ($batchIdVal > 0) {
+            $check = $conn->prepare('SELECT id, course_id FROM batches WHERE id = ? LIMIT 1');
+            if (!$check) {
+                return ['success' => false, 'message' => 'Could not validate batch.'];
+            }
+            $check->bind_param('i', $batchIdVal);
+            $check->execute();
+            $batchRow = $check->get_result()->fetch_assoc();
+            $check->close();
+            if (!$batchRow) {
+                return ['success' => false, 'message' => 'Selected batch was not found.'];
+            }
+            if ($courseId === null && !empty($batchRow['course_id'])) {
+                $courseId = (int) $batchRow['course_id'];
+            }
         }
 
         $facultyVal = $facultyName !== '' ? $facultyName : null;
@@ -386,23 +390,27 @@ if (!function_exists('saveLessonPlanHeader')) {
         $moduleVal = $moduleCode !== '' ? $moduleCode : null;
         $semesterVal = $semester !== '' ? $semester : null;
         $notesVal = $notes !== '' ? $notes : null;
+        $courseIdVal = $courseId !== null && $courseId > 0 ? $courseId : 0;
+        $facultyIdVal = $facultyId !== null && $facultyId > 0 ? $facultyId : 0;
+        $totalHoursVal = $totalHours !== null ? (float) $totalHours : 0.0;
+        $hasHours = $totalHours !== null ? 1 : 0;
 
         if ($id !== null && $id > 0) {
             $stmt = $conn->prepare(
                 'UPDATE lesson_plans
-                 SET batch_id=?, course_id=?, faculty_id=?, faculty_name=?, course_name=?,
+                 SET batch_id=NULLIF(?,0), course_id=NULLIF(?,0), faculty_id=NULLIF(?,0), faculty_name=?, course_name=?,
                      plan_title=?, module_code=?, semester=?, days_per_week=?, total_weeks=?,
-                     total_hours=?, notes=?, is_active=?
+                     total_hours=IF(?=1, ?, NULL), notes=?, is_active=?
                  WHERE id=?'
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iiisssssiidsii',
-                $batchId,
-                $courseId,
-                $facultyId,
+                'iiisssssiidisii',
+                $batchIdVal,
+                $courseIdVal,
+                $facultyIdVal,
                 $facultyVal,
                 $courseNameVal,
                 $planTitle,
@@ -410,7 +418,8 @@ if (!function_exists('saveLessonPlanHeader')) {
                 $semesterVal,
                 $daysPerWeek,
                 $totalWeeks,
-                $totalHours,
+                $hasHours,
+                $totalHoursVal,
                 $notesVal,
                 $isActive,
                 $id
@@ -428,16 +437,16 @@ if (!function_exists('saveLessonPlanHeader')) {
             'INSERT INTO lesson_plans
              (batch_id, course_id, faculty_id, faculty_name, course_name, plan_title, module_code, semester,
               days_per_week, total_weeks, total_hours, notes, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), ?, ?, ?, ?, ?, ?, ?, IF(?=1, ?, NULL), ?, ?, ?)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
         $stmt->bind_param(
-            'iiisssssiidsis',
-            $batchId,
-            $courseId,
-            $facultyId,
+            'iiisssssiidisis',
+            $batchIdVal,
+            $courseIdVal,
+            $facultyIdVal,
             $facultyVal,
             $courseNameVal,
             $planTitle,
@@ -445,7 +454,8 @@ if (!function_exists('saveLessonPlanHeader')) {
             $semesterVal,
             $daysPerWeek,
             $totalWeeks,
-            $totalHours,
+            $hasHours,
+            $totalHoursVal,
             $notesVal,
             $isActive,
             $createdBy
@@ -752,14 +762,15 @@ if (!function_exists('saveLessonPlanDailyLog')) {
         $remarks = trim((string) ($data['remarks'] ?? ''));
         $updatedBy = trim((string) ($data['updated_by'] ?? 'admin'));
 
-        if ($planId <= 0 || $batchId <= 0 || $logDate === '') {
-            return ['success' => false, 'message' => 'Missing plan, batch, or date.'];
+        if ($planId <= 0 || $logDate === '') {
+            return ['success' => false, 'message' => 'Missing plan or date.'];
         }
         if ($covered === '') {
             return ['success' => false, 'message' => 'Please enter the topic covered today.'];
         }
 
         // Use 0 instead of NULL for optional ints (safer with mysqli bind_param)
+        $batchIdVal = $batchId > 0 ? $batchId : 0;
         $rowIdVal = $rowId > 0 ? $rowId : 0;
         $weekVal = $week > 0 ? $week : 0;
         $dayVal = $day > 0 ? $day : 0;
@@ -771,7 +782,8 @@ if (!function_exists('saveLessonPlanDailyLog')) {
         if ($existing) {
             $stmt = $conn->prepare(
                 'UPDATE lesson_plan_daily_logs
-                 SET lesson_plan_row_id = NULLIF(?, 0), week_number = NULLIF(?, 0), class_day = NULLIF(?, 0),
+                 SET lesson_plan_row_id = NULLIF(?, 0), batch_id = NULLIF(?, 0),
+                     week_number = NULLIF(?, 0), class_day = NULLIF(?, 0),
                      topic_planned = ?, topic_covered = ?, status = ?, remarks = ?, updated_by = ?
                  WHERE lesson_plan_id = ? AND log_date = ?'
             );
@@ -779,8 +791,9 @@ if (!function_exists('saveLessonPlanDailyLog')) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iiisssssis',
+                'iiiisssssis',
                 $rowIdVal,
+                $batchIdVal,
                 $weekVal,
                 $dayVal,
                 $plannedVal,
@@ -796,7 +809,7 @@ if (!function_exists('saveLessonPlanDailyLog')) {
                 'INSERT INTO lesson_plan_daily_logs
                  (lesson_plan_id, lesson_plan_row_id, batch_id, log_date, week_number, class_day,
                   topic_planned, topic_covered, status, remarks, updated_by)
-                 VALUES (?, NULLIF(?, 0), ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?)'
+                 VALUES (?, NULLIF(?, 0), NULLIF(?, 0), ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?)'
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
@@ -805,7 +818,7 @@ if (!function_exists('saveLessonPlanDailyLog')) {
                 'iiisiisssss',
                 $planId,
                 $rowIdVal,
-                $batchId,
+                $batchIdVal,
                 $logDate,
                 $weekVal,
                 $dayVal,

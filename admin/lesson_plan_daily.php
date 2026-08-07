@@ -177,7 +177,13 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="lp-muted">
                             <?php echo htmlspecialchars($dayName . ', ' . date('d M Y', strtotime($logDate))); ?>
                             · Faculty: <strong><?php echo htmlspecialchars($plan['faculty_name'] ?: '—'); ?></strong>
-                            · Batch: <?php echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')'); ?>
+                            · Batch: <?php
+                            if (!empty($plan['batch_name'])) {
+                                echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')');
+                            } else {
+                                echo '—';
+                            }
+                            ?>
                         </div>
                         <?php if (!empty($topicInfo['is_holiday'])): ?>
                             <p class="lp-topic">Holiday / Off — no class day in lesson plan</p>
