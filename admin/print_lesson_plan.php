@@ -1,6 +1,6 @@
 <?php
 /**
- * Print Detailed Lesson Plan — header + bordered Week / Class Day / Topics table.
+ * Print Detailed Lesson Plan — NIELIT header/footer, dates, bordered week table.
  */
 require_once __DIR__ . '/../includes/url_helper.php';
 session_start();
@@ -11,6 +11,7 @@ if (!isset($_SESSION['admin'])) {
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/lesson_plan_helper.php';
 
 $role = $_SESSION['admin_role'] ?? '';
@@ -50,6 +51,7 @@ if ($courseName === '' && !empty($plan['linked_course_name'])) {
 $semester = trim((string) ($plan['semester'] ?? ''));
 $faculty = trim((string) ($plan['faculty_name'] ?? ''));
 $hours = $plan['total_hours'] ?? '';
+$batchStart = $plan['batch_start_date'] ?? null;
 
 $heading = 'Detailed Lesson Plan';
 if ($module !== '' || $title !== 'Detailed Lesson Plan') {
@@ -67,7 +69,31 @@ if ($module !== '' || $title !== 'Detailed Lesson Plan') {
     }
 }
 
+// Map week/day → calendar date from batch start
+$dateMap = [];
+$calendar = lessonPlanBuildMonthCalendar($batchStart, $totalWeeks, $daysPerWeek, $rows);
+foreach ($calendar as $monthBlock) {
+    foreach ($monthBlock['weeks'] as $weekBlock) {
+        foreach ($weekBlock['days'] as $day) {
+            $dateMap[(int) $day['week']][(int) $day['dow']] = $day;
+        }
+    }
+}
+
+$planStartLabel = '';
+$planEndLabel = '';
+if (!empty($dateMap[1][1]['date'])) {
+    $planStartLabel = date('d M Y', strtotime($dateMap[1][1]['date']));
+}
+$lastWeek = $totalWeeks;
+$lastDay = $daysPerWeek;
+if (!empty($dateMap[$lastWeek][$lastDay]['date'])) {
+    $planEndLabel = date('d M Y', strtotime($dateMap[$lastWeek][$lastDay]['date']));
+}
+
+$logoUrl = APP_URL . '/assets/images/bhubaneswar_logo.png';
 $backUrl = 'edit_lesson_plan.php?id=' . $planId;
+$printedAt = date('d M Y, h:i A');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -81,13 +107,13 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
             margin: 0;
             padding: 16px;
             background: #e2e8f0;
-            color: #000;
-            font-family: "Times New Roman", Times, Georgia, serif;
-            font-size: 12pt;
+            color: #0f172a;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
             line-height: 1.35;
         }
         .toolbar {
-            max-width: 900px;
+            max-width: 980px;
             margin: 0 auto 12px;
             display: flex;
             gap: 8px;
@@ -101,99 +127,126 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
             cursor: pointer;
             text-decoration: none;
             font-size: 0.9rem;
-            font-family: system-ui, sans-serif;
         }
         .btn-print { background: #0f172a; color: #fff; }
         .btn-back { background: #64748b; color: #fff; }
         .sheet {
-            max-width: 900px;
+            max-width: 980px;
             margin: 0 auto;
             background: #fff;
-            padding: 28px 32px 36px;
+            padding: 16px 18px 20px;
             box-shadow: 0 4px 20px rgba(15, 23, 42, 0.12);
         }
+        .lh-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .lh-header img { height: 48px; width: auto; display: block; }
+        .lh-text { flex: 1; text-align: center; }
+        .lh-text .hi { font-size: 13px; font-weight: 700; margin: 0; line-height: 1.25; }
+        .lh-text .en { font-size: 12px; font-weight: 700; margin: 0; line-height: 1.25; }
+        .lh-text .centre { font-size: 11px; font-weight: 600; margin: 0; line-height: 1.25; }
+        .lh-text .tag { font-size: 9px; color: #334155; margin: 0; line-height: 1.25; }
+        .lh-rule { border: 0; border-top: 1.5px solid #0f172a; margin: 6px 0 10px; }
         .lp-title {
             color: #1d4ed8;
-            font-size: 15pt;
-            font-weight: 700;
+            font-size: 14px;
+            font-weight: 800;
             text-decoration: underline;
-            margin: 0 0 14px;
+            margin: 0 0 8px;
+            text-align: center;
             line-height: 1.3;
         }
+        .doc-meta {
+            text-align: center;
+            font-size: 10px;
+            color: #334155;
+            margin: 0 0 10px;
+        }
         .lp-meta {
-            margin: 0 0 18px;
-            font-size: 12pt;
+            margin: 0 0 12px;
+            font-size: 11px;
             color: #000;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2px 16px;
         }
-        .lp-meta p {
-            margin: 0 0 4px;
-        }
-        .lp-meta strong {
-            font-weight: 700;
-        }
+        .lp-meta p { margin: 0; }
+        .lp-meta strong { font-weight: 700; }
         .lp-table {
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            font-size: 11pt;
+            font-size: 10px;
         }
         .lp-table th,
         .lp-table td {
-            border: 1.5px solid #000;
+            border: 1.5px solid #0f172a;
             vertical-align: top;
-            padding: 6px 8px;
+            padding: 5px 6px;
             text-align: left;
         }
         .lp-table thead th {
-            background: #fff;
+            background: #f1f5f9;
             font-weight: 700;
             text-align: center;
             vertical-align: middle;
         }
-        .col-week { width: 70px; text-align: center !important; vertical-align: middle !important; font-weight: 700; }
-        .col-day { width: 90px; text-align: center !important; vertical-align: middle !important; }
+        .col-week { width: 58px; text-align: center !important; vertical-align: middle !important; font-weight: 700; }
+        .col-day { width: 72px; text-align: center !important; vertical-align: middle !important; }
+        .col-date { width: 88px; text-align: center !important; vertical-align: middle !important; font-size: 9px; }
         .col-topic { width: auto; }
-        .topic-cell {
-            white-space: pre-wrap;
-            word-wrap: break-word;
+        .day-name { display: block; font-weight: 700; }
+        .day-ord { display: block; font-size: 8.5px; color: #64748b; font-weight: 500; }
+        .topic-cell { word-wrap: break-word; }
+        .topic-cell .unit-line { font-weight: 700; }
+        .empty-topic { color: #94a3b8; font-style: italic; }
+        .lp-footer {
+            margin-top: 16px;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 10px;
         }
-        .topic-cell .unit-line {
-            font-weight: 700;
-        }
-        .empty-topic { color: #64748b; font-style: italic; }
-        .footer-note {
-            margin-top: 14px;
-            font-size: 9pt;
+        .lp-footer-meta {
+            font-size: 9px;
             color: #475569;
-            font-family: system-ui, sans-serif;
+            margin: 0 0 14px;
+            text-align: center;
         }
+        .lp-signs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 28px;
+            text-align: center;
+            font-size: 10px;
+        }
+        .lp-signs .line {
+            border-top: 1px solid #0f172a;
+            margin: 0 auto 4px;
+            width: 70%;
+            padding-top: 4px;
+        }
+        .lp-signs strong { display: block; }
+        .lp-signs span { color: #64748b; font-size: 8.5px; }
         @media print {
-            html, body {
-                background: #fff !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
+            html, body { background: #fff !important; padding: 0 !important; margin: 0 !important; }
             .toolbar { display: none !important; }
             .sheet {
                 max-width: none;
                 margin: 0;
-                padding: 12mm 14mm;
+                padding: 8mm 10mm;
                 box-shadow: none;
             }
-            .lp-table th,
-            .lp-table td {
-                border: 1.5px solid #000 !important;
+            .lp-table th, .lp-table td {
+                border: 1.5px solid #0f172a !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
-            .col-week, .col-day {
-                page-break-inside: avoid;
-            }
+            .lp-table thead th { background: #f1f5f9 !important; }
             tr { page-break-inside: avoid; }
+            .lh-header { page-break-after: avoid; }
+            .lp-footer { page-break-inside: avoid; }
         }
         @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 10mm;
         }
     </style>
 </head>
@@ -205,7 +258,33 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
     </div>
 
     <div class="sheet">
+        <div class="lh-header">
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT Logo">
+            <div class="lh-text">
+                <p class="hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>
+                <p class="en">National Institute of Electronics and Information Technology (NIELIT)</p>
+                <p class="centre">NIELIT Bhubaneswar | Raipur | Baleshwar</p>
+                <p class="tag">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>
+            </div>
+        </div>
+        <hr class="lh-rule">
+
         <h1 class="lp-title"><?php echo htmlspecialchars($heading); ?></h1>
+        <p class="doc-meta">
+            <?php if (!empty($plan['batch_name'])): ?>
+                <strong>Batch:</strong>
+                <?php echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')'); ?>
+                &nbsp;|&nbsp;
+            <?php endif; ?>
+            <?php if ($planStartLabel !== '' && $planEndLabel !== ''): ?>
+                <strong>Period:</strong> <?php echo htmlspecialchars($planStartLabel . ' – ' . $planEndLabel); ?>
+                &nbsp;|&nbsp;
+            <?php elseif (!empty($batchStart)): ?>
+                <strong>Batch start:</strong> <?php echo htmlspecialchars(date('d M Y', strtotime($batchStart))); ?>
+                &nbsp;|&nbsp;
+            <?php endif; ?>
+            <strong>Printed:</strong> <?php echo htmlspecialchars($printedAt); ?>
+        </p>
 
         <div class="lp-meta">
             <p><strong>Course Name:</strong> <?php echo htmlspecialchars($courseName !== '' ? $courseName : '—'); ?></p>
@@ -221,6 +300,7 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
                 <tr>
                     <th class="col-week">Week</th>
                     <th class="col-day">Class Day</th>
+                    <th class="col-date">Date</th>
                     <th class="col-topic">Topics to be Covered (Theory)</th>
                 </tr>
             </thead>
@@ -229,10 +309,13 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
                     <?php for ($d = 1; $d <= $daysPerWeek; $d++): ?>
                         <?php
                         $topic = trim((string) ($rows[$w][$d]['topic'] ?? ''));
-                        $topicHtml = $topic !== ''
-                            ? nl2br(htmlspecialchars($topic))
-                            : '<span class="empty-topic">—</span>';
-                        // Bold lines that look like Unit headings
+                        $dayInfo = $dateMap[$w][$d] ?? null;
+                        $dateLabel = '—';
+                        $dayName = '';
+                        if ($dayInfo && !empty($dayInfo['date'])) {
+                            $dateLabel = date('d M Y', strtotime($dayInfo['date']));
+                            $dayName = (string) ($dayInfo['day_name'] ?? date('l', strtotime($dayInfo['date'])));
+                        }
                         if ($topic !== '') {
                             $lines = preg_split("/\r\n|\n|\r/", $topic) ?: [];
                             $partsHtml = [];
@@ -245,6 +328,8 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
                                 }
                             }
                             $topicHtml = implode('<br>', $partsHtml);
+                        } else {
+                            $topicHtml = '<span class="empty-topic">—</span>';
                         }
                         ?>
                         <tr>
@@ -253,7 +338,15 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
                                     <?php echo htmlspecialchars(lessonPlanOrdinal($w)); ?>
                                 </td>
                             <?php endif; ?>
-                            <td class="col-day"><?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?></td>
+                            <td class="col-day">
+                                <?php if ($dayName !== ''): ?>
+                                    <span class="day-name"><?php echo htmlspecialchars($dayName); ?></span>
+                                    <span class="day-ord"><?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?> day</span>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars(lessonPlanOrdinal($d)); ?>
+                                <?php endif; ?>
+                            </td>
+                            <td class="col-date"><?php echo htmlspecialchars($dateLabel); ?></td>
                             <td class="col-topic topic-cell"><?php echo $topicHtml; ?></td>
                         </tr>
                     <?php endfor; ?>
@@ -261,14 +354,32 @@ $backUrl = 'edit_lesson_plan.php?id=' . $planId;
             </tbody>
         </table>
 
-        <?php if (!empty($plan['batch_name'])): ?>
-            <p class="footer-note">
-                Batch: <?php echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')'); ?>
-                <?php if (!empty($plan['batch_start_date'])): ?>
-                    · Start: <?php echo htmlspecialchars(date('d M Y', strtotime($plan['batch_start_date']))); ?>
+        <div class="lp-footer">
+            <p class="lp-footer-meta">
+                NIELIT Bhubaneswar | Raipur | Baleshwar
+                &nbsp;·&nbsp; Detailed Lesson Plan
+                <?php if (!empty($plan['notes'])): ?>
+                    &nbsp;·&nbsp; <?php echo htmlspecialchars((string) $plan['notes']); ?>
                 <?php endif; ?>
             </p>
-        <?php endif; ?>
+            <div class="lp-signs">
+                <div>
+                    <div class="line"></div>
+                    <strong>Faculty</strong>
+                    <span><?php echo htmlspecialchars($faculty !== '' ? $faculty : 'Signature &amp; Date'); ?></span>
+                </div>
+                <div>
+                    <div class="line"></div>
+                    <strong>Course Coordinator</strong>
+                    <span>Signature &amp; Date</span>
+                </div>
+                <div>
+                    <div class="line"></div>
+                    <strong>Centre In-Charge</strong>
+                    <span>Signature &amp; Date</span>
+                </div>
+            </div>
+        </div>
     </div>
 
     <?php if ($autoPrint): ?>
