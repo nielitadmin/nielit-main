@@ -267,7 +267,7 @@ $backUrl = 'manage_class_timetable.php' . ($filterCentre > 0 ? ('?centre_id=' . 
             <div class="lh-text">
                 <p class="hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>
                 <p class="en">National Institute of Electronics and Information Technology (NIELIT)</p>
-                <p class="centre"><?php echo htmlspecialchars($centreName === 'All Centres' ? 'Bhubaneswar / Baleshwar Extension Centre' : $centreName); ?></p>
+                <p class="centre">NIELIT Bhubaneswar | Raipur | Baleshwar</p>
                 <p class="tag">(An Autonomous Scientific Society of Ministry of Electronics and Information Technology (MeitY), Govt. of India)</p>
             </div>
         </div>
