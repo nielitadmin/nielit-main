@@ -532,7 +532,8 @@ if (!function_exists('listClassTimetableAdmin')) {
         ensureClassTimetableTable($conn);
         $sql = "SELECT ct.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
                        b.status AS batch_status, c.course_name, c.start_date AS course_start_date, c.end_date AS course_end_date,
-                       c.status AS course_status, ctr.name AS centre_name
+                       c.enrollment_status AS course_enrollment_status, c.centre_id AS course_centre_id,
+                       c.training_center AS course_training_center, ctr.name AS centre_name
                 FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
@@ -546,9 +547,32 @@ if (!function_exists('listClassTimetableAdmin')) {
             $params[] = $batchId;
         }
         if ($centreId !== null && $centreId > 0) {
-            $sql .= ' AND ct.centre_id = ?';
-            $types .= 'i';
-            $params[] = $centreId;
+            // Match slot centre, or fall back to course centre / training_center name when slot centre is blank
+            $centreName = '';
+            $nameStmt = $conn->prepare('SELECT name FROM centres WHERE id = ? LIMIT 1');
+            if ($nameStmt) {
+                $nameStmt->bind_param('i', $centreId);
+                $nameStmt->execute();
+                $nr = $nameStmt->get_result()->fetch_assoc();
+                $nameStmt->close();
+                $centreName = trim((string) ($nr['name'] ?? ''));
+            }
+            if ($centreName !== '') {
+                $sql .= ' AND (
+                    ct.centre_id = ?
+                    OR (ct.centre_id IS NULL AND c.centre_id = ?)
+                    OR (ct.centre_id IS NULL AND TRIM(COALESCE(c.training_center, \'\')) = ?)
+                )';
+                $types .= 'iis';
+                $params[] = $centreId;
+                $params[] = $centreId;
+                $params[] = $centreName;
+            } else {
+                $sql .= ' AND (ct.centre_id = ? OR (ct.centre_id IS NULL AND c.centre_id = ?))';
+                $types .= 'ii';
+                $params[] = $centreId;
+                $params[] = $centreId;
+            }
         }
         $sql .= ' ORDER BY ct.batch_id ASC, ct.day_of_week ASC, ct.start_time ASC';
 
@@ -572,6 +596,8 @@ if (!function_exists('listClassTimetableAdmin')) {
                 while ($row = $res->fetch_assoc()) {
                     $rows[] = $row;
                 }
+            } else {
+                error_log('listClassTimetableAdmin query failed: ' . $conn->error);
             }
         }
         return $rows;
@@ -595,7 +621,7 @@ if (!function_exists('listClassTimetableForBatches')) {
         $inList = implode(',', $batchIds);
         $sql = "SELECT ct.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
                        b.status AS batch_status, c.course_name, c.start_date AS course_start_date, c.end_date AS course_end_date,
-                       c.status AS course_status
+                       c.enrollment_status AS course_enrollment_status, c.centre_id AS course_centre_id
                 FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
@@ -674,26 +700,35 @@ if (!function_exists('saveClassTimetableSlot')) {
             return ['success' => false, 'message' => 'Subject is too long.'];
         }
 
-        $check = $conn->prepare('SELECT id FROM batches WHERE id = ? LIMIT 1');
+        $check = $conn->prepare(
+            'SELECT b.id, c.centre_id AS course_centre_id
+             FROM batches b
+             LEFT JOIN courses c ON c.id = b.course_id
+             WHERE b.id = ? LIMIT 1'
+        );
         if (!$check) {
             return ['success' => false, 'message' => 'Could not validate batch.'];
         }
         $check->bind_param('i', $batchId);
         $check->execute();
-        if ($check->get_result()->num_rows === 0) {
-            $check->close();
+        $batchRow = $check->get_result()->fetch_assoc();
+        $check->close();
+        if (!$batchRow) {
             return ['success' => false, 'message' => 'Selected batch was not found.'];
         }
-        $check->close();
+        if (($centreId === null || $centreId <= 0) && !empty($batchRow['course_centre_id'])) {
+            $centreId = (int) $batchRow['course_centre_id'];
+        }
 
         $facultyVal = $faculty !== '' ? $faculty : null;
         $roomVal = $room !== '' ? $room : null;
         $notesVal = $notes !== '' ? $notes : null;
+        $centreIdVal = ($centreId !== null && $centreId > 0) ? $centreId : 0;
 
         if ($id !== null && $id > 0) {
             $stmt = $conn->prepare(
                 'UPDATE class_timetable
-                 SET batch_id = ?, centre_id = ?, day_of_week = ?, start_time = ?, end_time = ?, subject = ?,
+                 SET batch_id = ?, centre_id = NULLIF(?, 0), day_of_week = ?, start_time = ?, end_time = ?, subject = ?,
                      faculty_name = ?, room = ?, notes = ?, is_active = ?
                  WHERE id = ?'
             );
@@ -703,7 +738,7 @@ if (!function_exists('saveClassTimetableSlot')) {
             $stmt->bind_param(
                 'iiissssssii',
                 $batchId,
-                $centreId,
+                $centreIdVal,
                 $day,
                 $start,
                 $end,
@@ -726,7 +761,7 @@ if (!function_exists('saveClassTimetableSlot')) {
         $stmt = $conn->prepare(
             'INSERT INTO class_timetable
              (batch_id, centre_id, day_of_week, start_time, end_time, subject, faculty_name, room, notes, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, NULLIF(?, 0), ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
@@ -734,7 +769,7 @@ if (!function_exists('saveClassTimetableSlot')) {
         $stmt->bind_param(
             'iiissssssis',
             $batchId,
-            $centreId,
+            $centreIdVal,
             $day,
             $start,
             $end,
