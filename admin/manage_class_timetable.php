@@ -411,7 +411,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <label style="display:flex;align-items:center;gap:4px;font-weight:normal;cursor:pointer;">
                                     <input type="checkbox" id="ct_days_all" onchange="toggleAllDays(this)"> <strong>Mon–Fri</strong>
                                 </label>
-                                <?php foreach ($dayLabels as $dayNum => $dayName): ?>
+                                <?php foreach ($dayLabels as $dayNum => $dayName):
+                                    if ($dayNum >= 6) continue; // Skip Saturday & Sunday (holidays)
+                                ?>
                                     <label style="display:flex;align-items:center;gap:4px;font-weight:normal;cursor:pointer;">
                                         <input type="checkbox" name="days[]" value="<?php echo (int) $dayNum; ?>" class="ct-day-check">
                                         <?php echo htmlspecialchars(substr($dayName, 0, 3)); ?>
