@@ -126,6 +126,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-calendar-alt"></i> Class Timetable
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_lesson_plans'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_lesson_plans.php', 'edit_lesson_plan.php', 'lesson_plan_daily.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-book-open"></i> Lesson Plans
+            </a>
+        </div>
         <?php endif; ?>
         
         <?php if ($is_master_admin): ?>
