@@ -828,7 +828,64 @@ if (!function_exists('saveLessonPlanDailyLog')) {
         if (!$ok) {
             return ['success' => false, 'message' => 'Could not save daily update: ' . $err];
         }
+
+        // Keep master lesson plan topic in sync when faculty edits planned topic
+        if ($weekVal > 0 && $dayVal > 0 && $plannedVal !== '') {
+            upsertLessonPlanTopicCell($conn, $planId, $weekVal, $dayVal, $plannedVal);
+        }
+
         return ['success' => true, 'message' => 'Daily lesson update saved.'];
+    }
+}
+
+if (!function_exists('upsertLessonPlanTopicCell')) {
+    /** Create or update one week×day topic on the master lesson plan. */
+    function upsertLessonPlanTopicCell($conn, int $planId, int $week, int $day, string $topic): bool
+    {
+        ensureLessonPlanTables($conn);
+        $planId = (int) $planId;
+        $week = (int) $week;
+        $day = (int) $day;
+        $topic = trim($topic);
+        if ($planId <= 0 || $week < 1 || $day < 1 || $day > 6 || $topic === '') {
+            return false;
+        }
+        $sort = ($week * 10) + $day;
+
+        $sel = $conn->prepare(
+            'SELECT id FROM lesson_plan_rows WHERE lesson_plan_id = ? AND week_number = ? AND class_day = ? LIMIT 1'
+        );
+        if (!$sel) {
+            return false;
+        }
+        $sel->bind_param('iii', $planId, $week, $day);
+        $sel->execute();
+        $existing = $sel->get_result()->fetch_assoc();
+        $sel->close();
+
+        if ($existing) {
+            $upd = $conn->prepare('UPDATE lesson_plan_rows SET topic = ?, sort_order = ? WHERE id = ?');
+            if (!$upd) {
+                return false;
+            }
+            $id = (int) $existing['id'];
+            $upd->bind_param('sii', $topic, $sort, $id);
+            $ok = $upd->execute();
+            $upd->close();
+            return (bool) $ok;
+        }
+
+        $ins = $conn->prepare(
+            'INSERT INTO lesson_plan_rows (lesson_plan_id, week_number, class_day, topic, sort_order)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        if (!$ins) {
+            return false;
+        }
+        $ins->bind_param('iiisi', $planId, $week, $day, $topic, $sort);
+        $ok = $ins->execute();
+        $ins->close();
+        return (bool) $ok;
     }
 }
 

@@ -228,11 +228,18 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <input type="hidden" name="week_number" value="<?php echo (int) ($topicInfo['week_number'] ?? 0); ?>">
                             <input type="hidden" name="class_day" value="<?php echo (int) ($topicInfo['class_day'] ?? 0); ?>">
                             <input type="hidden" name="lesson_plan_row_id" value="<?php echo (int) ($topicInfo['row_id'] ?? 0); ?>">
-                            <input type="hidden" name="topic_planned" value="<?php echo htmlspecialchars($topicInfo['topic'] ?? ''); ?>">
 
+                            <?php
+                            $plannedValue = $existingLog['topic_planned']
+                                ?? ($topicInfo['topic'] ?? '');
+                            ?>
                             <div class="mb-3">
                                 <label class="form-label">Topic Planned (from lesson plan)</label>
-                                <textarea class="form-control" rows="2" readonly><?php echo htmlspecialchars($topicInfo['topic'] ?? ''); ?></textarea>
+                                <textarea name="topic_planned" class="form-control" rows="3"
+                                          placeholder="Enter or update the planned theory topic for this class day…"><?php
+                                    echo htmlspecialchars((string) $plannedValue);
+                                ?></textarea>
+                                <small class="lp-muted">Editable — saving also updates this week/day on the master lesson plan.</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Topic Covered Today (faculty update) <span class="text-danger">*</span></label>
