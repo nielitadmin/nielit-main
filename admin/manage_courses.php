@@ -296,7 +296,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("i", $id);
         
         if ($stmt->execute()) {
-            $success = "Course deactivated successfully!";
+            $success = "Course deactivated. Past records stay available in monthly/weekly reports.";
             if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
                 require_once __DIR__ . '/../includes/activity_logger.php';
                 logActivity($conn, [
@@ -305,7 +305,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'entity_type' => 'course',
                     'entity_id' => (string) $id,
                     'entity_name' => 'Course #' . $id,
-                    'description' => 'Course #' . $id . ' was deactivated.',
+                    'description' => 'Course #' . $id . ' was deactivated (soft delete for report history).',
                 ]);
             }
         } else {

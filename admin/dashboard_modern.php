@@ -16,17 +16,31 @@ if (!isset($_SESSION['admin'])) {
 $sql = "SELECT * FROM courses ORDER BY created_at DESC";
 $result = $conn->query($sql);
 
-// Delete course
+// Deactivate course (soft delete — keep records for monthly/weekly reports)
 if (isset($_GET['delete_id'])) {
-    $delete_id = $_GET['delete_id'];
-    $delete_sql = "DELETE FROM courses WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $delete_id);
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Course deleted successfully!";
-        $_SESSION['message_type'] = "success";
+    $delete_id = (int) $_GET['delete_id'];
+    $hasStatus = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasStatus = true;
+    }
+    if ($hasStatus) {
+        $stmt = $conn->prepare("UPDATE courses SET status = 'inactive' WHERE id = ?");
     } else {
-        $_SESSION['message'] = "Error deleting course: " . $conn->error;
+        $stmt = $conn->prepare("UPDATE courses SET enrollment_status = 'closed' WHERE id = ?");
+    }
+    if ($stmt) {
+        $stmt->bind_param("i", $delete_id);
+        if ($stmt->execute()) {
+            $_SESSION['message'] = "Course deactivated. Past records stay available in monthly/weekly reports.";
+            $_SESSION['message_type'] = "success";
+        } else {
+            $_SESSION['message'] = "Error deactivating course: " . $conn->error;
+            $_SESSION['message_type'] = "danger";
+        }
+        $stmt->close();
+    } else {
+        $_SESSION['message'] = "Error preparing deactivate: " . $conn->error;
         $_SESSION['message_type'] = "danger";
     }
     header("Location: dashboard.php");

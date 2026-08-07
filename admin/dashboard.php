@@ -192,7 +192,7 @@ if (!$result) {
     die("Database query failed: " . $conn->error);
 }
 
-// Delete course
+// Deactivate course (soft delete — keep records for monthly/weekly reports)
 if (isset($_GET['delete_id'])) {
     // Prevent NSQF managers from deleting courses
     if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager') {
@@ -202,15 +202,41 @@ if (isset($_GET['delete_id'])) {
         exit();
     }
     
-    $delete_id = $_GET['delete_id'];
-    $delete_sql = "DELETE FROM courses WHERE id = ?";
-    $stmt = $conn->prepare($delete_sql);
-    $stmt->bind_param("i", $delete_id);
-    if ($stmt->execute()) {
-        $_SESSION['message'] = "Course deleted successfully!";
-        $_SESSION['message_type'] = "success";
+    $delete_id = (int) $_GET['delete_id'];
+    // Soft-delete so historical student/batch data remains in Report Monitor
+    $hasStatus = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasStatus = true;
+    }
+    if ($hasStatus) {
+        $stmt = $conn->prepare("UPDATE courses SET status = 'inactive' WHERE id = ?");
     } else {
-        $_SESSION['message'] = "Error deleting course: " . $conn->error;
+        $stmt = $conn->prepare("UPDATE courses SET enrollment_status = 'closed' WHERE id = ?");
+    }
+    if ($stmt) {
+        $stmt->bind_param("i", $delete_id);
+        if ($stmt->execute()) {
+            $_SESSION['message'] = "Course deactivated. Past records stay available in monthly/weekly reports.";
+            $_SESSION['message_type'] = "success";
+            if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                logActivity($conn, [
+                    'actor_type' => 'admin',
+                    'action' => 'course_delete',
+                    'entity_type' => 'course',
+                    'entity_id' => (string) $delete_id,
+                    'entity_name' => 'Course #' . $delete_id,
+                    'description' => 'Course #' . $delete_id . ' was deactivated (soft delete for report history).',
+                ]);
+            }
+        } else {
+            $_SESSION['message'] = "Error deactivating course: " . $conn->error;
+            $_SESSION['message_type'] = "danger";
+        }
+        $stmt->close();
+    } else {
+        $_SESSION['message'] = "Error preparing deactivate: " . $conn->error;
         $_SESSION['message_type'] = "danger";
     }
     header("Location: dashboard.php");
@@ -2724,7 +2750,7 @@ async function confirmDelete(event, courseName) {
     event.preventDefault();
     const confirmed = await showConfirm({
         title: 'Delete Course?',
-        message: `Are you sure you want to delete "${courseName}"? This action cannot be undone.`,
+        message: `Deactivate "${courseName}"? It will be hidden from active lists, but past student/batch records will stay in monthly and weekly reports.`,
         confirmText: 'Delete',
         cancelText: 'Cancel',
         type: 'danger'

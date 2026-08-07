@@ -16,14 +16,23 @@ if (!isset($_SESSION['admin'])) {
 $sql = "SELECT * FROM courses";
 $result = $conn->query($sql);
 
-// Delete course
+// Deactivate course (soft delete — keep records for monthly/weekly reports)
 if (isset($_GET['delete_id'])) {
-    $delete_id = $_GET['delete_id'];
-    $delete_sql = "DELETE FROM courses WHERE id = $delete_id";
-    if ($conn->query($delete_sql) === TRUE) {
-        $_SESSION['message'] = "Course deleted successfully!";
+    $delete_id = (int) $_GET['delete_id'];
+    $hasStatus = false;
+    $colCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'status'");
+    if ($colCheck && $colCheck->num_rows > 0) {
+        $hasStatus = true;
+    }
+    if ($hasStatus) {
+        $ok = $conn->query("UPDATE courses SET status = 'inactive' WHERE id = " . $delete_id);
     } else {
-        $_SESSION['message'] = "Error deleting course: " . $conn->error;
+        $ok = $conn->query("UPDATE courses SET enrollment_status = 'closed' WHERE id = " . $delete_id);
+    }
+    if ($ok) {
+        $_SESSION['message'] = "Course deactivated. Past records stay available in monthly/weekly reports.";
+    } else {
+        $_SESSION['message'] = "Error deactivating course: " . $conn->error;
     }
     header("Location: dashboard.php");
     exit();
