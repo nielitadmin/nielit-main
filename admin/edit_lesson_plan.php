@@ -281,6 +281,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <a class="btn btn-secondary" href="manage_lesson_plans.php"><i class="fas fa-arrow-left"></i> Back</a>
+                <a class="btn btn-secondary" href="print_lesson_plan.php?id=<?php echo (int) $planId; ?>" target="_blank">
+                    <i class="fas fa-print"></i> Print Plan
+                </a>
                 <a class="btn btn-success" href="lesson_plan_daily.php?plan_id=<?php echo (int) $planId; ?>">
                     <i class="fas fa-calendar-check"></i> Daily Update
                 </a>

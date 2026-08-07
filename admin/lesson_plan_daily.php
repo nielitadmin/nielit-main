@@ -151,6 +151,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             </div>
             <div class="lp-nav">
                 <a class="btn btn-secondary" href="edit_lesson_plan.php?id=<?php echo (int) $planId; ?>">Edit Plan</a>
+                <a class="btn btn-secondary" href="print_lesson_plan.php?id=<?php echo (int) $planId; ?>" target="_blank">
+                    <i class="fas fa-print"></i> Print Plan
+                </a>
                 <a class="btn btn-secondary" href="manage_lesson_plans.php">All Plans</a>
             </div>
         </div>
