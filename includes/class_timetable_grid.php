@@ -156,6 +156,9 @@ $cellLabel = $cellFacultyCode !== '' ? ($cellSubject . ' (' . $cellFacultyCode .
                                         <?php if (!empty($slot['room'])): ?>
                                             <span class="ct-cell-room"><?php echo htmlspecialchars($slot['room']); ?></span>
                                         <?php endif; ?>
+                                        <?php if (!empty($slot['centre_name'])): ?>
+                                            <span class="ct-cell-room" style="color:#7c3aed;"><?php echo htmlspecialchars($slot['centre_name']); ?></span>
+                                        <?php endif; ?>
                                         <?php if ($ctGridEditable): ?>
                                             <div class="ct-cell-actions">
                                                 <button type="button" class="btn btn-sm btn-primary" title="Edit"

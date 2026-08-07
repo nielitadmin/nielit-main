@@ -36,7 +36,8 @@ ensureClassTimetableTable($conn);
 // Excel/CSV export — grid format (days × time periods) matching the on-screen timetable
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $exportBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
-    $exportSlots = listClassTimetableAdmin($conn, $exportBatch > 0 ? $exportBatch : null);
+    $exportCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
+    $exportSlots = listClassTimetableAdmin($conn, $exportBatch > 0 ? $exportBatch : null, $exportCentre > 0 ? $exportCentre : null);
     $built = classTimetableBuildGrid($exportSlots);
     $periods = $built['periods'];
     $days = $built['days'];
@@ -93,6 +94,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
 }
 
 $filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
+$filterCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
 $viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
 if (!in_array($viewMode, ['week', 'month'], true)) {
     $viewMode = 'week';
@@ -157,6 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $basePayload = [
             'batch_id' => (int) ($_POST['batch_id'] ?? 0),
+            'centre_id' => !empty($_POST['centre_id']) ? (int) $_POST['centre_id'] : null,
             'start_time' => $_POST['start_time'] ?? '',
             'end_time' => $_POST['end_time'] ?? '',
             'subject' => $_POST['subject'] ?? '',
@@ -231,7 +234,7 @@ if ($batchRes) {
     }
 }
 
-$slots = listClassTimetableAdmin($conn, $filterBatch > 0 ? $filterBatch : null);
+$slots = listClassTimetableAdmin($conn, $filterBatch > 0 ? $filterBatch : null, $filterCentre > 0 ? $filterCentre : null);
 $dayLabels = classTimetableDayLabels();
 
 $allCoursesForSelect = [];
@@ -239,6 +242,14 @@ $courseRes = $conn->query("SELECT id, course_name, course_code FROM courses ORDE
 if ($courseRes) {
     while ($c = $courseRes->fetch_assoc()) {
         $allCoursesForSelect[] = $c;
+    }
+}
+
+$allCentresForSelect = [];
+$centreRes = $conn->query("SELECT id, name FROM centres WHERE is_active = 1 ORDER BY name ASC");
+if ($centreRes) {
+    while ($ctr = $centreRes->fetch_assoc()) {
+        $allCentresForSelect[] = $ctr;
     }
 }
 
@@ -297,15 +308,15 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
                         <div class="btn-group" role="group" aria-label="View mode">
                             <a class="btn btn-sm <?php echo $viewMode === 'week' ? 'btn-primary' : 'btn-secondary'; ?>"
-                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'view' => 'week'])); ?>">
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'view' => 'week'])); ?>">
                                 Weekly
                             </a>
                             <a class="btn btn-sm <?php echo $viewMode === 'month' ? 'btn-primary' : 'btn-secondary'; ?>"
-                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">
+                               href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'view' => 'month', 'year' => $ctMonthYear, 'month' => $ctMonthMonth])); ?>">
                                 Month-wise
                             </a>
                         </div>
-                        <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
+                        <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                             <input type="hidden" name="view" value="<?php echo htmlspecialchars($viewMode); ?>">
                             <?php if ($viewMode === 'month'): ?>
                                 <input type="hidden" name="year" value="<?php echo (int) $ctMonthYear; ?>">
@@ -324,8 +335,16 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <select name="centre_id" class="form-control" style="min-width:180px;" onchange="this.form.submit()">
+                                <option value="0">All centres</option>
+                                <?php foreach ($allCentresForSelect as $ctr): ?>
+                                    <option value="<?php echo (int) $ctr['id']; ?>" <?php echo $filterCentre === (int) $ctr['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($ctr['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </form>
-                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
+                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'centre_id' => $filterCentre ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
@@ -428,6 +447,20 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     </label>
                                 <?php endforeach; ?>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex:1;min-width:250px;">
+                            <label for="ct_centre_id">Centre (optional)</label>
+                            <select class="form-control" id="ct_centre_id" name="centre_id">
+                                <option value="">-- All Centres --</option>
+                                <?php foreach ($allCentresForSelect as $ctr): ?>
+                                    <option value="<?php echo (int) $ctr['id']; ?>">
+                                        <?php echo htmlspecialchars($ctr['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
 
@@ -641,6 +674,7 @@ function openSlotModal(row) {
             document.getElementById('slotModalTitle').textContent = 'Edit Timetable Slot';
             document.getElementById('ct_id').value = row.id;
             document.getElementById('ct_batch_id').value = row.batch_id || '';
+            document.getElementById('ct_centre_id').value = row.centre_id || '';
             document.getElementById('ct_subject').value = row.subject || '';
             document.getElementById('ct_faculty').value = row.faculty_name || '';
             document.getElementById('ct_room').value = row.room || '';

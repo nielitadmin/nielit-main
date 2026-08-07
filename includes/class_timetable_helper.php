@@ -35,6 +35,13 @@ if (!function_exists('ensureClassTimetableTable')) {
             return false;
         }
 
+        // Ensure centre_id column exists
+        $colCheck = $conn->query("SHOW COLUMNS FROM class_timetable LIKE 'centre_id'");
+        if ($colCheck && $colCheck->num_rows === 0) {
+            $conn->query("ALTER TABLE class_timetable ADD COLUMN centre_id INT NULL DEFAULT NULL AFTER batch_id");
+            $conn->query("ALTER TABLE class_timetable ADD KEY idx_ct_centre (centre_id)");
+        }
+
         $ready = true;
         return true;
     }
@@ -433,13 +440,14 @@ if (!function_exists('getClassTimetableById')) {
 
 if (!function_exists('listClassTimetableAdmin')) {
     /** @return list<array<string,mixed>> */
-    function listClassTimetableAdmin($conn, ?int $batchId = null): array
+    function listClassTimetableAdmin($conn, ?int $batchId = null, ?int $centreId = null): array
     {
         ensureClassTimetableTable($conn);
-        $sql = "SELECT ct.*, b.batch_name, b.batch_code, c.course_name
+        $sql = "SELECT ct.*, b.batch_name, b.batch_code, c.course_name, ctr.name AS centre_name
                 FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres ctr ON ctr.id = ct.centre_id
                 WHERE 1=1";
         $types = '';
         $params = [];
@@ -447,6 +455,11 @@ if (!function_exists('listClassTimetableAdmin')) {
             $sql .= ' AND ct.batch_id = ?';
             $types .= 'i';
             $params[] = $batchId;
+        }
+        if ($centreId !== null && $centreId > 0) {
+            $sql .= ' AND ct.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
         }
         $sql .= ' ORDER BY ct.batch_id ASC, ct.day_of_week ASC, ct.start_time ASC';
 
@@ -540,6 +553,7 @@ if (!function_exists('saveClassTimetableSlot')) {
         ensureClassTimetableTable($conn);
 
         $batchId = (int) ($data['batch_id'] ?? 0);
+        $centreId = !empty($data['centre_id']) ? (int) $data['centre_id'] : null;
         $day = (int) ($data['day_of_week'] ?? 0);
         $start = classTimetableNormalizeTime((string) ($data['start_time'] ?? ''));
         $end = classTimetableNormalizeTime((string) ($data['end_time'] ?? ''));
@@ -588,7 +602,7 @@ if (!function_exists('saveClassTimetableSlot')) {
         if ($id !== null && $id > 0) {
             $stmt = $conn->prepare(
                 'UPDATE class_timetable
-                 SET batch_id = ?, day_of_week = ?, start_time = ?, end_time = ?, subject = ?,
+                 SET batch_id = ?, centre_id = ?, day_of_week = ?, start_time = ?, end_time = ?, subject = ?,
                      faculty_name = ?, room = ?, notes = ?, is_active = ?
                  WHERE id = ?'
             );
@@ -596,8 +610,9 @@ if (!function_exists('saveClassTimetableSlot')) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iissssssii',
+                'iiissssssii',
                 $batchId,
+                $centreId,
                 $day,
                 $start,
                 $end,
@@ -619,15 +634,16 @@ if (!function_exists('saveClassTimetableSlot')) {
 
         $stmt = $conn->prepare(
             'INSERT INTO class_timetable
-             (batch_id, day_of_week, start_time, end_time, subject, faculty_name, room, notes, is_active, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             (batch_id, centre_id, day_of_week, start_time, end_time, subject, faculty_name, room, notes, is_active, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
         $stmt->bind_param(
-            'iissssssis',
+            'iiissssssis',
             $batchId,
+            $centreId,
             $day,
             $start,
             $end,
