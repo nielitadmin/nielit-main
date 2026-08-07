@@ -280,6 +280,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <a class="btn btn-sm btn-primary" href="edit_lesson_plan.php?id=<?php echo (int) $plan['id']; ?>">
                                         <i class="fas fa-edit"></i> Edit Topics
                                     </a>
+                                    <a class="btn btn-sm btn-secondary" href="print_lesson_plan.php?id=<?php echo (int) $plan['id']; ?>" target="_blank">
+                                        <i class="fas fa-print"></i> Print
+                                    </a>
                                     <a class="btn btn-sm btn-success" href="lesson_plan_daily.php?plan_id=<?php echo (int) $plan['id']; ?>">
                                         <i class="fas fa-calendar-check"></i> Daily Update
                                     </a>
