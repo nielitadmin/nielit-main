@@ -535,6 +535,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         ?>" title="<?php echo $viewMode === 'month' ? 'Download full month Excel (all weeks with dates)' : 'Download weekly Excel timetable'; ?>">
                             <i class="fas fa-file-excel"></i> Excel
                         </a>
+                        <a class="btn btn-secondary" target="_blank" rel="noopener"
+                           href="print_class_timetable.php?<?php echo http_build_query(array_filter(['centre_id' => $filterCentre ?: null])); ?>"
+                           title="Print weekly timetable with logo and header">
+                            <i class="fas fa-print"></i> Print Timetable
+                        </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
                             <i class="fas fa-plus"></i> Add Slot
                         </button>
