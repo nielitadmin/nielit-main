@@ -49,7 +49,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         $exportYear = (int) date('Y');
     }
 
-    $exportSlots = listClassTimetableAdmin($conn, null, $exportCentre > 0 ? $exportCentre : null);
+    // Month export keeps soft-deleted slots; weekly export is live grid only
+    $exportSlots = listClassTimetableAdmin(
+        $conn,
+        null,
+        $exportCentre > 0 ? $exportCentre : null,
+        $exportView !== 'month'
+    );
     $built = classTimetableBuildGrid($exportSlots);
     $periods = $built['periods'];
     $days = $built['days'];
@@ -431,7 +437,13 @@ if ($batchRes) {
     }
 }
 
-$slots = listClassTimetableAdmin($conn, $filterBatch > 0 ? $filterBatch : null, $filterCentre > 0 ? $filterCentre : null);
+// Week = active only; month-wise = include slots removed from weekly (soft-deleted)
+$slots = listClassTimetableAdmin(
+    $conn,
+    $filterBatch > 0 ? $filterBatch : null,
+    $filterCentre > 0 ? $filterCentre : null,
+    $viewMode !== 'month'
+);
 $dayLabels = classTimetableDayLabels();
 
 $allCoursesForSelect = [];
@@ -774,9 +786,9 @@ function confirmDeleteSlot(e, form) {
     e.preventDefault();
     showConfirm({
         title: 'Delete Timetable Slot',
-        message: 'Are you sure you want to delete this timetable slot? This cannot be undone.',
+        message: 'Remove this slot from the weekly grid? It will still appear in month-wise records.',
         type: 'danger',
-        confirmText: 'Delete',
+        confirmText: 'Remove from weekly',
         cancelText: 'Cancel'
     }).then(function(confirmed) {
         if (confirmed) {

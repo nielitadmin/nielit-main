@@ -42,7 +42,12 @@ if ($ctMonthYear < 2000 || $ctMonthYear > 2100) {
 $autoPrint = !isset($_GET['noprint']);
 $isMonth = ($viewMode === 'month');
 
-$slots = listClassTimetableAdmin($conn, null, $filterCentre > 0 ? $filterCentre : null);
+$slots = listClassTimetableAdmin(
+    $conn,
+    null,
+    $filterCentre > 0 ? $filterCentre : null,
+    !$isMonth
+);
 $built = classTimetableBuildGrid($slots);
 $days = $built['days'];
 $periods = $built['periods'];

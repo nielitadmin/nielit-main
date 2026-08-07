@@ -514,8 +514,12 @@ if (!function_exists('getClassTimetableById')) {
 }
 
 if (!function_exists('listClassTimetableAdmin')) {
-    /** @return list<array<string,mixed>> */
-    function listClassTimetableAdmin($conn, ?int $batchId = null, ?int $centreId = null): array
+    /**
+     * @param bool $activeOnly When true (weekly live grid), only active slots.
+     *                         When false (month-wise records), include soft-deleted slots too.
+     * @return list<array<string,mixed>>
+     */
+    function listClassTimetableAdmin($conn, ?int $batchId = null, ?int $centreId = null, bool $activeOnly = true): array
     {
         ensureClassTimetableTable($conn);
         $sql = "SELECT ct.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
@@ -529,6 +533,9 @@ if (!function_exists('listClassTimetableAdmin')) {
                 WHERE 1=1";
         $types = '';
         $params = [];
+        if ($activeOnly) {
+            $sql .= ' AND ct.is_active = 1';
+        }
         if ($batchId !== null && $batchId > 0) {
             $sql .= ' AND ct.batch_id = ?';
             $types .= 'i';
@@ -780,14 +787,17 @@ if (!function_exists('saveClassTimetableSlot')) {
 }
 
 if (!function_exists('deleteClassTimetableSlot')) {
-    /** @return array{success:bool,message:string} */
+    /**
+     * Soft-delete: hide from weekly grid, keep for month-wise records.
+     * @return array{success:bool,message:string}
+     */
     function deleteClassTimetableSlot($conn, int $id): array
     {
         ensureClassTimetableTable($conn);
         if ($id <= 0) {
             return ['success' => false, 'message' => 'Invalid slot.'];
         }
-        $stmt = $conn->prepare('DELETE FROM class_timetable WHERE id = ?');
+        $stmt = $conn->prepare('UPDATE class_timetable SET is_active = 0 WHERE id = ? AND is_active = 1');
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
@@ -796,11 +806,14 @@ if (!function_exists('deleteClassTimetableSlot')) {
         $affected = $stmt->affected_rows;
         $stmt->close();
         if (!$ok) {
-            return ['success' => false, 'message' => 'Could not delete slot.'];
+            return ['success' => false, 'message' => 'Could not remove slot.'];
         }
         if ($affected < 1) {
-            return ['success' => false, 'message' => 'Slot not found.'];
+            return ['success' => false, 'message' => 'Slot not found or already removed from weekly grid.'];
         }
-        return ['success' => true, 'message' => 'Timetable slot deleted.'];
+        return [
+            'success' => true,
+            'message' => 'Removed from weekly grid. It remains in month-wise records.',
+        ];
     }
 }

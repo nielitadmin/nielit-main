@@ -141,6 +141,15 @@ if (!empty($currentWeek)) {
 .ct-week-sheet .ct-cell-filled { background: #fffbeb; }
 .ct-week-sheet .ct-cell-empty { background: #fff; color: #94a3b8; }
 .ct-week-sheet .ct-cell-block { margin-bottom: 4px; }
+.ct-week-sheet .ct-cell-block.ct-slot-archived { opacity: 0.85; }
+.ct-week-sheet .ct-cell-archived {
+    display: block;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: #b45309;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
 .ct-week-sheet .ct-cell-entry { display: block; font-weight: 700; color: #0f172a; }
 .ct-week-sheet .ct-cell-batch,
 .ct-week-sheet .ct-cell-room {
@@ -196,6 +205,7 @@ if (!empty($currentWeek)) {
 <p class="ct-muted" style="margin: 0 0 14px;">
     Each week of the month is shown as a separate timetable (Monday–Friday) with dates.
     Slots appear on days covered by the <strong>batch</strong> start–end dates (course dates used only if batch dates are blank). Saturday &amp; Sunday are holidays.
+    Slots removed from the weekly grid are kept here as records (marked Archived).
 </p>
 
 <?php foreach ($weeks as $wi => $weekDays): ?>
@@ -256,12 +266,16 @@ if (!empty($currentWeek)) {
                                 <td class="ct-cell <?php echo $filled ? 'ct-cell-filled' : 'ct-cell-empty'; ?>">
                                     <?php if ($filled): ?>
                                         <?php foreach ($cellSlots as $slot): ?>
-                                            <div class="ct-cell-block">
+                                            <?php $isArchived = empty($slot['is_active']) || (int) $slot['is_active'] !== 1; ?>
+                                            <div class="ct-cell-block<?php echo $isArchived ? ' ct-slot-archived' : ''; ?>">
                                                 <?php
                                                 $cellSubject = trim((string) ($slot['subject'] ?? ''));
                                                 $cellFacultyCode = $facultyDisplayMap[trim((string) ($slot['faculty_name'] ?? ''))] ?? '';
                                                 $cellLabel = $cellFacultyCode !== '' ? ($cellSubject . ' (' . $cellFacultyCode . ')') : $cellSubject;
                                                 ?>
+                                                <?php if ($isArchived): ?>
+                                                    <span class="ct-cell-archived">Archived</span>
+                                                <?php endif; ?>
                                                 <span class="ct-cell-entry"><?php echo htmlspecialchars($cellLabel); ?></span>
                                                 <?php if ($ctGridFilterBatch <= 0 && !empty($slot['batch_name'])): ?>
                                                     <span class="ct-cell-batch"><?php echo htmlspecialchars($slot['batch_name']); ?></span>
