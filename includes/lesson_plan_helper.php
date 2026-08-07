@@ -14,6 +14,7 @@ if (!function_exists('ensureLessonPlanTables')) {
         $plans = "CREATE TABLE IF NOT EXISTS lesson_plans (
             id INT PRIMARY KEY AUTO_INCREMENT,
             batch_id INT NULL,
+            centre_id INT NULL,
             course_id INT NULL,
             faculty_id INT NULL,
             faculty_name VARCHAR(255) NULL,
@@ -86,6 +87,11 @@ if (!function_exists('ensureLessonPlanTables')) {
         $colCheck = $conn->query("SHOW COLUMNS FROM lesson_plans LIKE 'plan_start_date'");
         if ($colCheck && $colCheck->num_rows === 0) {
             @$conn->query('ALTER TABLE lesson_plans ADD COLUMN plan_start_date DATE NULL AFTER total_hours');
+        }
+        $centreCol = $conn->query("SHOW COLUMNS FROM lesson_plans LIKE 'centre_id'");
+        if ($centreCol && $centreCol->num_rows === 0) {
+            @$conn->query('ALTER TABLE lesson_plans ADD COLUMN centre_id INT NULL AFTER batch_id');
+            @$conn->query('ALTER TABLE lesson_plans ADD KEY idx_lp_centre (centre_id)');
         }
 
         $ready = true;
@@ -289,12 +295,14 @@ if (!function_exists('lessonPlanM1R5Template')) {
 
 if (!function_exists('listLessonPlansAdmin')) {
     /** @return list<array<string,mixed>> */
-    function listLessonPlansAdmin($conn, ?int $batchId = null): array
+    function listLessonPlansAdmin($conn, ?int $batchId = null, ?int $centreId = null): array
     {
         ensureLessonPlanTables($conn);
-        $sql = "SELECT lp.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date
+        $sql = "SELECT lp.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date,
+                       ctr.name AS centre_name
                 FROM lesson_plans lp
                 LEFT JOIN batches b ON b.id = lp.batch_id
+                LEFT JOIN centres ctr ON ctr.id = lp.centre_id
                 WHERE 1=1";
         $types = '';
         $params = [];
@@ -302,6 +310,11 @@ if (!function_exists('listLessonPlansAdmin')) {
             $sql .= ' AND lp.batch_id = ?';
             $types .= 'i';
             $params[] = $batchId;
+        }
+        if ($centreId !== null && $centreId > 0) {
+            $sql .= ' AND lp.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
         }
         $sql .= ' ORDER BY lp.updated_at DESC, lp.id DESC';
 
@@ -336,10 +349,12 @@ if (!function_exists('getLessonPlan')) {
     {
         ensureLessonPlanTables($conn);
         $stmt = $conn->prepare(
-            "SELECT lp.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date, c.course_name AS linked_course_name
+            "SELECT lp.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date,
+                    c.course_name AS linked_course_name, ctr.name AS centre_name
              FROM lesson_plans lp
              LEFT JOIN batches b ON b.id = lp.batch_id
              LEFT JOIN courses c ON c.id = COALESCE(lp.course_id, b.course_id)
+             LEFT JOIN centres ctr ON ctr.id = lp.centre_id
              WHERE lp.id = ? LIMIT 1"
         );
         if (!$stmt) {
@@ -390,6 +405,7 @@ if (!function_exists('saveLessonPlanHeader')) {
         ensureLessonPlanTables($conn);
 
         $batchId = (int) ($data['batch_id'] ?? 0);
+        $centreId = (int) ($data['centre_id'] ?? 0);
         $courseId = !empty($data['course_id']) ? (int) $data['course_id'] : null;
         $facultyId = !empty($data['faculty_id']) ? (int) $data['faculty_id'] : null;
         $facultyName = trim((string) ($data['faculty_name'] ?? ''));
@@ -410,9 +426,15 @@ if (!function_exists('saveLessonPlanHeader')) {
         }
 
         $batchIdVal = $batchId > 0 ? $batchId : 0;
+        $centreIdVal = $centreId > 0 ? $centreId : 0;
         $batchStartFromBatch = null;
         if ($batchIdVal > 0) {
-            $check = $conn->prepare('SELECT id, course_id, start_date FROM batches WHERE id = ? LIMIT 1');
+            $check = $conn->prepare(
+                'SELECT b.id, b.course_id, b.start_date, c.centre_id AS course_centre_id
+                 FROM batches b
+                 LEFT JOIN courses c ON c.id = b.course_id
+                 WHERE b.id = ? LIMIT 1'
+            );
             if (!$check) {
                 return ['success' => false, 'message' => 'Could not validate batch.'];
             }
@@ -426,8 +448,24 @@ if (!function_exists('saveLessonPlanHeader')) {
             if ($courseId === null && !empty($batchRow['course_id'])) {
                 $courseId = (int) $batchRow['course_id'];
             }
+            if ($centreIdVal <= 0 && !empty($batchRow['course_centre_id'])) {
+                $centreIdVal = (int) $batchRow['course_centre_id'];
+            }
             if (!empty($batchRow['start_date'])) {
                 $batchStartFromBatch = date('Y-m-d', strtotime((string) $batchRow['start_date']));
+            }
+        }
+
+        if ($centreIdVal > 0) {
+            $cCheck = $conn->prepare('SELECT id FROM centres WHERE id = ? LIMIT 1');
+            if ($cCheck) {
+                $cCheck->bind_param('i', $centreIdVal);
+                $cCheck->execute();
+                $cRow = $cCheck->get_result()->fetch_assoc();
+                $cCheck->close();
+                if (!$cRow) {
+                    return ['success' => false, 'message' => 'Selected centre was not found.'];
+                }
             }
         }
 
@@ -452,17 +490,19 @@ if (!function_exists('saveLessonPlanHeader')) {
         if ($id !== null && $id > 0) {
             $stmt = $conn->prepare(
                 'UPDATE lesson_plans
-                 SET batch_id=NULLIF(?,0), course_id=NULLIF(?,0), faculty_id=NULLIF(?,0), faculty_name=?, course_name=?,
-                     plan_title=?, module_code=?, semester=?, days_per_week=?, total_weeks=?,
-                     total_hours=IF(?=1, ?, NULL), plan_start_date=IF(?=1, ?, NULL), notes=?, is_active=?
+                 SET batch_id=NULLIF(?,0), centre_id=NULLIF(?,0), course_id=NULLIF(?,0), faculty_id=NULLIF(?,0),
+                     faculty_name=?, course_name=?, plan_title=?, module_code=?, semester=?,
+                     days_per_week=?, total_weeks=?, total_hours=IF(?=1, ?, NULL),
+                     plan_start_date=IF(?=1, ?, NULL), notes=?, is_active=?
                  WHERE id=?'
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iiisssssiiidissii',
+                'iiiisssssiiidissii',
                 $batchIdVal,
+                $centreIdVal,
                 $courseIdVal,
                 $facultyIdVal,
                 $facultyVal,
@@ -491,16 +531,17 @@ if (!function_exists('saveLessonPlanHeader')) {
 
         $stmt = $conn->prepare(
             'INSERT INTO lesson_plans
-             (batch_id, course_id, faculty_id, faculty_name, course_name, plan_title, module_code, semester,
+             (batch_id, centre_id, course_id, faculty_id, faculty_name, course_name, plan_title, module_code, semester,
               days_per_week, total_weeks, total_hours, plan_start_date, notes, is_active, created_by)
-             VALUES (NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), ?, ?, ?, ?, ?, ?, ?, IF(?=1, ?, NULL), IF(?=1, ?, NULL), ?, ?, ?)'
+             VALUES (NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), ?, ?, ?, ?, ?, ?, ?, IF(?=1, ?, NULL), IF(?=1, ?, NULL), ?, ?, ?)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
         $stmt->bind_param(
-            'iiisssssiiidissis',
+            'iiiisssssiiidissis',
             $batchIdVal,
+            $centreIdVal,
             $courseIdVal,
             $facultyIdVal,
             $facultyVal,
@@ -595,14 +636,21 @@ if (!function_exists('importLessonPlanTemplate')) {
      * Create/fill plan from a template (e.g. M1-R5).
      * @return array{success:bool,message:string,id?:int}
      */
-    function importLessonPlanTemplate($conn, int $batchId, string $templateKey, string $createdBy = 'admin', string $planStartDate = ''): array
-    {
+    function importLessonPlanTemplate(
+        $conn,
+        int $batchId,
+        string $templateKey,
+        string $createdBy = 'admin',
+        string $planStartDate = '',
+        int $centreId = 0
+    ): array {
         if ($templateKey !== 'm1_r5') {
             return ['success' => false, 'message' => 'Unknown template.'];
         }
         $tpl = lessonPlanM1R5Template();
         $header = $tpl['header'];
         $header['batch_id'] = $batchId;
+        $header['centre_id'] = $centreId;
         $header['plan_start_date'] = $planStartDate;
         $header['created_by'] = $createdBy;
         $header['is_active'] = 1;

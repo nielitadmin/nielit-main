@@ -75,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_header') {
         $payload = [
             'batch_id' => (int) ($_POST['batch_id'] ?? 0),
+            'centre_id' => (int) ($_POST['centre_id'] ?? 0),
             'plan_title' => $_POST['plan_title'] ?? '',
             'course_name' => $_POST['course_name'] ?? '',
             'module_code' => $_POST['module_code'] ?? '',
@@ -161,13 +162,20 @@ $nextMonth = $monthCalendar[$monthIndex + 1] ?? null;
 
 $batches = [];
 $batchRes = $conn->query(
-    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name
+    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name, c.centre_id
      FROM batches b LEFT JOIN courses c ON c.id = b.course_id
      ORDER BY b.status = 'Active' DESC, b.start_date DESC"
 );
 if ($batchRes) {
     while ($b = $batchRes->fetch_assoc()) {
         $batches[] = $b;
+    }
+}
+$centres = [];
+$centreRes = $conn->query('SELECT id, name FROM centres WHERE is_active = 1 ORDER BY name ASC');
+if ($centreRes) {
+    while ($c = $centreRes->fetch_assoc()) {
+        $centres[] = $c;
     }
 }
 
@@ -297,6 +305,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 <div class="card-header"><h5 class="card-title mb-0">Plan Details</h5></div>
                 <div style="padding:1rem;">
                     <div class="lp-info">
+                        <div><strong>Centre</strong><?php echo htmlspecialchars($plan['centre_name'] ?: '—'); ?></div>
                         <div><strong>Course</strong><?php echo htmlspecialchars($plan['course_name'] ?: '—'); ?></div>
                         <div><strong>Semester</strong><?php echo htmlspecialchars($plan['semester'] ?: '—'); ?></div>
                         <div><strong>Faculty</strong><?php echo htmlspecialchars($plan['faculty_name'] ?: '—'); ?></div>
@@ -309,7 +318,18 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="save_header">
                         <div class="row g-2 mb-2">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <label class="form-label">Centre <span class="text-muted">(optional)</span></label>
+                                <select name="centre_id" id="lpCentreSelect" class="form-control">
+                                    <option value="">No centre / leave blank</option>
+                                    <?php foreach ($centres as $c): ?>
+                                        <option value="<?php echo (int) $c['id']; ?>" <?php echo (int) ($plan['centre_id'] ?? 0) === (int) $c['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($c['name'] ?? ''); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
                                 <label class="form-label">Batch <span class="text-muted">(optional)</span></label>
                                 <select name="batch_id" id="lpBatchSelect" class="form-control">
                                     <option value="" data-start-date="">No batch / leave blank</option>
@@ -319,6 +339,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                         ?>
                                         <option value="<?php echo (int) $b['id']; ?>"
                                                 data-start-date="<?php echo htmlspecialchars($bStart); ?>"
+                                                data-centre-id="<?php echo (int) ($b['centre_id'] ?? 0); ?>"
                                             <?php echo (int) ($plan['batch_id'] ?? 0) === (int) $b['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')'); ?>
                                             <?php if ($bStart !== ''): ?> — <?php echo htmlspecialchars(date('d M Y', strtotime($bStart))); ?><?php endif; ?>
@@ -326,7 +347,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-4">
                                 <label class="form-label">Plan Title *</label>
                                 <input type="text" name="plan_title" class="form-control" required
                                        value="<?php echo htmlspecialchars($plan['plan_title'] ?? ''); ?>">
@@ -572,10 +593,15 @@ showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_
         var opt = batchSelect.options[batchSelect.selectedIndex];
         var batchId = batchSelect.value;
         var start = opt ? (opt.getAttribute('data-start-date') || '') : '';
+        var centreSelect = document.getElementById('lpCentreSelect');
+        var centreFromBatch = opt ? (opt.getAttribute('data-centre-id') || '') : '';
         startInput.readOnly = false;
         if (batchId) {
             if (start && (forceFromBatch || !isValidYmd(startInput.value))) {
                 startInput.value = start;
+            }
+            if (forceFromBatch && centreSelect && centreFromBatch && centreFromBatch !== '0') {
+                centreSelect.value = centreFromBatch;
             }
             if (hint) {
                 hint.textContent = start

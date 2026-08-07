@@ -271,6 +271,10 @@ $printedAt = date('d M Y, h:i A');
 
         <h1 class="lp-title"><?php echo htmlspecialchars($heading); ?></h1>
         <p class="doc-meta">
+            <?php if (!empty($plan['centre_name'])): ?>
+                <strong>Centre:</strong> <?php echo htmlspecialchars($plan['centre_name']); ?>
+                &nbsp;|&nbsp;
+            <?php endif; ?>
             <?php if (!empty($plan['batch_name'])): ?>
                 <strong>Batch:</strong>
                 <?php echo htmlspecialchars(($plan['batch_name'] ?? '') . ' (' . ($plan['batch_code'] ?? '') . ')'); ?>

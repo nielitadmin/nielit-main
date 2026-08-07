@@ -48,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create') {
         $payload = [
             'batch_id' => (int) ($_POST['batch_id'] ?? 0),
+            'centre_id' => (int) ($_POST['centre_id'] ?? 0),
             'plan_title' => $_POST['plan_title'] ?? '',
             'course_name' => $_POST['course_name'] ?? '',
             'module_code' => $_POST['module_code'] ?? '',
@@ -74,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'import_template') {
         $batchId = (int) ($_POST['batch_id'] ?? 0);
+        $centreId = (int) ($_POST['centre_id'] ?? 0);
         $template = (string) ($_POST['template'] ?? 'm1_r5');
         $planStart = (string) ($_POST['plan_start_date'] ?? '');
         $result = importLessonPlanTemplate(
@@ -81,7 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $batchId,
             $template,
             (string) ($_SESSION['admin'] ?? 'admin'),
-            $planStart
+            $planStart,
+            $centreId
         );
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
@@ -107,10 +110,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$plans = listLessonPlansAdmin($conn);
+$filterCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
+$plans = listLessonPlansAdmin($conn, null, $filterCentre > 0 ? $filterCentre : null);
 $batches = [];
 $batchRes = $conn->query(
-    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name
+    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name, c.centre_id
      FROM batches b
      LEFT JOIN courses c ON c.id = b.course_id
      ORDER BY b.status = 'Active' DESC, b.start_date DESC"
@@ -118,6 +122,13 @@ $batchRes = $conn->query(
 if ($batchRes) {
     while ($b = $batchRes->fetch_assoc()) {
         $batches[] = $b;
+    }
+}
+$centres = [];
+$centreRes = $conn->query('SELECT id, name FROM centres WHERE is_active = 1 ORDER BY name ASC');
+if ($centreRes) {
+    while ($c = $centreRes->fetch_assoc()) {
+        $centres[] = $c;
     }
 }
 
@@ -163,6 +174,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                                 <input type="hidden" name="action" value="create">
                                 <h6 class="lp-title">New blank plan</h6>
+                                <div class="mb-2">
+                                    <label class="form-label">Centre <span class="lp-muted">(optional)</span></label>
+                                    <select name="centre_id" class="form-control">
+                                        <option value="">No centre / leave blank</option>
+                                        <?php foreach ($centres as $c): ?>
+                                            <option value="<?php echo (int) $c['id']; ?>">
+                                                <?php echo htmlspecialchars($c['name'] ?? ''); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                                 <div class="mb-2">
                                     <label class="form-label">Batch <span class="lp-muted">(optional)</span></label>
                                     <select name="batch_id" id="createBatchSelect" class="form-control">
@@ -245,6 +267,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     (120 hours) — ready to edit faculty name and batch.
                                 </p>
                                 <div class="mb-3">
+                                    <label class="form-label">Centre <span class="lp-muted">(optional)</span></label>
+                                    <select name="centre_id" class="form-control">
+                                        <option value="">No centre / leave blank</option>
+                                        <?php foreach ($centres as $c): ?>
+                                            <option value="<?php echo (int) $c['id']; ?>">
+                                                <?php echo htmlspecialchars($c['name'] ?? ''); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
                                     <label class="form-label">Assign to Batch <span class="lp-muted">(optional)</span></label>
                                     <select name="batch_id" id="importBatchSelect" class="form-control">
                                         <option value="" data-start-date="">No batch / leave blank</option>
@@ -272,8 +305,19 @@ unset($_SESSION['message'], $_SESSION['message_type']);
             </div>
 
             <div class="content-card">
-                <div class="card-header">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                     <h5 class="card-title mb-0"><i class="fas fa-list"></i> All Lesson Plans (<?php echo count($plans); ?>)</h5>
+                    <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
+                        <label class="lp-muted mb-0">Centre</label>
+                        <select name="centre_id" class="form-control form-control-sm" style="min-width:180px;" onchange="this.form.submit()">
+                            <option value="0">All centres</option>
+                            <?php foreach ($centres as $c): ?>
+                                <option value="<?php echo (int) $c['id']; ?>" <?php echo $filterCentre === (int) $c['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($c['name'] ?? ''); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
                 </div>
                 <div style="padding:1rem;">
                     <?php if (empty($plans)): ?>
@@ -299,6 +343,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                             echo '—';
                                         }
                                         ?>
+                                        · Centre: <?php echo htmlspecialchars($plan['centre_name'] ?: '—'); ?>
                                         · Faculty: <?php echo htmlspecialchars($plan['faculty_name'] ?: '—'); ?>
                                         · <?php echo (int) $plan['days_per_week']; ?> days/week
                                         · <?php echo (int) $plan['total_weeks']; ?> weeks
