@@ -161,7 +161,7 @@ $nextMonth = $monthCalendar[$monthIndex + 1] ?? null;
 
 $batches = [];
 $batchRes = $conn->query(
-    "SELECT b.id, b.batch_name, b.batch_code, c.course_name
+    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name
      FROM batches b LEFT JOIN courses c ON c.id = b.course_id
      ORDER BY b.status = 'Active' DESC, b.start_date DESC"
 );
@@ -311,11 +311,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label">Batch <span class="text-muted">(optional)</span></label>
-                                <select name="batch_id" class="form-control">
-                                    <option value="">No batch / leave blank</option>
+                                <select name="batch_id" id="lpBatchSelect" class="form-control">
+                                    <option value="" data-start-date="">No batch / leave blank</option>
                                     <?php foreach ($batches as $b): ?>
-                                        <option value="<?php echo (int) $b['id']; ?>" <?php echo (int) ($plan['batch_id'] ?? 0) === (int) $b['id'] ? 'selected' : ''; ?>>
+                                        <?php
+                                        $bStart = !empty($b['start_date']) ? date('Y-m-d', strtotime($b['start_date'])) : '';
+                                        ?>
+                                        <option value="<?php echo (int) $b['id']; ?>"
+                                                data-start-date="<?php echo htmlspecialchars($bStart); ?>"
+                                            <?php echo (int) ($plan['batch_id'] ?? 0) === (int) $b['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')'); ?>
+                                            <?php if ($bStart !== ''): ?> — <?php echo htmlspecialchars(date('d M Y', strtotime($bStart))); ?><?php endif; ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
@@ -371,10 +377,16 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 if ($startFieldVal === '' || $startFieldVal === null) {
                                     $startFieldVal = $effectiveStart ?? '';
                                 }
+                                $hasBatchSelected = !empty($plan['batch_id']);
                                 ?>
-                                <input type="date" name="plan_start_date" class="form-control"
-                                       value="<?php echo htmlspecialchars((string) $startFieldVal); ?>">
-                                <small class="lp-muted">Used for month calendar dates</small>
+                                <input type="date" name="plan_start_date" id="lpPlanStartDate" class="form-control"
+                                       value="<?php echo htmlspecialchars((string) $startFieldVal); ?>"
+                                       <?php echo $hasBatchSelected ? 'readonly' : ''; ?>>
+                                <small class="lp-muted" id="lpPlanStartHint">
+                                    <?php echo $hasBatchSelected
+                                        ? 'Filled from selected batch start date'
+                                        : 'Enter start date (no batch selected)'; ?>
+                                </small>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Notes</label>
@@ -542,6 +554,39 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 <?php if ($message !== ''): ?>
 showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_type === 'danger' ? 'error' : ($message_type ?: 'success')); ?>);
 <?php endif; ?>
+
+(function () {
+    var batchSelect = document.getElementById('lpBatchSelect');
+    var startInput = document.getElementById('lpPlanStartDate');
+    var hint = document.getElementById('lpPlanStartHint');
+    if (!batchSelect || !startInput) return;
+
+    function syncPlanStartFromBatch() {
+        var opt = batchSelect.options[batchSelect.selectedIndex];
+        var batchId = batchSelect.value;
+        var start = opt ? (opt.getAttribute('data-start-date') || '') : '';
+        if (batchId) {
+            if (start) {
+                startInput.value = start;
+                startInput.readOnly = true;
+                if (hint) hint.textContent = 'Filled from selected batch start date';
+            } else {
+                startInput.readOnly = false;
+                if (hint) hint.textContent = 'Batch has no start date — enter plan start date';
+            }
+        } else {
+            startInput.readOnly = false;
+            if (!startInput.value) {
+                startInput.value = new Date().toISOString().slice(0, 10);
+            }
+            if (hint) {
+                hint.textContent = 'Enter plan start date (no batch selected)';
+            }
+        }
+    }
+
+    batchSelect.addEventListener('change', syncPlanStartFromBatch);
+})();
 </script>
 </body>
 </html>

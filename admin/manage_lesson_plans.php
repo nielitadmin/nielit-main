@@ -75,7 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'import_template') {
         $batchId = (int) ($_POST['batch_id'] ?? 0);
         $template = (string) ($_POST['template'] ?? 'm1_r5');
-        $result = importLessonPlanTemplate($conn, $batchId, $template, (string) ($_SESSION['admin'] ?? 'admin'));
+        $planStart = (string) ($_POST['plan_start_date'] ?? '');
+        $result = importLessonPlanTemplate(
+            $conn,
+            $batchId,
+            $template,
+            (string) ($_SESSION['admin'] ?? 'admin'),
+            $planStart
+        );
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success'] && !empty($result['id'])) {
@@ -103,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $plans = listLessonPlansAdmin($conn);
 $batches = [];
 $batchRes = $conn->query(
-    "SELECT b.id, b.batch_name, b.batch_code, c.course_name
+    "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name
      FROM batches b
      LEFT JOIN courses c ON c.id = b.course_id
      ORDER BY b.status = 'Active' DESC, b.start_date DESC"
@@ -158,14 +165,18 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <h6 class="lp-title">New blank plan</h6>
                                 <div class="mb-2">
                                     <label class="form-label">Batch <span class="lp-muted">(optional)</span></label>
-                                    <select name="batch_id" class="form-control">
-                                        <option value="">No batch / leave blank</option>
+                                    <select name="batch_id" id="createBatchSelect" class="form-control">
+                                        <option value="" data-start-date="">No batch / leave blank</option>
                                         <?php foreach ($batches as $b): ?>
-                                            <option value="<?php echo (int) $b['id']; ?>">
+                                            <?php $bStart = !empty($b['start_date']) ? date('Y-m-d', strtotime($b['start_date'])) : ''; ?>
+                                            <option value="<?php echo (int) $b['id']; ?>" data-start-date="<?php echo htmlspecialchars($bStart); ?>">
                                                 <?php
                                                 echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')');
                                                 if (!empty($b['course_name'])) {
                                                     echo ' — ' . htmlspecialchars($b['course_name']);
+                                                }
+                                                if ($bStart !== '') {
+                                                    echo ' — ' . htmlspecialchars(date('d M Y', strtotime($bStart)));
                                                 }
                                                 ?>
                                             </option>
@@ -198,7 +209,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Plan Start Date</label>
-                                        <input type="date" name="plan_start_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                                        <input type="date" name="plan_start_date" id="createPlanStartDate" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                                        <small class="lp-muted" id="createPlanStartHint">Enter start date (no batch selected)</small>
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label">Hours</label>
@@ -234,14 +246,21 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 </p>
                                 <div class="mb-3">
                                     <label class="form-label">Assign to Batch <span class="lp-muted">(optional)</span></label>
-                                    <select name="batch_id" class="form-control">
-                                        <option value="">No batch / leave blank</option>
+                                    <select name="batch_id" id="importBatchSelect" class="form-control">
+                                        <option value="" data-start-date="">No batch / leave blank</option>
                                         <?php foreach ($batches as $b): ?>
-                                            <option value="<?php echo (int) $b['id']; ?>">
+                                            <?php $bStart = !empty($b['start_date']) ? date('Y-m-d', strtotime($b['start_date'])) : ''; ?>
+                                            <option value="<?php echo (int) $b['id']; ?>" data-start-date="<?php echo htmlspecialchars($bStart); ?>">
                                                 <?php echo htmlspecialchars(($b['batch_name'] ?? '') . ' (' . ($b['batch_code'] ?? '') . ')'); ?>
+                                                <?php if ($bStart !== ''): ?> — <?php echo htmlspecialchars(date('d M Y', strtotime($bStart))); ?><?php endif; ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Plan Start Date</label>
+                                    <input type="date" name="plan_start_date" id="importPlanStartDate" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                                    <small class="lp-muted" id="importPlanStartHint">Enter start date (no batch selected)</small>
                                 </div>
                                 <button type="submit" class="btn btn-warning">
                                     <i class="fas fa-file-import"></i> Import M1-R5 Template
@@ -320,6 +339,41 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 <?php if ($message !== ''): ?>
 showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_type === 'danger' ? 'error' : ($message_type ?: 'success')); ?>);
 <?php endif; ?>
+
+function bindBatchStartSync(batchId, startId, hintId) {
+    var batchSelect = document.getElementById(batchId);
+    var startInput = document.getElementById(startId);
+    var hint = hintId ? document.getElementById(hintId) : null;
+    if (!batchSelect || !startInput) return;
+
+    function sync() {
+        var opt = batchSelect.options[batchSelect.selectedIndex];
+        var batchVal = batchSelect.value;
+        var start = opt ? (opt.getAttribute('data-start-date') || '') : '';
+        if (batchVal) {
+            if (start) {
+                startInput.value = start;
+                startInput.readOnly = true;
+                if (hint) hint.textContent = 'Filled from selected batch start date';
+            } else {
+                startInput.readOnly = false;
+                if (hint) hint.textContent = 'Batch has no start date — enter plan start date';
+            }
+        } else {
+            startInput.readOnly = false;
+            if (!startInput.value) {
+                startInput.value = new Date().toISOString().slice(0, 10);
+            }
+            if (hint) hint.textContent = 'Enter plan start date (no batch selected)';
+        }
+    }
+
+    batchSelect.addEventListener('change', sync);
+    sync();
+}
+
+bindBatchStartSync('createBatchSelect', 'createPlanStartDate', 'createPlanStartHint');
+bindBatchStartSync('importBatchSelect', 'importPlanStartDate', 'importPlanStartHint');
 </script>
 </body>
 </html>

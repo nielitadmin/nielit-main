@@ -581,7 +581,7 @@ if (!function_exists('importLessonPlanTemplate')) {
      * Create/fill plan from a template (e.g. M1-R5).
      * @return array{success:bool,message:string,id?:int}
      */
-    function importLessonPlanTemplate($conn, int $batchId, string $templateKey, string $createdBy = 'admin'): array
+    function importLessonPlanTemplate($conn, int $batchId, string $templateKey, string $createdBy = 'admin', string $planStartDate = ''): array
     {
         if ($templateKey !== 'm1_r5') {
             return ['success' => false, 'message' => 'Unknown template.'];
@@ -589,6 +589,7 @@ if (!function_exists('importLessonPlanTemplate')) {
         $tpl = lessonPlanM1R5Template();
         $header = $tpl['header'];
         $header['batch_id'] = $batchId;
+        $header['plan_start_date'] = $planStartDate;
         $header['created_by'] = $createdBy;
         $header['is_active'] = 1;
 
