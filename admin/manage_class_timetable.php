@@ -33,6 +33,36 @@ if (empty($_SESSION['csrf_token'])) {
 $active_theme = loadActiveTheme($conn);
 ensureClassTimetableTable($conn);
 
+// Excel/CSV export
+if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    $exportBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
+    $exportSlots = listClassTimetableAdmin($conn, $exportBatch > 0 ? $exportBatch : null);
+    $dayNames = [1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
+    $filename = 'class_timetable' . ($exportBatch > 0 ? '_batch_' . $exportBatch : '_all') . '_' . date('Ymd') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    $out = fopen('php://output', 'w');
+    fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+    fputcsv($out, ['#', 'Batch', 'Day', 'Start Time', 'End Time', 'Subject', 'Faculty', 'Room', 'Notes', 'Active']);
+    $sl = 1;
+    foreach ($exportSlots as $slot) {
+        fputcsv($out, [
+            $sl++,
+            ($slot['batch_name'] ?? '') . ' (' . ($slot['batch_code'] ?? '') . ')',
+            $dayNames[(int) $slot['day_of_week']] ?? '',
+            substr($slot['start_time'], 0, 5),
+            substr($slot['end_time'], 0, 5),
+            $slot['subject'] ?? '',
+            $slot['faculty_name'] ?? '',
+            $slot['room'] ?? '',
+            $slot['notes'] ?? '',
+            ((int) ($slot['is_active'] ?? 1)) === 1 ? 'Yes' : 'No',
+        ]);
+    }
+    fclose($out);
+    exit();
+}
+
 $filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
 $viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
 if (!in_array($viewMode, ['week', 'month'], true)) {
@@ -85,9 +115,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save') {
         $editId = (int) ($_POST['id'] ?? 0);
-        $payload = [
+
+        // Multi-day: if days[] checkboxes are submitted, create one slot per day
+        $daysArray = isset($_POST['days']) && is_array($_POST['days']) ? array_map('intval', $_POST['days']) : [];
+        $singleDay = (int) ($_POST['day_of_week'] ?? 0);
+        if (empty($daysArray) && $singleDay > 0) {
+            $daysArray = [$singleDay];
+        }
+        if ($editId > 0) {
+            $daysArray = [$singleDay]; // editing always targets one slot
+        }
+
+        $basePayload = [
             'batch_id' => (int) ($_POST['batch_id'] ?? 0),
-            'day_of_week' => (int) ($_POST['day_of_week'] ?? 0),
             'start_time' => $_POST['start_time'] ?? '',
             'end_time' => $_POST['end_time'] ?? '',
             'subject' => $_POST['subject'] ?? '',
@@ -97,7 +137,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
             'created_by' => (string) ($_SESSION['admin'] ?? 'admin'),
         ];
-        $result = saveClassTimetableSlot($conn, $payload, $editId > 0 ? $editId : null);
+
+        $successCount = 0;
+        $lastResult = ['success' => false, 'message' => 'No days selected.'];
+        foreach ($daysArray as $dayVal) {
+            $payload = $basePayload;
+            $payload['day_of_week'] = $dayVal;
+            $lastResult = saveClassTimetableSlot($conn, $payload, $editId > 0 ? $editId : null);
+            if ($lastResult['success']) {
+                $successCount++;
+            }
+        }
+
+        if ($successCount > 1) {
+            $result = ['success' => true, 'message' => "Added slot for $successCount days."];
+        } else {
+            $result = $lastResult;
+        }
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
@@ -165,6 +221,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         .ct-modal .form-group { margin-bottom: 1rem; }
         .ct-modal label { font-weight: 500; color: #334155; margin-bottom: 6px; display: block; }
         .ct-help { font-size: 0.8rem; color: #64748b; margin-top: 4px; }
+        #ct_day_single_wrap { display: none; }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -236,6 +293,9 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </select>
                         </form>
+                        <a class="btn btn-success" href="manage_class_timetable.php?<?php echo http_build_query(array_filter(['batch_id' => $filterBatch ?: null, 'export' => 'excel'])); ?>" title="Download as Excel/CSV">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </a>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
                             <i class="fas fa-plus"></i> Add Slot
                         </button>
@@ -312,14 +372,28 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="form-group" style="flex:1;min-width:180px;">
+                        <div class="form-group" style="flex:1;min-width:180px;" id="ct_day_single_wrap">
                             <label for="ct_day">Day <span class="text-danger">*</span></label>
-                            <select class="form-control" id="ct_day" name="day_of_week" required>
+                            <select class="form-control" id="ct_day" name="day_of_week">
                                 <option value="">Select day…</option>
                                 <?php foreach ($dayLabels as $dayNum => $dayName): ?>
                                     <option value="<?php echo (int) $dayNum; ?>"><?php echo htmlspecialchars($dayName); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                        </div>
+                        <div class="form-group" style="flex:2;min-width:280px;" id="ct_days_multi_wrap">
+                            <label>Days <span class="text-danger">*</span></label>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;padding:6px 0;">
+                                <label style="display:flex;align-items:center;gap:4px;font-weight:normal;cursor:pointer;">
+                                    <input type="checkbox" id="ct_days_all" onchange="toggleAllDays(this)"> <strong>Mon–Fri</strong>
+                                </label>
+                                <?php foreach ($dayLabels as $dayNum => $dayName): ?>
+                                    <label style="display:flex;align-items:center;gap:4px;font-weight:normal;cursor:pointer;">
+                                        <input type="checkbox" name="days[]" value="<?php echo (int) $dayNum; ?>" class="ct-day-check">
+                                        <?php echo htmlspecialchars(substr($dayName, 0, 3)); ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            </div>
                         </div>
                     </div>
 
@@ -438,6 +512,30 @@ function syncPeriodSelectFromTimes() {
     }
 }
 
+function toggleAllDays(cb) {
+    var checks = document.querySelectorAll('.ct-day-check');
+    // Mon-Fri = values 1-5
+    checks.forEach(function(c) {
+        if (parseInt(c.value) <= 5) {
+            c.checked = cb.checked;
+        }
+    });
+}
+
+function setDayMode(isEdit) {
+    var singleWrap = document.getElementById('ct_day_single_wrap');
+    var multiWrap = document.getElementById('ct_days_multi_wrap');
+    if (isEdit) {
+        singleWrap.style.display = '';
+        multiWrap.style.display = 'none';
+        document.getElementById('ct_day').required = true;
+    } else {
+        singleWrap.style.display = 'none';
+        multiWrap.style.display = '';
+        document.getElementById('ct_day').required = false;
+    }
+}
+
 function openSlotModalForPeriod(dayOfWeek, startTime, endTime) {
     openSlotModal({
         day_of_week: dayOfWeek,
@@ -453,14 +551,18 @@ function openSlotModal(row) {
     document.getElementById('ct_is_active').checked = true;
     document.getElementById('slotModalTitle').textContent = 'Add Timetable Slot';
     document.getElementById('ct_period').value = '';
+    document.querySelectorAll('.ct-day-check').forEach(function(c) { c.checked = false; });
+    document.getElementById('ct_days_all').checked = false;
 
     var filterBatch = <?php echo (int) $filterBatch; ?>;
     if (filterBatch > 0) {
         document.getElementById('ct_batch_id').value = String(filterBatch);
     }
 
+    var isEdit = false;
     if (row) {
         if (row.id) {
+            isEdit = true;
             document.getElementById('slotModalTitle').textContent = 'Edit Timetable Slot';
             document.getElementById('ct_id').value = row.id;
             document.getElementById('ct_batch_id').value = row.batch_id || '';
@@ -472,6 +574,10 @@ function openSlotModal(row) {
         }
         if (row.day_of_week) {
             document.getElementById('ct_day').value = row.day_of_week || '';
+            // Also check the corresponding multi-day checkbox
+            document.querySelectorAll('.ct-day-check').forEach(function(c) {
+                if (c.value === String(row.day_of_week)) c.checked = true;
+            });
         }
         if (row.start_time) {
             document.getElementById('ct_start').value = toTimeInput(row.start_time);
@@ -481,6 +587,8 @@ function openSlotModal(row) {
         }
         syncPeriodSelectFromTimes();
     }
+
+    setDayMode(isEdit);
 
     var instance = getSlotModalInstance();
     if (instance) {
@@ -492,6 +600,17 @@ function openSlotModal(row) {
     el.classList.add('show');
     el.setAttribute('aria-hidden', 'false');
 }
+
+// Form validation: ensure at least one day selected in multi-day mode
+document.getElementById('slotForm').addEventListener('submit', function(e) {
+    var editId = parseInt(document.getElementById('ct_id').value) || 0;
+    if (editId > 0) return; // editing uses single day dropdown
+    var checks = document.querySelectorAll('.ct-day-check:checked');
+    if (checks.length === 0) {
+        e.preventDefault();
+        alert('Please select at least one day.');
+    }
+});
 </script>
 </body>
 </html>
