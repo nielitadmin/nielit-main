@@ -156,7 +156,7 @@ $legends = classTimetableBuildLegends($slots);
                                                         onclick='openSlotModal(<?php echo json_encode($slot, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>)'>
                                                     <i class="fas fa-edit"></i>
                                                 </button>
-                                                <form method="post" style="margin:0;display:inline;" onsubmit="return confirm('Delete this timetable slot?');">
+                                                <form method="post" style="margin:0;display:inline;" onsubmit="return confirmDeleteSlot(event, this);">
                                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($ctGridCsrf); ?>">
                                                     <input type="hidden" name="action" value="delete">
                                                     <input type="hidden" name="id" value="<?php echo (int) $slot['id']; ?>">

@@ -277,12 +277,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         </div>
 
         <div class="admin-main">
-            <?php if ($message !== ''): ?>
-                <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
-                    <?php echo htmlspecialchars($message); ?>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            <?php endif; ?>
+            <!-- Toast notifications shown via JS -->
 
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -488,6 +483,28 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script>
+<?php if ($message !== ''): ?>
+showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_type === 'danger' ? 'error' : $message_type); ?>);
+<?php endif; ?>
+
+function confirmDeleteSlot(e, form) {
+    e.preventDefault();
+    showConfirm({
+        title: 'Delete Timetable Slot',
+        message: 'Are you sure you want to delete this timetable slot? This cannot be undone.',
+        type: 'danger',
+        confirmText: 'Delete',
+        cancelText: 'Cancel'
+    }).then(function(confirmed) {
+        if (confirmed) {
+            form.submit();
+        }
+    });
+    return false;
+}
+</script>
 <script>
 function toTimeInput(mysqlTime) {
     if (!mysqlTime) return '';
