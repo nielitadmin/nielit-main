@@ -221,7 +221,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <?php endif; ?>
 
                     <?php if (empty($topicInfo['is_holiday'])): ?>
-                        <form method="post">
+                        <form method="post" action="lesson_plan_daily.php?plan_id=<?php echo (int) $planId; ?>&amp;date=<?php echo urlencode($logDate); ?>" id="dailyUpdateForm">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                             <input type="hidden" name="action" value="save_daily">
                             <input type="hidden" name="log_date" value="<?php echo htmlspecialchars($logDate); ?>">
@@ -235,7 +235,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <textarea class="form-control" rows="2" readonly><?php echo htmlspecialchars($topicInfo['topic'] ?? ''); ?></textarea>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Topic Covered Today (faculty update) *</label>
+                                <label class="form-label">Topic Covered Today (faculty update) <span class="text-danger">*</span></label>
                                 <textarea name="topic_covered" class="form-control" rows="3" required
                                           placeholder="What was actually taught today…"><?php
                                     echo htmlspecialchars($existingLog['topic_covered'] ?? ($topicInfo['topic'] ?? ''));
@@ -253,16 +253,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 </div>
                                 <div class="col-md-8">
                                     <label class="form-label">Remarks</label>
-                                    <input type="text" name="remarks" class="form-control"
+                                    <input type="text" name="remarks" class="form-control" autocomplete="off"
                                            value="<?php echo htmlspecialchars($existingLog['remarks'] ?? ''); ?>"
                                            placeholder="Optional notes…">
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary">
+                            <button type="submit" class="btn btn-primary" id="btnSaveDaily">
                                 <i class="fas fa-save"></i> Save Daily Update
                             </button>
                             <?php if ($existingLog): ?>
-                                <span class="lp-muted ms-2">Last updated by <?php echo htmlspecialchars($existingLog['updated_by'] ?? ''); ?></span>
+                                <span class="lp-muted ms-2">Last saved by <?php echo htmlspecialchars($existingLog['updated_by'] ?? ''); ?>
+                                    at <?php echo htmlspecialchars($existingLog['updated_at'] ?? ''); ?></span>
                             <?php endif; ?>
                         </form>
                     <?php endif; ?>
@@ -272,5 +273,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     </main>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
+<script>
+<?php if ($message !== ''): ?>
+showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_type === 'danger' ? 'error' : 'success'); ?>);
+<?php endif; ?>
+</script>
 </body>
 </html>

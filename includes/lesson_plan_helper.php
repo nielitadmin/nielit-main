@@ -672,11 +672,9 @@ if (!function_exists('saveLessonPlanDailyLog')) {
         $planId = (int) ($data['lesson_plan_id'] ?? 0);
         $batchId = (int) ($data['batch_id'] ?? 0);
         $logDate = trim((string) ($data['log_date'] ?? ''));
-        $rowId = !empty($data['lesson_plan_row_id']) ? (int) $data['lesson_plan_row_id'] : null;
-        // mysqli bind: use 0 then convert — store NULL when 0
-        $rowIdBind = $rowId !== null && $rowId > 0 ? $rowId : null;
-        $week = !empty($data['week_number']) ? (int) $data['week_number'] : null;
-        $day = !empty($data['class_day']) ? (int) $data['class_day'] : null;
+        $rowId = (int) ($data['lesson_plan_row_id'] ?? 0);
+        $week = (int) ($data['week_number'] ?? 0);
+        $day = (int) ($data['class_day'] ?? 0);
         $planned = trim((string) ($data['topic_planned'] ?? ''));
         $covered = trim((string) ($data['topic_covered'] ?? ''));
         $status = (string) ($data['status'] ?? 'completed');
@@ -690,46 +688,76 @@ if (!function_exists('saveLessonPlanDailyLog')) {
         if ($planId <= 0 || $batchId <= 0 || $logDate === '') {
             return ['success' => false, 'message' => 'Missing plan, batch, or date.'];
         }
-
-        $plannedVal = $planned !== '' ? $planned : null;
-        $coveredVal = $covered !== '' ? $covered : null;
-        $remarksVal = $remarks !== '' ? $remarks : null;
-
-        $stmt = $conn->prepare(
-            'INSERT INTO lesson_plan_daily_logs
-             (lesson_plan_id, lesson_plan_row_id, batch_id, log_date, week_number, class_day,
-              topic_planned, topic_covered, status, remarks, updated_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-               lesson_plan_row_id = VALUES(lesson_plan_row_id),
-               week_number = VALUES(week_number),
-               class_day = VALUES(class_day),
-               topic_planned = VALUES(topic_planned),
-               topic_covered = VALUES(topic_covered),
-               status = VALUES(status),
-               remarks = VALUES(remarks),
-               updated_by = VALUES(updated_by)'
-        );
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        if ($covered === '') {
+            return ['success' => false, 'message' => 'Please enter the topic covered today.'];
         }
-        $stmt->bind_param(
-            'iiisiisssss',
-            $planId,
-            $rowIdBind,
-            $batchId,
-            $logDate,
-            $week,
-            $day,
-            $plannedVal,
-            $coveredVal,
-            $status,
-            $remarksVal,
-            $updatedBy
-        );
-        $ok = $stmt->execute();
-        $err = $stmt->error;
-        $stmt->close();
+
+        // Use 0 instead of NULL for optional ints (safer with mysqli bind_param)
+        $rowIdVal = $rowId > 0 ? $rowId : 0;
+        $weekVal = $week > 0 ? $week : 0;
+        $dayVal = $day > 0 ? $day : 0;
+        $plannedVal = $planned !== '' ? $planned : '';
+        $remarksVal = $remarks !== '' ? $remarks : '';
+
+        // Prefer update-or-insert (compatible with MariaDB / older MySQL)
+        $existing = getLessonPlanDailyLog($conn, $planId, $logDate);
+        if ($existing) {
+            $stmt = $conn->prepare(
+                'UPDATE lesson_plan_daily_logs
+                 SET lesson_plan_row_id = NULLIF(?, 0), week_number = NULLIF(?, 0), class_day = NULLIF(?, 0),
+                     topic_planned = ?, topic_covered = ?, status = ?, remarks = ?, updated_by = ?
+                 WHERE lesson_plan_id = ? AND log_date = ?'
+            );
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+            }
+            $stmt->bind_param(
+                'iiisssssis',
+                $rowIdVal,
+                $weekVal,
+                $dayVal,
+                $plannedVal,
+                $covered,
+                $status,
+                $remarksVal,
+                $updatedBy,
+                $planId,
+                $logDate
+            );
+        } else {
+            $stmt = $conn->prepare(
+                'INSERT INTO lesson_plan_daily_logs
+                 (lesson_plan_id, lesson_plan_row_id, batch_id, log_date, week_number, class_day,
+                  topic_planned, topic_covered, status, remarks, updated_by)
+                 VALUES (?, NULLIF(?, 0), ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?)'
+            );
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+            }
+            $stmt->bind_param(
+                'iiisiisssss',
+                $planId,
+                $rowIdVal,
+                $batchId,
+                $logDate,
+                $weekVal,
+                $dayVal,
+                $plannedVal,
+                $covered,
+                $status,
+                $remarksVal,
+                $updatedBy
+            );
+        }
+
+        try {
+            $ok = $stmt->execute();
+            $err = $stmt->error;
+            $stmt->close();
+        } catch (Throwable $e) {
+            return ['success' => false, 'message' => 'Could not save daily update: ' . $e->getMessage()];
+        }
+
         if (!$ok) {
             return ['success' => false, 'message' => 'Could not save daily update: ' . $err];
         }
