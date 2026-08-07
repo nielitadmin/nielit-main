@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$topicInfo = getLessonPlanTopicForDate($conn, $planId, $logDate, $plan['batch_start_date'] ?? null);
+$topicInfo = getLessonPlanTopicForDate($conn, $planId, $logDate, lessonPlanEffectiveStartDate($plan));
 $existingLog = getLessonPlanDailyLog($conn, $planId, $logDate);
 
 // Timetable slots for this batch + weekday (for reference)

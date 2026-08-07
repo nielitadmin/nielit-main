@@ -51,7 +51,7 @@ if ($courseName === '' && !empty($plan['linked_course_name'])) {
 $semester = trim((string) ($plan['semester'] ?? ''));
 $faculty = trim((string) ($plan['faculty_name'] ?? ''));
 $hours = $plan['total_hours'] ?? '';
-$batchStart = $plan['batch_start_date'] ?? null;
+$batchStart = lessonPlanEffectiveStartDate($plan);
 
 $heading = 'Detailed Lesson Plan';
 if ($module !== '' || $title !== 'Detailed Lesson Plan') {

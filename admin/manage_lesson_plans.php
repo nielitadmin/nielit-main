@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'days_per_week' => (int) ($_POST['days_per_week'] ?? 5),
             'total_weeks' => (int) ($_POST['total_weeks'] ?? 16),
             'total_hours' => $_POST['total_hours'] ?? '',
+            'plan_start_date' => $_POST['plan_start_date'] ?? '',
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
             'created_by' => (string) ($_SESSION['admin'] ?? 'admin'),
         ];
@@ -195,6 +196,16 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                         <label class="form-label">Faculty Name</label>
                                         <input type="text" name="faculty_name" class="form-control" placeholder="Faculty name">
                                     </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Plan Start Date</label>
+                                        <input type="date" name="plan_start_date" class="form-control" value="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Hours</label>
+                                        <input type="number" name="total_hours" class="form-control" value="120" step="0.5" min="0">
+                                    </div>
+                                </div>
+                                <div class="row g-2 mb-2">
                                     <div class="col-md-2">
                                         <label class="form-label">Days/Week</label>
                                         <input type="number" name="days_per_week" class="form-control" value="5" min="1" max="6">
@@ -202,10 +213,6 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <div class="col-md-2">
                                         <label class="form-label">Weeks</label>
                                         <input type="number" name="total_weeks" class="form-control" value="16" min="1" max="52">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label">Hours</label>
-                                        <input type="number" name="total_hours" class="form-control" value="120" step="0.5" min="0">
                                     </div>
                                 </div>
                                 <label class="d-flex align-items-center gap-2 mb-3">

@@ -83,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'days_per_week' => (int) ($_POST['days_per_week'] ?? 5),
             'total_weeks' => (int) ($_POST['total_weeks'] ?? 16),
             'total_hours' => $_POST['total_hours'] ?? '',
+            'plan_start_date' => $_POST['plan_start_date'] ?? '',
             'notes' => $_POST['notes'] ?? '',
             'is_active' => isset($_POST['is_active']) ? 1 : 0,
             'created_by' => (string) ($_SESSION['admin'] ?? 'admin'),
@@ -114,12 +115,13 @@ $plan = getLessonPlan($conn, $planId);
 $rows = getLessonPlanRows($conn, $planId);
 $totalWeeks = max(1, (int) ($plan['total_weeks'] ?? 16));
 $daysPerWeek = max(1, min(6, (int) ($plan['days_per_week'] ?? 5)));
+$effectiveStart = lessonPlanEffectiveStartDate($plan);
 $viewMode = strtolower(trim((string) ($_GET['view'] ?? 'month')));
 if (!in_array($viewMode, ['month', 'week'], true)) {
     $viewMode = 'month';
 }
 $monthCalendar = lessonPlanBuildMonthCalendar(
-    $plan['batch_start_date'] ?? null,
+    $effectiveStart,
     $totalWeeks,
     $daysPerWeek,
     $rows
@@ -362,7 +364,19 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 <input type="number" name="total_hours" class="form-control" step="0.5" min="0"
                                        value="<?php echo htmlspecialchars((string) ($plan['total_hours'] ?? '')); ?>">
                             </div>
-                            <div class="col-md-6">
+                            <div class="col-md-3">
+                                <label class="form-label">Plan Start Date</label>
+                                <?php
+                                $startFieldVal = $plan['plan_start_date'] ?? '';
+                                if ($startFieldVal === '' || $startFieldVal === null) {
+                                    $startFieldVal = $effectiveStart ?? '';
+                                }
+                                ?>
+                                <input type="date" name="plan_start_date" class="form-control"
+                                       value="<?php echo htmlspecialchars((string) $startFieldVal); ?>">
+                                <small class="lp-muted">Used for month calendar dates</small>
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label">Notes</label>
                                 <input type="text" name="notes" class="form-control"
                                        value="<?php echo htmlspecialchars($plan['notes'] ?? ''); ?>">
@@ -395,8 +409,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     </div>
                 </div>
                 <div style="padding:1rem;" class="lp-month">
-                    <?php if (empty($plan['batch_start_date'])): ?>
-                        <div class="alert alert-warning">Set the batch start date so topics can follow the monthly calendar.</div>
+                    <?php if ($effectiveStart): ?>
+                        <p class="lp-muted mb-2">Calendar from <strong><?php echo htmlspecialchars(date('d M Y', strtotime($effectiveStart))); ?></strong>
+                            (plan start<?php echo !empty($plan['batch_start_date']) && empty($plan['plan_start_date']) ? ' via batch' : ''; ?>).</p>
+                    <?php else: ?>
+                        <p class="lp-muted mb-2">Set <strong>Plan Start Date</strong> above (or link a batch with a start date) for accurate month dates. Until then, dates use today.</p>
                     <?php endif; ?>
 
                     <form method="post">

@@ -24,6 +24,7 @@ if (!function_exists('ensureLessonPlanTables')) {
             days_per_week TINYINT NOT NULL DEFAULT 5,
             total_weeks INT NOT NULL DEFAULT 16,
             total_hours DECIMAL(8,1) NULL,
+            plan_start_date DATE NULL,
             notes TEXT NULL,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_by VARCHAR(255) NULL,
@@ -81,6 +82,11 @@ if (!function_exists('ensureLessonPlanTables')) {
         // Allow plans/logs without a batch (existing installs may still be NOT NULL)
         @$conn->query('ALTER TABLE lesson_plans MODIFY batch_id INT NULL');
         @$conn->query('ALTER TABLE lesson_plan_daily_logs MODIFY batch_id INT NULL');
+        // Optional plan start date for monthly calendar when batch is blank
+        $colCheck = $conn->query("SHOW COLUMNS FROM lesson_plans LIKE 'plan_start_date'");
+        if ($colCheck && $colCheck->num_rows === 0) {
+            @$conn->query('ALTER TABLE lesson_plans ADD COLUMN plan_start_date DATE NULL AFTER total_hours');
+        }
 
         $ready = true;
         return true;
@@ -99,6 +105,25 @@ if (!function_exists('lessonPlanOrdinal')) {
             }
         }
         return $n . $suffix;
+    }
+}
+
+if (!function_exists('lessonPlanEffectiveStartDate')) {
+    /**
+     * Prefer plan_start_date, else batch start_date. Returns Y-m-d or null.
+     * @param array<string,mixed> $plan
+     */
+    function lessonPlanEffectiveStartDate(array $plan): ?string
+    {
+        $planStart = trim((string) ($plan['plan_start_date'] ?? ''));
+        if ($planStart !== '' && strtotime($planStart)) {
+            return date('Y-m-d', strtotime($planStart));
+        }
+        $batchStart = trim((string) ($plan['batch_start_date'] ?? ''));
+        if ($batchStart !== '' && strtotime($batchStart)) {
+            return date('Y-m-d', strtotime($batchStart));
+        }
+        return null;
     }
 }
 
@@ -359,6 +384,7 @@ if (!function_exists('saveLessonPlanHeader')) {
         $daysPerWeek = max(1, min(6, (int) ($data['days_per_week'] ?? 5)));
         $totalWeeks = max(1, min(52, (int) ($data['total_weeks'] ?? 16)));
         $totalHours = isset($data['total_hours']) && $data['total_hours'] !== '' ? (float) $data['total_hours'] : null;
+        $planStartRaw = trim((string) ($data['plan_start_date'] ?? ''));
         $notes = trim((string) ($data['notes'] ?? ''));
         $isActive = !empty($data['is_active']) ? 1 : 0;
         $createdBy = trim((string) ($data['created_by'] ?? 'admin'));
@@ -368,8 +394,9 @@ if (!function_exists('saveLessonPlanHeader')) {
         }
 
         $batchIdVal = $batchId > 0 ? $batchId : 0;
+        $batchStartFromBatch = null;
         if ($batchIdVal > 0) {
-            $check = $conn->prepare('SELECT id, course_id FROM batches WHERE id = ? LIMIT 1');
+            $check = $conn->prepare('SELECT id, course_id, start_date FROM batches WHERE id = ? LIMIT 1');
             if (!$check) {
                 return ['success' => false, 'message' => 'Could not validate batch.'];
             }
@@ -383,7 +410,20 @@ if (!function_exists('saveLessonPlanHeader')) {
             if ($courseId === null && !empty($batchRow['course_id'])) {
                 $courseId = (int) $batchRow['course_id'];
             }
+            if (!empty($batchRow['start_date'])) {
+                $batchStartFromBatch = date('Y-m-d', strtotime((string) $batchRow['start_date']));
+            }
         }
+
+        // Prefer posted plan start; else inherit from batch start when available
+        $planStartDate = null;
+        if ($planStartRaw !== '' && strtotime($planStartRaw)) {
+            $planStartDate = date('Y-m-d', strtotime($planStartRaw));
+        } elseif ($batchStartFromBatch) {
+            $planStartDate = $batchStartFromBatch;
+        }
+        $planStartVal = $planStartDate ?? '';
+        $hasPlanStart = $planStartDate !== null ? 1 : 0;
 
         $facultyVal = $facultyName !== '' ? $facultyName : null;
         $courseNameVal = $courseName !== '' ? $courseName : null;
@@ -400,14 +440,14 @@ if (!function_exists('saveLessonPlanHeader')) {
                 'UPDATE lesson_plans
                  SET batch_id=NULLIF(?,0), course_id=NULLIF(?,0), faculty_id=NULLIF(?,0), faculty_name=?, course_name=?,
                      plan_title=?, module_code=?, semester=?, days_per_week=?, total_weeks=?,
-                     total_hours=IF(?=1, ?, NULL), notes=?, is_active=?
+                     total_hours=IF(?=1, ?, NULL), plan_start_date=IF(?=1, ?, NULL), notes=?, is_active=?
                  WHERE id=?'
             );
             if (!$stmt) {
                 return ['success' => false, 'message' => 'Database error: ' . $conn->error];
             }
             $stmt->bind_param(
-                'iiisssssiidisii',
+                'iiisssssiidisissi',
                 $batchIdVal,
                 $courseIdVal,
                 $facultyIdVal,
@@ -420,6 +460,8 @@ if (!function_exists('saveLessonPlanHeader')) {
                 $totalWeeks,
                 $hasHours,
                 $totalHoursVal,
+                $hasPlanStart,
+                $planStartVal,
                 $notesVal,
                 $isActive,
                 $id
@@ -436,14 +478,14 @@ if (!function_exists('saveLessonPlanHeader')) {
         $stmt = $conn->prepare(
             'INSERT INTO lesson_plans
              (batch_id, course_id, faculty_id, faculty_name, course_name, plan_title, module_code, semester,
-              days_per_week, total_weeks, total_hours, notes, is_active, created_by)
-             VALUES (NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), ?, ?, ?, ?, ?, ?, ?, IF(?=1, ?, NULL), ?, ?, ?)'
+              days_per_week, total_weeks, total_hours, plan_start_date, notes, is_active, created_by)
+             VALUES (NULLIF(?,0), NULLIF(?,0), NULLIF(?,0), ?, ?, ?, ?, ?, ?, ?, IF(?=1, ?, NULL), IF(?=1, ?, NULL), ?, ?, ?)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
         $stmt->bind_param(
-            'iiisssssiidisis',
+            'iiisssssiidisissis',
             $batchIdVal,
             $courseIdVal,
             $facultyIdVal,
@@ -456,6 +498,8 @@ if (!function_exists('saveLessonPlanHeader')) {
             $totalWeeks,
             $hasHours,
             $totalHoursVal,
+            $hasPlanStart,
+            $planStartVal,
             $notesVal,
             $isActive,
             $createdBy
@@ -711,7 +755,7 @@ if (!function_exists('getLessonPlanTopicForDate')) {
             return null;
         }
         if ($batchStart === null) {
-            $batchStart = $plan['batch_start_date'] ?? null;
+            $batchStart = lessonPlanEffectiveStartDate($plan);
         }
         $week = lessonPlanWeekNumberForDate($batchStart, $dateYmd);
         $day = lessonPlanClassDayForDate($dateYmd);
