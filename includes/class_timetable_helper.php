@@ -817,3 +817,86 @@ if (!function_exists('deleteClassTimetableSlot')) {
         ];
     }
 }
+
+if (!function_exists('clearClassTimetableForYear')) {
+    /**
+     * Year-end clear: hide all live weekly slots (weekly grid is not dated).
+     * Month-wise archived rows are kept.
+     *
+     * @return array{success:bool,message:string,cleared?:int}
+     */
+    function clearClassTimetableForYear($conn, int $year, int $centreId = 0): array
+    {
+        ensureClassTimetableTable($conn);
+        if ($year < 2000 || $year > 2100) {
+            return ['success' => false, 'message' => 'Invalid year.'];
+        }
+
+        $sql = "UPDATE class_timetable ct
+                LEFT JOIN batches b ON b.id = ct.batch_id
+                LEFT JOIN courses c ON c.id = b.course_id
+                SET ct.is_active = 0
+                WHERE ct.is_active = 1";
+        $types = '';
+        $params = [];
+
+        if ($centreId > 0) {
+            $centreName = '';
+            $nameStmt = $conn->prepare('SELECT name FROM centres WHERE id = ? LIMIT 1');
+            if ($nameStmt) {
+                $nameStmt->bind_param('i', $centreId);
+                $nameStmt->execute();
+                $nr = $nameStmt->get_result()->fetch_assoc();
+                $nameStmt->close();
+                $centreName = trim((string) ($nr['name'] ?? ''));
+            }
+            if ($centreName !== '') {
+                $sql .= ' AND (
+                    ct.centre_id = ?
+                    OR (ct.centre_id IS NULL AND c.centre_id = ?)
+                    OR (ct.centre_id IS NULL AND TRIM(COALESCE(c.training_center, \'\')) = ?)
+                )';
+                $types = 'iis';
+                $params = [$centreId, $centreId, $centreName];
+            } else {
+                $sql .= ' AND (ct.centre_id = ? OR (ct.centre_id IS NULL AND c.centre_id = ?))';
+                $types = 'ii';
+                $params = [$centreId, $centreId];
+            }
+        }
+
+        if ($types !== '') {
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+            }
+            $stmt->bind_param($types, ...$params);
+            $ok = $stmt->execute();
+            $cleared = (int) $stmt->affected_rows;
+            $err = $stmt->error;
+            $stmt->close();
+        } else {
+            $ok = $conn->query($sql);
+            $cleared = $ok ? (int) $conn->affected_rows : 0;
+            $err = $conn->error;
+        }
+
+        if (!$ok) {
+            return ['success' => false, 'message' => 'Could not clear timetable: ' . $err];
+        }
+
+        $scope = $centreId > 0 ? ' for the selected centre' : '';
+        if ($cleared < 1) {
+            return [
+                'success' => true,
+                'cleared' => 0,
+                'message' => "No live weekly slots found for {$year}{$scope}.",
+            ];
+        }
+        return [
+            'success' => true,
+            'cleared' => $cleared,
+            'message' => "Cleared {$cleared} weekly slot(s) for {$year}{$scope}. Month-wise records are kept as archived.",
+        ];
+    }
+}

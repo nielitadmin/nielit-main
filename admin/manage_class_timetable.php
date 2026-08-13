@@ -20,6 +20,7 @@ require_once __DIR__ . '/../includes/teaching_access.php';
 
 admin_require_teaching_tools();
 $canEditTimetable = admin_can_edit_class_timetable();
+$canClearTimetable = admin_can_clear_class_timetable();
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -341,8 +342,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
 
     if (!$canEditTimetable && in_array($action, ['save', 'delete'], true)) {
-        $_SESSION['message'] = 'Faculty can view the timetable but cannot change slots.';
+        $_SESSION['message'] = 'You can view the timetable but cannot change slots.';
         $_SESSION['message_type'] = 'danger';
+        header('Location: ' . $redirectUrl);
+        exit();
+    }
+
+    if ($action === 'clear_year') {
+        if (!$canClearTimetable) {
+            $_SESSION['message'] = 'Only Master Admin can clear the yearly timetable.';
+            $_SESSION['message_type'] = 'danger';
+            header('Location: ' . $redirectUrl);
+            exit();
+        }
+        $clearYear = (int) ($_POST['clear_year'] ?? date('Y'));
+        $clearCentre = (int) ($_POST['clear_centre_id'] ?? 0);
+        $result = clearClassTimetableForYear($conn, $clearYear, $clearCentre);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        if ($result['success']) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
         header('Location: ' . $redirectUrl);
         exit();
     }
@@ -570,6 +590,29 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <i class="fas fa-plus"></i> Add Slot
                         </button>
                         <?php endif; ?>
+                        <?php if ($canClearTimetable): ?>
+                        <form method="post" id="ctClearYearForm" style="margin:0;display:flex;gap:6px;align-items:center;" onsubmit="return confirmClearYear(event, this);">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                            <input type="hidden" name="action" value="clear_year">
+                            <input type="hidden" name="clear_centre_id" value="<?php echo (int) $filterCentre; ?>">
+                            <input type="hidden" name="redirect_centre_id" value="<?php echo (int) $filterCentre; ?>">
+                            <input type="hidden" name="redirect_view" value="<?php echo htmlspecialchars($viewMode); ?>">
+                            <input type="hidden" name="redirect_year" value="<?php echo (int) $ctMonthYear; ?>">
+                            <input type="hidden" name="redirect_month" value="<?php echo (int) $ctMonthMonth; ?>">
+                            <select name="clear_year" id="ct_clear_year" class="form-control form-control-sm" style="width:auto;" title="Year to clear">
+                                <?php
+                                $clearYearNow = (int) date('Y');
+                                for ($y = $clearYearNow + 1; $y >= $clearYearNow - 6; $y--) {
+                                    $sel = ($viewMode === 'month' ? $ctMonthYear : $clearYearNow) === $y ? ' selected' : '';
+                                    echo '<option value="' . $y . '"' . $sel . '>' . $y . '</option>';
+                                }
+                                ?>
+                            </select>
+                            <button type="submit" class="btn btn-danger" title="Clear all live weekly slots for year-end reset">
+                                <i class="fas fa-eraser"></i> Clear timetable
+                            </button>
+                        </form>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -793,6 +836,25 @@ function confirmDeleteSlot(e, form) {
         message: 'Remove this slot from the weekly grid? It will still appear in month-wise records.',
         type: 'danger',
         confirmText: 'Remove from weekly',
+        cancelText: 'Cancel'
+    }).then(function(confirmed) {
+        if (confirmed) {
+            form.submit();
+        }
+    });
+    return false;
+}
+
+function confirmClearYear(e, form) {
+    e.preventDefault();
+    var yearEl = form.querySelector('[name="clear_year"]');
+    var year = yearEl ? yearEl.value : '';
+    var centreHint = <?php echo json_encode($filterCentre > 0 ? ' for the selected centre' : ' for all centres'); ?>;
+    showConfirm({
+        title: 'Clear ' + year + ' timetable',
+        message: 'This will empty the weekly grid for ' + year + centreHint + '. All live slots will be removed from Weekly view. Month-wise records stay as archived. You cannot restore them from the weekly grid.',
+        type: 'danger',
+        confirmText: 'Clear ' + year,
         cancelText: 'Cancel'
     }).then(function(confirmed) {
         if (confirmed) {

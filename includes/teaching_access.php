@@ -53,6 +53,15 @@ if (!function_exists('admin_can_edit_class_timetable')) {
     }
 }
 
+if (!function_exists('admin_can_clear_class_timetable')) {
+    /** Year-end wipe: master admin only. */
+    function admin_can_clear_class_timetable(?string $role = null): bool
+    {
+        $role = $role ?? (string) ($_SESSION['admin_role'] ?? '');
+        return $role === 'master_admin';
+    }
+}
+
 if (!function_exists('admin_can_manage_lesson_plans')) {
     /** Create / edit / delete course action plan headers and topic grids. */
     function admin_can_manage_lesson_plans(?string $role = null): bool
