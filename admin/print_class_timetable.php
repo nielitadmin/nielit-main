@@ -310,27 +310,29 @@ $renderPageFooter = static function () use ($renderLegends, $monthLabel, $isMont
         .ct-meta { display: block; font-size: 7.5px; font-weight: 500; color: #475569; }
         .print-hint { margin-right: auto; color: #334155; font-size: 0.85rem; align-self: center; }
         .legend { margin-top: 5px; font-size: 9px; line-height: 1.3; color: #334155; }
-        .ct-footer { margin-top: 8px; }
+        .ct-footer { margin-top: 8px; padding-bottom: 8px; }
         .footer-note { margin: 0 0 8px; font-size: 8px; color: #64748b; text-align: center; }
         .ct-signs {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
+            gap: 16px;
             margin-top: 18px;
             text-align: center;
             font-size: 10px;
         }
+        .ct-signs > div { min-height: 58px; }
         .ct-signs .line {
-            border-top: 1px solid #0f172a;
-            margin: 0 auto 4px;
-            width: 70%;
-            padding-top: 4px;
+            border-bottom: 1px solid #0f172a;
+            border-top: 0;
+            margin: 0 auto 6px;
+            width: 80%;
+            height: 28px;
         }
         .ct-signs strong { display: block; }
         .ct-signs span { color: #64748b; font-size: 8.5px; }
         @page {
             size: 297mm 210mm; /* A4 landscape */
-            margin: 6mm;
+            margin: 8mm 8mm 14mm 8mm;
         }
         @media print {
             html, body {
@@ -408,12 +410,24 @@ $renderPageFooter = static function () use ($renderLegends, $monthLabel, $isMont
             .ct-meta { font-size: 8.5px; }
             .legend { font-size: 9px; margin-top: 4px; }
             .ct-footer {
-                margin-top: 10px;
-                padding-top: 6px;
+                margin-top: 12px;
+                padding-top: 8px;
+                padding-bottom: 10mm;
                 page-break-inside: avoid;
+                break-inside: avoid;
             }
-            .footer-note { font-size: 9px; margin-bottom: 8px; }
-            .ct-signs { margin-top: 12px; font-size: 11px; }
+            .footer-note { font-size: 9px; margin-bottom: 10px; }
+            .ct-signs {
+                margin-top: 14px;
+                font-size: 11px;
+                gap: 20px;
+            }
+            .ct-signs > div { min-height: 72px; }
+            .ct-signs .line {
+                height: 32px;
+                width: 85%;
+                margin-bottom: 8px;
+            }
         }
     </style>
 </head>
