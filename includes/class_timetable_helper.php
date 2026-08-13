@@ -820,8 +820,7 @@ if (!function_exists('deleteClassTimetableSlot')) {
 
 if (!function_exists('clearClassTimetableForYear')) {
     /**
-     * Year-end clear: hide all live weekly slots from Weekly and Month-wise grids.
-     * Soft-deleted rows remain in the database and can be shown with "Show archived".
+     * Permanently delete live and archived timetable slots (optional centre filter).
      *
      * @return array{success:bool,message:string,cleared?:int}
      */
@@ -832,11 +831,10 @@ if (!function_exists('clearClassTimetableForYear')) {
             return ['success' => false, 'message' => 'Invalid year.'];
         }
 
-        $sql = "UPDATE class_timetable ct
+        $sql = "DELETE ct FROM class_timetable ct
                 LEFT JOIN batches b ON b.id = ct.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
-                SET ct.is_active = 0
-                WHERE ct.is_active = 1";
+                WHERE 1=1";
         $types = '';
         $params = [];
 
@@ -890,13 +888,13 @@ if (!function_exists('clearClassTimetableForYear')) {
             return [
                 'success' => true,
                 'cleared' => 0,
-                'message' => "No live slots found{$scope}. The timetable is already empty.",
+                'message' => "No timetable slots found{$scope}. Already empty.",
             ];
         }
         return [
             'success' => true,
             'cleared' => $cleared,
-            'message' => "Cleared {$cleared} slot(s){$scope}. Weekly and Month-wise views are now empty. Use Show archived on Month-wise to see old classes.",
+            'message' => "Deleted {$cleared} slot(s){$scope}, including archived records. This cannot be undone.",
         ];
     }
 }

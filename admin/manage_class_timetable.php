@@ -623,7 +623,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 }
                                 ?>
                             </select>
-                            <button type="submit" class="btn btn-danger" title="Clear live slots from Weekly and Month-wise views">
+                            <button type="submit" class="btn btn-danger" title="Permanently delete live and archived timetable slots">
                                 <i class="fas fa-eraser"></i> Clear timetable
                             </button>
                         </form>
@@ -635,8 +635,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <?php if ($viewMode === 'month'): ?>
                         <?php if (!$showArchived): ?>
                         <p class="ct-muted" style="margin: 0 0 12px;">
-                            This shows the live timetable on calendar dates. After <strong>Clear timetable</strong> this grid is empty.
-                            Tick <strong>Show archived</strong> to see classes that were cleared.
+                            This shows the live timetable on calendar dates.
+                            <strong>Clear timetable</strong> permanently deletes live and archived classes.
                         </p>
                         <?php endif; ?>
                         <?php
@@ -877,7 +877,7 @@ function confirmClearYear(e, form) {
     var centreHint = <?php echo json_encode($filterCentre > 0 ? ' for the selected centre' : ' for all centres'); ?>;
     showConfirm({
         title: 'Clear ' + year + ' timetable',
-        message: 'This will empty the live timetable' + centreHint + ' for Weekly and Month-wise views. Cleared classes are kept in the database; tick Show archived on Month-wise if you need to see them again.',
+        message: 'This will permanently delete all live and archived timetable slots' + centreHint + '. Weekly and Month-wise will be empty. This cannot be undone.',
         type: 'danger',
         confirmText: 'Clear ' + year,
         cancelText: 'Cancel'
