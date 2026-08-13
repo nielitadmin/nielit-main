@@ -248,11 +248,6 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             </a>
         </div>
         <div class="nav-item">
-            <a href="<?php echo app_url('admin/reset_password'); ?>" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
-                <i class="fas fa-key"></i> Reset Password
-            </a>
-        </div>
-        <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_course_assignments'); ?>" class="nav-link <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
                 <i class="fas fa-user-tie"></i> Course Assignments
             </a>
@@ -288,7 +283,15 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         
         
         <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
-        <!-- This section is now empty as Reset Password moved to Master Admin section -->
+        <!-- This section is now empty as Reset Password moved to shared section -->
+        <?php endif; ?>
+
+        <?php if ($is_master_admin || $is_course_coordinator || $is_faculty): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/reset_password'); ?>" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
+                <i class="fas fa-key"></i> Reset Password
+            </a>
+        </div>
         <?php endif; ?>
 
         <?php

@@ -5,16 +5,27 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
+require_once __DIR__ . '/../includes/session_manager.php';
 
 if (!isset($_SESSION['admin']) || !isset($_SESSION['admin_role'])) {
     header("Location: login.php");
     exit();
 }
 
+$role = (string) ($_SESSION['admin_role'] ?? '');
+$canResetPasswords = in_array($role, ['master_admin', 'course_coordinator', 'faculty'], true);
+if (!$canResetPasswords) {
+    $_SESSION['message'] = 'Access denied.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: ' . (function_exists('get_admin_post_login_url') ? get_admin_post_login_url($role) : 'dashboard.php'));
+    exit();
+}
+
 $message = "";
 $new_password = "";
 $reset_type = $_POST['reset_type'] ?? 'student'; // 'student' or 'admin'
-$is_master_admin = ($_SESSION['admin_role'] === 'master_admin');
+$is_master_admin = ($role === 'master_admin');
+$backUrl = function_exists('get_admin_post_login_url') ? get_admin_post_login_url($role) : 'dashboard.php';
 
 function generateRandomPassword($length = 16) {
     return bin2hex(random_bytes($length / 2));
@@ -164,7 +175,7 @@ $active_theme = loadActiveTheme($conn);
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-key"></i> Reset Student Password</h4>
-                <small>Generate new password for student account</small>
+                <small>Generate a new password for a student account</small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -212,12 +223,13 @@ $active_theme = loadActiveTheme($conn);
                     <h5 class="card-title">
                         <i class="fas fa-key"></i> Reset Password
                     </h5>
-                    <a href="dashboard.php" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    <a href="<?php echo htmlspecialchars($backUrl); ?>" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back
                     </a>
                 </div>
                 
                 <form method="POST" action="">
+                    <input type="hidden" name="reset_type" value="student">
                     <div class="form-group">
                         <label class="form-label">
                             <i class="fas fa-id-card"></i> Student ID *
@@ -232,7 +244,7 @@ $active_theme = loadActiveTheme($conn);
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-sync-alt"></i> Reset Password
                         </button>
-                        <a href="dashboard.php" class="btn btn-secondary">
+                        <a href="<?php echo htmlspecialchars($backUrl); ?>" class="btn btn-secondary">
                             <i class="fas fa-times"></i> Cancel
                         </a>
                     </div>
