@@ -172,6 +172,35 @@ $renderLegends = static function () use ($facultyDisplayMap, $legends, $courseNa
         echo '<div class="legend"><strong>Courses:</strong> ' . implode(', ', $courseParts) . '</div>';
     }
 };
+
+$renderPageFooter = static function () use ($renderLegends, $monthLabel, $isMonth): void {
+    $renderLegends();
+    ?>
+    <div class="ct-footer">
+        <p class="footer-note">
+            Monday–Friday · Saturday &amp; Sunday are holidays
+            <?php if ($isMonth): ?> · <?php echo htmlspecialchars($monthLabel); ?><?php endif; ?>
+        </p>
+        <div class="ct-signs">
+            <div>
+                <div class="line"></div>
+                <strong>Faculty</strong>
+                <span>Signature &amp; Date</span>
+            </div>
+            <div>
+                <div class="line"></div>
+                <strong>Course Coordinator</strong>
+                <span>Signature &amp; Date</span>
+            </div>
+            <div>
+                <div class="line"></div>
+                <strong>Centre In-Charge</strong>
+                <span>Signature &amp; Date</span>
+            </div>
+        </div>
+    </div>
+    <?php
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -279,19 +308,33 @@ $renderLegends = static function () use ($facultyDisplayMap, $legends, $courseNa
         .ct-entry { display: block; font-weight: 700; font-size: 8.5px; }
         .ct-meta { display: block; font-size: 7.5px; font-weight: 500; color: #475569; }
         .legend { margin-top: 5px; font-size: 9px; line-height: 1.3; color: #334155; }
-        .footer-note { margin-top: 4px; font-size: 8px; color: #64748b; text-align: center; }
+        .ct-footer { margin-top: 8px; }
+        .footer-note { margin: 0 0 8px; font-size: 8px; color: #64748b; text-align: center; }
+        .ct-signs {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 18px;
+            text-align: center;
+            font-size: 10px;
+        }
+        .ct-signs .line {
+            border-top: 1px solid #0f172a;
+            margin: 0 auto 4px;
+            width: 70%;
+            padding-top: 4px;
+        }
+        .ct-signs strong { display: block; }
+        .ct-signs span { color: #64748b; font-size: 8.5px; }
         @page {
             size: 297mm 210mm; /* A4 landscape */
-            margin: 4mm;
+            margin: 6mm;
         }
         @media print {
             html, body {
                 background: #fff !important;
                 padding: 0 !important;
                 margin: 0 !important;
-                width: 100% !important;
-                height: auto !important;
-                overflow: hidden !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -299,200 +342,207 @@ $renderLegends = static function () use ($facultyDisplayMap, $legends, $courseNa
             .print-fit-wrap {
                 max-width: none !important;
                 margin: 0 !important;
-                overflow: hidden !important;
+                page-break-after: always;
+                break-after: page;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .print-fit-wrap:last-of-type {
+                page-break-after: auto !important;
+                break-after: auto !important;
             }
             .sheet {
                 max-width: none !important;
                 width: 100% !important;
+                height: 198mm;
+                max-height: 198mm;
                 box-shadow: none !important;
-                padding: 2mm 3mm !important;
+                padding: 3mm 4mm !important;
                 margin: 0 !important;
+                display: flex;
+                flex-direction: column;
                 page-break-after: auto !important;
-                break-after: auto !important;
                 page-break-inside: avoid !important;
-                break-inside: avoid !important;
             }
-            .lh-header { margin-bottom: 2px; gap: 6px; }
-            .lh-header img { height: 26px; }
-            .lh-text .hi { font-size: 10px; }
-            .lh-text .en { font-size: 9px; }
-            .lh-text .centre { font-size: 8px; }
-            .lh-text .tag { font-size: 6.5px; }
-            .lh-rule { margin: 2px 0 3px; }
-            .doc-title { font-size: 10px; margin: 0 0 1px; }
-            .doc-meta { font-size: 7px; margin: 0 0 3px; }
-            .week-block { margin-bottom: 2.5mm; page-break-inside: avoid; }
-            .week-title { font-size: 8px; margin: 0 0 2px; padding: 1px 5px; }
-            .ct-sheet { font-size: 6.5px; }
-            .ct-sheet th, .ct-sheet td { padding: 1px; }
-            .ct-sheet thead th { font-size: 6px; padding: 2px 1px; }
-            .ct-day-col { width: 58px; font-size: 7px; }
-            .ct-day-date { font-size: 6px; }
-            .ct-entry { font-size: 6.5px; }
-            .ct-meta { font-size: 5.5px; }
-            .legend { font-size: 6.5px; margin-top: 2px; }
-            .footer-note { font-size: 6px; margin-top: 2px; }
+            .lh-header { margin-bottom: 2px; gap: 8px; flex: 0 0 auto; }
+            .lh-header img { height: 36px; }
+            .lh-text .hi { font-size: 12px; }
+            .lh-text .en { font-size: 11px; }
+            .lh-text .centre { font-size: 10px; }
+            .lh-text .tag { font-size: 8px; }
+            .lh-rule { margin: 3px 0 5px; }
+            .doc-title { font-size: 13px; margin: 0 0 2px; }
+            .doc-meta { font-size: 9px; margin: 0 0 5px; }
+            .week-title { font-size: 11px; margin: 0 0 4px; padding: 3px 8px; }
+            .ct-table-wrap { flex: 1 1 auto; display: flex; }
+            .ct-sheet { font-size: 9px; height: 100%; }
+            .ct-sheet th, .ct-sheet td { padding: 4px 3px; }
+            .ct-sheet thead th { font-size: 8.5px; padding: 5px 3px; }
+            .ct-sheet tbody tr { height: 18%; }
+            .ct-day-col { width: 90px; font-size: 10px; }
+            .ct-day-date { font-size: 8px; }
+            .ct-entry { font-size: 9.5px; }
+            .ct-meta { font-size: 8px; }
+            .legend { font-size: 8.5px; margin-top: 4px; }
+            .ct-footer { margin-top: auto; padding-top: 4px; flex: 0 0 auto; }
+            .footer-note { font-size: 8px; margin-bottom: 6px; }
+            .ct-signs { margin-top: 10px; font-size: 10px; }
         }
     </style>
 </head>
 <body>
     <div class="toolbar no-print">
         <a class="btn btn-back" href="<?php echo htmlspecialchars($backUrl); ?>">← Back</a>
-        <button type="button" class="btn btn-print" id="btnPrintTimetable">🖨 Print A4 Landscape (1 page)</button>
+        <button type="button" class="btn btn-print" id="btnPrintTimetable">🖨 Print A4 Landscape (1 week / page)</button>
     </div>
 
-    <div class="print-fit-wrap">
     <?php if ($isMonth && !empty($weeks)): ?>
-        <div class="sheet print-page" id="print-sheet">
-            <?php $renderHeader(); ?>
-            <h1 class="doc-title">Month-wise Class Timetable — <?php echo htmlspecialchars($monthLabel); ?></h1>
-            <p class="doc-meta">
-                <strong>Centre:</strong> <?php echo htmlspecialchars($centreName); ?>
-                &nbsp;|&nbsp; <strong>Printed:</strong> <?php echo date('d M Y, h:i A'); ?>
-                &nbsp;|&nbsp; <strong>Slots:</strong> <?php echo count($slots); ?>
-            </p>
-            <?php foreach ($weeks as $wi => $weekDays): ?>
-                <?php
-                $weekNum = $wi + 1;
-                $dateNums = array_map(static function ($info) {
-                    return (int) $info['day'];
-                }, $weekDays);
-                $rangeText = '';
-                if (!empty($dateNums)) {
-                    $firstTs = mktime(0, 0, 0, $ctMonthMonth, min($dateNums), $ctMonthYear);
-                    $lastTs = mktime(0, 0, 0, $ctMonthMonth, max($dateNums), $ctMonthYear);
-                    $rangeText = date('j M', $firstTs) . ' – ' . date('j M Y', $lastTs);
-                }
-                ?>
-                <div class="week-block">
+        <?php foreach ($weeks as $wi => $weekDays): ?>
+            <?php
+            $weekNum = $wi + 1;
+            $dateNums = array_map(static function ($info) {
+                return (int) $info['day'];
+            }, $weekDays);
+            $rangeText = '';
+            if (!empty($dateNums)) {
+                $firstTs = mktime(0, 0, 0, $ctMonthMonth, min($dateNums), $ctMonthYear);
+                $lastTs = mktime(0, 0, 0, $ctMonthMonth, max($dateNums), $ctMonthYear);
+                $rangeText = date('j M', $firstTs) . ' – ' . date('j M Y', $lastTs);
+            }
+            ?>
+            <div class="print-fit-wrap">
+                <div class="sheet print-page">
+                    <?php $renderHeader(); ?>
+                    <h1 class="doc-title">Month-wise Class Timetable — <?php echo htmlspecialchars($monthLabel); ?></h1>
+                    <p class="doc-meta">
+                        <strong>Centre:</strong> <?php echo htmlspecialchars($centreName); ?>
+                        &nbsp;|&nbsp; <strong>Week <?php echo $weekNum; ?>:</strong> <?php echo htmlspecialchars($rangeText !== '' ? $rangeText : ('Week ' . $weekNum)); ?>
+                        &nbsp;|&nbsp; <strong>Printed:</strong> <?php echo date('d M Y, h:i A'); ?>
+                    </p>
                     <div class="week-title">Week <?php echo $weekNum; ?><?php echo $rangeText !== '' ? ' — ' . htmlspecialchars($rangeText) : ''; ?></div>
+                    <div class="ct-table-wrap">
+                        <table class="ct-sheet">
+                            <thead>
+                                <tr>
+                                    <th class="ct-day-col">Day / Date</th>
+                                    <?php foreach ($periods as $period): ?>
+                                        <th><?php echo htmlspecialchars($period['short']); ?></th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php for ($dow = 1; $dow <= 5; $dow++): ?>
+                                    <?php
+                                    $dayInfo = $weekDays[$dow] ?? null;
+                                    if ($dayInfo === null) {
+                                        continue;
+                                    }
+                                    $dayName = $days[$dow] ?? date('l', strtotime($dayInfo['date']));
+                                    ?>
+                                    <tr>
+                                        <th class="ct-day-col" scope="row">
+                                            <?php echo htmlspecialchars($dayName); ?>
+                                            <span class="ct-day-date"><?php echo htmlspecialchars(date('j M Y', strtotime($dayInfo['date']))); ?></span>
+                                        </th>
+                                        <?php foreach ($periods as $period): ?>
+                                            <?php
+                                            $printCellSlots = $grid[$dow][$period['key']] ?? [];
+                                            if (!empty($dayInfo['date'])) {
+                                                $printCellSlots = classTimetableFilterSlotsForDate($printCellSlots, (string) $dayInfo['date']);
+                                            }
+                                            echo $renderCell($printCellSlots);
+                                            ?>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endfor; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php $renderPageFooter(); ?>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    <?php else: ?>
+        <div class="print-fit-wrap">
+            <div class="sheet print-page" id="print-sheet">
+                <?php $renderHeader(); ?>
+                <h1 class="doc-title">Weekly Class Timetable</h1>
+                <p class="doc-meta">
+                    <strong>Centre:</strong> <?php echo htmlspecialchars($centreName); ?>
+                    &nbsp;|&nbsp; <strong>Printed:</strong> <?php echo date('d M Y, h:i A'); ?>
+                    &nbsp;|&nbsp; <strong>Slots:</strong> <?php echo count($slots); ?>
+                </p>
+                <div class="ct-table-wrap">
                     <table class="ct-sheet">
                         <thead>
                             <tr>
-                                <th class="ct-day-col">Day / Date</th>
+                                <th class="ct-day-col">Day</th>
                                 <?php foreach ($periods as $period): ?>
                                     <th><?php echo htmlspecialchars($period['short']); ?></th>
                                 <?php endforeach; ?>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php for ($dow = 1; $dow <= 5; $dow++): ?>
-                                <?php
-                                $dayInfo = $weekDays[$dow] ?? null;
-                                if ($dayInfo === null) {
-                                    continue;
-                                }
-                                $dayName = $days[$dow] ?? date('l', strtotime($dayInfo['date']));
-                                ?>
+                            <?php foreach ($days as $dayNum => $dayName): ?>
                                 <tr>
-                                    <th class="ct-day-col" scope="row">
-                                        <?php echo htmlspecialchars($dayName); ?>
-                                        <span class="ct-day-date"><?php echo htmlspecialchars(date('j M Y', strtotime($dayInfo['date']))); ?></span>
-                                    </th>
+                                    <th class="ct-day-col" scope="row"><?php echo htmlspecialchars($dayName); ?></th>
                                     <?php foreach ($periods as $period): ?>
-                                        <?php
-                                        $printCellSlots = $grid[$dow][$period['key']] ?? [];
-                                        if (!empty($dayInfo['date'])) {
-                                            $printCellSlots = classTimetableFilterSlotsForDate($printCellSlots, (string) $dayInfo['date']);
-                                        }
-                                        echo $renderCell($printCellSlots);
-                                        ?>
+                                        <?php echo $renderCell($grid[$dayNum][$period['key']] ?? []); ?>
                                     <?php endforeach; ?>
                                 </tr>
-                            <?php endfor; ?>
+                            <?php endforeach; ?>
                         </tbody>
                     </table>
                 </div>
-            <?php endforeach; ?>
-            <?php $renderLegends(); ?>
-            <p class="footer-note">Monday–Friday · Saturday &amp; Sunday are holidays · <?php echo htmlspecialchars($monthLabel); ?> · Print on A4 Landscape (1 page)</p>
-        </div>
-    <?php else: ?>
-        <div class="sheet print-page" id="print-sheet">
-            <?php $renderHeader(); ?>
-            <h1 class="doc-title">Weekly Class Timetable</h1>
-            <p class="doc-meta">
-                <strong>Centre:</strong> <?php echo htmlspecialchars($centreName); ?>
-                &nbsp;|&nbsp; <strong>Printed:</strong> <?php echo date('d M Y, h:i A'); ?>
-                &nbsp;|&nbsp; <strong>Slots:</strong> <?php echo count($slots); ?>
-            </p>
-            <table class="ct-sheet">
-                <thead>
-                    <tr>
-                        <th class="ct-day-col">Day</th>
-                        <?php foreach ($periods as $period): ?>
-                            <th><?php echo htmlspecialchars($period['short']); ?></th>
-                        <?php endforeach; ?>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($days as $dayNum => $dayName): ?>
-                        <tr>
-                            <th class="ct-day-col" scope="row"><?php echo htmlspecialchars($dayName); ?></th>
-                            <?php foreach ($periods as $period): ?>
-                                <?php echo $renderCell($grid[$dayNum][$period['key']] ?? []); ?>
-                            <?php endforeach; ?>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-            <?php $renderLegends(); ?>
-            <p class="footer-note">Monday–Friday schedule · Saturday &amp; Sunday are holidays · Print on A4 Landscape (1 page)</p>
+                <?php $renderPageFooter(); ?>
+            </div>
         </div>
     <?php endif; ?>
-    </div>
 
     <script>
         function resetPrintFit() {
-            var wrap = document.querySelector('.print-fit-wrap');
-            var sheet = document.querySelector('.print-page');
-            if (wrap) {
+            document.querySelectorAll('.print-fit-wrap').forEach(function (wrap) {
                 wrap.style.height = '';
                 wrap.style.width = '';
                 wrap.style.overflow = '';
-            }
-            if (sheet) {
+            });
+            document.querySelectorAll('.print-page').forEach(function (sheet) {
                 sheet.style.transform = '';
                 sheet.style.transformOrigin = '';
                 sheet.style.width = '';
                 sheet.style.zoom = '';
-            }
+            });
             document.documentElement.style.zoom = '';
         }
 
         function fitPagesForPrint() {
             resetPrintFit();
-            var wrap = document.querySelector('.print-fit-wrap');
-            var sheet = document.querySelector('.print-page');
-            if (!wrap || !sheet) {
-                return;
-            }
-
-            // A4 landscape printable area (~297×210mm minus 4mm margins) at 96dpi
-            var maxW = 1090;
-            var maxH = 740;
-            var w = Math.max(sheet.scrollWidth, sheet.offsetWidth, 1);
-            var h = Math.max(sheet.scrollHeight, sheet.offsetHeight, 1);
-            var scale = Math.min(1, maxW / w, maxH / h) * 0.98;
-            if (scale > 0.995) {
-                return;
-            }
-            scale = Math.max(0.4, scale);
-
-            var scaledH = Math.ceil(h * scale);
-            var scaledW = Math.ceil(w * scale);
-            wrap.style.overflow = 'hidden';
-            wrap.style.height = scaledH + 'px';
-            wrap.style.width = '100%';
-
-            var zoomSupported = ('zoom' in sheet.style);
-            if (zoomSupported) {
-                sheet.style.zoom = String(scale);
-            } else {
-                sheet.style.transformOrigin = 'top left';
-                sheet.style.transform = 'scale(' + scale.toFixed(3) + ')';
-                wrap.style.width = scaledW + 'px';
-            }
+            // A4 landscape printable area (~297×210mm minus 6mm margins) at 96dpi
+            var maxW = 1075;
+            var maxH = 730;
+            document.querySelectorAll('.print-fit-wrap').forEach(function (wrap) {
+                var sheet = wrap.querySelector('.print-page');
+                if (!sheet) {
+                    return;
+                }
+                var w = Math.max(sheet.scrollWidth, sheet.offsetWidth, 1);
+                var h = Math.max(sheet.scrollHeight, sheet.offsetHeight, 1);
+                var scale = Math.min(1, maxW / w, maxH / h) * 0.98;
+                if (scale > 0.995) {
+                    return;
+                }
+                scale = Math.max(0.55, scale);
+                wrap.style.overflow = 'hidden';
+                wrap.style.height = Math.ceil(h * scale) + 'px';
+                wrap.style.width = '100%';
+                if ('zoom' in sheet.style) {
+                    sheet.style.zoom = String(scale);
+                } else {
+                    sheet.style.transformOrigin = 'top left';
+                    sheet.style.transform = 'scale(' + scale.toFixed(3) + ')';
+                    wrap.style.width = Math.ceil(w * scale) + 'px';
+                }
+            });
         }
 
         function printTimetable() {
