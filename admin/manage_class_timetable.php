@@ -45,12 +45,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         $exportYear = (int) date('Y');
     }
 
-    // Month export keeps soft-deleted slots; weekly export is live grid only
+    // Live grid only unless month view explicitly asks for archived history
     $exportSlots = listClassTimetableAdmin(
         $conn,
         null,
         $exportCentre > 0 ? $exportCentre : null,
-        $exportView !== 'month'
+        empty($_GET['show_archived']) || (string) $_GET['show_archived'] !== '1'
     );
     $built = classTimetableBuildGrid($exportSlots);
     $periods = $built['periods'];
@@ -296,6 +296,7 @@ $viewMode = strtolower(trim((string) ($_GET['view'] ?? 'week')));
 if (!in_array($viewMode, ['week', 'month'], true)) {
     $viewMode = 'week';
 }
+$showArchived = isset($_GET['show_archived']) && (string) $_GET['show_archived'] === '1';
 $ctMonthYear = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
 $ctMonthMonth = isset($_GET['month']) ? (int) $_GET['month'] : (int) date('n');
 if ($ctMonthMonth < 1 || $ctMonthMonth > 12) {
@@ -317,6 +318,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['redirect_month'])) {
         $ctMonthMonth = (int) $_POST['redirect_month'];
     }
+    if (isset($_POST['redirect_show_archived'])) {
+        $showArchived = (string) $_POST['redirect_show_archived'] === '1';
+    }
 }
 
 $redirectQs = [];
@@ -327,6 +331,9 @@ if ($viewMode === 'month') {
     $redirectQs['view'] = 'month';
     $redirectQs['year'] = $ctMonthYear;
     $redirectQs['month'] = $ctMonthMonth;
+    if ($showArchived) {
+        $redirectQs['show_archived'] = 1;
+    }
 }
 $redirectUrl = 'manage_class_timetable.php' . (!empty($redirectQs) ? ('?' . http_build_query($redirectQs)) : '');
 
@@ -363,7 +370,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($result['success']) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
-        header('Location: ' . $redirectUrl);
+        unset($redirectQs['show_archived']);
+        $clearRedirect = 'manage_class_timetable.php' . (!empty($redirectQs) ? ('?' . http_build_query($redirectQs)) : '');
+        header('Location: ' . $clearRedirect);
         exit();
     }
 
@@ -459,12 +468,12 @@ if ($batchRes) {
     }
 }
 
-// Week = active only; month-wise = include slots removed from weekly (soft-deleted)
+// Week is always live slots. Month-wise is live too, unless Show archived is on.
 $slots = listClassTimetableAdmin(
     $conn,
     $filterBatch > 0 ? $filterBatch : null,
     $filterCentre > 0 ? $filterCentre : null,
-    $viewMode !== 'month'
+    !($viewMode === 'month' && $showArchived)
 );
 $dayLabels = classTimetableDayLabels();
 
@@ -552,6 +561,10 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <?php if ($viewMode === 'month'): ?>
                                 <input type="hidden" name="year" value="<?php echo (int) $ctMonthYear; ?>">
                                 <input type="hidden" name="month" value="<?php echo (int) $ctMonthMonth; ?>">
+                                <label class="ct-muted" style="margin:0;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                                    <input type="checkbox" name="show_archived" value="1" <?php echo $showArchived ? 'checked' : ''; ?> onchange="this.form.submit()">
+                                    Show archived
+                                </label>
                             <?php endif; ?>
                             <select name="centre_id" class="form-control" style="min-width:180px;" onchange="this.form.submit()">
                                 <option value="0">All centres</option>
@@ -568,6 +581,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 'view' => $viewMode,
                                 'year' => $viewMode === 'month' ? $ctMonthYear : null,
                                 'month' => $viewMode === 'month' ? $ctMonthMonth : null,
+                                'show_archived' => ($viewMode === 'month' && $showArchived) ? 1 : null,
                                 'export' => 'excel',
                             ]));
                         ?>" title="<?php echo $viewMode === 'month' ? 'Download full month Excel (all weeks with dates)' : 'Download weekly Excel timetable'; ?>">
@@ -580,6 +594,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 'view' => $viewMode,
                                 'year' => $viewMode === 'month' ? $ctMonthYear : null,
                                 'month' => $viewMode === 'month' ? $ctMonthMonth : null,
+                                'show_archived' => ($viewMode === 'month' && $showArchived) ? 1 : null,
                             ]));
                            ?>"
                            title="<?php echo $viewMode === 'month' ? 'Print month-wise timetable (each week with dates)' : 'Print weekly timetable with logo and header'; ?>">
@@ -608,7 +623,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 }
                                 ?>
                             </select>
-                            <button type="submit" class="btn btn-danger" title="Clear all live weekly slots for year-end reset">
+                            <button type="submit" class="btn btn-danger" title="Clear live slots from Weekly and Month-wise views">
                                 <i class="fas fa-eraser"></i> Clear timetable
                             </button>
                         </form>
@@ -618,9 +633,18 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
                 <div style="padding: 0 1rem 1rem;">
                     <?php if ($viewMode === 'month'): ?>
+                        <?php if (!$showArchived): ?>
+                        <p class="ct-muted" style="margin: 0 0 12px;">
+                            This shows the live timetable on calendar dates. After <strong>Clear timetable</strong> this grid is empty.
+                            Tick <strong>Show archived</strong> to see classes that were cleared.
+                        </p>
+                        <?php endif; ?>
                         <?php
                         $ctMonthBaseUrl = 'manage_class_timetable.php';
-                        $ctMonthQuery = array_filter(['centre_id' => $filterCentre ?: null]);
+                        $ctMonthQuery = array_filter([
+                            'centre_id' => $filterCentre ?: null,
+                            'show_archived' => $showArchived ? 1 : null,
+                        ]);
                         $ctMonthEditable = $canEditTimetable;
                         $ctGridFilterBatch = 0;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
@@ -660,6 +684,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 <input type="hidden" name="redirect_view" value="<?php echo htmlspecialchars($viewMode); ?>">
                 <input type="hidden" name="redirect_year" value="<?php echo (int) $ctMonthYear; ?>">
                 <input type="hidden" name="redirect_month" value="<?php echo (int) $ctMonthMonth; ?>">
+                <input type="hidden" name="redirect_show_archived" value="<?php echo $showArchived ? '1' : '0'; ?>">
 
                 <div class="modal-header">
                     <h5 class="modal-title" id="slotModalTitle">Add Timetable Slot</h5>
@@ -852,7 +877,7 @@ function confirmClearYear(e, form) {
     var centreHint = <?php echo json_encode($filterCentre > 0 ? ' for the selected centre' : ' for all centres'); ?>;
     showConfirm({
         title: 'Clear ' + year + ' timetable',
-        message: 'This will empty the weekly grid for ' + year + centreHint + '. All live slots will be removed from Weekly view. Month-wise records stay as archived. You cannot restore them from the weekly grid.',
+        message: 'This will empty the live timetable' + centreHint + ' for Weekly and Month-wise views. Cleared classes are kept in the database; tick Show archived on Month-wise if you need to see them again.',
         type: 'danger',
         confirmText: 'Clear ' + year,
         cancelText: 'Cancel'

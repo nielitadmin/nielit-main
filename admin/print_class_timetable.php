@@ -33,6 +33,7 @@ if ($ctMonthMonth < 1 || $ctMonthMonth > 12) {
 if ($ctMonthYear < 2000 || $ctMonthYear > 2100) {
     $ctMonthYear = (int) date('Y');
 }
+$showArchived = isset($_GET['show_archived']) && (string) $_GET['show_archived'] === '1';
 $autoPrint = !isset($_GET['noprint']);
 $isMonth = ($viewMode === 'month');
 
@@ -40,7 +41,7 @@ $slots = listClassTimetableAdmin(
     $conn,
     null,
     $filterCentre > 0 ? $filterCentre : null,
-    !$isMonth
+    !($isMonth && $showArchived)
 );
 $built = classTimetableBuildGrid($slots);
 $days = $built['days'];
@@ -112,6 +113,7 @@ $backQs = array_filter([
     'view' => $isMonth ? 'month' : null,
     'year' => $isMonth ? $ctMonthYear : null,
     'month' => $isMonth ? $ctMonthMonth : null,
+    'show_archived' => ($isMonth && $showArchived) ? 1 : null,
 ]);
 $backUrl = 'manage_class_timetable.php' . (!empty($backQs) ? ('?' . http_build_query($backQs)) : '');
 

@@ -820,8 +820,8 @@ if (!function_exists('deleteClassTimetableSlot')) {
 
 if (!function_exists('clearClassTimetableForYear')) {
     /**
-     * Year-end clear: hide all live weekly slots (weekly grid is not dated).
-     * Month-wise archived rows are kept.
+     * Year-end clear: hide all live weekly slots from Weekly and Month-wise grids.
+     * Soft-deleted rows remain in the database and can be shown with "Show archived".
      *
      * @return array{success:bool,message:string,cleared?:int}
      */
@@ -890,13 +890,13 @@ if (!function_exists('clearClassTimetableForYear')) {
             return [
                 'success' => true,
                 'cleared' => 0,
-                'message' => "No live weekly slots found for {$year}{$scope}.",
+                'message' => "No live slots found{$scope}. The timetable is already empty.",
             ];
         }
         return [
             'success' => true,
             'cleared' => $cleared,
-            'message' => "Cleared {$cleared} weekly slot(s) for {$year}{$scope}. Month-wise records are kept as archived.",
+            'message' => "Cleared {$cleared} slot(s){$scope}. Weekly and Month-wise views are now empty. Use Show archived on Month-wise to see old classes.",
         ];
     }
 }
