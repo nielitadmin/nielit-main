@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/support_ticket_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login.php");
@@ -536,6 +537,14 @@ if ($recent_batches_query) {
     while ($row = $recent_batches_query->fetch_assoc()) {
         $recent_batches_rows[] = $row;
     }
+}
+
+$is_master_admin_dash = (($_SESSION['admin_role'] ?? '') === 'master_admin');
+$pending_tickets = [];
+$pending_ticket_count = 0;
+if ($is_master_admin_dash) {
+    $pending_ticket_count = countPendingSupportTickets($conn);
+    $pending_tickets = listSupportTickets($conn, ['status' => 'pending', 'limit' => 8]);
 }
 
 // Additional quick counts for right-side summary
@@ -1869,6 +1878,60 @@ $dashboard_payload = [
                     <p class="stat-label">Homepage Sections</p>
                 </div>
             </div>
+
+            <?php if (!empty($is_master_admin_dash)): ?>
+            <div class="content-card" style="margin-bottom: 1.25rem;">
+                <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+                    <h5 class="card-title" style="margin:0;">
+                        <i class="fas fa-headset"></i> Pending tickets
+                        <span style="color:#64748b;font-size:0.85rem;font-weight:500;">(<?php echo (int) $pending_ticket_count; ?>)</span>
+                    </h5>
+                    <a href="manage_support_tickets.php?status=pending" class="btn btn-sm btn-outline-primary">View all</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="modern-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Raised by</th>
+                                <th>Subject</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($pending_tickets)): ?>
+                                <tr>
+                                    <td colspan="6" class="text-muted" style="padding:1.25rem;text-align:center;">No pending tickets.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($pending_tickets as $pt): ?>
+                                    <tr>
+                                        <td>#<?php echo (int) $pt['id']; ?></td>
+                                        <td><?php echo htmlspecialchars(supportTicketRequesterLabel($pt)); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $pt['subject']); ?></td>
+                                        <td>
+                                            <span class="badge bg-<?php echo supportTicketPriorityBadgeClass((string) $pt['priority']); ?>">
+                                                <?php echo htmlspecialchars(ucfirst((string) $pt['priority'])); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-<?php echo supportTicketStatusBadgeClass((string) $pt['status']); ?>">
+                                                <?php echo htmlspecialchars(ucfirst(str_replace('_', ' ', (string) $pt['status']))); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <a class="btn btn-sm btn-outline-primary" href="view_support_ticket.php?id=<?php echo (int) $pt['id']; ?>">View</a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <?php if (!empty($centres)): ?>
             <div class="content-card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem;">

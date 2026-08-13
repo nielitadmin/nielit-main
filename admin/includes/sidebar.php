@@ -290,6 +290,30 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <!-- This section is now empty as Reset Password moved to Master Admin section -->
         <?php endif; ?>
+
+        <?php
+        $pendingTicketCount = 0;
+        if ($is_master_admin && isset($conn) && $conn instanceof mysqli) {
+            $stHelper = __DIR__ . '/../../includes/support_ticket_helper.php';
+            if (is_file($stHelper)) {
+                require_once $stHelper;
+                if (function_exists('countPendingSupportTickets')) {
+                    $pendingTicketCount = countPendingSupportTickets($conn);
+                }
+            }
+        }
+        $ticketNavPages = ['manage_support_tickets.php', 'view_support_ticket.php'];
+        ?>
+        <div class="nav-divider"></div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_support_tickets'); ?>" class="nav-link <?php echo in_array($current_page, $ticketNavPages, true) ? 'active' : ''; ?>">
+                <i class="fas fa-headset"></i>
+                <?php echo $is_master_admin ? 'Pending Tickets' : 'Support Tickets'; ?>
+                <?php if ($is_master_admin && $pendingTicketCount > 0): ?>
+                    <b style="margin-left:auto;background:#dc2626;color:#fff;border-radius:999px;padding:1px 7px;font-size:0.7rem;font-weight:700;"><?php echo (int) $pendingTicketCount; ?></b>
+                <?php endif; ?>
+            </a>
+        </div>
         
         <div class="nav-divider"></div>
         
