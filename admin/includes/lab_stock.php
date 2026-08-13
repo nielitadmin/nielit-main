@@ -69,12 +69,16 @@ $filterCat = trim((string) ($_GET['category'] ?? ''));
 $searchQ = trim((string) ($_GET['q'] ?? ''));
 $filterCentre = (int) ($_GET['centre_id'] ?? 0);
 $centres = labListCentres($conn, $labModule);
-$items = listLabItems($conn, $labModule, [
+$stockFilters = [
     'status' => $filterStatus,
     'q' => $searchQ,
     'centre_id' => $filterCentre,
     'category' => $filterCat,
-]);
+];
+if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    exportLabStockCsv($conn, $labModule, $stockFilters);
+}
+$items = listLabItems($conn, $labModule, $stockFilters);
 $partMap = [];
 if ($hasParts && $items !== []) {
     $ids = array_map(static function ($r) {
@@ -406,6 +410,15 @@ $v = $editItem ?: [];
                             <?php endforeach; ?>
                         </select>
                         <button class="btn btn-sm btn-secondary" type="submit">Search</button>
+                        <a class="btn btn-sm btn-success" href="<?php echo htmlspecialchars($stockPage); ?>?<?php echo htmlspecialchars(http_build_query(array_filter([
+                            'q' => $searchQ !== '' ? $searchQ : null,
+                            'centre_id' => $filterCentre ?: null,
+                            'category' => $filterCat !== '' ? $filterCat : null,
+                            'status' => $filterStatus !== 'all' ? $filterStatus : null,
+                            'export' => 'excel',
+                        ]))); ?>">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </a>
                     </form>
                 </div>
                 <div class="table-responsive">

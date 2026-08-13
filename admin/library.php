@@ -115,6 +115,7 @@ $roleNames = [
                 </div>
                 <div style="padding:1rem 1.25rem;display:flex;gap:10px;flex-wrap:wrap;">
                     <a class="btn btn-primary" href="library_stock.php"><i class="fas fa-plus"></i> Add to stock</a>
+                    <a class="btn btn-success" href="library_stock.php?export=excel"><i class="fas fa-file-excel"></i> Download all stock</a>
                     <a class="btn btn-secondary" href="library_student_issues.php"><i class="fas fa-user-graduate"></i> Issue to student</a>
                     <a class="btn btn-secondary" href="library_staff_issues.php"><i class="fas fa-chalkboard-teacher"></i> Issue to staff</a>
                     <?php if ($stats['overdue'] > 0): ?>

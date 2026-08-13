@@ -802,6 +802,76 @@ if (!function_exists('listLibraryBooks')) {
     }
 }
 
+if (!function_exists('exportLibraryStockCsv')) {
+    /**
+     * @param array<string,mixed> $filters
+     */
+    function exportLibraryStockCsv($conn, array $filters): void
+    {
+        $books = listLibraryBooks($conn, $filters);
+        $statuses = libraryBookStatuses();
+        $filename = 'library_stock_' . date('Ymd_His') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        $out = fopen('php://output', 'w');
+        if ($out === false) {
+            exit();
+        }
+        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        fputcsv($out, [
+            'Sl. No.',
+            'Accession No',
+            'Centre',
+            'Title',
+            'Author',
+            'Publisher',
+            'ISBN',
+            'Category',
+            'Edition',
+            'Publication Year',
+            'Purchase Date',
+            'Bill No',
+            'Price',
+            'Source',
+            'Shelf / Location',
+            'Status',
+            'Remarks',
+            'Created By',
+            'Created At',
+            'Updated At',
+        ]);
+        $n = 1;
+        foreach ($books as $b) {
+            fputcsv($out, [
+                $n++,
+                (string) ($b['accession_no'] ?? ''),
+                libraryCentreLabel($b),
+                (string) ($b['title'] ?? ''),
+                (string) ($b['author'] ?? ''),
+                (string) ($b['publisher'] ?? ''),
+                (string) ($b['isbn'] ?? ''),
+                (string) ($b['category'] ?? ''),
+                (string) ($b['edition'] ?? ''),
+                (string) ($b['pub_year'] ?? ''),
+                (string) ($b['purchase_date'] ?? ''),
+                (string) ($b['bill_no'] ?? ''),
+                (string) ($b['price'] ?? ''),
+                (string) ($b['source'] ?? ''),
+                (string) ($b['shelf_location'] ?? ''),
+                $statuses[(string) ($b['status'] ?? '')] ?? (string) ($b['status'] ?? ''),
+                (string) ($b['remarks'] ?? ''),
+                (string) ($b['created_by'] ?? ''),
+                (string) ($b['created_at'] ?? ''),
+                (string) ($b['updated_at'] ?? ''),
+            ]);
+        }
+        fclose($out);
+        exit();
+    }
+}
+
 if (!function_exists('libraryStudentLookupTypes')) {
     /** @return array<string,string> */
     function libraryStudentLookupTypes(): array

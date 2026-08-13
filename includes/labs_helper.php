@@ -1498,3 +1498,123 @@ if (!function_exists('labReminderCronKey')) {
         return hash('sha256', (defined('SMTP_USERNAME') ? SMTP_USERNAME : 'nielit') . '|lab-reminders|' . (defined('APP_URL') ? APP_URL : ''));
     }
 }
+
+if (!function_exists('exportLabStockCsv')) {
+    /**
+     * @param array<string,mixed> $filters
+     */
+    function exportLabStockCsv($conn, string $module, array $filters): void
+    {
+        $cfg = labModule($module);
+        if (!$cfg) {
+            exit();
+        }
+        $items = listLabItems($conn, $module, $filters);
+        $hasParts = !empty($cfg['has_parts']);
+        $partMap = [];
+        if ($hasParts && $items !== []) {
+            $ids = array_map(static function ($r) {
+                return (int) $r['id'];
+            }, $items);
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $stmt = $conn->prepare("SELECT * FROM lab_item_parts WHERE item_id IN ($placeholders) ORDER BY part_type ASC, id ASC");
+            if ($stmt) {
+                $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                if ($res) {
+                    while ($row = $res->fetch_assoc()) {
+                        $iid = (int) ($row['item_id'] ?? 0);
+                        if (!isset($partMap[$iid])) {
+                            $partMap[$iid] = [];
+                        }
+                        $partMap[$iid][] = $row;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+        $itemStatuses = labItemStatuses();
+        $partStatuses = labPartStatuses();
+        $slug = preg_replace('/[^a-z0-9]+/i', '_', (string) $cfg['short']);
+        $filename = $slug . '_stock_' . date('Ymd_His') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        $out = fopen('php://output', 'w');
+        if ($out === false) {
+            exit();
+        }
+        fprintf($out, chr(0xEF) . chr(0xBB) . chr(0xBF));
+        $headers = [
+            'Sl. No.',
+            $cfg['code_label'],
+            'Centre',
+            'Name',
+            'Category',
+            'Lab name',
+            'Location',
+            'Make',
+            'Model',
+            'Serial No',
+            'Configuration',
+            'Purchase Date',
+            'Price',
+            'Status',
+            'Remarks',
+            'Created By',
+            'Created At',
+        ];
+        if ($hasParts) {
+            $headers = array_merge($headers, ['Part type', 'Part brand', 'Part serial', 'Part status', 'Part remarks']);
+        }
+        fputcsv($out, $headers);
+        $n = 1;
+        foreach ($items as $b) {
+            $base = [
+                $n,
+                (string) ($b['code'] ?? ''),
+                libraryCentreLabel($b),
+                (string) ($b['name'] ?? ''),
+                (string) ($b['category'] ?? ''),
+                (string) ($b['lab_name'] ?? ''),
+                (string) ($b['location_note'] ?? ''),
+                (string) ($b['make_name'] ?? ''),
+                (string) ($b['model_name'] ?? ''),
+                (string) ($b['serial_no'] ?? ''),
+                (string) ($b['specs'] ?? ''),
+                (string) ($b['purchase_date'] ?? ''),
+                (string) ($b['price'] ?? ''),
+                $itemStatuses[(string) ($b['status'] ?? '')] ?? (string) ($b['status'] ?? ''),
+                (string) ($b['remarks'] ?? ''),
+                (string) ($b['created_by'] ?? ''),
+                (string) ($b['created_at'] ?? ''),
+            ];
+            if (!$hasParts) {
+                $base[0] = $n++;
+                fputcsv($out, $base);
+                continue;
+            }
+            $parts = $partMap[(int) $b['id']] ?? [];
+            if ($parts === []) {
+                $base[0] = $n++;
+                fputcsv($out, array_merge($base, ['', '', '', '', '']));
+                continue;
+            }
+            foreach ($parts as $p) {
+                $row = $base;
+                $row[0] = $n++;
+                fputcsv($out, array_merge($row, [
+                    (string) ($p['part_type'] ?? ''),
+                    (string) ($p['brand'] ?? ''),
+                    (string) ($p['serial_no'] ?? ''),
+                    $partStatuses[(string) ($p['status'] ?? '')] ?? (string) ($p['status'] ?? ''),
+                    (string) ($p['remarks'] ?? ''),
+                ]));
+            }
+        }
+        fclose($out);
+        exit();
+    }
+}

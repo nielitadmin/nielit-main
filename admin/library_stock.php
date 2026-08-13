@@ -49,7 +49,11 @@ $filterStatus = strtolower(trim((string) ($_GET['status'] ?? 'all')));
 $searchQ = trim((string) ($_GET['q'] ?? ''));
 $filterCentre = (int) ($_GET['centre_id'] ?? 0);
 $centres = listLibraryCentres($conn);
-$books = listLibraryBooks($conn, ['status' => $filterStatus, 'q' => $searchQ, 'centre_id' => $filterCentre]);
+$stockFilters = ['status' => $filterStatus, 'q' => $searchQ, 'centre_id' => $filterCentre];
+if (isset($_GET['export']) && $_GET['export'] === 'excel') {
+    exportLibraryStockCsv($conn, $stockFilters);
+}
+$books = listLibraryBooks($conn, $stockFilters);
 $statuses = libraryBookStatuses();
 $sources = libraryBookSources();
 $v = $editBook ?: [];
@@ -243,6 +247,14 @@ $v = $editBook ?: [];
                             <?php endforeach; ?>
                         </select>
                         <button class="btn btn-sm btn-secondary" type="submit">Search</button>
+                        <a class="btn btn-sm btn-success" href="library_stock.php?<?php echo htmlspecialchars(http_build_query(array_filter([
+                            'q' => $searchQ !== '' ? $searchQ : null,
+                            'centre_id' => $filterCentre ?: null,
+                            'status' => $filterStatus !== 'all' ? $filterStatus : null,
+                            'export' => 'excel',
+                        ]))); ?>">
+                            <i class="fas fa-file-excel"></i> Download Excel
+                        </a>
                     </form>
                 </div>
                 <div class="table-responsive">
