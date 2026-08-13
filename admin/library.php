@@ -4,23 +4,35 @@
  */
 require_once __DIR__ . '/includes/library_bootstrap.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $isMasterAdmin) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!libraryVerifyCsrf()) {
         libraryFlashRedirect('library.php', 'Invalid security token. Please try again.', false);
     }
     $action = (string) ($_POST['action'] ?? '');
-    $targetId = (int) ($_POST['admin_id'] ?? 0);
-    if ($action === 'grant') {
-        $result = libraryGrantAccess($conn, $targetId, $adminUser);
+    if ($isMasterAdmin) {
+        $targetId = (int) ($_POST['admin_id'] ?? 0);
+        if ($action === 'grant') {
+            $result = libraryGrantAccess($conn, $targetId, $adminUser);
+            libraryFlashRedirect('library.php', $result['message'], $result['success']);
+        }
+        if ($action === 'revoke') {
+            $result = libraryRevokeAccess($conn, $targetId);
+            libraryFlashRedirect('library.php', $result['message'], $result['success']);
+        }
+    }
+    if ($action === 'return') {
+        $result = returnLibraryBook($conn, (int) ($_POST['issue_id'] ?? 0), $adminUser);
         libraryFlashRedirect('library.php', $result['message'], $result['success']);
     }
-    if ($action === 'revoke') {
-        $result = libraryRevokeAccess($conn, $targetId);
+    if ($action === 'return_copy') {
+        $result = returnLibraryCopy($conn, (int) ($_POST['book_id'] ?? 0), $adminUser);
         libraryFlashRedirect('library.php', $result['message'], $result['success']);
     }
 }
 
 $stats = libraryStats($conn);
+$currentIssues = listLibraryIssues($conn, ['status' => 'issued']);
+$orphanIssued = listOrphanIssuedLibraryBooks($conn);
 $candidates = $isMasterAdmin ? listLibraryAccessCandidates($conn) : [];
 $roleNames = [
     'course_coordinator' => 'Course Coordinator',
@@ -94,6 +106,69 @@ $roleNames = [
                     <?php if ($stats['overdue'] > 0): ?>
                         <a class="btn btn-danger" href="library_student_issues.php?status=overdue">Student overdue</a>
                         <a class="btn btn-danger" href="library_staff_issues.php?status=overdue">Staff overdue</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="content-card" style="margin-bottom:1.25rem;">
+                <div class="card-header">
+                    <h5 class="card-title" style="margin:0;">Currently issued</h5>
+                </div>
+                <div style="padding:1rem 1.25rem;">
+                    <p class="lib-muted">Click Return for an early return. The return date is recorded as today.</p>
+                    <?php if (empty($currentIssues) && empty($orphanIssued)): ?>
+                        <p class="lib-muted mb-0">No books are currently issued.</p>
+                    <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Accession</th>
+                                    <th>Title</th>
+                                    <th>Borrower</th>
+                                    <th>Issued</th>
+                                    <th>Due</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($currentIssues as $row): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) ($row['accession_no'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($row['title'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryBorrowerLabel($row)); ?></td>
+                                        <td><?php echo !empty($row['issue_date']) ? date('d M Y', strtotime($row['issue_date'])) : '—'; ?></td>
+                                        <td><?php echo !empty($row['due_date']) ? date('d M Y', strtotime($row['due_date'])) : '—'; ?></td>
+                                        <td>
+                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this book as returned?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                <input type="hidden" name="action" value="return">
+                                                <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-success">Return</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                <?php foreach ($orphanIssued as $ob): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) $ob['accession_no']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $ob['title']); ?></td>
+                                        <td class="lib-muted">No issue row</td>
+                                        <td>—</td>
+                                        <td>—</td>
+                                        <td>
+                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this copy as returned / available?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                <input type="hidden" name="action" value="return_copy">
+                                                <input type="hidden" name="book_id" value="<?php echo (int) $ob['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-success">Return</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                     <?php endif; ?>
                 </div>
             </div>

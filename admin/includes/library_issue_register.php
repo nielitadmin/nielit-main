@@ -54,6 +54,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = returnLibraryBook($conn, (int) ($_POST['issue_id'] ?? 0), $adminUser);
         libraryFlashRedirect($redirect, $result['message'], $result['success']);
     }
+
+    if ($action === 'return_copy') {
+        $result = returnLibraryCopy($conn, (int) ($_POST['book_id'] ?? 0), $adminUser);
+        libraryFlashRedirect($redirect, $result['message'], $result['success']);
+    }
 }
 
 $filterStatus = strtolower(trim((string) ($_GET['status'] ?? 'issued')));
@@ -67,6 +72,7 @@ $issues = listLibraryIssues($conn, [
     'q' => $searchQ,
 ]);
 $availableBooks = listLibraryBooks($conn, ['available_only' => true]);
+$orphanIssued = listOrphanIssuedLibraryBooks($conn);
 $staffList = $isStudentReg ? [] : listLibraryStaff($conn);
 $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrowerType) . ' days'));
 ?>
@@ -113,7 +119,15 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                 </div>
                 <div style="padding:1rem 1.25rem;">
                     <?php if (empty($availableBooks)): ?>
-                        <p class="lib-muted mb-0">No available copies. Add stock or wait for returns. <a href="library_stock.php">Stock register</a></p>
+                        <p class="lib-muted mb-0">
+                            No available copies — they are currently issued.
+                            To return a book early, click <strong>Return</strong> on the Issued list below (return date is recorded as today).
+                            <?php if (!empty($orphanIssued)): ?>
+                                If the list is empty, use Return on the copies listed above the register, or on the <a href="library_stock.php">stock register</a>.
+                            <?php else: ?>
+                                Also check <a href="library_staff_issues.php">Staff Issue / Return</a> if it was issued to staff.
+                            <?php endif; ?>
+                        </p>
                     <?php else: ?>
                     <form method="post" class="lib-form">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
@@ -181,6 +195,46 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                 </div>
             </div>
 
+            <?php if (!empty($orphanIssued)): ?>
+            <div class="content-card" style="margin-bottom:1.25rem;">
+                <div class="card-header">
+                    <h5 class="card-title" style="margin:0;">Issued in stock — no register row</h5>
+                </div>
+                <div style="padding:1rem 1.25rem;">
+                    <p class="lib-muted">These copies are marked Issued in stock but have no issue/return row. Click Return to mark them available (return date = today).</p>
+                    <div class="table-responsive">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>Accession</th>
+                                    <th>Title</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($orphanIssued as $ob): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) $ob['accession_no']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $ob['title']); ?></td>
+                                        <td>
+                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this copy as returned / available?');">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                <input type="hidden" name="action" value="return_copy">
+                                                <input type="hidden" name="book_id" value="<?php echo (int) $ob['id']; ?>">
+                                                <input type="hidden" name="redirect_status" value="<?php echo htmlspecialchars($filterStatus); ?>">
+                                                <input type="hidden" name="redirect_q" value="<?php echo htmlspecialchars($searchQ); ?>">
+                                                <button type="submit" class="btn btn-sm btn-success">Return</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                     <h5 class="card-title" style="margin:0;">Register <span class="lib-muted">(<?php echo count($issues); ?>)</span></h5>
@@ -196,6 +250,9 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                         <button class="btn btn-sm btn-secondary" type="submit">Filter</button>
                     </form>
                 </div>
+                <p class="lib-muted" style="padding:0 1.25rem;margin:0.75rem 0 0;">
+                    Keep the filter on <strong>Issued</strong> to see books still out. Click <strong>Return</strong> for an early return — the return date is today, even if the due date is later. Use <strong>Returned</strong> or <strong>All</strong> for history.
+                </p>
                 <div class="table-responsive">
                     <table class="modern-table">
                         <thead>

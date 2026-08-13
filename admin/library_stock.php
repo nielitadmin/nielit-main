@@ -38,6 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result['success']
         );
     }
+    if ($action === 'return_copy') {
+        $result = returnLibraryCopy($conn, (int) ($_POST['book_id'] ?? 0), $adminUser);
+        libraryFlashRedirect('library_stock.php', $result['message'], $result['success']);
+    }
 }
 
 $filterStatus = strtolower(trim((string) ($_GET['status'] ?? 'all')));
@@ -248,6 +252,14 @@ $v = $editBook ?: [];
                                         </td>
                                         <td>
                                             <a class="btn btn-sm btn-outline-primary" href="library_stock.php?edit=<?php echo (int) $b['id']; ?>">Edit</a>
+                                            <?php if (($b['status'] ?? '') === 'issued'): ?>
+                                                <form method="post" style="display:inline;margin:0;" onsubmit="return confirm('Mark this copy as returned / available? Return date will be today.');">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                    <input type="hidden" name="action" value="return_copy">
+                                                    <input type="hidden" name="book_id" value="<?php echo (int) $b['id']; ?>">
+                                                    <button type="submit" class="btn btn-sm btn-success">Return</button>
+                                                </form>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>

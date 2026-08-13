@@ -296,7 +296,7 @@ if (!function_exists('saveLibraryBook')) {
         $shelf = trim((string) ($data['shelf_location'] ?? ''));
         $remarks = trim((string) ($data['remarks'] ?? ''));
         $status = (string) ($data['status'] ?? 'available');
-        if (!isset(libraryBookStatuses()[$status])) {
+        if (!isset(libraryBookStatuses()[$status]) || $status === 'issued') {
             $status = 'available';
         }
         $createdBy = trim((string) ($data['created_by'] ?? ''));
@@ -519,6 +519,12 @@ if (!function_exists('listLibraryStaff')) {
                              FROM faculty
                              WHERE is_active = 1
                              ORDER BY name ASC");
+        if (!$res) {
+            $res = $conn->query("SELECT id, name, designation, department, email
+                                 FROM faculty
+                                 WHERE is_active = 1
+                                 ORDER BY name ASC");
+        }
         if ($res) {
             while ($row = $res->fetch_assoc()) {
                 $rows[] = $row;
@@ -583,14 +589,25 @@ if (!function_exists('issueLibraryBook')) {
 
         $conn->begin_transaction();
         try {
-            $stmt = $conn->prepare(
-                'INSERT INTO library_issues (book_id, borrower_type, student_id, faculty_id, issue_date, due_date, status, remarks, issued_by)
-                 VALUES (?, ?, NULLIF(?, \'\'), NULLIF(?, 0), ?, ?, \'issued\', ?, ?)'
-            );
-            if (!$stmt) {
-                throw new Exception($conn->error);
+            if ($type === 'student') {
+                $stmt = $conn->prepare(
+                    'INSERT INTO library_issues (book_id, borrower_type, student_id, faculty_id, issue_date, due_date, status, remarks, issued_by)
+                     VALUES (?, \'student\', ?, NULL, ?, ?, \'issued\', ?, ?)'
+                );
+                if (!$stmt) {
+                    throw new Exception($conn->error);
+                }
+                $stmt->bind_param('isssss', $bookId, $studentId, $issueDate, $dueDate, $remarks, $issuedBy);
+            } else {
+                $stmt = $conn->prepare(
+                    'INSERT INTO library_issues (book_id, borrower_type, student_id, faculty_id, issue_date, due_date, status, remarks, issued_by)
+                     VALUES (?, \'staff\', NULL, ?, ?, ?, \'issued\', ?, ?)'
+                );
+                if (!$stmt) {
+                    throw new Exception($conn->error);
+                }
+                $stmt->bind_param('iissss', $bookId, $facultyId, $issueDate, $dueDate, $remarks, $issuedBy);
             }
-            $stmt->bind_param('ississss', $bookId, $type, $studentId, $facultyId, $issueDate, $dueDate, $remarks, $issuedBy);
             if (!$stmt->execute()) {
                 throw new Exception($stmt->error);
             }
@@ -679,6 +696,94 @@ if (!function_exists('returnLibraryBook')) {
     }
 }
 
+if (!function_exists('libraryHydrateIssueRows')) {
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    function libraryHydrateIssueRows($conn, array $rows): array
+    {
+        if ($rows === []) {
+            return $rows;
+        }
+
+        $studentIds = [];
+        $facultyIds = [];
+        foreach ($rows as $r) {
+            $sid = trim((string) ($r['student_id'] ?? ''));
+            if ($sid !== '') {
+                $studentIds[$sid] = $sid;
+            }
+            $fid = (int) ($r['faculty_id'] ?? 0);
+            if ($fid > 0) {
+                $facultyIds[$fid] = $fid;
+            }
+        }
+
+        $students = [];
+        $studentList = array_values($studentIds);
+        if ($studentList !== []) {
+            $placeholders = implode(',', array_fill(0, count($studentList), '?'));
+            $stmt = $conn->prepare("SELECT student_id, name, email FROM students WHERE student_id IN ($placeholders)");
+            if ($stmt) {
+                $stmt->bind_param(str_repeat('s', count($studentList)), ...$studentList);
+                if ($stmt->execute()) {
+                    $res = $stmt->get_result();
+                    if ($res) {
+                        while ($s = $res->fetch_assoc()) {
+                            $students[(string) $s['student_id']] = $s;
+                        }
+                    }
+                }
+                $stmt->close();
+            }
+        }
+
+        $faculty = [];
+        $facultyList = array_values($facultyIds);
+        if ($facultyList !== []) {
+            $placeholders = implode(',', array_fill(0, count($facultyList), '?'));
+            $stmt = $conn->prepare("SELECT id, name, designation, department FROM faculty WHERE id IN ($placeholders)");
+            if ($stmt) {
+                $stmt->bind_param(str_repeat('i', count($facultyList)), ...$facultyList);
+                if ($stmt->execute()) {
+                    $res = $stmt->get_result();
+                    if ($res) {
+                        while ($f = $res->fetch_assoc()) {
+                            $faculty[(int) $f['id']] = $f;
+                        }
+                    }
+                }
+                $stmt->close();
+            }
+        }
+
+        foreach ($rows as &$r) {
+            $sid = trim((string) ($r['student_id'] ?? ''));
+            if ($sid !== '' && isset($students[$sid])) {
+                $r['student_name'] = $students[$sid]['name'] ?? '';
+                $r['student_email'] = $students[$sid]['email'] ?? '';
+            } else {
+                $r['student_name'] = $r['student_name'] ?? '';
+                $r['student_email'] = $r['student_email'] ?? '';
+            }
+            $fid = (int) ($r['faculty_id'] ?? 0);
+            if ($fid > 0 && isset($faculty[$fid])) {
+                $r['faculty_name'] = $faculty[$fid]['name'] ?? '';
+                $r['faculty_designation'] = $faculty[$fid]['designation'] ?? '';
+                $r['faculty_department'] = $faculty[$fid]['department'] ?? '';
+            } else {
+                $r['faculty_name'] = $r['faculty_name'] ?? '';
+                $r['faculty_designation'] = $r['faculty_designation'] ?? '';
+                $r['faculty_department'] = $r['faculty_department'] ?? '';
+            }
+        }
+        unset($r);
+
+        return $rows;
+    }
+}
+
 if (!function_exists('listLibraryIssues')) {
     /**
      * @param array{borrower_type?:string,status?:string,q?:string} $filters
@@ -687,14 +792,9 @@ if (!function_exists('listLibraryIssues')) {
     function listLibraryIssues($conn, array $filters = []): array
     {
         ensureLibraryTables($conn);
-        $sql = "SELECT i.*, b.accession_no, b.title, b.author,
-                       s.name AS student_name, s.email AS student_email,
-                       f.name AS faculty_name, f.designation AS faculty_designation,
-                       f.department AS faculty_department, f.staff_category
+        $sql = "SELECT i.*, b.accession_no, b.title, b.author
                 FROM library_issues i
-                INNER JOIN library_books b ON b.id = i.book_id
-                LEFT JOIN students s ON s.student_id = i.student_id
-                LEFT JOIN faculty f ON f.id = i.faculty_id
+                LEFT JOIN library_books b ON b.id = i.book_id
                 WHERE 1=1";
         $types = '';
         $params = [];
@@ -715,14 +815,6 @@ if (!function_exists('listLibraryIssues')) {
             $params[] = $status;
         }
 
-        $q = trim((string) ($filters['q'] ?? ''));
-        if ($q !== '') {
-            $like = '%' . $q . '%';
-            $sql .= ' AND (b.accession_no LIKE ? OR b.title LIKE ? OR i.student_id LIKE ? OR s.name LIKE ? OR f.name LIKE ?)';
-            $types .= 'sssss';
-            array_push($params, $like, $like, $like, $like, $like);
-        }
-
         $sql .= ' ORDER BY i.issue_date DESC, i.id DESC';
         $rows = [];
         if ($types !== '') {
@@ -732,10 +824,16 @@ if (!function_exists('listLibraryIssues')) {
                 return [];
             }
             $stmt->bind_param($types, ...$params);
-            $stmt->execute();
+            if (!$stmt->execute()) {
+                error_log('listLibraryIssues execute failed: ' . $stmt->error);
+                $stmt->close();
+                return [];
+            }
             $res = $stmt->get_result();
-            while ($row = $res->fetch_assoc()) {
-                $rows[] = $row;
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $rows[] = $row;
+                }
             }
             $stmt->close();
         } else {
@@ -744,9 +842,91 @@ if (!function_exists('listLibraryIssues')) {
                 while ($row = $res->fetch_assoc()) {
                     $rows[] = $row;
                 }
+            } else {
+                error_log('listLibraryIssues query failed: ' . $conn->error);
+            }
+        }
+
+        $rows = libraryHydrateIssueRows($conn, $rows);
+        $q = trim((string) ($filters['q'] ?? ''));
+        if ($q !== '') {
+            $ql = strtolower($q);
+            $rows = array_values(array_filter($rows, static function ($r) use ($ql) {
+                $hay = strtolower(trim(implode(' ', [
+                    (string) ($r['accession_no'] ?? ''),
+                    (string) ($r['title'] ?? ''),
+                    (string) ($r['author'] ?? ''),
+                    (string) ($r['student_id'] ?? ''),
+                    (string) ($r['student_name'] ?? ''),
+                    (string) ($r['faculty_name'] ?? ''),
+                ])));
+                return $hay !== '' && strpos($hay, $ql) !== false;
+            }));
+        }
+        return $rows;
+    }
+}
+
+if (!function_exists('listOrphanIssuedLibraryBooks')) {
+    /** @return list<array<string,mixed>> */
+    function listOrphanIssuedLibraryBooks($conn): array
+    {
+        ensureLibraryTables($conn);
+        $sql = "SELECT b.*
+                FROM library_books b
+                LEFT JOIN library_issues i ON i.book_id = b.id AND i.status = 'issued'
+                WHERE b.status = 'issued' AND i.id IS NULL
+                ORDER BY b.accession_no ASC";
+        $rows = [];
+        $res = $conn->query($sql);
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $rows[] = $row;
             }
         }
         return $rows;
+    }
+}
+
+if (!function_exists('returnLibraryCopy')) {
+    /** @return array{success:bool,message:string} */
+    function returnLibraryCopy($conn, int $bookId, string $returnedBy, ?string $returnDate = null): array
+    {
+        ensureLibraryTables($conn);
+        $book = getLibraryBook($conn, $bookId);
+        if (!$book) {
+            return ['success' => false, 'message' => 'Book not found.'];
+        }
+
+        $stmt = $conn->prepare("SELECT id FROM library_issues WHERE book_id = ? AND status = 'issued' ORDER BY id DESC LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param('i', $bookId);
+            $stmt->execute();
+            $open = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if ($open) {
+                return returnLibraryBook($conn, (int) $open['id'], $returnedBy, $returnDate);
+            }
+        }
+
+        if (($book['status'] ?? '') !== 'issued') {
+            return ['success' => false, 'message' => 'This copy is not currently issued.'];
+        }
+
+        $upd = $conn->prepare("UPDATE library_books SET status = 'available' WHERE id = ? AND status = 'issued'");
+        if (!$upd) {
+            return ['success' => false, 'message' => 'Database error.'];
+        }
+        $upd->bind_param('i', $bookId);
+        $ok = $upd->execute();
+        $upd->close();
+        if (!$ok) {
+            return ['success' => false, 'message' => 'Could not update stock.'];
+        }
+        return [
+            'success' => true,
+            'message' => 'Accession ' . $book['accession_no'] . ' marked available. Return date is today.',
+        ];
     }
 }
 
