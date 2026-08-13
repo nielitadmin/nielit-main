@@ -344,57 +344,74 @@ $renderPageFooter = static function () use ($renderLegends, $monthLabel, $isMont
             .print-fit-wrap {
                 max-width: none !important;
                 margin: 0 !important;
+                padding: 0 !important;
+            }
+            .sheet.print-page {
+                display: block !important;
+                max-width: none !important;
+                width: 100% !important;
+                height: auto !important;
+                max-height: none !important;
+                margin: 0 0 0 0 !important;
+                padding: 4mm !important;
+                box-shadow: none !important;
+                overflow: visible !important;
                 page-break-after: always;
                 break-after: page;
-                page-break-inside: avoid;
-                break-inside: avoid;
+                page-break-inside: auto;
+                break-inside: auto;
             }
-            .print-fit-wrap:last-of-type {
+            .print-fit-wrap:last-of-type .sheet.print-page {
                 page-break-after: auto !important;
                 break-after: auto !important;
             }
-            .sheet {
-                max-width: none !important;
-                width: 100% !important;
-                height: 198mm;
-                max-height: 198mm;
-                box-shadow: none !important;
-                padding: 3mm 4mm !important;
-                margin: 0 !important;
+            .lh-header {
+                position: static !important;
                 display: flex;
-                flex-direction: column;
-                page-break-after: auto !important;
-                page-break-inside: avoid !important;
+                align-items: center;
+                gap: 8px;
+                margin: 0 0 4px !important;
             }
-            .lh-header { margin-bottom: 2px; gap: 8px; flex: 0 0 auto; }
-            .lh-header img { height: 36px; }
+            .lh-header img { height: 34px; }
             .lh-text .hi { font-size: 12px; }
             .lh-text .en { font-size: 11px; }
             .lh-text .centre { font-size: 10px; }
             .lh-text .tag { font-size: 8px; }
             .lh-rule { margin: 3px 0 5px; }
-            .doc-title { font-size: 13px; margin: 0 0 2px; }
-            .doc-meta { font-size: 9px; margin: 0 0 5px; }
-            .week-title { font-size: 12px; margin: 0 0 4px; padding: 4px 8px; }
-            .ct-table-wrap { flex: 1 1 auto; display: flex; width: 100%; }
-            .ct-sheet {
-                font-size: 11px;
-                height: 100%;
+            .doc-title { font-size: 13px; margin: 0 0 3px; }
+            .doc-meta { font-size: 9px; margin: 0 0 6px; }
+            .week-title { font-size: 12px; margin: 0 0 6px; padding: 4px 8px; }
+            .ct-table-wrap {
+                display: block !important;
                 width: 100%;
+                margin: 0 0 8px;
+            }
+            .ct-sheet {
+                font-size: 10px;
+                width: 100% !important;
+                height: auto !important;
+            }
+            .ct-sheet thead,
+            .ct-sheet tbody {
+                display: table-row-group; /* do not repeat thead over the next week's header */
             }
             .ct-sheet th, .ct-sheet td {
-                padding: 6px 4px;
+                padding: 5px 3px;
                 word-break: break-word;
                 overflow-wrap: anywhere;
             }
-            .ct-sheet thead th { font-size: 10px; padding: 6px 3px; }
-            .ct-sheet tbody tr { height: 18%; }
-            .ct-day-col { width: 92px; font-size: 11px; }
+            .ct-sheet thead th { font-size: 9.5px; padding: 5px 3px; }
+            .ct-sheet tbody tr { height: auto !important; }
+            .ct-day-col { width: 92px; font-size: 10.5px; }
             .ct-day-date { font-size: 9px; }
-            .ct-entry { font-size: 11px; }
-            .ct-meta { font-size: 9px; }
+            .ct-entry { font-size: 10.5px; }
+            .ct-meta { font-size: 8.5px; }
             .legend { font-size: 9px; margin-top: 4px; }
-            .ct-footer { margin-top: auto; padding-top: 6px; flex: 0 0 auto; }
+            .ct-footer {
+                margin-top: 10px;
+                padding-top: 6px;
+                page-break-inside: avoid;
+            }
             .footer-note { font-size: 9px; margin-bottom: 8px; }
             .ct-signs { margin-top: 12px; font-size: 11px; }
         }
