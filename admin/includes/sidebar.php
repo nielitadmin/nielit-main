@@ -296,6 +296,18 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             }
         }
         ?>
+        <?php
+        $canAccessLabInstruments = false;
+        $canAccessItLab = false;
+        if (isset($conn) && $conn instanceof mysqli) {
+            $labsHelper = __DIR__ . '/../../includes/labs_helper.php';
+            if (is_file($labsHelper)) {
+                require_once $labsHelper;
+                $canAccessLabInstruments = function_exists('admin_can_access_lab') && admin_can_access_lab($conn, 'instrument');
+                $canAccessItLab = function_exists('admin_can_access_lab') && admin_can_access_lab($conn, 'itlab');
+            }
+        }
+        ?>
         <?php if ($canAccessLibrary): ?>
         <div class="nav-divider"></div>
         <div class="nav-section-title">Library</div>
@@ -321,6 +333,55 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
 
+        <?php if ($canAccessLabInstruments): ?>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Lab Instruments</div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/lab_instruments'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments.php') ? 'active' : ''; ?>">
+                <i class="fas fa-microchip"></i> Instruments Home
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/lab_instruments_stock'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_stock.php') ? 'active' : ''; ?>">
+                <i class="fas fa-toolbox"></i> Stock Register
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/lab_instruments_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_student_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-graduate"></i> Student Issue / Return
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/lab_instruments_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_staff_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+            </a>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($canAccessItLab): ?>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">IT / Computer Lab</div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/it_lab'); ?>" class="nav-link <?php echo ($current_page === 'it_lab.php') ? 'active' : ''; ?>">
+                <i class="fas fa-desktop"></i> IT Lab Home
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/it_lab_systems'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_systems.php') ? 'active' : ''; ?>">
+                <i class="fas fa-keyboard"></i> Systems &amp; parts
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/it_lab_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_student_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-graduate"></i> Student Issue / Return
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/it_lab_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_staff_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+            </a>
+        </div>
+        <?php endif; ?>
         <?php if ($is_master_admin || $is_course_coordinator || $is_faculty): ?>
         <div class="nav-divider"></div>
         <div class="nav-item">
