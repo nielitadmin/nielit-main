@@ -64,6 +64,12 @@ hostinger-deploy.log
 !/uploads/batch_certificates/.gitkeep
 !/uploads/batch_certificates/.htaccess
 
+# Support ticket attachments
+!/uploads/support_tickets/
+/uploads/support_tickets/*
+!/uploads/support_tickets/.gitkeep
+!/uploads/support_tickets/.htaccess
+
 # External/Legacy Projects (not part of main codebase)
 /hrms/
 /startup/

@@ -69,6 +69,23 @@ if (!function_exists('ensureSupportTicketsTable')) {
             error_log('ensureSupportTicketsTable replies failed: ' . $conn->error);
         }
 
+        $attachments = "CREATE TABLE IF NOT EXISTS support_ticket_attachments (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            ticket_id INT NOT NULL,
+            reply_id INT NULL,
+            original_name VARCHAR(255) NOT NULL,
+            stored_path VARCHAR(500) NOT NULL,
+            mime_type VARCHAR(120) NOT NULL,
+            file_size INT NOT NULL DEFAULT 0,
+            uploaded_by VARCHAR(255) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_sta_ticket (ticket_id),
+            KEY idx_sta_reply (reply_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        if (!$conn->query($attachments)) {
+            error_log('ensureSupportTicketsTable attachments failed: ' . $conn->error);
+        }
+
         $ready = true;
         return true;
     }
@@ -200,9 +217,10 @@ if (!function_exists('supportTicketRequesterLabel')) {
 if (!function_exists('createSupportTicket')) {
     /**
      * @param array{requester_type?:string,student_id?:string,admin_username?:string,subject:string,category?:string,priority?:string,message:string} $data
+     * @param array<string,mixed> $uploadedFiles $_FILES['attachments'] or empty
      * @return array{success:bool,message:string,id?:int}
      */
-    function createSupportTicket($conn, array $data): array
+    function createSupportTicket($conn, array $data, array $uploadedFiles = []): array
     {
         ensureSupportTicketsTable($conn);
         $subject = trim((string) ($data['subject'] ?? ''));
@@ -243,10 +261,19 @@ if (!function_exists('createSupportTicket')) {
         if (!$ok) {
             return ['success' => false, 'message' => 'Failed to submit ticket. ' . $err];
         }
+
+        $attach = saveSupportTicketAttachments($conn, $id, $uploadedFiles, null, $type === 'admin' ? $adminUser : $studentId);
+        $msg = 'Support ticket submitted successfully. Ticket #' . $id . '.';
+        if ($attach['saved'] > 0) {
+            $msg .= ' ' . $attach['saved'] . ' file(s) attached.';
+        }
+        if ($attach['error'] !== '') {
+            $msg .= ' ' . $attach['error'];
+        }
         return [
             'success' => true,
             'id' => $id,
-            'message' => 'Support ticket submitted successfully. Ticket #' . $id . '.',
+            'message' => $msg,
         ];
     }
 }
@@ -259,7 +286,8 @@ if (!function_exists('listSupportTickets')) {
     function listSupportTickets($conn, array $filters = []): array
     {
         ensureSupportTicketsTable($conn);
-        $sql = "SELECT st.*, s.name AS student_name, s.email AS student_email
+        $sql = "SELECT st.*, s.name AS student_name, s.email AS student_email,
+                       (SELECT COUNT(*) FROM support_ticket_attachments sta WHERE sta.ticket_id = st.id) AS attachment_count
                 FROM support_tickets st
                 LEFT JOIN students s ON s.student_id = st.student_id
                 WHERE 1=1";
@@ -408,6 +436,7 @@ if (!function_exists('addSupportTicketReply')) {
         }
         $stmt->bind_param('isss', $ticketId, $authorType, $authorName, $message);
         $ok = $stmt->execute();
+        $replyId = (int) $stmt->insert_id;
         $stmt->close();
         if (!$ok) {
             return ['success' => false, 'message' => 'Could not save reply.'];
@@ -437,7 +466,7 @@ if (!function_exists('addSupportTicketReply')) {
             }
         }
 
-        return ['success' => true, 'message' => 'Reply saved.'];
+        return ['success' => true, 'message' => 'Reply saved.', 'id' => $replyId];
     }
 }
 
@@ -503,3 +532,310 @@ if (!function_exists('supportTicketCanView')) {
         return false;
     }
 }
+
+if (!function_exists('supportTicketAllowedAttachments')) {
+    /** @return array<string,list<string>> ext => mime list */
+    function supportTicketAllowedAttachments(): array
+    {
+        return [
+            'pdf' => ['application/pdf'],
+            'jpg' => ['image/jpeg', 'image/jpg'],
+            'jpeg' => ['image/jpeg', 'image/jpg'],
+            'png' => ['image/png'],
+            'webp' => ['image/webp'],
+            'gif' => ['image/gif'],
+        ];
+    }
+}
+
+if (!function_exists('supportTicketCollectUploads')) {
+    /**
+     * @param array<string,mixed> $filesField $_FILES['attachments']
+     * @return list<array{name:string,type:string,tmp_name:string,error:int,size:int}>
+     */
+    function supportTicketCollectUploads(array $filesField): array
+    {
+        if (!isset($filesField['tmp_name'])) {
+            return [];
+        }
+        if (!is_array($filesField['tmp_name'])) {
+            return [[
+                'name' => (string) ($filesField['name'] ?? ''),
+                'type' => (string) ($filesField['type'] ?? ''),
+                'tmp_name' => (string) $filesField['tmp_name'],
+                'error' => (int) ($filesField['error'] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($filesField['size'] ?? 0),
+            ]];
+        }
+        $out = [];
+        foreach ($filesField['tmp_name'] as $i => $tmp) {
+            $out[] = [
+                'name' => (string) ($filesField['name'][$i] ?? ''),
+                'type' => (string) ($filesField['type'][$i] ?? ''),
+                'tmp_name' => (string) $tmp,
+                'error' => (int) ($filesField['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($filesField['size'][$i] ?? 0),
+            ];
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('saveSupportTicketAttachments')) {
+    /**
+     * @param array<string,mixed> $uploadedFiles
+     * @return array{saved:int,error:string}
+     */
+    function saveSupportTicketAttachments($conn, int $ticketId, array $uploadedFiles, ?int $replyId = null, string $uploadedBy = ''): array
+    {
+        ensureSupportTicketsTable($conn);
+        if ($ticketId <= 0 || empty($uploadedFiles)) {
+            return ['saved' => 0, 'error' => ''];
+        }
+
+        $items = supportTicketCollectUploads($uploadedFiles);
+        $allowed = supportTicketAllowedAttachments();
+        $maxFiles = 5;
+        $maxBytes = 10 * 1024 * 1024;
+        $saved = 0;
+        $errors = [];
+
+        $root = dirname(__DIR__) . '/uploads/support_tickets/' . $ticketId;
+        if (!is_dir($root) && !mkdir($root, 0755, true)) {
+            return ['saved' => 0, 'error' => 'Could not create attachment folder.'];
+        }
+
+        foreach ($items as $file) {
+            if ($saved >= $maxFiles) {
+                $errors[] = 'Only ' . $maxFiles . ' files can be attached.';
+                break;
+            }
+            $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($err === UPLOAD_ERR_NO_FILE || ($file['tmp_name'] ?? '') === '') {
+                continue;
+            }
+            if ($err !== UPLOAD_ERR_OK) {
+                $errors[] = 'Upload failed for ' . ($file['name'] ?: 'a file') . '.';
+                continue;
+            }
+            if (!is_uploaded_file($file['tmp_name'])) {
+                $errors[] = 'Invalid upload.';
+                continue;
+            }
+            if ((int) $file['size'] > $maxBytes) {
+                $errors[] = ($file['name'] ?: 'A file') . ' is larger than 10 MB.';
+                continue;
+            }
+
+            $ext = strtolower((string) pathinfo((string) $file['name'], PATHINFO_EXTENSION));
+            if (!isset($allowed[$ext])) {
+                $errors[] = 'File type not allowed: ' . ($file['name'] ?: 'unknown') . '. Use PDF, JPEG, PNG, WEBP or GIF.';
+                continue;
+            }
+
+            $head = (string) file_get_contents($file['tmp_name'], false, null, 0, 1024);
+            if (strpos($head, '<?php') !== false || strpos($head, '#!/') !== false) {
+                $errors[] = 'Invalid file content.';
+                continue;
+            }
+
+            $mime = '';
+            if (function_exists('finfo_open')) {
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                if ($finfo) {
+                    $mime = (string) finfo_file($finfo, $file['tmp_name']);
+                    finfo_close($finfo);
+                }
+            }
+            if ($mime === '') {
+                $mime = (string) ($file['type'] ?? '');
+            }
+            if (!in_array($mime, $allowed[$ext], true)) {
+                if ($ext === 'pdf' && strncmp($head, '%PDF', 4) === 0) {
+                    $mime = 'application/pdf';
+                } elseif (in_array($ext, ['jpg', 'jpeg'], true) && strncmp($head, "\xFF\xD8\xFF", 3) === 0) {
+                    $mime = 'image/jpeg';
+                } elseif ($ext === 'png' && strncmp($head, "\x89PNG", 4) === 0) {
+                    $mime = 'image/png';
+                } else {
+                    $errors[] = 'Invalid file content for ' . ($file['name'] ?: 'upload') . '.';
+                    continue;
+                }
+            }
+
+            $storedName = bin2hex(random_bytes(8)) . '.' . $ext;
+            $dest = $root . '/' . $storedName;
+            if (!move_uploaded_file($file['tmp_name'], $dest)) {
+                $errors[] = 'Could not save ' . ($file['name'] ?: 'file') . '.';
+                continue;
+            }
+
+            $relPath = 'uploads/support_tickets/' . $ticketId . '/' . $storedName;
+            $orig = preg_replace('/[^a-zA-Z0-9._\-\s()]/', '_', basename((string) $file['name']));
+            if ($orig === '' || $orig === null) {
+                $orig = $storedName;
+            }
+            if (strlen($orig) > 255) {
+                $orig = substr($orig, 0, 255);
+            }
+            $size = (int) filesize($dest);
+            $replyVal = ($replyId !== null && $replyId > 0) ? $replyId : 0;
+
+            if ($replyVal > 0) {
+                $stmt = $conn->prepare(
+                    'INSERT INTO support_ticket_attachments (ticket_id, reply_id, original_name, stored_path, mime_type, file_size, uploaded_by, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())'
+                );
+                if (!$stmt) {
+                    @unlink($dest);
+                    $errors[] = 'Database error saving attachment.';
+                    continue;
+                }
+                $stmt->bind_param('iisssis', $ticketId, $replyVal, $orig, $relPath, $mime, $size, $uploadedBy);
+            } else {
+                $stmt = $conn->prepare(
+                    'INSERT INTO support_ticket_attachments (ticket_id, reply_id, original_name, stored_path, mime_type, file_size, uploaded_by, created_at)
+                     VALUES (?, NULL, ?, ?, ?, ?, ?, NOW())'
+                );
+                if (!$stmt) {
+                    @unlink($dest);
+                    $errors[] = 'Database error saving attachment.';
+                    continue;
+                }
+                $stmt->bind_param('isssis', $ticketId, $orig, $relPath, $mime, $size, $uploadedBy);
+            }
+            $ok = $stmt->execute();
+            $stmt->close();
+            if (!$ok) {
+                @unlink($dest);
+                $errors[] = 'Could not record attachment.';
+                continue;
+            }
+            $saved++;
+        }
+
+        return [
+            'saved' => $saved,
+            'error' => implode(' ', $errors),
+        ];
+    }
+}
+
+if (!function_exists('listSupportTicketAttachments')) {
+    /**
+     * @return list<array<string,mixed>>
+     */
+    function listSupportTicketAttachments($conn, int $ticketId, ?int $replyId = null): array
+    {
+        ensureSupportTicketsTable($conn);
+        $rows = [];
+        if ($ticketId <= 0) {
+            return $rows;
+        }
+        if ($replyId === null) {
+            $stmt = $conn->prepare(
+                'SELECT * FROM support_ticket_attachments WHERE ticket_id = ? AND reply_id IS NULL ORDER BY id ASC'
+            );
+            if (!$stmt) {
+                return $rows;
+            }
+            $stmt->bind_param('i', $ticketId);
+        } else {
+            $stmt = $conn->prepare(
+                'SELECT * FROM support_ticket_attachments WHERE ticket_id = ? AND reply_id = ? ORDER BY id ASC'
+            );
+            if (!$stmt) {
+                return $rows;
+            }
+            $stmt->bind_param('ii', $ticketId, $replyId);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
+if (!function_exists('getSupportTicketAttachment')) {
+    /** @return array<string,mixed>|null */
+    function getSupportTicketAttachment($conn, int $id): ?array
+    {
+        ensureSupportTicketsTable($conn);
+        if ($id <= 0) {
+            return null;
+        }
+        $stmt = $conn->prepare('SELECT * FROM support_ticket_attachments WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('i', $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('supportTicketAttachmentAbsPath')) {
+    function supportTicketAttachmentAbsPath(array $row): string
+    {
+        $rel = str_replace('\\', '/', (string) ($row['stored_path'] ?? ''));
+        $rel = ltrim($rel, '/');
+        if ($rel === '' || strpos($rel, '..') !== false) {
+            return '';
+        }
+        return dirname(__DIR__) . '/' . $rel;
+    }
+}
+
+if (!function_exists('supportTicketFormatSize')) {
+    function supportTicketFormatSize(int $bytes): string
+    {
+        if ($bytes < 1024) {
+            return $bytes . ' B';
+        }
+        if ($bytes < 1024 * 1024) {
+            return round($bytes / 1024, 1) . ' KB';
+        }
+        return round($bytes / (1024 * 1024), 1) . ' MB';
+    }
+}
+
+if (!function_exists('supportTicketIsImageAttachment')) {
+    function supportTicketIsImageAttachment(array $row): bool
+    {
+        $mime = strtolower((string) ($row['mime_type'] ?? ''));
+        return strpos($mime, 'image/') === 0;
+    }
+}
+
+if (!function_exists('supportTicketRenderAttachments')) {
+    function supportTicketRenderAttachments(array $attachments, string $downloadScript): void
+    {
+        if (empty($attachments)) {
+            return;
+        }
+        $sep = strpos($downloadScript, '?') === false ? '?' : '&';
+        echo '<div class="st-files" style="margin-top:12px;display:flex;flex-wrap:wrap;gap:10px;">';
+        foreach ($attachments as $att) {
+            $id = (int) ($att['id'] ?? 0);
+            $url = htmlspecialchars($downloadScript . $sep . 'id=' . $id, ENT_QUOTES, 'UTF-8');
+            $name = htmlspecialchars((string) ($att['original_name'] ?? 'file'), ENT_QUOTES, 'UTF-8');
+            $size = htmlspecialchars(supportTicketFormatSize((int) ($att['file_size'] ?? 0)), ENT_QUOTES, 'UTF-8');
+            $isPdf = strtolower((string) pathinfo((string) ($att['original_name'] ?? ''), PATHINFO_EXTENSION)) === 'pdf'
+                || strtolower((string) ($att['mime_type'] ?? '')) === 'application/pdf';
+            echo '<a href="' . $url . '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;background:#fff;text-decoration:none;color:#0f172a;max-width:280px;">';
+            if (supportTicketIsImageAttachment($att)) {
+                echo '<img src="' . $url . '" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:4px;flex-shrink:0;">';
+            } else {
+                echo '<i class="fas ' . ($isPdf ? 'fa-file-pdf' : 'fa-paperclip') . '" style="color:#dc2626;font-size:1.1rem;"></i>';
+            }
+            echo '<span style="overflow:hidden;"><span style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' . $name . '</span><small style="color:#64748b;">' . $size . '</small></span></a>';
+        }
+        echo '</div>';
+    }
+}
+

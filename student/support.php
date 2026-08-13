@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_ticket'])) {
             'category' => $_POST['category'] ?? 'other',
             'priority' => $_POST['priority'] ?? 'medium',
             'message' => $_POST['message'] ?? '',
-        ]);
+        ], $_FILES['attachments'] ?? []);
         if ($result['success']) {
             $success_message = $result['message'] . " We'll get back to you soon.";
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -110,7 +110,7 @@ include 'includes/header.php';
                     <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Submit New Ticket</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="">
+                    <form method="POST" action="" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <div class="mb-3">
                             <label for="subject" class="form-label">Subject <span class="text-danger">*</span></label>
@@ -142,6 +142,13 @@ include 'includes/header.php';
                         <div class="mb-3">
                             <label for="message" class="form-label">Message <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="message" name="message" rows="5" required></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="attachments" class="form-label">Attachments</label>
+                            <input type="file" class="form-control" id="attachments" name="attachments[]" multiple
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                            <div class="form-text">PDF, JPEG, PNG, WEBP or GIF. Up to 5 files, 10 MB each.</div>
                         </div>
 
                         <button type="submit" name="submit_ticket" class="btn btn-primary w-100">
@@ -238,7 +245,11 @@ include 'includes/header.php';
                                     <?php foreach ($tickets as $ticket): ?>
                                     <tr>
                                         <td>#<?php echo (int) $ticket['id']; ?></td>
-                                        <td><?php echo htmlspecialchars((string) $ticket['subject']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $ticket['subject']); ?>
+                                            <?php if ((int) ($ticket['attachment_count'] ?? 0) > 0): ?>
+                                                <i class="fas fa-paperclip text-muted"></i>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo htmlspecialchars($categories[$ticket['category']] ?? ucfirst((string) $ticket['category'])); ?></td>
                                         <td>
                                             <?php $priority_class = supportTicketPriorityBadgeClass((string) $ticket['priority']); ?>

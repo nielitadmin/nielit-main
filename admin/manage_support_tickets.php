@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'category' => $_POST['category'] ?? 'other',
             'priority' => $_POST['priority'] ?? 'medium',
             'message' => $_POST['message'] ?? '',
-        ]);
+        ], $_FILES['attachments'] ?? []);
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
@@ -147,7 +147,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <h5 class="card-title" style="margin:0;"><i class="fas fa-plus-circle"></i> Raise a ticket</h5>
                 </div>
                 <div style="padding:1rem 1.25rem 1.25rem;">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="create">
                         <div class="form-group">
@@ -177,6 +177,12 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="form-group">
                             <label for="st_message">Message <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="st_message" name="message" rows="4" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="st_files">Attachments</label>
+                            <input type="file" class="form-control" id="st_files" name="attachments[]" multiple
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                            <div class="st-muted" style="margin-top:4px;">PDF, JPEG, PNG, WEBP or GIF. Up to 5 files, 10 MB each.</div>
                         </div>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Submit ticket</button>
                     </form>
@@ -255,7 +261,12 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <tr>
                                         <td>#<?php echo (int) $ticket['id']; ?></td>
                                         <td><?php echo htmlspecialchars(supportTicketRequesterLabel($ticket)); ?></td>
-                                        <td><?php echo htmlspecialchars((string) $ticket['subject']); ?></td>
+                                        <td>
+                                            <?php echo htmlspecialchars((string) $ticket['subject']); ?>
+                                            <?php if ((int) ($ticket['attachment_count'] ?? 0) > 0): ?>
+                                                <i class="fas fa-paperclip st-muted" title="<?php echo (int) $ticket['attachment_count']; ?> file(s)"></i>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?php echo htmlspecialchars($catMap[$ticket['category']] ?? ucfirst((string) $ticket['category'])); ?></td>
                                         <td class="<?php echo ($ticket['priority'] ?? '') === 'high' ? 'st-priority-high' : ''; ?>">
                                             <span class="badge bg-<?php echo $pClass; ?>">
@@ -288,7 +299,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
                 <div style="padding:1rem 1.25rem 1.25rem;">
                     <p class="st-muted">Use this if you need to log an internal note as a ticket.</p>
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="create">
                         <div class="form-group">
@@ -318,6 +329,12 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="form-group">
                             <label for="st_message_m">Message <span class="text-danger">*</span></label>
                             <textarea class="form-control" id="st_message_m" name="message" rows="3" required></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="st_files_m">Attachments</label>
+                            <input type="file" class="form-control" id="st_files_m" name="attachments[]" multiple
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                            <div class="st-muted" style="margin-top:4px;">PDF, JPEG, PNG, WEBP or GIF. Up to 5 files, 10 MB each.</div>
                         </div>
                         <button type="submit" class="btn btn-secondary"><i class="fas fa-paper-plane"></i> Submit ticket</button>
                     </form>

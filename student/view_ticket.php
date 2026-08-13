@@ -40,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_reply'])) {
             (string) ($_POST['reply_message'] ?? '')
         );
         if ($result['success']) {
+            if (!empty($result['id'])) {
+                saveSupportTicketAttachments($conn, $ticketId, $_FILES['attachments'] ?? [], (int) $result['id'], $student_id);
+            }
             $success_message = 'Your reply was added.';
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
             $ticket = getSupportTicket($conn, $ticketId) ?: $ticket;
@@ -50,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_reply'])) {
 }
 
 $replies = listSupportTicketReplies($conn, $ticketId);
+$ticketFiles = listSupportTicketAttachments($conn, $ticketId);
 $categories = supportTicketCategories('student');
 $priorities = supportTicketPriorities();
 $page_title = 'Ticket #' . $ticketId;
@@ -94,6 +98,7 @@ include 'includes/header.php';
                 Raised <?php echo !empty($ticket['created_at']) ? date('d M Y, h:i A', strtotime($ticket['created_at'])) : '—'; ?>
             </p>
             <div class="p-3 rounded" style="background:#f8fafc; white-space:pre-wrap;"><?php echo htmlspecialchars((string) $ticket['message']); ?></div>
+            <?php supportTicketRenderAttachments($ticketFiles, 'download_ticket_file.php'); ?>
         </div>
     </div>
 
@@ -113,6 +118,7 @@ include 'includes/header.php';
                             <small class="text-muted"><?php echo !empty($reply['created_at']) ? date('d M Y, h:i A', strtotime($reply['created_at'])) : ''; ?></small>
                         </div>
                         <div class="mt-2" style="white-space:pre-wrap;"><?php echo htmlspecialchars((string) $reply['message']); ?></div>
+                        <?php supportTicketRenderAttachments(listSupportTicketAttachments($conn, $ticketId, (int) $reply['id']), 'download_ticket_file.php'); ?>
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -123,10 +129,15 @@ include 'includes/header.php';
     <div class="card">
         <div class="card-header"><h5 class="mb-0">Add a reply</h5></div>
         <div class="card-body">
-            <form method="post">
+            <form method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                 <div class="mb-3">
                     <textarea class="form-control" name="reply_message" rows="4" required placeholder="Add more details if needed..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <input type="file" class="form-control" name="attachments[]" multiple
+                           accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                    <div class="form-text">Optional: PDF or image, up to 5 files, 10 MB each.</div>
                 </div>
                 <button type="submit" name="add_reply" class="btn btn-primary"><i class="fas fa-reply"></i> Send reply</button>
             </form>

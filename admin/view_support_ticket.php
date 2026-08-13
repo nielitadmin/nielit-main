@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (string) ($_POST['reply_message'] ?? ''),
             (string) ($_POST['status'] ?? '')
         );
+        if ($result['success'] && !empty($result['id'])) {
+            saveSupportTicketAttachments($conn, $ticketId, $_FILES['attachments'] ?? [], (int) $result['id'], $adminUser);
+        }
         $_SESSION['message'] = $result['success'] ? 'Reply sent.' : $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
@@ -86,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             null,
             false
         );
+        if ($result['success'] && !empty($result['id'])) {
+            saveSupportTicketAttachments($conn, $ticketId, $_FILES['attachments'] ?? [], (int) $result['id'], $adminUser);
+        }
         $_SESSION['message'] = $result['success'] ? 'Reply added.' : $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         if ($result['success']) {
@@ -101,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $ticket = getSupportTicket($conn, $ticketId) ?: $ticket;
 $replies = listSupportTicketReplies($conn, $ticketId);
+$ticketFiles = listSupportTicketAttachments($conn, $ticketId);
 $categories = supportTicketCategories((string) ($ticket['requester_type'] ?? 'student'));
 $priorities = supportTicketPriorities();
 $statuses = supportTicketStatuses();
@@ -165,6 +172,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         · <?php echo htmlspecialchars($categories[$ticket['category']] ?? ucfirst((string) $ticket['category'])); ?>
                     </p>
                     <div class="st-msg"><?php echo htmlspecialchars((string) $ticket['message']); ?></div>
+                    <?php supportTicketRenderAttachments($ticketFiles, 'download_support_attachment.php'); ?>
                 </div>
             </div>
 
@@ -186,6 +194,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <small class="st-muted"><?php echo !empty($reply['created_at']) ? date('d M Y, h:i A', strtotime($reply['created_at'])) : ''; ?></small>
                                 </div>
                                 <div style="white-space:pre-wrap;margin-top:6px;"><?php echo htmlspecialchars((string) $reply['message']); ?></div>
+                                <?php supportTicketRenderAttachments(listSupportTicketAttachments($conn, $ticketId, (int) $reply['id']), 'download_support_attachment.php'); ?>
                             </div>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -198,12 +207,18 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <h5 class="card-title" style="margin:0;">Reply &amp; update status</h5>
                 </div>
                 <div style="padding:1.1rem 1.25rem;">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="reply">
                         <div class="st-form-group">
                             <label for="reply_message">Reply</label>
                             <textarea class="form-control" id="reply_message" name="reply_message" rows="4" required></textarea>
+                        </div>
+                        <div class="st-form-group">
+                            <label for="reply_files">Attachments</label>
+                            <input type="file" class="form-control" id="reply_files" name="attachments[]" multiple
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                            <div class="st-muted">Optional: PDF or image, up to 5 files, 10 MB each.</div>
                         </div>
                         <div class="st-form-group" style="max-width:240px;">
                             <label for="st_status">Set status</label>
@@ -245,11 +260,16 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <h5 class="card-title" style="margin:0;">Add a follow-up</h5>
                 </div>
                 <div style="padding:1.1rem 1.25rem;">
-                    <form method="post">
+                    <form method="post" enctype="multipart/form-data">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                         <input type="hidden" name="action" value="followup">
                         <div class="st-form-group">
                             <textarea class="form-control" name="reply_message" rows="4" required placeholder="Add more details..."></textarea>
+                        </div>
+                        <div class="st-form-group">
+                            <input type="file" class="form-control" name="attachments[]" multiple
+                                   accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif">
+                            <div class="st-muted">Optional: PDF or image, up to 5 files, 10 MB each.</div>
                         </div>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-reply"></i> Send</button>
                     </form>
