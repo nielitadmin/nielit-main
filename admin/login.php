@@ -18,15 +18,7 @@ require_once __DIR__ . '/../includes/google_auth.php';
 require_once __DIR__ . '/../includes/phpmailer_smtp.php';
 require_once __DIR__ . '/../includes/teaching_access.php';
 
-if (!isset($loginPortal)) {
-    $loginPortal = (isset($_GET['portal']) && $_GET['portal'] === 'faculty') ? 'faculty' : 'admin';
-}
-$isFacultyPortal = ($loginPortal === 'faculty');
-$loginFormAction = htmlspecialchars(
-    $isFacultyPortal ? app_url('faculty/login') : app_url('admin/login'),
-    ENT_QUOTES,
-    'UTF-8'
-);
+$loginFormAction = htmlspecialchars(app_url('admin/login'), ENT_QUOTES, 'UTF-8');
 
 // Already signed in — skip login and go to the role landing page
 if (is_session_valid()) {
@@ -182,10 +174,6 @@ if (isset($_POST['google_credential'])) {
                 $admin = $result->fetch_assoc();
                 if (isset($admin['is_active']) && !$admin['is_active']) {
                     $error_message = 'Your admin account is inactive. Please contact support.';
-                } elseif ($isFacultyPortal && ($admin['role'] ?? '') !== 'faculty') {
-                    $error_message = 'This login is for faculty accounts only. Please use Admin Login.';
-                } elseif (!$isFacultyPortal && ($admin['role'] ?? '') === 'faculty') {
-                    $error_message = 'Please use the Faculty Login page for faculty accounts.';
                 } elseif (init_admin_session($admin['username'])) {
                     // Google already verified the email identity — skip OTP and log in.
                     unset(
@@ -200,9 +188,7 @@ if (isset($_POST['google_credential'])) {
                     $error_message = 'Failed to initialize session. Please contact support.';
                 }
             } else {
-                $error_message = $isFacultyPortal
-                    ? 'No faculty account is linked to this Google email.'
-                    : 'No admin account is linked to this Google email.';
+                $error_message = 'No admin account is linked to this Google email.';
             }
             $stmt->close();
         }
@@ -227,10 +213,6 @@ if (isset($_POST['login'])) {
         if (password_verify($password, $admin['password'])) {
             if (isset($admin['is_active']) && !$admin['is_active']) {
                 $error_message = 'Your admin account is inactive. Please contact support.';
-            } elseif ($isFacultyPortal && ($admin['role'] ?? '') !== 'faculty') {
-                $error_message = 'This login is for faculty accounts only. Please use Admin Login.';
-            } elseif (!$isFacultyPortal && ($admin['role'] ?? '') === 'faculty') {
-                $error_message = 'Please use the Faculty Login page for faculty accounts.';
             } else {
                 startAdminLoginOtpFlow($admin);
             }
@@ -301,7 +283,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $isFacultyPortal ? 'Faculty Login' : 'Admin Login'; ?> - NIELIT Bhubaneswar</title>
+    <title>Admin Login - NIELIT Bhubaneswar</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -340,11 +322,9 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
 
         <div class="banner-overlay">
             <div class="banner-content">
-                <span class="banner-badge"><i class="fas fa-<?php echo $isFacultyPortal ? 'chalkboard-teacher' : 'shield-alt'; ?>"></i> <?php echo $isFacultyPortal ? 'Faculty Portal' : 'Secure Admin Portal'; ?></span>
+                <span class="banner-badge"><i class="fas fa-shield-alt"></i> Secure Admin Portal</span>
                 <h1 class="brand-title">NIELIT Bhubaneswar</h1>
-                <p><?php echo $isFacultyPortal
-                    ? 'Faculty access to edit class timetable and your own course action plans — Ministry of Electronics & IT, Govt. of India.'
-                    : 'Management system for courses, batches, students, and institutional operations — Ministry of Electronics & IT, Govt. of India.'; ?></p>
+                <p>Management system for courses, batches, students, and institutional operations — Ministry of Electronics & IT, Govt. of India.</p>
                 <div class="banner-stats">
                     <div class="banner-stat">
                         <strong>NSQF</strong>
@@ -419,8 +399,8 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                             </div>
                         </div>
                     </div>
-                    <h2><?php echo $isFacultyPortal ? 'Faculty Portal' : 'Admin Portal'; ?></h2>
-                    <p><?php echo $isFacultyPortal ? 'Edit timetable &amp; your course action plans' : 'NIELIT Bhubaneswar Management System'; ?></p>
+                    <h2>Admin Portal</h2>
+                    <p>NIELIT Bhubaneswar Management System</p>
                 </div>
 
                 <div class="login-body">
@@ -511,7 +491,7 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                         </div>
 
                         <button type="submit" name="login" class="btn btn-primary w-100 btn-lg" id="loginBtn">
-                            <span class="btn-text"><i class="fas fa-sign-in-alt"></i> <?php echo $isFacultyPortal ? 'Login to Faculty Portal' : 'Login to Dashboard'; ?></span>
+                            <span class="btn-text"><i class="fas fa-sign-in-alt"></i> Login to Dashboard</span>
                             <span class="spinner"></span>
                         </button>
                     </form>
@@ -521,12 +501,6 @@ $hero_slides = resolveHeroSlidesForLogin($conn);
                 <div class="login-footer">
                     <p class="footer-security"><span class="footer-security-icon"><i class="fas fa-shield-alt"></i></span> Secure access with OTP verification</p>
                     <p>
-                        <?php if ($isFacultyPortal): ?>
-                            <a href="<?php echo htmlspecialchars(app_url('admin/login'), ENT_QUOTES, 'UTF-8'); ?>">Admin Login</a>
-                        <?php else: ?>
-                            <a href="<?php echo htmlspecialchars(app_url('faculty/login'), ENT_QUOTES, 'UTF-8'); ?>">Faculty Login</a>
-                        <?php endif; ?>
-                        &nbsp;·&nbsp;
                         <a href="<?php echo htmlspecialchars(app_url('student/login'), ENT_QUOTES, 'UTF-8'); ?>">Student Login</a>
                     </p>
                     <p>&copy; <?php echo date('Y'); ?> NIELIT Bhubaneswar. All rights reserved.</p>

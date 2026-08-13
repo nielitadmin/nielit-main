@@ -656,7 +656,7 @@ function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '
  */
 function getFacultyEmailTemplate($faculty_name, $designation = '', $department = '', $email = 'Registered') {
     $current_year = date('Y');
-    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/faculty/login';
+    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/admin/login';
     
     return <<<HTML
 <!DOCTYPE html>
@@ -775,7 +775,7 @@ HTML;
  * Get plain text version of faculty confirmation email
  */
 function getFacultyEmailPlainText($faculty_name, $designation = '', $department = '') {
-    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/faculty/login';
+    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/admin/login';
     return <<<TEXT
 FACULTY ACCOUNT REGISTERED - NIELIT Bhubaneswar
 

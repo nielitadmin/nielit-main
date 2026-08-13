@@ -310,7 +310,6 @@ function getFallbackNavigationMenu($currentPage = '') {
             <a class="nav-link dropdown-toggle' . $is('login') . '" href="#" data-bs-toggle="dropdown">Admin</a>
             <ul class="dropdown-menu">
                 <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('admin/login'), ENT_QUOTES, 'UTF-8') . '">Admin Login</a></li>
-                <li><a class="dropdown-item" href="' . htmlspecialchars(app_url('faculty/login'), ENT_QUOTES, 'UTF-8') . '">Faculty Login</a></li>
                 <li><a class="dropdown-item" href="/Salary_Slip/login">Finance Login</a></li>
                 <li><a class="dropdown-item" href="/Certificate/index">Certificate</a></li>
             </ul>

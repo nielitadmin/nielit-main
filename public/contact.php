@@ -246,7 +246,7 @@ public_skeleton_render_head();
                             </div>
                             <h5 class="card-title">Faculty Portal</h5>
                             <p class="card-text text-muted small">Class timetable and course action plans</p>
-                            <a href="<?php echo app_url('faculty/login'); ?>" class="btn btn-outline-info btn-sm">Faculty Login</a>
+                            <a href="<?php echo app_url('admin/login'); ?>" class="btn btn-outline-info btn-sm">Login</a>
                         </div>
                     </div>
                 </div>

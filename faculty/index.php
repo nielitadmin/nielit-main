@@ -8,5 +8,5 @@ if (isset($_SESSION['admin']) && ($_SESSION['admin_role'] ?? '') === 'faculty') 
     exit();
 }
 
-header('Location: ' . rtrim((string) APP_URL, '/') . '/faculty/login');
+header('Location: ' . rtrim((string) APP_URL, '/') . '/admin/login');
 exit();
