@@ -242,6 +242,19 @@ public_skeleton_render_head();
                     <div class="card border-0 shadow-sm text-center h-100 hover-lift">
                         <div class="card-body p-4">
                             <div class="mb-3">
+                                <i class="fas fa-chalkboard-teacher text-info" style="font-size: 2.5rem;"></i>
+                            </div>
+                            <h5 class="card-title">Faculty Portal</h5>
+                            <p class="card-text text-muted small">Class timetable and course action plans</p>
+                            <a href="<?php echo app_url('faculty/login'); ?>" class="btn btn-outline-info btn-sm">Faculty Login</a>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm text-center h-100 hover-lift">
+                        <div class="card-body p-4">
+                            <div class="mb-3">
                                 <i class="fas fa-user-shield text-warning" style="font-size: 2.5rem;"></i>
                             </div>
                             <h5 class="card-title">Admin Portal</h5>

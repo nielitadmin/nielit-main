@@ -15,15 +15,10 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/lesson_plan_helper.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-$role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
-if ($blocked) {
-    $_SESSION['message'] = 'Access denied.';
-    $_SESSION['message_type'] = 'danger';
-    header('Location: ' . relative_url('dashboard.php'));
-    exit();
-}
+admin_require_teaching_tools();
+$canManagePlans = admin_can_manage_lesson_plans();
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -40,6 +35,7 @@ if (!$plan) {
     header('Location: manage_lesson_plans.php');
     exit();
 }
+admin_require_own_lesson_plan($plan);
 
 $viewQs = '';
 if (isset($_GET['view']) && in_array(strtolower((string) $_GET['view']), ['month', 'week'], true)) {
@@ -71,6 +67,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = (string) ($_POST['action'] ?? '');
+
+    if (!$canManagePlans && in_array($action, ['save_header', 'save_topics'], true)) {
+        $_SESSION['message'] = 'Faculty can view topics and use Daily Update, but cannot edit the plan.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . $postRedirect);
+        exit();
+    }
 
     if ($action === 'save_header') {
         $payload = [
@@ -286,7 +289,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
     <main class="admin-content">
         <div class="admin-topbar">
             <div class="topbar-left">
-                <h4><i class="fas fa-edit"></i> Edit Course Action Plan</h4>
+                <h4><i class="fas fa-<?php echo $canManagePlans ? 'edit' : 'eye'; ?>"></i> <?php echo $canManagePlans ? 'Edit Course Action Plan' : 'View Course Action Plan'; ?></h4>
                 <p class="lp-muted mb-0"><?php echo htmlspecialchars($plan['plan_title'] ?? ''); ?></p>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -414,7 +417,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <input type="checkbox" name="is_active" value="1" <?php echo !empty($plan['is_active']) ? 'checked' : ''; ?>>
                             Active
                         </label>
+                        <?php if ($canManagePlans): ?>
                         <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Details</button>
+                        <?php else: ?>
+                        <p class="lp-muted mb-0">View only. Use <strong>Daily Update</strong> to record topics covered.</p>
+                        <?php endif; ?>
                     </form>
                 </div>
             </div>
@@ -545,7 +552,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                                     <?php $val = $rows[$w][$d]['topic'] ?? ''; ?>
                                                     <td>
                                                         <textarea name="topics[<?php echo $w; ?>][<?php echo $d; ?>]"
-                                                                  placeholder="Topic for week <?php echo $w; ?>, day <?php echo $d; ?>…"><?php echo htmlspecialchars($val); ?></textarea>
+                                                                  placeholder="Topic for week <?php echo $w; ?>, day <?php echo $d; ?>…"<?php echo $canManagePlans ? '' : ' readonly'; ?>><?php echo htmlspecialchars($val); ?></textarea>
                                                     </td>
                                                 <?php endfor; ?>
                                             </tr>
@@ -555,9 +562,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             </div>
                         <?php endif; ?>
 
+                        <?php if ($canManagePlans): ?>
                         <div style="margin-top:12px;">
                             <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save All Topics</button>
                         </div>
+                        <?php endif; ?>
                     </form>
                 </div>
             </div>

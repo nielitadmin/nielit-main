@@ -656,6 +656,7 @@ function sendFacultyConfirmationEmail($to_email, $faculty_name, $designation = '
  */
 function getFacultyEmailTemplate($faculty_name, $designation = '', $department = '', $email = 'Registered') {
     $current_year = date('Y');
+    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/faculty/login';
     
     return <<<HTML
 <!DOCTYPE html>
@@ -725,19 +726,19 @@ function getFacultyEmailTemplate($faculty_name, $designation = '', $department =
                             </table>
                             
                             <p style="color: #555; font-size: 15px; line-height: 1.8; margin: 20px 0;">
-                                You can now access the faculty portal and view your assigned batches, students, and other administrative functions.
+                                You can now access the faculty portal to view the class timetable and update course action plans.
                             </p>
                             
                             <p style="color: #555; font-size: 15px; line-height: 1.8; margin: 20px 0;">
                                 <strong>Access Details:</strong><br>
-                                Portal URL: <a href="https://nielitbhubaneswar.in" style="color: #1a56db; text-decoration: none;">https://nielitbhubaneswar.in</a>
+                                Portal URL: <a href="{$facultyPortalUrl}" style="color: #1a56db; text-decoration: none;">{$facultyPortalUrl}</a>
                             </p>
                             
                             <!-- Call to Action -->
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                 <tr>
                                     <td align="center">
-                                        <a href="https://nielitbhubaneswar.in" style="background-color: #1a56db; color: #ffffff; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
+                                        <a href="{$facultyPortalUrl}" style="background-color: #1a56db; color: #ffffff; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: 600; display: inline-block;">
                                             Access Faculty Portal
                                         </a>
                                     </td>
@@ -774,6 +775,7 @@ HTML;
  * Get plain text version of faculty confirmation email
  */
 function getFacultyEmailPlainText($faculty_name, $designation = '', $department = '') {
+    $facultyPortalUrl = (defined('APP_URL') ? rtrim((string) APP_URL, '/') : 'https://nielitbhubaneswar.in') . '/faculty/login';
     return <<<TEXT
 FACULTY ACCOUNT REGISTERED - NIELIT Bhubaneswar
 
@@ -787,9 +789,9 @@ Name: {$faculty_name}
 {$designation} Designation: {$designation}
 {$department} Department: {$department}
 
-You can now access the faculty portal and view your assigned batches, students, and other administrative functions.
+You can now access the faculty portal to view the class timetable and update course action plans.
 
-Access Faculty Portal: https://nielitbhubaneswar.in
+Access Faculty Portal: {$facultyPortalUrl}
 
 If you have any questions or need assistance, please contact us at:
 Email: admin@nielitbhubaneswar.in

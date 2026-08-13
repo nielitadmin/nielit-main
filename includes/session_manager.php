@@ -67,6 +67,30 @@ function init_admin_session($username) {
             
             // Load role-specific permissions and assignments
             load_admin_permissions($admin['id']);
+
+            // Link faculty directory record by email when role is faculty
+            $_SESSION['faculty_id'] = null;
+            $_SESSION['faculty_name'] = null;
+            if (($admin['role'] ?? '') === 'faculty') {
+                $facultyEmail = trim((string) ($admin['email'] ?? ''));
+                if ($facultyEmail !== '') {
+                    $fStmt = $conn->prepare('SELECT id, name FROM faculty WHERE LOWER(email) = LOWER(?) AND is_active = 1 LIMIT 1');
+                    if ($fStmt) {
+                        $fStmt->bind_param('s', $facultyEmail);
+                        if ($fStmt->execute()) {
+                            $fRow = $fStmt->get_result()->fetch_assoc();
+                            if ($fRow) {
+                                $_SESSION['faculty_id'] = (int) $fRow['id'];
+                                $_SESSION['faculty_name'] = (string) ($fRow['name'] ?? '');
+                            }
+                        }
+                        $fStmt->close();
+                    }
+                }
+                if (empty($_SESSION['faculty_name'])) {
+                    $_SESSION['faculty_name'] = (string) $admin['username'];
+                }
+            }
             
             // Log successful session initialization
             error_log("Session Manager: Session initialized for user " . $username . " with role " . $admin['role']);
@@ -339,6 +363,7 @@ function get_role_display_name($role = null) {
         'nsqf_course_manager' => 'NSQF Course Manager',
         'front_office_desk' => 'Front Office Desk',
         'placement_coordinator' => 'Placement Coordinator',
+        'faculty' => 'Faculty',
         'data_entry_operator' => 'Data Entry Operator',
         'report_viewer' => 'Report Viewer',
     ];
@@ -359,6 +384,8 @@ function get_admin_post_login_url($role = null) {
             return APP_URL . '/admin/students';
         case 'placement_coordinator':
             return APP_URL . '/batch_module/admin/manage_batches.php';
+        case 'faculty':
+            return APP_URL . '/admin/manage_class_timetable.php';
         default:
             return APP_URL . '/admin/dashboard.php';
     }

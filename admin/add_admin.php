@@ -25,9 +25,9 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-// Ensure front_office_desk role exists in enum (auto-migrate if needed)
-$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
+ensureAdminRoleEnum($conn);
 
 // PHPMailer for sending OTP
 use PHPMailer\PHPMailer\PHPMailer;
@@ -105,6 +105,10 @@ if (isset($_POST['send_otp'])) {
     $new_email = trim($_POST['email'] ?? '');
     $new_phone = trim($_POST['phone'] ?? '');
     $new_role = $_POST['role'] ?? 'course_coordinator';
+    $allowed_create_roles = ['master_admin', 'course_coordinator', 'faculty', 'nsqf_course_manager', 'front_office_desk', 'placement_coordinator'];
+    if (!in_array($new_role, $allowed_create_roles, true)) {
+        $new_role = 'course_coordinator';
+    }
 
     if (empty($new_username) || empty($new_password) || empty($new_email) || empty($new_phone)) {
         $error_message = "All fields are required. Please fill in all fields.";
@@ -173,7 +177,7 @@ if (isset($_POST['verify_otp'])) {
         $stmt->bind_param("sssss", $admin_data['username'], $hashed_password, $admin_data['phone'], $admin_data['email'], $role);
 
         if ($stmt->execute()) {
-            $role_display = $role === 'master_admin' ? 'Master Admin' : 'Course Coordinator';
+            $role_display = get_role_display_name($role);
             $success_message = "New admin '" . htmlspecialchars($admin_data['username']) . "' added successfully as " . $role_display . "! Email verified.";
             unset($_SESSION['temp_admin_data']);
             $show_otp_form = false;
@@ -451,13 +455,15 @@ $active_theme = loadActiveTheme($conn);
                         </label>
                         <select name="role" class="form-select" required style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 15px;">
                             <option value="course_coordinator">Course Coordinator</option>
+                            <option value="faculty">Faculty</option>
                             <option value="nsqf_course_manager">NSQF Course Manager</option>
                             <option value="front_office_desk">Front Office Desk</option>
                             <option value="placement_coordinator">Placement Coordinator</option>
                             <option value="master_admin">Master Admin</option>
                         </select>
                         <small class="text-muted">
-                            <strong>Course Coordinator:</strong> Access to Dashboard, Students, Courses, Batches, Approve Students, Reset Password<br>
+                            <strong>Course Coordinator:</strong> Dashboard, Students, Courses, Batches, Class Timetable, Course Action Plans, Approve Students<br>
+                            <strong>Faculty:</strong> Faculty login — edit Class Timetable and own Course Action Plans<br>
                             <strong>NSQF Course Manager:</strong> Can only manage NSQF courses<br>
                             <strong>Front Office Desk:</strong> View all students, edit student info, download forms — no access to courses, batches, or admin settings<br>
                             <strong>Placement Coordinator:</strong> View batches and update student placement details (company, role, package)<br>

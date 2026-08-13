@@ -15,15 +15,12 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/lesson_plan_helper.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-$role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
-if ($blocked) {
-    $_SESSION['message'] = 'Access denied.';
-    $_SESSION['message_type'] = 'danger';
-    header('Location: ' . relative_url('dashboard.php'));
-    exit();
-}
+admin_require_teaching_tools();
+$canManagePlans = admin_can_manage_lesson_plans();
+$ownPlansOnly = admin_lesson_plan_own_only();
+$ownCreatedBy = $ownPlansOnly ? admin_current_username() : null;
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -99,6 +96,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'delete') {
         $id = (int) ($_POST['id'] ?? 0);
+        $existing = $id > 0 ? getLessonPlan($conn, $id) : null;
+        if (!admin_can_access_lesson_plan($existing)) {
+            $_SESSION['message'] = 'You can only delete course action plans that you created.';
+            $_SESSION['message_type'] = 'danger';
+            header('Location: ' . $redirectUrl);
+            exit();
+        }
         $result = deleteLessonPlan($conn, $id);
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
@@ -111,7 +115,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $filterCentre = isset($_GET['centre_id']) ? (int) $_GET['centre_id'] : 0;
-$plans = listLessonPlansAdmin($conn, null, $filterCentre > 0 ? $filterCentre : null);
+if ($ownPlansOnly && ($ownCreatedBy === null || $ownCreatedBy === '')) {
+    $plans = [];
+} else {
+    $plans = listLessonPlansAdmin($conn, null, $filterCentre > 0 ? $filterCentre : null, $ownCreatedBy);
+}
 $batches = [];
 $batchRes = $conn->query(
     "SELECT b.id, b.batch_name, b.batch_code, b.start_date, c.course_name, c.centre_id
@@ -158,11 +166,14 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-book-open"></i> Course Action Plans</h4>
-                <p class="lp-muted mb-0">Monthly / weekly day-wise topics — faculty update daily as per timetable</p>
+                <p class="lp-muted mb-0"><?php echo $ownPlansOnly
+                    ? 'You only see course action plans that you created. Create or import a plan to start.'
+                    : 'Monthly / weekly day-wise topics — faculty update daily as per timetable'; ?></p>
             </div>
         </div>
 
         <div class="admin-main">
+            <?php if ($canManagePlans): ?>
             <div class="content-card" style="margin-bottom:1rem;">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
                     <h5 class="card-title mb-0"><i class="fas fa-plus-circle"></i> Create / Import</h5>
@@ -303,10 +314,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     </div>
                 </div>
             </div>
+            <?php endif; ?>
 
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-                    <h5 class="card-title mb-0"><i class="fas fa-list"></i> All Course Action Plans (<?php echo count($plans); ?>)</h5>
+                    <h5 class="card-title mb-0"><i class="fas fa-list"></i> <?php echo $ownPlansOnly ? 'My Course Action Plans' : 'All Course Action Plans'; ?> (<?php echo count($plans); ?>)</h5>
                     <form method="get" style="margin:0;display:flex;gap:8px;align-items:center;">
                         <label class="lp-muted mb-0">Centre</label>
                         <select name="centre_id" class="form-control form-control-sm" style="min-width:180px;" onchange="this.form.submit()">
@@ -321,7 +333,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
                 <div style="padding:1rem;">
                     <?php if (empty($plans)): ?>
-                        <p class="lp-muted mb-0">No course action plans yet. Create one or import the M1-R5 template.</p>
+                        <p class="lp-muted mb-0"><?php echo $canManagePlans ? 'No course action plans yet. Create one or import the M1-R5 template.' : 'No course action plans yet.'; ?></p>
                     <?php else: ?>
                         <?php foreach ($plans as $plan): ?>
                             <div class="lp-card" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start;">
@@ -355,7 +367,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                 </div>
                                 <div class="lp-actions">
                                     <a class="btn btn-sm btn-primary" href="edit_lesson_plan.php?id=<?php echo (int) $plan['id']; ?>">
-                                        <i class="fas fa-edit"></i> Edit Topics
+                                        <i class="fas fa-<?php echo $canManagePlans ? 'edit' : 'eye'; ?>"></i>
+                                        <?php echo $canManagePlans ? 'Edit Topics' : 'View Topics'; ?>
                                     </a>
                                     <a class="btn btn-sm btn-secondary" href="print_lesson_plan.php?id=<?php echo (int) $plan['id']; ?>" target="_blank">
                                         <i class="fas fa-print"></i> Print
@@ -363,12 +376,14 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <a class="btn btn-sm btn-success" href="lesson_plan_daily.php?plan_id=<?php echo (int) $plan['id']; ?>">
                                         <i class="fas fa-calendar-check"></i> Daily Update
                                     </a>
+                                    <?php if ($canManagePlans): ?>
                                     <form method="post" style="margin:0;" onsubmit="return confirm('Delete this Course Action Plan and all topics?');">
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                                         <input type="hidden" name="action" value="delete">
                                         <input type="hidden" name="id" value="<?php echo (int) $plan['id']; ?>">
                                         <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
                                     </form>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         <?php endforeach; ?>

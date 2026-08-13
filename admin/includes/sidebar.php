@@ -17,6 +17,7 @@ $is_course_coordinator = ($_SESSION['admin_role'] === 'course_coordinator');
 $is_nsqf_manager = ($_SESSION['admin_role'] === 'nsqf_course_manager');
 $is_front_office = ($_SESSION['admin_role'] === 'front_office_desk');
 $is_placement_coordinator = ($_SESSION['admin_role'] === 'placement_coordinator');
+$is_faculty = ($_SESSION['admin_role'] === 'faculty');
 $current_page = basename($_SERVER['PHP_SELF']);
 
 global $conn;
@@ -50,7 +51,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
 <aside class="admin-sidebar <?php echo htmlspecialchars($sidebarStyleClass); ?>" id="adminSidebar">
     <div class="sidebar-logo">
         <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
-        <h5>NIELIT Admin</h5>
+        <h5><?php echo $is_faculty ? 'NIELIT Faculty' : 'NIELIT Admin'; ?></h5>
         <small>Bhubaneswar</small>
     </div>
 
@@ -61,8 +62,18 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
     </div>
     
     <nav class="sidebar-nav">
-        <!-- Core Features (All Roles) -->
-        <?php if (!$is_placement_coordinator): ?>
+        <?php if ($is_faculty): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_class_timetable'); ?>" class="nav-link <?php echo ($current_page === 'manage_class_timetable.php') ? 'active' : ''; ?>">
+                <i class="fas fa-calendar-alt"></i> Class Timetable
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_lesson_plans'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_lesson_plans.php', 'edit_lesson_plan.php', 'lesson_plan_daily.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-book-open"></i> Course Action Plans
+            </a>
+        </div>
+        <?php elseif (!$is_placement_coordinator): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i> Dashboard
@@ -70,7 +81,8 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
         
-        <?php if ($is_placement_coordinator): ?>
+        <?php if ($is_faculty): ?>
+        <?php elseif ($is_placement_coordinator): ?>
         <!-- Placement Coordinator - Batches only (no course dashboard) -->
         <div class="nav-item">
             <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_batches.php', 'batch_details.php'], true) ? 'active' : ''; ?>">
@@ -101,7 +113,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-graduation-cap"></i> Manage NSQF Course
             </a>
         </div>
-        <?php elseif (!$is_front_office && !$is_placement_coordinator): ?>
+        <?php elseif (!$is_faculty && !$is_front_office && !$is_placement_coordinator): ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
             <a href="<?php echo app_url('admin/dashboard'); ?>" class="nav-link <?php echo ($current_page === 'dashboard.php') ? 'active' : ''; ?>">
@@ -110,7 +122,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo ($current_page === 'manage_batches.php') ? 'active' : ''; ?>">
                 <i class="fas fa-layer-group"></i> Batches
@@ -121,6 +133,8 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-video"></i> Online Classes
             </a>
         </div>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Teaching</div>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_class_timetable'); ?>" class="nav-link <?php echo ($current_page === 'manage_class_timetable.php') ? 'active' : ''; ?>">
                 <i class="fas fa-calendar-alt"></i> Class Timetable
@@ -210,7 +224,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
         
-        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <div class="nav-divider"></div>
         
         <!-- Student Approval (Non-NSQF, Non-Front-Office Roles Only) -->
@@ -273,7 +287,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <?php endif; ?>
         
         
-        <?php if (!$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
         <!-- This section is now empty as Reset Password moved to Master Admin section -->
         <?php endif; ?>
         

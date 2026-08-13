@@ -19,6 +19,9 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+require_once __DIR__ . '/../includes/teaching_access.php';
+admin_redirect_faculty_from_restricted_page();
+
 // Load active theme
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);

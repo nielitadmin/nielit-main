@@ -42,6 +42,10 @@ if (isset($_SESSION['admin_role'])) {
         header('Location: ' . APP_URL . '/batch_module/admin/manage_batches.php');
         exit();
     }
+    if ($_SESSION['admin_role'] === 'faculty') {
+        header('Location: ' . APP_URL . '/admin/manage_class_timetable.php');
+        exit();
+    }
 }
 
 // Load active theme

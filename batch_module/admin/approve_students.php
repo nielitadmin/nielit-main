@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../../includes/session_manager.php';
+require_once __DIR__ . '/../../includes/teaching_access.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login.php");
@@ -23,6 +24,8 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
         exit();
     }
 }
+
+admin_redirect_faculty_from_restricted_page();
 
 $message = '';
 $message_type = 'success';

@@ -14,14 +14,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/lesson_plan_helper.php';
 
-$role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
-if ($blocked) {
-    $_SESSION['message'] = 'Access denied.';
-    $_SESSION['message_type'] = 'danger';
-    header('Location: ' . relative_url('dashboard.php'));
-    exit();
-}
+require_once __DIR__ . '/../includes/teaching_access.php';
+admin_require_teaching_tools();
 
 ensureLessonPlanTables($conn);
 
@@ -33,6 +27,7 @@ if (!$plan) {
     header('Location: manage_lesson_plans.php');
     exit();
 }
+admin_require_own_lesson_plan($plan);
 
 $rows = getLessonPlanRows($conn, $planId);
 $totalWeeks = max(1, (int) ($plan['total_weeks'] ?? 16));

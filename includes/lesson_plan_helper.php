@@ -294,8 +294,11 @@ if (!function_exists('lessonPlanM1R5Template')) {
 }
 
 if (!function_exists('listLessonPlansAdmin')) {
-    /** @return list<array<string,mixed>> */
-    function listLessonPlansAdmin($conn, ?int $batchId = null, ?int $centreId = null): array
+    /**
+     * @param string|null $createdBy When set, only plans created by this username.
+     * @return list<array<string,mixed>>
+     */
+    function listLessonPlansAdmin($conn, ?int $batchId = null, ?int $centreId = null, ?string $createdBy = null): array
     {
         ensureLessonPlanTables($conn);
         $sql = "SELECT lp.*, b.batch_name, b.batch_code, b.start_date AS batch_start_date,
@@ -315,6 +318,12 @@ if (!function_exists('listLessonPlansAdmin')) {
             $sql .= ' AND lp.centre_id = ?';
             $types .= 'i';
             $params[] = $centreId;
+        }
+        $createdBy = trim((string) $createdBy);
+        if ($createdBy !== '') {
+            $sql .= ' AND LOWER(TRIM(COALESCE(lp.created_by, \'\'))) = LOWER(?)';
+            $types .= 's';
+            $params[] = $createdBy;
         }
         $sql .= ' ORDER BY lp.updated_at DESC, lp.id DESC';
 

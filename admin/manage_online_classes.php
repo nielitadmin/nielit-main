@@ -16,9 +16,10 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/online_class_helper.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
 $role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
+$blocked = in_array($role, ['nsqf_course_manager', 'front_office_desk', 'placement_coordinator', 'faculty'], true);
 if ($blocked) {
     $_SESSION['message'] = 'Access denied.';
     $_SESSION['message_type'] = 'danger';

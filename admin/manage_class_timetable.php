@@ -16,15 +16,10 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/class_timetable_helper.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-$role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
-if ($blocked) {
-    $_SESSION['message'] = 'Access denied.';
-    $_SESSION['message_type'] = 'danger';
-    header('Location: ' . relative_url('dashboard.php'));
-    exit();
-}
+admin_require_teaching_tools();
+$canEditTimetable = admin_can_edit_class_timetable();
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -345,6 +340,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = (string) ($_POST['action'] ?? '');
 
+    if (!$canEditTimetable && in_array($action, ['save', 'delete'], true)) {
+        $_SESSION['message'] = 'Faculty can view the timetable but cannot change slots.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . $redirectUrl);
+        exit();
+    }
+
     if ($action === 'save') {
         $editId = (int) ($_POST['id'] ?? 0);
 
@@ -563,9 +565,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                            title="<?php echo $viewMode === 'month' ? 'Print month-wise timetable (each week with dates)' : 'Print weekly timetable with logo and header'; ?>">
                             <i class="fas fa-print"></i> Print Timetable
                         </a>
+                        <?php if ($canEditTimetable): ?>
                         <button type="button" class="btn btn-primary" onclick="openSlotModal()">
                             <i class="fas fa-plus"></i> Add Slot
                         </button>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -574,7 +578,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <?php
                         $ctMonthBaseUrl = 'manage_class_timetable.php';
                         $ctMonthQuery = array_filter(['centre_id' => $filterCentre ?: null]);
-                        $ctMonthEditable = true;
+                        $ctMonthEditable = $canEditTimetable;
                         $ctGridFilterBatch = 0;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
                         $ctGridCourses = $allCoursesForSelect;
@@ -586,7 +590,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             Click <strong>+</strong> in an empty cell to add a class for that period.
                         </p>
                         <?php
-                        $ctGridEditable = true;
+                        $ctGridEditable = $canEditTimetable;
                         $ctGridCsrf = (string) $_SESSION['csrf_token'];
                         $ctGridFilterBatch = 0;
                         $ctGridFilterCentre = $filterCentre;

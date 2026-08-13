@@ -23,9 +23,9 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-// Ensure front_office_desk role exists in enum (auto-migrate if needed)
-$conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
+ensureAdminRoleEnum($conn);
 
 // PHPMailer for OTP
 use PHPMailer\PHPMailer\PHPMailer;
@@ -229,7 +229,7 @@ if (isset($_POST['update_role'])) {
     $new_role = $_POST['role'];
     
     // Whitelist valid roles
-    $allowed_roles = ['master_admin', 'course_coordinator', 'nsqf_course_manager', 'front_office_desk', 'placement_coordinator', 'data_entry_operator', 'report_viewer'];
+    $allowed_roles = ['master_admin', 'course_coordinator', 'faculty', 'nsqf_course_manager', 'front_office_desk', 'placement_coordinator', 'data_entry_operator', 'report_viewer'];
     
     // Prevent changing own role
     if ($admin_id == $_SESSION['admin_id']) {
@@ -247,7 +247,7 @@ if (isset($_POST['update_role'])) {
             // If update fails, likely the enum doesn't have this value yet
             if (strpos($conn->error, 'Data truncated') !== false || $stmt->affected_rows === 0) {
                 // Auto-run migration to add the role
-                $conn->query("ALTER TABLE admin MODIFY COLUMN role ENUM('master_admin','course_coordinator','nsqf_course_manager','data_entry_operator','report_viewer','front_office_desk','placement_coordinator') NOT NULL DEFAULT 'course_coordinator'");
+                ensureAdminRoleEnum($conn);
                 
                 // Retry
                 $stmt2 = $conn->prepare("UPDATE admin SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
@@ -320,6 +320,11 @@ $active_theme = loadActiveTheme($conn);
         
         .role-nsqf {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .role-faculty {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             color: white;
         }
         
@@ -578,6 +583,10 @@ $active_theme = loadActiveTheme($conn);
                                             $role_class = 'role-placement';
                                             $role_icon = 'fa-briefcase';
                                             $role_text = 'Placement Coordinator';
+                                        } elseif ($admin['role'] === 'faculty') {
+                                            $role_class = 'role-faculty';
+                                            $role_icon = 'fa-chalkboard-teacher';
+                                            $role_text = 'Faculty';
                                         }
                                         ?>
                                         <span class="role-badge <?php echo $role_class; ?>">
@@ -615,6 +624,7 @@ $active_theme = loadActiveTheme($conn);
                                         <select name="role" class="form-select" style="display: inline-block; width: auto; padding: 8px 12px; margin-right: 8px;">
                                             <option value="master_admin" <?php echo $admin['role'] === 'master_admin' ? 'selected' : ''; ?>>Master Admin</option>
                                             <option value="course_coordinator" <?php echo $admin['role'] === 'course_coordinator' ? 'selected' : ''; ?>>Course Coordinator</option>
+                                            <option value="faculty" <?php echo $admin['role'] === 'faculty' ? 'selected' : ''; ?>>Faculty</option>
                                             <option value="nsqf_course_manager" <?php echo $admin['role'] === 'nsqf_course_manager' ? 'selected' : ''; ?>>NSQF Course Manager</option>
                                             <option value="front_office_desk" <?php echo $admin['role'] === 'front_office_desk' ? 'selected' : ''; ?>>Front Office Desk</option>
                                             <option value="placement_coordinator" <?php echo $admin['role'] === 'placement_coordinator' ? 'selected' : ''; ?>>Placement Coordinator</option>
@@ -680,8 +690,21 @@ $active_theme = loadActiveTheme($conn);
                             <li>Manage students</li>
                             <li>Manage courses</li>
                             <li>Manage batches</li>
+                            <li>Class Timetable</li>
+                            <li>Own Course Action Plans only</li>
                             <li>Approve students</li>
                             <li>Reset own password</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h6 style="color: #0ea5e9; margin: 0 0 8px 0;">
+                            <i class="fas fa-chalkboard-teacher"></i> Faculty
+                        </h6>
+                        <ul style="margin: 0; padding-left: 20px; color: #64748b; font-size: 14px;">
+                            <li>Login at Faculty Portal</li>
+                            <li>Edit Class Timetable</li>
+                            <li>Create/edit own Course Action Plans only</li>
+                            <li>Daily topic update</li>
                         </ul>
                     </div>
                     <div>

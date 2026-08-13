@@ -24,6 +24,9 @@ if (!isset($_SESSION['admin_role']) || !isset($_SESSION['admin_id'])) {
 
 refresh_session_permissions();
 
+require_once __DIR__ . '/../../includes/teaching_access.php';
+admin_redirect_faculty_from_restricted_page();
+
 $admin_role = $_SESSION['admin_role'] ?? '';
 $is_placement_coordinator = ($admin_role === 'placement_coordinator');
 

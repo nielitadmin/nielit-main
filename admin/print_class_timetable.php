@@ -14,15 +14,9 @@ if (!isset($_SESSION['admin'])) {
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/class_timetable_helper.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
 
-$role = $_SESSION['admin_role'] ?? '';
-$blocked = in_array($role, ['nsqf_manager', 'front_office', 'placement_coordinator'], true);
-if ($blocked) {
-    $_SESSION['message'] = 'Access denied.';
-    $_SESSION['message_type'] = 'danger';
-    header('Location: ' . relative_url('dashboard.php'));
-    exit();
-}
+admin_require_teaching_tools();
 
 ensureClassTimetableTable($conn);
 

@@ -6,6 +6,8 @@ if (!isset($_SESSION['admin'])) {
 }
 
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/teaching_access.php';
+admin_redirect_faculty_from_restricted_page();
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
