@@ -286,7 +286,43 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <!-- This section is now empty as Reset Password moved to shared section -->
         <?php endif; ?>
 
+        <?php
+        $canAccessLibrary = false;
+        if (isset($conn) && $conn instanceof mysqli) {
+            $libHelper = __DIR__ . '/../../includes/library_helper.php';
+            if (is_file($libHelper)) {
+                require_once $libHelper;
+                $canAccessLibrary = function_exists('admin_can_access_library') && admin_can_access_library($conn);
+            }
+        }
+        ?>
+        <?php if ($canAccessLibrary): ?>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Library</div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/library'); ?>" class="nav-link <?php echo ($current_page === 'library.php') ? 'active' : ''; ?>">
+                <i class="fas fa-book"></i> Library Home
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/library_stock'); ?>" class="nav-link <?php echo ($current_page === 'library_stock.php') ? 'active' : ''; ?>">
+                <i class="fas fa-boxes-stacked"></i> Stock Register
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/library_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'library_student_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-graduate"></i> Student Issue / Return
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/library_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'library_staff_issues.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+            </a>
+        </div>
+        <?php endif; ?>
+
         <?php if ($is_master_admin || $is_course_coordinator || $is_faculty): ?>
+        <div class="nav-divider"></div>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/reset_password'); ?>" class="nav-link <?php echo ($current_page === 'reset_password.php') ? 'active' : ''; ?>">
                 <i class="fas fa-key"></i> Reset Password
