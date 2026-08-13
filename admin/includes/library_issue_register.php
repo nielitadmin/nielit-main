@@ -15,9 +15,23 @@ $pageTitle = $isStudentReg ? 'Student Issue / Return' : 'Staff / Faculty Issue /
 
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'student' && $isStudentReg) {
     header('Content-Type: application/json; charset=utf-8');
-    $sid = trim((string) ($_GET['student_id'] ?? ''));
-    $row = lookupLibraryStudent($conn, $sid);
-    echo json_encode($row ? ['ok' => true, 'name' => $row['name'], 'email' => $row['email'] ?? ''] : ['ok' => false]);
+    $by = (string) ($_GET['by'] ?? 'student_id');
+    $q = trim((string) ($_GET['q'] ?? $_GET['student_id'] ?? ''));
+    $matches = lookupLibraryStudents($conn, $q, $by);
+    $out = [];
+    foreach ($matches as $row) {
+        $out[] = [
+            'student_id' => (string) ($row['student_id'] ?? ''),
+            'name' => (string) ($row['name'] ?? ''),
+            'email' => (string) ($row['email'] ?? ''),
+        ];
+    }
+    echo json_encode([
+        'ok' => $out !== [],
+        'matches' => $out,
+        'name' => $out[0]['name'] ?? '',
+        'student_id' => $out[0]['student_id'] ?? '',
+    ]);
     exit;
 }
 
@@ -29,7 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $redirect = $pageFile . '?' . http_build_query(array_filter([
         'status' => $_POST['redirect_status'] ?? null,
         'q' => $_POST['redirect_q'] ?? null,
-    ]));
+        'centre_id' => $_POST['redirect_centre'] ?? null,
+    ], static function ($v) {
+        return $v !== null && $v !== '' && $v !== '0';
+    }));
     $redirect = rtrim($redirect, '?');
 
     if ($action === 'issue') {
@@ -43,6 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ];
         if ($isStudentReg) {
             $payload['student_id'] = $_POST['student_id'] ?? '';
+            $payload['student_query'] = $_POST['student_query'] ?? '';
+            $payload['student_lookup'] = $_POST['student_lookup'] ?? 'student_id';
         } else {
             $payload['faculty_id'] = (int) ($_POST['faculty_id'] ?? 0);
         }
@@ -59,6 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = returnLibraryCopy($conn, (int) ($_POST['book_id'] ?? 0), $adminUser);
         libraryFlashRedirect($redirect, $result['message'], $result['success']);
     }
+
+    if ($action === 'remind') {
+        $result = librarySendIssueReminder($conn, (int) ($_POST['issue_id'] ?? 0));
+        libraryFlashRedirect($redirect, $result['message'], $result['success']);
+    }
 }
 
 $filterStatus = strtolower(trim((string) ($_GET['status'] ?? 'issued')));
@@ -66,12 +90,15 @@ if (!in_array($filterStatus, ['issued', 'returned', 'overdue', 'all'], true)) {
     $filterStatus = 'issued';
 }
 $searchQ = trim((string) ($_GET['q'] ?? ''));
+$filterCentre = (int) ($_GET['centre_id'] ?? 0);
+$centres = listLibraryCentres($conn);
 $issues = listLibraryIssues($conn, [
     'borrower_type' => $libraryBorrowerType,
     'status' => $filterStatus,
     'q' => $searchQ,
+    'centre_id' => $filterCentre,
 ]);
-$availableBooks = listLibraryBooks($conn, ['available_only' => true]);
+$availableBooks = listLibraryBooks($conn, ['available_only' => true, 'centre_id' => $filterCentre]);
 $orphanIssued = listOrphanIssuedLibraryBooks($conn);
 $staffList = $isStudentReg ? [] : listLibraryStaff($conn);
 $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrowerType) . ' days'));
@@ -134,6 +161,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                         <input type="hidden" name="action" value="issue">
                         <input type="hidden" name="redirect_status" value="<?php echo htmlspecialchars($filterStatus); ?>">
                         <input type="hidden" name="redirect_q" value="<?php echo htmlspecialchars($searchQ); ?>">
+                        <input type="hidden" name="redirect_centre" value="<?php echo (int) $filterCentre; ?>">
                         <div class="lib-row">
                             <div class="form-group">
                                 <label>Book (available) <span class="text-danger">*</span></label>
@@ -141,16 +169,33 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                     <option value="">Select accession…</option>
                                     <?php foreach ($availableBooks as $bk): ?>
                                         <option value="<?php echo (int) $bk['id']; ?>">
-                                            <?php echo htmlspecialchars($bk['accession_no'] . ' — ' . $bk['title']); ?>
+                                            <?php
+                                            $opt = $bk['accession_no'] . ' — ' . $bk['title'];
+                                            $cname = trim((string) ($bk['centre_name'] ?? ''));
+                                            if ($cname !== '') {
+                                                $opt .= ' (' . $cname . ')';
+                                            }
+                                            echo htmlspecialchars($opt);
+                                            ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
                             <?php if ($isStudentReg): ?>
                             <div class="form-group">
-                                <label>Student ID <span class="text-danger">*</span></label>
-                                <input class="form-control" name="student_id" id="lib_student_id" required maxlength="50" placeholder="Enter student ID">
+                                <label>Find student by</label>
+                                <select class="form-control" name="student_lookup" id="lib_student_lookup">
+                                    <?php foreach (libraryStudentLookupTypes() as $lookupKey => $lookupLabel): ?>
+                                        <option value="<?php echo htmlspecialchars($lookupKey); ?>"><?php echo htmlspecialchars($lookupLabel); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label id="lib_student_query_label">Student ID <span class="text-danger">*</span></label>
+                                <input class="form-control" name="student_query" id="lib_student_query" required maxlength="50" placeholder="Enter student ID" autocomplete="off">
+                                <input type="hidden" name="student_id" id="lib_student_id" value="">
                                 <div class="lib-muted" id="lib_student_hint">Name will appear after lookup.</div>
+                                <select class="form-control" id="lib_student_pick" style="display:none;margin-top:6px;"></select>
                             </div>
                             <?php else: ?>
                             <div class="form-group">
@@ -208,6 +253,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                 <tr>
                                     <th>Accession</th>
                                     <th>Title</th>
+                                    <th>Centre</th>
                                     <th></th>
                                 </tr>
                             </thead>
@@ -216,6 +262,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                     <tr>
                                         <td><?php echo htmlspecialchars((string) $ob['accession_no']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $ob['title']); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryCentreLabel($ob)); ?></td>
                                         <td>
                                             <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
@@ -223,6 +270,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                                 <input type="hidden" name="book_id" value="<?php echo (int) $ob['id']; ?>">
                                                 <input type="hidden" name="redirect_status" value="<?php echo htmlspecialchars($filterStatus); ?>">
                                                 <input type="hidden" name="redirect_q" value="<?php echo htmlspecialchars($searchQ); ?>">
+                                                <input type="hidden" name="redirect_centre" value="<?php echo (int) $filterCentre; ?>">
                                                 <button type="submit" class="btn btn-sm btn-success">Return</button>
                                             </form>
                                         </td>
@@ -241,6 +289,16 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                     <form method="get" style="margin:0;display:flex;gap:8px;flex-wrap:wrap;">
                         <input class="form-control form-control-sm" name="q" value="<?php echo htmlspecialchars($searchQ); ?>"
                                placeholder="Search accession, title, name…" style="min-width:200px;">
+                        <select class="form-control form-control-sm" name="centre_id" onchange="this.form.submit()">
+                            <?php if (count($centres) !== 1): ?>
+                                <option value="0">All centres</option>
+                            <?php endif; ?>
+                            <?php foreach ($centres as $ctr): ?>
+                                <option value="<?php echo (int) $ctr['id']; ?>" <?php echo ($filterCentre === (int) $ctr['id'] || (count($centres) === 1 && $filterCentre === 0)) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $ctr['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                         <select class="form-control form-control-sm" name="status" onchange="this.form.submit()">
                             <option value="issued" <?php echo $filterStatus === 'issued' ? 'selected' : ''; ?>>Issued</option>
                             <option value="overdue" <?php echo $filterStatus === 'overdue' ? 'selected' : ''; ?>>Overdue</option>
@@ -259,6 +317,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                             <tr>
                                 <th>Accession</th>
                                 <th>Title</th>
+                                <th>Centre</th>
                                 <th><?php echo $isStudentReg ? 'Student' : 'Staff / Faculty'; ?></th>
                                 <th>Issued</th>
                                 <th>Due</th>
@@ -269,7 +328,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                         </thead>
                         <tbody>
                             <?php if (empty($issues)): ?>
-                                <tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">No records in this view.</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted" style="padding:2rem;">No records in this view.</td></tr>
                             <?php else: ?>
                                 <?php foreach ($issues as $row): ?>
                                     <?php
@@ -279,6 +338,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                     <tr>
                                         <td><?php echo htmlspecialchars((string) $row['accession_no']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $row['title']); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryCentreLabel($row)); ?></td>
                                         <td><?php echo htmlspecialchars(libraryBorrowerLabel($row)); ?></td>
                                         <td><?php echo !empty($row['issue_date']) ? date('d M Y', strtotime($row['issue_date'])) : '—'; ?></td>
                                         <td><?php echo !empty($row['due_date']) ? date('d M Y', strtotime($row['due_date'])) : '—'; ?></td>
@@ -290,14 +350,26 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                         </td>
                                         <td>
                                             <?php if (($row['status'] ?? '') === 'issued'): ?>
+                                                <div style="display:flex;gap:6px;flex-wrap:wrap;">
                                                 <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                     <input type="hidden" name="action" value="return">
                                                     <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
                                                     <input type="hidden" name="redirect_status" value="<?php echo htmlspecialchars($filterStatus); ?>">
                                                     <input type="hidden" name="redirect_q" value="<?php echo htmlspecialchars($searchQ); ?>">
+                                                <input type="hidden" name="redirect_centre" value="<?php echo (int) $filterCentre; ?>">
                                                     <button type="submit" class="btn btn-sm btn-success">Return</button>
                                                 </form>
+                                                <form method="post" style="margin:0;">
+                                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                    <input type="hidden" name="action" value="remind">
+                                                    <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
+                                                    <input type="hidden" name="redirect_status" value="<?php echo htmlspecialchars($filterStatus); ?>">
+                                                    <input type="hidden" name="redirect_q" value="<?php echo htmlspecialchars($searchQ); ?>">
+                                                <input type="hidden" name="redirect_centre" value="<?php echo (int) $filterCentre; ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Email reminder</button>
+                                                </form>
+                                                </div>
                                             <?php else: ?>
                                                 <span class="lib-muted">—</span>
                                             <?php endif; ?>
@@ -335,25 +407,78 @@ showToast(<?php echo json_encode($message); ?>, <?php echo json_encode($message_
 })();
 <?php if ($isStudentReg): ?>
 (function () {
-    var input = document.getElementById('lib_student_id');
+    var lookup = document.getElementById('lib_student_lookup');
+    var input = document.getElementById('lib_student_query');
+    var hidden = document.getElementById('lib_student_id');
     var hint = document.getElementById('lib_student_hint');
-    if (!input || !hint) return;
+    var pick = document.getElementById('lib_student_pick');
+    var label = document.getElementById('lib_student_query_label');
+    if (!lookup || !input || !hidden || !hint || !pick) return;
     var timer = null;
-    input.addEventListener('input', function () {
-        clearTimeout(timer);
-        var id = input.value.trim();
-        if (id.length < 2) {
+    var meta = {
+        student_id: { label: 'Student ID', placeholder: 'Enter student ID', maxlength: 50, min: 2, inputmode: 'text' },
+        mobile: { label: 'Mobile number', placeholder: '10-digit mobile number', maxlength: 15, min: 10, inputmode: 'numeric' },
+        aadhar: { label: 'Aadhaar number', placeholder: '12-digit Aadhaar number', maxlength: 14, min: 12, inputmode: 'numeric' }
+    };
+    function applyLookupType() {
+        var cfg = meta[lookup.value] || meta.student_id;
+        if (label) label.innerHTML = cfg.label + ' <span class="text-danger">*</span>';
+        input.placeholder = cfg.placeholder;
+        input.maxLength = cfg.maxlength;
+        input.setAttribute('inputmode', cfg.inputmode);
+        hidden.value = '';
+        pick.style.display = 'none';
+        pick.innerHTML = '';
+        hint.textContent = 'Name will appear after lookup.';
+        lookupStudent();
+    }
+    function lookupStudent() {
+        var by = lookup.value || 'student_id';
+        var q = input.value.trim();
+        var cfg = meta[by] || meta.student_id;
+        hidden.value = '';
+        pick.style.display = 'none';
+        pick.innerHTML = '';
+        if (q.length < cfg.min) {
             hint.textContent = 'Name will appear after lookup.';
             return;
         }
-        timer = setTimeout(function () {
-            fetch('library_student_issues.php?ajax=student&student_id=' + encodeURIComponent(id))
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    hint.textContent = data && data.ok ? ('Student: ' + data.name) : 'Student ID not found.';
-                })
-                .catch(function () { hint.textContent = 'Could not look up student.'; });
-        }, 350);
+        fetch('library_student_issues.php?ajax=student&by=' + encodeURIComponent(by) + '&q=' + encodeURIComponent(q))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var matches = (data && data.matches) ? data.matches : [];
+                if (matches.length === 1) {
+                    hidden.value = matches[0].student_id || '';
+                    hint.textContent = 'Student: ' + matches[0].name + ' (' + matches[0].student_id + ')';
+                    return;
+                }
+                if (matches.length > 1) {
+                    hint.textContent = matches.length + ' students match. Select the correct one.';
+                    pick.innerHTML = '<option value="">Select student…</option>';
+                    matches.forEach(function (m) {
+                        var opt = document.createElement('option');
+                        opt.value = m.student_id;
+                        opt.textContent = (m.name || 'Student') + ' — ' + m.student_id;
+                        pick.appendChild(opt);
+                    });
+                    pick.style.display = '';
+                    return;
+                }
+                hint.textContent = (cfg.label || 'Student') + ' not found.';
+            })
+            .catch(function () { hint.textContent = 'Could not look up student.'; });
+    }
+    lookup.addEventListener('change', applyLookupType);
+    input.addEventListener('input', function () {
+        clearTimeout(timer);
+        timer = setTimeout(lookupStudent, 350);
+    });
+    pick.addEventListener('change', function () {
+        hidden.value = pick.value || '';
+        if (pick.value) {
+            var opt = pick.options[pick.selectedIndex];
+            hint.textContent = 'Student: ' + (opt ? opt.textContent : pick.value);
+        }
     });
 })();
 <?php endif; ?>

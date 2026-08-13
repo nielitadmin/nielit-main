@@ -30,6 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'shelf_location' => $_POST['shelf_location'] ?? '',
             'remarks' => $_POST['remarks'] ?? '',
             'status' => $_POST['status'] ?? 'available',
+            'centre_id' => (int) ($_POST['centre_id'] ?? 0),
             'created_by' => $adminUser,
         ], $id > 0 ? $id : null);
         libraryFlashRedirect(
@@ -46,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $filterStatus = strtolower(trim((string) ($_GET['status'] ?? 'all')));
 $searchQ = trim((string) ($_GET['q'] ?? ''));
-$books = listLibraryBooks($conn, ['status' => $filterStatus, 'q' => $searchQ]);
+$filterCentre = (int) ($_GET['centre_id'] ?? 0);
+$centres = listLibraryCentres($conn);
+$books = listLibraryBooks($conn, ['status' => $filterStatus, 'q' => $searchQ, 'centre_id' => $filterCentre]);
 $statuses = libraryBookStatuses();
 $sources = libraryBookSources();
 $v = $editBook ?: [];
@@ -107,6 +110,17 @@ $v = $editBook ?: [];
                                 <label>Accession No <span class="text-danger">*</span></label>
                                 <input class="form-control" name="accession_no" required maxlength="50"
                                        value="<?php echo htmlspecialchars((string) ($v['accession_no'] ?? '')); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>Centre <span class="text-danger">*</span></label>
+                                <select class="form-control" name="centre_id" required>
+                                    <option value="">Select centre…</option>
+                                    <?php foreach ($centres as $ctr): ?>
+                                        <option value="<?php echo (int) $ctr['id']; ?>" <?php echo ((int) ($v['centre_id'] ?? 0) === (int) $ctr['id'] || (count($centres) === 1 && (int) ($v['centre_id'] ?? 0) === 0)) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $ctr['name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="form-group" style="flex:2;">
                                 <label>Title <span class="text-danger">*</span></label>
@@ -210,6 +224,16 @@ $v = $editBook ?: [];
                     <form method="get" style="margin:0;display:flex;gap:8px;flex-wrap:wrap;">
                         <input class="form-control form-control-sm" name="q" placeholder="Search accession, title, author…"
                                value="<?php echo htmlspecialchars($searchQ); ?>" style="min-width:200px;">
+                        <select class="form-control form-control-sm" name="centre_id" onchange="this.form.submit()">
+                            <?php if (count($centres) !== 1): ?>
+                                <option value="0">All centres</option>
+                            <?php endif; ?>
+                            <?php foreach ($centres as $ctr): ?>
+                                <option value="<?php echo (int) $ctr['id']; ?>" <?php echo ($filterCentre === (int) $ctr['id'] || (count($centres) === 1 && $filterCentre === 0)) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $ctr['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                         <select class="form-control form-control-sm" name="status" onchange="this.form.submit()">
                             <option value="all">All statuses</option>
                             <?php foreach ($statuses as $key => $label): ?>
@@ -227,6 +251,7 @@ $v = $editBook ?: [];
                             <tr>
                                 <th>Accession</th>
                                 <th>Title</th>
+                                <th>Centre</th>
                                 <th>Author</th>
                                 <th>Category</th>
                                 <th>Shelf</th>
@@ -236,12 +261,13 @@ $v = $editBook ?: [];
                         </thead>
                         <tbody>
                             <?php if (empty($books)): ?>
-                                <tr><td colspan="7" class="text-center text-muted" style="padding:2rem;">No books in stock yet.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted" style="padding:2rem;">No books in stock yet.</td></tr>
                             <?php else: ?>
                                 <?php foreach ($books as $b): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars((string) $b['accession_no']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $b['title']); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryCentreLabel($b)); ?></td>
                                         <td><?php echo htmlspecialchars((string) ($b['author'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars((string) ($b['category'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars((string) ($b['shelf_location'] ?? '')); ?></td>

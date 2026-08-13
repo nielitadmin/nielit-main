@@ -12,11 +12,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($isMasterAdmin) {
         $targetId = (int) ($_POST['admin_id'] ?? 0);
         if ($action === 'grant') {
-            $result = libraryGrantAccess($conn, $targetId, $adminUser);
+            $result = libraryGrantAccess($conn, $targetId, $adminUser, (int) ($_POST['centre_id'] ?? 0));
             libraryFlashRedirect('library.php', $result['message'], $result['success']);
         }
         if ($action === 'revoke') {
-            $result = libraryRevokeAccess($conn, $targetId);
+            $result = libraryRevokeAccess($conn, $targetId, (int) ($_POST['centre_id'] ?? 0));
             libraryFlashRedirect('library.php', $result['message'], $result['success']);
         }
     }
@@ -28,12 +28,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = returnLibraryCopy($conn, (int) ($_POST['book_id'] ?? 0), $adminUser);
         libraryFlashRedirect('library.php', $result['message'], $result['success']);
     }
+    if ($action === 'send_reminders') {
+        $result = sendLibraryDueReminders($conn);
+        if ((int) $result['sent'] === 0 && (int) $result['failed'] === 0) {
+            $msg = 'No due or overdue reminders to send right now.';
+        } else {
+            $msg = 'Reminders sent: ' . (int) $result['sent'] . '. Skipped (no email / already sent today): ' . (int) $result['skipped'] . '. Failed: ' . (int) $result['failed'] . '.';
+        }
+        libraryFlashRedirect('library.php', $msg, $result['failed'] === 0);
+    }
+    if ($action === 'remind') {
+        $result = librarySendIssueReminder($conn, (int) ($_POST['issue_id'] ?? 0));
+        libraryFlashRedirect('library.php', $result['message'], $result['success']);
+    }
 }
 
 $stats = libraryStats($conn);
 $currentIssues = listLibraryIssues($conn, ['status' => 'issued']);
 $orphanIssued = listOrphanIssuedLibraryBooks($conn);
 $candidates = $isMasterAdmin ? listLibraryAccessCandidates($conn) : [];
+$allCentres = $isMasterAdmin ? listLibraryCentres($conn, false) : [];
 $roleNames = [
     'course_coordinator' => 'Course Coordinator',
     'faculty' => 'Faculty',
@@ -107,7 +121,18 @@ $roleNames = [
                         <a class="btn btn-danger" href="library_student_issues.php?status=overdue">Student overdue</a>
                         <a class="btn btn-danger" href="library_staff_issues.php?status=overdue">Staff overdue</a>
                     <?php endif; ?>
+                    <form method="post" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                        <input type="hidden" name="action" value="send_reminders">
+                        <button type="submit" class="btn btn-secondary"><i class="fas fa-envelope"></i> Send due reminders</button>
+                    </form>
                 </div>
+                <?php if ($isMasterAdmin): ?>
+                <p class="lib-muted" style="padding:0 1.25rem 1rem;margin:0;">
+                    Daily auto-reminders (due within 2 days or overdue, once per borrower per day): schedule a Hostinger cron to visit
+                    <code style="word-break:break-all;"><?php echo htmlspecialchars(rtrim((string) APP_URL, '/') . '/scripts/library_due_reminders.php?key=' . libraryReminderCronKey()); ?></code>
+                </p>
+                <?php endif; ?>
             </div>
 
             <div class="content-card" style="margin-bottom:1.25rem;">
@@ -115,7 +140,7 @@ $roleNames = [
                     <h5 class="card-title" style="margin:0;">Currently issued</h5>
                 </div>
                 <div style="padding:1rem 1.25rem;">
-                    <p class="lib-muted">Click Return for an early return. The return date is recorded as today.</p>
+                    <p class="lib-muted">Click Return for an early return. The return date is recorded as today. Issue, return, and due reminders are emailed to the borrower when an email is on file.</p>
                     <?php if (empty($currentIssues) && empty($orphanIssued)): ?>
                         <p class="lib-muted mb-0">No books are currently issued.</p>
                     <?php else: ?>
@@ -125,6 +150,7 @@ $roleNames = [
                                 <tr>
                                     <th>Accession</th>
                                     <th>Title</th>
+                                    <th>Centre</th>
                                     <th>Borrower</th>
                                     <th>Issued</th>
                                     <th>Due</th>
@@ -136,16 +162,25 @@ $roleNames = [
                                     <tr>
                                         <td><?php echo htmlspecialchars((string) ($row['accession_no'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars((string) ($row['title'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryCentreLabel($row)); ?></td>
                                         <td><?php echo htmlspecialchars(libraryBorrowerLabel($row)); ?></td>
                                         <td><?php echo !empty($row['issue_date']) ? date('d M Y', strtotime($row['issue_date'])) : '—'; ?></td>
                                         <td><?php echo !empty($row['due_date']) ? date('d M Y', strtotime($row['due_date'])) : '—'; ?></td>
                                         <td>
+                                            <div style="display:flex;gap:6px;flex-wrap:wrap;">
                                             <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                 <input type="hidden" name="action" value="return">
                                                 <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
                                                 <button type="submit" class="btn btn-sm btn-success">Return</button>
                                             </form>
+                                            <form method="post" style="margin:0;">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                <input type="hidden" name="action" value="remind">
+                                                <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Email reminder</button>
+                                            </form>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -153,6 +188,7 @@ $roleNames = [
                                     <tr>
                                         <td><?php echo htmlspecialchars((string) $ob['accession_no']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $ob['title']); ?></td>
+                                        <td><?php echo htmlspecialchars(libraryCentreLabel($ob)); ?></td>
                                         <td class="lib-muted">No issue row</td>
                                         <td>—</td>
                                         <td>—</td>
@@ -179,15 +215,18 @@ $roleNames = [
                     <h5 class="card-title" style="margin:0;"><i class="fas fa-user-shield"></i> Grant library access</h5>
                 </div>
                 <div style="padding:1rem 1.25rem;">
-                    <p class="lib-muted">Course Coordinators and Faculty with access will see Library in their sidebar.</p>
+                    <p class="lib-muted">Grant a Course Coordinator or Faculty for a specific centre (e.g. Bhubaneswar or Raipur). They will only see that centre’s stock and issue register.</p>
+                    <?php if (empty($allCentres)): ?>
+                        <p class="lib-muted">Add training centres first under Training Centres, then grant library access per centre.</p>
+                    <?php endif; ?>
                     <div class="table-responsive">
                         <table class="modern-table">
                             <thead>
                                 <tr>
                                     <th>Username</th>
                                     <th>Role</th>
-                                    <th>Access</th>
-                                    <th></th>
+                                    <th>Centres</th>
+                                    <th>Grant centre</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -195,32 +234,53 @@ $roleNames = [
                                     <tr><td colspan="4" class="text-muted text-center" style="padding:1.5rem;">No course coordinator or faculty accounts found.</td></tr>
                                 <?php else: ?>
                                     <?php foreach ($candidates as $c): ?>
+                                        <?php
+                                        $grantedIds = [];
+                                        foreach ($c['grants'] ?? [] as $g) {
+                                            $grantedIds[(int) $g['centre_id']] = true;
+                                        }
+                                        ?>
                                         <tr>
                                             <td><?php echo htmlspecialchars((string) $c['username']); ?></td>
                                             <td><?php echo htmlspecialchars($roleNames[$c['role']] ?? (string) $c['role']); ?></td>
                                             <td>
-                                                <?php if (!empty($c['grant_id'])): ?>
-                                                    <span class="badge bg-success">Granted</span>
-                                                    <?php if (!empty($c['granted_by'])): ?>
-                                                        <span class="lib-muted">by <?php echo htmlspecialchars((string) $c['granted_by']); ?></span>
-                                                    <?php endif; ?>
-                                                <?php else: ?>
+                                                <?php if (empty($c['grants'])): ?>
                                                     <span class="badge bg-secondary">Not granted</span>
+                                                <?php else: ?>
+                                                    <?php foreach ($c['grants'] as $g): ?>
+                                                        <form method="post" style="display:inline-flex;align-items:center;gap:6px;margin:0 8px 6px 0;">
+                                                            <span class="badge bg-success"><?php echo htmlspecialchars((string) ($g['centre_name'] ?: ('Centre #' . (int) $g['centre_id']))); ?></span>
+                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
+                                                            <input type="hidden" name="action" value="revoke">
+                                                            <input type="hidden" name="admin_id" value="<?php echo (int) $c['id']; ?>">
+                                                            <input type="hidden" name="centre_id" value="<?php echo (int) $g['centre_id']; ?>">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                                                        </form>
+                                                    <?php endforeach; ?>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
-                                                <?php if (!empty($c['grant_id'])): ?>
-                                                    <form method="post" style="margin:0;">
-                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
-                                                        <input type="hidden" name="action" value="revoke">
-                                                        <input type="hidden" name="admin_id" value="<?php echo (int) $c['id']; ?>">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
-                                                    </form>
+                                                <?php
+                                                $remaining = [];
+                                                foreach ($allCentres as $ctr) {
+                                                    if (empty($grantedIds[(int) $ctr['id']])) {
+                                                        $remaining[] = $ctr;
+                                                    }
+                                                }
+                                                ?>
+                                                <?php if (empty($remaining)): ?>
+                                                    <span class="lib-muted">All centres granted</span>
                                                 <?php else: ?>
-                                                    <form method="post" style="margin:0;">
+                                                    <form method="post" style="margin:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
                                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                         <input type="hidden" name="action" value="grant">
                                                         <input type="hidden" name="admin_id" value="<?php echo (int) $c['id']; ?>">
+                                                        <select name="centre_id" class="form-control form-control-sm" required style="min-width:160px;">
+                                                            <option value="">Select centre…</option>
+                                                            <?php foreach ($remaining as $ctr): ?>
+                                                                <option value="<?php echo (int) $ctr['id']; ?>"><?php echo htmlspecialchars((string) $ctr['name']); ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
                                                         <button type="submit" class="btn btn-sm btn-primary">Grant</button>
                                                     </form>
                                                 <?php endif; ?>
