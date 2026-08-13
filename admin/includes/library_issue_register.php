@@ -217,7 +217,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                         <td><?php echo htmlspecialchars((string) $ob['accession_no']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $ob['title']); ?></td>
                                         <td>
-                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this copy as returned / available?');">
+                                            <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                 <input type="hidden" name="action" value="return_copy">
                                                 <input type="hidden" name="book_id" value="<?php echo (int) $ob['id']; ?>">
@@ -290,7 +290,7 @@ $dueDefault = date('Y-m-d', strtotime('+' . libraryDefaultDueDays($libraryBorrow
                                         </td>
                                         <td>
                                             <?php if (($row['status'] ?? '') === 'issued'): ?>
-                                                <form method="post" style="margin:0;" onsubmit="return confirm('Mark this book as returned?');">
+                                                <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                     <input type="hidden" name="action" value="return">
                                                     <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">

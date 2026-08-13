@@ -11,3 +11,27 @@
         </a>
     <?php endforeach; ?>
 </div>
+<script>
+function libraryConfirmReturn(e, form) {
+    e.preventDefault();
+    var message = 'Mark this book as returned? The return date will be recorded as today.';
+    if (typeof showConfirm !== 'function') {
+        if (window.confirm(message)) {
+            form.submit();
+        }
+        return false;
+    }
+    showConfirm({
+        title: 'Return book',
+        message: message,
+        type: 'warning',
+        confirmText: 'Return',
+        cancelText: 'Cancel'
+    }).then(function (ok) {
+        if (ok) {
+            form.submit();
+        }
+    });
+    return false;
+}
+</script>

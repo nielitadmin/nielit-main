@@ -140,7 +140,7 @@ $roleNames = [
                                         <td><?php echo !empty($row['issue_date']) ? date('d M Y', strtotime($row['issue_date'])) : '—'; ?></td>
                                         <td><?php echo !empty($row['due_date']) ? date('d M Y', strtotime($row['due_date'])) : '—'; ?></td>
                                         <td>
-                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this book as returned?');">
+                                            <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                 <input type="hidden" name="action" value="return">
                                                 <input type="hidden" name="issue_id" value="<?php echo (int) $row['id']; ?>">
@@ -157,7 +157,7 @@ $roleNames = [
                                         <td>—</td>
                                         <td>—</td>
                                         <td>
-                                            <form method="post" style="margin:0;" onsubmit="return confirm('Mark this copy as returned / available?');">
+                                            <form method="post" style="margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                 <input type="hidden" name="action" value="return_copy">
                                                 <input type="hidden" name="book_id" value="<?php echo (int) $ob['id']; ?>">

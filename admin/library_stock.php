@@ -253,7 +253,7 @@ $v = $editBook ?: [];
                                         <td>
                                             <a class="btn btn-sm btn-outline-primary" href="library_stock.php?edit=<?php echo (int) $b['id']; ?>">Edit</a>
                                             <?php if (($b['status'] ?? '') === 'issued'): ?>
-                                                <form method="post" style="display:inline;margin:0;" onsubmit="return confirm('Mark this copy as returned / available? Return date will be today.');">
+                                                <form method="post" style="display:inline;margin:0;" onsubmit="return libraryConfirmReturn(event, this);">
                                                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($libraryCsrf); ?>">
                                                     <input type="hidden" name="action" value="return_copy">
                                                     <input type="hidden" name="book_id" value="<?php echo (int) $b['id']; ?>">
