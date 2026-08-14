@@ -229,9 +229,14 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">If 127.0.0.1:11100 does not open</h5></div>
             <div class="card-body">
-                <p class="mb-2">If Mantra’s own window shows <strong>Captured Success</strong> but this page says capture failed, the scanner worked. Chrome blocked the website from reading the result. This page now talks to the scanner through XAMPP on this PC — refresh and capture again.</p>
-                <ol class="mb-2">
-                    <li>Open this kiosk on the <strong>Windows PC with the USB scanner</strong> as <code>http://localhost/public_html/admin/attendance_biometric.php</code> (not a phone, not only a remote URL).</li>
+                <p class="mb-2"><strong>Update Chrome first, then disable Local Network Access Checks</strong> so this page can talk to the scanner on this PC.</p>
+                <ol class="mb-3">
+                    <li>In Chrome click the <strong>three dots</strong> (top right) → <strong>Help</strong> → <strong>About Google Chrome</strong>. Let Chrome update to the latest version, then relaunch.</li>
+                    <li>Paste this in the address bar: <code>chrome://flags/#local-network-access-check</code>. Set <strong>Local Network Access Checks</strong> to <strong>Disabled</strong>.</li>
+                    <li>Paste this in the address bar: <code>chrome://flags/#block-insecure-private-network-requests</code>. If that flag is still listed, set it to <strong>Disabled</strong>.</li>
+                    <li>Relaunch Chrome when it asks, then return to this page.</li>
+                </ol>
+                <ol class="mb-2" start="5">
                     <li>Try <a href="https://127.0.0.1:11100/" target="_blank" rel="noopener">https://127.0.0.1:11100/</a> — accept the certificate warning if Chrome shows one.</li>
                     <li>Press Win+R → <code>services.msc</code> → start <strong>Mantra RD Service</strong> (or MFS110 RDService) and set it to Automatic.</li>
                 </ol>
