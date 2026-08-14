@@ -30,10 +30,14 @@ if ($month < 1 || $month > 12) {
     $month = (int) $istNow->format('n');
 }
 $courseId = (int) ($_GET['course_id'] ?? 0);
+$centreId = (int) ($_GET['centre_id'] ?? 0);
 
 ensureBiometricAttendanceTables($conn);
 ensureAttendanceInOutTables($conn);
-$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId);
+$centres = attendanceListCentres($conn);
+$centreLabel = attendanceCentreName($conn, $centreId);
+$courses = attendanceListCoursesForCentre($conn, $centreId);
+$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId);
 $daysInMonth = (int) $report['days'];
 $monthNames = [
     1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
@@ -41,13 +45,7 @@ $monthNames = [
     9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
 ];
 $monthLabel = $monthNames[$month] . ' ' . $year;
-$colspan = 4 + $daysInMonth;
-
-$courses = [];
-$coursesResult = $conn->query('SELECT id, course_name FROM courses ORDER BY course_name');
-if ($coursesResult) {
-    $courses = $coursesResult->fetch_all(MYSQLI_ASSOC);
-}
+$colspan = 5 + $daysInMonth;
 
 $formatDayCell = static function (array $times, bool $html): string {
     $in = trim((string) ($times['in'] ?? ''));
@@ -73,10 +71,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspan . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')) . ' IST</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
+    echo '<tr><td colspan="' . $colspan . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint (Mantra)</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
-    echo '<td>Student ID</td><td>Name</td><td>Course / session</td><td>Mantra device ID</td>';
+    echo '<td>Centre</td><td>Student ID</td><td>Name</td><td>Course / session</td><td>Mantra device ID</td>';
     for ($d = 1; $d <= $daysInMonth; $d++) {
         echo '<td>' . $d . '</td>';
     }
@@ -86,6 +85,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     } else {
         foreach ($report['rows'] as $row) {
             echo '<tr>';
+            echo '<td>' . htmlspecialchars((string) ($row['centre'] ?? '—')) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['student_id']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['name']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['department']) . '</td>';
@@ -106,6 +106,7 @@ $qs = http_build_query([
     'year' => $year,
     'month' => $month,
     'course_id' => $courseId > 0 ? $courseId : '',
+    'centre_id' => $centreId > 0 ? $centreId : '',
     'export' => 'excel',
 ]);
 ?>
@@ -123,7 +124,7 @@ $qs = http_build_query([
         .att-matrix th, .att-matrix td { border: 1px solid #94a3b8; padding: 4px 6px; vertical-align: middle; }
         .att-matrix thead th { background: #93c5fd; color: #0f172a; text-align: center; font-weight: 700; white-space: nowrap; }
         .att-matrix tbody tr:nth-child(even) { background: #f1f5f9; }
-        .att-matrix .col-id { min-width: 130px; }
+        .att-matrix .col-centre { min-width: 140px; }
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
         .att-matrix .col-dev { min-width: 140px; }
@@ -138,7 +139,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance, with device ID.</p>
+                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance, centre-wise, with device ID.</p>
             </div>
             <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
                 <i class="fas fa-file-excel"></i> Download Excel
@@ -149,6 +150,17 @@ $qs = http_build_query([
             <div class="card-body">
                 <form method="get" class="row g-3 align-items-end">
                     <div class="col-md-3">
+                        <label class="form-label">Centre</label>
+                        <select class="form-select" name="centre_id" onchange="this.form.submit()">
+                            <option value="0">All centres</option>
+                            <?php foreach ($centres as $centre): ?>
+                                <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label">Month</label>
                         <select class="form-select" name="month">
                             <?php foreach ($monthNames as $num => $name): ?>
@@ -166,7 +178,7 @@ $qs = http_build_query([
                             <?php endfor; ?>
                         </select>
                     </div>
-                    <div class="col-md-5">
+                    <div class="col-md-3">
                         <label class="form-label">Course</label>
                         <select class="form-select" name="course_id">
                             <option value="0">All courses</option>
@@ -188,6 +200,7 @@ $qs = http_build_query([
             <div class="card-body">
                 <div class="att-meta mb-2">
                     Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')); ?> IST<br>
+                    Centre: <?php echo htmlspecialchars($centreLabel); ?><br>
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>
                 </div>
                 <h3 class="att-title">Attendance Record</h3>
@@ -195,6 +208,7 @@ $qs = http_build_query([
                     <table class="att-matrix">
                         <thead>
                             <tr>
+                                <th class="col-centre">Centre</th>
                                 <th class="col-id">Student ID</th>
                                 <th class="col-name">Name</th>
                                 <th class="col-dept">Course / session</th>
@@ -215,6 +229,7 @@ $qs = http_build_query([
                         <?php else: ?>
                             <?php foreach ($report['rows'] as $row): ?>
                                 <tr>
+                                    <td><?php echo htmlspecialchars((string) ($row['centre'] ?? '—')); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['student_id']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>

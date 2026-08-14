@@ -586,7 +586,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
      *
      * @return array{days:int,start:string,end:string,rows:array<int,array<string,mixed>>}
      */
-    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0): array
+    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0): array
     {
         $days = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
         $start = sprintf('%04d-%02d-01', $year, $month);
@@ -636,9 +636,12 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     s.course_name,
                     s.session_name,
                     s.subject,
+                    IFNULL(ct.name, '') AS centre_name,
                     {$deviceSelect} AS device_id
                 FROM attendance_logs l
                 INNER JOIN attendance_sessions s ON s.id = l.session_id
+                LEFT JOIN courses c ON c.id = s.course_id
+                LEFT JOIN centres ct ON ct.id = c.centre_id
                 WHERE l.status = 'valid'
                   AND l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY)
                   AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY)";
@@ -668,7 +671,12 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             $types .= 'i';
             $params[] = $courseId;
         }
-        $sql .= ' ORDER BY l.student_name ASC, l.student_id ASC, l.scan_time ASC';
+        if ($centreId > 0) {
+            $sql .= ' AND c.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        $sql .= ' ORDER BY centre_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log('getFingerprintMonthlyRecord prepare failed: ' . $conn->error);
@@ -680,10 +688,12 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $byStudent = [];
         while ($row = $result->fetch_assoc()) {
             $sid = (string) $row['student_id'];
-            if (!isset($byStudent[$sid])) {
-                $byStudent[$sid] = [
+            $rowKey = $sid . "\t" . (string) ($row['centre_name'] ?? '') . "\t" . (string) ($row['course_name'] ?? '');
+            if (!isset($byStudent[$rowKey])) {
+                $byStudent[$rowKey] = [
                     'student_id' => $sid,
                     'name' => (string) ($row['student_name'] ?? ''),
+                    'centre' => trim((string) ($row['centre_name'] ?? '')),
                     'course' => (string) ($row['course_name'] ?? ''),
                     'session' => (string) ($row['session_name'] ?? ''),
                     'subject' => (string) ($row['subject'] ?? ''),
@@ -693,7 +703,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             }
             $device = trim((string) ($row['device_id'] ?? ''));
             if ($device !== '') {
-                $byStudent[$sid]['devices'][$device] = true;
+                $byStudent[$rowKey]['devices'][$device] = true;
             }
             $scanRaw = (string) ($row['scan_time'] ?? '');
             try {
@@ -719,15 +729,15 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             if ($day < 1 || $day > $days) {
                 continue;
             }
-            if (!isset($byStudent[$sid]['days'][$day])) {
-                $byStudent[$sid]['days'][$day] = ['in' => '', 'out' => ''];
+            if (!isset($byStudent[$rowKey]['days'][$day])) {
+                $byStudent[$rowKey]['days'][$day] = ['in' => '', 'out' => ''];
             }
             $time = $ist->format('H:i');
             $kind = strtolower((string) ($row['scan_type'] ?? ''));
-            if ($kind === 'in' && $byStudent[$sid]['days'][$day]['in'] === '') {
-                $byStudent[$sid]['days'][$day]['in'] = $time;
+            if ($kind === 'in' && $byStudent[$rowKey]['days'][$day]['in'] === '') {
+                $byStudent[$rowKey]['days'][$day]['in'] = $time;
             } elseif ($kind === 'out') {
-                $byStudent[$sid]['days'][$day]['out'] = $time;
+                $byStudent[$rowKey]['days'][$day]['out'] = $time;
             }
         }
         $stmt->close();
@@ -739,6 +749,9 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             $devices = array_keys($row['devices']);
             sort($devices);
             $row['device_id'] = $devices !== [] ? implode(', ', $devices) : '—';
+            if (trim((string) ($row['centre'] ?? '')) === '') {
+                $row['centre'] = '—';
+            }
             $dept = trim($row['course']);
             if ($row['session'] !== '') {
                 $dept .= ($dept !== '' ? ' — ' : '') . $row['session'];

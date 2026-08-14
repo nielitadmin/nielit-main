@@ -180,15 +180,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$active_sessions = getActiveAttendanceSessions($admin_id, $conn);
+$centreId = (int) ($_GET['centre_id'] ?? 0);
+$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId);
 $openSessionId = (int) ($_GET['session_id'] ?? 0);
-$courses_query = "SELECT id, course_name, course_code FROM courses WHERE status = 'active' ORDER BY course_name";
-$courses_result = $conn->query($courses_query);
-$courses = $courses_result ? $courses_result->fetch_all(MYSQLI_ASSOC) : [];
-if ($courses === []) {
-    $courses_result_all = $conn->query('SELECT id, course_name, course_code FROM courses ORDER BY course_name');
-    $courses = $courses_result_all ? $courses_result_all->fetch_all(MYSQLI_ASSOC) : [];
-}
+$centres = attendanceListCentres($conn);
+$allCourses = attendanceListCoursesForCentre($conn, 0);
+$courses = $centreId > 0 ? attendanceListCoursesForCentre($conn, $centreId) : $allCourses;
 $active_theme = loadActiveTheme($conn);
 $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
 ?>
@@ -220,7 +217,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="row mb-3">
             <div class="col-12">
                 <h2><i class="fas fa-fingerprint"></i> Fingerprint Attendance</h2>
-                <p class="text-muted mb-0">Mantra L1 kiosk — a live fingerprint is required. QR codes can be shared; a finger cannot. Open this page on the PC where the scanner is plugged in.</p>
+                <p class="text-muted mb-0">Mantra L1 kiosk — pick a centre, then mark students for that centre’s courses. Open this page on the PC where the scanner is plugged in.</p>
             </div>
         </div>
 
@@ -244,11 +241,26 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             </div>
         </div>
 
-        <div class="row mb-4">
-            <div class="col-md-6">
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createSessionModal">
-                    <i class="fas fa-plus"></i> Create session
-                </button>
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="get" class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label class="form-label">Centre</label>
+                        <select class="form-select" name="centre_id" onchange="this.form.submit()">
+                            <option value="0">All centres</option>
+                            <?php foreach ($centres as $centre): ?>
+                                <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+                            <i class="fas fa-plus"></i> Create session
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -267,6 +279,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                                         <span class="badge bg-<?php echo $session['status'] === 'active' ? 'success' : 'warning'; ?>"><?php echo htmlspecialchars((string) $session['status']); ?></span>
                                     </div>
                                     <div class="card-body">
+                                        <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                         <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars((string) $session['course_name']); ?></p>
                                         <p class="mb-1"><strong>Subject:</strong> <?php echo htmlspecialchars((string) $session['subject']); ?></p>
                                         <p class="mb-3"><strong>Date:</strong> <?php echo htmlspecialchars(date('d M Y', strtotime((string) $session['date']))); ?></p>
@@ -340,12 +353,29 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                         <input class="form-control" name="session_name" required placeholder="Morning batch — Lab">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Centre</label>
+                        <select class="form-select" id="sessionCentre" required>
+                            <option value="">Select centre</option>
+                            <?php foreach ($centres as $centre): ?>
+                                <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Course</label>
-                        <select class="form-select" name="course_id" required onchange="document.getElementById('course_name').value = this.options[this.selectedIndex].getAttribute('data-name') || '';">
+                        <select class="form-select" name="course_id" id="sessionCourse" required>
                             <option value="">Select course</option>
-                            <?php foreach ($courses as $course): ?>
-                                <option value="<?php echo (int) $course['id']; ?>" data-name="<?php echo htmlspecialchars((string) $course['course_name']); ?>">
-                                    <?php echo htmlspecialchars((string) $course['course_name']); ?>
+                            <?php foreach ($allCourses as $course): ?>
+                                <option value="<?php echo (int) $course['id']; ?>"
+                                        data-name="<?php echo htmlspecialchars((string) $course['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>">
+                                    <?php
+                                    $cLabel = (string) $course['course_name'];
+                                    $cCentre = trim((string) ($course['centre_name'] ?? ''));
+                                    echo htmlspecialchars($cCentre !== '' ? ($cLabel . ' — ' . $cCentre) : $cLabel);
+                                    ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -522,6 +552,44 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     }
 
     discoverDevice();
+
+    function filterSessionCourses() {
+        const centreSel = document.getElementById('sessionCentre');
+        const courseSel = document.getElementById('sessionCourse');
+        if (!centreSel || !courseSel) {
+            return;
+        }
+        const cid = String(centreSel.value || '');
+        Array.prototype.forEach.call(courseSel.options, function (opt) {
+            if (!opt.value) {
+                opt.hidden = false;
+                return;
+            }
+            const match = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            opt.hidden = !match;
+            if (!match && opt.selected) {
+                courseSel.value = '';
+                const hiddenName = document.getElementById('course_name');
+                if (hiddenName) {
+                    hiddenName.value = '';
+                }
+            }
+        });
+    }
+    const sessionCentre = document.getElementById('sessionCentre');
+    const sessionCourse = document.getElementById('sessionCourse');
+    if (sessionCentre) {
+        sessionCentre.addEventListener('change', filterSessionCourses);
+        filterSessionCourses();
+    }
+    if (sessionCourse) {
+        sessionCourse.addEventListener('change', function () {
+            const hiddenName = document.getElementById('course_name');
+            if (hiddenName) {
+                hiddenName.value = this.options[this.selectedIndex].getAttribute('data-name') || '';
+            }
+        });
+    }
 
     document.getElementById('createSessionForm').addEventListener('submit', function (e) {
         e.preventDefault();

@@ -91,6 +91,105 @@ if (!function_exists('ensureAttendanceInOutTables')) {
     }
 }
 
+if (!function_exists('attendanceListCentres')) {
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    function attendanceListCentres($conn): array
+    {
+        if (!($conn instanceof mysqli)) {
+            return [];
+        }
+        $t = $conn->query("SHOW TABLES LIKE 'centres'");
+        if (!$t || $t->num_rows === 0) {
+            return [];
+        }
+        $sql = "SELECT id, name, code FROM centres";
+        $active = $conn->query("SHOW COLUMNS FROM centres LIKE 'is_active'");
+        if ($active && $active->num_rows > 0) {
+            $sql .= " WHERE is_active = 1";
+        }
+        $sql .= " ORDER BY name ASC";
+        $r = $conn->query($sql);
+        return $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+    }
+}
+
+if (!function_exists('attendanceListCoursesForCentre')) {
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    function attendanceListCoursesForCentre($conn, int $centreId = 0): array
+    {
+        if (!($conn instanceof mysqli)) {
+            return [];
+        }
+        $hasCentre = false;
+        $col = $conn->query("SHOW COLUMNS FROM courses LIKE 'centre_id'");
+        if ($col && $col->num_rows > 0) {
+            $hasCentre = true;
+        }
+        $sql = "SELECT c.id, c.course_name, c.course_code";
+        if ($hasCentre) {
+            $sql .= ", c.centre_id, IFNULL(ct.name, '') AS centre_name
+                     FROM courses c
+                     LEFT JOIN centres ct ON ct.id = c.centre_id";
+        } else {
+            $sql .= ", 0 AS centre_id, '' AS centre_name FROM courses c";
+        }
+        $sql .= " WHERE 1=1";
+        $hasStatus = $conn->query("SHOW COLUMNS FROM courses LIKE 'status'");
+        if ($hasStatus && $hasStatus->num_rows > 0) {
+            $sql .= " AND (c.status = 'active' OR c.status IS NULL OR c.status = '')";
+        }
+        $params = [];
+        $types = '';
+        if ($hasCentre && $centreId > 0) {
+            $sql .= " AND c.centre_id = ?";
+            $types = 'i';
+            $params[] = $centreId;
+        }
+        $sql .= " ORDER BY centre_name ASC, c.course_name ASC";
+        if ($types !== '') {
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return [];
+            }
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+        } else {
+            $r = $conn->query($sql);
+            $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        }
+        if ($rows === [] && $centreId === 0) {
+            $r = $conn->query("SELECT id, course_name, course_code, 0 AS centre_id, '' AS centre_name FROM courses ORDER BY course_name");
+            $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        }
+        return $rows ?: [];
+    }
+}
+
+if (!function_exists('attendanceCentreName')) {
+    function attendanceCentreName($conn, int $centreId): string
+    {
+        if ($centreId <= 0 || !($conn instanceof mysqli)) {
+            return 'All centres';
+        }
+        $stmt = $conn->prepare('SELECT name FROM centres WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return 'Centre';
+        }
+        $stmt->bind_param('i', $centreId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $name = trim((string) ($row['name'] ?? ''));
+        return $name !== '' ? $name : 'Centre';
+    }
+}
+
 /**
  * Process IN/OUT QR scan with time validation
  */
@@ -635,221 +734,158 @@ function getSessionAttendanceList($session_id, $conn) {
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
+if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {
+    function attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, &$where_clause, &$params, &$types)
+    {
+        $course_id = ($course_id !== null && $course_id !== '') ? (int) $course_id : 0;
+        $centre_id = (int) $centre_id;
+        if (!empty($student_id)) {
+            $where_clause .= " AND a.student_id = ?";
+            $params[] = $student_id;
+            $types .= "s";
+        }
+        if ($course_id > 0) {
+            $where_clause .= " AND sess.course_id = ?";
+            $params[] = $course_id;
+            $types .= "i";
+        }
+        if ($centre_id > 0) {
+            $where_clause .= " AND c.centre_id = ?";
+            $params[] = $centre_id;
+            $types .= "i";
+        }
+    }
+}
+
+if (!function_exists('attendanceSummaryReportSelectFrom')) {
+    function attendanceSummaryReportSelectFrom()
+    {
+        return "
+        SELECT
+            a.student_id,
+            a.student_name,
+            IFNULL(MAX(c.course_name), 'N/A') as course_name,
+            IFNULL(MAX(ct.name), '') as centre_name,
+            COUNT(*) as total_days,
+            SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN a.status = 'partial' THEN 1 ELSE 0 END) as partial_days,
+            SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+            SUM(a.total_duration_minutes) as total_minutes,
+            ROUND(SUM(a.total_duration_minutes) / 60, 2) as total_hours,
+            ROUND(
+                (SUM(CASE WHEN a.status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100,
+                2
+            ) as attendance_percentage
+        FROM attendance_summary a
+        LEFT JOIN attendance_sessions sess ON sess.id = a.session_id
+        LEFT JOIN courses c ON c.id = sess.course_id
+        LEFT JOIN centres ct ON ct.id = c.centre_id
+        ";
+    }
+}
+
+if (!function_exists('attendanceRunSummaryReport')) {
+    function attendanceRunSummaryReport($conn, $where_clause, $types, $params, $log_name)
+    {
+        $sql = attendanceSummaryReportSelectFrom()
+            . " {$where_clause}
+            GROUP BY a.student_id, a.student_name, ct.id, c.id
+            ORDER BY centre_name ASC, a.student_name ASC";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log("Prepare failed in {$log_name}: " . $conn->error);
+            return [];
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows;
+    }
+}
+
 /**
  * Get monthly attendance report
  */
-function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn = null) {
+function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn = null, $centre_id = null) {
     $year = $year ?? date('Y');
     $month = $month ?? date('n');
     if ($conn === null) {
         $conn = $GLOBALS['conn'] ?? null;
         if ($conn === null) return [];
     }
-    
-    $where_clause = "WHERE YEAR(date) = ? AND MONTH(date) = ?";
+
+    $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) = ?";
     $params = [$year, $month];
     $types = "ii";
-    
-    if ($student_id) {
-        $where_clause .= " AND student_id = ?";
-        $params[] = $student_id;
-        $types .= "s";
-    }
-    
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            student_name,
-            'N/A' as course_name,
-            COUNT(*) as total_days,
-            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
-            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(total_duration_minutes) as total_minutes,
-            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
-            ROUND(
-                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
-                2
-            ) as attendance_percentage
-        FROM attendance_summary 
-        {$where_clause}
-        GROUP BY student_id, student_name
-        ORDER BY student_name ASC
-    ");
-    
-        if (!$stmt) {
-            error_log("Prepare failed in getMonthlyAttendanceReport: " . $conn->error);
-            return [];
-        }
-        $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+
+    return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getMonthlyAttendanceReport');
 }
 
 /**
  * Get weekly attendance report
  */
-function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn = null) {
+function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn = null, $centre_id = null) {
     $year = $year ?? date('Y');
     $week = $week ?? date('W');
     if ($conn === null) {
         $conn = $GLOBALS['conn'] ?? null;
         if ($conn === null) return [];
     }
-    
-    $where_clause = "WHERE YEAR(date) = ? AND WEEK(date, 1) = ?";
+
+    $where_clause = "WHERE YEAR(a.date) = ? AND WEEK(a.date, 1) = ?";
     $params = [$year, $week];
     $types = "ii";
-    
-    if ($student_id) {
-        $where_clause .= " AND student_id = ?";
-        $params[] = $student_id;
-        $types .= "s";
-    }
-    
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            student_name,
-            'N/A' as course_name,
-            COUNT(*) as total_days,
-            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
-            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(total_duration_minutes) as total_minutes,
-            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
-            ROUND(
-                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
-                2
-            ) as attendance_percentage
-        FROM attendance_summary 
-        {$where_clause}
-        GROUP BY student_id, student_name
-        ORDER BY student_name ASC
-    ");
-    
-    if (!$stmt) {
-        error_log("Prepare failed in getWeeklyAttendanceReport: " . $conn->error);
-        return [];
-    }
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+
+    return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getWeeklyAttendanceReport');
 }
 
 /**
  * Get quarterly attendance report
  */
-function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn = null) {
+function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn = null, $centre_id = null) {
     $year = $year ?? date('Y');
     $quarter = $quarter ?? ceil(date('n') / 3);
     if ($conn === null) {
         $conn = $GLOBALS['conn'] ?? null;
         if ($conn === null) return [];
     }
-    
-    // Calculate quarter months
+
     $start_month = ($quarter - 1) * 3 + 1;
     $end_month = $quarter * 3;
-    
-    $where_clause = "WHERE YEAR(date) = ? AND MONTH(date) BETWEEN ? AND ?";
+
+    $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) BETWEEN ? AND ?";
     $params = [$year, $start_month, $end_month];
     $types = "iii";
-    
-    if ($student_id) {
-        $where_clause .= " AND student_id = ?";
-        $params[] = $student_id;
-        $types .= "s";
-    }
-    
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            student_name,
-            'N/A' as course_name,
-            COUNT(*) as total_days,
-            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
-            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(total_duration_minutes) as total_minutes,
-            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
-            ROUND(
-                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
-                2
-            ) as attendance_percentage
-        FROM attendance_summary 
-        {$where_clause}
-        GROUP BY student_id, student_name
-        ORDER BY student_name ASC
-    ");
-    
-    if (!$stmt) {
-        error_log("Prepare failed in getQuarterlyAttendanceReport: " . $conn->error);
-        return [];
-    }
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+
+    return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getQuarterlyAttendanceReport');
 }
 
 /**
  * Get yearly attendance report
  */
-function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn = null) {
+function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn = null, $centre_id = null) {
     $year = $year ?? date('Y');
     if ($conn === null) {
         $conn = $GLOBALS['conn'] ?? null;
         if ($conn === null) return [];
     }
-    
-    $where_clause = "WHERE YEAR(date) = ?";
+
+    $where_clause = "WHERE YEAR(a.date) = ?";
     $params = [$year];
     $types = "i";
-    
-    if ($student_id) {
-        $where_clause .= " AND student_id = ?";
-        $params[] = $student_id;
-        $types .= "s";
-    }
-    
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            student_name,
-            'N/A' as course_name,
-            COUNT(*) as total_days,
-            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
-            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(total_duration_minutes) as total_minutes,
-            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
-            ROUND(
-                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
-                2
-            ) as attendance_percentage
-        FROM attendance_summary 
-        {$where_clause}
-        GROUP BY student_id, student_name
-        ORDER BY student_name ASC
-    ");
-    
-    if (!$stmt) {
-        error_log("Prepare failed in getYearlyAttendanceReport: " . $conn->error);
-        return [];
-    }
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+
+    return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getYearlyAttendanceReport');
 }
 
 /**
  * Get custom date range attendance report
  */
-function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn = null) {
+function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn = null, $centre_id = null) {
     if (!$start_date || !$end_date) {
         return [];
     }
@@ -857,46 +893,13 @@ function getCustomRangeAttendanceReport($student_id = null, $start_date = null, 
         $conn = $GLOBALS['conn'] ?? null;
         if ($conn === null) return [];
     }
-    
-    $where_clause = "WHERE date BETWEEN ? AND ?";
+
+    $where_clause = "WHERE a.date BETWEEN ? AND ?";
     $params = [$start_date, $end_date];
     $types = "ss";
-    
-    if ($student_id) {
-        $where_clause .= " AND student_id = ?";
-        $params[] = $student_id;
-        $types .= "s";
-    }
-    
-    $stmt = $conn->prepare("
-        SELECT 
-            student_id,
-            student_name,
-            'N/A' as course_name,
-            COUNT(*) as total_days,
-            SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status = 'partial' THEN 1 ELSE 0 END) as partial_days,
-            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(total_duration_minutes) as total_minutes,
-            ROUND(SUM(total_duration_minutes) / 60, 2) as total_hours,
-            ROUND(
-                (SUM(CASE WHEN status IN ('present', 'partial') THEN 1 ELSE 0 END) / COUNT(*)) * 100, 
-                2
-            ) as attendance_percentage
-        FROM attendance_summary 
-        {$where_clause}
-        GROUP BY student_id, student_name
-        ORDER BY student_name ASC
-    ");
-    
-    if (!$stmt) {
-        error_log("Prepare failed in getCustomRangeAttendanceReport: " . $conn->error);
-        return [];
-    }
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+
+    return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getCustomRangeAttendanceReport');
 }
 
 /**

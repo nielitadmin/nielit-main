@@ -333,21 +333,38 @@ function logQRScan($session_id, $student_id, $student_name, $result, $coordinato
 /**
  * Get active attendance sessions for coordinator
  */
-function getActiveAttendanceSessions($coordinator_id, $conn) {
-    $stmt = $conn->prepare("
-        SELECT * FROM attendance_sessions 
-        WHERE coordinator_id = ? AND status IN ('scheduled', 'active') 
-        ORDER BY date DESC, start_time DESC
-    ");
-    
+function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0) {
+    $centre_id = (int) $centre_id;
+    $sql = "SELECT s.*, IFNULL(ct.name, '') AS centre_name, IFNULL(c.centre_id, 0) AS course_centre_id
+            FROM attendance_sessions s
+            LEFT JOIN courses c ON c.id = s.course_id
+            LEFT JOIN centres ct ON ct.id = c.centre_id
+            WHERE s.coordinator_id = ? AND s.status IN ('scheduled', 'active')";
+    if ($centre_id > 0) {
+        $sql .= " AND c.centre_id = ?";
+    }
+    $sql .= " ORDER BY s.date DESC, s.start_time DESC";
+    $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed in getActiveAttendanceSessions: " . $conn->error);
-        return [];
+        $stmt = $conn->prepare("
+            SELECT * FROM attendance_sessions 
+            WHERE coordinator_id = ? AND status IN ('scheduled', 'active') 
+            ORDER BY date DESC, start_time DESC
+        ");
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param("s", $coordinator_id);
+        $stmt->execute();
+        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
-    
-    $stmt->bind_param("s", $coordinator_id);
+    if ($centre_id > 0) {
+        $stmt->bind_param("si", $coordinator_id, $centre_id);
+    } else {
+        $stmt->bind_param("s", $coordinator_id);
+    }
     $stmt->execute();
-    
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 

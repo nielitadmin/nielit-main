@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/attendance_qr_helper.php';
+require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -84,20 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Get active sessions
-$active_sessions = getActiveAttendanceSessions($admin_id, $conn);
-
-// Get available courses for session creation
-$courses_query = "SELECT id, course_name, course_code FROM courses WHERE status = 'active' ORDER BY course_name";
-$courses_result = $conn->query($courses_query);
-$courses = $courses_result ? $courses_result->fetch_all(MYSQLI_ASSOC) : [];
-
-// Debug: Check if we have courses
-if (empty($courses)) {
-    // If no active courses, get all courses
-    $courses_query_all = "SELECT id, course_name, course_code FROM courses ORDER BY course_name";
-    $courses_result_all = $conn->query($courses_query_all);
-    $courses = $courses_result_all ? $courses_result_all->fetch_all(MYSQLI_ASSOC) : [];
-}
+$centreId = (int) ($_GET['centre_id'] ?? 0);
+$centres = attendanceListCentres($conn);
+$allCourses = attendanceListCoursesForCentre($conn, 0);
+$courses = $centreId > 0 ? attendanceListCoursesForCentre($conn, $centreId) : $allCourses;
+$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId);
 $active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
@@ -200,16 +192,25 @@ $active_theme = loadActiveTheme($conn);
     <!-- Quick Actions -->
     <div class="row mb-4">
         <div class="col-md-6">
+            <form method="get" class="d-flex gap-2 align-items-center">
+                <label class="mb-0 text-nowrap">Centre</label>
+                <select class="form-select" name="centre_id" onchange="this.form.submit()">
+                    <option value="0">All centres</option>
+                    <?php foreach ($centres as $centre): ?>
+                        <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars((string) $centre['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </form>
+        </div>
+        <div class="col-md-6 text-end">
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createSessionModal">
                 <i class="fas fa-plus"></i> Create New Session
             </button>
-        </div>
-        <div class="col-md-6 text-end">
-            <div class="btn-group">
-                <button class="btn btn-outline-secondary" onclick="refreshSessions()">
-                    <i class="fas fa-sync"></i> Refresh
-                </button>
-            </div>
+            <button class="btn btn-outline-secondary" onclick="refreshSessions()">
+                <i class="fas fa-sync"></i> Refresh
+            </button>
         </div>
     </div>
 
@@ -233,6 +234,7 @@ $active_theme = loadActiveTheme($conn);
                                             </span>
                                         </div>
                                         <div class="card-body">
+                                            <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                             <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars($session['course_name']); ?></p>
                                             <p class="mb-1"><strong>Subject:</strong> <?php echo htmlspecialchars($session['subject']); ?></p>
                                             <p class="mb-1"><strong>Date:</strong> <?php echo date('d M Y', strtotime($session['date'])); ?></p>
@@ -305,25 +307,39 @@ $active_theme = loadActiveTheme($conn);
                     </div>
                     
                     <div class="mb-3">
+                        <label class="form-label">Centre</label>
+                        <select class="form-select" id="sessionCentre" required>
+                            <option value="">Select centre</option>
+                            <?php foreach ($centres as $centre): ?>
+                                <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Course</label>
-                        <select class="form-select" name="course_id" required onchange="updateCourseName(this)">
+                        <select class="form-select" name="course_id" id="sessionCourse" required onchange="updateCourseName(this)">
                             <option value="">Select Course</option>
-                            <?php if (empty($courses)): ?>
+                            <?php if (empty($allCourses)): ?>
                                 <option value="" disabled>No courses available</option>
                             <?php else: ?>
-                                <?php foreach ($courses as $course): ?>
-                                    <option value="<?php echo $course['id']; ?>" 
-                                            data-name="<?php echo htmlspecialchars($course['course_name']); ?>">
-                                        <?php echo htmlspecialchars($course['course_name']); ?>
+                                <?php foreach ($allCourses as $course): ?>
+                                    <option value="<?php echo (int) $course['id']; ?>"
+                                            data-name="<?php echo htmlspecialchars((string) $course['course_name']); ?>"
+                                            data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>">
+                                        <?php
+                                        $cLabel = (string) $course['course_name'];
+                                        $cCentre = trim((string) ($course['centre_name'] ?? ''));
+                                        echo htmlspecialchars($cCentre !== '' ? ($cLabel . ' — ' . $cCentre) : $cLabel);
+                                        ?>
                                     </option>
                                 <?php endforeach; ?>
                             <?php endif; ?>
                         </select>
                         <input type="hidden" name="course_name" id="course_name">
-                        <?php if (empty($courses)): ?>
+                        <?php if (empty($allCourses)): ?>
                             <small class="text-muted">No courses found. Please add courses first.</small>
-                        <?php else: ?>
-                            <small class="text-muted"><?php echo count($courses); ?> courses available</small>
                         <?php endif; ?>
                     </div>
                     
@@ -597,6 +613,34 @@ $active_theme = loadActiveTheme($conn);
         const courseName = selectedOption.getAttribute('data-name') || '';
         document.getElementById('course_name').value = courseName;
     }
+
+    function filterSessionCourses() {
+        const centreSel = document.getElementById('sessionCentre');
+        const courseSel = document.getElementById('sessionCourse');
+        if (!centreSel || !courseSel) {
+            return;
+        }
+        const cid = String(centreSel.value || '');
+        Array.prototype.forEach.call(courseSel.options, function (opt) {
+            if (!opt.value) {
+                opt.hidden = false;
+                return;
+            }
+            const match = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            opt.hidden = !match;
+            if (!match && opt.selected) {
+                courseSel.value = '';
+                document.getElementById('course_name').value = '';
+            }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        const sessionCentre = document.getElementById('sessionCentre');
+        if (sessionCentre) {
+            sessionCentre.addEventListener('change', filterSessionCourses);
+            filterSessionCourses();
+        }
+    });
 
     // Create new session
     document.getElementById('createSessionForm').addEventListener('submit', function(e) {

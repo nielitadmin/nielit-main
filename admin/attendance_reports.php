@@ -31,6 +31,9 @@ $start_date = $_GET['start_date'] ?? '';
 $end_date = $_GET['end_date'] ?? '';
 $selected_student = $_GET['student_id'] ?? '';
 $selected_course = $_GET['course_id'] ?? '';
+$selected_centre = (int) ($_GET['centre_id'] ?? 0);
+$report_centres = attendanceListCentres($conn);
+$centre_label = attendanceCentreName($conn, $selected_centre);
 
 // Handle Excel export
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
@@ -40,26 +43,26 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     
     switch ($report_type) {
         case 'weekly':
-            $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn);
+            $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre);
             $report_title = "Weekly Attendance Report - Week {$selected_week}, {$selected_year}";
             break;
         case 'quarterly':
-            $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn);
+            $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre);
             $quarters = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
             $report_title = "Quarterly Attendance Report - {$quarters[$selected_quarter-1]}, {$selected_year}";
             break;
         case 'yearly':
-            $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn);
+            $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre);
             $report_title = "Yearly Attendance Report - {$selected_year}";
             break;
         case 'custom':
             if ($start_date && $end_date) {
-                $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn);
+                $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre);
                 $report_title = "Custom Attendance Report - " . date('d M Y', strtotime($start_date)) . " to " . date('d M Y', strtotime($end_date));
             }
             break;
         default: // monthly
-            $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn);
+            $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre);
             $months = [
                 1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
                 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
@@ -83,19 +86,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<table border="1">';
     
     // Report header
-    echo '<tr><td colspan="10" style="font-weight:bold; font-size:16px; text-align:center;">NIELIT Bhubaneswar - ' . $report_title . '</td></tr>';
-    echo '<tr><td colspan="10"></td></tr>'; // Empty row
+    echo '<tr><td colspan="11" style="font-weight:bold; font-size:16px; text-align:center;">NIELIT Bhubaneswar - ' . $report_title . '</td></tr>';
+    echo '<tr><td colspan="11"></td></tr>'; // Empty row
+    echo '<tr><td style="font-weight:bold;">Centre:</td><td colspan="10">' . htmlspecialchars($centre_label) . '</td></tr>';
     if ($selected_student) {
-        echo '<tr><td style="font-weight:bold;">Student Filter:</td><td colspan="9">' . htmlspecialchars($selected_student) . '</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Student Filter:</td><td colspan="10">' . htmlspecialchars($selected_student) . '</td></tr>';
     }
     if ($selected_course) {
-        echo '<tr><td style="font-weight:bold;">Course Filter:</td><td colspan="9">' . htmlspecialchars($selected_course) . '</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Course Filter:</td><td colspan="10">' . htmlspecialchars($selected_course) . '</td></tr>';
     }
-    echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="9">' . date('d M Y h:i A') . '</td></tr>';
-    echo '<tr><td colspan="10"></td></tr>'; // Empty row
+    echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="10">' . date('d M Y h:i A') . '</td></tr>';
+    echo '<tr><td colspan="11"></td></tr>'; // Empty row
 
     // Column headers
     echo '<tr style="background-color:#f0f0f0; font-weight:bold;">';
+    echo '<td>Centre</td>';
     echo '<td>Student Name</td>';
     echo '<td>Student ID</td>';
     echo '<td>Course</td>';
@@ -127,6 +132,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             }
 
             echo '<tr>';
+            echo '<td>' . htmlspecialchars(trim((string) ($record['centre_name'] ?? '')) !== '' ? (string) $record['centre_name'] : '—') . '</td>';
             echo '<td>' . htmlspecialchars($record['student_name']) . '</td>';
             echo '<td>' . htmlspecialchars($record['student_id']) . '</td>';
             echo '<td>' . htmlspecialchars($record['course_name'] ?? 'N/A') . '</td>';
@@ -140,7 +146,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '</tr>';
         }
     } else {
-        echo '<tr><td colspan="10" style="text-align:center;">No attendance records found</td></tr>';
+        echo '<tr><td colspan="11" style="text-align:center;">No attendance records found</td></tr>';
     }
 
     echo '</table>';
@@ -155,26 +161,26 @@ $report_title = '';
 
 switch ($report_type) {
     case 'weekly':
-        $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn);
+        $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre);
         $report_title = "Weekly Report - Week {$selected_week}, {$selected_year}";
         break;
     case 'quarterly':
-        $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn);
+        $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre);
         $quarters = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
         $report_title = "Quarterly Report - {$quarters[$selected_quarter-1]}, {$selected_year}";
         break;
     case 'yearly':
-        $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn);
+        $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre);
         $report_title = "Yearly Report - {$selected_year}";
         break;
     case 'custom':
         if ($start_date && $end_date) {
-            $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn);
+            $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre);
             $report_title = "Custom Report - " . date('d M Y', strtotime($start_date)) . " to " . date('d M Y', strtotime($end_date));
         }
         break;
     default: // monthly
-        $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn);
+        $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre);
         $months = [
             1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
             5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
@@ -193,17 +199,7 @@ $students_query = "SELECT DISTINCT student_id, student_name FROM attendance_summ
 $students_result = $conn->query($students_query);
 $students = $students_result ? $students_result->fetch_all(MYSQLI_ASSOC) : [];
 
-// Get courses for filter
-$courses_query = "SELECT DISTINCT id, course_name FROM courses WHERE status = 'active' ORDER BY course_name";
-$courses_result = $conn->query($courses_query);
-$courses = $courses_result ? $courses_result->fetch_all(MYSQLI_ASSOC) : [];
-
-// If no active courses, get all courses
-if (empty($courses)) {
-    $courses_query = "SELECT DISTINCT id, course_name FROM courses ORDER BY course_name";
-    $courses_result = $conn->query($courses_query);
-    $courses = $courses_result ? $courses_result->fetch_all(MYSQLI_ASSOC) : [];
-}
+$courses = attendanceListCoursesForCentre($conn, 0);
 
 $months = [
     1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
@@ -469,6 +465,18 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-12">
                                 <div class="row">
                                     <div class="col-md-3">
+                                        <label class="form-label text-white">Centre</label>
+                                        <select name="centre_id" id="reportCentre" class="form-select">
+                                            <option value="0">All centres</option>
+                                            <?php foreach ($report_centres as $centre): ?>
+                                                <option value="<?php echo (int) $centre['id']; ?>"
+                                                        <?php echo (int) $centre['id'] === $selected_centre ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
                                         <label class="form-label text-white">Student (Optional)</label>
                                         <select name="student_id" class="form-select">
                                             <option value="">All Students</option>
@@ -483,12 +491,17 @@ $active_theme = loadActiveTheme($conn);
                                     
                                     <div class="col-md-3">
                                         <label class="form-label text-white">Course (Optional)</label>
-                                        <select name="course_id" class="form-select">
+                                        <select name="course_id" id="reportCourse" class="form-select">
                                             <option value="">All Courses</option>
                                             <?php foreach ($courses as $course): ?>
                                                 <option value="<?php echo $course['id']; ?>"
+                                                        data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>"
                                                         <?php echo $course['id'] == $selected_course ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($course['course_name']); ?>
+                                                    <?php
+                                                    $cLabel = (string) $course['course_name'];
+                                                    $cCentre = trim((string) ($course['centre_name'] ?? ''));
+                                                    echo htmlspecialchars($cCentre !== '' ? ($cLabel . ' — ' . $cCentre) : $cLabel);
+                                                    ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -546,6 +559,9 @@ $active_theme = loadActiveTheme($conn);
                         <h5 class="mb-0">
                             <i class="fas fa-table"></i> 
                             <?php echo $report_title; ?>
+                            <?php if ($selected_centre > 0): ?>
+                                <small class="ms-2 text-muted"><?php echo htmlspecialchars($centre_label); ?></small>
+                            <?php endif; ?>
                         </h5>
                         <div>
                             <button class="btn btn-success btn-sm" onclick="exportToExcel()">
@@ -562,6 +578,7 @@ $active_theme = loadActiveTheme($conn);
                                 <table class="table table-hover" id="reportTable">
                                     <thead class="table-dark">
                                         <tr>
+                                            <th>Centre</th>
                                             <th>Student Name</th>
                                             <th>Student ID</th>
                                             <th>Course</th>
@@ -596,6 +613,7 @@ $active_theme = loadActiveTheme($conn);
                                             }
                                             ?>
                                             <tr>
+                                                <td><?php echo htmlspecialchars(trim((string) ($record['centre_name'] ?? '')) !== '' ? (string) $record['centre_name'] : '—'); ?></td>
                                                 <td><strong><?php echo htmlspecialchars($record['student_name']); ?></strong></td>
                                                 <td><code><?php echo htmlspecialchars($record['student_id']); ?></code></td>
                                                 <td><?php echo htmlspecialchars($record['course_name'] ?? 'N/A'); ?></td>
@@ -663,6 +681,26 @@ $active_theme = loadActiveTheme($conn);
         });
         
         // Initialize on page load
+        function filterReportCourses() {
+            const centreSel = document.getElementById('reportCentre');
+            const courseSel = document.getElementById('reportCourse');
+            if (!centreSel || !courseSel) {
+                return;
+            }
+            const cid = String(centreSel.value || '0');
+            Array.prototype.forEach.call(courseSel.options, function (opt) {
+                if (!opt.value) {
+                    opt.hidden = false;
+                    return;
+                }
+                const match = cid === '0' || cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+                opt.hidden = !match;
+                if (!match && opt.selected) {
+                    courseSel.value = '';
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             const currentReportType = document.getElementById('selected_report_type').value;
             
@@ -678,6 +716,11 @@ $active_theme = loadActiveTheme($conn);
             if (currentFilterGroup) {
                 currentFilterGroup.style.display = 'block';
             }
+            const reportCentre = document.getElementById('reportCentre');
+            if (reportCentre) {
+                reportCentre.addEventListener('change', filterReportCourses);
+            }
+            filterReportCourses();
         });
         
         function exportToExcel() {
