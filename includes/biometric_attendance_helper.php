@@ -462,3 +462,116 @@ if (!function_exists('processBiometricKioskAttendance')) {
         return $marked;
     }
 }
+
+if (!function_exists('getFingerprintMonthlyRecord')) {
+    /**
+     * Monthly IN/OUT grid for fingerprint attendance, with Mantra device IDs.
+     *
+     * @return array{days:int,start:string,end:string,rows:array<int,array<string,mixed>>}
+     */
+    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0): array
+    {
+        $days = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = sprintf('%04d-%02d-%02d', $year, $month, $days);
+        $out = ['days' => $days, 'start' => $start, 'end' => $end, 'rows' => []];
+        if (!($conn instanceof mysqli)) {
+            return $out;
+        }
+        ensureBiometricAttendanceTables($conn);
+        ensureAttendanceInOutTables($conn);
+
+        $hasLogs = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
+        $hasBio = $conn->query("SHOW TABLES LIKE 'biometric_capture_logs'");
+        if (!$hasLogs || $hasLogs->num_rows === 0 || !$hasBio || $hasBio->num_rows === 0) {
+            return $out;
+        }
+
+        $sql = "SELECT
+                    l.student_id,
+                    l.student_name,
+                    DATE(l.scan_time) AS punch_date,
+                    l.scan_type,
+                    DATE_FORMAT(l.scan_time, '%H:%i') AS punch_time,
+                    s.course_name,
+                    s.session_name,
+                    s.subject,
+                    IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model))) AS device_id
+                FROM attendance_logs l
+                INNER JOIN attendance_sessions s ON s.id = l.session_id
+                INNER JOIN biometric_capture_logs b
+                    ON b.student_id = l.student_id
+                    AND b.result = 'ok'
+                    AND DATE(b.created_at) = DATE(l.scan_time)
+                WHERE l.status = 'valid'
+                  AND l.scan_time >= ?
+                  AND l.scan_time < DATE_ADD(?, INTERVAL 1 DAY)";
+        $types = 'ss';
+        $params = [$start, $end];
+        if ($courseId > 0) {
+            $sql .= ' AND s.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        $sql .= ' ORDER BY l.student_name ASC, l.student_id ASC, l.scan_time ASC';
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('getFingerprintMonthlyRecord prepare failed: ' . $conn->error);
+            return $out;
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $byStudent = [];
+        while ($row = $result->fetch_assoc()) {
+            $sid = (string) $row['student_id'];
+            if (!isset($byStudent[$sid])) {
+                $byStudent[$sid] = [
+                    'student_id' => $sid,
+                    'name' => (string) ($row['student_name'] ?? ''),
+                    'course' => (string) ($row['course_name'] ?? ''),
+                    'session' => (string) ($row['session_name'] ?? ''),
+                    'subject' => (string) ($row['subject'] ?? ''),
+                    'devices' => [],
+                    'days' => [],
+                ];
+            }
+            $device = trim((string) ($row['device_id'] ?? ''));
+            if ($device !== '') {
+                $byStudent[$sid]['devices'][$device] = true;
+            }
+            $day = (int) substr((string) $row['punch_date'], 8, 2);
+            if ($day < 1 || $day > $days) {
+                continue;
+            }
+            if (!isset($byStudent[$sid]['days'][$day])) {
+                $byStudent[$sid]['days'][$day] = ['in' => '', 'out' => ''];
+            }
+            $time = (string) ($row['punch_time'] ?? '');
+            $kind = strtolower((string) ($row['scan_type'] ?? ''));
+            if ($kind === 'in' && $byStudent[$sid]['days'][$day]['in'] === '') {
+                $byStudent[$sid]['days'][$day]['in'] = $time;
+            } elseif ($kind === 'out') {
+                $byStudent[$sid]['days'][$day]['out'] = $time;
+            }
+        }
+        $stmt->close();
+
+        foreach ($byStudent as $row) {
+            $devices = array_keys($row['devices']);
+            sort($devices);
+            $row['device_id'] = $devices !== [] ? implode(', ', $devices) : '—';
+            $dept = trim($row['course']);
+            if ($row['session'] !== '') {
+                $dept .= ($dept !== '' ? ' — ' : '') . $row['session'];
+            }
+            if ($row['subject'] !== '') {
+                $dept .= ($dept !== '' ? ' — ' : '') . $row['subject'];
+            }
+            $row['department'] = $dept !== '' ? $dept : '—';
+            unset($row['devices'], $row['session'], $row['subject']);
+            $out['rows'][] = $row;
+        }
+        return $out;
+    }
+}
