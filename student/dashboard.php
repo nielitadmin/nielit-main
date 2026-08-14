@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 
 // Check if student is logged in
 if (!isset($_SESSION['student_id'])) {
@@ -150,25 +151,8 @@ if ($stmt_progress) {
     }
 }
 
-// Get attendance (if you have attendance table)
-$attendance_percentage = 0;
-$sql_attendance = "SELECT 
-    COUNT(*) as total_classes,
-    SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_count
-    FROM attendance WHERE student_id = ?";
-$stmt_attendance = $conn->prepare($sql_attendance);
-if ($stmt_attendance) {
-    $stmt_attendance->bind_param("s", $student_id);
-    $stmt_attendance->execute();
-    $result_attendance = $stmt_attendance->get_result();
-    if ($row_attendance = $result_attendance->fetch_assoc()) {
-        $total = $row_attendance['total_classes'];
-        $present = $row_attendance['present_count'];
-        if ($total > 0) {
-            $attendance_percentage = round(($present / $total) * 100, 1);
-        }
-    }
-}
+$portalAtt = getStudentPortalAttendance($conn, $student_id, 0);
+$attendance_percentage = (float) ($portalAtt['attendance_percentage'] ?? 0);
 
 $page_title = "Dashboard";
 include 'includes/header.php';

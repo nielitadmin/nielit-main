@@ -113,7 +113,7 @@ if (!function_exists('lookupBiometricKioskStudent')) {
      *
      * @return array{ok:bool,row?:array<string,mixed>,message:string}
      */
-    function lookupBiometricKioskStudent($conn, string $query, int $courseId, string $courseName = ''): array
+    function lookupBiometricKioskStudent($conn, string $query, int $courseId, string $courseName = '', int $batchId = 0): array
     {
         $query = trim($query);
         $courseName = trim($courseName);
@@ -187,6 +187,13 @@ if (!function_exists('lookupBiometricKioskStudent')) {
             return [
                 'ok' => false,
                 'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not enrolled in ' . $courseLabel . '.' . $extra . ' Create/start a session for their actual course.',
+            ];
+        }
+
+        if ($batchId > 0 && function_exists('attendanceStudentInBatch') && !attendanceStudentInBatch($conn, (string) $row['student_id'], $batchId)) {
+            return [
+                'ok' => false,
+                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not assigned to this batch. Assign them to the batch first.',
             ];
         }
 
@@ -586,7 +593,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
      *
      * @return array{days:int,start:string,end:string,rows:array<int,array<string,mixed>>}
      */
-    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0): array
+    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): array
     {
         $days = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
         $start = sprintf('%04d-%02d-01', $year, $month);
@@ -627,6 +634,16 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 ORDER BY b.id DESC LIMIT 1)"
             : "''";
 
+        $batchSelect = "'' AS batch_name";
+        $batchJoin = '';
+        if (attendanceSessionsHaveBatchColumn($conn)) {
+            $bt = $conn->query("SHOW TABLES LIKE 'batches'");
+            if ($bt && $bt->num_rows > 0) {
+                $batchSelect = "IFNULL(b.batch_name, '') AS batch_name";
+                $batchJoin = " LEFT JOIN batches b ON b.id = s.batch_id ";
+            }
+        }
+
         $sql = "SELECT
                     l.student_id,
                     l.student_name,
@@ -637,11 +654,13 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     s.session_name,
                     s.subject,
                     IFNULL(ct.name, '') AS centre_name,
+                    {$batchSelect},
                     {$deviceSelect} AS device_id
                 FROM attendance_logs l
                 INNER JOIN attendance_sessions s ON s.id = l.session_id
                 LEFT JOIN courses c ON c.id = s.course_id
                 LEFT JOIN centres ct ON ct.id = c.centre_id
+                {$batchJoin}
                 WHERE l.status = 'valid'
                   AND l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY)
                   AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY)";
@@ -676,7 +695,12 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             $types .= 'i';
             $params[] = $centreId;
         }
-        $sql .= ' ORDER BY centre_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
+        if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
+            $sql .= ' AND s.batch_id = ?';
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+        $sql .= ' ORDER BY centre_name ASC, batch_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log('getFingerprintMonthlyRecord prepare failed: ' . $conn->error);
@@ -688,12 +712,13 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $byStudent = [];
         while ($row = $result->fetch_assoc()) {
             $sid = (string) $row['student_id'];
-            $rowKey = $sid . "\t" . (string) ($row['centre_name'] ?? '') . "\t" . (string) ($row['course_name'] ?? '');
+            $rowKey = $sid . "\t" . (string) ($row['centre_name'] ?? '') . "\t" . (string) ($row['batch_name'] ?? '') . "\t" . (string) ($row['course_name'] ?? '');
             if (!isset($byStudent[$rowKey])) {
                 $byStudent[$rowKey] = [
                     'student_id' => $sid,
                     'name' => (string) ($row['student_name'] ?? ''),
                     'centre' => trim((string) ($row['centre_name'] ?? '')),
+                    'batch' => trim((string) ($row['batch_name'] ?? '')),
                     'course' => (string) ($row['course_name'] ?? ''),
                     'session' => (string) ($row['session_name'] ?? ''),
                     'subject' => (string) ($row['subject'] ?? ''),
@@ -752,11 +777,14 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             if (trim((string) ($row['centre'] ?? '')) === '') {
                 $row['centre'] = '—';
             }
+            if (trim((string) ($row['batch'] ?? '')) === '') {
+                $row['batch'] = '—';
+            }
             $dept = trim($row['course']);
             if ($row['session'] !== '') {
                 $dept .= ($dept !== '' ? ' — ' : '') . $row['session'];
             }
-            if ($row['subject'] !== '') {
+            if ($row['subject'] !== '' && $row['subject'] !== $row['session']) {
                 $dept .= ($dept !== '' ? ' — ' : '') . $row['subject'];
             }
             $row['department'] = $dept !== '' ? $dept : '—';

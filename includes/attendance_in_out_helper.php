@@ -76,6 +76,7 @@ if (!function_exists('ensureAttendanceInOutTables')) {
             'session_type' => "ALTER TABLE attendance_sessions ADD COLUMN session_type ENUM('regular','in_out') DEFAULT 'in_out'",
             'min_duration_minutes' => 'ALTER TABLE attendance_sessions ADD COLUMN min_duration_minutes INT DEFAULT 1',
             'auto_out_hours' => 'ALTER TABLE attendance_sessions ADD COLUMN auto_out_hours INT DEFAULT 8',
+            'batch_id' => 'ALTER TABLE attendance_sessions ADD COLUMN batch_id INT NULL DEFAULT NULL AFTER course_id',
         ];
         foreach ($sessionCols as $col => $alter) {
             $check = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE '" . $conn->real_escape_string($col) . "'");
@@ -190,6 +191,525 @@ if (!function_exists('attendanceCentreName')) {
     }
 }
 
+if (!function_exists('attendanceSessionsHaveBatchColumn')) {
+    function attendanceSessionsHaveBatchColumn($conn): bool
+    {
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+        ensureAttendanceInOutTables($conn);
+        $col = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE 'batch_id'");
+        return $col && $col->num_rows > 0;
+    }
+}
+
+if (!function_exists('attendanceListBatchesForCourse')) {
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    function attendanceListBatchesForCourse($conn, int $courseId = 0, int $centreId = 0): array
+    {
+        if (!($conn instanceof mysqli)) {
+            return [];
+        }
+        $t = $conn->query("SHOW TABLES LIKE 'batches'");
+        if (!$t || $t->num_rows === 0) {
+            return [];
+        }
+        $countSelect = "0 AS student_count";
+        $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if ($bs && $bs->num_rows > 0) {
+            $countSelect = "(SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = b.id) AS student_count";
+        }
+        $sql = "SELECT b.id, b.batch_name, b.batch_code, b.course_id, b.status,
+                       IFNULL(c.course_name, '') AS course_name,
+                       IFNULL(c.centre_id, 0) AS centre_id,
+                       IFNULL(ct.name, '') AS centre_name,
+                       {$countSelect}
+                FROM batches b
+                LEFT JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres ct ON ct.id = c.centre_id
+                WHERE 1=1";
+        $params = [];
+        $types = '';
+        if ($courseId > 0) {
+            $sql .= " AND b.course_id = ?";
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($centreId > 0) {
+            $sql .= " AND c.centre_id = ?";
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        $hasStatus = $conn->query("SHOW COLUMNS FROM batches LIKE 'status'");
+        if ($hasStatus && $hasStatus->num_rows > 0) {
+            $sql .= " AND (b.status IS NULL OR b.status = '' OR LOWER(b.status) NOT IN ('cancelled','canceled'))";
+        }
+        $sql .= " ORDER BY centre_name ASC, course_name ASC, b.batch_name ASC";
+        if ($types !== '') {
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return [];
+            }
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            return $rows ?: [];
+        }
+        $r = $conn->query($sql);
+        return $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+    }
+}
+
+if (!function_exists('attendanceFormatBatchLabel')) {
+    /**
+     * @param array<string,mixed> $batch
+     */
+    function attendanceFormatBatchLabel(array $batch, bool $includeCourse = false): string
+    {
+        $bLabel = trim((string) ($batch['batch_name'] ?? ''));
+        $bCode = trim((string) ($batch['batch_code'] ?? ''));
+        $text = $bCode !== '' ? ($bLabel . ' (' . $bCode . ')') : $bLabel;
+        if ($includeCourse) {
+            $bCourse = trim((string) ($batch['course_name'] ?? ''));
+            if ($bCourse !== '') {
+                $text .= ' — ' . $bCourse;
+            }
+        }
+        if (array_key_exists('student_count', $batch)) {
+            $n = (int) $batch['student_count'];
+            $text .= ' — ' . $n . ' student' . ($n === 1 ? '' : 's');
+        }
+        return $text;
+    }
+}
+
+if (!function_exists('attendanceBatchName')) {
+    function attendanceBatchName($conn, int $batchId): string
+    {
+        if ($batchId <= 0 || !($conn instanceof mysqli)) {
+            return 'All batches';
+        }
+        $stmt = $conn->prepare('SELECT batch_name, batch_code FROM batches WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return 'Batch';
+        }
+        $stmt->bind_param('i', $batchId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $name = trim((string) ($row['batch_name'] ?? ''));
+        $code = trim((string) ($row['batch_code'] ?? ''));
+        if ($name !== '' && $code !== '') {
+            return $name . ' (' . $code . ')';
+        }
+        return $name !== '' ? $name : ($code !== '' ? $code : 'Batch');
+    }
+}
+
+if (!function_exists('attendanceStudentRecordIds')) {
+    /**
+     * @return array<int,int>
+     */
+    function attendanceStudentRecordIds($conn, string $student_id): array
+    {
+        $ids = [];
+        $student_id = trim($student_id);
+        if ($student_id === '' || !($conn instanceof mysqli)) {
+            return $ids;
+        }
+        $stmt = $conn->prepare('SELECT id FROM students WHERE LOWER(TRIM(student_id)) = LOWER(?)');
+        if ($stmt) {
+            $stmt->bind_param('s', $student_id);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $id = (int) ($row['id'] ?? 0);
+                if ($id > 0) {
+                    $ids[] = $id;
+                }
+            }
+            $stmt->close();
+        }
+        return array_values(array_unique($ids));
+    }
+}
+
+if (!function_exists('attendanceStudentInBatch')) {
+    function attendanceStudentInBatch($conn, string $student_id, int $batch_id): bool
+    {
+        $batch_id = (int) $batch_id;
+        $student_id = trim($student_id);
+        if ($batch_id <= 0 || $student_id === '' || !($conn instanceof mysqli)) {
+            return $batch_id <= 0;
+        }
+        $ids = attendanceStudentRecordIds($conn, $student_id);
+        if ($ids !== []) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $types = str_repeat('i', count($ids)) . 'i';
+            $params = $ids;
+            $params[] = $batch_id;
+            $stmt = $conn->prepare("SELECT id FROM students WHERE id IN ({$placeholders}) AND batch_id = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $hit = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($hit) {
+                    return true;
+                }
+            }
+        }
+        $t = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if (!$t || $t->num_rows === 0) {
+            return false;
+        }
+        $hasRecordCol = false;
+        $col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        if ($col && $col->num_rows > 0) {
+            $hasRecordCol = true;
+        }
+        if ($ids !== []) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $types = 'i' . str_repeat('i', count($ids));
+            $params = array_merge([$batch_id], $ids);
+            $sql = "SELECT id FROM batch_students WHERE batch_id = ? AND student_id IN ({$placeholders}) LIMIT 1";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $hit = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($hit) {
+                    return true;
+                }
+            }
+            if ($hasRecordCol) {
+                $sql = "SELECT id FROM batch_students WHERE batch_id = ? AND student_record_id IN ({$placeholders}) LIMIT 1";
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param($types, ...$params);
+                    $stmt->execute();
+                    $hit = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($hit) {
+                        return true;
+                    }
+                }
+            }
+        }
+        $login = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND CAST(student_id AS CHAR) = ? LIMIT 1');
+        if ($login) {
+            $login->bind_param('is', $batch_id, $student_id);
+            $login->execute();
+            $hit = $login->get_result()->fetch_assoc();
+            $login->close();
+            if ($hit) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('attendanceSyncBatchAttendance')) {
+    function attendanceSyncBatchAttendance($conn, string $student_id, int $batch_id, string $date, string $summaryStatus, $marked_by = ''): void
+    {
+        if (!($conn instanceof mysqli) || $batch_id <= 0 || trim($student_id) === '') {
+            return;
+        }
+        $date = substr($date, 0, 10);
+        $summaryStatus = strtolower(trim($summaryStatus));
+        $batchStatus = 'Present';
+        if ($summaryStatus === 'absent') {
+            $batchStatus = 'Absent';
+        } elseif ($summaryStatus === 'partial') {
+            $batchStatus = 'Late';
+        }
+
+        $ids = attendanceStudentRecordIds($conn, $student_id);
+        $ba = $conn->query("SHOW TABLES LIKE 'batch_attendance'");
+        if ($ba && $ba->num_rows > 0 && $ids !== []) {
+            $hasMarked = false;
+            $mc = $conn->query("SHOW COLUMNS FROM batch_attendance LIKE 'marked_by'");
+            if ($mc && $mc->num_rows > 0) {
+                $hasMarked = true;
+            }
+            foreach ($ids as $numericId) {
+                $find = $conn->prepare('SELECT id FROM batch_attendance WHERE batch_id = ? AND student_id = ? AND attendance_date = ? LIMIT 1');
+                if (!$find) {
+                    continue;
+                }
+                $find->bind_param('iis', $batch_id, $numericId, $date);
+                $find->execute();
+                $existing = $find->get_result()->fetch_assoc();
+                $find->close();
+                if ($existing) {
+                    $upd = $conn->prepare('UPDATE batch_attendance SET status = ? WHERE id = ?');
+                    if ($upd) {
+                        $eid = (int) $existing['id'];
+                        $upd->bind_param('si', $batchStatus, $eid);
+                        $upd->execute();
+                        $upd->close();
+                    }
+                } elseif ($hasMarked) {
+                    $ins = $conn->prepare('INSERT INTO batch_attendance (batch_id, student_id, attendance_date, status, marked_by) VALUES (?, ?, ?, ?, ?)');
+                    if ($ins) {
+                        $marked = substr((string) $marked_by, 0, 100);
+                        $ins->bind_param('iisss', $batch_id, $numericId, $date, $batchStatus, $marked);
+                        $ins->execute();
+                        $ins->close();
+                    }
+                } else {
+                    $ins = $conn->prepare('INSERT INTO batch_attendance (batch_id, student_id, attendance_date, status) VALUES (?, ?, ?, ?)');
+                    if ($ins) {
+                        $ins->bind_param('iiss', $batch_id, $numericId, $date, $batchStatus);
+                        $ins->execute();
+                        $ins->close();
+                    }
+                }
+            }
+        }
+
+        $pctCol = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if (!$pctCol || $pctCol->num_rows === 0) {
+            return;
+        }
+        $pctCheck = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'attendance_percentage'");
+        if (!$pctCheck || $pctCheck->num_rows === 0) {
+            return;
+        }
+        $percent = 0.0;
+        if (attendanceSessionsHaveBatchColumn($conn)) {
+            $sum = $conn->prepare(
+                "SELECT COUNT(*) AS total_days,
+                        SUM(CASE WHEN a.status IN ('present','partial') THEN 1 ELSE 0 END) AS present_days
+                 FROM attendance_summary a
+                 INNER JOIN attendance_sessions s ON s.id = a.session_id
+                 WHERE LOWER(TRIM(a.student_id)) = LOWER(?) AND s.batch_id = ?"
+            );
+            if ($sum) {
+                $sum->bind_param('si', $student_id, $batch_id);
+                $sum->execute();
+                $row = $sum->get_result()->fetch_assoc();
+                $sum->close();
+                $total = (int) ($row['total_days'] ?? 0);
+                $present = (int) ($row['present_days'] ?? 0);
+                if ($total > 0) {
+                    $percent = round(($present / $total) * 100, 2);
+                }
+            }
+        }
+        $ids = $ids !== [] ? $ids : attendanceStudentRecordIds($conn, $student_id);
+        if ($ids === []) {
+            return;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $types = 'di' . str_repeat('i', count($ids));
+        $params = array_merge([$percent, $batch_id], $ids);
+        $sql = "UPDATE batch_students SET attendance_percentage = ? WHERE batch_id = ? AND student_id IN ({$placeholders})";
+        $upd = $conn->prepare($sql);
+        if ($upd) {
+            $upd->bind_param($types, ...$params);
+            $upd->execute();
+            $upd->close();
+        }
+        $recCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        if ($recCol && $recCol->num_rows > 0) {
+            $sql = "UPDATE batch_students SET attendance_percentage = ? WHERE batch_id = ? AND student_record_id IN ({$placeholders})";
+            $upd = $conn->prepare($sql);
+            if ($upd) {
+                $upd->bind_param($types, ...$params);
+                $upd->execute();
+                $upd->close();
+            }
+        }
+    }
+}
+
+if (!function_exists('getStudentPortalAttendance')) {
+    /**
+     * @return array{total_classes:int,present_count:int,absent_count:int,partial_count:int,late_count:int,attendance_percentage:float,records:array,batches:array}
+     */
+    function getStudentPortalAttendance($conn, string $student_id, int $batch_id = 0): array
+    {
+        $empty = [
+            'total_classes' => 0,
+            'present_count' => 0,
+            'absent_count' => 0,
+            'partial_count' => 0,
+            'late_count' => 0,
+            'attendance_percentage' => 0.0,
+            'records' => [],
+            'batches' => [],
+        ];
+        $student_id = trim($student_id);
+        if ($student_id === '' || !($conn instanceof mysqli)) {
+            return $empty;
+        }
+        ensureAttendanceInOutTables($conn);
+        $hasSummary = $conn->query("SHOW TABLES LIKE 'attendance_summary'");
+        if ($hasSummary && $hasSummary->num_rows > 0) {
+            $batchJoin = '';
+            $batchSelect = "'' AS batch_name, 0 AS batch_id";
+            $where = "WHERE LOWER(TRIM(a.student_id)) = LOWER(?)";
+            $types = 's';
+            $params = [$student_id];
+            if (attendanceSessionsHaveBatchColumn($conn)) {
+                $bt = $conn->query("SHOW TABLES LIKE 'batches'");
+                if ($bt && $bt->num_rows > 0) {
+                    $batchSelect = "IFNULL(b.batch_name, '') AS batch_name, IFNULL(sess.batch_id, 0) AS batch_id";
+                    $batchJoin = " LEFT JOIN batches b ON b.id = sess.batch_id ";
+                }
+                if ($batch_id > 0) {
+                    $where .= " AND sess.batch_id = ?";
+                    $types .= 'i';
+                    $params[] = $batch_id;
+                }
+            }
+            $sql = "SELECT a.date, a.status, a.time_in, a.time_out, a.total_duration_minutes,
+                           IFNULL(sess.subject, '') AS subject,
+                           IFNULL(sess.session_name, '') AS session_name,
+                           IFNULL(sess.course_name, '') AS course_name,
+                           IFNULL(ct.name, '') AS centre_name,
+                           {$batchSelect}
+                    FROM attendance_summary a
+                    LEFT JOIN attendance_sessions sess ON sess.id = a.session_id
+                    LEFT JOIN courses c ON c.id = sess.course_id
+                    LEFT JOIN centres ct ON ct.id = c.centre_id
+                    {$batchJoin}
+                    {$where}
+                    ORDER BY a.date DESC, a.id DESC
+                    LIMIT 200";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+                if ($rows) {
+                    $present = 0;
+                    $absent = 0;
+                    $partial = 0;
+                    $byBatch = [];
+                    $records = [];
+                    foreach ($rows as $row) {
+                        $st = strtolower((string) ($row['status'] ?? ''));
+                        if ($st === 'present') {
+                            $present++;
+                        } elseif ($st === 'partial') {
+                            $partial++;
+                        } else {
+                            $absent++;
+                        }
+                        $bid = (int) ($row['batch_id'] ?? 0);
+                        $bname = trim((string) ($row['batch_name'] ?? ''));
+                        $bkey = $bid > 0 ? (string) $bid : ($bname !== '' ? $bname : '0');
+                        if (!isset($byBatch[$bkey])) {
+                            $byBatch[$bkey] = [
+                                'batch_id' => $bid,
+                                'batch_name' => $bname !== '' ? $bname : 'Unassigned batch',
+                                'total' => 0,
+                                'present' => 0,
+                            ];
+                        }
+                        $byBatch[$bkey]['total']++;
+                        if ($st === 'present' || $st === 'partial') {
+                            $byBatch[$bkey]['present']++;
+                        }
+                        $in = substr((string) ($row['time_in'] ?? ''), 0, 5);
+                        $out = substr((string) ($row['time_out'] ?? ''), 0, 5);
+                        $timeLabel = trim($in . ($out !== '' ? ' – ' . $out : ''));
+                        $records[] = [
+                            'date' => (string) ($row['date'] ?? ''),
+                            'subject' => trim((string) ($row['subject'] ?? '')) !== '' ? (string) $row['subject'] : (string) ($row['session_name'] ?? 'Class'),
+                            'course_name' => (string) ($row['course_name'] ?? ''),
+                            'centre_name' => (string) ($row['centre_name'] ?? ''),
+                            'batch_name' => $bname,
+                            'time' => $timeLabel !== '' ? $timeLabel : '—',
+                            'status' => $st !== '' ? $st : 'absent',
+                            'hours' => round(((int) ($row['total_duration_minutes'] ?? 0)) / 60, 2),
+                            'remarks' => '',
+                        ];
+                    }
+                    $total = count($rows);
+                    $pct = $total > 0 ? round((($present + $partial) / $total) * 100, 1) : 0.0;
+                    $batches = [];
+                    foreach ($byBatch as $brow) {
+                        $btotal = (int) $brow['total'];
+                        $brow['attendance_percentage'] = $btotal > 0
+                            ? round(($brow['present'] / $btotal) * 100, 1)
+                            : 0.0;
+                        $batches[] = $brow;
+                    }
+                    return [
+                        'total_classes' => $total,
+                        'present_count' => $present,
+                        'absent_count' => $absent,
+                        'partial_count' => $partial,
+                        'late_count' => $partial,
+                        'attendance_percentage' => $pct,
+                        'records' => $records,
+                        'batches' => $batches,
+                    ];
+                }
+            }
+        }
+
+        $legacy = $conn->query("SHOW TABLES LIKE 'attendance'");
+        if (!$legacy || $legacy->num_rows === 0) {
+            return $empty;
+        }
+        $stmt = $conn->prepare("SELECT date, subject, time, status, remarks FROM attendance WHERE student_id = ? ORDER BY date DESC LIMIT 50");
+        if (!$stmt) {
+            return $empty;
+        }
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        $present = 0;
+        $absent = 0;
+        $late = 0;
+        $records = [];
+        foreach ($rows as $row) {
+            $st = strtolower((string) ($row['status'] ?? ''));
+            if ($st === 'present') {
+                $present++;
+            } elseif ($st === 'late') {
+                $late++;
+            } else {
+                $absent++;
+            }
+            $records[] = [
+                'date' => (string) ($row['date'] ?? ''),
+                'subject' => (string) ($row['subject'] ?? 'General'),
+                'course_name' => '',
+                'centre_name' => '',
+                'batch_name' => '',
+                'time' => (string) ($row['time'] ?? 'N/A'),
+                'status' => $st !== '' ? $st : 'absent',
+                'hours' => 0,
+                'remarks' => (string) ($row['remarks'] ?? ''),
+            ];
+        }
+        $total = count($rows);
+        $pct = $total > 0 ? round((($present + $late) / $total) * 100, 1) : 0.0;
+        return [
+            'total_classes' => $total,
+            'present_count' => $present,
+            'absent_count' => $absent,
+            'partial_count' => 0,
+            'late_count' => $late,
+            'attendance_percentage' => $pct,
+            'records' => $records,
+            'batches' => [],
+        ];
+    }
+}
+
 /**
  * Process IN/OUT QR scan with time validation
  */
@@ -279,6 +799,16 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             ];
         }
 
+        $session_batch_id = (int) ($session['batch_id'] ?? 0);
+        if ($session_batch_id > 0 && !attendanceStudentInBatch($conn, $student_id, $session_batch_id)) {
+            return [
+                'success' => false,
+                'result' => 'not_in_batch',
+                'message' => 'Student is not assigned to this batch. Assign them to the batch first.',
+                'student_id' => $student_id
+            ];
+        }
+
         $student_name = trim((string) ($student_row['name'] ?? ''));
         if ($student_name === '') {
             $student_name = $student_id;
@@ -314,6 +844,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         $last_scan_stmt->close();
         $sessionDay = substr((string) ($session['date'] ?? ''), 0, 10);
         $todayIst = $current_time->format('Y-m-d');
+        $attendanceDay = $todayIst !== '' ? $todayIst : $sessionDay;
         $last_scan = null;
         foreach ($last_rows as $cand) {
             if (function_exists('biometricPunchIstDateTime')) {
@@ -324,7 +855,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             } else {
                 $candDay = substr((string) ($cand['scan_time'] ?? ''), 0, 10);
             }
-            if ($candDay === $sessionDay || $candDay === $todayIst) {
+            if ($candDay === $attendanceDay) {
                 $last_scan = $cand;
                 break;
             }
@@ -375,9 +906,28 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         $log_id = logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status, $duration_minutes, $scan_method);
 
         try {
-            updateAttendanceSummary($session_id, $student_id, $student_name, $sessionDay !== '' ? $sessionDay : $todayIst, $coordinator_id, $conn);
+            updateAttendanceSummary($session_id, $student_id, $student_name, $attendanceDay, $coordinator_id, $conn);
         } catch (Throwable $e) {
             error_log('updateAttendanceSummary: ' . $e->getMessage());
+        }
+
+        $summaryStatus = 'partial';
+        if ($scan_type === 'out') {
+            $summaryStatus = 'present';
+        }
+        try {
+            if ($session_batch_id > 0) {
+                attendanceSyncBatchAttendance(
+                    $conn,
+                    $student_id,
+                    $session_batch_id,
+                    $attendanceDay,
+                    $summaryStatus,
+                    $coordinator_id
+                );
+            }
+        } catch (Throwable $e) {
+            error_log('attendanceSyncBatchAttendance: ' . $e->getMessage());
         }
 
         return [
@@ -735,10 +1285,11 @@ function getSessionAttendanceList($session_id, $conn) {
 }
 
 if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {
-    function attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, &$where_clause, &$params, &$types)
+    function attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, &$where_clause, &$params, &$types, $batch_id = 0)
     {
         $course_id = ($course_id !== null && $course_id !== '') ? (int) $course_id : 0;
         $centre_id = (int) $centre_id;
+        $batch_id = (int) $batch_id;
         if (!empty($student_id)) {
             $where_clause .= " AND a.student_id = ?";
             $params[] = $student_id;
@@ -754,18 +1305,33 @@ if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {
             $params[] = $centre_id;
             $types .= "i";
         }
+        if ($batch_id > 0) {
+            $where_clause .= " AND sess.batch_id = ?";
+            $params[] = $batch_id;
+            $types .= "i";
+        }
     }
 }
 
 if (!function_exists('attendanceSummaryReportSelectFrom')) {
-    function attendanceSummaryReportSelectFrom()
+    function attendanceSummaryReportSelectFrom($conn = null)
     {
+        $batchSelect = "'' as batch_name";
+        $batchJoin = '';
+        if ($conn instanceof mysqli && attendanceSessionsHaveBatchColumn($conn)) {
+            $bt = $conn->query("SHOW TABLES LIKE 'batches'");
+            if ($bt && $bt->num_rows > 0) {
+                $batchSelect = "IFNULL(MAX(b.batch_name), '') as batch_name";
+                $batchJoin = " LEFT JOIN batches b ON b.id = sess.batch_id ";
+            }
+        }
         return "
         SELECT
             a.student_id,
             a.student_name,
             IFNULL(MAX(c.course_name), 'N/A') as course_name,
             IFNULL(MAX(ct.name), '') as centre_name,
+            {$batchSelect},
             COUNT(*) as total_days,
             SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present_days,
             SUM(CASE WHEN a.status = 'partial' THEN 1 ELSE 0 END) as partial_days,
@@ -780,6 +1346,7 @@ if (!function_exists('attendanceSummaryReportSelectFrom')) {
         LEFT JOIN attendance_sessions sess ON sess.id = a.session_id
         LEFT JOIN courses c ON c.id = sess.course_id
         LEFT JOIN centres ct ON ct.id = c.centre_id
+        {$batchJoin}
         ";
     }
 }
@@ -787,10 +1354,14 @@ if (!function_exists('attendanceSummaryReportSelectFrom')) {
 if (!function_exists('attendanceRunSummaryReport')) {
     function attendanceRunSummaryReport($conn, $where_clause, $types, $params, $log_name)
     {
-        $sql = attendanceSummaryReportSelectFrom()
+        $groupBatch = '';
+        if ($conn instanceof mysqli && attendanceSessionsHaveBatchColumn($conn)) {
+            $groupBatch = ', sess.batch_id';
+        }
+        $sql = attendanceSummaryReportSelectFrom($conn)
             . " {$where_clause}
-            GROUP BY a.student_id, a.student_name, ct.id, c.id
-            ORDER BY centre_name ASC, a.student_name ASC";
+            GROUP BY a.student_id, a.student_name, ct.id, c.id{$groupBatch}
+            ORDER BY centre_name ASC, batch_name ASC, a.student_name ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log("Prepare failed in {$log_name}: " . $conn->error);
@@ -807,7 +1378,7 @@ if (!function_exists('attendanceRunSummaryReport')) {
 /**
  * Get monthly attendance report
  */
-function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn = null, $centre_id = null) {
+function getMonthlyAttendanceReport($student_id = null, $year = null, $month = null, $course_id = null, $conn = null, $centre_id = null, $batch_id = null) {
     $year = $year ?? date('Y');
     $month = $month ?? date('n');
     if ($conn === null) {
@@ -818,7 +1389,7 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
     $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) = ?";
     $params = [$year, $month];
     $types = "ii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getMonthlyAttendanceReport');
 }
@@ -826,7 +1397,7 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
 /**
  * Get weekly attendance report
  */
-function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn = null, $centre_id = null) {
+function getWeeklyAttendanceReport($student_id = null, $year = null, $week = null, $course_id = null, $conn = null, $centre_id = null, $batch_id = null) {
     $year = $year ?? date('Y');
     $week = $week ?? date('W');
     if ($conn === null) {
@@ -837,7 +1408,7 @@ function getWeeklyAttendanceReport($student_id = null, $year = null, $week = nul
     $where_clause = "WHERE YEAR(a.date) = ? AND WEEK(a.date, 1) = ?";
     $params = [$year, $week];
     $types = "ii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getWeeklyAttendanceReport');
 }
@@ -845,7 +1416,7 @@ function getWeeklyAttendanceReport($student_id = null, $year = null, $week = nul
 /**
  * Get quarterly attendance report
  */
-function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn = null, $centre_id = null) {
+function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter = null, $course_id = null, $conn = null, $centre_id = null, $batch_id = null) {
     $year = $year ?? date('Y');
     $quarter = $quarter ?? ceil(date('n') / 3);
     if ($conn === null) {
@@ -859,7 +1430,7 @@ function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter
     $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) BETWEEN ? AND ?";
     $params = [$year, $start_month, $end_month];
     $types = "iii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getQuarterlyAttendanceReport');
 }
@@ -867,7 +1438,7 @@ function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter
 /**
  * Get yearly attendance report
  */
-function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn = null, $centre_id = null) {
+function getYearlyAttendanceReport($student_id = null, $year = null, $course_id = null, $conn = null, $centre_id = null, $batch_id = null) {
     $year = $year ?? date('Y');
     if ($conn === null) {
         $conn = $GLOBALS['conn'] ?? null;
@@ -877,7 +1448,7 @@ function getYearlyAttendanceReport($student_id = null, $year = null, $course_id 
     $where_clause = "WHERE YEAR(a.date) = ?";
     $params = [$year];
     $types = "i";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getYearlyAttendanceReport');
 }
@@ -885,7 +1456,7 @@ function getYearlyAttendanceReport($student_id = null, $year = null, $course_id 
 /**
  * Get custom date range attendance report
  */
-function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn = null, $centre_id = null) {
+function getCustomRangeAttendanceReport($student_id = null, $start_date = null, $end_date = null, $course_id = null, $conn = null, $centre_id = null, $batch_id = null) {
     if (!$start_date || !$end_date) {
         return [];
     }
@@ -897,7 +1468,7 @@ function getCustomRangeAttendanceReport($student_id = null, $start_date = null, 
     $where_clause = "WHERE a.date BETWEEN ? AND ?";
     $params = [$start_date, $end_date];
     $types = "ss";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getCustomRangeAttendanceReport');
 }

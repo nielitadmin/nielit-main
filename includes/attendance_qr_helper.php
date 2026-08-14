@@ -128,12 +128,72 @@ function generateStudentAttendanceQR($student_id, $student_name, $conn) {
  */
 function createAttendanceSession($session_data, $conn) {
     try {
-        $stmt = $conn->prepare("
-            INSERT INTO attendance_sessions 
-            (session_name, course_id, course_name, subject, date, start_time, end_time, coordinator_id, coordinator_name, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
-        ");
-        
+        if (function_exists('ensureAttendanceInOutTables')) {
+            ensureAttendanceInOutTables($conn);
+        }
+        $courseId = (int) ($session_data['course_id'] ?? 0);
+        $batchId = (int) ($session_data['batch_id'] ?? 0);
+        if ($courseId <= 0) {
+            return [
+                'success' => false,
+                'message' => 'Please select a course.'
+            ];
+        }
+        if ($batchId > 0) {
+            $bt = $conn->prepare('SELECT id, course_id FROM batches WHERE id = ? LIMIT 1');
+            if ($bt) {
+                $bt->bind_param('i', $batchId);
+                $bt->execute();
+                $batchRow = $bt->get_result()->fetch_assoc();
+                $bt->close();
+                if (!$batchRow) {
+                    return ['success' => false, 'message' => 'Selected batch was not found.'];
+                }
+                if ((int) ($batchRow['course_id'] ?? 0) !== $courseId) {
+                    return ['success' => false, 'message' => 'Selected batch does not belong to this course.'];
+                }
+            }
+        } elseif (function_exists('attendanceListBatchesForCourse')) {
+            $courseBatches = attendanceListBatchesForCourse($conn, $courseId, 0);
+            if ($courseBatches !== []) {
+                return [
+                    'success' => false,
+                    'message' => 'Please select a section for this course.'
+                ];
+            }
+        }
+
+        $sessionName = trim((string) ($session_data['session_name'] ?? ''));
+        $courseName = trim((string) ($session_data['course_name'] ?? ''));
+        $subject = trim((string) ($session_data['subject'] ?? ''));
+        if ($subject === '') {
+            $subject = $sessionName;
+        }
+        $sessionDate = trim((string) ($session_data['date'] ?? ''));
+        $startTime = trim((string) ($session_data['start_time'] ?? ''));
+        $endTime = trim((string) ($session_data['end_time'] ?? ''));
+        if ($sessionName === '' || $sessionDate === '' || $startTime === '' || $endTime === '') {
+            return [
+                'success' => false,
+                'message' => 'Please fill section name, date, and times.'
+            ];
+        }
+
+        $hasBatchCol = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
+        if ($hasBatchCol) {
+            $stmt = $conn->prepare("
+                INSERT INTO attendance_sessions
+                (session_name, course_id, batch_id, course_name, subject, date, start_time, end_time, coordinator_id, coordinator_name, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
+            ");
+        } else {
+            $stmt = $conn->prepare("
+                INSERT INTO attendance_sessions
+                (session_name, course_id, course_name, subject, date, start_time, end_time, coordinator_id, coordinator_name, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled')
+            ");
+        }
+
         if (!$stmt) {
             error_log("Prepare failed in createAttendanceSession: " . $conn->error);
             return [
@@ -141,18 +201,35 @@ function createAttendanceSession($session_data, $conn) {
                 'message' => 'Database error: ' . $conn->error
             ];
         }
-        
-        $stmt->bind_param("sisssssss", 
-            $session_data['session_name'],
-            $session_data['course_id'],
-            $session_data['course_name'],
-            $session_data['subject'],
-            $session_data['date'],
-            $session_data['start_time'],
-            $session_data['end_time'],
-            $session_data['coordinator_id'],
-            $session_data['coordinator_name']
-        );
+
+        if ($hasBatchCol) {
+            $stmt->bind_param(
+                "siisssssss",
+                $sessionName,
+                $courseId,
+                $batchId,
+                $courseName,
+                $subject,
+                $sessionDate,
+                $startTime,
+                $endTime,
+                $session_data['coordinator_id'],
+                $session_data['coordinator_name']
+            );
+        } else {
+            $stmt->bind_param(
+                "sisssssss",
+                $sessionName,
+                $courseId,
+                $courseName,
+                $subject,
+                $sessionDate,
+                $startTime,
+                $endTime,
+                $session_data['coordinator_id'],
+                $session_data['coordinator_name']
+            );
+        }
 
         if ($stmt->execute()) {
             $session_id = $conn->insert_id;
@@ -161,13 +238,141 @@ function createAttendanceSession($session_data, $conn) {
                 'session_id' => $session_id,
                 'message' => 'Attendance session created successfully'
             ];
-        } else {
-            return [
-                'success' => false,
-                'message' => 'Failed to create attendance session'
-            ];
+        }
+        return [
+            'success' => false,
+            'message' => 'Failed to create attendance session'
+        ];
+
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
+ * Update an existing attendance session (name, course, batch, times).
+ */
+function updateAttendanceSession($session_id, $session_data, $conn) {
+    try {
+        if (function_exists('ensureAttendanceInOutTables')) {
+            ensureAttendanceInOutTables($conn);
+        }
+        $session_id = (int) $session_id;
+        $coordinator_id = (string) ($session_data['coordinator_id'] ?? '');
+        if ($session_id <= 0 || $coordinator_id === '') {
+            return ['success' => false, 'message' => 'Session not found.'];
         }
 
+        $check = $conn->prepare("SELECT id, status FROM attendance_sessions WHERE id = ? AND coordinator_id = ? LIMIT 1");
+        if (!$check) {
+            return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        }
+        $check->bind_param('is', $session_id, $coordinator_id);
+        $check->execute();
+        $existing = $check->get_result()->fetch_assoc();
+        $check->close();
+        if (!$existing) {
+            return ['success' => false, 'message' => 'Session not found.'];
+        }
+        $st = strtolower((string) ($existing['status'] ?? ''));
+        if ($st === 'completed' || $st === 'cancelled') {
+            return ['success' => false, 'message' => 'Ended sessions cannot be edited. Start a new session instead.'];
+        }
+
+        $courseId = (int) ($session_data['course_id'] ?? 0);
+        $batchId = (int) ($session_data['batch_id'] ?? 0);
+        if ($courseId <= 0) {
+            return ['success' => false, 'message' => 'Please select a course.'];
+        }
+        if ($batchId > 0) {
+            $bt = $conn->prepare('SELECT id, course_id FROM batches WHERE id = ? LIMIT 1');
+            if ($bt) {
+                $bt->bind_param('i', $batchId);
+                $bt->execute();
+                $batchRow = $bt->get_result()->fetch_assoc();
+                $bt->close();
+                if (!$batchRow) {
+                    return ['success' => false, 'message' => 'Selected batch was not found.'];
+                }
+                if ((int) ($batchRow['course_id'] ?? 0) !== $courseId) {
+                    return ['success' => false, 'message' => 'Selected batch does not belong to this course.'];
+                }
+            }
+        } elseif (function_exists('attendanceListBatchesForCourse')) {
+            $courseBatches = attendanceListBatchesForCourse($conn, $courseId, 0);
+            if ($courseBatches !== []) {
+                return ['success' => false, 'message' => 'Please select a section for this course.'];
+            }
+        }
+
+        $name = trim((string) ($session_data['session_name'] ?? ''));
+        $courseName = trim((string) ($session_data['course_name'] ?? ''));
+        $subject = trim((string) ($session_data['subject'] ?? ''));
+        if ($subject === '') {
+            $subject = $name;
+        }
+        $date = trim((string) ($session_data['date'] ?? ''));
+        $start = trim((string) ($session_data['start_time'] ?? ''));
+        $end = trim((string) ($session_data['end_time'] ?? ''));
+        if ($name === '' || $date === '' || $start === '' || $end === '') {
+            return ['success' => false, 'message' => 'Please fill section name, date, and times.'];
+        }
+
+        $hasBatchCol = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
+        if ($hasBatchCol) {
+            $stmt = $conn->prepare("
+                UPDATE attendance_sessions
+                SET session_name = ?, course_id = ?, batch_id = ?, course_name = ?, subject = ?, date = ?, start_time = ?, end_time = ?, updated_at = NOW()
+                WHERE id = ? AND coordinator_id = ?
+            ");
+        } else {
+            $stmt = $conn->prepare("
+                UPDATE attendance_sessions
+                SET session_name = ?, course_id = ?, course_name = ?, subject = ?, date = ?, start_time = ?, end_time = ?, updated_at = NOW()
+                WHERE id = ? AND coordinator_id = ?
+            ");
+        }
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Database error: ' . $conn->error];
+        }
+        if ($hasBatchCol) {
+            $stmt->bind_param(
+                'siisssssis',
+                $name,
+                $courseId,
+                $batchId,
+                $courseName,
+                $subject,
+                $date,
+                $start,
+                $end,
+                $session_id,
+                $coordinator_id
+            );
+        } else {
+            $stmt->bind_param(
+                'sisssssis',
+                $name,
+                $courseId,
+                $courseName,
+                $subject,
+                $date,
+                $start,
+                $end,
+                $session_id,
+                $coordinator_id
+            );
+        }
+        if ($stmt->execute()) {
+            $stmt->close();
+            return ['success' => true, 'session_id' => $session_id, 'message' => 'Session updated.'];
+        }
+        $err = $stmt->error;
+        $stmt->close();
+        return ['success' => false, 'message' => $err !== '' ? $err : 'Could not update session.'];
     } catch (Exception $e) {
         return [
             'success' => false,
@@ -333,15 +538,38 @@ function logQRScan($session_id, $student_id, $student_name, $result, $coordinato
 /**
  * Get active attendance sessions for coordinator
  */
-function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0) {
+function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $batch_id = 0) {
     $centre_id = (int) $centre_id;
+    $batch_id = (int) $batch_id;
+    $hasBatchCol = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
+    $batchSelect = $hasBatchCol
+        ? ", IFNULL(b.batch_name, '') AS batch_name, IFNULL(b.batch_code, '') AS batch_code, IFNULL(s.batch_id, 0) AS session_batch_id"
+        : ", '' AS batch_name, '' AS batch_code, 0 AS session_batch_id";
+    $studentCountSelect = ', 0 AS student_count';
+    $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+    if ($hasBatchCol && $bs && $bs->num_rows > 0) {
+        $studentCountSelect = ', (SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = s.batch_id) AS student_count';
+    }
+    $batchJoin = $hasBatchCol ? " LEFT JOIN batches b ON b.id = s.batch_id " : '';
     $sql = "SELECT s.*, IFNULL(ct.name, '') AS centre_name, IFNULL(c.centre_id, 0) AS course_centre_id
+            {$batchSelect}
+            {$studentCountSelect}
             FROM attendance_sessions s
             LEFT JOIN courses c ON c.id = s.course_id
             LEFT JOIN centres ct ON ct.id = c.centre_id
+            {$batchJoin}
             WHERE s.coordinator_id = ? AND s.status IN ('scheduled', 'active')";
+    $types = 's';
+    $params = [$coordinator_id];
     if ($centre_id > 0) {
         $sql .= " AND c.centre_id = ?";
+        $types .= 'i';
+        $params[] = $centre_id;
+    }
+    if ($hasBatchCol && $batch_id > 0) {
+        $sql .= " AND s.batch_id = ?";
+        $types .= 'i';
+        $params[] = $batch_id;
     }
     $sql .= " ORDER BY s.date DESC, s.start_time DESC";
     $stmt = $conn->prepare($sql);
@@ -359,11 +587,7 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0) {
         $stmt->execute();
         return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     }
-    if ($centre_id > 0) {
-        $stmt->bind_param("si", $coordinator_id, $centre_id);
-    } else {
-        $stmt->bind_param("s", $coordinator_id);
-    }
+    $stmt->bind_param($types, ...$params);
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }

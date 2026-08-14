@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $session_data = [
                 'session_name' => $_POST['session_name'] ?? '',
                 'course_id' => $_POST['course_id'] ?? 0,
+                'batch_id' => $_POST['batch_id'] ?? 0,
                 'course_name' => $_POST['course_name'] ?? '',
                 'subject' => $_POST['subject'] ?? '',
                 'date' => $_POST['date'] ?? date('Y-m-d'),
@@ -43,6 +44,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
             
             $result = createAttendanceSession($session_data, $conn);
+            echo json_encode($result);
+            exit;
+
+        case 'update_session':
+            $session_data = [
+                'session_name' => $_POST['session_name'] ?? '',
+                'course_id' => $_POST['course_id'] ?? 0,
+                'batch_id' => $_POST['batch_id'] ?? 0,
+                'course_name' => $_POST['course_name'] ?? '',
+                'subject' => $_POST['subject'] ?? '',
+                'date' => $_POST['date'] ?? date('Y-m-d'),
+                'start_time' => $_POST['start_time'] ?? '',
+                'end_time' => $_POST['end_time'] ?? '',
+                'coordinator_id' => $admin_id,
+            ];
+            $result = updateAttendanceSession((int) ($_POST['session_id'] ?? 0), $session_data, $conn);
             echo json_encode($result);
             exit;
             
@@ -86,10 +103,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get active sessions
 $centreId = (int) ($_GET['centre_id'] ?? 0);
+$batchId = (int) ($_GET['batch_id'] ?? 0);
 $centres = attendanceListCentres($conn);
 $allCourses = attendanceListCoursesForCentre($conn, 0);
 $courses = $centreId > 0 ? attendanceListCoursesForCentre($conn, $centreId) : $allCourses;
-$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId);
+$allBatches = attendanceListBatchesForCourse($conn, 0, 0);
+$filterBatches = attendanceListBatchesForCourse($conn, 0, $centreId);
+$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId, $batchId);
 $active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
@@ -192,13 +212,22 @@ $active_theme = loadActiveTheme($conn);
     <!-- Quick Actions -->
     <div class="row mb-4">
         <div class="col-md-6">
-            <form method="get" class="d-flex gap-2 align-items-center">
+            <form method="get" class="d-flex gap-2 align-items-center flex-wrap">
                 <label class="mb-0 text-nowrap">Centre</label>
-                <select class="form-select" name="centre_id" onchange="this.form.submit()">
+                <select class="form-select" name="centre_id" onchange="this.form.submit()" style="min-width:180px;">
                     <option value="0">All centres</option>
                     <?php foreach ($centres as $centre): ?>
                         <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
                             <?php echo htmlspecialchars((string) $centre['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+                <label class="mb-0 text-nowrap">Section</label>
+                <select class="form-select" name="batch_id" onchange="this.form.submit()" style="min-width:200px;">
+                    <option value="0">All sections</option>
+                    <?php foreach ($filterBatches as $batch): ?>
+                        <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -235,15 +264,32 @@ $active_theme = loadActiveTheme($conn);
                                         </div>
                                         <div class="card-body">
                                             <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
+                                            <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
                                             <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars($session['course_name']); ?></p>
-                                            <p class="mb-1"><strong>Subject:</strong> <?php echo htmlspecialchars($session['subject']); ?></p>
-                                            <p class="mb-1"><strong>Date:</strong> <?php echo date('d M Y', strtotime($session['date'])); ?></p>
+                                            <?php
+                                            $sectionStudents = (int) ($session['student_count'] ?? 0);
+                                            $sectionWord = $sectionStudents === 1 ? 'student' : 'students';
+                                            ?>
+                                            <p class="mb-1"><strong>Students:</strong> <?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0) > 0 ? ($sectionStudents . ' ' . $sectionWord) : '—'; ?></p>
+                                            <p class="mb-1"><strong>Date:</strong> <?php echo date('d M Y', strtotime($session['date'])); ?> <small class="text-muted">(each day is saved separately)</small></p>
                                             <p class="mb-3"><strong>Time:</strong> <?php echo date('h:i A', strtotime($session['start_time'])) . ' - ' . date('h:i A', strtotime($session['end_time'])); ?></p>
                                             
                                             <div class="session-stats mb-3" id="stats-<?php echo $session['id']; ?>">
                                                 <small class="text-muted">Loading stats...</small>
                                             </div>
                                             
+                                            <button class="btn btn-outline-secondary btn-sm w-100 mb-2" type="button" onclick="editSession(this)"
+                                                    data-id="<?php echo (int) $session['id']; ?>"
+                                                    data-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-centre="<?php echo (int) ($session['course_centre_id'] ?? 0); ?>"
+                                                    data-course="<?php echo (int) ($session['course_id'] ?? 0); ?>"
+                                                    data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-batch="<?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0); ?>"
+                                                    data-date="<?php echo htmlspecialchars(substr((string) $session['date'], 0, 10), ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-start="<?php echo htmlspecialchars(substr((string) $session['start_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-end="<?php echo htmlspecialchars(substr((string) $session['end_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>">
+                                                <i class="fas fa-edit"></i> Edit session
+                                            </button>
                                             <?php if ($session['status'] === 'scheduled'): ?>
                                                 <button class="btn btn-success btn-sm w-100" onclick="activateSession(<?php echo $session['id']; ?>)">
                                                     <i class="fas fa-play"></i> Start QR Scanning
@@ -295,15 +341,16 @@ $active_theme = loadActiveTheme($conn);
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Create Attendance Session</h5>
+                <h5 class="modal-title" id="sessionModalTitle">Create Attendance Session</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="createSessionForm">
                 <div class="modal-body">
+                    <input type="hidden" name="session_id" id="sessionEditId" value="">
                     <div class="mb-3">
-                        <label class="form-label">Session Name</label>
+                        <label class="form-label">Section name</label>
                         <input type="text" class="form-control" name="session_name" required 
-                               placeholder="e.g., Morning Session - Database Concepts">
+                               placeholder="e.g., Morning 9AM–11AM">
                     </div>
                     
                     <div class="mb-3">
@@ -342,11 +389,18 @@ $active_theme = loadActiveTheme($conn);
                             <small class="text-muted">No courses found. Please add courses first.</small>
                         <?php endif; ?>
                     </div>
-                    
                     <div class="mb-3">
-                        <label class="form-label">Subject</label>
-                        <input type="text" class="form-control" name="subject" required 
-                               placeholder="e.g., SQL Fundamentals">
+                        <label class="form-label">Section (batch)</label>
+                        <select class="form-select" name="batch_id" id="sessionBatch" required>
+                            <option value="">Select section</option>
+                            <?php foreach ($allBatches as $batch): ?>
+                                <option value="<?php echo (int) $batch['id']; ?>"
+                                        data-course="<?php echo (int) ($batch['course_id'] ?? 0); ?>"
+                                        data-centre="<?php echo (int) ($batch['centre_id'] ?? 0); ?>">
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch, true)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     
                     <div class="row">
@@ -355,6 +409,7 @@ $active_theme = loadActiveTheme($conn);
                                 <label class="form-label">Date</label>
                                 <input type="date" class="form-control" name="date" 
                                        value="<?php echo date('Y-m-d'); ?>" required>
+                                <small class="text-muted">While started, students can punch again the next day. Each day is saved separately.</small>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -373,7 +428,7 @@ $active_theme = loadActiveTheme($conn);
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Session</button>
+                    <button type="submit" class="btn btn-primary" id="sessionModalSave">Create Session</button>
                 </div>
             </form>
         </div>
@@ -633,12 +688,40 @@ $active_theme = loadActiveTheme($conn);
                 document.getElementById('course_name').value = '';
             }
         });
+        filterSessionBatches();
+    }
+    function filterSessionBatches() {
+        const centreSel = document.getElementById('sessionCentre');
+        const courseSel = document.getElementById('sessionCourse');
+        const batchSel = document.getElementById('sessionBatch');
+        if (!batchSel) {
+            return;
+        }
+        const cid = String((centreSel && centreSel.value) || '');
+        const courseId = String((courseSel && courseSel.value) || '');
+        Array.prototype.forEach.call(batchSel.options, function (opt) {
+            if (!opt.value) {
+                opt.hidden = false;
+                return;
+            }
+            const matchCentre = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            const matchCourse = courseId === '' || String(opt.getAttribute('data-course') || '0') === courseId;
+            const match = matchCentre && matchCourse;
+            opt.hidden = !match;
+            if (!match && opt.selected) {
+                batchSel.value = '';
+            }
+        });
     }
     document.addEventListener('DOMContentLoaded', function () {
         const sessionCentre = document.getElementById('sessionCentre');
+        const sessionCourse = document.getElementById('sessionCourse');
         if (sessionCentre) {
             sessionCentre.addEventListener('change', filterSessionCourses);
             filterSessionCourses();
+        }
+        if (sessionCourse) {
+            sessionCourse.addEventListener('change', filterSessionBatches);
         }
     });
 
@@ -647,7 +730,8 @@ $active_theme = loadActiveTheme($conn);
         e.preventDefault();
         
         const formData = new FormData(this);
-        formData.append('action', 'create_session');
+        const editId = (document.getElementById('sessionEditId') || {}).value || '';
+        formData.append('action', editId ? 'update_session' : 'create_session');
         
         fetch('attendance_scanner.php', {
             method: 'POST',
@@ -656,7 +740,7 @@ $active_theme = loadActiveTheme($conn);
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showToast('Session created successfully!', 'success');
+                showToast(editId ? 'Session updated.' : 'Session created successfully!', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('createSessionModal')).hide();
                 setTimeout(() => location.reload(), 1000);
             } else {
@@ -666,6 +750,68 @@ $active_theme = loadActiveTheme($conn);
         .catch(error => {
             showToast('Network error occurred', 'error');
         });
+    });
+
+    function resetSessionForm() {
+        const form = document.getElementById('createSessionForm');
+        if (form) {
+            form.reset();
+        }
+        const idEl = document.getElementById('sessionEditId');
+        if (idEl) {
+            idEl.value = '';
+        }
+        const title = document.getElementById('sessionModalTitle');
+        if (title) {
+            title.textContent = 'Create Attendance Session';
+        }
+        const save = document.getElementById('sessionModalSave');
+        if (save) {
+            save.textContent = 'Create Session';
+        }
+        filterSessionCourses();
+    }
+    window.editSession = function (btn) {
+        const idEl = document.getElementById('sessionEditId');
+        if (idEl) {
+            idEl.value = btn.getAttribute('data-id') || '';
+        }
+        const title = document.getElementById('sessionModalTitle');
+        if (title) {
+            title.textContent = 'Edit Attendance Session';
+        }
+        const save = document.getElementById('sessionModalSave');
+        if (save) {
+            save.textContent = 'Save changes';
+        }
+        const form = document.getElementById('createSessionForm');
+        form.querySelector('[name="session_name"]').value = btn.getAttribute('data-name') || '';
+        form.querySelector('[name="date"]').value = btn.getAttribute('data-date') || '';
+        form.querySelector('[name="start_time"]').value = btn.getAttribute('data-start') || '';
+        form.querySelector('[name="end_time"]').value = btn.getAttribute('data-end') || '';
+        const centreSel = document.getElementById('sessionCentre');
+        if (centreSel) {
+            centreSel.value = btn.getAttribute('data-centre') || '';
+        }
+        filterSessionCourses();
+        const courseSel = document.getElementById('sessionCourse');
+        if (courseSel) {
+            courseSel.value = btn.getAttribute('data-course') || '';
+            updateCourseName(courseSel);
+        }
+        filterSessionBatches();
+        const batchSel = document.getElementById('sessionBatch');
+        if (batchSel) {
+            batchSel.value = btn.getAttribute('data-batch') || '';
+        }
+        const modal = new bootstrap.Modal(document.getElementById('createSessionModal'));
+        modal.show();
+    };
+    document.querySelectorAll('[data-bs-target="#createSessionModal"]').forEach(function (btn) {
+        if (btn.classList.contains('js-edit-session')) {
+            return;
+        }
+        btn.addEventListener('click', resetSessionForm);
     });
 
     // Activate session

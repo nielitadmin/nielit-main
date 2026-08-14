@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 
 if (!isset($_SESSION['student_id'])) {
     header("Location: login.php");
@@ -10,55 +11,29 @@ if (!isset($_SESSION['student_id'])) {
 $student_id = $_SESSION['student_id'];
 
 // Fetch student name and course
-$sql = "SELECT name, course FROM students WHERE student_id = ?";
+$sql = "SELECT name, course, attendance_qr_code FROM students WHERE student_id = ? ORDER BY id DESC LIMIT 1";
 $stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $student_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$student = $result->fetch_assoc();
-
-// Calculate attendance statistics
-$sql_stats = "SELECT 
-    COUNT(*) as total_classes,
-    SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_count,
-    SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_count,
-    SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_count
-    FROM attendance WHERE student_id = ?";
-$stmt_stats = $conn->prepare($sql_stats);
-
-$total_classes = 0;
-$present_count = 0;
-$absent_count = 0;
-$late_count = 0;
-$attendance_percentage = 0;
-
-if ($stmt_stats) {
-    $stmt_stats->bind_param("s", $student_id);
-    $stmt_stats->execute();
-    $result_stats = $stmt_stats->get_result();
-    if ($row_stats = $result_stats->fetch_assoc()) {
-        $total_classes = $row_stats['total_classes'];
-        $present_count = $row_stats['present_count'];
-        $absent_count = $row_stats['absent_count'];
-        $late_count = $row_stats['late_count'];
-        if ($total_classes > 0) {
-            $attendance_percentage = round(($present_count / $total_classes) * 100, 1);
-        }
-    }
+if (!$stmt) {
+    $sql = "SELECT name, course FROM students WHERE student_id = ? ORDER BY id DESC LIMIT 1";
+    $stmt = $conn->prepare($sql);
+}
+$student = ['name' => '', 'course' => '', 'attendance_qr_code' => ''];
+if ($stmt) {
+    $stmt->bind_param("s", $student_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $student = $result->fetch_assoc() ?: $student;
 }
 
-// Fetch attendance records
-$sql_attendance = "SELECT * FROM attendance WHERE student_id = ? ORDER BY date DESC LIMIT 50";
-$stmt_attendance = $conn->prepare($sql_attendance);
-$attendance_records = [];
-if ($stmt_attendance) {
-    $stmt_attendance->bind_param("s", $student_id);
-    $stmt_attendance->execute();
-    $result_attendance = $stmt_attendance->get_result();
-    while ($row = $result_attendance->fetch_assoc()) {
-        $attendance_records[] = $row;
-    }
-}
+$portal = getStudentPortalAttendance($conn, $student_id, 0);
+$total_classes = (int) $portal['total_classes'];
+$present_count = (int) $portal['present_count'];
+$absent_count = (int) $portal['absent_count'];
+$late_count = (int) $portal['late_count'];
+$partial_count = (int) $portal['partial_count'];
+$attendance_percentage = (float) $portal['attendance_percentage'];
+$attendance_records = $portal['records'];
+$batch_breakdown = $portal['batches'];
 
 $page_title = "Attendance";
 include 'includes/header.php';
@@ -69,7 +44,7 @@ include 'includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-calendar-check"></i> Attendance Record</h2>
-            <p class="text-muted">Track your class attendance and maintain good academic standing</p>
+            <p class="text-muted">Track your class attendance by section (morning, evening, etc.). QR and fingerprint punches from your coordinator appear here.</p>
         </div>
     </div>
 
@@ -117,8 +92,8 @@ include 'includes/header.php';
                     <i class="fas fa-clock"></i>
                 </div>
                 <div class="stat-content">
-                    <h3><?php echo $late_count; ?></h3>
-                    <p>Late</p>
+                    <h3><?php echo $partial_count > 0 ? $partial_count : $late_count; ?></h3>
+                    <p><?php echo $partial_count > 0 ? 'Partial (IN only)' : 'Late'; ?></p>
                 </div>
             </div>
         </div>
@@ -304,6 +279,42 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <?php if (count($batch_breakdown) > 0): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-layer-group"></i> Attendance by section</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Section</th>
+                                    <th>Classes</th>
+                                    <th>Present / Partial</th>
+                                    <th>Attendance %</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($batch_breakdown as $brow): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars((string) $brow['batch_name']); ?></td>
+                                    <td><?php echo (int) $brow['total']; ?></td>
+                                    <td><?php echo (int) $brow['present']; ?></td>
+                                    <td><?php echo htmlspecialchars((string) $brow['attendance_percentage']); ?>%</td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Attendance Records -->
     <div class="row">
         <div class="col-12">
@@ -319,24 +330,29 @@ include 'includes/header.php';
                                     <tr>
                                         <th>Date</th>
                                         <th>Day</th>
-                                        <th>Subject/Class</th>
-                                        <th>Time</th>
+                                        <th>Centre</th>
+                                        <th>Section</th>
+                                        <th>Course</th>
+                                        <th>IN / OUT</th>
                                         <th>Status</th>
-                                        <th>Remarks</th>
+                                        <th>Hours</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($attendance_records as $record): ?>
                                     <tr>
-                                        <td><?php echo date('d M Y', strtotime($record['date'])); ?></td>
-                                        <td><?php echo date('l', strtotime($record['date'])); ?></td>
-                                        <td><?php echo htmlspecialchars($record['subject'] ?? 'General'); ?></td>
-                                        <td><?php echo htmlspecialchars($record['time'] ?? 'N/A'); ?></td>
+                                        <td><?php echo !empty($record['date']) ? date('d M Y', strtotime($record['date'])) : '—'; ?></td>
+                                        <td><?php echo !empty($record['date']) ? date('l', strtotime($record['date'])) : '—'; ?></td>
+                                        <td><?php echo htmlspecialchars(trim((string) ($record['centre_name'] ?? '')) !== '' ? (string) $record['centre_name'] : '—'); ?></td>
+                                        <td><?php echo htmlspecialchars(trim((string) ($record['batch_name'] ?? '')) !== '' ? (string) $record['batch_name'] : '—'); ?></td>
+                                        <td><?php echo htmlspecialchars(trim((string) ($record['course_name'] ?? '')) !== '' ? (string) $record['course_name'] : '—'); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($record['time'] ?? '—')); ?></td>
                                         <td>
                                             <?php
-                                            $status = strtolower($record['status']);
+                                            $status = strtolower((string) ($record['status'] ?? ''));
                                             $badge_class = 'badge-secondary';
                                             $icon = 'fa-question';
+                                            $statusLabel = ucfirst($status);
                                             
                                             if ($status == 'present') {
                                                 $badge_class = 'badge-success';
@@ -344,17 +360,18 @@ include 'includes/header.php';
                                             } elseif ($status == 'absent') {
                                                 $badge_class = 'badge-danger';
                                                 $icon = 'fa-times';
-                                            } elseif ($status == 'late') {
+                                            } elseif ($status == 'late' || $status == 'partial') {
                                                 $badge_class = 'badge-warning';
                                                 $icon = 'fa-clock';
+                                                $statusLabel = $status === 'partial' ? 'Partial' : 'Late';
                                             }
                                             ?>
                                             <span class="badge <?php echo $badge_class; ?>">
                                                 <i class="fas <?php echo $icon; ?>"></i>
-                                                <?php echo ucfirst($status); ?>
+                                                <?php echo $statusLabel; ?>
                                             </span>
                                         </td>
-                                        <td><?php echo htmlspecialchars($record['remarks'] ?? '-'); ?></td>
+                                        <td><?php echo isset($record['hours']) ? htmlspecialchars((string) $record['hours']) : '—'; ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -364,7 +381,7 @@ include 'includes/header.php';
                         <div class="text-center py-5">
                             <i class="fas fa-calendar-times fa-4x text-muted mb-3"></i>
                             <h5 class="text-muted">No attendance records found</h5>
-                            <p class="text-muted">Attendance records will appear here once classes begin.</p>
+                            <p class="text-muted">Attendance records will appear here after your coordinator marks QR or fingerprint attendance for your batch.</p>
                         </div>
                     <?php endif; ?>
                 </div>

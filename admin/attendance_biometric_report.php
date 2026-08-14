@@ -31,13 +31,16 @@ if ($month < 1 || $month > 12) {
 }
 $courseId = (int) ($_GET['course_id'] ?? 0);
 $centreId = (int) ($_GET['centre_id'] ?? 0);
+$batchId = (int) ($_GET['batch_id'] ?? 0);
 
 ensureBiometricAttendanceTables($conn);
 ensureAttendanceInOutTables($conn);
 $centres = attendanceListCentres($conn);
 $centreLabel = attendanceCentreName($conn, $centreId);
 $courses = attendanceListCoursesForCentre($conn, $centreId);
-$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId);
+$batches = attendanceListBatchesForCourse($conn, $courseId, $centreId);
+$batchLabel = attendanceBatchName($conn, $batchId);
+$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId, $batchId);
 $daysInMonth = (int) $report['days'];
 $monthNames = [
     1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
@@ -45,7 +48,7 @@ $monthNames = [
     9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
 ];
 $monthLabel = $monthNames[$month] . ' ' . $year;
-$colspan = 5 + $daysInMonth;
+$colspan = 6 + $daysInMonth;
 
 $formatDayCell = static function (array $times, bool $html): string {
     $in = trim((string) ($times['in'] ?? ''));
@@ -72,10 +75,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')) . ' IST</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
+    echo '<tr><td colspan="' . $colspan . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint (Mantra)</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
-    echo '<td>Centre</td><td>Student ID</td><td>Name</td><td>Course / session</td><td>Mantra device ID</td>';
+    echo '<td>Centre</td><td>Batch</td><td>Student ID</td><td>Name</td><td>Course / session</td><td>Mantra device ID</td>';
     for ($d = 1; $d <= $daysInMonth; $d++) {
         echo '<td>' . $d . '</td>';
     }
@@ -86,6 +90,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         foreach ($report['rows'] as $row) {
             echo '<tr>';
             echo '<td>' . htmlspecialchars((string) ($row['centre'] ?? '—')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($row['batch'] ?? '—')) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['student_id']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['name']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['department']) . '</td>';
@@ -107,6 +112,7 @@ $qs = http_build_query([
     'month' => $month,
     'course_id' => $courseId > 0 ? $courseId : '',
     'centre_id' => $centreId > 0 ? $centreId : '',
+    'batch_id' => $batchId > 0 ? $batchId : '',
     'export' => 'excel',
 ]);
 ?>
@@ -139,7 +145,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance, centre-wise, with device ID.</p>
+                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance, centre-wise and batch-wise, with device ID.</p>
             </div>
             <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
                 <i class="fas fa-file-excel"></i> Download Excel
@@ -156,6 +162,17 @@ $qs = http_build_query([
                             <?php foreach ($centres as $centre): ?>
                                 <option value="<?php echo (int) $centre['id']; ?>" <?php echo (int) $centre['id'] === $centreId ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars((string) $centre['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Section</label>
+                        <select class="form-select" name="batch_id">
+                            <option value="0">All sections</option>
+                            <?php foreach ($batches as $batch): ?>
+                                <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -201,6 +218,7 @@ $qs = http_build_query([
                 <div class="att-meta mb-2">
                     Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')); ?> IST<br>
                     Centre: <?php echo htmlspecialchars($centreLabel); ?><br>
+                    Batch: <?php echo htmlspecialchars($batchLabel); ?><br>
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>
                 </div>
                 <h3 class="att-title">Attendance Record</h3>
@@ -209,6 +227,7 @@ $qs = http_build_query([
                         <thead>
                             <tr>
                                 <th class="col-centre">Centre</th>
+                                <th class="col-centre">Batch</th>
                                 <th class="col-id">Student ID</th>
                                 <th class="col-name">Name</th>
                                 <th class="col-dept">Course / session</th>
@@ -230,6 +249,7 @@ $qs = http_build_query([
                             <?php foreach ($report['rows'] as $row): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars((string) ($row['centre'] ?? '—')); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($row['batch'] ?? '—')); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['student_id']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>

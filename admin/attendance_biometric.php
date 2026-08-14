@@ -89,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = createAttendanceSession([
                 'session_name' => $_POST['session_name'] ?? '',
                 'course_id' => $_POST['course_id'] ?? 0,
+                'batch_id' => $_POST['batch_id'] ?? 0,
                 'course_name' => $_POST['course_name'] ?? '',
                 'subject' => $_POST['subject'] ?? '',
                 'date' => $_POST['date'] ?? date('Y-m-d'),
@@ -96,6 +97,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'end_time' => $_POST['end_time'] ?? '',
                 'coordinator_id' => $admin_id,
                 'coordinator_name' => $admin_name,
+            ], $conn);
+            biometricKioskJsonExit($result);
+        }
+        if ($action === 'update_session') {
+            $result = updateAttendanceSession((int) ($_POST['session_id'] ?? 0), [
+                'session_name' => $_POST['session_name'] ?? '',
+                'course_id' => $_POST['course_id'] ?? 0,
+                'batch_id' => $_POST['batch_id'] ?? 0,
+                'course_name' => $_POST['course_name'] ?? '',
+                'subject' => $_POST['subject'] ?? '',
+                'date' => $_POST['date'] ?? date('Y-m-d'),
+                'start_time' => $_POST['start_time'] ?? '',
+                'end_time' => $_POST['end_time'] ?? '',
+                'coordinator_id' => $admin_id,
             ], $conn);
             biometricKioskJsonExit($result);
         }
@@ -123,7 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $conn,
                 $q,
                 (int) $session['course_id'],
-                (string) ($session['course_name'] ?? '')
+                (string) ($session['course_name'] ?? ''),
+                (int) ($session['batch_id'] ?? 0)
             );
             if (empty($found['ok']) || empty($found['row'])) {
                 biometricKioskJsonExit(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
@@ -181,11 +197,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $centreId = (int) ($_GET['centre_id'] ?? 0);
-$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId);
+$batchId = (int) ($_GET['batch_id'] ?? 0);
+$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId, $batchId);
 $openSessionId = (int) ($_GET['session_id'] ?? 0);
 $centres = attendanceListCentres($conn);
 $allCourses = attendanceListCoursesForCentre($conn, 0);
 $courses = $centreId > 0 ? attendanceListCoursesForCentre($conn, $centreId) : $allCourses;
+$allBatches = attendanceListBatchesForCourse($conn, 0, 0);
+$filterBatches = attendanceListBatchesForCourse($conn, 0, $centreId);
 $active_theme = loadActiveTheme($conn);
 $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
 ?>
@@ -217,7 +236,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="row mb-3">
             <div class="col-12">
                 <h2><i class="fas fa-fingerprint"></i> Fingerprint Attendance</h2>
-                <p class="text-muted mb-0">Mantra L1 kiosk — pick a centre, then mark students for that centre’s courses. Open this page on the PC where the scanner is plugged in.</p>
+                <p class="text-muted mb-0">Mantra L1 kiosk — pick a centre and batch, then mark students for that batch. Open this page on the PC where the scanner is plugged in.</p>
             </div>
         </div>
 
@@ -244,7 +263,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="card mb-4">
             <div class="card-body">
                 <form method="get" class="row g-3 align-items-end">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <label class="form-label">Centre</label>
                         <select class="form-select" name="centre_id" onchange="this.form.submit()">
                             <option value="0">All centres</option>
@@ -255,8 +274,19 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-6">
-                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal">
+                    <div class="col-md-4">
+                        <label class="form-label">Section</label>
+                        <select class="form-select" name="batch_id" onchange="this.form.submit()">
+                            <option value="0">All sections</option>
+                            <?php foreach ($filterBatches as $batch): ?>
+                                <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal" id="btnNewSession">
                             <i class="fas fa-plus"></i> Create session
                         </button>
                     </div>
@@ -280,9 +310,26 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                                     </div>
                                     <div class="card-body">
                                         <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
+                                        <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
                                         <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars((string) $session['course_name']); ?></p>
-                                        <p class="mb-1"><strong>Subject:</strong> <?php echo htmlspecialchars((string) $session['subject']); ?></p>
-                                        <p class="mb-3"><strong>Date:</strong> <?php echo htmlspecialchars(date('d M Y', strtotime((string) $session['date']))); ?></p>
+                                        <?php
+                                        $sectionStudents = (int) ($session['student_count'] ?? 0);
+                                        $sectionWord = $sectionStudents === 1 ? 'student' : 'students';
+                                        ?>
+                                        <p class="mb-1"><strong>Students:</strong> <?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0) > 0 ? ($sectionStudents . ' ' . $sectionWord) : '—'; ?></p>
+                                        <p class="mb-1"><strong>Date:</strong> <?php echo htmlspecialchars(date('d M Y', strtotime((string) $session['date']))); ?> <small class="text-muted">(punches save each calendar day)</small></p>
+                                        <button class="btn btn-outline-secondary btn-sm w-100 mb-2 js-edit-session" type="button"
+                                                data-id="<?php echo (int) $session['id']; ?>"
+                                                data-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-centre="<?php echo (int) ($session['course_centre_id'] ?? 0); ?>"
+                                                data-course="<?php echo (int) ($session['course_id'] ?? 0); ?>"
+                                                data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-batch="<?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0); ?>"
+                                                data-date="<?php echo htmlspecialchars(substr((string) $session['date'], 0, 10), ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-start="<?php echo htmlspecialchars(substr((string) $session['start_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-end="<?php echo htmlspecialchars(substr((string) $session['end_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>">
+                                            <i class="fas fa-edit"></i> Edit session
+                                        </button>
                                         <?php if ($session['status'] === 'scheduled'): ?>
                                             <button class="btn btn-success btn-sm w-100" type="button" onclick="activateSession(<?php echo (int) $session['id']; ?>)">Start session</button>
                                         <?php elseif ($session['status'] === 'active'): ?>
@@ -309,7 +356,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCloseKiosk">Close</button>
             </div>
             <div class="card-body">
-                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time. Use the full Student ID — this session only marks students enrolled in its course.</p>
+                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time. Use the full Student ID — this session only marks students assigned to its batch.</p>
                 <div id="lastPunch" class="bio-banner ok mb-3" style="display:none;"></div>
             <div class="row g-3">
                     <div class="col-md-7">
@@ -343,14 +390,15 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Create attendance session</h5>
+                <h5 class="modal-title" id="sessionModalTitle">Create attendance session</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form id="createSessionForm">
                 <div class="modal-body">
+                    <input type="hidden" name="session_id" id="sessionEditId" value="">
                     <div class="mb-3">
-                        <label class="form-label">Session name</label>
-                        <input class="form-control" name="session_name" required placeholder="Morning batch — Lab">
+                        <label class="form-label">Section name</label>
+                        <input class="form-control" name="session_name" required placeholder="e.g., Morning 9AM–11AM">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Centre</label>
@@ -382,13 +430,23 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                         <input type="hidden" name="course_name" id="course_name">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Subject</label>
-                        <input class="form-control" name="subject" required>
+                        <label class="form-label">Section (batch)</label>
+                        <select class="form-select" name="batch_id" id="sessionBatch" required>
+                            <option value="">Select section</option>
+                            <?php foreach ($allBatches as $batch): ?>
+                                <option value="<?php echo (int) $batch['id']; ?>"
+                                        data-course="<?php echo (int) ($batch['course_id'] ?? 0); ?>"
+                                        data-centre="<?php echo (int) ($batch['centre_id'] ?? 0); ?>">
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch, true)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Date</label>
                             <input type="date" class="form-control" name="date" value="<?php echo date('Y-m-d'); ?>" required>
+                            <small class="text-muted">Start date. While the session is started, students can punch again tomorrow — each day is saved separately.</small>
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label">Start</label>
@@ -401,7 +459,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" type="submit">Create</button>
+                    <button class="btn btn-primary" type="submit" id="sessionModalSave">Create</button>
                 </div>
             </form>
         </div>
@@ -575,6 +633,30 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 }
             }
         });
+        filterSessionBatches();
+    }
+    function filterSessionBatches() {
+        const centreSel = document.getElementById('sessionCentre');
+        const courseSel = document.getElementById('sessionCourse');
+        const batchSel = document.getElementById('sessionBatch');
+        if (!batchSel) {
+            return;
+        }
+        const cid = String((centreSel && centreSel.value) || '');
+        const courseId = String((courseSel && courseSel.value) || '');
+        Array.prototype.forEach.call(batchSel.options, function (opt) {
+            if (!opt.value) {
+                opt.hidden = false;
+                return;
+            }
+            const matchCentre = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            const matchCourse = courseId === '' || String(opt.getAttribute('data-course') || '0') === courseId;
+            const match = matchCentre && matchCourse;
+            opt.hidden = !match;
+            if (!match && opt.selected) {
+                batchSel.value = '';
+            }
+        });
     }
     const sessionCentre = document.getElementById('sessionCentre');
     const sessionCourse = document.getElementById('sessionCourse');
@@ -588,13 +670,15 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             if (hiddenName) {
                 hiddenName.value = this.options[this.selectedIndex].getAttribute('data-name') || '';
             }
+            filterSessionBatches();
         });
     }
 
     document.getElementById('createSessionForm').addEventListener('submit', function (e) {
         e.preventDefault();
         const fd = new FormData(this);
-        fd.append('action', 'create_session');
+        const editId = (document.getElementById('sessionEditId') || {}).value || '';
+        fd.append('action', editId ? 'update_session' : 'create_session');
         fd.append('csrf_token', csrf);
         fetch(postUrl(), { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function (r) { return r.text(); })
@@ -603,9 +687,83 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 if (data.success) {
                     location.reload();
                 } else {
-                    alert(data.message || 'Could not create session');
+                    alert(data.message || (editId ? 'Could not update session' : 'Could not create session'));
                 }
             });
+    });
+
+    function resetSessionForm() {
+        const form = document.getElementById('createSessionForm');
+        if (form) {
+            form.reset();
+        }
+        const idEl = document.getElementById('sessionEditId');
+        if (idEl) {
+            idEl.value = '';
+        }
+        const title = document.getElementById('sessionModalTitle');
+        if (title) {
+            title.textContent = 'Create attendance session';
+        }
+        const save = document.getElementById('sessionModalSave');
+        if (save) {
+            save.textContent = 'Create';
+        }
+        const centreSel = document.getElementById('sessionCentre');
+        if (centreSel && <?php echo (int) $centreId; ?> > 0) {
+            centreSel.value = String(<?php echo (int) $centreId; ?>);
+        }
+        filterSessionCourses();
+    }
+    function fillSessionForm(btn) {
+        const idEl = document.getElementById('sessionEditId');
+        if (idEl) {
+            idEl.value = btn.getAttribute('data-id') || '';
+        }
+        const title = document.getElementById('sessionModalTitle');
+        if (title) {
+            title.textContent = 'Edit attendance session';
+        }
+        const save = document.getElementById('sessionModalSave');
+        if (save) {
+            save.textContent = 'Save changes';
+        }
+        const form = document.getElementById('createSessionForm');
+        form.querySelector('[name="session_name"]').value = btn.getAttribute('data-name') || '';
+        form.querySelector('[name="date"]').value = btn.getAttribute('data-date') || '';
+        form.querySelector('[name="start_time"]').value = btn.getAttribute('data-start') || '';
+        form.querySelector('[name="end_time"]').value = btn.getAttribute('data-end') || '';
+        const centreSel = document.getElementById('sessionCentre');
+        if (centreSel) {
+            centreSel.value = btn.getAttribute('data-centre') || '';
+        }
+        filterSessionCourses();
+        const courseSel = document.getElementById('sessionCourse');
+        if (courseSel) {
+            courseSel.value = btn.getAttribute('data-course') || '';
+            const hiddenName = document.getElementById('course_name');
+            if (hiddenName) {
+                hiddenName.value = btn.getAttribute('data-course-name') || '';
+            }
+        }
+        filterSessionBatches();
+        const batchSel = document.getElementById('sessionBatch');
+        if (batchSel) {
+            batchSel.value = btn.getAttribute('data-batch') || '';
+        }
+    }
+    const btnNewSession = document.getElementById('btnNewSession');
+    if (btnNewSession) {
+        btnNewSession.addEventListener('click', resetSessionForm);
+    }
+    document.querySelectorAll('.js-edit-session').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            fillSessionForm(btn);
+            const modalEl = document.getElementById('createSessionModal');
+            if (window.bootstrap && modalEl) {
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            }
+        });
     });
 
     window.activateSession = function (id) {
@@ -634,7 +792,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         document.getElementById('kioskTitle').textContent = 'Fingerprint kiosk — ' + (name || '');
         const hint = document.getElementById('kioskHint');
         if (hint) {
-            hint.textContent = 'This session is for ' + (courseName || 'the selected course') + '. Type the full Student ID (not the name), then Find. Only students enrolled in that course can be marked.';
+            hint.textContent = 'This session is for ' + (courseName || 'the selected course') + '. Type the full Student ID (not the name), then Find. Only students assigned to this batch can be marked.';
         }
         document.getElementById('kioskPanel').classList.add('is-open');
         document.getElementById('kioskPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });

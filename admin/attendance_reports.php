@@ -32,8 +32,11 @@ $end_date = $_GET['end_date'] ?? '';
 $selected_student = $_GET['student_id'] ?? '';
 $selected_course = $_GET['course_id'] ?? '';
 $selected_centre = (int) ($_GET['centre_id'] ?? 0);
+$selected_batch = (int) ($_GET['batch_id'] ?? 0);
 $report_centres = attendanceListCentres($conn);
+$report_batches = attendanceListBatchesForCourse($conn, 0, 0);
 $centre_label = attendanceCentreName($conn, $selected_centre);
+$batch_label = attendanceBatchName($conn, $selected_batch);
 
 // Handle Excel export
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
@@ -43,26 +46,26 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     
     switch ($report_type) {
         case 'weekly':
-            $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre);
+            $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre, $selected_batch);
             $report_title = "Weekly Attendance Report - Week {$selected_week}, {$selected_year}";
             break;
         case 'quarterly':
-            $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre);
+            $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre, $selected_batch);
             $quarters = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
             $report_title = "Quarterly Attendance Report - {$quarters[$selected_quarter-1]}, {$selected_year}";
             break;
         case 'yearly':
-            $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre);
+            $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre, $selected_batch);
             $report_title = "Yearly Attendance Report - {$selected_year}";
             break;
         case 'custom':
             if ($start_date && $end_date) {
-                $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre);
+                $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre, $selected_batch);
                 $report_title = "Custom Attendance Report - " . date('d M Y', strtotime($start_date)) . " to " . date('d M Y', strtotime($end_date));
             }
             break;
         default: // monthly
-            $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre);
+            $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre, $selected_batch);
             $months = [
                 1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
                 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
@@ -86,21 +89,23 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<table border="1">';
     
     // Report header
-    echo '<tr><td colspan="11" style="font-weight:bold; font-size:16px; text-align:center;">NIELIT Bhubaneswar - ' . $report_title . '</td></tr>';
-    echo '<tr><td colspan="11"></td></tr>'; // Empty row
-    echo '<tr><td style="font-weight:bold;">Centre:</td><td colspan="10">' . htmlspecialchars($centre_label) . '</td></tr>';
+    echo '<tr><td colspan="12" style="font-weight:bold; font-size:16px; text-align:center;">NIELIT Bhubaneswar - ' . $report_title . '</td></tr>';
+    echo '<tr><td colspan="12"></td></tr>'; // Empty row
+    echo '<tr><td style="font-weight:bold;">Centre:</td><td colspan="11">' . htmlspecialchars($centre_label) . '</td></tr>';
+    echo '<tr><td style="font-weight:bold;">Batch:</td><td colspan="11">' . htmlspecialchars($batch_label) . '</td></tr>';
     if ($selected_student) {
-        echo '<tr><td style="font-weight:bold;">Student Filter:</td><td colspan="10">' . htmlspecialchars($selected_student) . '</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Student Filter:</td><td colspan="11">' . htmlspecialchars($selected_student) . '</td></tr>';
     }
     if ($selected_course) {
-        echo '<tr><td style="font-weight:bold;">Course Filter:</td><td colspan="10">' . htmlspecialchars($selected_course) . '</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Course Filter:</td><td colspan="11">' . htmlspecialchars($selected_course) . '</td></tr>';
     }
-    echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="10">' . date('d M Y h:i A') . '</td></tr>';
-    echo '<tr><td colspan="11"></td></tr>'; // Empty row
+    echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="11">' . date('d M Y h:i A') . '</td></tr>';
+    echo '<tr><td colspan="12"></td></tr>'; // Empty row
 
     // Column headers
     echo '<tr style="background-color:#f0f0f0; font-weight:bold;">';
     echo '<td>Centre</td>';
+    echo '<td>Batch</td>';
     echo '<td>Student Name</td>';
     echo '<td>Student ID</td>';
     echo '<td>Course</td>';
@@ -133,6 +138,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
 
             echo '<tr>';
             echo '<td>' . htmlspecialchars(trim((string) ($record['centre_name'] ?? '')) !== '' ? (string) $record['centre_name'] : '—') . '</td>';
+            echo '<td>' . htmlspecialchars(trim((string) ($record['batch_name'] ?? '')) !== '' ? (string) $record['batch_name'] : '—') . '</td>';
             echo '<td>' . htmlspecialchars($record['student_name']) . '</td>';
             echo '<td>' . htmlspecialchars($record['student_id']) . '</td>';
             echo '<td>' . htmlspecialchars($record['course_name'] ?? 'N/A') . '</td>';
@@ -146,7 +152,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '</tr>';
         }
     } else {
-        echo '<tr><td colspan="11" style="text-align:center;">No attendance records found</td></tr>';
+        echo '<tr><td colspan="12" style="text-align:center;">No attendance records found</td></tr>';
     }
 
     echo '</table>';
@@ -161,26 +167,26 @@ $report_title = '';
 
 switch ($report_type) {
     case 'weekly':
-        $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre);
+        $report_data = getWeeklyAttendanceReport($selected_student, $selected_year, $selected_week, $selected_course, $conn, $selected_centre, $selected_batch);
         $report_title = "Weekly Report - Week {$selected_week}, {$selected_year}";
         break;
     case 'quarterly':
-        $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre);
+        $report_data = getQuarterlyAttendanceReport($selected_student, $selected_year, $selected_quarter, $selected_course, $conn, $selected_centre, $selected_batch);
         $quarters = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)'];
         $report_title = "Quarterly Report - {$quarters[$selected_quarter-1]}, {$selected_year}";
         break;
     case 'yearly':
-        $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre);
+        $report_data = getYearlyAttendanceReport($selected_student, $selected_year, $selected_course, $conn, $selected_centre, $selected_batch);
         $report_title = "Yearly Report - {$selected_year}";
         break;
     case 'custom':
         if ($start_date && $end_date) {
-            $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre);
+            $report_data = getCustomRangeAttendanceReport($selected_student, $start_date, $end_date, $selected_course, $conn, $selected_centre, $selected_batch);
             $report_title = "Custom Report - " . date('d M Y', strtotime($start_date)) . " to " . date('d M Y', strtotime($end_date));
         }
         break;
     default: // monthly
-        $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre);
+        $report_data = getMonthlyAttendanceReport($selected_student, $selected_year, $selected_month, $selected_course, $conn, $selected_centre, $selected_batch);
         $months = [
             1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
             5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
@@ -477,6 +483,20 @@ $active_theme = loadActiveTheme($conn);
                                         </select>
                                     </div>
                                     <div class="col-md-3">
+                                        <label class="form-label text-white">Section</label>
+                                        <select name="batch_id" id="reportBatch" class="form-select">
+                                            <option value="0">All sections</option>
+                                            <?php foreach ($report_batches as $batch): ?>
+                                                <option value="<?php echo (int) $batch['id']; ?>"
+                                                        data-centre="<?php echo (int) ($batch['centre_id'] ?? 0); ?>"
+                                                        data-course="<?php echo (int) ($batch['course_id'] ?? 0); ?>"
+                                                        <?php echo (int) $batch['id'] === $selected_batch ? 'selected' : ''; ?>>
+                                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
                                         <label class="form-label text-white">Student (Optional)</label>
                                         <select name="student_id" class="form-select">
                                             <option value="">All Students</option>
@@ -579,6 +599,7 @@ $active_theme = loadActiveTheme($conn);
                                     <thead class="table-dark">
                                         <tr>
                                             <th>Centre</th>
+                                            <th>Batch</th>
                                             <th>Student Name</th>
                                             <th>Student ID</th>
                                             <th>Course</th>
@@ -614,6 +635,7 @@ $active_theme = loadActiveTheme($conn);
                                             ?>
                                             <tr>
                                                 <td><?php echo htmlspecialchars(trim((string) ($record['centre_name'] ?? '')) !== '' ? (string) $record['centre_name'] : '—'); ?></td>
+                                                <td><?php echo htmlspecialchars(trim((string) ($record['batch_name'] ?? '')) !== '' ? (string) $record['batch_name'] : '—'); ?></td>
                                                 <td><strong><?php echo htmlspecialchars($record['student_name']); ?></strong></td>
                                                 <td><code><?php echo htmlspecialchars($record['student_id']); ?></code></td>
                                                 <td><?php echo htmlspecialchars($record['course_name'] ?? 'N/A'); ?></td>
@@ -699,6 +721,30 @@ $active_theme = loadActiveTheme($conn);
                     courseSel.value = '';
                 }
             });
+            filterReportBatches();
+        }
+        function filterReportBatches() {
+            const centreSel = document.getElementById('reportCentre');
+            const courseSel = document.getElementById('reportCourse');
+            const batchSel = document.getElementById('reportBatch');
+            if (!batchSel) {
+                return;
+            }
+            const cid = String((centreSel && centreSel.value) || '0');
+            const courseId = String((courseSel && courseSel.value) || '');
+            Array.prototype.forEach.call(batchSel.options, function (opt) {
+                if (!opt.value || opt.value === '0') {
+                    opt.hidden = false;
+                    return;
+                }
+                const matchCentre = cid === '0' || cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+                const matchCourse = courseId === '' || String(opt.getAttribute('data-course') || '0') === courseId;
+                const match = matchCentre && matchCourse;
+                opt.hidden = !match;
+                if (!match && opt.selected) {
+                    batchSel.value = '0';
+                }
+            });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -717,8 +763,12 @@ $active_theme = loadActiveTheme($conn);
                 currentFilterGroup.style.display = 'block';
             }
             const reportCentre = document.getElementById('reportCentre');
+            const reportCourse = document.getElementById('reportCourse');
             if (reportCentre) {
                 reportCentre.addEventListener('change', filterReportCourses);
+            }
+            if (reportCourse) {
+                reportCourse.addEventListener('change', filterReportBatches);
             }
             filterReportCourses();
         });

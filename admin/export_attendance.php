@@ -35,6 +35,15 @@ try {
     $attendance_list = getSessionAttendanceList($session_id, $conn);
     $stats = getAttendanceStatistics($session_id, $conn);
 
+    $batchName = '';
+    $batchId = (int) ($session['batch_id'] ?? 0);
+    if ($batchId > 0 && function_exists('attendanceBatchName')) {
+        $batchName = attendanceBatchName($conn, $batchId);
+        if ($batchName === 'All batches' || $batchName === 'Batch') {
+            $batchName = '';
+        }
+    }
+
     // Create Excel content using HTML table format (Excel can read this)
     $filename = "attendance_" . preg_replace('/[^a-zA-Z0-9_-]/', '_', $session['session_name']) . "_" . $session['date'] . ".xls";
     
@@ -54,6 +63,7 @@ try {
     echo '<tr><td colspan="9"></td></tr>'; // Empty row
     echo '<tr><td style="font-weight:bold;">Session Name:</td><td colspan="8">' . htmlspecialchars($session['session_name']) . '</td></tr>';
     echo '<tr><td style="font-weight:bold;">Course:</td><td colspan="8">' . htmlspecialchars($session['course_name']) . '</td></tr>';
+    echo '<tr><td style="font-weight:bold;">Batch:</td><td colspan="8">' . htmlspecialchars($batchName !== '' ? $batchName : '—') . '</td></tr>';
     echo '<tr><td style="font-weight:bold;">Subject:</td><td colspan="8">' . htmlspecialchars($session['subject']) . '</td></tr>';
     echo '<tr><td style="font-weight:bold;">Date:</td><td colspan="8">' . date('d M Y', strtotime($session['date'])) . '</td></tr>';
     echo '<tr><td style="font-weight:bold;">Time:</td><td colspan="8">' . date('h:i A', strtotime($session['start_time'])) . ' - ' . date('h:i A', strtotime($session['end_time'])) . '</td></tr>';
