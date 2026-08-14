@@ -98,8 +98,8 @@ try {
                 $scans = explode('|', $record['scan_history']);
                 $formatted_scans = [];
                 foreach ($scans as $scan) {
-                    $parts = explode(':', $scan);
-                    if (count($parts) == 2) {
+                    $parts = explode(':', $scan, 2);
+                    if (count($parts) === 2) {
                         $formatted_scans[] = strtoupper($parts[0]) . ' ' . $parts[1];
                     }
                 }

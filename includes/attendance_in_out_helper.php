@@ -286,6 +286,36 @@ if (!function_exists('attendanceFormatBatchLabel')) {
     }
 }
 
+if (!function_exists('attendanceFormatClock12')) {
+    /**
+     * Display a TIME or DATETIME as 12-hour clock, e.g. 1:28:20 PM.
+     */
+    function attendanceFormatClock12($time, bool $withSeconds = true, bool $withIst = false): string
+    {
+        $raw = trim((string) $time);
+        if ($raw === '' || $raw === '-' || $raw === '—') {
+            return '';
+        }
+        $raw = trim((string) preg_replace('/\s*IST\s*$/i', '', $raw));
+        $tz = new DateTimeZone('Asia/Kolkata');
+        $dt = DateTime::createFromFormat('H:i:s', $raw, $tz)
+            ?: DateTime::createFromFormat('H:i', $raw, $tz)
+            ?: DateTime::createFromFormat('Y-m-d H:i:s', substr($raw, 0, 19), $tz)
+            ?: DateTime::createFromFormat('g:i:s A', $raw, $tz)
+            ?: DateTime::createFromFormat('h:i:s A', $raw, $tz)
+            ?: DateTime::createFromFormat('g:i A', $raw, $tz);
+        if (!$dt) {
+            try {
+                $dt = new DateTime($raw, $tz);
+            } catch (Exception $e) {
+                return $withIst ? ($raw . ' IST') : $raw;
+            }
+        }
+        $out = $dt->format($withSeconds ? 'g:i:s A' : 'g:i A');
+        return $withIst ? ($out . ' IST') : $out;
+    }
+}
+
 if (!function_exists('attendanceBatchName')) {
     function attendanceBatchName($conn, int $batchId): string
     {
@@ -619,8 +649,8 @@ if (!function_exists('getStudentPortalAttendance')) {
                         if ($st === 'present' || $st === 'partial') {
                             $byBatch[$bkey]['present']++;
                         }
-                        $in = substr((string) ($row['time_in'] ?? ''), 0, 5);
-                        $out = substr((string) ($row['time_out'] ?? ''), 0, 5);
+                        $in = attendanceFormatClock12((string) ($row['time_in'] ?? ''), false);
+                        $out = attendanceFormatClock12((string) ($row['time_out'] ?? ''), false);
                         $timeLabel = trim($in . ($out !== '' ? ' – ' . $out : ''));
                         $records[] = [
                             'date' => (string) ($row['date'] ?? ''),
@@ -936,7 +966,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             'student_id' => $student_id,
             'student_name' => $student_name,
             'scan_type' => $scan_type,
-            'scan_time' => $current_time->format('H:i:s') . ' IST',
+            'scan_time' => attendanceFormatClock12($current_time->format('H:i:s'), true, true),
             'duration_minutes' => $duration_minutes,
             'message' => ucfirst($scan_type) . ' scan recorded successfully' . 
                         ($duration_minutes ? " (Duration: {$duration_minutes} minutes)" : '')
@@ -1280,8 +1310,32 @@ function getSessionAttendanceList($session_id, $conn) {
     
     $stmt->bind_param("i", $session_id);
     $stmt->execute();
-    
-    return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+    foreach ($rows as &$record) {
+        if (!empty($record['time_in'])) {
+            $record['time_in'] = attendanceFormatClock12($record['time_in'], true);
+        }
+        if (!empty($record['time_out'])) {
+            $record['time_out'] = attendanceFormatClock12($record['time_out'], true);
+        }
+        if (!empty($record['scan_history'])) {
+            $scans = explode('|', (string) $record['scan_history']);
+            $formatted = [];
+            foreach ($scans as $scan) {
+                $parts = explode(':', $scan, 2);
+                if (count($parts) === 2) {
+                    $clock = attendanceFormatClock12($parts[1], true);
+                    $formatted[] = strtolower($parts[0]) . ':' . ($clock !== '' ? $clock : $parts[1]);
+                } else {
+                    $formatted[] = $scan;
+                }
+            }
+            $record['scan_history'] = implode('|', $formatted);
+        }
+    }
+    unset($record);
+    return $rows;
 }
 
 if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {

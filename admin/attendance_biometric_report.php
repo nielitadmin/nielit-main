@@ -72,7 +72,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>';
     echo '<table border="1">';
     echo '<tr><td colspan="' . $colspan . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')) . ' IST</td></tr>';
+    echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('d/m/Y g:i:s A')) . ' IST</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
@@ -216,7 +216,7 @@ $qs = http_build_query([
         <div class="card">
             <div class="card-body">
                 <div class="att-meta mb-2">
-                    Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')); ?> IST<br>
+                    Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('d/m/Y g:i:s A')); ?> IST<br>
                     Centre: <?php echo htmlspecialchars($centreLabel); ?><br>
                     Batch: <?php echo htmlspecialchars($batchLabel); ?><br>
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>

@@ -757,7 +757,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             if (!isset($byStudent[$rowKey]['days'][$day])) {
                 $byStudent[$rowKey]['days'][$day] = ['in' => '', 'out' => ''];
             }
-            $time = $ist->format('H:i');
+            $time = $ist->format('g:i A');
             $kind = strtolower((string) ($row['scan_type'] ?? ''));
             if ($kind === 'in' && $byStudent[$rowKey]['days'][$day]['in'] === '') {
                 $byStudent[$rowKey]['days'][$day]['in'] = $time;

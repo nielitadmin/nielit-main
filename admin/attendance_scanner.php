@@ -964,6 +964,9 @@ $active_theme = loadActiveTheme($conn);
                 resultClass = 'scan-success';
                 icon = 'fa-check';
                 message = `${data.scan_type.toUpperCase()}: ${data.student_name}`;
+                if (data.scan_time) {
+                    message += ` at ${data.scan_time}`;
+                }
                 if (data.duration_minutes) {
                     message += ` (${data.duration_minutes} min)`;
                 }
@@ -1076,7 +1079,9 @@ $active_theme = loadActiveTheme($conn);
             if (record.scan_history) {
                 const scans = record.scan_history.split('|');
                 scanHistoryHtml = scans.map(scan => {
-                    const [type, time] = scan.split(':');
+                    const idx = scan.indexOf(':');
+                    const type = (idx >= 0 ? scan.slice(0, idx) : scan).trim().toLowerCase();
+                    const time = (idx >= 0 ? scan.slice(idx + 1) : '').trim();
                     return `<span class="scan-history-badge scan-${type}">${type.toUpperCase()} ${time}</span>`;
                 }).join(' ');
             }
