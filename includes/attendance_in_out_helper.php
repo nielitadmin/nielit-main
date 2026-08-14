@@ -8,23 +8,39 @@
  * Process IN/OUT QR scan with time validation
  */
 function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $conn) {
-    try {
-        // Decode QR data
-        $attendance_data = json_decode($qr_data, true);
-        
-        if (!$attendance_data || $attendance_data['type'] !== 'student_attendance') {
-            return [
-                'success' => false,
-                'result' => 'invalid',
-                'message' => 'Invalid QR code format'
-            ];
-        }
+    $attendance_data = json_decode($qr_data, true);
 
-        $student_id = $attendance_data['student_id'];
-        $student_name = $attendance_data['student_name'];
+    if (!$attendance_data || ($attendance_data['type'] ?? '') !== 'student_attendance') {
+        return [
+            'success' => false,
+            'result' => 'invalid',
+            'message' => 'Invalid QR code format'
+        ];
+    }
+
+    $student_id = trim((string) ($attendance_data['student_id'] ?? ''));
+    if ($student_id === '') {
+        return [
+            'success' => false,
+            'result' => 'invalid',
+            'message' => 'QR code has no student ID'
+        ];
+    }
+
+    return processInOutAttendanceForStudent($student_id, $session_id, $coordinator_id, $conn);
+}
+
+/**
+ * Record IN/OUT for a known student in an active session.
+ *
+ * @return array<string,mixed>
+ */
+function processInOutAttendanceForStudent($student_id, $session_id, $coordinator_id, $conn) {
+    try {
+        $student_id = trim((string) $student_id);
+        $session_id = (int) $session_id;
         $current_time = new DateTime();
 
-        // Get session details
         $session_stmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
         if (!$session_stmt) {
             return [
@@ -36,6 +52,7 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
         $session_stmt->bind_param("i", $session_id);
         $session_stmt->execute();
         $session = $session_stmt->get_result()->fetch_assoc();
+        $session_stmt->close();
 
         if (!$session) {
             return [
@@ -45,19 +62,7 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
             ];
         }
 
-        // Verify student exists and is enrolled in the session's course
-        $student_check = $conn->prepare("SELECT course_id, status FROM students WHERE student_id = ? LIMIT 1");
-        if (!$student_check) {
-            return [
-                'success' => false,
-                'result' => 'error',
-                'message' => 'Database error (student lookup): ' . $conn->error
-            ];
-        }
-        $student_check->bind_param("s", $student_id);
-        $student_check->execute();
-        $student_row = $student_check->get_result()->fetch_assoc();
-
+        $student_row = attendanceFindStudentForSession($conn, $student_id, (int) $session['course_id']);
         if (!$student_row) {
             return [
                 'success' => false,
@@ -66,11 +71,8 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
             ];
         }
 
-        // Ensure student is enrolled in the session's course
-        $student_course_id = (int)$student_row['course_id'];
-        $session_course_id = (int)$session['course_id'];
-
-        if ($student_course_id !== $session_course_id) {
+        $session_course_id = (int) $session['course_id'];
+        if (!attendanceStudentInCourse($conn, $student_id, $session_course_id, $student_row)) {
             return [
                 'success' => false,
                 'result' => 'not_enrolled',
@@ -79,7 +81,11 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
             ];
         }
 
-        // Optionally ensure student status is active
+        $student_name = trim((string) ($student_row['name'] ?? ''));
+        if ($student_name === '') {
+            $student_name = $student_id;
+        }
+
         $student_status = $student_row['status'] ?? '';
         if (!empty($student_status) && $student_status !== 'active') {
             return [
@@ -161,6 +167,68 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
             'message' => 'Error: ' . $e->getMessage()
         ];
     }
+}
+
+/**
+ * Prefer the students row that matches the session course.
+ *
+ * @return array<string,mixed>|null
+ */
+function attendanceFindStudentForSession($conn, $student_id, $course_id) {
+    $student_id = trim((string) $student_id);
+    $course_id = (int) $course_id;
+    if ($student_id === '') {
+        return null;
+    }
+    $stmt = $conn->prepare('SELECT student_id, name, status, course_id, passport_photo, aadhar, mobile
+                            FROM students WHERE student_id = ? ORDER BY (course_id = ?) DESC, id DESC LIMIT 1');
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param('si', $student_id, $course_id);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return $row ?: null;
+}
+
+function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $student_row = null): bool {
+    $course_id = (int) $course_id;
+    $student_id = trim((string) $student_id);
+    if ($course_id <= 0 || $student_id === '') {
+        return false;
+    }
+    if ($student_row && (int) ($student_row['course_id'] ?? 0) === $course_id) {
+        return true;
+    }
+    $stmt = $conn->prepare('SELECT id FROM students WHERE student_id = ? AND course_id = ? LIMIT 1');
+    if ($stmt) {
+        $stmt->bind_param('si', $student_id, $course_id);
+        $stmt->execute();
+        $found = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($found) {
+            return true;
+        }
+    }
+    $tables = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+    if (!$tables || $tables->num_rows === 0) {
+        return false;
+    }
+    $sql = 'SELECT se.id FROM student_enrollments se
+            LEFT JOIN students s ON s.id = se.student_record_id
+            LEFT JOIN student_accounts sa ON sa.id = se.account_id
+            WHERE se.course_id = ? AND (s.student_id = ? OR sa.student_id = ?)
+            LIMIT 1';
+    $enr = $conn->prepare($sql);
+    if (!$enr) {
+        return false;
+    }
+    $enr->bind_param('iss', $course_id, $student_id, $student_id);
+    $enr->execute();
+    $ok = (bool) $enr->get_result()->fetch_assoc();
+    $enr->close();
+    return $ok;
 }
 
 /**

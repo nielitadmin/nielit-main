@@ -77,11 +77,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     header('Expires: 0');
 
     // Start Excel HTML content
-    echo '
-$active_theme = loadActiveTheme($conn);
-<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>';
-    echo '<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">';
+    echo '<body>';
     echo '<table border="1">';
     
     // Report header
@@ -219,6 +217,8 @@ $quarters = [
     3 => 'Q3 (July - September)',
     4 => 'Q4 (October - December)'
 ];
+
+$active_theme = loadActiveTheme($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">

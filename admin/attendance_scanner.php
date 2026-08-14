@@ -250,6 +250,9 @@ $active_theme = loadActiveTheme($conn);
                                                 <button class="btn btn-primary btn-sm w-100 mb-2" onclick="openScanner(<?php echo $session['id']; ?>)">
                                                     <i class="fas fa-camera"></i> Open QR Scanner
                                                 </button>
+                                                <a class="btn btn-success btn-sm w-100 mb-2" href="attendance_biometric.php?session_id=<?php echo (int) $session['id']; ?>">
+                                                    <i class="fas fa-fingerprint"></i> Fingerprint kiosk
+                                                </a>
                                                 <button class="btn btn-info btn-sm w-100 mb-2" onclick="viewAttendanceList(<?php echo $session['id']; ?>)">
                                                     <i class="fas fa-list"></i> View Student List
                                                 </button>

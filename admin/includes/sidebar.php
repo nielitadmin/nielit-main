@@ -258,6 +258,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-qrcode"></i> QR Attendance Scanner
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/attendance_biometric'); ?>" class="nav-link <?php echo ($current_page === 'attendance_biometric.php') ? 'active' : ''; ?>">
+                <i class="fas fa-fingerprint"></i> Fingerprint Attendance
+            </a>
+        </div>
         
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
