@@ -138,6 +138,8 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         .kiosk-photo-empty { width: 160px; height: 190px; border-radius: 10px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; color: #64748b; }
         .scan-type-in { color: #047857; font-weight: 700; }
         .scan-type-out { color: #b45309; font-weight: 700; }
+        #kioskPanel { display: none; }
+        #kioskPanel.is-open { display: block; }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -152,6 +154,20 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         </div>
 
         <div id="rdBanner" class="bio-banner wait">Checking Mantra RD Service on this PC…</div>
+
+        <div class="card mb-4">
+            <div class="card-header"><h5 class="mb-0">If 127.0.0.1:11100 does not open</h5></div>
+            <div class="card-body">
+                <p class="mb-2">The scanner can work in Mantra’s test app while this portal still cannot see it. This website needs <strong>Mantra RD Service</strong> (not only the USB driver).</p>
+                <ol class="mb-2">
+                    <li>On the <strong>Windows PC with the USB scanner</strong> (not a phone, not the web server), try <a href="https://127.0.0.1:11100/" target="_blank" rel="noopener">https://127.0.0.1:11100/</a> — accept the certificate warning if Chrome shows one.</li>
+                    <li>Install <strong>MFS110 L1 driver + RD Service</strong> from <a href="https://www.mantratec.com/" target="_blank" rel="noopener">mantratec.com</a> using Run as administrator, then unplug and plug the device.</li>
+                    <li>Press Win+R → <code>services.msc</code> → start <strong>Mantra RD Service</strong> (or MFS110 RDService) and set it to Automatic.</li>
+                    <li>In Chrome open <code>chrome://flags/#block-insecure-private-network-requests</code> and set it to <strong>Disabled</strong>, then restart Chrome. Needed because this site is HTTPS.</li>
+                </ol>
+                <p class="text-muted mb-0">Until that link works on the kiosk PC, use QR attendance with a coordinator watching, so students cannot scan other people’s codes.</p>
+            </div>
+        </div>
 
         <div class="row mb-4">
             <div class="col-md-6">
@@ -182,7 +198,9 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                                         <?php if ($session['status'] === 'scheduled'): ?>
                                             <button class="btn btn-success btn-sm w-100" type="button" onclick="activateSession(<?php echo (int) $session['id']; ?>)">Start session</button>
                                         <?php elseif ($session['status'] === 'active'): ?>
-                                            <button class="btn btn-primary btn-sm w-100 mb-2" type="button" onclick="openKiosk(<?php echo (int) $session['id']; ?>, <?php echo json_encode((string) $session['session_name']); ?>)">
+                                            <button class="btn btn-primary btn-sm w-100 mb-2 js-open-kiosk" type="button"
+                                                    data-session-id="<?php echo (int) $session['id']; ?>"
+                                                    data-session-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>">
                                                 <i class="fas fa-fingerprint"></i> Open fingerprint kiosk
                                             </button>
                                             <button class="btn btn-danger btn-sm w-100" type="button" onclick="deactivateSession(<?php echo (int) $session['id']; ?>)">End session</button>
@@ -193,6 +211,39 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                         <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="card mb-4" id="kioskPanel">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0" id="kioskTitle">Fingerprint kiosk</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCloseKiosk">Close</button>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">Find the student, confirm the photo, then capture fingerprint. One person at a time.</p>
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label class="form-label">Student ID, mobile, or Aadhaar</label>
+                        <div class="input-group mb-2">
+                            <input class="form-control" id="lookupQ" autocomplete="off" placeholder="Type full ID then Find">
+                            <button class="btn btn-secondary" type="button" id="btnFind">Find</button>
+                        </div>
+                        <div id="aadhaarWrap" class="mb-2" style="display:none;">
+                            <label class="form-label">Last 4 digits of Aadhaar</label>
+                            <input class="form-control" id="aadhaarLast4" maxlength="4" inputmode="numeric" autocomplete="off">
+                        </div>
+                        <button class="btn btn-success w-100 mb-2" type="button" id="btnCapture" disabled>
+                            <i class="fas fa-fingerprint"></i> Capture fingerprint &amp; mark
+                        </button>
+                        <div id="kioskMsg" class="small"></div>
+                    </div>
+                    <div class="col-md-5 text-center">
+                        <div id="photoBox" class="d-flex justify-content-center mb-2">
+                            <div class="kiosk-photo-empty"><i class="fas fa-user fa-3x"></i></div>
+                        </div>
+                        <div id="studentMeta" class="fw-semibold"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -250,43 +301,6 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     </div>
 </div>
 
-<div class="modal fade" id="kioskModal" tabindex="-1" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="kioskTitle">Fingerprint kiosk</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time — QR sharing cannot mark someone else.</p>
-                <div class="row g-3">
-                    <div class="col-md-7">
-                        <label class="form-label">Student ID, mobile, or Aadhaar</label>
-                        <div class="input-group mb-2">
-                            <input class="form-control" id="lookupQ" autocomplete="off" placeholder="Type full ID then Find">
-                            <button class="btn btn-secondary" type="button" id="btnFind">Find</button>
-                        </div>
-                        <div id="aadhaarWrap" class="mb-2" style="display:none;">
-                            <label class="form-label">Last 4 digits of Aadhaar</label>
-                            <input class="form-control" id="aadhaarLast4" maxlength="4" inputmode="numeric" autocomplete="off">
-                        </div>
-                        <button class="btn btn-success w-100 mb-2" type="button" id="btnCapture" disabled>
-                            <i class="fas fa-fingerprint"></i> Capture fingerprint &amp; mark
-                        </button>
-                        <div id="kioskMsg" class="small"></div>
-                    </div>
-                    <div class="col-md-5 text-center">
-                        <div id="photoBox" class="d-flex justify-content-center mb-2">
-                            <div class="kiosk-photo-empty"><i class="fas fa-user fa-3x"></i></div>
-                        </div>
-                        <div id="studentMeta" class="fw-semibold"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo htmlspecialchars($jsPath); ?>"></script>
 <script>
@@ -329,7 +343,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 rdOrigin = found.origin;
                 banner('ok', '<strong>Mantra device ready</strong> on this PC (' + found.origin + '). Start a session and open the kiosk.');
             } else {
-                banner('bad', '<strong>Mantra RD Service not found.</strong> Install Mantra L1 driver + RD Service on this Windows PC, plug in the scanner, then open <code>http://127.0.0.1:11100/</code>. This page must be used on that same PC — not on a phone.');
+                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> The USB device can still work in Mantra’s own test app. Install/start <em>RD Service</em>, then open <code>https://127.0.0.1:11100/</code> on this same Windows PC. Follow the steps below.');
             }
         });
     } else {
@@ -371,14 +385,27 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             }
         });
     };
-    window.openKiosk = function (id, name) {
-        sessionId = id;
+    function openKiosk(id, name) {
+        sessionId = parseInt(id, 10) || 0;
         resetStudent();
         kioskMsg('');
         document.getElementById('kioskTitle').textContent = 'Fingerprint kiosk — ' + (name || '');
-        new bootstrap.Modal(document.getElementById('kioskModal')).show();
-        document.getElementById('lookupQ').focus();
-    };
+        document.getElementById('kioskPanel').classList.add('is-open');
+        document.getElementById('kioskPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(function () {
+            document.getElementById('lookupQ').focus();
+        }, 50);
+    }
+    window.openKiosk = openKiosk;
+
+    document.querySelectorAll('.js-open-kiosk').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openKiosk(btn.getAttribute('data-session-id'), btn.getAttribute('data-session-name') || '');
+        });
+    });
+    document.getElementById('btnCloseKiosk').addEventListener('click', function () {
+        document.getElementById('kioskPanel').classList.remove('is-open');
+    });
 
     document.getElementById('btnFind').addEventListener('click', findStudent);
     document.getElementById('lookupQ').addEventListener('keydown', function (e) {
