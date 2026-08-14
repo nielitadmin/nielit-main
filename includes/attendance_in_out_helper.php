@@ -1230,33 +1230,53 @@ function updateAttendanceSummary($session_id, $student_id, $student_name, $date,
         return;
     }
 
-    // Calculate time in, time out, and total duration
-    $time_in = null;
-    $time_out = null;
+    // Pair every IN with the following OUT so a re-entry updates IN.
+    $pairs = [];
+    $openIn = null;
     $total_duration = 0;
     $status = 'absent';
 
     foreach ($scans as $scan) {
-        if ($scan['scan_type'] === 'in' && !$time_in) {
-            $time_in = function_exists('biometricPunchIstDateTime')
-                ? biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('H:i:s')
-                : date('H:i:s', strtotime($scan['scan_time']));
-        }
-        if ($scan['scan_type'] === 'out') {
-            $time_out = function_exists('biometricPunchIstDateTime')
-                ? biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('H:i:s')
-                : date('H:i:s', strtotime($scan['scan_time']));
-            if ($scan['duration_minutes']) {
-                $total_duration += $scan['duration_minutes'];
+        $punchTime = function_exists('biometricPunchIstDateTime')
+            ? biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('H:i:s')
+            : date('H:i:s', strtotime($scan['scan_time']));
+        $kind = strtolower((string) ($scan['scan_type'] ?? ''));
+        if ($kind === 'in') {
+            if ($openIn !== null) {
+                $pairs[] = ['in' => $openIn, 'out' => null];
+            }
+            $openIn = $punchTime;
+        } elseif ($kind === 'out') {
+            $pairs[] = ['in' => $openIn, 'out' => $punchTime];
+            $openIn = null;
+            if (!empty($scan['duration_minutes'])) {
+                $total_duration += (int) $scan['duration_minutes'];
             }
         }
     }
+    if ($openIn !== null) {
+        $pairs[] = ['in' => $openIn, 'out' => null];
+    }
 
-    // Determine status
-    if ($time_in && $time_out) {
-        $status = 'present';
-    } elseif ($time_in) {
-        $status = 'partial';
+    $time_in = null;
+    $time_out = null;
+    if ($pairs !== []) {
+        $lastPair = $pairs[count($pairs) - 1];
+        $time_in = $lastPair['in'];
+        $time_out = $lastPair['out'];
+        $completed = 0;
+        foreach ($pairs as $pair) {
+            if (!empty($pair['in']) && !empty($pair['out'])) {
+                $completed++;
+            }
+        }
+        if ($time_in && $time_out) {
+            $status = 'present';
+        } elseif ($time_in && $completed > 0) {
+            $status = 'present';
+        } elseif ($time_in) {
+            $status = 'partial';
+        }
     }
 
     $summary_stmt = $conn->prepare("

@@ -51,15 +51,34 @@ $monthLabel = $monthNames[$month] . ' ' . $year;
 $colspan = 6 + $daysInMonth;
 
 $formatDayCell = static function (array $times, bool $html): string {
-    $in = trim((string) ($times['in'] ?? ''));
-    $out = trim((string) ($times['out'] ?? ''));
-    if ($in === '' && $out === '') {
+    $pairs = $times['pairs'] ?? [];
+    if ($pairs === []) {
+        $in = trim((string) ($times['in'] ?? ''));
+        $out = trim((string) ($times['out'] ?? ''));
+        if ($in === '' && $out === '') {
+            return '';
+        }
+        $pairs = [['in' => $in, 'out' => $out]];
+    }
+    $lines = [];
+    foreach ($pairs as $pair) {
+        $in = trim((string) ($pair['in'] ?? ''));
+        $out = trim((string) ($pair['out'] ?? ''));
+        if ($in !== '') {
+            $lines[] = $in;
+        }
+        if ($out !== '') {
+            $lines[] = $out;
+        }
+    }
+    if ($lines === []) {
         return '';
     }
-    if ($in !== '' && $out !== '') {
-        return $html ? (htmlspecialchars($in) . '<br>' . htmlspecialchars($out)) : ($in . "\n" . $out);
+    if ($html) {
+        $safe = array_map('htmlspecialchars', $lines);
+        return implode('<br>', $safe);
     }
-    return $html ? htmlspecialchars($in !== '' ? $in : $out) : ($in !== '' ? $in : $out);
+    return implode("\n", $lines);
 };
 
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
@@ -134,7 +153,7 @@ $qs = http_build_query([
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
         .att-matrix .col-dev { min-width: 140px; }
-        .att-matrix .col-day { min-width: 44px; text-align: center; line-height: 1.25; }
+        .att-matrix .col-day { min-width: 72px; text-align: center; line-height: 1.25; font-size: 11px; }
         .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
     </style>
 </head>
@@ -145,7 +164,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance, centre-wise and batch-wise, with device ID.</p>
+                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance. Each day lists every punch in order, so a new IN after OUT is shown.</p>
             </div>
             <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
                 <i class="fas fa-file-excel"></i> Download Excel

@@ -755,17 +755,46 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 continue;
             }
             if (!isset($byStudent[$rowKey]['days'][$day])) {
-                $byStudent[$rowKey]['days'][$day] = ['in' => '', 'out' => ''];
+                $byStudent[$rowKey]['days'][$day] = [
+                    'in' => '',
+                    'out' => '',
+                    'pairs' => [],
+                    '_open_in' => '',
+                ];
             }
+            $cell = &$byStudent[$rowKey]['days'][$day];
             $time = $ist->format('g:i A');
             $kind = strtolower((string) ($row['scan_type'] ?? ''));
-            if ($kind === 'in' && $byStudent[$rowKey]['days'][$day]['in'] === '') {
-                $byStudent[$rowKey]['days'][$day]['in'] = $time;
+            if ($kind === 'in') {
+                if ($cell['_open_in'] !== '') {
+                    $cell['pairs'][] = ['in' => $cell['_open_in'], 'out' => ''];
+                }
+                $cell['_open_in'] = $time;
+                $cell['in'] = $time;
             } elseif ($kind === 'out') {
-                $byStudent[$rowKey]['days'][$day]['out'] = $time;
+                $inTime = $cell['_open_in'];
+                $cell['pairs'][] = ['in' => $inTime, 'out' => $time];
+                $cell['_open_in'] = '';
+                if ($inTime !== '') {
+                    $cell['in'] = $inTime;
+                }
+                $cell['out'] = $time;
             }
+            unset($cell);
         }
         $stmt->close();
+
+        foreach ($byStudent as &$stu) {
+            foreach ($stu['days'] as &$cell) {
+                if (!empty($cell['_open_in'])) {
+                    $cell['pairs'][] = ['in' => $cell['_open_in'], 'out' => ''];
+                    $cell['in'] = $cell['_open_in'];
+                }
+                unset($cell['_open_in']);
+            }
+            unset($cell);
+        }
+        unset($stu);
 
         foreach ($byStudent as $row) {
             if (empty($row['days'])) {
