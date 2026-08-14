@@ -25,6 +25,7 @@ if (!isset($_SESSION['admin'])) {
 $admin_id = (string) $_SESSION['admin'];
 $admin_name = (string) ($_SESSION['admin_name'] ?? 'Administrator');
 ensureBiometricAttendanceTables($conn);
+ensureAttendanceInOutTables($conn);
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));

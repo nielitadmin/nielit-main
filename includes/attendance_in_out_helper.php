@@ -4,6 +4,83 @@
  * NIELIT Bhubaneswar - Advanced QR Attendance Management
  */
 
+if (!function_exists('ensureAttendanceInOutTables')) {
+    /**
+     * Create IN/OUT tables if this database never ran the enhanced attendance migration.
+     */
+    function ensureAttendanceInOutTables($conn): bool
+    {
+        static $ready = false;
+        if ($ready) {
+            return true;
+        }
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+
+        $logs = "CREATE TABLE IF NOT EXISTS attendance_logs (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            student_id VARCHAR(50) NOT NULL,
+            student_name VARCHAR(255) NOT NULL,
+            scan_type ENUM('in', 'out') NOT NULL,
+            scan_time DATETIME NOT NULL,
+            coordinator_id VARCHAR(50) NOT NULL,
+            ip_address VARCHAR(45) NULL,
+            user_agent TEXT NULL,
+            duration_minutes INT NULL,
+            status ENUM('valid', 'duplicate', 'too_early') DEFAULT 'valid',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_session_student (session_id, student_id),
+            INDEX idx_scan_time (scan_time),
+            INDEX idx_student_date (student_id, scan_time)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        if (!$conn->query($logs)) {
+            error_log('ensureAttendanceInOutTables logs failed: ' . $conn->error);
+            return false;
+        }
+
+        $summary = "CREATE TABLE IF NOT EXISTS attendance_summary (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            session_id INT NOT NULL,
+            student_id VARCHAR(50) NOT NULL,
+            student_name VARCHAR(255) NOT NULL,
+            date DATE NOT NULL,
+            time_in TIME NULL,
+            time_out TIME NULL,
+            total_duration_minutes INT DEFAULT 0,
+            status ENUM('present', 'partial', 'absent') DEFAULT 'absent',
+            coordinator_id VARCHAR(50) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY unique_session_student_date (session_id, student_id, date),
+            INDEX idx_date (date),
+            INDEX idx_student_month (student_id, date)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        if (!$conn->query($summary)) {
+            error_log('ensureAttendanceInOutTables summary failed: ' . $conn->error);
+            return false;
+        }
+
+        $sessionCols = [
+            'session_type' => "ALTER TABLE attendance_sessions ADD COLUMN session_type ENUM('regular','in_out') DEFAULT 'in_out'",
+            'min_duration_minutes' => 'ALTER TABLE attendance_sessions ADD COLUMN min_duration_minutes INT DEFAULT 1',
+            'auto_out_hours' => 'ALTER TABLE attendance_sessions ADD COLUMN auto_out_hours INT DEFAULT 8',
+        ];
+        foreach ($sessionCols as $col => $alter) {
+            $check = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE '" . $conn->real_escape_string($col) . "'");
+            if ($check && $check->num_rows === 0) {
+                if (!$conn->query($alter)) {
+                    error_log('ensureAttendanceInOutTables alter ' . $col . ' failed: ' . $conn->error);
+                }
+            }
+        }
+
+        $ready = true;
+        return true;
+    }
+}
+
 /**
  * Process IN/OUT QR scan with time validation
  */
@@ -37,6 +114,13 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
  */
 function processInOutAttendanceForStudent($student_id, $session_id, $coordinator_id, $conn) {
     try {
+        if (!ensureAttendanceInOutTables($conn)) {
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Attendance log tables could not be created. Ask an administrator to create attendance_logs.',
+            ];
+        }
         $student_id = trim((string) $student_id);
         $session_id = (int) $session_id;
         $current_time = new DateTime();

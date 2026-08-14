@@ -390,6 +390,7 @@ if (!function_exists('processBiometricKioskAttendance')) {
     function processBiometricKioskAttendance($conn, int $sessionId, string $studentId, string $aadhaarLast4, string $pidXml, string $coordinatorId, array $pidMeta = []): array
     {
         ensureBiometricAttendanceTables($conn);
+        ensureAttendanceInOutTables($conn);
         $studentId = trim($studentId);
         if ($sessionId <= 0 || $studentId === '') {
             return ['success' => false, 'result' => 'invalid', 'message' => 'Select a session and student first.'];
