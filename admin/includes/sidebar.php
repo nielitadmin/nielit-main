@@ -266,6 +266,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/attendance_fingerprint_enroll'); ?>" class="nav-link <?php echo ($current_page === 'attendance_fingerprint_enroll.php') ? 'active' : ''; ?>">
+                <i class="fas fa-id-badge"></i> Fingerprint Enrolment
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_biometric_report'); ?>" class="nav-link <?php echo ($current_page === 'attendance_biometric_report.php') ? 'active' : ''; ?>">
                 <i class="fas fa-th"></i> Fingerprint Report
             </a>

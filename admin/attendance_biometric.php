@@ -13,6 +13,7 @@ require_once __DIR__ . '/../includes/attendance_qr_helper.php';
 require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 require_once __DIR__ . '/../includes/mantra_rd_proxy.php';
+require_once __DIR__ . '/../includes/mantra_mfs100_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
@@ -26,6 +27,7 @@ $admin_id = (string) $_SESSION['admin'];
 $admin_name = (string) ($_SESSION['admin_name'] ?? 'Administrator');
 ensureBiometricAttendanceTables($conn);
 ensureAttendanceInOutTables($conn);
+ensureFingerprintTemplateTables($conn);
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -53,6 +55,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 biometricKioskJsonExit(['success' => true, 'origin' => $found['origin'], 'via' => 'php']);
             }
             biometricKioskJsonExit(['success' => false, 'message' => 'Mantra RD Service was not found on this PC.']);
+        }
+        if ($action === 'mfs100_discover') {
+            $found = mantraMfs100DiscoverLocal();
+            if ($found) {
+                biometricKioskJsonExit(['success' => true, 'base' => $found['base'], 'via' => 'php']);
+            }
+            biometricKioskJsonExit(['success' => false, 'message' => 'MFS100 Client Service was not found on this PC.']);
+        }
+        if ($action === 'capture_and_match') {
+            @set_time_limit(90);
+            $result = processBiometricMatchAttendance(
+                $conn,
+                (int) ($_POST['session_id'] ?? 0),
+                (string) ($_POST['student_id'] ?? ''),
+                $admin_id,
+                (string) ($_POST['aadhaar_last4'] ?? ''),
+                trim((string) ($_POST['mfs_base'] ?? '')) ?: null
+            );
+            biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
+        }
+        if ($action === 'match_and_mark') {
+            $result = processBiometricMatchAttendanceFromIso(
+                $conn,
+                (int) ($_POST['session_id'] ?? 0),
+                (string) ($_POST['student_id'] ?? ''),
+                $admin_id,
+                (string) ($_POST['iso_template'] ?? ''),
+                (string) ($_POST['aadhaar_last4'] ?? ''),
+                null,
+                (string) ($_POST['client_matched'] ?? '') === '1'
+            );
+            biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
+        }
+        if ($action === 'get_gallery') {
+            $studentId = trim((string) ($_POST['student_id'] ?? ''));
+            if ($studentId === '' || !studentHasFingerprintTemplate($conn, $studentId)) {
+                biometricKioskJsonExit(['success' => false, 'message' => 'This student has no enrolled fingerprint.']);
+            }
+            $iso = loadStudentFingerprintTemplate($conn, $studentId);
+            biometricKioskJsonExit(['success' => true, 'iso_template' => $iso]);
         }
         if ($action === 'rd_capture' || $action === 'capture_and_mark') {
             @set_time_limit(90);
@@ -155,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'name' => (string) ($row['name'] ?? ''),
                 'photo' => biometricStudentPhotoUrl($row),
                 'need_aadhaar_last4' => biometricAadhaarLast4((string) ($row['aadhar'] ?? '')) !== '',
+                'has_fingerprint' => studentHasFingerprintTemplate($conn, (string) $row['student_id']),
             ]);
         }
         if ($action === 'mark') {
@@ -207,6 +250,7 @@ $allBatches = attendanceListBatchesForCourse($conn, 0, 0);
 $filterBatches = attendanceListBatchesForCourse($conn, 0, $centreId);
 $active_theme = loadActiveTheme($conn);
 $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
+$mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_mfs100.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_mfs100.js') ?: time());
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -236,27 +280,22 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="row mb-3">
             <div class="col-12">
                 <h2><i class="fas fa-fingerprint"></i> Fingerprint Attendance</h2>
-                <p class="text-muted mb-0">Mantra L1 kiosk — pick a centre and batch, then mark students for that batch. Open this page on the PC where the scanner is plugged in.</p>
+                <p class="text-muted mb-0">1:1 thumb match — only the enrolled student’s finger is accepted. Open this page on the PC where the scanner is plugged in.</p>
             </div>
         </div>
 
-        <div id="rdBanner" class="bio-banner wait">Checking Mantra RD Service on this PC…</div>
+        <div id="rdBanner" class="bio-banner wait">Checking MFS100 Client Service on this PC…</div>
 
         <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">If 127.0.0.1:11100 does not open</h5></div>
+            <div class="card-header"><h5 class="mb-0">Before marking attendance</h5></div>
             <div class="card-body">
-                <p class="mb-2"><strong>Update Chrome first, then disable Local Network Access Checks</strong> so this page can talk to the scanner on this PC.</p>
-                <ol class="mb-3">
-                    <li>In Chrome click the <strong>three dots</strong> (top right) → <strong>Help</strong> → <strong>About Google Chrome</strong>. Let Chrome update to the latest version, then relaunch.</li>
-                    <li>Paste this in the address bar: <code>chrome://flags/#local-network-access-check</code>. Set <strong>Local Network Access Checks</strong> to <strong>Disabled</strong>.</li>
-                    <li>Paste this in the address bar: <code>chrome://flags/#block-insecure-private-network-requests</code>. If that flag is still listed, set it to <strong>Disabled</strong>.</li>
-                    <li>Relaunch Chrome when it asks, then return to this page.</li>
+                <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a>. The kiosk then matches the live thumb to that stored template.</p>
+                <ol class="mb-0">
+                    <li>Install <strong>MFS100 Client Service</strong> on this PC (Mantra matcher mode).</li>
+                    <li>Open <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs100/</a> and accept the certificate if Chrome warns.</li>
+                    <li>Start the Windows service <strong>MFS100ClientService</strong>.</li>
+                    <li>If Chrome blocks the scanner, disable Local Network Access Checks in <code>chrome://flags/#local-network-access-check</code>, then relaunch Chrome.</li>
                 </ol>
-                <ol class="mb-2" start="5">
-                    <li>Try <a href="https://127.0.0.1:11100/" target="_blank" rel="noopener">https://127.0.0.1:11100/</a> — accept the certificate warning if Chrome shows one.</li>
-                    <li>Press Win+R → <code>services.msc</code> → start <strong>Mantra RD Service</strong> (or MFS110 RDService) and set it to Automatic.</li>
-                </ol>
-                <p class="text-muted mb-0">Until RD Service is running on this PC, use QR attendance with a coordinator watching, so students cannot scan other people’s codes.</p>
             </div>
         </div>
 
@@ -289,6 +328,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal" id="btnNewSession">
                             <i class="fas fa-plus"></i> Create session
                         </button>
+                        <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Enrol fingerprints</a>
                     </div>
                 </form>
             </div>
@@ -356,7 +396,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCloseKiosk">Close</button>
             </div>
             <div class="card-body">
-                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time. Use the full Student ID — this session only marks students assigned to its batch.</p>
+                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture their enrolled thumb. Another student’s finger will be rejected.</p>
                 <div id="lastPunch" class="bio-banner ok mb-3" style="display:none;"></div>
             <div class="row g-3">
                     <div class="col-md-7">
@@ -468,11 +508,13 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo htmlspecialchars($jsPath); ?>"></script>
+<script src="<?php echo htmlspecialchars($mfsJsPath); ?>"></script>
 <script>
 (function () {
     const csrf = <?php echo json_encode($csrf); ?>;
     const openSessionId = <?php echo (int) $openSessionId; ?>;
     let rdOrigin = '';
+    let mfsBase = '';
     let sessionId = 0;
     let foundStudent = null;
     let usePhpCapture = false;
@@ -552,51 +594,63 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     }
     function captureViaPhp() {
         return post({
-            action: 'capture_and_mark',
-            rd_origin: rdOrigin,
+            action: 'capture_and_match',
+            mfs_base: mfsBase,
             session_id: String(sessionId),
             student_id: foundStudent.student_id,
             aadhaar_last4: document.getElementById('aadhaarLast4').value
         });
     }
     function captureViaBrowser() {
-        if (!window.MantraRd || !rdOrigin) {
-            return Promise.reject(new Error('Mantra RD Service is not available in this browser.'));
+        if (!window.MantraMfs100 || !mfsBase) {
+            return Promise.reject(new Error('MFS100 Client Service is not available in this browser.'));
         }
-        return MantraRd.capture(rdOrigin).then(function (xml) {
-            const meta = MantraRd.parsePid(xml);
-            return MantraRd.sha256(xml).then(function (hash) {
-                const payload = markPayload(meta, hash);
-                payload.pid_xml = xml;
-                return post(payload);
+        return post({ action: 'get_gallery', student_id: foundStudent.student_id }).then(function (gal) {
+            if (!gal.success || !gal.iso_template) {
+                throw new Error(gal.message || 'This student has no enrolled fingerprint.');
+            }
+            return window.MantraMfs100.capture(mfsBase).then(function (cap) {
+                return window.MantraMfs100.match(mfsBase, cap.iso, gal.iso_template).then(function (m) {
+                    if (!m.matched) {
+                        throw new Error('Fingerprint did not match this student. Attendance not marked.');
+                    }
+                    return post({
+                        action: 'match_and_mark',
+                        session_id: String(sessionId),
+                        student_id: foundStudent.student_id,
+                        aadhaar_last4: document.getElementById('aadhaarLast4').value,
+                        iso_template: cap.iso,
+                        client_matched: '1'
+                    });
+                });
             });
         });
     }
     function discoverDevice() {
         const localSite = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
-        const start = localSite ? post({ action: 'rd_discover' }) : Promise.resolve({ success: false });
+        const start = localSite ? post({ action: 'mfs100_discover' }) : Promise.resolve({ success: false });
         return start.then(function (data) {
-            if (localSite && data.success && data.origin) {
-                rdOrigin = data.origin;
+            if (localSite && data.success && data.base) {
+                mfsBase = data.base;
                 usePhpCapture = true;
-                banner('ok', '<strong>Mantra device ready</strong> on this PC (' + data.origin + '). Start a session and open the kiosk.');
+                banner('ok', '<strong>MFS100 matcher is ready</strong> on this PC. Enrol students first, then start a session.');
                 return;
             }
-            if (!window.MantraRd) {
+            if (!window.MantraMfs100) {
                 banner('bad', 'Fingerprint script failed to load.');
                 return;
             }
-            return MantraRd.discover().then(function (found) {
-                if (found && found.origin) {
-                    rdOrigin = found.origin;
-                    usePhpCapture = localSite;
-                    banner('ok', '<strong>Mantra RD Service is running</strong> (' + found.origin + '). Start a session and open the kiosk.');
+            return window.MantraMfs100.discover().then(function (found) {
+                if (found && found.base) {
+                    mfsBase = found.base;
+                    usePhpCapture = false;
+                    banner('ok', '<strong>MFS100 Client Service is running</strong> (' + found.base + '). Enrol students first, then start a session.');
                     return;
                 }
-                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> Use Fingerprint Attendance on the computer where the scanner is plugged in, start Mantra RD Service, then refresh.');
+                banner('bad', '<strong>MFS100 Client Service is not listening on this PC.</strong> Install it, start the Windows service, then refresh. Students must be enrolled before attendance.');
             });
         }).catch(function () {
-            banner('bad', 'Could not check the scanner. Start Mantra RD Service on this computer, then refresh.');
+            banner('bad', 'Could not check the scanner. Start MFS100 Client Service on this computer, then refresh.');
         });
     }
     function resetStudent() {
@@ -840,17 +894,25 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 document.getElementById('photoBox').innerHTML = '<div class="kiosk-photo-empty">No photo</div>';
             }
             document.getElementById('aadhaarWrap').style.display = data.need_aadhaar_last4 ? 'block' : 'none';
-            document.getElementById('btnCapture').disabled = !rdOrigin;
-            if (!rdOrigin) {
-                kioskMsg('Mantra RD Service is not running on this PC.', false);
+            if (!data.has_fingerprint) {
+                document.getElementById('btnCapture').disabled = true;
+                kioskMsg('This student has no enrolled fingerprint. Open Fingerprint Enrolment and save their thumb first.', false);
+            } else if (!mfsBase && !usePhpCapture) {
+                document.getElementById('btnCapture').disabled = true;
+                kioskMsg('MFS100 Client Service is not running on this PC.', false);
             } else {
-                kioskMsg('Confirm the photo, then capture fingerprint.', true);
+                document.getElementById('btnCapture').disabled = false;
+                kioskMsg('Confirm the photo, then capture this student’s enrolled thumb.', true);
             }
         });
     }
 
     document.getElementById('btnCapture').addEventListener('click', function () {
-        if (!foundStudent || !rdOrigin) {
+        if (!foundStudent || (!mfsBase && !usePhpCapture)) {
+            return;
+        }
+        if (!foundStudent.has_fingerprint) {
+            kioskMsg('This student has no enrolled fingerprint. Enrol their thumb first.', false);
             return;
         }
         if (foundStudent.need_aadhaar_last4 && document.getElementById('aadhaarLast4').value.replace(/\D/g, '').length !== 4) {

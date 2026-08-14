@@ -1,4 +1,6 @@
-﻿# PHP
+﻿# Fingerprint template encryption key (never commit)
+/storage/keys/fingerprint.key
+
 *.log
 *.cache
 *.tmp
