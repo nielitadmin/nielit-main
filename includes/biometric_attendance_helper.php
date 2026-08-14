@@ -6,6 +6,31 @@
 
 require_once __DIR__ . '/attendance_in_out_helper.php';
 
+if (!function_exists('biometricKioskJsonExit')) {
+    /**
+     * @param array<string,mixed> $payload
+     */
+    function biometricKioskJsonExit(array $payload): void
+    {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+        if (!headers_sent()) {
+            header('Content-Type: application/json; charset=utf-8');
+        }
+        $flags = JSON_UNESCAPED_UNICODE;
+        if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+            $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+        }
+        $json = json_encode($payload, $flags);
+        if (!is_string($json) || $json === '') {
+            $json = '{"success":false,"message":"Could not encode the server response."}';
+        }
+        echo $json;
+        exit;
+    }
+}
+
 if (!function_exists('ensureBiometricAttendanceTables')) {
     function ensureBiometricAttendanceTables($conn): bool
     {
@@ -188,7 +213,7 @@ if (!function_exists('parseMantraPidData')) {
             return $out;
         }
         libxml_use_internal_errors(true);
-        $doc = simplexml_load_string($xml);
+        $doc = @simplexml_load_string($xml);
         if (!$doc) {
             return $out;
         }

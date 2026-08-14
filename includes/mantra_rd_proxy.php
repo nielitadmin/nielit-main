@@ -167,9 +167,12 @@ if (!function_exists('mantraRdCaptureLocal')) {
         if (!$res['ok'] && stripos($res['error'], 'timed out') !== false) {
             return ['ok' => false, 'xml' => '', 'message' => 'Fingerprint capture timed out. Place the finger on the scanner and try again.'];
         }
-        $resPost = mantraRdHttp($url, 'POST', $xml, 25);
-        if ($resPost['ok'] && mantraRdLooksLikeXml($resPost['body'])) {
-            return ['ok' => true, 'xml' => $resPost['body'], 'message' => 'ok'];
+        $resPost = ['ok' => false, 'body' => '', 'error' => '', 'http_code' => 0];
+        if ($res['http_code'] === 405 || $res['http_code'] === 404 || stripos($res['error'], 'Failed to connect') !== false) {
+            $resPost = mantraRdHttp($url, 'POST', $xml, 25);
+            if ($resPost['ok'] && mantraRdLooksLikeXml($resPost['body'])) {
+                return ['ok' => true, 'xml' => $resPost['body'], 'message' => 'ok'];
+            }
         }
         $err = $res['error'] !== '' ? $res['error'] : $resPost['error'];
         if ($err !== '') {

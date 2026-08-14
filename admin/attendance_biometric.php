@@ -15,6 +15,9 @@ require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 require_once __DIR__ . '/../includes/mantra_rd_proxy.php';
 
 if (!isset($_SESSION['admin'])) {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+        biometricKioskJsonExit(['success' => false, 'message' => 'Session expired. Refresh the page and log in again.']);
+    }
     header('Location: login.php');
     exit;
 }
@@ -29,137 +32,130 @@ if (empty($_SESSION['csrf_token'])) {
 $csrf = (string) $_SESSION['csrf_token'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    ini_set('display_errors', '0');
     while (ob_get_level() > 0) {
         ob_end_clean();
     }
+    ob_start();
     header('Content-Type: application/json; charset=utf-8');
-    $token = (string) ($_POST['csrf_token'] ?? '');
-    if (!hash_equals($csrf, $token)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid security token. Refresh the page.']);
-        exit;
-    }
-    $action = (string) ($_POST['action'] ?? '');
-
-    if ($action === 'rd_discover') {
-        $found = mantraRdDiscoverLocal();
-        if ($found) {
-            echo json_encode(['success' => true, 'origin' => $found['origin'], 'via' => 'php']);
-        } else {
-            echo json_encode(['success' => false, 'message' => 'Mantra RD Service was not found on this PC.']);
+    try {
+        $token = (string) ($_POST['csrf_token'] ?? '');
+        if (!hash_equals($csrf, $token)) {
+            biometricKioskJsonExit(['success' => false, 'message' => 'Invalid security token. Refresh the page.']);
         }
-        exit;
-    }
-    if ($action === 'rd_capture') {
-        @set_time_limit(40);
-        $origin = rtrim(trim((string) ($_POST['rd_origin'] ?? '')), '/');
-        if ($origin === '' || !mantraRdOriginIsAllowed($origin)) {
+        $action = (string) ($_POST['action'] ?? '');
+
+        if ($action === 'rd_discover') {
             $found = mantraRdDiscoverLocal();
-            $origin = $found['origin'] ?? '';
+            if ($found) {
+                biometricKioskJsonExit(['success' => true, 'origin' => $found['origin'], 'via' => 'php']);
+            }
+            biometricKioskJsonExit(['success' => false, 'message' => 'Mantra RD Service was not found on this PC.']);
         }
-        $cap = mantraRdCaptureLocal($origin);
-        if (!$cap['ok']) {
-            echo json_encode(['success' => false, 'message' => $cap['message']]);
-            exit;
+        if ($action === 'rd_capture') {
+            @set_time_limit(90);
+            $origin = rtrim(trim((string) ($_POST['rd_origin'] ?? '')), '/');
+            if ($origin === '' || !mantraRdOriginIsAllowed($origin)) {
+                $found = mantraRdDiscoverLocal();
+                $origin = $found['origin'] ?? '';
+            }
+            $cap = mantraRdCaptureLocal($origin);
+            if (!$cap['ok']) {
+                biometricKioskJsonExit(['success' => false, 'message' => $cap['message']]);
+            }
+            $check = validateMantraPidCapture($cap['xml']);
+            biometricKioskJsonExit([
+                'success' => $check['ok'],
+                'message' => $check['message'],
+                'meta' => $check['meta'],
+                'hash' => $check['hash'],
+            ]);
         }
-        $check = validateMantraPidCapture($cap['xml']);
-        echo json_encode([
-            'success' => $check['ok'],
-            'message' => $check['message'],
-            'meta' => $check['meta'],
-            'hash' => $check['hash'],
-        ]);
-        exit;
-    }
 
-    if ($action === 'create_session') {
-        $result = createAttendanceSession([
-            'session_name' => $_POST['session_name'] ?? '',
-            'course_id' => $_POST['course_id'] ?? 0,
-            'course_name' => $_POST['course_name'] ?? '',
-            'subject' => $_POST['subject'] ?? '',
-            'date' => $_POST['date'] ?? date('Y-m-d'),
-            'start_time' => $_POST['start_time'] ?? '',
-            'end_time' => $_POST['end_time'] ?? '',
-            'coordinator_id' => $admin_id,
-            'coordinator_name' => $admin_name,
-        ], $conn);
-        echo json_encode($result);
-        exit;
-    }
-    if ($action === 'activate_session') {
-        echo json_encode(['success' => activateAttendanceSession((int) ($_POST['session_id'] ?? 0), $admin_id, $conn)]);
-        exit;
-    }
-    if ($action === 'deactivate_session') {
-        echo json_encode(['success' => deactivateAttendanceSession((int) ($_POST['session_id'] ?? 0), $admin_id, $conn)]);
-        exit;
-    }
-    if ($action === 'lookup_student') {
-        $sessionId = (int) ($_POST['session_id'] ?? 0);
-        $q = trim((string) ($_POST['q'] ?? ''));
-        $sessionStmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
-        $session = null;
-        if ($sessionStmt) {
-            $sessionStmt->bind_param('i', $sessionId);
-            $sessionStmt->execute();
-            $session = $sessionStmt->get_result()->fetch_assoc();
-            $sessionStmt->close();
+        if ($action === 'create_session') {
+            $result = createAttendanceSession([
+                'session_name' => $_POST['session_name'] ?? '',
+                'course_id' => $_POST['course_id'] ?? 0,
+                'course_name' => $_POST['course_name'] ?? '',
+                'subject' => $_POST['subject'] ?? '',
+                'date' => $_POST['date'] ?? date('Y-m-d'),
+                'start_time' => $_POST['start_time'] ?? '',
+                'end_time' => $_POST['end_time'] ?? '',
+                'coordinator_id' => $admin_id,
+                'coordinator_name' => $admin_name,
+            ], $conn);
+            biometricKioskJsonExit($result);
         }
-        if (!$session) {
-            echo json_encode(['success' => false, 'message' => 'Start an attendance session first.']);
-            exit;
+        if ($action === 'activate_session') {
+            biometricKioskJsonExit(['success' => activateAttendanceSession((int) ($_POST['session_id'] ?? 0), $admin_id, $conn)]);
         }
-        $found = lookupBiometricKioskStudent(
-            $conn,
-            $q,
-            (int) $session['course_id'],
-            (string) ($session['course_name'] ?? '')
-        );
-        if (empty($found['ok']) || empty($found['row'])) {
-            echo json_encode(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
-            exit;
+        if ($action === 'deactivate_session') {
+            biometricKioskJsonExit(['success' => deactivateAttendanceSession((int) ($_POST['session_id'] ?? 0), $admin_id, $conn)]);
         }
-        $row = $found['row'];
-        $status = (string) ($row['status'] ?? '');
-        if ($status !== '' && $status !== 'active') {
-            echo json_encode(['success' => false, 'message' => 'This student is not active.']);
-            exit;
+        if ($action === 'lookup_student') {
+            $sessionId = (int) ($_POST['session_id'] ?? 0);
+            $q = trim((string) ($_POST['q'] ?? ''));
+            $sessionStmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
+            $session = null;
+            if ($sessionStmt) {
+                $sessionStmt->bind_param('i', $sessionId);
+                $sessionStmt->execute();
+                $session = $sessionStmt->get_result()->fetch_assoc();
+                $sessionStmt->close();
+            }
+            if (!$session) {
+                biometricKioskJsonExit(['success' => false, 'message' => 'Start an attendance session first.']);
+            }
+            $found = lookupBiometricKioskStudent(
+                $conn,
+                $q,
+                (int) $session['course_id'],
+                (string) ($session['course_name'] ?? '')
+            );
+            if (empty($found['ok']) || empty($found['row'])) {
+                biometricKioskJsonExit(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
+            }
+            $row = $found['row'];
+            $status = (string) ($row['status'] ?? '');
+            if ($status !== '' && $status !== 'active') {
+                biometricKioskJsonExit(['success' => false, 'message' => 'This student is not active.']);
+            }
+            biometricKioskJsonExit([
+                'success' => true,
+                'student_id' => (string) $row['student_id'],
+                'name' => (string) ($row['name'] ?? ''),
+                'photo' => biometricStudentPhotoUrl($row),
+                'need_aadhaar_last4' => biometricAadhaarLast4((string) ($row['aadhar'] ?? '')) !== '',
+            ]);
         }
-        echo json_encode([
-            'success' => true,
-            'student_id' => (string) $row['student_id'],
-            'name' => (string) ($row['name'] ?? ''),
-            'photo' => biometricStudentPhotoUrl($row),
-            'need_aadhaar_last4' => biometricAadhaarLast4((string) ($row['aadhar'] ?? '')) !== '',
-        ]);
-        exit;
+        if ($action === 'mark') {
+            $result = processBiometricKioskAttendance(
+                $conn,
+                (int) ($_POST['session_id'] ?? 0),
+                (string) ($_POST['student_id'] ?? ''),
+                (string) ($_POST['aadhaar_last4'] ?? ''),
+                (string) ($_POST['pid_xml'] ?? ''),
+                $admin_id,
+                [
+                    'err_code' => (string) ($_POST['pid_err_code'] ?? ''),
+                    'err_info' => (string) ($_POST['pid_err_info'] ?? ''),
+                    'q_score' => (string) ($_POST['pid_q_score'] ?? ''),
+                    'nm_points' => (string) ($_POST['pid_nm_points'] ?? ''),
+                    'ts' => (string) ($_POST['pid_ts'] ?? ''),
+                    'dc' => (string) ($_POST['pid_dc'] ?? ''),
+                    'mi' => (string) ($_POST['pid_mi'] ?? ''),
+                    'rds_id' => (string) ($_POST['pid_rds_id'] ?? ''),
+                    'has_data' => (string) ($_POST['pid_has_data'] ?? '0'),
+                    'hash' => (string) ($_POST['pid_hash'] ?? ''),
+                ]
+            );
+            biometricKioskJsonExit($result);
+        }
+        biometricKioskJsonExit(['success' => false, 'message' => 'Unknown action.']);
+    } catch (Throwable $e) {
+        error_log('attendance_biometric POST: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+        biometricKioskJsonExit(['success' => false, 'message' => 'Server error during fingerprint save. Try Capture again.']);
     }
-    if ($action === 'mark') {
-        $result = processBiometricKioskAttendance(
-            $conn,
-            (int) ($_POST['session_id'] ?? 0),
-            (string) ($_POST['student_id'] ?? ''),
-            (string) ($_POST['aadhaar_last4'] ?? ''),
-            (string) ($_POST['pid_xml'] ?? ''),
-            $admin_id,
-            [
-                'err_code' => (string) ($_POST['pid_err_code'] ?? ''),
-                'err_info' => (string) ($_POST['pid_err_info'] ?? ''),
-                'q_score' => (string) ($_POST['pid_q_score'] ?? ''),
-                'nm_points' => (string) ($_POST['pid_nm_points'] ?? ''),
-                'ts' => (string) ($_POST['pid_ts'] ?? ''),
-                'dc' => (string) ($_POST['pid_dc'] ?? ''),
-                'mi' => (string) ($_POST['pid_mi'] ?? ''),
-                'rds_id' => (string) ($_POST['pid_rds_id'] ?? ''),
-                'has_data' => (string) ($_POST['pid_has_data'] ?? '0'),
-                'hash' => (string) ($_POST['pid_hash'] ?? ''),
-            ]
-        );
-        echo json_encode($result);
-        exit;
-    }
-    echo json_encode(['success' => false, 'message' => 'Unknown action.']);
-    exit;
 }
 
 $active_sessions = getActiveAttendanceSessions($admin_id, $conn);
@@ -375,6 +371,29 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         el.className = 'small ' + (ok ? 'text-success' : 'text-danger');
         el.textContent = text || '';
     }
+    function parseServerJson(text) {
+        text = String(text || '').replace(/^\uFEFF/, '');
+        const trimmed = text.trim();
+        if (!trimmed) {
+            throw new Error('Empty response from the server. Try Capture again.');
+        }
+        try {
+            return JSON.parse(trimmed);
+        } catch (e1) {
+            const start = trimmed.indexOf('{');
+            const end = trimmed.lastIndexOf('}');
+            if (start >= 0 && end > start) {
+                try {
+                    return JSON.parse(trimmed.slice(start, end + 1));
+                } catch (e2) {}
+            }
+            if (/<html/i.test(trimmed) && /login/i.test(trimmed)) {
+                throw new Error('Session expired. Refresh the page and log in again.');
+            }
+            const plain = trimmed.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 180);
+            throw new Error(plain || 'Server did not return JSON. Refresh the page and try again.');
+        }
+    }
     function post(data) {
         const fd = new FormData();
         fd.append('csrf_token', csrf);
@@ -383,13 +402,9 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 fd.append(k, data[k]);
             }
         });
-        return fetch('attendance_biometric.php', { method: 'POST', body: fd }).then(function (r) {
+        return fetch('attendance_biometric.php', { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
             return r.text().then(function (text) {
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error('Server did not return JSON. Refresh the page and try again.');
-                }
+                return parseServerJson(text);
             });
         });
     }
@@ -474,8 +489,9 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         const fd = new FormData(this);
         fd.append('action', 'create_session');
         fd.append('csrf_token', csrf);
-        fetch('attendance_biometric.php', { method: 'POST', body: fd })
-            .then(function (r) { return r.json(); })
+        fetch('attendance_biometric.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) { return r.text(); })
+            .then(function (text) { return parseServerJson(text); })
             .then(function (data) {
                 if (data.success) {
                     location.reload();
