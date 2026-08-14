@@ -1,11 +1,15 @@
 /**
- * Mantra MFS100 Client Service (ISO template capture / 1:1 match).
- * Runs on the PC where the scanner and MFS100 Client Service are installed.
+ * Mantra MFS110 Client Service (ISO template capture / 1:1 match).
+ * Runs on the PC where the scanner and MFS110 Client Service are installed.
  */
 (function (global) {
     'use strict';
 
     var BASES = [
+        'https://127.0.0.1:8003/mfs110/',
+        'http://127.0.0.1:8004/mfs110/',
+        'http://127.0.0.1:8003/mfs110/',
+        'https://127.0.0.1:8004/mfs110/',
         'https://127.0.0.1:8003/mfs100/',
         'http://127.0.0.1:8004/mfs100/',
         'http://127.0.0.1:8003/mfs100/',
@@ -51,7 +55,7 @@
         if (json && (json.ErrorCode !== undefined || json.DeviceInfo || json.IsoTemplate)) {
             return true;
         }
-        return /ErrorCode|DeviceInfo|MFS100|IsoTemplate/i.test(String(text || ''));
+        return /ErrorCode|DeviceInfo|MFS110|MFS100|IsoTemplate/i.test(String(text || ''));
     }
 
     function isoFrom(resp) {
@@ -96,7 +100,7 @@
             return res.text().then(function (text) {
                 var json = parseJson(text);
                 if (!json) {
-                    throw new Error('MFS100 Client Service did not return JSON.');
+                    throw new Error('MFS110 Client Service did not return JSON.');
                 }
                 return json;
             });
@@ -140,7 +144,7 @@
             }
             var iso = isoFrom(resp);
             if (!iso) {
-                throw new Error('Device did not return an ISO template. Install MFS100 Client Service (not only RD Service).');
+                throw new Error('Device did not return an ISO template. Install MFS110 Client Service (not only RD Service).');
             }
             return { iso: iso, quality: parseInt(resp.Quality || '0', 10) || 0, raw: resp };
         });

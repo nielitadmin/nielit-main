@@ -1,6 +1,6 @@
 <?php
 /**
- * Mantra MFS100 / L1 Client Service — ISO template enrol and 1:1 match.
+ * Mantra MFS110 Client Service — ISO template enrol and 1:1 match.
  * Does not use Aadhaar RD PidData. Templates are encrypted at rest.
  */
 
@@ -288,6 +288,10 @@ if (!function_exists('mantraMfs100BaseUrls')) {
     function mantraMfs100BaseUrls(): array
     {
         return [
+            'https://127.0.0.1:8003/mfs110/',
+            'http://127.0.0.1:8004/mfs110/',
+            'http://127.0.0.1:8003/mfs110/',
+            'https://127.0.0.1:8004/mfs110/',
             'https://127.0.0.1:8003/mfs100/',
             'http://127.0.0.1:8004/mfs100/',
             'http://127.0.0.1:8003/mfs100/',
@@ -305,7 +309,7 @@ if (!function_exists('mantraMfs100LooksReady')) {
         if (stripos($body, 'ErrorCode') !== false || stripos($body, 'DeviceInfo') !== false) {
             return true;
         }
-        if (stripos($body, 'MFS100') !== false || stripos($body, 'IsoTemplate') !== false) {
+        if (stripos($body, 'MFS110') !== false || stripos($body, 'MFS100') !== false || stripos($body, 'IsoTemplate') !== false) {
             return true;
         }
         $json = mantraMfs100ParseJson($body);
@@ -344,11 +348,11 @@ if (!function_exists('mantraMfs100Post')) {
         $url = $base . ltrim($method, '/');
         $res = mantraMfs100Http($url, 'POST', $payload, $timeout);
         if (!$res['ok']) {
-            return ['ErrorCode' => '-1', 'ErrorDescription' => $res['error'] !== '' ? $res['error'] : 'Could not reach MFS100 Client Service.'];
+            return ['ErrorCode' => '-1', 'ErrorDescription' => $res['error'] !== '' ? $res['error'] : 'Could not reach MFS110 Client Service.'];
         }
         $json = mantraMfs100ParseJson($res['body']);
         if ($json === []) {
-            return ['ErrorCode' => '-1', 'ErrorDescription' => 'MFS100 Client Service did not return JSON.'];
+            return ['ErrorCode' => '-1', 'ErrorDescription' => 'MFS110 Client Service did not return JSON.'];
         }
         return $json;
     }
@@ -391,7 +395,7 @@ if (!function_exists('mantraMfs100CaptureLocal')) {
             $base = $found['base'] ?? '';
         }
         if ($base === '') {
-            return ['ok' => false, 'message' => 'MFS100 Client Service was not found on this PC. Install it and open Fingerprint Enrolment on the scanner PC.', 'iso' => '', 'quality' => 0, 'raw' => []];
+            return ['ok' => false, 'message' => 'MFS110 Client Service was not found on this PC. Install it and open Fingerprint Enrolment on the scanner PC.', 'iso' => '', 'quality' => 0, 'raw' => []];
         }
         $resp = mantraMfs100Post($base, 'capture', ['Quality' => $quality, 'TimeOut' => $timeout], $timeout + 8);
         $err = mantraMfs100ErrorCode($resp);
@@ -404,7 +408,7 @@ if (!function_exists('mantraMfs100CaptureLocal')) {
         }
         $iso = mantraMfs100IsoFromResponse($resp);
         if ($iso === '') {
-            return ['ok' => false, 'message' => 'Device did not return an ISO fingerprint template. Confirm MFS100 Client Service is installed (not only RD Service).', 'iso' => '', 'quality' => 0, 'raw' => $resp];
+            return ['ok' => false, 'message' => 'Device did not return an ISO fingerprint template. Confirm MFS110 Client Service is installed (not only RD Service).', 'iso' => '', 'quality' => 0, 'raw' => $resp];
         }
         $q = (int) ($resp['Quality'] ?? $resp['quality'] ?? 0);
         return ['ok' => true, 'message' => 'ok', 'iso' => $iso, 'quality' => $q, 'raw' => $resp];
@@ -452,7 +456,7 @@ if (!function_exists('mantraMfs100MatchLocal')) {
             $base = $found['base'] ?? '';
         }
         if ($base === '') {
-            return ['ok' => false, 'matched' => false, 'message' => 'MFS100 Client Service was not found on this PC.', 'score' => 0];
+            return ['ok' => false, 'matched' => false, 'message' => 'MFS110 Client Service was not found on this PC.', 'score' => 0];
         }
         $resp = mantraMfs100Post($base, 'match', [
             'ProbTemplate' => $probeIso,

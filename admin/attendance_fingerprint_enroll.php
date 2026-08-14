@@ -1,6 +1,6 @@
 <?php
 /**
- * Enrol student fingerprint ISO templates on the Mantra MFS100 / L1 kiosk PC.
+ * Enrol student fingerprint ISO templates on the Mantra MFS110 kiosk PC.
  */
 session_start();
 require_once __DIR__ . '/../config/config.php';
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($found) {
                 biometricKioskJsonExit(['success' => true, 'base' => $found['base'], 'via' => 'php']);
             }
-            biometricKioskJsonExit(['success' => false, 'message' => 'MFS100 Client Service was not found on this PC.']);
+            biometricKioskJsonExit(['success' => false, 'message' => 'MFS110 Client Service was not found on this PC.']);
         }
         if ($action === 'lookup_student') {
             $found = lookupStudentForFingerprintEnrol($conn, (string) ($_POST['q'] ?? ''));
@@ -168,15 +168,15 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
             <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric')); ?>">Fingerprint Attendance</a>
         </div>
 
-        <div id="mfsBanner" class="bio-banner wait">Checking MFS100 Client Service on this PC…</div>
+        <div id="mfsBanner" class="bio-banner wait">Checking MFS110 Client Service on this PC…</div>
 
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Scanner PC setup</h5></div>
             <div class="card-body">
                 <ol class="mb-0">
-                    <li>Install <strong>MFS100 Client Service</strong> (Mantra template / matcher mode), not only Aadhaar RD Service.</li>
-                    <li>Open <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs100/</a> and accept the certificate if Chrome warns.</li>
-                    <li>In <code>services.msc</code>, start <strong>MFS100ClientService</strong>.</li>
+                    <li>Install <strong>MFS110 Client Service</strong> (Mantra template / matcher mode), not only Aadhaar RD Service.</li>
+                    <li>Open <a href="https://127.0.0.1:8003/mfs110/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs110/</a> (or <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">/mfs100/</a> if that is the service URL) and accept the certificate if Chrome warns.</li>
+                    <li>In <code>services.msc</code>, start <strong>MFS110ClientService</strong> (or <strong>MFS100ClientService</strong> if that is the listed name).</li>
                     <li>Find the student, confirm the photo, capture the same thumb twice.</li>
                 </ol>
             </div>
@@ -245,7 +245,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
         if (data.success && data.base) {
             mfsBase = data.base;
             usePhp = true;
-            banner('ok', '<strong>MFS100 Client Service is ready</strong> on this PC. Find a student and enrol their thumb.');
+            banner('ok', '<strong>MFS110 Client Service is ready</strong> on this PC. Find a student and enrol their thumb.');
             return;
         }
         if (!window.MantraMfs100) {
@@ -256,13 +256,13 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
             if (found && found.base) {
                 mfsBase = found.base;
                 usePhp = false;
-                banner('ok', '<strong>MFS100 Client Service is running</strong> (' + found.base + '). Find a student and enrol their thumb.');
+                banner('ok', '<strong>MFS110 Client Service is running</strong> (' + found.base + '). Find a student and enrol their thumb.');
                 return;
             }
-            banner('bad', '<strong>MFS100 Client Service is not listening.</strong> Install it on this PC, start the Windows service, then refresh.');
+            banner('bad', '<strong>MFS110 Client Service is not listening.</strong> Install it on this PC, start the Windows service, then refresh.');
         });
     }).catch(function () {
-        banner('bad', 'Could not check MFS100 Client Service. Start it on this computer, then refresh.');
+        banner('bad', 'Could not check MFS110 Client Service. Start it on this computer, then refresh.');
     });
 
     document.getElementById('btnFind').addEventListener('click', findStudent);

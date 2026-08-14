@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($found) {
                 biometricKioskJsonExit(['success' => true, 'base' => $found['base'], 'via' => 'php']);
             }
-            biometricKioskJsonExit(['success' => false, 'message' => 'MFS100 Client Service was not found on this PC.']);
+            biometricKioskJsonExit(['success' => false, 'message' => 'MFS110 Client Service was not found on this PC.']);
         }
         if ($action === 'capture_and_match') {
             @set_time_limit(90);
@@ -284,16 +284,16 @@ $mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantr
             </div>
         </div>
 
-        <div id="rdBanner" class="bio-banner wait">Checking MFS100 Client Service on this PC…</div>
+        <div id="rdBanner" class="bio-banner wait">Checking MFS110 Client Service on this PC…</div>
 
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Before marking attendance</h5></div>
             <div class="card-body">
                 <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a>. The kiosk then matches the live thumb to that stored template.</p>
                 <ol class="mb-0">
-                    <li>Install <strong>MFS100 Client Service</strong> on this PC (Mantra matcher mode).</li>
-                    <li>Open <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs100/</a> and accept the certificate if Chrome warns.</li>
-                    <li>Start the Windows service <strong>MFS100ClientService</strong>.</li>
+                    <li>Install <strong>MFS110 Client Service</strong> on this PC (Mantra matcher mode).</li>
+                    <li>Open <a href="https://127.0.0.1:8003/mfs110/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs110/</a> (or <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">/mfs100/</a> if that is the service URL) and accept the certificate if Chrome warns.</li>
+                    <li>Start the Windows service <strong>MFS110ClientService</strong> (or <strong>MFS100ClientService</strong> if that is the listed name).</li>
                     <li>If Chrome blocks the scanner, disable Local Network Access Checks in <code>chrome://flags/#local-network-access-check</code>, then relaunch Chrome.</li>
                 </ol>
             </div>
@@ -603,7 +603,7 @@ $mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantr
     }
     function captureViaBrowser() {
         if (!window.MantraMfs100 || !mfsBase) {
-            return Promise.reject(new Error('MFS100 Client Service is not available in this browser.'));
+            return Promise.reject(new Error('MFS110 Client Service is not available in this browser.'));
         }
         return post({ action: 'get_gallery', student_id: foundStudent.student_id }).then(function (gal) {
             if (!gal.success || !gal.iso_template) {
@@ -633,7 +633,7 @@ $mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantr
             if (localSite && data.success && data.base) {
                 mfsBase = data.base;
                 usePhpCapture = true;
-                banner('ok', '<strong>MFS100 matcher is ready</strong> on this PC. Enrol students first, then start a session.');
+                banner('ok', '<strong>MFS110 matcher is ready</strong> on this PC. Enrol students first, then start a session.');
                 return;
             }
             if (!window.MantraMfs100) {
@@ -644,13 +644,13 @@ $mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantr
                 if (found && found.base) {
                     mfsBase = found.base;
                     usePhpCapture = false;
-                    banner('ok', '<strong>MFS100 Client Service is running</strong> (' + found.base + '). Enrol students first, then start a session.');
+                    banner('ok', '<strong>MFS110 Client Service is running</strong> (' + found.base + '). Enrol students first, then start a session.');
                     return;
                 }
-                banner('bad', '<strong>MFS100 Client Service is not listening on this PC.</strong> Install it, start the Windows service, then refresh. Students must be enrolled before attendance.');
+                banner('bad', '<strong>MFS110 Client Service is not listening on this PC.</strong> Install it, start the Windows service, then refresh. Students must be enrolled before attendance.');
             });
         }).catch(function () {
-            banner('bad', 'Could not check the scanner. Start MFS100 Client Service on this computer, then refresh.');
+            banner('bad', 'Could not check the scanner. Start MFS110 Client Service on this computer, then refresh.');
         });
     }
     function resetStudent() {
@@ -899,7 +899,7 @@ $mfsJsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantr
                 kioskMsg('This student has no enrolled fingerprint. Open Fingerprint Enrolment and save their thumb first.', false);
             } else if (!mfsBase && !usePhpCapture) {
                 document.getElementById('btnCapture').disabled = true;
-                kioskMsg('MFS100 Client Service is not running on this PC.', false);
+                kioskMsg('MFS110 Client Service is not running on this PC.', false);
             } else {
                 document.getElementById('btnCapture').disabled = false;
                 kioskMsg('Confirm the photo, then capture this student’s enrolled thumb.', true);
