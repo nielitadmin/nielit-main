@@ -68,10 +68,35 @@ if (!function_exists('configurePhpMailerSmtp')) {
     }
 }
 
+if (!function_exists('applyPhpMailerIdentity')) {
+    /**
+     * Align envelope sender / Message-ID with the mailbox domain so Gmail
+     * does not show "via srvXXXX.main-hosting.eu" and dump OTPs in spam.
+     */
+    function applyPhpMailerIdentity(PHPMailer $mail): void
+    {
+        $fromEmail = defined('SMTP_FROM_EMAIL') ? trim((string) SMTP_FROM_EMAIL) : '';
+        if ($fromEmail !== '' && strpos($fromEmail, '@') !== false) {
+            if (trim((string) $mail->Sender) === '') {
+                $mail->Sender = $fromEmail;
+            }
+            $domain = strtolower(substr(strrchr($fromEmail, '@'), 1));
+            if ($domain !== '') {
+                $mail->Hostname = $domain;
+            }
+        }
+        $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+        if ($fromEmail !== '' && method_exists($mail, 'addReplyTo') && empty($mail->getReplyToAddresses())) {
+            $mail->addReplyTo($fromEmail, $fromName);
+        }
+    }
+}
+
 if (!function_exists('phpMailerSmtpProfiles')) {
     /**
-     * SMTP / mail profiles. On Hostinger shared hosting, prefer local relay first
-     * because outbound smtp.hostinger.com often times out (SMTP code 110).
+     * SMTP / mail profiles. Prefer authenticated SMTP so Hostinger can DKIM-sign.
+     * Unauthenticated localhost:25 / php mail() is last because Gmail then shows
+     * "via srvXXXX.main-hosting.eu" and often spam-folders OTP mail.
      */
     function phpMailerSmtpProfiles(): array
     {
@@ -79,15 +104,9 @@ if (!function_exists('phpMailerSmtpProfiles')) {
         $primaryPort = (int) (defined('SMTP_PORT') ? SMTP_PORT : 465);
         $primaryEnc = defined('SMTP_ENCRYPTION') ? strtolower(trim((string) SMTP_ENCRYPTION)) : 'ssl';
 
-        $localProfiles = [
-            [
-                'label' => 'localhost:25/none',
-                'transport' => 'smtp',
-                'host' => 'localhost',
-                'port' => 25,
-                'encryption' => 'none',
-                'auth' => false,
-            ],
+        // Authenticated local SMTP is signed by Hostinger (DKIM). Unauthenticated
+        // port 25 / php mail() shows "via srvXXXX.main-hosting.eu" and Gmail spam-folders it.
+        $localAuthProfiles = [
             [
                 'label' => 'localhost:587/tls+auth',
                 'transport' => 'smtp',
@@ -95,6 +114,24 @@ if (!function_exists('phpMailerSmtpProfiles')) {
                 'port' => 587,
                 'encryption' => 'tls',
                 'auth' => true,
+            ],
+            [
+                'label' => 'localhost:465/ssl+auth',
+                'transport' => 'smtp',
+                'host' => 'localhost',
+                'port' => 465,
+                'encryption' => 'ssl',
+                'auth' => true,
+            ],
+        ];
+        $localUnauthProfiles = [
+            [
+                'label' => 'localhost:25/none',
+                'transport' => 'smtp',
+                'host' => 'localhost',
+                'port' => 25,
+                'encryption' => 'none',
+                'auth' => false,
             ],
             [
                 'label' => 'php-mail()',
@@ -135,10 +172,11 @@ if (!function_exists('phpMailerSmtpProfiles')) {
             ];
         }
 
-        // Shared hosting: local first (avoid long remote timeouts). Local/dev: remote first.
+        // Shared hosting: authenticated local SMTP first (fast + DKIM), then
+        // smtp.hostinger.com, then unauthenticated fallback last (spam-prone).
         $profiles = isLikelyHostingerSharedHosting()
-            ? array_merge($localProfiles, $remoteProfiles)
-            : array_merge($remoteProfiles, $localProfiles);
+            ? array_merge($localAuthProfiles, $remoteProfiles, $localUnauthProfiles)
+            : array_merge($remoteProfiles, $localAuthProfiles, $localUnauthProfiles);
 
         $unique = [];
         foreach ($profiles as $profile) {
@@ -177,6 +215,7 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
                     ]);
                 }
                 $configureMessage($mail);
+                applyPhpMailerIdentity($mail);
                 $mail->send();
                 // Log successful send attempt
                 try {

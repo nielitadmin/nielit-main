@@ -63,6 +63,7 @@ function sendOTP($toEmail, $otp, $username = null) {
 
     $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($toEmail, $otp) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);
         $mail->isHTML(true);
         $mail->Subject = 'Your OTP for Admin Login - NIELIT Bhubaneswar';
