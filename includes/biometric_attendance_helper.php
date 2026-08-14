@@ -271,7 +271,16 @@ if (!function_exists('validateMantraPidCapture')) {
         }
         if ($meta['ts'] !== '') {
             $ts = strtotime($meta['ts']);
-            if ($ts !== false && abs(time() - $ts) > 180) {
+            $tsUtc = strtotime($meta['ts'] . ' UTC');
+            $now = time();
+            $skew = 999999;
+            if ($ts !== false) {
+                $skew = min($skew, abs($now - $ts));
+            }
+            if ($tsUtc !== false) {
+                $skew = min($skew, abs($now - $tsUtc));
+            }
+            if ($skew > 43200) {
                 return ['ok' => false, 'message' => 'Fingerprint capture is stale. Capture again on this PC.', 'meta' => $meta, 'hash' => ''];
             }
         }
@@ -314,7 +323,16 @@ if (!function_exists('validateMantraPidMeta')) {
         }
         if ($meta['ts'] !== '') {
             $ts = strtotime($meta['ts']);
-            if ($ts !== false && abs(time() - $ts) > 180) {
+            $tsUtc = strtotime($meta['ts'] . ' UTC');
+            $now = time();
+            $skew = 999999;
+            if ($ts !== false) {
+                $skew = min($skew, abs($now - $ts));
+            }
+            if ($tsUtc !== false) {
+                $skew = min($skew, abs($now - $tsUtc));
+            }
+            if ($skew > 43200) {
                 return ['ok' => false, 'message' => 'Fingerprint capture is stale. Capture again on this PC.', 'meta' => $meta, 'hash' => ''];
             }
         }

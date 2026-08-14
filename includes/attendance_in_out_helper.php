@@ -195,11 +195,11 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             ];
         }
 
-        // Get last scan for this student in this session
+        // Latest valid punch for this session on the session day or today (IST), without SQL DATE() TZ traps.
         $last_scan_stmt = $conn->prepare("
             SELECT * FROM attendance_logs 
-            WHERE session_id = ? AND student_id = ? AND DATE(IFNULL(created_at, scan_time)) = ? 
-            ORDER BY scan_time DESC LIMIT 1
+            WHERE session_id = ? AND student_id = ? AND status = 'valid'
+            ORDER BY id DESC LIMIT 12
         ");
         if (!$last_scan_stmt) {
             return [
@@ -208,9 +208,28 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
                 'message' => 'Database error (last scan): ' . $conn->error,
             ];
         }
-        $last_scan_stmt->bind_param("iss", $session_id, $student_id, $session['date']);
+        $last_scan_stmt->bind_param("is", $session_id, $student_id);
         $last_scan_stmt->execute();
-        $last_scan = $last_scan_stmt->get_result()->fetch_assoc();
+        $last_res = $last_scan_stmt->get_result();
+        $last_rows = ($last_res) ? $last_res->fetch_all(MYSQLI_ASSOC) : [];
+        $last_scan_stmt->close();
+        $sessionDay = substr((string) ($session['date'] ?? ''), 0, 10);
+        $todayIst = $current_time->format('Y-m-d');
+        $last_scan = null;
+        foreach ($last_rows as $cand) {
+            if (function_exists('biometricPunchIstDateTime')) {
+                $candDay = biometricPunchIstDateTime(
+                    (string) ($cand['scan_time'] ?? ''),
+                    (string) ($cand['created_at'] ?? '')
+                )->format('Y-m-d');
+            } else {
+                $candDay = substr((string) ($cand['scan_time'] ?? ''), 0, 10);
+            }
+            if ($candDay === $sessionDay || $candDay === $todayIst) {
+                $last_scan = $cand;
+                break;
+            }
+        }
 
         // Determine scan type (IN or OUT)
         $scan_type = 'in';
@@ -256,8 +275,11 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         // Log the scan
         $log_id = logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status, $duration_minutes, $scan_method);
 
-        // Update attendance summary
-        updateAttendanceSummary($session_id, $student_id, $student_name, $session['date'], $coordinator_id, $conn);
+        try {
+            updateAttendanceSummary($session_id, $student_id, $student_name, $sessionDay !== '' ? $sessionDay : $todayIst, $coordinator_id, $conn);
+        } catch (Throwable $e) {
+            error_log('updateAttendanceSummary: ' . $e->getMessage());
+        }
 
         return [
             'success' => true,
@@ -425,6 +447,7 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
     $scan_time = function_exists('biometricIstNowString')
         ? biometricIstNowString()
         : (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d H:i:s');
+    $coordinator_id = substr((string) $coordinator_id, 0, 50);
     $hasMethod = false;
     $methodCheck = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
     if ($methodCheck && $methodCheck->num_rows > 0) {
@@ -466,6 +489,26 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
     if (!$stmt->execute()) {
         $err = $stmt->error;
         $stmt->close();
+        if ($hasMethod && stripos($err, 'scan_method') !== false) {
+            $stmt = $conn->prepare("
+                INSERT INTO attendance_logs 
+                (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ");
+            if ($stmt) {
+                $stmt->bind_param("isssssssis",
+                    $session_id, $student_id, $student_name, $scan_type, $scan_time,
+                    $coordinator_id, $ip_address, $user_agent, $duration_bind, $status
+                );
+                if ($stmt->execute()) {
+                    $id = (int) $conn->insert_id;
+                    $stmt->close();
+                    return $id;
+                }
+                $err = $stmt->error;
+                $stmt->close();
+            }
+        }
         throw new RuntimeException('Could not write attendance log: ' . $err);
     }
     $id = (int) $conn->insert_id;
@@ -477,21 +520,36 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
  * Update attendance summary table
  */
 function updateAttendanceSummary($session_id, $student_id, $student_name, $date, $coordinator_id, $conn) {
-    // Get all scans for this student on this date
+    $date = substr(trim((string) $date), 0, 10);
     $scans_stmt = $conn->prepare("
         SELECT scan_type, scan_time, created_at, duration_minutes 
         FROM attendance_logs 
-        WHERE session_id = ? AND student_id = ? AND DATE(IFNULL(created_at, scan_time)) = ? AND status = 'valid'
-        ORDER BY scan_time ASC
+        WHERE session_id = ? AND student_id = ? AND status = 'valid'
+        ORDER BY id ASC
     ");
     if (!$scans_stmt) {
         throw new RuntimeException('Could not read attendance summary: ' . $conn->error);
     }
-    $scans_stmt->bind_param("iss", $session_id, $student_id, $date);
+    $scans_stmt->bind_param("is", $session_id, $student_id);
     $scans_stmt->execute();
-    $scans = $scans_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $all = $scans_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $scans_stmt->close();
 
-    if (empty($scans)) return;
+    $scans = [];
+    foreach ($all as $scan) {
+        if (function_exists('biometricPunchIstDateTime')) {
+            $day = biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('Y-m-d');
+        } else {
+            $day = substr((string) $scan['scan_time'], 0, 10);
+        }
+        if ($day === $date) {
+            $scans[] = $scan;
+        }
+    }
+
+    if ($scans === []) {
+        return;
+    }
 
     // Calculate time in, time out, and total duration
     $time_in = null;

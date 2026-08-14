@@ -297,7 +297,8 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             </div>
             <div class="card-body">
                 <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time. Use the full Student ID — this session only marks students enrolled in its course.</p>
-                <div class="row g-3">
+                <div id="lastPunch" class="bio-banner ok mb-3" style="display:none;"></div>
+            <div class="row g-3">
                     <div class="col-md-7">
                         <label class="form-label">Student ID, mobile, or Aadhaar</label>
                         <div class="input-group mb-2">
@@ -421,6 +422,13 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             throw new Error(plain || 'Server did not return JSON. Refresh the page and try again.');
         }
     }
+    function postUrl() {
+        const path = String(window.location.pathname || '');
+        if (/attendance_biometric/i.test(path)) {
+            return path;
+        }
+        return 'attendance_biometric.php';
+    }
     function post(data) {
         const fd = new FormData();
         fd.append('csrf_token', csrf);
@@ -429,7 +437,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 fd.append(k, data[k]);
             }
         });
-        return fetch('attendance_biometric.php', { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
+        return fetch(postUrl(), { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) {
             return r.text().then(function (text) {
                 return parseServerJson(text);
             });
@@ -470,14 +478,17 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         return MantraRd.capture(rdOrigin).then(function (xml) {
             const meta = MantraRd.parsePid(xml);
             return MantraRd.sha256(xml).then(function (hash) {
-                return post(markPayload(meta, hash));
+                const payload = markPayload(meta, hash);
+                payload.pid_xml = xml;
+                return post(payload);
             });
         });
     }
     function discoverDevice() {
         const localSite = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
-        return post({ action: 'rd_discover' }).then(function (data) {
-            if (data.success && data.origin) {
+        const start = localSite ? post({ action: 'rd_discover' }) : Promise.resolve({ success: false });
+        return start.then(function (data) {
+            if (localSite && data.success && data.origin) {
                 rdOrigin = data.origin;
                 usePhpCapture = true;
                 banner('ok', '<strong>Mantra device ready</strong> on this PC (' + data.origin + '). Start a session and open the kiosk.');
@@ -517,7 +528,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         const fd = new FormData(this);
         fd.append('action', 'create_session');
         fd.append('csrf_token', csrf);
-        fetch('attendance_biometric.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+        fetch(postUrl(), { method: 'POST', body: fd, credentials: 'same-origin' })
             .then(function (r) { return r.text(); })
             .then(function (text) { return parseServerJson(text); })
             .then(function (data) {
@@ -627,12 +638,18 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         run.then(function (data) {
             if (data.success) {
                 const kind = (data.scan_type === 'out') ? 'OUT' : 'IN';
-                kioskMsg(kind + ' recorded for ' + data.student_name + (data.scan_time ? (' at ' + data.scan_time) : ''), true);
-                setTimeout(function () {
-                    resetStudent();
-                    kioskMsg('Ready for the next student.', true);
-                    document.getElementById('lookupQ').focus();
-                }, 2500);
+                const name = data.student_name || (foundStudent && foundStudent.name) || 'student';
+                const time = data.scan_time || '';
+                const line = kind + ' recorded for ' + name + (time ? (' at ' + time) : '');
+                kioskMsg(line + '. Ready for the next student.', true);
+                const punch = document.getElementById('lastPunch');
+                if (punch) {
+                    punch.style.display = 'block';
+                    punch.className = 'bio-banner mb-3 ' + (kind === 'OUT' ? 'wait' : 'ok');
+                    punch.innerHTML = '<strong style="font-size:1.35rem;">' + kind + '</strong> &nbsp; ' + line + '. Ready for the next student.';
+                }
+                resetStudent();
+                document.getElementById('lookupQ').focus();
             } else {
                 kioskMsg(data.message || 'Attendance not marked', false);
                 btn.disabled = false;
