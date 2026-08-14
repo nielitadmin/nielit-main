@@ -76,7 +76,12 @@ if (!function_exists('applyPhpMailerIdentity')) {
     function applyPhpMailerIdentity(PHPMailer $mail): void
     {
         $fromEmail = defined('SMTP_FROM_EMAIL') ? trim((string) SMTP_FROM_EMAIL) : '';
+        $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+        $currentFrom = strtolower(trim((string) $mail->From));
         if ($fromEmail !== '' && strpos($fromEmail, '@') !== false) {
+            if ($currentFrom === '' || $currentFrom === 'root@localhost') {
+                $mail->setFrom($fromEmail, $fromName, false);
+            }
             if (trim((string) $mail->Sender) === '') {
                 $mail->Sender = $fromEmail;
             }
@@ -85,7 +90,6 @@ if (!function_exists('applyPhpMailerIdentity')) {
                 $mail->Hostname = $domain;
             }
         }
-        $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
         if ($fromEmail !== '' && method_exists($mail, 'addReplyTo') && empty($mail->getReplyToAddresses())) {
             $mail->addReplyTo($fromEmail, $fromName);
         }

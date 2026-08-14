@@ -43,15 +43,10 @@ $show_password_form = false;
 
 // Function to send OTP
 function sendResetOTP($toEmail, $otp, $username) {
-    $mail = new PHPMailer(true);
-    try {
-        configurePhpMailerSmtp($mail, ['timeout' => 10, 'keep_alive' => false]);
-        $mail->SMTPAutoTLS = true;
-        $mail->SMTPDebug = 0;
-
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($toEmail, $otp, $username) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);
-
         $mail->isHTML(true);
         $mail->Subject = 'Password Reset OTP - NIELIT Bhubaneswar Admin';
         $mail->Body = '
@@ -74,13 +69,15 @@ function sendResetOTP($toEmail, $otp, $username) {
                 </p>
             </div>
         </div>';
+        $mail->AltBody = 'Your admin password reset OTP is: ' . $otp . ' (valid 10 minutes).';
+    }, ['timeout' => 25]);
 
-        $mail->send();
+    if (!empty($result['ok'])) {
         return true;
-    } catch (Exception $e) {
-        error_log("Password reset OTP email failed: " . $mail->ErrorInfo);
-        return false;
     }
+
+    error_log('Password reset OTP email failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 // Step 1: Send OTP

@@ -45,15 +45,10 @@ $show_otp_form = false;
 
 // Function to send OTP email
 function sendOTPEmail($toEmail, $otp, $username) {
-    $mail = new PHPMailer(true);
-    try {
-        configurePhpMailerSmtp($mail, ['timeout' => 10, 'keep_alive' => false]);
-        $mail->SMTPAutoTLS = true;
-        $mail->SMTPDebug = 0;
-
+    $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($toEmail, $otp, $username) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($toEmail);
-
         $mail->isHTML(true);
         $mail->Subject = 'Email Verification - New Admin Account | NIELIT Bhubaneswar';
         $mail->Body = '
@@ -82,20 +77,17 @@ function sendOTPEmail($toEmail, $otp, $username) {
                 </p>
             </div>
         </div>';
+        $mail->AltBody = 'Your admin account verification OTP is: ' . $otp . ' (valid 10 minutes).';
+    }, ['timeout' => 25]);
 
-        $mail->send();
-        
-        // Log successful OTP sending
+    if (!empty($result['ok'])) {
         logOTP($toEmail, $otp, 'Admin Creation', $username, 'sent');
-        
         return true;
-    } catch (Exception $e) {
-        // Log failed OTP sending
-        logOTP($toEmail, $otp, 'Admin Creation', $username, 'failed');
-        
-        error_log("Email sending failed: " . $mail->ErrorInfo);
-        return false;
     }
+
+    logOTP($toEmail, $otp, 'Admin Creation', $username, 'failed');
+    error_log('Email sending failed: ' . ($result['error'] ?? 'unknown'));
+    return false;
 }
 
 // Step 1: Send OTP

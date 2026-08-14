@@ -382,6 +382,7 @@ function sendPasswordResetEmail($to_email, $student_name, $student_id, $new_pass
     $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to_email, $student_name, $safeName, $safeId, $safePassword) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($to_email, $student_name);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->isHTML(true);
         $mail->Subject = 'Password Reset - NIELIT Bhubaneswar';
         $mail->Body = "
@@ -393,6 +394,7 @@ function sendPasswordResetEmail($to_email, $student_name, $student_id, $new_pass
             <p>Please login with your new credentials and change your password immediately.</p>
             <p>Best regards,<br>NIELIT Bhubaneswar</p>
         ";
+        $mail->AltBody = "Password reset successful for Student ID {$safeId}. Log in with the new password and change it immediately.";
     }, ['timeout' => 12]);
 
     if (!empty($result['ok'])) {
@@ -609,10 +611,12 @@ TEXT;
 function testEmailConfiguration($test_email) {
     $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($test_email) {
         $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
         $mail->addAddress($test_email);
         $mail->isHTML(true);
         $mail->Subject = 'Test Email - NIELIT Bhubaneswar';
         $mail->Body = '<h2>Email Configuration Test</h2><p>If you receive this email, your email configuration is working correctly!</p>';
+        $mail->AltBody = 'Email configuration test from NIELIT Bhubaneswar.';
     }, ['timeout' => 12]);
 
     if (!empty($result['ok'])) {
