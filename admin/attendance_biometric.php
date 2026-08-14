@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     ob_start();
     header('Content-Type: application/json; charset=utf-8');
+    $action = '';
     try {
         $token = (string) ($_POST['csrf_token'] ?? '');
         if (!hash_equals($csrf, $token)) {
@@ -52,24 +53,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             biometricKioskJsonExit(['success' => false, 'message' => 'Mantra RD Service was not found on this PC.']);
         }
-        if ($action === 'rd_capture') {
+        if ($action === 'rd_capture' || $action === 'capture_and_mark') {
             @set_time_limit(90);
             $origin = rtrim(trim((string) ($_POST['rd_origin'] ?? '')), '/');
             if ($origin === '' || !mantraRdOriginIsAllowed($origin)) {
                 $found = mantraRdDiscoverLocal();
-                $origin = $found['origin'] ?? '';
+                $origin = (string) ($found['origin'] ?? '');
             }
             $cap = mantraRdCaptureLocal($origin);
             if (!$cap['ok']) {
                 biometricKioskJsonExit(['success' => false, 'message' => $cap['message']]);
             }
-            $check = validateMantraPidCapture($cap['xml']);
-            biometricKioskJsonExit([
-                'success' => $check['ok'],
-                'message' => $check['message'],
-                'meta' => $check['meta'],
-                'hash' => $check['hash'],
-            ]);
+            if ($action === 'rd_capture') {
+                $check = validateMantraPidCapture($cap['xml']);
+                biometricKioskJsonExit([
+                    'success' => $check['ok'],
+                    'message' => $check['message'],
+                    'meta' => $check['meta'],
+                    'hash' => $check['hash'],
+                ]);
+            }
+            $result = processBiometricKioskAttendance(
+                $conn,
+                (int) ($_POST['session_id'] ?? 0),
+                (string) ($_POST['student_id'] ?? ''),
+                (string) ($_POST['aadhaar_last4'] ?? ''),
+                $cap['xml'],
+                $admin_id
+            );
+            biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
 
         if ($action === 'create_session') {
@@ -153,8 +165,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         biometricKioskJsonExit(['success' => false, 'message' => 'Unknown action.']);
     } catch (Throwable $e) {
-        error_log('attendance_biometric POST: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-        biometricKioskJsonExit(['success' => false, 'message' => 'Server error during fingerprint save. Try Capture again.']);
+        $detail = $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
+        error_log('attendance_biometric POST action=' . $action . ' ' . $detail);
+        @file_put_contents(
+            dirname(__DIR__) . '/uploads/biometric_kiosk_error.log',
+            date('c') . ' action=' . $action . ' ' . $detail . "\n" . $e->getTraceAsString() . "\n\n",
+            FILE_APPEND
+        );
+        biometricKioskJsonExit([
+            'success' => false,
+            'message' => 'Fingerprint save failed: ' . $e->getMessage(),
+        ]);
     }
 }
 
@@ -428,11 +449,12 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         };
     }
     function captureViaPhp() {
-        return post({ action: 'rd_capture', rd_origin: rdOrigin }).then(function (data) {
-            if (!data.success) {
-                throw new Error(data.message || 'Fingerprint capture failed.');
-            }
-            return post(markPayload(data.meta, data.hash));
+        return post({
+            action: 'capture_and_mark',
+            rd_origin: rdOrigin,
+            session_id: String(sessionId),
+            student_id: foundStudent.student_id,
+            aadhaar_last4: document.getElementById('aadhaarLast4').value
         });
     }
     function captureViaBrowser() {

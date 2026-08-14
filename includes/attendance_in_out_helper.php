@@ -102,6 +102,13 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             WHERE session_id = ? AND student_id = ? AND DATE(scan_time) = ? 
             ORDER BY scan_time DESC LIMIT 1
         ");
+        if (!$last_scan_stmt) {
+            return [
+                'success' => false,
+                'result' => 'error',
+                'message' => 'Database error (last scan): ' . $conn->error,
+            ];
+        }
         $last_scan_stmt->bind_param("iss", $session_id, $student_id, $session['date']);
         $last_scan_stmt->execute();
         $last_scan = $last_scan_stmt->get_result()->fetch_assoc();
@@ -160,11 +167,11 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
                         ($duration_minutes ? " (Duration: {$duration_minutes} minutes)" : '')
         ];
 
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
         return [
             'success' => false,
             'result' => 'error',
-            'message' => 'Error: ' . $e->getMessage()
+            'message' => 'Could not save attendance: ' . $e->getMessage(),
         ];
     }
 }
@@ -312,17 +319,27 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
         (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status) 
         VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)
     ");
-    
+    if (!$stmt) {
+        throw new RuntimeException('Could not write attendance log: ' . $conn->error);
+    }
+
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-    
-    $stmt->bind_param("issssssis", 
-        $session_id, $student_id, $student_name, $scan_type, 
-        $coordinator_id, $ip_address, $user_agent, $duration_minutes, $status
+    $duration_bind = (int) ($duration_minutes ?? 0);
+
+    $stmt->bind_param("issssssis",
+        $session_id, $student_id, $student_name, $scan_type,
+        $coordinator_id, $ip_address, $user_agent, $duration_bind, $status
     );
-    
-    $stmt->execute();
-    return $conn->insert_id;
+
+    if (!$stmt->execute()) {
+        $err = $stmt->error;
+        $stmt->close();
+        throw new RuntimeException('Could not write attendance log: ' . $err);
+    }
+    $id = (int) $conn->insert_id;
+    $stmt->close();
+    return $id;
 }
 
 /**
@@ -336,6 +353,9 @@ function updateAttendanceSummary($session_id, $student_id, $student_name, $date,
         WHERE session_id = ? AND student_id = ? AND DATE(scan_time) = ? AND status = 'valid'
         ORDER BY scan_time ASC
     ");
+    if (!$scans_stmt) {
+        throw new RuntimeException('Could not read attendance summary: ' . $conn->error);
+    }
     $scans_stmt->bind_param("iss", $session_id, $student_id, $date);
     $scans_stmt->execute();
     $scans = $scans_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -367,7 +387,6 @@ function updateAttendanceSummary($session_id, $student_id, $student_name, $date,
         $status = 'partial';
     }
 
-    // Insert or update summary
     $summary_stmt = $conn->prepare("
         INSERT INTO attendance_summary 
         (session_id, student_id, student_name, date, time_in, time_out, total_duration_minutes, status, coordinator_id)
@@ -379,13 +398,19 @@ function updateAttendanceSummary($session_id, $student_id, $student_name, $date,
         status = VALUES(status),
         updated_at = CURRENT_TIMESTAMP
     ");
-    
-    $summary_stmt->bind_param("isssssiss", 
-        $session_id, $student_id, $student_name, $date, 
+    if (!$summary_stmt) {
+        throw new RuntimeException('Could not write attendance summary: ' . $conn->error);
+    }
+    $summary_stmt->bind_param("isssssiss",
+        $session_id, $student_id, $student_name, $date,
         $time_in, $time_out, $total_duration, $status, $coordinator_id
     );
-    
-    $summary_stmt->execute();
+    if (!$summary_stmt->execute()) {
+        $err = $summary_stmt->error;
+        $summary_stmt->close();
+        throw new RuntimeException('Could not write attendance summary: ' . $err);
+    }
+    $summary_stmt->close();
 }
 
 /**

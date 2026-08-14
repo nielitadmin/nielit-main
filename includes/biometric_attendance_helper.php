@@ -10,8 +10,11 @@ if (!function_exists('biometricKioskJsonExit')) {
     /**
      * @param array<string,mixed> $payload
      */
-    function biometricKioskJsonExit(array $payload): void
+    function biometricKioskJsonExit($payload): void
     {
+        if (!is_array($payload)) {
+            $payload = ['success' => false, 'message' => 'Unexpected server result.'];
+        }
         while (ob_get_level() > 0) {
             ob_end_clean();
         }
@@ -245,7 +248,7 @@ if (!function_exists('validateMantraPidCapture')) {
     function validateMantraPidCapture(string $xml): array
     {
         $xml = trim($xml);
-        if ($xml === '' || strlen($xml) > 65536) {
+        if ($xml === '' || strlen($xml) > 524288) {
             return ['ok' => false, 'message' => 'No fingerprint data received from the device.', 'meta' => [], 'hash' => ''];
         }
         if (stripos($xml, 'PidData') === false && stripos($xml, 'Resp') === false) {
@@ -434,7 +437,7 @@ if (!function_exists('processBiometricKioskAttendance')) {
             $check = validateMantraPidMeta($pidMeta, trim((string) ($pidMeta['hash'] ?? '')));
         }
         if (!$check['ok']) {
-            logBiometricCapture($conn, $sessionId, $studentId, $coordinatorId, $check['meta'], $check['hash'], 'capture_fail');
+            logBiometricCapture($conn, $sessionId, $studentId, $coordinatorId, $check['meta'] ?? [], (string) ($check['hash'] ?? ''), 'capture_fail');
             return ['success' => false, 'result' => 'capture_fail', 'message' => $check['message']];
         }
         if (biometricPidHashWasUsed($conn, $check['hash'])) {
@@ -447,8 +450,8 @@ if (!function_exists('processBiometricKioskAttendance')) {
             $sessionId,
             $studentId,
             $coordinatorId,
-            $check['meta'],
-            $check['hash'],
+            $check['meta'] ?? [],
+            (string) ($check['hash'] ?? ''),
             !empty($marked['success']) ? 'ok' : (string) ($marked['result'] ?? 'fail')
         );
         if (!empty($marked['success'])) {
