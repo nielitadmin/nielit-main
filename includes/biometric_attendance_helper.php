@@ -252,6 +252,51 @@ if (!function_exists('validateMantraPidCapture')) {
     }
 }
 
+if (!function_exists('validateMantraPidMeta')) {
+    /**
+     * @param array<string,string> $meta
+     * @return array{ok:bool,message:string,meta:array<string,string>,hash:string}
+     */
+    function validateMantraPidMeta(array $meta, string $hash = ''): array
+    {
+        $meta = [
+            'err_code' => trim((string) ($meta['err_code'] ?? '')),
+            'err_info' => trim((string) ($meta['err_info'] ?? '')),
+            'q_score' => trim((string) ($meta['q_score'] ?? '')),
+            'nm_points' => trim((string) ($meta['nm_points'] ?? '')),
+            'ts' => trim((string) ($meta['ts'] ?? '')),
+            'dc' => trim((string) ($meta['dc'] ?? '')),
+            'mi' => trim((string) ($meta['mi'] ?? '')),
+            'rds_id' => trim((string) ($meta['rds_id'] ?? '')),
+            'has_data' => trim((string) ($meta['has_data'] ?? '0')),
+        ];
+        $err = $meta['err_code'];
+        $okCapture = ($err === '0') || ($err === '' && $meta['has_data'] === '1');
+        if (!$okCapture) {
+            $info = $meta['err_info'] !== '' ? $meta['err_info'] : ($err !== '' ? ('error ' . $err) : 'capture failed');
+            return ['ok' => false, 'message' => 'Fingerprint capture failed: ' . $info, 'meta' => $meta, 'hash' => ''];
+        }
+        $nm = (int) $meta['nm_points'];
+        $qs = (int) $meta['q_score'];
+        if ($nm > 0 && $nm < 16) {
+            return ['ok' => false, 'message' => 'Fingerprint quality is too low. Place the finger firmly and try again.', 'meta' => $meta, 'hash' => ''];
+        }
+        if ($qs > 0 && $qs < 30) {
+            return ['ok' => false, 'message' => 'Fingerprint quality is too low. Place the finger firmly and try again.', 'meta' => $meta, 'hash' => ''];
+        }
+        if ($meta['ts'] !== '') {
+            $ts = strtotime($meta['ts']);
+            if ($ts !== false && abs(time() - $ts) > 180) {
+                return ['ok' => false, 'message' => 'Fingerprint capture is stale. Capture again on this PC.', 'meta' => $meta, 'hash' => ''];
+            }
+        }
+        if ($hash === '') {
+            $hash = hash('sha256', implode('|', [$meta['err_code'], $meta['ts'], $meta['dc'], $meta['q_score'], $meta['nm_points']]));
+        }
+        return ['ok' => true, 'message' => 'ok', 'meta' => $meta, 'hash' => $hash];
+    }
+}
+
 if (!function_exists('biometricPidHashWasUsed')) {
     function biometricPidHashWasUsed($conn, string $hash): bool
     {
@@ -314,7 +359,7 @@ if (!function_exists('processBiometricKioskAttendance')) {
     /**
      * @return array<string,mixed>
      */
-    function processBiometricKioskAttendance($conn, int $sessionId, string $studentId, string $aadhaarLast4, string $pidXml, string $coordinatorId): array
+    function processBiometricKioskAttendance($conn, int $sessionId, string $studentId, string $aadhaarLast4, string $pidXml, string $coordinatorId, array $pidMeta = []): array
     {
         ensureBiometricAttendanceTables($conn);
         $studentId = trim($studentId);
@@ -358,7 +403,11 @@ if (!function_exists('processBiometricKioskAttendance')) {
             }
         }
 
-        $check = validateMantraPidCapture($pidXml);
+        if (trim($pidXml) !== '') {
+            $check = validateMantraPidCapture($pidXml);
+        } else {
+            $check = validateMantraPidMeta($pidMeta, trim((string) ($pidMeta['hash'] ?? '')));
+        }
         if (!$check['ok']) {
             logBiometricCapture($conn, $sessionId, $studentId, $coordinatorId, $check['meta'], $check['hash'], 'capture_fail');
             return ['success' => false, 'result' => 'capture_fail', 'message' => $check['message']];

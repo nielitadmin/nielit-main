@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/attendance_qr_helper.php';
 require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
 require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
+require_once __DIR__ . '/../includes/mantra_rd_proxy.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
@@ -28,6 +29,9 @@ if (empty($_SESSION['csrf_token'])) {
 $csrf = (string) $_SESSION['csrf_token'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
     header('Content-Type: application/json; charset=utf-8');
     $token = (string) ($_POST['csrf_token'] ?? '');
     if (!hash_equals($csrf, $token)) {
@@ -35,6 +39,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     $action = (string) ($_POST['action'] ?? '');
+
+    if ($action === 'rd_discover') {
+        $found = mantraRdDiscoverLocal();
+        if ($found) {
+            echo json_encode(['success' => true, 'origin' => $found['origin'], 'via' => 'php']);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Mantra RD Service was not found on this PC.']);
+        }
+        exit;
+    }
+    if ($action === 'rd_capture') {
+        @set_time_limit(40);
+        $origin = rtrim(trim((string) ($_POST['rd_origin'] ?? '')), '/');
+        if ($origin === '' || !mantraRdOriginIsAllowed($origin)) {
+            $found = mantraRdDiscoverLocal();
+            $origin = $found['origin'] ?? '';
+        }
+        $cap = mantraRdCaptureLocal($origin);
+        if (!$cap['ok']) {
+            echo json_encode(['success' => false, 'message' => $cap['message']]);
+            exit;
+        }
+        $check = validateMantraPidCapture($cap['xml']);
+        echo json_encode([
+            'success' => $check['ok'],
+            'message' => $check['message'],
+            'meta' => $check['meta'],
+            'hash' => $check['hash'],
+        ]);
+        exit;
+    }
 
     if ($action === 'create_session') {
         $result = createAttendanceSession([
@@ -106,7 +141,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (string) ($_POST['student_id'] ?? ''),
             (string) ($_POST['aadhaar_last4'] ?? ''),
             (string) ($_POST['pid_xml'] ?? ''),
-            $admin_id
+            $admin_id,
+            [
+                'err_code' => (string) ($_POST['pid_err_code'] ?? ''),
+                'err_info' => (string) ($_POST['pid_err_info'] ?? ''),
+                'q_score' => (string) ($_POST['pid_q_score'] ?? ''),
+                'nm_points' => (string) ($_POST['pid_nm_points'] ?? ''),
+                'ts' => (string) ($_POST['pid_ts'] ?? ''),
+                'dc' => (string) ($_POST['pid_dc'] ?? ''),
+                'mi' => (string) ($_POST['pid_mi'] ?? ''),
+                'rds_id' => (string) ($_POST['pid_rds_id'] ?? ''),
+                'has_data' => (string) ($_POST['pid_has_data'] ?? '0'),
+                'hash' => (string) ($_POST['pid_hash'] ?? ''),
+            ]
         );
         echo json_encode($result);
         exit;
@@ -164,14 +211,13 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">If 127.0.0.1:11100 does not open</h5></div>
             <div class="card-body">
-                <p class="mb-2">The scanner can work in Mantra’s test app while this portal still cannot see it. This website needs <strong>Mantra RD Service</strong> (not only the USB driver).</p>
+                <p class="mb-2">If Mantra’s own window shows <strong>Captured Success</strong> but this page says capture failed, the scanner worked. Chrome blocked the website from reading the result. This page now talks to the scanner through XAMPP on this PC — refresh and capture again.</p>
                 <ol class="mb-2">
-                    <li>On the <strong>Windows PC with the USB scanner</strong> (not a phone, not the web server), try <a href="https://127.0.0.1:11100/" target="_blank" rel="noopener">https://127.0.0.1:11100/</a> — accept the certificate warning if Chrome shows one.</li>
-                    <li>Install <strong>MFS110 L1 driver + RD Service</strong> from <a href="https://www.mantratec.com/" target="_blank" rel="noopener">mantratec.com</a> using Run as administrator, then unplug and plug the device.</li>
+                    <li>Open this kiosk on the <strong>Windows PC with the USB scanner</strong> as <code>http://localhost/public_html/admin/attendance_biometric.php</code> (not a phone, not only a remote URL).</li>
+                    <li>Try <a href="https://127.0.0.1:11100/" target="_blank" rel="noopener">https://127.0.0.1:11100/</a> — accept the certificate warning if Chrome shows one.</li>
                     <li>Press Win+R → <code>services.msc</code> → start <strong>Mantra RD Service</strong> (or MFS110 RDService) and set it to Automatic.</li>
-                    <li>In Chrome open <code>chrome://flags/#block-insecure-private-network-requests</code> and set it to <strong>Disabled</strong>, then restart Chrome. Needed because this site is HTTPS.</li>
                 </ol>
-                <p class="text-muted mb-0">Until that link works on the kiosk PC, use QR attendance with a coordinator watching, so students cannot scan other people’s codes.</p>
+                <p class="text-muted mb-0">Until RD Service is running on this PC, use QR attendance with a coordinator watching, so students cannot scan other people’s codes.</p>
             </div>
         </div>
 
@@ -317,6 +363,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     let rdOrigin = '';
     let sessionId = 0;
     let foundStudent = null;
+    let usePhpCapture = false;
 
     function banner(cls, html) {
         const el = document.getElementById('rdBanner');
@@ -331,8 +378,84 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
     function post(data) {
         const fd = new FormData();
         fd.append('csrf_token', csrf);
-        Object.keys(data).forEach(function (k) { fd.append(k, data[k]); });
-        return fetch('attendance_biometric.php', { method: 'POST', body: fd }).then(function (r) { return r.json(); });
+        Object.keys(data).forEach(function (k) {
+            if (data[k] !== undefined && data[k] !== null) {
+                fd.append(k, data[k]);
+            }
+        });
+        return fetch('attendance_biometric.php', { method: 'POST', body: fd }).then(function (r) {
+            return r.text().then(function (text) {
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Server did not return JSON. Refresh the page and try again.');
+                }
+            });
+        });
+    }
+    function markPayload(meta, hash) {
+        meta = meta || {};
+        return {
+            action: 'mark',
+            session_id: String(sessionId),
+            student_id: foundStudent.student_id,
+            aadhaar_last4: document.getElementById('aadhaarLast4').value,
+            pid_err_code: meta.err_code || '',
+            pid_err_info: meta.err_info || '',
+            pid_q_score: meta.q_score || '',
+            pid_nm_points: meta.nm_points || '',
+            pid_ts: meta.ts || '',
+            pid_dc: meta.dc || '',
+            pid_mi: meta.mi || '',
+            pid_rds_id: meta.rds_id || '',
+            pid_has_data: meta.has_data || '0',
+            pid_hash: hash || ''
+        };
+    }
+    function captureViaPhp() {
+        return post({ action: 'rd_capture', rd_origin: rdOrigin }).then(function (data) {
+            if (!data.success) {
+                throw new Error(data.message || 'Fingerprint capture failed.');
+            }
+            return post(markPayload(data.meta, data.hash));
+        });
+    }
+    function captureViaBrowser() {
+        if (!window.MantraRd || !rdOrigin) {
+            return Promise.reject(new Error('Mantra RD Service is not available in this browser.'));
+        }
+        return MantraRd.capture(rdOrigin).then(function (xml) {
+            const meta = MantraRd.parsePid(xml);
+            return MantraRd.sha256(xml).then(function (hash) {
+                return post(markPayload(meta, hash));
+            });
+        });
+    }
+    function discoverDevice() {
+        const localSite = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+        return post({ action: 'rd_discover' }).then(function (data) {
+            if (data.success && data.origin) {
+                rdOrigin = data.origin;
+                usePhpCapture = true;
+                banner('ok', '<strong>Mantra device ready</strong> on this PC (' + data.origin + '). Start a session and open the kiosk.');
+                return;
+            }
+            if (!window.MantraRd) {
+                banner('bad', 'Fingerprint script failed to load.');
+                return;
+            }
+            return MantraRd.discover().then(function (found) {
+                if (found && found.origin) {
+                    rdOrigin = found.origin;
+                    usePhpCapture = localSite;
+                    banner('ok', '<strong>Mantra RD Service is running</strong> (' + found.origin + '). Start a session and open the kiosk.');
+                    return;
+                }
+                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> Open this page as <code>http://localhost/public_html/admin/attendance_biometric.php</code> on the scanner PC, start RD Service, then refresh.');
+            });
+        }).catch(function () {
+            banner('bad', 'Could not check the scanner. Refresh this page on the kiosk PC.');
+        });
     }
     function resetStudent() {
         foundStudent = null;
@@ -344,18 +467,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         document.getElementById('photoBox').innerHTML = '<div class="kiosk-photo-empty"><i class="fas fa-user fa-3x"></i></div>';
     }
 
-    if (window.MantraRd) {
-        MantraRd.discover().then(function (found) {
-            if (found && found.origin) {
-                rdOrigin = found.origin;
-                banner('ok', '<strong>Mantra device ready</strong> on this PC (' + found.origin + '). Start a session and open the kiosk.');
-            } else {
-                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> The USB device can still work in Mantra’s own test app. Install/start <em>RD Service</em>, then open <code>https://127.0.0.1:11100/</code> on this same Windows PC. Follow the steps below.');
-            }
-        });
-    } else {
-        banner('bad', 'Fingerprint script failed to load.');
-    }
+    discoverDevice();
 
     document.getElementById('createSessionForm').addEventListener('submit', function (e) {
         e.preventDefault();
@@ -467,15 +579,8 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
         const btn = document.getElementById('btnCapture');
         btn.disabled = true;
         kioskMsg('Waiting for finger on the Mantra device…', true);
-        MantraRd.capture(rdOrigin).then(function (xml) {
-            return post({
-                action: 'mark',
-                session_id: String(sessionId),
-                student_id: foundStudent.student_id,
-                aadhaar_last4: document.getElementById('aadhaarLast4').value,
-                pid_xml: xml
-            });
-        }).then(function (data) {
+        const run = usePhpCapture ? captureViaPhp() : captureViaBrowser();
+        run.then(function (data) {
             if (data.success) {
                 const kind = (data.scan_type === 'out') ? 'OUT' : 'IN';
                 kioskMsg(kind + ' recorded for ' + data.student_name + (data.scan_time ? (' at ' + data.scan_time) : ''), true);
@@ -488,8 +593,9 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 kioskMsg(data.message || 'Attendance not marked', false);
                 btn.disabled = false;
             }
-        }).catch(function () {
-            kioskMsg('Capture failed. Is the Mantra RD Service running on this PC?', false);
+        }).catch(function (err) {
+            const msg = (err && err.message) ? err.message : 'Could not read the fingerprint result.';
+            kioskMsg(msg, false);
             btn.disabled = false;
         });
     });
