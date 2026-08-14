@@ -74,11 +74,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             echo json_encode(['success' => false, 'message' => 'Start an attendance session first.']);
             exit;
         }
-        $row = lookupBiometricKioskStudent($conn, $q, (int) $session['course_id']);
-        if (!$row) {
-            echo json_encode(['success' => false, 'message' => 'No matching student in this course. Use full Student ID, mobile, or Aadhaar.']);
+        $found = lookupBiometricKioskStudent(
+            $conn,
+            $q,
+            (int) $session['course_id'],
+            (string) ($session['course_name'] ?? '')
+        );
+        if (empty($found['ok']) || empty($found['row'])) {
+            echo json_encode(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
             exit;
         }
+        $row = $found['row'];
         $status = (string) ($row['status'] ?? '');
         if ($status !== '' && $status !== 'active') {
             echo json_encode(['success' => false, 'message' => 'This student is not active.']);
@@ -200,7 +206,8 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                                         <?php elseif ($session['status'] === 'active'): ?>
                                             <button class="btn btn-primary btn-sm w-100 mb-2 js-open-kiosk" type="button"
                                                     data-session-id="<?php echo (int) $session['id']; ?>"
-                                                    data-session-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                    data-session-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>">
                                                 <i class="fas fa-fingerprint"></i> Open fingerprint kiosk
                                             </button>
                                             <button class="btn btn-danger btn-sm w-100" type="button" onclick="deactivateSession(<?php echo (int) $session['id']; ?>)">End session</button>
@@ -220,7 +227,7 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="btnCloseKiosk">Close</button>
             </div>
             <div class="card-body">
-                <p class="text-muted">Find the student, confirm the photo, then capture fingerprint. One person at a time.</p>
+                <p class="text-muted" id="kioskHint">Find the student, confirm the photo, then capture fingerprint. One person at a time. Use the full Student ID — this session only marks students enrolled in its course.</p>
                 <div class="row g-3">
                     <div class="col-md-7">
                         <label class="form-label">Student ID, mobile, or Aadhaar</label>
@@ -385,11 +392,15 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
             }
         });
     };
-    function openKiosk(id, name) {
+    function openKiosk(id, name, courseName) {
         sessionId = parseInt(id, 10) || 0;
         resetStudent();
         kioskMsg('');
         document.getElementById('kioskTitle').textContent = 'Fingerprint kiosk — ' + (name || '');
+        const hint = document.getElementById('kioskHint');
+        if (hint) {
+            hint.textContent = 'This session is for ' + (courseName || 'the selected course') + '. Type the full Student ID (not the name), then Find. Only students enrolled in that course can be marked.';
+        }
         document.getElementById('kioskPanel').classList.add('is-open');
         document.getElementById('kioskPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
         setTimeout(function () {
@@ -400,7 +411,11 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
 
     document.querySelectorAll('.js-open-kiosk').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            openKiosk(btn.getAttribute('data-session-id'), btn.getAttribute('data-session-name') || '');
+            openKiosk(
+                btn.getAttribute('data-session-id'),
+                btn.getAttribute('data-session-name') || '',
+                btn.getAttribute('data-course-name') || ''
+            );
         });
     });
     document.getElementById('btnCloseKiosk').addEventListener('click', function () {
@@ -481,10 +496,15 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
 
     if (openSessionId > 0) {
         const match = <?php echo json_encode(array_values(array_map(static function ($s) {
-            return ['id' => (int) $s['id'], 'name' => (string) $s['session_name'], 'status' => (string) $s['status']];
+            return [
+                'id' => (int) $s['id'],
+                'name' => (string) $s['session_name'],
+                'course' => (string) $s['course_name'],
+                'status' => (string) $s['status'],
+            ];
         }, $active_sessions))); ?>.find(function (s) { return s.id === openSessionId && s.status === 'active'; });
         if (match) {
-            openKiosk(match.id, match.name);
+            openKiosk(match.id, match.name, match.course);
         }
     }
 })();

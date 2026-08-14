@@ -81,76 +81,88 @@ if (!function_exists('biometricStudentPhotoUrl')) {
 
 if (!function_exists('lookupBiometricKioskStudent')) {
     /**
-     * Exact match only (Student ID, 10-digit mobile, or 12-digit Aadhaar).
+     * Exact match by Student ID, 10-digit mobile, or 12-digit Aadhaar.
      *
-     * @return array<string,mixed>|null
+     * @return array{ok:bool,row?:array<string,mixed>,message:string}
      */
-    function lookupBiometricKioskStudent($conn, string $query, int $courseId): ?array
+    function lookupBiometricKioskStudent($conn, string $query, int $courseId, string $courseName = ''): array
     {
         $query = trim($query);
+        $courseName = trim($courseName);
+        $courseLabel = $courseName !== '' ? $courseName : 'this session course';
         if ($query === '') {
-            return null;
+            return ['ok' => false, 'message' => 'Enter the full Student ID, mobile number, or Aadhaar number.'];
         }
 
-        $direct = attendanceFindStudentForSession($conn, $query, $courseId);
-        if ($direct && attendanceStudentInCourse($conn, (string) $direct['student_id'], $courseId, $direct)) {
-            return $direct;
-        }
-
-        $digits = biometricNormalizeDigits($query);
-        $studentId = $query;
-
-        if (strlen($digits) === 12) {
-            $stmt = $conn->prepare("SELECT student_id FROM students
-                WHERE REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''),' ',''),'-',''),'/','') = ?
-                ORDER BY (course_id = ?) DESC, id DESC LIMIT 1");
-            if ($stmt) {
-                $stmt->bind_param('si', $digits, $courseId);
-                $stmt->execute();
-                $hit = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-                if ($hit) {
-                    $studentId = (string) $hit['student_id'];
+        $row = attendanceFindStudentForSession($conn, $query, $courseId);
+        if (!$row) {
+            $digits = biometricNormalizeDigits($query);
+            $resolvedId = '';
+            if (strlen($digits) === 12) {
+                $stmt = $conn->prepare("SELECT student_id FROM students
+                    WHERE REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''),' ',''),'-',''),'/','') = ?
+                    ORDER BY (course_id = ?) DESC, id DESC LIMIT 1");
+                if ($stmt) {
+                    $stmt->bind_param('si', $digits, $courseId);
+                    $stmt->execute();
+                    $hit = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($hit) {
+                        $resolvedId = (string) $hit['student_id'];
+                    }
                 }
-            }
-            if ($studentId === $query) {
-                $acc = $conn->query("SHOW TABLES LIKE 'student_accounts'");
-                if ($acc && $acc->num_rows > 0) {
-                    $stmt = $conn->prepare('SELECT student_id FROM student_accounts WHERE aadhar = ? LIMIT 1');
-                    if ($stmt) {
-                        $stmt->bind_param('s', $digits);
-                        $stmt->execute();
-                        $hit = $stmt->get_result()->fetch_assoc();
-                        $stmt->close();
-                        if ($hit) {
-                            $studentId = (string) $hit['student_id'];
+                if ($resolvedId === '') {
+                    $acc = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+                    if ($acc && $acc->num_rows > 0) {
+                        $stmt = $conn->prepare("SELECT student_id FROM student_accounts
+                            WHERE REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''),' ',''),'-',''),'/','') = ? LIMIT 1");
+                        if ($stmt) {
+                            $stmt->bind_param('s', $digits);
+                            $stmt->execute();
+                            $hit = $stmt->get_result()->fetch_assoc();
+                            $stmt->close();
+                            if ($hit) {
+                                $resolvedId = (string) $hit['student_id'];
+                            }
                         }
                     }
                 }
-            }
-        } elseif (strlen($digits) === 10) {
-            $stmt = $conn->prepare("SELECT student_id FROM students
-                WHERE REPLACE(REPLACE(IFNULL(mobile,''),' ',''),'-','') = ?
-                ORDER BY (course_id = ?) DESC, id DESC LIMIT 1");
-            if ($stmt) {
-                $stmt->bind_param('si', $digits, $courseId);
-                $stmt->execute();
-                $hit = $stmt->get_result()->fetch_assoc();
-                $stmt->close();
-                if ($hit) {
-                    $studentId = (string) $hit['student_id'];
+            } elseif (strlen($digits) === 10) {
+                $stmt = $conn->prepare("SELECT student_id FROM students
+                    WHERE REPLACE(REPLACE(IFNULL(mobile,''),' ',''),'-','') = ?
+                    ORDER BY (course_id = ?) DESC, id DESC LIMIT 1");
+                if ($stmt) {
+                    $stmt->bind_param('si', $digits, $courseId);
+                    $stmt->execute();
+                    $hit = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($hit) {
+                        $resolvedId = (string) $hit['student_id'];
+                    }
                 }
+            }
+            if ($resolvedId !== '') {
+                $row = attendanceFindStudentForSession($conn, $resolvedId, $courseId);
             }
         }
 
-        $row = attendanceFindStudentForSession($conn, $studentId, $courseId);
         if (!$row) {
-            return null;
+            return [
+                'ok' => false,
+                'message' => 'No student found with that ID / mobile / Aadhaar. Type the full Student ID (not the name).',
+            ];
         }
+
         if (!attendanceStudentInCourse($conn, (string) $row['student_id'], $courseId, $row)) {
-            return null;
+            $other = attendanceStudentCourseNames($conn, (string) $row['student_id']);
+            $extra = $other !== [] ? (' Enrolled in: ' . implode(', ', $other) . '.') : '';
+            return [
+                'ok' => false,
+                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not enrolled in ' . $courseLabel . '.' . $extra . ' Create/start a session for their actual course.',
+            ];
         }
-        return $row;
+
+        return ['ok' => true, 'row' => $row, 'message' => 'ok'];
     }
 }
 
@@ -322,10 +334,16 @@ if (!function_exists('processBiometricKioskAttendance')) {
             return ['success' => false, 'result' => 'expired', 'message' => 'Session is not active.'];
         }
 
-        $row = lookupBiometricKioskStudent($conn, $studentId, (int) $session['course_id']);
-        if (!$row) {
-            return ['success' => false, 'result' => 'unknown_student', 'message' => 'Student not found in this course.'];
+        $found = lookupBiometricKioskStudent(
+            $conn,
+            $studentId,
+            (int) $session['course_id'],
+            (string) ($session['course_name'] ?? '')
+        );
+        if (empty($found['ok']) || empty($found['row'])) {
+            return ['success' => false, 'result' => 'unknown_student', 'message' => (string) ($found['message'] ?? 'Student not found in this course.')];
         }
+        $row = $found['row'];
 
         $needLast4 = biometricAadhaarLast4((string) ($row['aadhar'] ?? ''));
         if ($needLast4 !== '') {

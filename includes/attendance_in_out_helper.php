@@ -180,8 +180,16 @@ function attendanceFindStudentForSession($conn, $student_id, $course_id) {
     if ($student_id === '') {
         return null;
     }
-    $stmt = $conn->prepare('SELECT student_id, name, status, course_id, passport_photo, aadhar, mobile
-                            FROM students WHERE student_id = ? ORDER BY (course_id = ?) DESC, id DESC LIMIT 1');
+    $sql = 'SELECT student_id, name, status, course_id, passport_photo, aadhar, mobile
+            FROM students WHERE LOWER(TRIM(student_id)) = LOWER(?)
+            ORDER BY (course_id = ?) DESC, id DESC LIMIT 1';
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        $sql = 'SELECT student_id, name, status, course_id FROM students
+                WHERE LOWER(TRIM(student_id)) = LOWER(?)
+                ORDER BY (course_id = ?) DESC, id DESC LIMIT 1';
+        $stmt = $conn->prepare($sql);
+    }
     if (!$stmt) {
         return null;
     }
@@ -189,7 +197,23 @@ function attendanceFindStudentForSession($conn, $student_id, $course_id) {
     $stmt->execute();
     $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
-    return $row ?: null;
+    if ($row) {
+        return $row;
+    }
+    $acc = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+    if ($acc && $acc->num_rows > 0) {
+        $as = $conn->prepare('SELECT student_id FROM student_accounts WHERE LOWER(TRIM(student_id)) = LOWER(?) LIMIT 1');
+        if ($as) {
+            $as->bind_param('s', $student_id);
+            $as->execute();
+            $hit = $as->get_result()->fetch_assoc();
+            $as->close();
+            if ($hit && strcasecmp((string) $hit['student_id'], $student_id) !== 0) {
+                return attendanceFindStudentForSession($conn, (string) $hit['student_id'], $course_id);
+            }
+        }
+    }
+    return null;
 }
 
 function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $student_row = null): bool {
@@ -201,7 +225,7 @@ function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $stude
     if ($student_row && (int) ($student_row['course_id'] ?? 0) === $course_id) {
         return true;
     }
-    $stmt = $conn->prepare('SELECT id FROM students WHERE student_id = ? AND course_id = ? LIMIT 1');
+    $stmt = $conn->prepare('SELECT id FROM students WHERE LOWER(TRIM(student_id)) = LOWER(?) AND course_id = ? LIMIT 1');
     if ($stmt) {
         $stmt->bind_param('si', $student_id, $course_id);
         $stmt->execute();
@@ -218,7 +242,9 @@ function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $stude
     $sql = 'SELECT se.id FROM student_enrollments se
             LEFT JOIN students s ON s.id = se.student_record_id
             LEFT JOIN student_accounts sa ON sa.id = se.account_id
-            WHERE se.course_id = ? AND (s.student_id = ? OR sa.student_id = ?)
+            WHERE se.course_id = ?
+              AND (LOWER(TRIM(IFNULL(s.student_id,\'\'))) = LOWER(?)
+                   OR LOWER(TRIM(IFNULL(sa.student_id,\'\'))) = LOWER(?))
             LIMIT 1';
     $enr = $conn->prepare($sql);
     if (!$enr) {
@@ -229,6 +255,52 @@ function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $stude
     $ok = (bool) $enr->get_result()->fetch_assoc();
     $enr->close();
     return $ok;
+}
+
+function attendanceStudentCourseNames($conn, string $student_id): array {
+    $names = [];
+    $student_id = trim($student_id);
+    if ($student_id === '') {
+        return $names;
+    }
+    $stmt = $conn->prepare('SELECT DISTINCT c.course_name FROM students s
+                            LEFT JOIN courses c ON c.id = s.course_id
+                            WHERE LOWER(TRIM(s.student_id)) = LOWER(?) AND c.course_name IS NOT NULL');
+    if ($stmt) {
+        $stmt->bind_param('s', $student_id);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        while ($row = $res->fetch_assoc()) {
+            $n = trim((string) ($row['course_name'] ?? ''));
+            if ($n !== '') {
+                $names[] = $n;
+            }
+        }
+        $stmt->close();
+    }
+    $tables = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+    if ($tables && $tables->num_rows > 0) {
+        $sql = 'SELECT DISTINCT c.course_name FROM student_enrollments se
+                INNER JOIN courses c ON c.id = se.course_id
+                LEFT JOIN students s ON s.id = se.student_record_id
+                LEFT JOIN student_accounts sa ON sa.id = se.account_id
+                WHERE LOWER(TRIM(IFNULL(s.student_id,\'\'))) = LOWER(?)
+                   OR LOWER(TRIM(IFNULL(sa.student_id,\'\'))) = LOWER(?)';
+        $enr = $conn->prepare($sql);
+        if ($enr) {
+            $enr->bind_param('ss', $student_id, $student_id);
+            $enr->execute();
+            $res = $enr->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $n = trim((string) ($row['course_name'] ?? ''));
+                if ($n !== '' && !in_array($n, $names, true)) {
+                    $names[] = $n;
+                }
+            }
+            $enr->close();
+        }
+    }
+    return $names;
 }
 
 /**
