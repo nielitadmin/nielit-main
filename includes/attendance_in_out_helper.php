@@ -62,6 +62,11 @@ if (!function_exists('ensureAttendanceInOutTables')) {
             return false;
         }
 
+        $logTimeCol = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'created_at'");
+        if ($logTimeCol && $logTimeCol->num_rows === 0) {
+            @$conn->query("ALTER TABLE attendance_logs ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+        }
+
         $sessionCols = [
             'session_type' => "ALTER TABLE attendance_sessions ADD COLUMN session_type ENUM('regular','in_out') DEFAULT 'in_out'",
             'min_duration_minutes' => 'ALTER TABLE attendance_sessions ADD COLUMN min_duration_minutes INT DEFAULT 1',
@@ -123,7 +128,11 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         }
         $student_id = trim((string) $student_id);
         $session_id = (int) $session_id;
-        $current_time = new DateTime();
+        @date_default_timezone_set('Asia/Kolkata');
+        if ($conn instanceof mysqli) {
+            @$conn->query("SET time_zone = '+05:30'");
+        }
+        $current_time = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
 
         $session_stmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
         if (!$session_stmt) {
@@ -183,7 +192,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         // Get last scan for this student in this session
         $last_scan_stmt = $conn->prepare("
             SELECT * FROM attendance_logs 
-            WHERE session_id = ? AND student_id = ? AND DATE(scan_time) = ? 
+            WHERE session_id = ? AND student_id = ? AND DATE(IFNULL(created_at, scan_time)) = ? 
             ORDER BY scan_time DESC LIMIT 1
         ");
         if (!$last_scan_stmt) {
@@ -203,7 +212,12 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         $status = 'valid';
 
         if ($last_scan) {
-            $last_scan_time = new DateTime($last_scan['scan_time']);
+            $last_scan_time = function_exists('biometricPunchIstDateTime')
+                ? biometricPunchIstDateTime(
+                    (string) ($last_scan['scan_time'] ?? ''),
+                    (string) ($last_scan['created_at'] ?? '')
+                )
+                : new DateTime($last_scan['scan_time'], new DateTimeZone('Asia/Kolkata'));
             $time_diff = $current_time->getTimestamp() - $last_scan_time->getTimestamp();
             $minutes_diff = floor($time_diff / 60);
 
@@ -245,7 +259,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             'student_id' => $student_id,
             'student_name' => $student_name,
             'scan_type' => $scan_type,
-            'scan_time' => $current_time->format('H:i:s'),
+            'scan_time' => $current_time->format('H:i:s') . ' IST',
             'duration_minutes' => $duration_minutes,
             'message' => ucfirst($scan_type) . ' scan recorded successfully' . 
                         ($duration_minutes ? " (Duration: {$duration_minutes} minutes)" : '')
@@ -398,10 +412,16 @@ function attendanceStudentCourseNames($conn, string $student_id): array {
  * Log attendance scan to attendance_logs table
  */
 function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status = 'valid', $duration_minutes = null) {
+    if ($conn instanceof mysqli) {
+        @$conn->query("SET time_zone = '+05:30'");
+    }
+    $scan_time = function_exists('biometricIstNowString')
+        ? biometricIstNowString()
+        : (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d H:i:s');
     $stmt = $conn->prepare("
         INSERT INTO attendance_logs 
         (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status) 
-        VALUES (?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
     if (!$stmt) {
         throw new RuntimeException('Could not write attendance log: ' . $conn->error);
@@ -411,8 +431,8 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
     $duration_bind = (int) ($duration_minutes ?? 0);
 
-    $stmt->bind_param("issssssis",
-        $session_id, $student_id, $student_name, $scan_type,
+    $stmt->bind_param("isssssssis",
+        $session_id, $student_id, $student_name, $scan_type, $scan_time,
         $coordinator_id, $ip_address, $user_agent, $duration_bind, $status
     );
 
@@ -432,9 +452,9 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
 function updateAttendanceSummary($session_id, $student_id, $student_name, $date, $coordinator_id, $conn) {
     // Get all scans for this student on this date
     $scans_stmt = $conn->prepare("
-        SELECT scan_type, scan_time, duration_minutes 
+        SELECT scan_type, scan_time, created_at, duration_minutes 
         FROM attendance_logs 
-        WHERE session_id = ? AND student_id = ? AND DATE(scan_time) = ? AND status = 'valid'
+        WHERE session_id = ? AND student_id = ? AND DATE(IFNULL(created_at, scan_time)) = ? AND status = 'valid'
         ORDER BY scan_time ASC
     ");
     if (!$scans_stmt) {
@@ -454,10 +474,14 @@ function updateAttendanceSummary($session_id, $student_id, $student_name, $date,
 
     foreach ($scans as $scan) {
         if ($scan['scan_type'] === 'in' && !$time_in) {
-            $time_in = date('H:i:s', strtotime($scan['scan_time']));
+            $time_in = function_exists('biometricPunchIstDateTime')
+                ? biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('H:i:s')
+                : date('H:i:s', strtotime($scan['scan_time']));
         }
         if ($scan['scan_type'] === 'out') {
-            $time_out = date('H:i:s', strtotime($scan['scan_time']));
+            $time_out = function_exists('biometricPunchIstDateTime')
+                ? biometricPunchIstDateTime((string) $scan['scan_time'], (string) ($scan['created_at'] ?? ''))->format('H:i:s')
+                : date('H:i:s', strtotime($scan['scan_time']));
             if ($scan['duration_minutes']) {
                 $total_duration += $scan['duration_minutes'];
             }

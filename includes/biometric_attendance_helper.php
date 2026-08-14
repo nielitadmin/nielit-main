@@ -463,6 +463,101 @@ if (!function_exists('processBiometricKioskAttendance')) {
     }
 }
 
+if (!function_exists('biometricIstTimezone')) {
+    function biometricIstTimezone(): DateTimeZone
+    {
+        return new DateTimeZone('Asia/Kolkata');
+    }
+}
+
+if (!function_exists('biometricIstNowString')) {
+    function biometricIstNowString(): string
+    {
+        @date_default_timezone_set('Asia/Kolkata');
+        return (new DateTime('now', biometricIstTimezone()))->format('Y-m-d H:i:s');
+    }
+}
+
+if (!function_exists('biometricParseNaiveDateTime')) {
+    function biometricParseNaiveDateTime(string $raw, DateTimeZone $tz): ?DateTime
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return null;
+        }
+        $slice = substr($raw, 0, 19);
+        $dt = DateTime::createFromFormat('Y-m-d H:i:s', $slice, $tz);
+        if ($dt instanceof DateTime) {
+            return $dt;
+        }
+        try {
+            return new DateTime($raw, $tz);
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+}
+
+if (!function_exists('biometricDbTimeToIst')) {
+    /**
+     * Convert a naive DB DATETIME to Asia/Kolkata.
+     * Production MySQL DATETIME from NOW() is often UTC wall-clock (06:03 → 11:33 IST).
+     */
+    function biometricDbTimeToIst(string $raw): DateTime
+    {
+        $ist = biometricIstTimezone();
+        $naive = biometricParseNaiveDateTime($raw, $ist);
+        if (!$naive) {
+            return new DateTime('now', $ist);
+        }
+        $fromUtc = biometricParseNaiveDateTime($raw, new DateTimeZone('UTC'));
+        if (!$fromUtc) {
+            return $naive;
+        }
+        $fromUtc->setTimezone($ist);
+        $now = new DateTime('now', $ist);
+        if ($fromUtc->getTimestamp() > $now->getTimestamp() + 900) {
+            return $naive;
+        }
+        return $fromUtc;
+    }
+}
+
+if (!function_exists('biometricPunchIstDateTime')) {
+    /**
+     * Prefer TIMESTAMP created_at (session +05:30 = IST). If DATETIME scan_time is UTC
+     * wall-clock it sits ~5h30m behind created_at — use the later IST value.
+     */
+    function biometricPunchIstDateTime(string $scanTime, string $createdAt = ''): DateTime
+    {
+        $ist = biometricIstTimezone();
+        $scan = biometricParseNaiveDateTime($scanTime, $ist);
+        $created = biometricParseNaiveDateTime($createdAt, $ist);
+        if ($scan && $created) {
+            $diff = abs($created->getTimestamp() - $scan->getTimestamp());
+            if ($diff >= 4 * 3600 && $diff <= 7 * 3600) {
+                $chosen = $created >= $scan ? $created : $scan;
+            } else {
+                $chosen = $created;
+            }
+        } elseif ($created) {
+            $chosen = $created;
+        } elseif ($scanTime !== '') {
+            $chosen = biometricDbTimeToIst($scanTime);
+        } else {
+            return new DateTime('now', $ist);
+        }
+        // UTC wall-clock leftovers look like early morning (e.g. 06:03 instead of 11:33 IST).
+        if ((int) $chosen->format('G') < 8) {
+            $asUtc = biometricDbTimeToIst($chosen->format('Y-m-d H:i:s'));
+            if ($asUtc->getTimestamp() > $chosen->getTimestamp()) {
+                return $asUtc;
+            }
+        }
+        return $chosen;
+    }
+}
+
 if (!function_exists('getFingerprintMonthlyRecord')) {
     /**
      * Monthly IN/OUT grid for fingerprint attendance, with Mantra device IDs.
@@ -478,6 +573,8 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         if (!($conn instanceof mysqli)) {
             return $out;
         }
+        @date_default_timezone_set('Asia/Kolkata');
+        @$conn->query("SET time_zone = '+05:30'");
         ensureBiometricAttendanceTables($conn);
         ensureAttendanceInOutTables($conn);
 
@@ -490,9 +587,9 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $sql = "SELECT
                     l.student_id,
                     l.student_name,
-                    DATE(l.scan_time) AS punch_date,
+                    l.scan_time,
+                    l.created_at,
                     l.scan_type,
-                    DATE_FORMAT(l.scan_time, '%H:%i') AS punch_time,
                     s.course_name,
                     s.session_name,
                     s.subject,
@@ -501,11 +598,11 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 INNER JOIN attendance_sessions s ON s.id = l.session_id
                 INNER JOIN biometric_capture_logs b
                     ON b.student_id = l.student_id
+                    AND b.session_id = l.session_id
                     AND b.result = 'ok'
-                    AND DATE(b.created_at) = DATE(l.scan_time)
                 WHERE l.status = 'valid'
-                  AND l.scan_time >= ?
-                  AND l.scan_time < DATE_ADD(?, INTERVAL 1 DAY)";
+                  AND l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY)
+                  AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY)";
         $types = 'ss';
         $params = [$start, $end];
         if ($courseId > 0) {
@@ -540,14 +637,25 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             if ($device !== '') {
                 $byStudent[$sid]['devices'][$device] = true;
             }
-            $day = (int) substr((string) $row['punch_date'], 8, 2);
+            try {
+                $ist = biometricPunchIstDateTime(
+                    (string) ($row['scan_time'] ?? ''),
+                    (string) ($row['created_at'] ?? '')
+                );
+            } catch (Throwable $e) {
+                continue;
+            }
+            if ($ist->format('Y-m-d') < $start || $ist->format('Y-m-d') > $end) {
+                continue;
+            }
+            $day = (int) $ist->format('j');
             if ($day < 1 || $day > $days) {
                 continue;
             }
             if (!isset($byStudent[$sid]['days'][$day])) {
                 $byStudent[$sid]['days'][$day] = ['in' => '', 'out' => ''];
             }
-            $time = (string) ($row['punch_time'] ?? '');
+            $time = $ist->format('H:i');
             $kind = strtolower((string) ($row['scan_type'] ?? ''));
             if ($kind === 'in' && $byStudent[$sid]['days'][$day]['in'] === '') {
                 $byStudent[$sid]['days'][$day]['in'] = $time;

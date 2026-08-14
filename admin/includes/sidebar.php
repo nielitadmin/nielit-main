@@ -252,7 +252,9 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-user-tie"></i> Course Assignments
             </a>
         </div>
-        
+
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Student Attendance</div>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_scanner'); ?>" class="nav-link <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
                 <i class="fas fa-qrcode"></i> QR Attendance Scanner
@@ -268,12 +270,13 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-th"></i> Fingerprint Report
             </a>
         </div>
-        
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-bar"></i> Attendance Reports
             </a>
         </div>
+
+        <div class="nav-divider"></div>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-line"></i> Report Monitor

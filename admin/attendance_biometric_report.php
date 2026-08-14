@@ -10,18 +10,24 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 
+date_default_timezone_set('Asia/Kolkata');
+if (isset($conn) && $conn instanceof mysqli) {
+    @$conn->query("SET time_zone = '+05:30'");
+}
+
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
     exit;
 }
 
-$year = (int) ($_GET['year'] ?? date('Y'));
-$month = (int) ($_GET['month'] ?? date('n'));
+$istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
+$year = (int) ($_GET['year'] ?? $istNow->format('Y'));
+$month = (int) ($_GET['month'] ?? $istNow->format('n'));
 if ($year < 2020 || $year > 2100) {
-    $year = (int) date('Y');
+    $year = (int) $istNow->format('Y');
 }
 if ($month < 1 || $month > 12) {
-    $month = (int) date('n');
+    $month = (int) $istNow->format('n');
 }
 $courseId = (int) ($_GET['course_id'] ?? 0);
 
@@ -65,7 +71,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>';
     echo '<table border="1">';
     echo '<tr><td colspan="' . $colspan . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Create Time: ' . date('Y/m/d H:i:s') . '</td></tr>';
+    echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')) . ' IST</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint (Mantra)</td></tr>';
     echo '<tr></tr>';
@@ -181,7 +187,7 @@ $qs = http_build_query([
         <div class="card">
             <div class="card-body">
                 <div class="att-meta mb-2">
-                    Create Time: <?php echo date('Y/m/d H:i:s'); ?><br>
+                    Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y/m/d H:i:s')); ?> IST<br>
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>
                 </div>
                 <h3 class="att-title">Attendance Record</h3>
