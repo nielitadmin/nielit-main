@@ -30,6 +30,7 @@ if (!function_exists('ensureAttendanceInOutTables')) {
             user_agent TEXT NULL,
             duration_minutes INT NULL,
             status ENUM('valid', 'duplicate', 'too_early') DEFAULT 'valid',
+            scan_method VARCHAR(20) NOT NULL DEFAULT 'qr',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_session_student (session_id, student_id),
             INDEX idx_scan_time (scan_time),
@@ -65,6 +66,10 @@ if (!function_exists('ensureAttendanceInOutTables')) {
         $logTimeCol = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'created_at'");
         if ($logTimeCol && $logTimeCol->num_rows === 0) {
             @$conn->query("ALTER TABLE attendance_logs ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+        }
+        $methodCol = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
+        if ($methodCol && $methodCol->num_rows === 0) {
+            @$conn->query("ALTER TABLE attendance_logs ADD COLUMN scan_method VARCHAR(20) NOT NULL DEFAULT 'qr'");
         }
 
         $sessionCols = [
@@ -117,7 +122,7 @@ function processInOutAttendanceQRScan($qr_data, $session_id, $coordinator_id, $c
  *
  * @return array<string,mixed>
  */
-function processInOutAttendanceForStudent($student_id, $session_id, $coordinator_id, $conn) {
+function processInOutAttendanceForStudent($student_id, $session_id, $coordinator_id, $conn, $scan_method = 'qr') {
     try {
         if (!ensureAttendanceInOutTables($conn)) {
             return [
@@ -128,6 +133,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         }
         $student_id = trim((string) $student_id);
         $session_id = (int) $session_id;
+        $scan_method = strtolower(trim((string) $scan_method)) === 'biometric' ? 'biometric' : 'qr';
         @date_default_timezone_set('Asia/Kolkata');
         if ($conn instanceof mysqli) {
             @$conn->query("SET time_zone = '+05:30'");
@@ -226,7 +232,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             
             if ($minutes_diff < $min_duration) {
                 // Too early to scan again
-                logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, 'too_early');
+                logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, 'too_early', null, $scan_method);
                 
                 return [
                     'success' => false,
@@ -248,7 +254,7 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
         }
 
         // Log the scan
-        $log_id = logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status, $duration_minutes);
+        $log_id = logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status, $duration_minutes, $scan_method);
 
         // Update attendance summary
         updateAttendanceSummary($session_id, $student_id, $student_name, $session['date'], $coordinator_id, $conn);
@@ -411,18 +417,32 @@ function attendanceStudentCourseNames($conn, string $student_id): array {
 /**
  * Log attendance scan to attendance_logs table
  */
-function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status = 'valid', $duration_minutes = null) {
+function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, $coordinator_id, $conn, $status = 'valid', $duration_minutes = null, $scan_method = 'qr') {
     if ($conn instanceof mysqli) {
         @$conn->query("SET time_zone = '+05:30'");
     }
+    $scan_method = strtolower(trim((string) $scan_method)) === 'biometric' ? 'biometric' : 'qr';
     $scan_time = function_exists('biometricIstNowString')
         ? biometricIstNowString()
         : (new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d H:i:s');
-    $stmt = $conn->prepare("
-        INSERT INTO attendance_logs 
-        (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
+    $hasMethod = false;
+    $methodCheck = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
+    if ($methodCheck && $methodCheck->num_rows > 0) {
+        $hasMethod = true;
+    }
+    if ($hasMethod) {
+        $stmt = $conn->prepare("
+            INSERT INTO attendance_logs 
+            (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status, scan_method) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    } else {
+        $stmt = $conn->prepare("
+            INSERT INTO attendance_logs 
+            (session_id, student_id, student_name, scan_type, scan_time, coordinator_id, ip_address, user_agent, duration_minutes, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+    }
     if (!$stmt) {
         throw new RuntimeException('Could not write attendance log: ' . $conn->error);
     }
@@ -431,10 +451,17 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
     $duration_bind = (int) ($duration_minutes ?? 0);
 
-    $stmt->bind_param("isssssssis",
-        $session_id, $student_id, $student_name, $scan_type, $scan_time,
-        $coordinator_id, $ip_address, $user_agent, $duration_bind, $status
-    );
+    if ($hasMethod) {
+        $stmt->bind_param("isssssssiss",
+            $session_id, $student_id, $student_name, $scan_type, $scan_time,
+            $coordinator_id, $ip_address, $user_agent, $duration_bind, $status, $scan_method
+        );
+    } else {
+        $stmt->bind_param("isssssssis",
+            $session_id, $student_id, $student_name, $scan_type, $scan_time,
+            $coordinator_id, $ip_address, $user_agent, $duration_bind, $status
+        );
+    }
 
     if (!$stmt->execute()) {
         $err = $stmt->error;

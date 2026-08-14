@@ -494,10 +494,10 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_r
                     banner('ok', '<strong>Mantra RD Service is running</strong> (' + found.origin + '). Start a session and open the kiosk.');
                     return;
                 }
-                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> Open this page as <code>http://localhost/public_html/admin/attendance_biometric.php</code> on the scanner PC, start RD Service, then refresh.');
+                banner('bad', '<strong>Mantra RD Service is not listening on this PC.</strong> Use Fingerprint Attendance on the computer where the scanner is plugged in, start Mantra RD Service, then refresh.');
             });
         }).catch(function () {
-            banner('bad', 'Could not check the scanner. Refresh this page on the kiosk PC.');
+            banner('bad', 'Could not check the scanner. Start Mantra RD Service on this computer, then refresh.');
         });
     }
     function resetStudent() {

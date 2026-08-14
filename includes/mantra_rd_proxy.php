@@ -179,7 +179,7 @@ if (!function_exists('mantraRdCaptureLocal')) {
             return [
                 'ok' => false,
                 'xml' => '',
-                'message' => 'Could not reach Mantra RD Service from this PC (' . $err . '). Open Fingerprint Attendance on the scanner PC via http://localhost/public_html/',
+                'message' => 'Could not reach Mantra RD Service from this PC (' . $err . '). Use Fingerprint Attendance on the computer where the scanner is plugged in, start Mantra RD Service, then try again.',
             ];
         }
         return ['ok' => false, 'xml' => '', 'message' => 'RD Service returned an empty capture. Place the finger and try again.'];

@@ -354,6 +354,7 @@ if (!function_exists('logBiometricCapture')) {
             (session_id, student_id, coordinator_id, err_code, quality_score, nm_points, device_code, device_model, rds_id, capture_ts, pid_hash, result)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
         if (!$stmt) {
+            error_log('logBiometricCapture prepare failed: ' . $conn->error);
             return;
         }
         $err = (string) ($meta['err_code'] ?? '');
@@ -378,7 +379,9 @@ if (!function_exists('logBiometricCapture')) {
             $hash,
             $result
         );
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            error_log('logBiometricCapture execute failed: ' . $stmt->error);
+        }
         $stmt->close();
     }
 }
@@ -418,6 +421,7 @@ if (!function_exists('processBiometricKioskAttendance')) {
             return ['success' => false, 'result' => 'unknown_student', 'message' => (string) ($found['message'] ?? 'Student not found in this course.')];
         }
         $row = $found['row'];
+        $studentId = trim((string) ($row['student_id'] ?? $studentId));
 
         $needLast4 = biometricAadhaarLast4((string) ($row['aadhar'] ?? ''));
         if ($needLast4 !== '') {
@@ -445,7 +449,7 @@ if (!function_exists('processBiometricKioskAttendance')) {
             return ['success' => false, 'result' => 'replay', 'message' => 'This fingerprint capture was already used. Capture again.'];
         }
 
-        $marked = processInOutAttendanceForStudent($studentId, $sessionId, $coordinatorId, $conn);
+        $marked = processInOutAttendanceForStudent($studentId, $sessionId, $coordinatorId, $conn, 'biometric');
         logBiometricCapture(
             $conn,
             $sessionId,
@@ -580,29 +584,65 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
 
         $hasLogs = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
         $hasBio = $conn->query("SHOW TABLES LIKE 'biometric_capture_logs'");
-        if (!$hasLogs || $hasLogs->num_rows === 0 || !$hasBio || $hasBio->num_rows === 0) {
+        if (!$hasLogs || $hasLogs->num_rows === 0) {
             return $out;
         }
+        $bioOk = $hasBio && $hasBio->num_rows > 0;
+        $hasCreated = false;
+        $createdCol = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'created_at'");
+        if ($createdCol && $createdCol->num_rows > 0) {
+            $hasCreated = true;
+        }
+        $hasMethod = false;
+        $methodCol = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
+        if ($methodCol && $methodCol->num_rows > 0) {
+            $hasMethod = true;
+        }
+
+        $createdSelect = $hasCreated ? 'l.created_at' : 'l.scan_time AS created_at';
+        $deviceSelect = $bioOk
+            ? "(SELECT IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model)))
+                FROM biometric_capture_logs b
+                WHERE b.result IN ('ok', 'success')
+                  AND TRIM(b.student_id) = TRIM(l.student_id)
+                  AND (b.session_id = l.session_id OR b.session_id = 0)
+                ORDER BY b.id DESC LIMIT 1)"
+            : "''";
 
         $sql = "SELECT
                     l.student_id,
                     l.student_name,
                     l.scan_time,
-                    l.created_at,
+                    {$createdSelect},
                     l.scan_type,
                     s.course_name,
                     s.session_name,
                     s.subject,
-                    IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model))) AS device_id
+                    {$deviceSelect} AS device_id
                 FROM attendance_logs l
                 INNER JOIN attendance_sessions s ON s.id = l.session_id
-                INNER JOIN biometric_capture_logs b
-                    ON b.student_id = l.student_id
-                    AND b.session_id = l.session_id
-                    AND b.result = 'ok'
                 WHERE l.status = 'valid'
                   AND l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY)
                   AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY)";
+        $fingerprintWhere = [];
+        if ($hasMethod) {
+            $fingerprintWhere[] = "l.scan_method = 'biometric'";
+        }
+        if ($bioOk) {
+            $fingerprintWhere[] = "EXISTS (
+                SELECT 1 FROM biometric_capture_logs b2
+                WHERE b2.result IN ('ok', 'success')
+                  AND TRIM(b2.student_id) = TRIM(l.student_id)
+                  AND (b2.session_id = l.session_id
+                       OR ABS(TIMESTAMPDIFF(MINUTE, b2.created_at, l.scan_time)) <= 360)
+            )";
+            $fingerprintWhere[] = "l.session_id IN (
+                SELECT DISTINCT session_id FROM biometric_capture_logs WHERE result IN ('ok', 'success')
+            )";
+        }
+        if ($fingerprintWhere !== []) {
+            $sql .= ' AND (' . implode(' OR ', $fingerprintWhere) . ')';
+        }
         $types = 'ss';
         $params = [$start, $end];
         if ($courseId > 0) {
@@ -637,18 +677,27 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             if ($device !== '') {
                 $byStudent[$sid]['devices'][$device] = true;
             }
+            $scanRaw = (string) ($row['scan_time'] ?? '');
             try {
-                $ist = biometricPunchIstDateTime(
-                    (string) ($row['scan_time'] ?? ''),
-                    (string) ($row['created_at'] ?? '')
-                );
+                $ist = biometricPunchIstDateTime($scanRaw, (string) ($row['created_at'] ?? ''));
             } catch (Throwable $e) {
-                continue;
+                try {
+                    $ist = new DateTime(substr($scanRaw, 0, 19), biometricIstTimezone());
+                } catch (Throwable $e2) {
+                    continue;
+                }
             }
-            if ($ist->format('Y-m-d') < $start || $ist->format('Y-m-d') > $end) {
+            $istDay = $ist->format('Y-m-d');
+            $naiveDay = substr(trim($scanRaw), 0, 10);
+            $inMonth = ($istDay >= $start && $istDay <= $end)
+                || ($naiveDay >= $start && $naiveDay <= $end);
+            if (!$inMonth) {
                 continue;
             }
             $day = (int) $ist->format('j');
+            if ($naiveDay >= $start && $naiveDay <= $end && ($istDay < $start || $istDay > $end)) {
+                $day = (int) substr($naiveDay, 8, 2);
+            }
             if ($day < 1 || $day > $days) {
                 continue;
             }
@@ -666,6 +715,9 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $stmt->close();
 
         foreach ($byStudent as $row) {
+            if (empty($row['days'])) {
+                continue;
+            }
             $devices = array_keys($row['devices']);
             sort($devices);
             $row['device_id'] = $devices !== [] ? implode(', ', $devices) : '—';
