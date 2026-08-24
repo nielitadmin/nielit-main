@@ -174,9 +174,30 @@ if (!function_exists('studentKioskDeleteIp')) {
     }
 }
 
+if (!function_exists('studentKioskDigits')) {
+    function studentKioskDigits(string $value): string
+    {
+        return (string) preg_replace('/\D/', '', $value);
+    }
+}
+
+if (!function_exists('studentKioskStmtAssoc')) {
+    /** @return array<string,mixed>|null */
+    function studentKioskStmtAssoc(mysqli_stmt $stmt): ?array
+    {
+        $res = $stmt->get_result();
+        if (!($res instanceof mysqli_result)) {
+            return null;
+        }
+        $row = $res->fetch_assoc();
+        return $row ?: null;
+    }
+}
+
 if (!function_exists('studentKioskLookup')) {
     /**
      * Find a student by Student ID, Aadhaar number, or mobile number.
+     * Checks `students` then `student_accounts` (multi-course).
      * @return array{ok:bool,message:string,row?:array<string,mixed>}
      */
     function studentKioskLookup($conn, string $identifier): array
@@ -185,22 +206,72 @@ if (!function_exists('studentKioskLookup')) {
         if ($identifier === '') {
             return ['ok' => false, 'message' => 'Enter your Student ID, Aadhaar, or mobile number.'];
         }
-        $digits = preg_replace('/\D/', '', $identifier);
-        $sql = "SELECT student_id, name, email, aadhar, mobile, course_id, status
-                FROM students
-                WHERE student_id = ?
-                   OR REPLACE(REPLACE(aadhar, ' ', ''), '-', '') = ?
-                   OR REPLACE(REPLACE(mobile, ' ', ''), '-', '') = ?
-                ORDER BY id DESC
-                LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return ['ok' => false, 'message' => 'Database error.'];
+        $digits = studentKioskDigits($identifier);
+        $mobile10 = strlen($digits) >= 10 ? substr($digits, -10) : $digits;
+
+        try {
+            $row = null;
+            $sql = "SELECT student_id, name, email, aadhar, mobile, course_id, status
+                    FROM students
+                    WHERE LOWER(TRIM(student_id)) = LOWER(?)
+                       OR RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''), ' ', ''), '-', ''), '/', ''), 12) = ?
+                       OR RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(mobile,''), ' ', ''), '-', ''), '+', ''), 10) = ?
+                    ORDER BY id DESC
+                    LIMIT 1";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $aadhaarKey = strlen($digits) === 12 ? $digits : $digits;
+                $stmt->bind_param('sss', $identifier, $aadhaarKey, $mobile10);
+                $stmt->execute();
+                $row = studentKioskStmtAssoc($stmt);
+                $stmt->close();
+            }
+
+            $accCheck = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+            if (!$row && $accCheck && $accCheck->num_rows > 0) {
+                $sql = "SELECT student_id, name, email, aadhar, mobile, 'active' AS status
+                        FROM student_accounts
+                        WHERE LOWER(TRIM(student_id)) = LOWER(?)
+                           OR RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''), ' ', ''), '-', ''), '/', ''), 12) = ?
+                           OR RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(mobile,''), ' ', ''), '-', ''), '+', ''), 10) = ?
+                        ORDER BY id DESC
+                        LIMIT 1";
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $aadhaarKey = strlen($digits) === 12 ? $digits : $digits;
+                    $stmt->bind_param('sss', $identifier, $aadhaarKey, $mobile10);
+                    $stmt->execute();
+                    $acc = studentKioskStmtAssoc($stmt);
+                    $stmt->close();
+                    if ($acc) {
+                        $acc['course_id'] = 0;
+                        $row = $acc;
+                    }
+                }
+            }
+
+            if ($row && function_exists('getAccountByStudentId')) {
+                $account = getAccountByStudentId($conn, (string) ($row['student_id'] ?? ''));
+                if (is_array($account)) {
+                    if (trim((string) ($row['email'] ?? '')) === '' && !empty($account['email'])) {
+                        $row['email'] = $account['email'];
+                    }
+                    if (trim((string) ($row['mobile'] ?? '')) === '' && !empty($account['mobile'])) {
+                        $row['mobile'] = $account['mobile'];
+                    }
+                    if (trim((string) ($row['aadhar'] ?? '')) === '' && !empty($account['aadhar'])) {
+                        $row['aadhar'] = $account['aadhar'];
+                    }
+                    if (trim((string) ($row['name'] ?? '')) === '' && !empty($account['name'])) {
+                        $row['name'] = $account['name'];
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('studentKioskLookup: ' . $e->getMessage());
+            return ['ok' => false, 'message' => 'Could not look up that student. Try your Student ID.'];
         }
-        $stmt->bind_param('sss', $identifier, $digits, $digits);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+
         if (!$row) {
             return ['ok' => false, 'message' => 'No student found for that Student ID / Aadhaar / mobile.'];
         }
@@ -276,7 +347,7 @@ if (!function_exists('studentKioskFindEnrolledByAadhaarLast6')) {
         $candidates = [];
         while ($row = $res->fetch_assoc()) {
             $status = strtolower(trim((string) ($row['status'] ?? 'active')));
-            if ($status !== '' && $status !== 'active') {
+            if ($status !== '' && !in_array($status, ['active', 'approved'], true)) {
                 continue;
             }
             $sid = trim((string) ($row['student_id'] ?? ''));
@@ -354,14 +425,16 @@ if (!function_exists('studentKioskSendOtp')) {
 
         $logId = false;
         if (function_exists('logOTP')) {
-            $logId = logOTP($email, $otp, 'Student Fingerprint Kiosk', $studentId, 'queued');
+            $logId = logOTP($email, $otp, 'Student Fingerprint Kiosk', $studentId, 'sent');
         }
 
         $sent = ['ok' => false, 'error' => 'Mailer unavailable.'];
         if (function_exists('sendPhpMailerWithSmtpFallback')) {
             $sent = sendPhpMailerWithSmtpFallback(static function ($mail) use ($email, $otp) {
-                $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
-                $mail->addReplyTo(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+                $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreplay@nielitbhubaneswar.in';
+                $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+                $mail->setFrom($fromEmail, $fromName);
+                $mail->addReplyTo($fromEmail, $fromName);
                 $mail->addAddress($email);
                 $mail->isHTML(true);
                 $mail->Subject = 'Your OTP for Fingerprint Registration - NIELIT Bhubaneswar';
@@ -385,7 +458,11 @@ if (!function_exists('studentKioskSendOtp')) {
         if ($ok) {
             return ['success' => true, 'message' => 'OTP sent.', 'masked' => studentKioskMaskEmail($email)];
         }
-        return ['success' => false, 'message' => 'Could not send OTP email. Try again or contact the office.'];
+        $detail = trim((string) ($sent['error'] ?? ''));
+        if ($detail !== '') {
+            $detail = ' (' . substr(preg_replace('/\s+/', ' ', $detail), 0, 180) . ')';
+        }
+        return ['success' => false, 'message' => 'Could not send OTP email. Try again or contact the office.' . $detail];
     }
 }
 

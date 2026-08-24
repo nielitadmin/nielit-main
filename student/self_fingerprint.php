@@ -19,6 +19,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/otp_logger.php';
 require_once __DIR__ . '/../includes/phpmailer_smtp.php';
 require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
+require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 require_once __DIR__ . '/../includes/mantra_mfs100_helper.php';
 require_once __DIR__ . '/../includes/student_kiosk_helper.php';
@@ -58,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 biometricKioskJsonExit(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
             }
             $status = strtolower(trim((string) ($found['row']['status'] ?? 'active')));
-            if ($status !== '' && $status !== 'active') {
+            if ($status !== '' && !in_array($status, ['active', 'approved'], true)) {
                 biometricKioskJsonExit(['success' => false, 'message' => 'This student account is not active.']);
             }
             $sid = (string) ($found['row']['student_id'] ?? '');
@@ -70,9 +71,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
             $sent = studentKioskSendOtp($conn, $found['row']);
+            if (empty($sent['success'])) {
+                biometricKioskJsonExit(['success' => false, 'message' => (string) ($sent['message'] ?? 'Could not send OTP email.')]);
+            }
             biometricKioskJsonExit([
-                'success' => $sent['success'],
-                'message' => $sent['success'] ? ('OTP sent to ' . ($sent['masked'] ?? 'your email') . '. Check inbox and spam.') : $sent['message'],
+                'success' => true,
+                'message' => 'OTP sent to ' . ($sent['masked'] ?? 'your email') . '. Check inbox and spam.',
             ]);
         }
 
@@ -221,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         biometricKioskJsonExit(['success' => false, 'message' => 'Unknown action.']);
     } catch (Throwable $e) {
         error_log('student self_fingerprint: ' . $e->getMessage());
-        biometricKioskJsonExit(['success' => false, 'message' => 'Something went wrong. Try again.']);
+        biometricKioskJsonExit(['success' => false, 'message' => 'Could not complete that step: ' . $e->getMessage()]);
     }
 }
 
@@ -372,7 +376,16 @@ $bgSlides = studentKioskBackgroundSlides();
         const fd = new FormData();
         fd.append('csrf_token', csrf);
         Object.keys(data).forEach(function (k) { if (data[k] != null) fd.append(k, data[k]); });
-        return fetch(window.location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); });
+        return fetch(window.location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' })
+            .then(function (r) {
+                return r.text().then(function (text) {
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(text ? text.replace(/<[^>]+>/g, ' ').trim().slice(0, 180) : ('Server error (' + r.status + ')'));
+                    }
+                });
+            });
     }
     function fillDetails(d) {
         const box = el('whoDetails');
@@ -435,7 +448,7 @@ $bgSlides = studentKioskBackgroundSlides();
             }
             if (d.success) { msg('msg1', '', true); show('step2'); el('otp').focus(); msg('msg2', d.message, true); }
             else { msg('msg1', d.message || 'Could not send OTP.', false); }
-        }).catch(function () { b.disabled = false; msg('msg1', 'Network error.', false); });
+        }).catch(function (err) { b.disabled = false; msg('msg1', (err && err.message) ? err.message : 'Network error.', false); });
     });
 
     el('btnVerify').addEventListener('click', function () {
