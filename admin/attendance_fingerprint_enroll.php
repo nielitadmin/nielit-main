@@ -138,7 +138,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $active_theme = loadActiveTheme($conn);
-$jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/secugen_webapi.js?v=' . (@filemtime(__DIR__ . '/../assets/js/secugen_webapi.js') ?: time());
+$jsBase = (defined('APP_URL') ? rtrim(APP_URL, '/') : '');
+$jsPath = $jsBase . '/assets/js/secugen_webapi.js?v=' . (@filemtime(__DIR__ . '/../assets/js/secugen_webapi.js') ?: time());
+$mantraJsPath = $jsBase . '/assets/js/mantra_mfs100.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_mfs100.js') ?: time());
+$unifiedJsPath = $jsBase . '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/js/biometric_device.js') ?: time());
 $sgLic = defined('SECUGEN_WEBAPI_LICSTR') ? (string) SECUGEN_WEBAPI_LICSTR : '';
 $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOLD : 100;
 ?>
@@ -170,17 +173,24 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric')); ?>">Fingerprint Attendance</a>
         </div>
 
-        <div id="mfsBanner" class="bio-banner wait">Checking SecuGen WebAPI on this PC…</div>
+        <div id="mfsBanner" class="bio-banner wait">Checking for a fingerprint reader on this PC…</div>
 
         <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">Scanner PC setup (SecuGen Hamster Pro 20)</h5></div>
+            <div class="card-header"><h5 class="mb-0">Scanner PC setup (SecuGen Hamster Pro 20 or Mantra MFS100/MFS110)</h5></div>
             <div class="card-body">
-                <ol class="mb-0">
-                    <li>Plug the <strong>SecuGen Hamster Pro 20</strong> into a direct USB port and install the SecuGen driver.</li>
-                    <li>Install and start the <strong>SecuGen WebAPI</strong> service (<code>SGIBIOSRV</code>) on this PC.</li>
+                <p class="mb-2">This page auto-detects whichever reader service is running on the PC. Set up <strong>one</strong> of the following:</p>
+                <p class="mb-1"><strong>SecuGen Hamster Pro 20</strong></p>
+                <ol class="mb-2">
+                    <li>Plug the reader into a direct USB port and install the SecuGen driver.</li>
+                    <li>Install and start the <strong>SecuGen WebAPI</strong> service (<code>SGIBIOSRV</code>).</li>
                     <li>Open <a href="https://localhost:8443/SGIFPCapture" target="_blank" rel="noopener">https://localhost:8443/SGIFPCapture</a> once and accept the certificate if the browser warns.</li>
-                    <li>Find the student, confirm the photo, capture the same finger twice.</li>
                 </ol>
+                <p class="mb-1"><strong>Mantra MFS100 / MFS110</strong></p>
+                <ol class="mb-2">
+                    <li>Plug the reader into a direct USB port and install the Mantra driver.</li>
+                    <li>Install and start the <strong>Mantra MFS110/MFS100 Client Service</strong> (the local service on ports 8003/8004 — <em>not</em> only the RD Service, which is Aadhaar-only and cannot do local 1:1 matching).</li>
+                </ol>
+                <p class="mb-0">Then find the student, confirm the photo, and capture the same finger twice.</p>
             </div>
         </div>
 
@@ -216,6 +226,8 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo htmlspecialchars($jsPath); ?>"></script>
+<script src="<?php echo htmlspecialchars($mantraJsPath); ?>"></script>
+<script src="<?php echo htmlspecialchars($unifiedJsPath); ?>"></script>
 <script>
 (function () {
     const csrf = <?php echo json_encode($csrf); ?>;
@@ -246,22 +258,22 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
         });
     }
 
-    if (!window.SecuGenWebApi) {
+    if (!window.BiometricDevice) {
         banner('bad', 'Fingerprint script failed to load.');
     } else {
-        window.SecuGenWebApi.discover().then(function (found) {
+        window.BiometricDevice.discover().then(function (found) {
             if (found && found.base) {
                 mfsBase = found.base;
-                banner('ok', '<strong>SecuGen WebAPI is running</strong> (' + found.base + '). Find a student and enrol their finger.');
+                banner('ok', '<strong>' + found.label + ' is running</strong> (' + found.base + '). Find a student and enrol their finger.');
                 const btn = document.getElementById('btnCapture');
                 if (foundStudent && btn) {
                     btn.disabled = false;
                 }
                 return;
             }
-            banner('bad', '<strong>SecuGen WebAPI is not listening.</strong> Start the SGIBIOSRV service on this PC, plug in the Hamster Pro 20, then refresh.');
+            banner('bad', '<strong>No fingerprint reader detected.</strong> Start the SecuGen WebAPI (SGIBIOSRV) or Mantra MFS110 Client Service on this PC, plug in the reader, then refresh.');
         }).catch(function () {
-            banner('bad', 'Could not check SecuGen WebAPI. Start SGIBIOSRV on this computer, then refresh.');
+            banner('bad', 'Could not check the reader. Start the SecuGen WebAPI or Mantra Client Service on this computer, then refresh.');
         });
     }
 
@@ -301,12 +313,12 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             return;
         }
         if (!mfsBase) {
-            msg('SecuGen WebAPI is not running on this PC.', false);
+            msg('No fingerprint reader is running on this PC.', false);
             return;
         }
         const btn = document.getElementById('btnCapture');
         btn.disabled = true;
-        msg('Place the finger on the SecuGen reader…', true);
+        msg('Place the finger on the reader…', true);
         const after = function (data) {
             if (data.success && data.saved) {
                 msg(data.message, true);
@@ -318,14 +330,14 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             msg(data.message || 'Enrolment failed', false);
             btn.disabled = false;
         };
-        window.SecuGenWebApi.capture(mfsBase).then(function (cap) {
+        window.BiometricDevice.capture(mfsBase).then(function (cap) {
             if (!firstIso) {
                 firstIso = cap.iso;
                 msg('First capture saved. Lift the finger, then capture again to confirm.', true);
                 btn.disabled = false;
                 return;
             }
-            return window.SecuGenWebApi.match(mfsBase, cap.iso, firstIso).then(function (m) {
+            return window.BiometricDevice.match(mfsBase, cap.iso, firstIso).then(function (m) {
                 if (!m.matched) {
                     firstIso = '';
                     throw new Error('The two captures did not match (score ' + m.score + '). Start again with the same finger.');
