@@ -41,6 +41,42 @@ if (!function_exists('studentKioskClientIp')) {
     }
 }
 
+if (!function_exists('studentKioskBackgroundSlides')) {
+    /**
+     * Full-screen kiosk backgrounds: generated kiosk art first, then campus banners.
+     * @return array<int,array{url:string,alt:string}>
+     */
+    function studentKioskBackgroundSlides(): array
+    {
+        $root = dirname(__DIR__);
+        $groups = [
+            ['dir' => $root . '/assets/images/kiosk', 'alt' => 'NIELIT fingerprint kiosk'],
+            ['dir' => $root . '/assets/images/banners', 'alt' => 'NIELIT Bhubaneswar campus'],
+        ];
+        $slides = [];
+        $exts = ['jpg', 'jpeg', 'png', 'webp'];
+        foreach ($groups as $group) {
+            if (!is_dir($group['dir'])) {
+                continue;
+            }
+            $files = [];
+            foreach ($exts as $ext) {
+                $found = glob($group['dir'] . DIRECTORY_SEPARATOR . '*.' . $ext);
+                if (is_array($found)) {
+                    $files = array_merge($files, $found);
+                }
+            }
+            natsort($files);
+            foreach ($files as $file) {
+                $rel = str_replace('\\', '/', substr((string) $file, strlen($root) + 1));
+                $url = function_exists('app_url') ? app_url($rel) : ('../' . $rel);
+                $slides[] = ['url' => $url, 'alt' => $group['alt']];
+            }
+        }
+        return $slides;
+    }
+}
+
 if (!function_exists('studentKioskListIps')) {
     /** @return array<int,array<string,mixed>> */
     function studentKioskListIps($conn): array

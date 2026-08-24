@@ -232,6 +232,9 @@ $vsecu = '/assets/js/secugen_webapi.js?v=' . (@filemtime(__DIR__ . '/../assets/j
 $vmantra = '/assets/js/mantra_mfs100.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_mfs100.js') ?: time());
 $vrd = '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
 $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/js/biometric_device.js') ?: time());
+$cssKiosk = '/assets/css/student-kiosk.css?v=' . (@filemtime(__DIR__ . '/../assets/css/student-kiosk.css') ?: time());
+$logoUrl = app_url('assets/images/bhubaneswar_logo.png');
+$bgSlides = studentKioskBackgroundSlides();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -239,49 +242,45 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fingerprint Self-Service - NIELIT Bhubaneswar</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { background: #f1f5f9; }
-        .kiosk-shell { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
-        .kiosk-card { border: none; border-radius: 16px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
-        .brand { text-align:center; margin-bottom: 18px; }
-        .brand h1 { font-size: 1.35rem; font-weight: 800; color:#0a1628; margin:0; }
-        .brand p { color:#64748b; margin:2px 0 0; }
-        .bio-banner { border-radius: 10px; padding: 0.8rem 1rem; margin-bottom: 1rem; font-size:.95rem; }
-        .bio-banner.ok { background:#d1fae5; color:#065f46; }
-        .bio-banner.wait { background:#fef3c7; color:#92400e; }
-        .bio-banner.bad { background:#fee2e2; color:#991b1b; }
-        .step { display:none; }
-        .step.active { display:block; }
-        .big-btn { padding: 0.9rem; font-size: 1.05rem; border-radius: 12px; }
-        .fp-icon { font-size: 3rem; color:#0d9488; }
-        .muted-ip { font-family: Consolas, Monaco, monospace; }
-        .mode-tabs { display:flex; gap:8px; margin-bottom: 1rem; }
-        .mode-tabs button { flex:1; border-radius: 12px; padding: 0.7rem 0.5rem; font-weight: 600; border: 1px solid #cbd5e1; background:#fff; color:#334155; }
-        .mode-tabs button.active { background:#0a1628; color:#fff; border-color:#0a1628; }
-        .details-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; text-align:left; }
-        .details-card dt { font-size:.75rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-top:6px; }
-        .details-card dd { margin:0; font-weight:600; color:#0f172a; }
-    </style>
+    <link rel="stylesheet" href="<?php echo htmlspecialchars($jsBase . $cssKiosk); ?>">
+    <link rel="icon" href="<?php echo htmlspecialchars(app_url('assets/images/favicon.ico')); ?>" type="image/x-icon">
 </head>
-<body>
+<body class="kiosk-page">
+<div class="kiosk-bg" aria-hidden="true">
+    <?php if (!empty($bgSlides)): ?>
+        <?php foreach ($bgSlides as $i => $slide): ?>
+            <div class="kiosk-slide<?php echo $i === 0 ? ' active' : ''; ?>">
+                <img src="<?php echo htmlspecialchars((string) $slide['url']); ?>" alt="<?php echo htmlspecialchars((string) $slide['alt']); ?>" <?php echo $i === 0 ? 'fetchpriority="high"' : 'loading="lazy" decoding="async"'; ?>>
+            </div>
+        <?php endforeach; ?>
+    <?php endif; ?>
+    <div class="kiosk-vignette"></div>
+</div>
 <div class="kiosk-shell">
-    <div class="brand">
-        <h1><i class="fas fa-fingerprint text-teal"></i> NIELIT Bhubaneswar</h1>
-        <p>Student Fingerprint Registration &amp; Attendance</p>
-    </div>
+    <header class="kiosk-brand">
+        <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT Bhubaneswar">
+        <div>
+            <h1>NIELIT Bhubaneswar</h1>
+            <p>Fingerprint registration &amp; attendance</p>
+        </div>
+    </header>
 
     <?php if (!$ipAllowed): ?>
         <div class="card kiosk-card">
             <div class="card-body text-center p-4">
-                <div class="fp-icon mb-2"><i class="fas fa-ban text-danger"></i></div>
+                <div class="blocked-icon mb-2"><i class="fas fa-ban"></i></div>
                 <h4 class="mb-2">This device is not authorised</h4>
                 <p class="text-muted mb-2">Fingerprint self-service is only available from the institute's approved computer/network.</p>
                 <p class="small text-muted mb-0">Your IP: <span class="muted-ip"><?php echo htmlspecialchars($clientIp !== '' ? $clientIp : 'unknown'); ?></span></p>
                 <p class="small text-muted">Ask the master admin to allow this IP under <em>Admin → Student Fingerprint Kiosk</em>.</p>
             </div>
         </div>
+        <p class="kiosk-foot">This PC · IP <span class="muted-ip"><?php echo htmlspecialchars($clientIp !== '' ? $clientIp : 'unknown'); ?></span></p>
     <?php else: ?>
         <div class="card kiosk-card">
             <div class="card-body p-4">
@@ -296,7 +295,7 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
                 <div class="step active" id="stepAttend">
                     <label class="form-label fw-semibold">Last 6 digits of your Aadhaar</label>
                     <input class="form-control form-control-lg mb-3" id="aadhaarLast6" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="______">
-                    <button class="btn btn-success big-btn w-100 mb-2" id="btnAttend"><i class="fas fa-fingerprint"></i> Capture fingerprint for IN / OUT</button>
+                    <button class="btn btn-attend big-btn w-100 mb-2" id="btnAttend"><i class="fas fa-fingerprint"></i> Capture fingerprint for IN / OUT</button>
                     <div id="msgAttend" class="small mt-2"></div>
                 </div>
 
@@ -304,7 +303,7 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
                 <div class="step" id="step1">
                     <label class="form-label fw-semibold">Enter your Student ID, Aadhaar, or mobile number</label>
                     <input class="form-control form-control-lg mb-3" id="identifier" autocomplete="off" placeholder="Student ID / Aadhaar / Mobile">
-                    <button class="btn btn-primary big-btn w-100" id="btnOtp"><i class="fas fa-paper-plane"></i> Send OTP to my email</button>
+                    <button class="btn btn-otp big-btn w-100" id="btnOtp"><i class="fas fa-paper-plane"></i> Send OTP to my email</button>
                     <div id="msg1" class="small mt-2"></div>
                 </div>
 
@@ -312,7 +311,7 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
                 <div class="step" id="step2">
                     <label class="form-label fw-semibold">Enter the 6-digit OTP sent to your email</label>
                     <input class="form-control form-control-lg mb-3" id="otp" inputmode="numeric" maxlength="6" placeholder="______">
-                    <button class="btn btn-primary big-btn w-100 mb-2" id="btnVerify"><i class="fas fa-check"></i> Verify OTP</button>
+                    <button class="btn btn-otp big-btn w-100 mb-2" id="btnVerify"><i class="fas fa-check"></i> Verify OTP</button>
                     <button class="btn btn-link w-100" id="btnResend">Resend / change ID</button>
                     <div id="msg2" class="small mt-2"></div>
                 </div>
@@ -325,13 +324,13 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
                         <dl class="details-card mb-3" id="whoDetails"></dl>
                         <div class="small text-muted" id="whoState">Capture the same thumb twice to register.</div>
                     </div>
-                    <button class="btn btn-success big-btn w-100 mb-2" id="btnCapture"><i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)</button>
+                    <button class="btn btn-attend big-btn w-100 mb-2" id="btnCapture"><i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)</button>
                     <button class="btn btn-link w-100" id="btnDone">Start again</button>
                     <div id="msg3" class="small mt-2"></div>
                 </div>
             </div>
         </div>
-        <p class="text-center small text-muted mt-3">Approved device · IP <span class="muted-ip"><?php echo htmlspecialchars($clientIp); ?></span></p>
+        <p class="kiosk-foot">Approved device · IP <span class="muted-ip"><?php echo htmlspecialchars($clientIp); ?></span></p>
     <?php endif; ?>
 </div>
 
@@ -564,6 +563,18 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
 })();
 </script>
 <?php endif; ?>
+<script>
+(function () {
+    var slides = document.querySelectorAll('.kiosk-slide');
+    if (slides.length < 2) { return; }
+    var i = 0;
+    setInterval(function () {
+        slides[i].classList.remove('active');
+        i = (i + 1) % slides.length;
+        slides[i].classList.add('active');
+    }, 8000);
+})();
+</script>
 </body>
 </html>
 <?php $conn->close(); ?>
