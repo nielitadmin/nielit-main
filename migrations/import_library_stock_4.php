@@ -10,11 +10,12 @@
  *   php import_library_stock_4.php verify  [CENTRE_ID]
  *   php import_library_stock_4.php rollback [CENTRE_ID]
  *
- * Usage (browser):
- *   /migrations/import_library_stock_4.php?action=install&centre_id=1
+ * Usage (Admin panel -> DB Migrations -> Run):
+ *   The panel cannot pass a centre id, so set $FORCE_CENTRE_ID below first
+ *   (unless there is exactly one active centre, which is auto-selected).
  *
  * Centre resolution order:
- *   1) CENTRE_ID passed as argument / ?centre_id=
+ *   1) CENTRE_ID passed as CLI argument
  *   2) $FORCE_CENTRE_ID variable below (set it if you want to hard-code)
  *   3) If exactly one active centre exists, that one is used automatically
  *   4) Otherwise the script lists active centres and stops so you can pick one.
@@ -26,18 +27,19 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/library_helper.php';
 
-// Optional: hard-code a centre id here instead of passing it each time.
-$FORCE_CENTRE_ID = 0;
+// Centre these books belong to: NIELIT Bhubaneswar (id=1, BBSR).
+$FORCE_CENTRE_ID = 1;
 
 const IMPORT_TAG = 'migration:library_stock_4';
-
-if (!isset($conn) || !($conn instanceof mysqli)) {
-    die("Database connection is not available.\n");
-}
 
 function out($m) {
     if (php_sapi_name() === 'cli') { echo $m . PHP_EOL; }
     else { echo htmlspecialchars($m) . "<br>\n"; }
+}
+
+if (!isset($conn) || !($conn instanceof mysqli)) {
+    out('Database connection is not available.');
+    return;
 }
 
 function resolveCentreId(mysqli $conn, int $forced): int
@@ -443,12 +445,19 @@ if (php_sapi_name() === 'cli') {
     $action = $argv[1] ?? 'install';
     $argCentre = (int) ($argv[2] ?? 0);
 } else {
-    $action = $_GET['action'] ?? 'install';
+    // When launched from the admin Migrations panel the command arrives via a
+    // global set by the runner (there are no query-string args in that flow).
+    $action = $GLOBALS['migration_web_command'] ?? ($_GET['action'] ?? 'install');
     $argCentre = (int) ($_GET['centre_id'] ?? 0);
 }
 
 $centreId = resolveCentreId($conn, $argCentre > 0 ? $argCentre : $FORCE_CENTRE_ID);
-if ($centreId <= 0) { exit; }
+// IMPORTANT: never call exit/die here. The admin runner include()s this file and
+// emits a JSON envelope on shutdown; exiting mid-way corrupts that JSON response.
+// Returning stops the script cleanly and lets the runner report our output.
+if ($centreId <= 0) {
+    return;
+}
 
 switch ($action) {
     case 'verify':   doVerify($conn, $centreId); break;
