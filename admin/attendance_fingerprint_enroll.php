@@ -141,6 +141,7 @@ $active_theme = loadActiveTheme($conn);
 $jsBase = (defined('APP_URL') ? rtrim(APP_URL, '/') : '');
 $jsPath = $jsBase . '/assets/js/secugen_webapi.js?v=' . (@filemtime(__DIR__ . '/../assets/js/secugen_webapi.js') ?: time());
 $mantraJsPath = $jsBase . '/assets/js/mantra_mfs100.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_mfs100.js') ?: time());
+$mantraRdJsPath = $jsBase . '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
 $unifiedJsPath = $jsBase . '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/js/biometric_device.js') ?: time());
 $sgLic = defined('SECUGEN_WEBAPI_LICSTR') ? (string) SECUGEN_WEBAPI_LICSTR : '';
 $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOLD : 100;
@@ -227,6 +228,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo htmlspecialchars($jsPath); ?>"></script>
 <script src="<?php echo htmlspecialchars($mantraJsPath); ?>"></script>
+<script src="<?php echo htmlspecialchars($mantraRdJsPath); ?>"></script>
 <script src="<?php echo htmlspecialchars($unifiedJsPath); ?>"></script>
 <script>
 (function () {
@@ -269,6 +271,10 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                 if (foundStudent && btn) {
                     btn.disabled = false;
                 }
+                return;
+            }
+            if (found && found.rdOnly) {
+                banner('bad', '<strong>Only the Mantra RD Service is running.</strong> The RD Service is for Aadhaar and cannot do 1:1 matching. Install and start the <strong>Mantra MFS110/MFS100 Client Service</strong> (ports 8003/8004), then refresh.');
                 return;
             }
             banner('bad', '<strong>No fingerprint reader detected.</strong> Start the SecuGen WebAPI (SGIBIOSRV) or Mantra MFS110 Client Service on this PC, plug in the reader, then refresh.');

@@ -654,6 +654,10 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                 banner('ok', '<strong>' + found.label + ' is running</strong> (' + found.base + '). Enrol students first, then start a session.');
                 return;
             }
+            if (found && found.rdOnly) {
+                banner('bad', '<strong>Only the Mantra RD Service is running.</strong> The RD Service is for Aadhaar and cannot do 1:1 matching. Install and start the <strong>Mantra MFS110/MFS100 Client Service</strong> (ports 8003/8004), then refresh.');
+                return;
+            }
             banner('bad', '<strong>No fingerprint reader detected on this PC.</strong> Start the SecuGen WebAPI (SGIBIOSRV) or Mantra MFS110 Client Service, plug in the reader, then refresh. Students must be enrolled before attendance.');
         }).catch(function () {
             banner('bad', 'Could not check the reader. Start the SecuGen WebAPI or Mantra Client Service on this computer, then refresh.');

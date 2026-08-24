@@ -46,15 +46,29 @@
             });
         });
         return seq.then(function (found) {
-            if (!found) {
-                state = { api: null, base: '', provider: '', label: '' };
-                return null;
+            if (found) {
+                state.api = found.api;
+                state.base = found.base;
+                state.provider = found.provider;
+                state.label = found.label;
+                return { base: found.base, provider: found.provider, label: found.label };
             }
-            state.api = found.api;
-            state.base = found.base;
-            state.provider = found.provider;
-            state.label = found.label;
-            return { base: found.base, provider: found.provider, label: found.label };
+            state = { api: null, base: '', provider: '', label: '' };
+            // No matching-capable reader. If the Mantra *RD Service* is running
+            // (Aadhaar-only, ports 11100-11120), report it distinctly so the page
+            // can tell the user to install the MFS110 Client Service instead — the
+            // RD Service cannot return a template for local 1:1 matching.
+            if (global.MantraRd && typeof global.MantraRd.discover === 'function') {
+                return global.MantraRd.discover().then(function (rd) {
+                    if (rd && rd.origin) {
+                        return { rdOnly: true, provider: 'mantra_rd', label: 'Mantra RD Service' };
+                    }
+                    return null;
+                }).catch(function () {
+                    return null;
+                });
+            }
+            return null;
         });
     }
 

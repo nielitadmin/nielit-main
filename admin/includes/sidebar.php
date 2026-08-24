@@ -198,6 +198,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_student_kiosk'); ?>" class="nav-link <?php echo ($current_page === 'manage_student_kiosk.php') ? 'active' : ''; ?>">
+                <i class="fas fa-fingerprint"></i> Student Fingerprint Kiosk
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_activity'); ?>" class="nav-link <?php echo ($current_page === 'manage_activity.php') ? 'active' : ''; ?>">
                 <i class="fas fa-stream"></i> Activity Log
             </a>
