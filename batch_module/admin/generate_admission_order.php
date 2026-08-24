@@ -1245,6 +1245,12 @@ function resendFacultyEmail(facultyId, facultyName) {
         page-break-inside: avoid;
         break-inside: avoid;
     }
+
+    .ao-sig-pad {
+        height: 22mm !important;
+        min-height: 22mm !important;
+        display: block !important;
+    }
     
     th {
         background: #f0f0f0 !important;

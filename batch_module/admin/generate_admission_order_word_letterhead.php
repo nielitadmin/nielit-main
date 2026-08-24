@@ -510,6 +510,12 @@ header('Cache-Control: max-age=0');
         .signature-section p { 
             margin: 2px 0; 
         }
+
+        .signature-pad {
+            height: 22mm;
+            min-height: 22mm;
+            margin: 4px 0 10px 0;
+        }
         
         /* Copy To Section */
         .copy-to-section { 
@@ -693,6 +699,7 @@ header('Cache-Control: max-age=0');
 <!-- Signature Section -->
 <div class="signature-section">
     <p><strong>Signature</strong></p>
+    <div class="signature-pad">&nbsp;</div>
     <p><?php echo date('d-m-Y', strtotime($order_date)); ?></p>
     <p><strong><?php 
         $signature_name = htmlspecialchars($scheme_incharge);

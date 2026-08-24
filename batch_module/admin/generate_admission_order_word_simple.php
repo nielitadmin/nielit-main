@@ -188,6 +188,7 @@ header('Cache-Control: max-age=0');
         .category-table th, .category-table td { border: 1px solid black; padding: 3px; text-align: center; }
         .category-table th { background-color: #f0f0f0; }
         .signature { text-align: right; margin-top: 30px; }
+        .signature-pad { height: 22mm; min-height: 22mm; margin: 4px 0 10px 0; }
         .copy-to { margin-top: 20px; }
     </style>
 </head>
@@ -325,6 +326,7 @@ header('Cache-Control: max-age=0');
 <!-- Signature -->
 <div class="signature">
     <p><strong>Signature</strong></p>
+    <div class="signature-pad">&nbsp;</div>
     <p><?php echo date('d-m-Y', strtotime($order_date)); ?></p>
     <p><strong><?php echo htmlspecialchars($scheme_incharge); ?></strong></p>
     <p><strong>
