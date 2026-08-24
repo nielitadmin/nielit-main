@@ -275,7 +275,7 @@ function downloadPDF() {
     showToast('Generating PDF...', 'info');
 
     const opt = {
-        margin: [12, 10, 16, 10],
+        margin: [7, 8, 7, 8],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
@@ -381,7 +381,7 @@ function printOrder() {
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm 10mm 16mm 10mm;
+            margin: 7mm 8mm 7mm 8mm;
         }
         
         @media print {
@@ -428,12 +428,12 @@ function printOrder() {
             .ao-footer-signature {
                 page-break-inside: avoid;
                 break-inside: avoid;
-                margin-top: 8mm;
+                margin-top: 4mm;
             }
 
             .ao-sig-pad {
-                height: 18mm !important;
-                min-height: 18mm !important;
+                height: 12mm !important;
+                min-height: 12mm !important;
                 display: block !important;
             }
         }
@@ -1252,7 +1252,7 @@ function resendFacultyEmail(facultyId, facultyName) {
 
     @page {
         size: A4 portrait;
-        margin: 12mm 10mm 16mm 10mm;
+        margin: 7mm 8mm 7mm 8mm;
     }
     
     body {
@@ -1319,8 +1319,8 @@ function resendFacultyEmail(facultyId, facultyName) {
     }
 
     .ao-sig-pad {
-        height: 18mm !important;
-        min-height: 18mm !important;
+        height: 12mm !important;
+        min-height: 12mm !important;
         display: block !important;
         margin-bottom: 4px !important;
     }

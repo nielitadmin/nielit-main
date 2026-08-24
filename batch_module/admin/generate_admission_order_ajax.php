@@ -511,8 +511,8 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-footer-signature .ao-sig-name { font-weight: 600; }
     .ao-sig-block { display: inline-block; text-align: right; }
     .ao-sig-pad {
-        height: 18mm;
-        min-height: 18mm;
+        height: 12mm;
+        min-height: 12mm;
         margin: 0 0 4px 0;
     }
     .ao-copy-list { margin: 2px 0 0 14px; padding: 0; font-size: 6.5pt; }
