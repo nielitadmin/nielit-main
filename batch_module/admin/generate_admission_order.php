@@ -274,7 +274,16 @@ function downloadPDF() {
 
     showToast('Generating PDF...', 'info');
 
-    const opt = {
+    html2pdf().set(getAoPdfOptions()).from(element).save().then(function() {
+        showToast('PDF downloaded successfully!', 'success');
+    }).catch(function(error) {
+        showToast('Error generating PDF: ' + error.message, 'error');
+    });
+}
+
+// Shared html2pdf settings so Print and Download produce identical output.
+function getAoPdfOptions() {
+    return {
         margin: [7, 8, 7, 8],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
@@ -342,15 +351,37 @@ function downloadPDF() {
             avoid: ['.ao-footer-signature', 'img']
         }
     };
+}
 
-    html2pdf().set(opt).from(element).save().then(function() {
-        showToast('PDF downloaded successfully!', 'success');
+// Print uses the exact same PDF pipeline as Download, then sends that PDF to the printer.
+function printOrder() {
+    <?php if ($lock_restricted): ?>
+        showToast('Cannot print: Batch is locked', 'error');
+        return;
+    <?php endif; ?>
+
+    const element = document.getElementById('printable-content');
+    if (!element) {
+        showToast('Error: Content not found', 'error');
+        return;
+    }
+
+    showToast('Preparing print...', 'info');
+
+    html2pdf().set(getAoPdfOptions()).from(element).toPdf().get('pdf').then(function(pdf) {
+        pdf.autoPrint();
+        const blobUrl = pdf.output('bloburl');
+        const printWindow = window.open(blobUrl, '_blank');
+        if (!printWindow) {
+            showToast('Please allow pop-ups so the print dialog can open.', 'error');
+        }
     }).catch(function(error) {
-        showToast('Error generating PDF: ' + error.message, 'error');
+        showToast('Error preparing print: ' + error.message, 'error');
     });
 }
 
-function printOrder() {
+// Legacy window-based print (kept as a fallback; not wired to any button).
+function printOrderLegacyWindow() {
     <?php if ($lock_restricted): ?>
         showToast('Cannot print: Batch is locked', 'error');
         return;
