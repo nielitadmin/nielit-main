@@ -424,10 +424,17 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         left: 0;
         transform: none;
     }
-    .ao-header-block { width: 100%; border-collapse: collapse; margin: 0 0 10px 0; }
+    .ao-header-block { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 10px 0; }
     .ao-header-block td { border: none; vertical-align: middle; }
-    .ao-header-logo { width: 58px; padding-right: 10px; }
-    .ao-header-logo img { height: 40px; width: auto; display: block; }
+    .ao-header-logo { width: 42mm; min-width: 38mm; max-width: 45mm; padding-right: 8px; }
+    .ao-header-logo img {
+        height: 16mm;
+        width: auto;
+        max-width: 42mm;
+        max-height: 18mm;
+        object-fit: contain;
+        display: block;
+    }
     .ao-header-text { text-align: center; padding: 2px 0; }
     .ao-header-text .ao-hindi { margin: 0 0 5px 0; font-size: 9.5pt; font-weight: 700; line-height: 1.35; }
     .ao-header-text .ao-institute { margin: 0 0 4px 0; font-size: 9pt; font-weight: 600; line-height: 1.35; }
@@ -489,14 +496,14 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         page-break-after: auto;
     }
     .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-reg { width: 13%; font-size: 7px; word-break: break-all; line-height: 1.25; }
-    .ao-students-table .ao-name { width: 23%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-father { width: 21%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-mobile { width: 8%; text-align: center; font-size: 6.5px; }
-    .ao-students-table .ao-aadhaar { width: 10%; text-align: center; font-size: 6px; word-break: break-all; }
+    .ao-students-table .ao-reg { width: 12%; font-size: 7px; word-break: break-word; overflow-wrap: anywhere; line-height: 1.25; }
+    .ao-students-table .ao-name { width: 20%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-father { width: 18%; font-size: 7.5px; text-align: left; }
+    .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
+    .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-word; overflow-wrap: anywhere; }
     .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-cat { width: 7%; text-align: center; font-size: 6.5px; white-space: nowrap; }
-    .ao-students-table .ao-remark { width: 10%; font-size: 6px; text-align: center; word-break: break-all; }
+    .ao-students-table .ao-cat { width: 6%; text-align: center; font-size: 6.5px; }
+    .ao-students-table .ao-remark { width: 16%; font-size: 6px; text-align: left; word-break: break-word; overflow-wrap: anywhere; }
     .ao-keep-together { page-break-inside: avoid; break-inside: avoid; }
     .ao-footer-block { margin-top: 8px; font-size: 7pt; line-height: 1.3; }
     .ao-footer-signature { margin-top: 10px; font-size: 7pt; line-height: 1.3; page-break-inside: avoid; break-inside: avoid; }
@@ -515,12 +522,34 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         break-inside: avoid;
         margin-top: 10px;
     }
+    @media print {
+        #printable-content {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .ao-header-logo img {
+            height: 16mm !important;
+            width: auto !important;
+            max-width: 42mm !important;
+            max-height: 18mm !important;
+        }
+        .ao-light-table,
+        .ao-header-block,
+        .ao-details-table,
+        .ao-ref-date {
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: fixed !important;
+        }
+    }
 </style>
     <!-- Header -->
     <table class="ao-header-block">
         <tr>
             <td class="ao-header-logo">
-                <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo">
+                <img src="<?php echo APP_URL; ?>/assets/images/bhubaneswar_logo.png" alt="NIELIT Logo" width="145" height="60">
             </td>
             <td class="ao-header-text">
                 <p class="ao-hindi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>

@@ -275,7 +275,7 @@ function downloadPDF() {
     showToast('Generating PDF...', 'info');
 
     const opt = {
-        margin: [16, 12, 22, 12],
+        margin: [12, 10, 16, 10],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
@@ -290,7 +290,7 @@ function downloadPDF() {
                 var body = clonedDoc.body;
                 body.style.margin = '0';
                 body.style.padding = '0';
-                body.style.width = '794px';
+                body.style.width = '718px';
                 body.style.position = 'relative';
 
                 var allSidebars = body.querySelectorAll('.admin-sidebar, .sidebar, nav, .admin-wrapper');
@@ -300,23 +300,24 @@ function downloadPDF() {
                 content.forEach(function(el) {
                     el.style.marginLeft = '0';
                     el.style.paddingLeft = '0';
-                    el.style.width = '794px';
-                    el.style.maxWidth = '794px';
+                    el.style.width = '718px';
+                    el.style.maxWidth = '718px';
                     el.style.transform = 'none';
                     el.style.position = 'static';
                 });
 
                 var pc = clonedDoc.getElementById('printable-content');
                 if (pc) {
-                    pc.style.width = '794px';
-                    pc.style.maxWidth = '794px';
+                    pc.style.width = '718px';
+                    pc.style.maxWidth = '718px';
                     pc.style.margin = '0';
-                    pc.style.padding = '10px 12px';
+                    pc.style.padding = '8px 10px';
                     pc.style.boxSizing = 'border-box';
                     pc.style.position = 'static';
                     pc.style.transform = 'none';
                     pc.style.left = '0';
                     pc.style.background = '#ffffff';
+                    pc.style.overflow = 'hidden';
                 }
 
                 var noPrint = body.querySelectorAll('.no-print, #editable-section');
@@ -380,13 +381,15 @@ function printOrder() {
     <style>
         @page {
             size: A4 portrait;
-            margin: 16mm 12mm 22mm 12mm;
+            margin: 12mm 10mm 16mm 10mm;
         }
         
         @media print {
-            body {
-                margin: 0;
-                padding: 0;
+            html, body {
+                width: auto !important;
+                max-width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
             
             .no-print {
@@ -395,6 +398,8 @@ function printOrder() {
 
             #printable-content {
                 padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
                 max-width: 100% !important;
             }
 
@@ -402,6 +407,21 @@ function printOrder() {
                 page-break-after: avoid;
                 break-after: avoid;
                 margin-bottom: 8px;
+                table-layout: fixed !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .ao-header-logo {
+                width: 42mm !important;
+                max-width: 45mm !important;
+            }
+
+            .ao-header-logo img {
+                height: 16mm !important;
+                width: auto !important;
+                max-width: 42mm !important;
+                max-height: 18mm !important;
             }
 
             .ao-footer-section,
@@ -422,7 +442,7 @@ function printOrder() {
             box-sizing: border-box;
         }
         
-        body {
+        html, body {
             font-family: Arial, sans-serif;
             font-size: 9pt;
             line-height: 1.2;
@@ -430,20 +450,22 @@ function printOrder() {
             background: white;
             margin: 0;
             padding: 0;
+            width: 100%;
+            max-width: 100%;
         }
         
         #printable-content {
-            max-width: 100%;
-            width: 100%;
-            padding: 0;
-            margin: 0;
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
             box-sizing: border-box;
             overflow: visible;
             background: #ffffff;
         }
 
         .ao-ref-date .ao-date-cell { white-space: nowrap; text-align: right; }
-        .ao-details-table td { word-wrap: break-word; }
+        .ao-details-table td { word-wrap: break-word; overflow-wrap: anywhere; }
         .ao-header-text .ao-hindi { margin: 0 0 5px 0; line-height: 1.35; }
         .ao-header-text .ao-institute { margin: 0 0 4px 0; line-height: 1.35; }
         .ao-header-text .ao-centre { margin: 0 0 5px 0; line-height: 1.35; }
@@ -457,11 +479,26 @@ function printOrder() {
             padding: 0;
         }
         .ao-doc-title { margin: 8px 0 8px 0; }
+
+        .ao-header-block {
+            width: 100%;
+            max-width: 100%;
+            table-layout: fixed;
+        }
+        .ao-header-logo img {
+            height: 16mm;
+            width: auto;
+            max-width: 42mm;
+            max-height: 18mm;
+            object-fit: contain;
+        }
         
         table {
-            width: 100%;
+            width: 100% !important;
+            max-width: 100% !important;
             border-collapse: collapse;
             page-break-inside: auto;
+            table-layout: fixed;
         }
         
         .ao-students-table {
@@ -502,6 +539,7 @@ function printOrder() {
             line-height: 1.22;
             white-space: normal;
             word-wrap: break-word;
+            overflow-wrap: anywhere;
             vertical-align: top;
         }
 
@@ -513,7 +551,7 @@ function printOrder() {
         }
 
         .ao-students-table { table-layout: fixed; }
-        .ao-students-table .ao-reg { font-size: 7pt; width: 13%; }
+        .ao-students-table .ao-remark { width: 16%; font-size: 6.5pt; }
         .ao-students-table .ao-name,
         .ao-students-table .ao-father { font-size: 7.5pt; }
 
@@ -533,11 +571,6 @@ function printOrder() {
         
         p {
             margin: 3px 0;
-        }
-        
-        img {
-            max-width: 100%;
-            height: auto;
         }
         
         .no-print {
@@ -1219,12 +1252,14 @@ function resendFacultyEmail(facultyId, facultyName) {
 
     @page {
         size: A4 portrait;
-        margin: 16mm 12mm 22mm 12mm;
+        margin: 12mm 10mm 16mm 10mm;
     }
     
     body {
         margin: 0;
         padding: 0;
+        width: auto;
+        max-width: 100%;
     }
     
     * {
@@ -1232,9 +1267,23 @@ function resendFacultyEmail(facultyId, facultyName) {
     }
     
     #printable-content {
-        max-width: 100%;
-        padding: 0;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
         margin: 0;
+    }
+
+    .ao-header-logo img {
+        height: 16mm !important;
+        width: auto !important;
+        max-width: 42mm !important;
+        max-height: 18mm !important;
+    }
+
+    table {
+        width: 100% !important;
+        max-width: 100% !important;
+        table-layout: fixed;
     }
     
     table {
