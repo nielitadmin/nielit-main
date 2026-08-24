@@ -1247,9 +1247,10 @@ function resendFacultyEmail(facultyId, facultyName) {
     }
 
     .ao-sig-pad {
-        height: 22mm !important;
-        min-height: 22mm !important;
+        height: 18mm !important;
+        min-height: 18mm !important;
         display: block !important;
+        margin-bottom: 4px !important;
     }
     
     th {

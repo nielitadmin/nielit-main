@@ -501,10 +501,11 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     .ao-footer-signature { margin-top: 10px; font-size: 7pt; line-height: 1.3; page-break-inside: avoid; break-inside: avoid; }
     .ao-footer-signature p { margin: 0 0 2px 0; font-weight: normal; }
     .ao-footer-signature .ao-sig-name { font-weight: 600; }
+    .ao-sig-block { display: inline-block; text-align: right; }
     .ao-sig-pad {
-        height: 22mm;
-        min-height: 22mm;
-        margin: 2px 0 8px 0;
+        height: 18mm;
+        min-height: 18mm;
+        margin: 0 0 4px 0;
     }
     .ao-copy-list { margin: 2px 0 0 14px; padding: 0; font-size: 6.5pt; }
     .ao-copy-list li { margin: 0 0 1px 0; line-height: 1.25; }
@@ -689,20 +690,22 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
                     <?php endforeach; ?>
                 </ol>
             </td>
-            <td style="width: 50%; vertical-align: top; text-align: right; border: none; padding-top: 4px;">
-                <p style="margin: 0 0 2px 0;">Signature</p>
-                <div class="ao-sig-pad" aria-hidden="true">&nbsp;</div>
-                <p style="margin: 0 0 3px 0;"><span id="display_signature_date"><?php echo date('d-m-Y', strtotime($order_date)); ?></span></p>
-                <p class="ao-sig-name" style="margin: 0 0 2px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
-                <p style="margin: 0 0 2px 0;"><?php 
-                    $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
-                    if (strtolower($scheme_code) === 'regular') {
-                        echo 'Project Incharge,';
-                    } else {
-                        echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
-                    }
-                ?></p>
-                <p style="margin: 0;">NIELIT Bhubaneswar.</p>
+            <td style="width: 50%; vertical-align: bottom; text-align: right; border: none; padding-top: 4px;">
+                <div class="ao-sig-block">
+                    <div class="ao-sig-pad" aria-hidden="true">&nbsp;</div>
+                    <p style="margin: 0 0 2px 0;">Signature</p>
+                    <p style="margin: 0 0 3px 0;"><span id="display_signature_date"><?php echo date('d-m-Y', strtotime($order_date)); ?></span></p>
+                    <p class="ao-sig-name" style="margin: 0 0 2px 0;"><span id="display_incharge"><?php echo htmlspecialchars($scheme_incharge); ?></span></p>
+                    <p style="margin: 0 0 2px 0;"><?php 
+                        $scheme_code = $batch['scheme_code'] ?? 'SCSP/TSP';
+                        if (strtolower($scheme_code) === 'regular') {
+                            echo 'Project Incharge,';
+                        } else {
+                            echo '(' . htmlspecialchars($scheme_code) . ') Project Incharge,';
+                        }
+                    ?></p>
+                    <p style="margin: 0;">NIELIT Bhubaneswar.</p>
+                </div>
             </td>
         </tr>
     </table>

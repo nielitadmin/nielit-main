@@ -283,8 +283,8 @@ $signatureTable->addRow();
 $signatureTable->addCell(5000); // Empty left cell
 $signatureCell = $signatureTable->addCell(5000);
 
+$signatureCell->addTextBreak(4);
 $signatureCell->addText('Signature', ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
-$signatureCell->addTextBreak(5);
 $signatureCell->addText(date('d-m-Y', strtotime($order_date)), ['name' => 'Arial', 'size' => 9], ['alignment' => 'right']);
 $signatureCell->addText($scheme_incharge, ['name' => 'Arial', 'size' => 9, 'bold' => true], ['alignment' => 'right']);
 
