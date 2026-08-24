@@ -105,7 +105,7 @@ if (!function_exists('phpMailerSmtpProfiles')) {
      * Unauthenticated localhost:25 / php mail() is last because Gmail then shows
      * "via srvXXXX.main-hosting.eu" and often spam-folders OTP mail.
      */
-    function phpMailerSmtpProfiles(): array
+    function phpMailerSmtpProfiles(array $options = []): array
     {
         $remoteHost = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.hostinger.com';
         $primaryPort = (int) (defined('SMTP_PORT') ? SMTP_PORT : 465);
@@ -179,11 +179,16 @@ if (!function_exists('phpMailerSmtpProfiles')) {
             ];
         }
 
-        // Shared hosting: authenticated local SMTP first (fast + DKIM), then
-        // smtp.hostinger.com, then unauthenticated fallback last (spam-prone).
-        $profiles = isLikelyHostingerSharedHosting()
-            ? array_merge($localAuthProfiles, $remoteProfiles, $localUnauthProfiles)
-            : array_merge($remoteProfiles, $localAuthProfiles, $localUnauthProfiles);
+        // Shared hosting: local SMTP is fast but Gmail often never receives it
+        // (accepted by the server, then dropped). Prefer smtp.hostinger.com for OTP.
+        $preferRemote = !empty($options['prefer_remote']);
+        if ($preferRemote) {
+            $profiles = array_merge($remoteProfiles, $localAuthProfiles, $localUnauthProfiles);
+        } elseif (isLikelyHostingerSharedHosting()) {
+            $profiles = array_merge($localAuthProfiles, $remoteProfiles, $localUnauthProfiles);
+        } else {
+            $profiles = array_merge($remoteProfiles, $localAuthProfiles, $localUnauthProfiles);
+        }
 
         $unique = [];
         foreach ($profiles as $profile) {
@@ -206,7 +211,7 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
         $errors = [];
 
         $skipUnauth = !empty($options['authenticated_only']);
-        foreach (phpMailerSmtpProfiles() as $profile) {
+        foreach (phpMailerSmtpProfiles($options) as $profile) {
             $isUnauth = (($profile['transport'] ?? 'smtp') === 'mail')
                 || (array_key_exists('auth', $profile) && $profile['auth'] === false);
             if ($skipUnauth && $isUnauth) {

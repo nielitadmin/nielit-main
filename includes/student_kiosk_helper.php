@@ -445,7 +445,7 @@ if (!function_exists('studentKioskSendOtp')) {
                     . '<h1 style="color:#0a1628;margin:0;font-size:34px;letter-spacing:8px;">' . htmlspecialchars($otp) . '</h1></div>'
                     . '<p style="font-size:13px;color:#64748b;">Valid for 10 minutes. Do not share this code with anyone.</p></div></div>';
                 $mail->AltBody = 'Your OTP for NIELIT Bhubaneswar fingerprint registration is: ' . $otp . ' (valid 10 minutes).';
-            }, ['timeout' => 25, 'authenticated_only' => true]);
+            }, ['timeout' => 25, 'authenticated_only' => true, 'prefer_remote' => true]);
         }
 
         $ok = !empty($sent['ok']);

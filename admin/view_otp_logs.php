@@ -672,6 +672,11 @@ $mail_logs_result = $conn->query("SELECT * FROM mail_send_logs WHERE created_at 
                 </div>
             </div>
 
+            <div class="alert alert-warning" style="border-radius:14px;">
+                <strong>OTP log “Sent” only means the code was generated.</strong>
+                It does not prove Gmail delivered the email. Use the SMTP mail log below — that is the real send result.
+            </div>
+
             <!-- OTP Logs Section -->
             <?php if ($otp_logs_result && $otp_logs_result->num_rows > 0): ?>
                 <div class="otp-logs-section">
@@ -780,6 +785,50 @@ $mail_logs_result = $conn->query("SELECT * FROM mail_send_logs WHERE created_at 
                     <small class="text-muted">OTP logs will appear here when admins attempt to login or when new admins are created.</small>
                 </div>
             <?php endif; ?>
+
+            <div class="otp-logs-section mt-4">
+                <div class="section-header">
+                    <h3 class="section-title">
+                        <i class="fas fa-server me-2"></i>SMTP mail log (actual send)
+                    </h3>
+                </div>
+                <div class="table-responsive bg-white rounded-4 p-3" style="box-shadow:0 4px 20px rgba(0,0,0,0.06);">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Profile</th>
+                                <th>Recipient</th>
+                                <th>Subject</th>
+                                <th>Status</th>
+                                <th>Error</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php if ($mail_logs_result && $mail_logs_result->num_rows > 0): ?>
+                            <?php while ($m = $mail_logs_result->fetch_assoc()): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars(date('d.m.Y, h:i A', strtotime((string) $m['created_at']))); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($m['profile_label'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($m['recipient'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($m['subject'] ?? '')); ?></td>
+                                    <td>
+                                        <?php if (($m['status'] ?? '') === 'ok'): ?>
+                                            <span class="badge bg-success">SMTP accepted</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger">Failed</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="small text-muted"><?php echo htmlspecialchars((string) ($m['error'] ?? '')); ?></td>
+                                </tr>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <tr><td colspan="6" class="text-muted">No SMTP send logs in the last 24 hours.</td></tr>
+                        <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <!-- Security Information -->
             <div class="security-section animate-fade-in" style="animation-delay: 0.3s;">
