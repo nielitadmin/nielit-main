@@ -253,8 +253,9 @@ if (!function_exists('studentKioskLookup')) {
             if ($row && function_exists('getAccountByStudentId')) {
                 $account = getAccountByStudentId($conn, (string) ($row['student_id'] ?? ''));
                 if (is_array($account)) {
-                    if (trim((string) ($row['email'] ?? '')) === '' && !empty($account['email'])) {
-                        $row['email'] = $account['email'];
+                    $accountEmail = trim((string) ($account['email'] ?? ''));
+                    if ($accountEmail !== '' && filter_var($accountEmail, FILTER_VALIDATE_EMAIL)) {
+                        $row['email'] = $accountEmail;
                     }
                     if (trim((string) ($row['mobile'] ?? '')) === '' && !empty($account['mobile'])) {
                         $row['mobile'] = $account['mobile'];
@@ -423,12 +424,7 @@ if (!function_exists('studentKioskSendOtp')) {
         $_SESSION['kiosk_otp_time'] = time();
         unset($_SESSION['kiosk_verified_student'], $_SESSION['kiosk_verified_at']);
 
-        $logId = false;
-        if (function_exists('logOTP')) {
-            $logId = logOTP($email, $otp, 'Student Fingerprint Kiosk', $studentId, 'sent');
-        }
-
-        $sent = ['ok' => false, 'error' => 'Mailer unavailable.'];
+        $sent = ['ok' => false, 'error' => 'Mailer unavailable.', 'profile' => ''];
         if (function_exists('sendPhpMailerWithSmtpFallback')) {
             $sent = sendPhpMailerWithSmtpFallback(static function ($mail) use ($email, $otp) {
                 $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreplay@nielitbhubaneswar.in';
@@ -437,23 +433,24 @@ if (!function_exists('studentKioskSendOtp')) {
                 $mail->addReplyTo($fromEmail, $fromName);
                 $mail->addAddress($email);
                 $mail->isHTML(true);
-                $mail->Subject = 'Your OTP for Fingerprint Registration - NIELIT Bhubaneswar';
+                $mail->Subject = 'Your OTP for Student Login - NIELIT Bhubaneswar';
                 $mail->Body = '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;background:#f8fafc;border-radius:10px;">'
                     . '<div style="background:linear-gradient(135deg,#0a1628,#112240);padding:26px;text-align:center;border-radius:10px 10px 0 0;">'
                     . '<h2 style="color:#fff;margin:0;">NIELIT Bhubaneswar</h2>'
-                    . '<p style="color:rgba(255,255,255,.9);margin:8px 0 0;">Fingerprint Self-Registration</p></div>'
+                    . '<p style="color:rgba(255,255,255,.9);margin:8px 0 0;">Student Fingerprint Verification</p></div>'
                     . '<div style="background:#fff;padding:28px;border-radius:0 0 10px 10px;">'
+                    . '<p style="font-size:16px;color:#1e293b;">Dear Student,</p>'
                     . '<p style="font-size:14px;color:#64748b;">Your One-Time Password (OTP) is:</p>'
                     . '<div style="background:#f1f5f9;padding:18px;text-align:center;border-radius:8px;margin:16px 0;">'
                     . '<h1 style="color:#0a1628;margin:0;font-size:34px;letter-spacing:8px;">' . htmlspecialchars($otp) . '</h1></div>'
                     . '<p style="font-size:13px;color:#64748b;">Valid for 10 minutes. Do not share this code with anyone.</p></div></div>';
-                $mail->AltBody = 'Your OTP for fingerprint registration is: ' . $otp . ' (valid 10 minutes).';
-            }, ['timeout' => 25]);
+                $mail->AltBody = 'Your OTP for NIELIT Bhubaneswar fingerprint registration is: ' . $otp . ' (valid 10 minutes).';
+            }, ['timeout' => 25, 'authenticated_only' => true]);
         }
 
         $ok = !empty($sent['ok']);
-        if ($logId && function_exists('updateOtpStatus')) {
-            updateOtpStatus($logId, $ok ? 'sent' : 'failed');
+        if (function_exists('logOTP')) {
+            logOTP($email, $otp, 'Student Fingerprint Kiosk', $studentId, $ok ? 'sent' : 'failed');
         }
         if ($ok) {
             return ['success' => true, 'message' => 'OTP sent.', 'masked' => studentKioskMaskEmail($email)];

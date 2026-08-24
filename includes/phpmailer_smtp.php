@@ -205,7 +205,13 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
         $timeout = (int) ($options['timeout'] ?? 12);
         $errors = [];
 
+        $skipUnauth = !empty($options['authenticated_only']);
         foreach (phpMailerSmtpProfiles() as $profile) {
+            $isUnauth = (($profile['transport'] ?? 'smtp') === 'mail')
+                || (array_key_exists('auth', $profile) && $profile['auth'] === false);
+            if ($skipUnauth && $isUnauth) {
+                continue;
+            }
             $mail = new PHPMailer(true);
             try {
                 $transport = $profile['transport'] ?? 'smtp';

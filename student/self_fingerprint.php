@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             biometricKioskJsonExit([
                 'success' => true,
-                'message' => 'OTP sent to ' . ($sent['masked'] ?? 'your email') . '. Check inbox and spam.',
+                'message' => 'OTP sent to ' . ($sent['masked'] ?? 'your registered email') . '. Open that Gmail inbox, then check Spam and Promotions. If that is not your email, contact the office.',
             ]);
         }
 
