@@ -138,7 +138,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $active_theme = loadActiveTheme($conn);
-$jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_mfs100.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_mfs100.js') ?: time());
+$jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/secugen_webapi.js?v=' . (@filemtime(__DIR__ . '/../assets/js/secugen_webapi.js') ?: time());
+$sgLic = defined('SECUGEN_WEBAPI_LICSTR') ? (string) SECUGEN_WEBAPI_LICSTR : '';
+$sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOLD : 100;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -168,16 +170,16 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
             <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric')); ?>">Fingerprint Attendance</a>
         </div>
 
-        <div id="mfsBanner" class="bio-banner wait">Checking MFS110 Client Service on this PC…</div>
+        <div id="mfsBanner" class="bio-banner wait">Checking SecuGen WebAPI on this PC…</div>
 
         <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">Scanner PC setup</h5></div>
+            <div class="card-header"><h5 class="mb-0">Scanner PC setup (SecuGen Hamster Pro 20)</h5></div>
             <div class="card-body">
                 <ol class="mb-0">
-                    <li>Install <strong>MFS110 Client Service</strong> (Mantra template / matcher mode), not only Aadhaar RD Service.</li>
-                    <li>Open <a href="https://127.0.0.1:8003/mfs110/" target="_blank" rel="noopener">https://127.0.0.1:8003/mfs110/</a> (or <a href="https://127.0.0.1:8003/mfs100/" target="_blank" rel="noopener">/mfs100/</a> if that is the service URL) and accept the certificate if Chrome warns.</li>
-                    <li>In <code>services.msc</code>, start <strong>MFS110ClientService</strong> (or <strong>MFS100ClientService</strong> if that is the listed name).</li>
-                    <li>Find the student, confirm the photo, capture the same thumb twice.</li>
+                    <li>Plug the <strong>SecuGen Hamster Pro 20</strong> into a direct USB port and install the SecuGen driver.</li>
+                    <li>Install and start the <strong>SecuGen WebAPI</strong> service (<code>SGIBIOSRV</code>) on this PC.</li>
+                    <li>Open <a href="https://localhost:8443/SGIFPCapture" target="_blank" rel="noopener">https://localhost:8443/SGIFPCapture</a> once and accept the certificate if the browser warns.</li>
+                    <li>Find the student, confirm the photo, capture the same finger twice.</li>
                 </ol>
             </div>
         </div>
@@ -208,6 +210,10 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
         </div>
     </div>
 </div>
+<script>
+    window.SECUGEN_WEBAPI_LICSTR = <?php echo json_encode($sgLic); ?>;
+    window.SECUGEN_MATCH_THRESHOLD = <?php echo (int) $sgThreshold; ?>;
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo htmlspecialchars($jsPath); ?>"></script>
 <script>
@@ -215,7 +221,6 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
     const csrf = <?php echo json_encode($csrf); ?>;
     let foundStudent = null;
     let mfsBase = '';
-    let usePhp = false;
     let firstIso = '';
 
     function banner(cls, html) {
@@ -241,29 +246,24 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
         });
     }
 
-    post({ action: 'mfs100_discover' }).then(function (data) {
-        if (data.success && data.base) {
-            mfsBase = data.base;
-            usePhp = true;
-            banner('ok', '<strong>MFS110 Client Service is ready</strong> on this PC. Find a student and enrol their thumb.');
-            return;
-        }
-        if (!window.MantraMfs100) {
-            banner('bad', 'Fingerprint script failed to load.');
-            return;
-        }
-        return window.MantraMfs100.discover().then(function (found) {
+    if (!window.SecuGenWebApi) {
+        banner('bad', 'Fingerprint script failed to load.');
+    } else {
+        window.SecuGenWebApi.discover().then(function (found) {
             if (found && found.base) {
                 mfsBase = found.base;
-                usePhp = false;
-                banner('ok', '<strong>MFS110 Client Service is running</strong> (' + found.base + '). Find a student and enrol their thumb.');
+                banner('ok', '<strong>SecuGen WebAPI is running</strong> (' + found.base + '). Find a student and enrol their finger.');
+                const btn = document.getElementById('btnCapture');
+                if (foundStudent && btn) {
+                    btn.disabled = false;
+                }
                 return;
             }
-            banner('bad', '<strong>MFS110 Client Service is not listening.</strong> Install it on this PC, start the Windows service, then refresh.');
+            banner('bad', '<strong>SecuGen WebAPI is not listening.</strong> Start the SGIBIOSRV service on this PC, plug in the Hamster Pro 20, then refresh.');
+        }).catch(function () {
+            banner('bad', 'Could not check SecuGen WebAPI. Start SGIBIOSRV on this computer, then refresh.');
         });
-    }).catch(function () {
-        banner('bad', 'Could not check MFS110 Client Service. Start it on this computer, then refresh.');
-    });
+    }
 
     document.getElementById('btnFind').addEventListener('click', findStudent);
     document.getElementById('lookupQ').addEventListener('keydown', function (e) {
@@ -291,8 +291,8 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
             } else {
                 document.getElementById('photoBox').innerHTML = '<div class="kiosk-photo-empty">No photo</div>';
             }
-            document.getElementById('btnCapture').disabled = !mfsBase && !usePhp;
-            msg('Confirm the photo, then capture the same thumb twice.', true);
+            document.getElementById('btnCapture').disabled = !mfsBase;
+            msg('Confirm the photo, then capture the same finger twice.', true);
         });
     }
 
@@ -300,9 +300,13 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
         if (!foundStudent) {
             return;
         }
+        if (!mfsBase) {
+            msg('SecuGen WebAPI is not running on this PC.', false);
+            return;
+        }
         const btn = document.getElementById('btnCapture');
         btn.disabled = true;
-        msg('Waiting for thumb on the Mantra device…', true);
+        msg('Place the finger on the SecuGen reader…', true);
         const after = function (data) {
             if (data.success && data.saved) {
                 msg(data.message, true);
@@ -311,32 +315,20 @@ $jsPath = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/js/mantra_m
                 btn.disabled = false;
                 return;
             }
-            if (data.success && data.step === 1) {
-                msg(data.message, true);
-                btn.disabled = false;
-                return;
-            }
             msg(data.message || 'Enrolment failed', false);
             btn.disabled = false;
         };
-        if (usePhp) {
-            post({ action: 'enroll_capture', student_id: foundStudent.student_id }).then(after).catch(function (err) {
-                msg((err && err.message) ? err.message : 'Capture failed.', false);
-                btn.disabled = false;
-            });
-            return;
-        }
-        window.MantraMfs100.capture(mfsBase).then(function (cap) {
+        window.SecuGenWebApi.capture(mfsBase).then(function (cap) {
             if (!firstIso) {
                 firstIso = cap.iso;
-                msg('First capture saved. Lift the thumb, then capture again to confirm.', true);
+                msg('First capture saved. Lift the finger, then capture again to confirm.', true);
                 btn.disabled = false;
                 return;
             }
-            return window.MantraMfs100.match(mfsBase, cap.iso, firstIso).then(function (m) {
+            return window.SecuGenWebApi.match(mfsBase, cap.iso, firstIso).then(function (m) {
                 if (!m.matched) {
                     firstIso = '';
-                    throw new Error('The two captures did not match. Start again with the same thumb.');
+                    throw new Error('The two captures did not match (score ' + m.score + '). Start again with the same finger.');
                 }
                 return post({
                     action: 'enroll_save',
