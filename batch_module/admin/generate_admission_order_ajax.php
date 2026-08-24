@@ -407,6 +407,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
 </div>
 
 <!-- Printable Content (A4 — letterhead-friendly: light tables, bottom clearance) -->
+<div id="printable-content">
 <style>
     #printable-content {
         font-family: Arial, sans-serif;
@@ -509,8 +510,12 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     }
     .ao-copy-list { margin: 2px 0 0 14px; padding: 0; font-size: 6.5pt; }
     .ao-copy-list li { margin: 0 0 1px 0; line-height: 1.25; }
+    .ao-footer-section {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-top: 10px;
+    }
 </style>
-<div id="printable-content">
     <!-- Header -->
     <table class="ao-header-block">
         <tr>
@@ -711,7 +716,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     </table>
     </div>
     <?php if ($estimated_pages > 1): ?>
-    <div style="text-align: center; margin-top: 4px; font-size: 6.5pt; color: #666;">
+    <div class="no-print" style="text-align: center; margin-top: 4px; font-size: 6.5pt; color: #666;">
         <p style="margin: 0;">Page 1 of <?php echo $estimated_pages; ?></p>
     </div>
     <?php endif; ?>

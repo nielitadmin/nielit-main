@@ -275,7 +275,7 @@ function downloadPDF() {
     showToast('Generating PDF...', 'info');
 
     const opt = {
-        margin: [10, 10, 10, 10],
+        margin: [16, 12, 22, 12],
         filename: <?php echo json_encode('admission_order_' . $batch['batch_code'] . '.pdf'); ?>,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: {
@@ -376,11 +376,11 @@ function printOrder() {
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Admission Order - <?php echo htmlspecialchars($batch['batch_name']); ?></title>
+    <title>Admission Order</title>
     <style>
         @page {
-            size: A4;
-            margin: 3mm 8mm 10mm 8mm;
+            size: A4 portrait;
+            margin: 16mm 12mm 22mm 12mm;
         }
         
         @media print {
@@ -391,6 +391,30 @@ function printOrder() {
             
             .no-print {
                 display: none !important;
+            }
+
+            #printable-content {
+                padding: 0 !important;
+                max-width: 100% !important;
+            }
+
+            .ao-header-block {
+                page-break-after: avoid;
+                break-after: avoid;
+                margin-bottom: 8px;
+            }
+
+            .ao-footer-section,
+            .ao-footer-signature {
+                page-break-inside: avoid;
+                break-inside: avoid;
+                margin-top: 8mm;
+            }
+
+            .ao-sig-pad {
+                height: 18mm !important;
+                min-height: 18mm !important;
+                display: block !important;
             }
         }
         
@@ -409,10 +433,10 @@ function printOrder() {
         }
         
         #printable-content {
-            max-width: 794px;
+            max-width: 100%;
             width: 100%;
-            padding: 0 5mm 8mm 5mm;
-            margin: 0 auto;
+            padding: 0;
+            margin: 0;
             box-sizing: border-box;
             overflow: visible;
             background: #ffffff;
@@ -446,8 +470,7 @@ function printOrder() {
         }
 
         .ao-students-table thead {
-            /* table-header-group orphans the header at page bottom in html2pdf/print */
-            display: table-row-group;
+            display: table-header-group;
         }
 
         .ao-students-table thead tr {
@@ -531,27 +554,21 @@ function printOrder() {
     `);
     
     printWindow.document.close();
-    
-    // Wait for all content including images to load
-    printWindow.onload = function() {
-        // Additional wait to ensure everything is rendered
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-            
-            // Optional: Close the window after printing
-            // Uncomment the line below if you want to auto-close
-            // printWindow.onafterprint = function() { printWindow.close(); };
-        }, 500);
-    };
-    
-    // Fallback if onload doesn't fire
-    setTimeout(() => {
-        if (printWindow.document.readyState === 'complete') {
-            printWindow.focus();
-            printWindow.print();
+
+    let printed = false;
+    function runPrint() {
+        if (printed || !printWindow || printWindow.closed) {
+            return;
         }
-    }, 1000);
+        printed = true;
+        printWindow.focus();
+        printWindow.print();
+    }
+
+    printWindow.onload = function () {
+        setTimeout(runPrint, 400);
+    };
+    setTimeout(runPrint, 1200);
 }
 
 function saveAndRegenerate(event) {
@@ -1199,6 +1216,11 @@ function resendFacultyEmail(facultyId, facultyName) {
     .no-print, #editable-section {
         display: none !important;
     }
+
+    @page {
+        size: A4 portrait;
+        margin: 16mm 12mm 22mm 12mm;
+    }
     
     body {
         margin: 0;
@@ -1241,7 +1263,8 @@ function resendFacultyEmail(facultyId, facultyName) {
     }
 
     .ao-keep-together,
-    .ao-footer-signature {
+    .ao-footer-signature,
+    .ao-footer-section {
         page-break-inside: avoid;
         break-inside: avoid;
     }
