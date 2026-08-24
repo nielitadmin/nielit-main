@@ -5,10 +5,10 @@
  * Flow:
  *   1) Page only works from a static IP the master admin has allowed
  *      (Admin -> Student Fingerprint Kiosk). Any other IP is blocked.
- *   2) Student enters Student ID / Aadhaar / mobile -> OTP emailed -> verify.
- *   3) If not enrolled: capture the same thumb twice to register it.
- *      If enrolled: capture once to mark attendance (1:1 match) for the
- *      active session of their class.
+ *   2) New student (no fingerprint yet): Student ID / Aadhaar / mobile
+ *      -> OTP emailed -> confirm record details -> capture thumb twice to enrol.
+ *   3) Existing student (already enrolled): last 6 digits of Aadhaar
+ *      -> one fingerprint capture -> 1:1 match -> IN/OUT for the active session.
  *
  * Open this page on the kiosk PC where the fingerprint reader + its WebAPI /
  * client service are running.
@@ -61,6 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($status !== '' && $status !== 'active') {
                 biometricKioskJsonExit(['success' => false, 'message' => 'This student account is not active.']);
             }
+            $sid = (string) ($found['row']['student_id'] ?? '');
+            if (studentHasFingerprintTemplate($conn, $sid)) {
+                biometricKioskJsonExit([
+                    'success' => false,
+                    'already_enrolled' => true,
+                    'message' => 'Your fingerprint is already registered. Use Mark attendance and enter the last 6 digits of your Aadhaar.',
+                ]);
+            }
             $sent = studentKioskSendOtp($conn, $found['row']);
             biometricKioskJsonExit([
                 'success' => $sent['success'],
@@ -75,17 +83,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $sid = (string) ($res['student_id'] ?? '');
             $look = studentKioskLookup($conn, $sid);
-            $name = $look['ok'] ? (string) ($look['row']['name'] ?? '') : '';
+            $details = ($look['ok'] && !empty($look['row'])) ? studentKioskPublicDetails($look['row']) : [];
             biometricKioskJsonExit([
                 'success' => true,
-                'message' => 'Identity verified.',
+                'message' => 'Identity verified. Confirm your details, then capture your thumb.',
                 'student_id' => $sid,
-                'name' => $name,
+                'name' => (string) ($details['name'] ?? ''),
+                'details' => $details,
                 'has_fingerprint' => studentHasFingerprintTemplate($conn, $sid),
             ]);
         }
 
-        // All actions below require a verified identity in the session.
+        // Existing enrolled student: last 6 Aadhaar digits — no OTP.
+        if ($action === 'lookup_existing') {
+            $found = studentKioskFindEnrolledByAadhaarLast6($conn, (string) ($_POST['aadhaar_last6'] ?? ''));
+            if (empty($found['ok'])) {
+                biometricKioskJsonExit(['success' => false, 'message' => (string) ($found['message'] ?? 'Not found.')]);
+            }
+            biometricKioskJsonExit([
+                'success' => true,
+                'candidates' => $found['candidates'],
+            ]);
+        }
+
+        if ($action === 'mark_attendance_existing') {
+            $last6 = preg_replace('/\D/', '', (string) ($_POST['aadhaar_last6'] ?? ''));
+            $sid = trim((string) ($_POST['student_id'] ?? ''));
+            $iso = trim((string) ($_POST['iso_template'] ?? ''));
+            if (strlen((string) $last6) !== 6 || $sid === '' || strlen($iso) < 40) {
+                biometricKioskJsonExit(['success' => false, 'message' => 'Enter the last 6 digits of Aadhaar and capture your thumb again.']);
+            }
+            if (!studentHasFingerprintTemplate($conn, $sid)) {
+                biometricKioskJsonExit(['success' => false, 'message' => 'No registered fingerprint for this student. Use New registration first.']);
+            }
+            $look = studentKioskLookup($conn, $sid);
+            if (empty($look['ok']) || empty($look['row']) || !studentKioskAadhaarLast6Matches((string) ($look['row']['aadhar'] ?? ''), $last6)) {
+                biometricKioskJsonExit(['success' => false, 'message' => 'Aadhaar digits do not match this student.']);
+            }
+            $sess = studentKioskActiveSessionForStudent($conn, $sid);
+            if (empty($sess['ok'])) {
+                biometricKioskJsonExit(['success' => false, 'message' => (string) $sess['message']]);
+            }
+            $digits = preg_replace('/\D/', '', (string) ($look['row']['aadhar'] ?? ''));
+            $aadhaarLast4 = strlen((string) $digits) >= 4 ? substr((string) $digits, -4) : substr($last6, -4);
+            $result = processBiometricMatchAttendanceFromIso(
+                $conn,
+                (int) $sess['session_id'],
+                $sid,
+                'self:' . $sid,
+                $iso,
+                $aadhaarLast4,
+                null,
+                (string) ($_POST['client_matched'] ?? '') === '1'
+            );
+            if (is_array($result) && !empty($result['success'])) {
+                $result['name'] = (string) ($look['row']['name'] ?? '');
+                $result['student_id'] = $sid;
+            }
+            biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
+        }
+
+        if ($action === 'reset') {
+            studentKioskClearVerification();
+            biometricKioskJsonExit(['success' => true]);
+        }
+
+        // Enrolment actions require OTP-verified identity.
         $verifiedSid = studentKioskVerifiedStudent();
         if ($verifiedSid === '') {
             biometricKioskJsonExit(['success' => false, 'message' => 'Verify your identity with OTP first.']);
@@ -134,7 +197,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($sess['ok'])) {
                 biometricKioskJsonExit(['success' => false, 'message' => (string) $sess['message']]);
             }
-            // Auto-supply the student's own Aadhaar last-4 (identity already proven by OTP).
             $aadhaarLast4 = '';
             $look = studentKioskLookup($conn, $verifiedSid);
             if ($look['ok']) {
@@ -154,11 +216,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string) ($_POST['client_matched'] ?? '') === '1'
             );
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
-        }
-
-        if ($action === 'reset') {
-            studentKioskClearVerification();
-            biometricKioskJsonExit(['success' => true]);
         }
 
         biometricKioskJsonExit(['success' => false, 'message' => 'Unknown action.']);
@@ -200,6 +257,12 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         .big-btn { padding: 0.9rem; font-size: 1.05rem; border-radius: 12px; }
         .fp-icon { font-size: 3rem; color:#0d9488; }
         .muted-ip { font-family: Consolas, Monaco, monospace; }
+        .mode-tabs { display:flex; gap:8px; margin-bottom: 1rem; }
+        .mode-tabs button { flex:1; border-radius: 12px; padding: 0.7rem 0.5rem; font-weight: 600; border: 1px solid #cbd5e1; background:#fff; color:#334155; }
+        .mode-tabs button.active { background:#0a1628; color:#fff; border-color:#0a1628; }
+        .details-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px; text-align:left; }
+        .details-card dt { font-size:.75rem; color:#64748b; text-transform:uppercase; letter-spacing:.04em; margin-top:6px; }
+        .details-card dd { margin:0; font-weight:600; color:#0f172a; }
     </style>
 </head>
 <body>
@@ -224,15 +287,28 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
             <div class="card-body p-4">
                 <div id="devBanner" class="bio-banner wait">Checking for a fingerprint reader on this PC…</div>
 
-                <!-- Step 1: identify -->
-                <div class="step active" id="step1">
+                <div class="mode-tabs">
+                    <button type="button" class="active" id="tabAttend">Mark attendance</button>
+                    <button type="button" id="tabNew">New registration</button>
+                </div>
+
+                <!-- Existing student: last 6 Aadhaar + fingerprint -->
+                <div class="step active" id="stepAttend">
+                    <label class="form-label fw-semibold">Last 6 digits of your Aadhaar</label>
+                    <input class="form-control form-control-lg mb-3" id="aadhaarLast6" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="______">
+                    <button class="btn btn-success big-btn w-100 mb-2" id="btnAttend"><i class="fas fa-fingerprint"></i> Capture fingerprint for IN / OUT</button>
+                    <div id="msgAttend" class="small mt-2"></div>
+                </div>
+
+                <!-- New student: identify -->
+                <div class="step" id="step1">
                     <label class="form-label fw-semibold">Enter your Student ID, Aadhaar, or mobile number</label>
                     <input class="form-control form-control-lg mb-3" id="identifier" autocomplete="off" placeholder="Student ID / Aadhaar / Mobile">
                     <button class="btn btn-primary big-btn w-100" id="btnOtp"><i class="fas fa-paper-plane"></i> Send OTP to my email</button>
                     <div id="msg1" class="small mt-2"></div>
                 </div>
 
-                <!-- Step 2: OTP -->
+                <!-- New student: OTP -->
                 <div class="step" id="step2">
                     <label class="form-label fw-semibold">Enter the 6-digit OTP sent to your email</label>
                     <input class="form-control form-control-lg mb-3" id="otp" inputmode="numeric" maxlength="6" placeholder="______">
@@ -241,15 +317,16 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
                     <div id="msg2" class="small mt-2"></div>
                 </div>
 
-                <!-- Step 3: fingerprint -->
+                <!-- New student: confirm details + enrol fingerprint -->
                 <div class="step" id="step3">
                     <div class="text-center mb-3">
                         <div class="fp-icon mb-2"><i class="fas fa-fingerprint"></i></div>
-                        <div class="fw-semibold" id="whoName"></div>
-                        <div class="small text-muted" id="whoState"></div>
+                        <div class="fw-semibold mb-2">Confirm your details</div>
+                        <dl class="details-card mb-3" id="whoDetails"></dl>
+                        <div class="small text-muted" id="whoState">Capture the same thumb twice to register.</div>
                     </div>
-                    <button class="btn btn-success big-btn w-100 mb-2" id="btnCapture"><i class="fas fa-fingerprint"></i> Capture thumb</button>
-                    <button class="btn btn-link w-100" id="btnDone">Finish / next student</button>
+                    <button class="btn btn-success big-btn w-100 mb-2" id="btnCapture"><i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)</button>
+                    <button class="btn btn-link w-100" id="btnDone">Start again</button>
                     <div id="msg3" class="small mt-2"></div>
                 </div>
             </div>
@@ -271,15 +348,21 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
 (function () {
     const csrf = <?php echo json_encode($csrf); ?>;
     let deviceBase = '';
-    let enrolled = false;
     let firstIso = '';
+    let resetTimer = null;
 
     function el(id) { return document.getElementById(id); }
     function banner(cls, html) { const b = el('devBanner'); b.className = 'bio-banner ' + cls; b.innerHTML = html; }
-    function showStep(n) {
-        ['step1', 'step2', 'step3'].forEach(function (s, i) {
-            el(s).classList.toggle('active', (i + 1) === n);
+    function show(id) {
+        ['stepAttend', 'step1', 'step2', 'step3'].forEach(function (s) {
+            el(s).classList.toggle('active', s === id);
         });
+    }
+    function setTab(mode) {
+        el('tabAttend').classList.toggle('active', mode === 'attend');
+        el('tabNew').classList.toggle('active', mode === 'new');
+        if (mode === 'attend') { show('stepAttend'); el('aadhaarLast6').focus(); }
+        else { show('step1'); el('identifier').focus(); }
     }
     function msg(id, text, ok) {
         const m = el(id);
@@ -292,8 +375,34 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         Object.keys(data).forEach(function (k) { if (data[k] != null) fd.append(k, data[k]); });
         return fetch(window.location.pathname, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); });
     }
+    function fillDetails(d) {
+        const box = el('whoDetails');
+        box.textContent = '';
+        const rows = [
+            ['Name', d.name || ''],
+            ['Student ID', d.student_id || ''],
+            ['Mobile', d.mobile_masked || ''],
+            ['Aadhaar', d.aadhaar_masked || ''],
+            ['Email', d.email_masked || '']
+        ];
+        rows.forEach(function (r) {
+            const dt = document.createElement('dt');
+            dt.textContent = r[0];
+            const dd = document.createElement('dd');
+            dd.textContent = r[1];
+            box.appendChild(dt);
+            box.appendChild(dd);
+        });
+    }
+    function goAttend() {
+        firstIso = '';
+        el('identifier').value = '';
+        el('otp').value = '';
+        el('aadhaarLast6').value = '';
+        msg('msg1', '', true); msg('msg2', '', true); msg('msg3', '', true); msg('msgAttend', '', true);
+        setTab('attend');
+    }
 
-    // Detect reader
     if (!window.BiometricDevice) {
         banner('bad', 'Fingerprint script failed to load.');
     } else {
@@ -309,7 +418,9 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         }).catch(function () { banner('bad', 'Could not check the reader. Refresh and try again.'); });
     }
 
-    // Step 1 -> OTP
+    el('tabAttend').addEventListener('click', function () { setTab('attend'); });
+    el('tabNew').addEventListener('click', function () { setTab('new'); });
+
     el('btnOtp').addEventListener('click', function () {
         const id = el('identifier').value.trim();
         if (!id) { msg('msg1', 'Enter your Student ID, Aadhaar, or mobile.', false); return; }
@@ -317,12 +428,17 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         msg('msg1', 'Sending OTP…', true);
         post({ action: 'request_otp', identifier: id }).then(function (d) {
             b.disabled = false;
-            if (d.success) { msg('msg1', '', true); showStep(2); el('otp').focus(); msg('msg2', d.message, true); }
+            if (d.already_enrolled) {
+                msg('msg1', d.message, false);
+                setTab('attend');
+                msg('msgAttend', d.message, false);
+                return;
+            }
+            if (d.success) { msg('msg1', '', true); show('step2'); el('otp').focus(); msg('msg2', d.message, true); }
             else { msg('msg1', d.message || 'Could not send OTP.', false); }
         }).catch(function () { b.disabled = false; msg('msg1', 'Network error.', false); });
     });
 
-    // Step 2 -> verify
     el('btnVerify').addEventListener('click', function () {
         const otp = el('otp').value.trim();
         if (otp.length < 4) { msg('msg2', 'Enter the OTP from your email.', false); return; }
@@ -330,84 +446,54 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         post({ action: 'verify_otp', otp: otp }).then(function (d) {
             b.disabled = false;
             if (!d.success) { msg('msg2', d.message || 'Verification failed.', false); return; }
-            enrolled = !!d.has_fingerprint;
-            el('whoName').textContent = (d.name || '') + '  ·  ' + (d.student_id || '');
-            el('whoState').textContent = enrolled
-                ? 'Registered. Capture your thumb to mark attendance.'
-                : 'Not registered yet. Capture the same thumb twice to register.';
-            el('btnCapture').innerHTML = enrolled
-                ? '<i class="fas fa-fingerprint"></i> Capture to mark attendance'
-                : '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
+            if (d.has_fingerprint) {
+                setTab('attend');
+                msg('msgAttend', 'Your fingerprint is already registered. Enter the last 6 digits of Aadhaar to mark attendance.', false);
+                return;
+            }
+            fillDetails(d.details || { name: d.name, student_id: d.student_id });
+            el('whoState').textContent = 'Capture the same thumb twice to register.';
+            el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
             firstIso = '';
-            showStep(3);
+            show('step3');
         }).catch(function () { b.disabled = false; msg('msg2', 'Network error.', false); });
     });
 
     el('btnResend').addEventListener('click', function () {
-        showStep(1); msg('msg1', '', true); el('identifier').focus();
+        show('step1'); msg('msg1', '', true); el('identifier').focus();
     });
 
-    // Step 3 -> capture (enrol or mark)
     el('btnCapture').addEventListener('click', function () {
         if (!deviceBase) { msg('msg3', 'No reader detected on this PC.', false); return; }
         const b = el('btnCapture'); b.disabled = true;
         msg('msg3', 'Place your thumb on the reader…', true);
-
-        if (!enrolled) {
-            // Enrolment: capture twice, confirm match, save.
-            window.BiometricDevice.capture(deviceBase).then(function (cap) {
-                if (!firstIso) {
-                    firstIso = cap.iso;
-                    b.disabled = false;
-                    b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (2 of 2)';
-                    msg('msg3', 'First capture saved. Lift the thumb, then capture again.', true);
-                    return;
-                }
-                return window.BiometricDevice.match(deviceBase, cap.iso, firstIso).then(function (m) {
-                    if (!m.matched) {
-                        firstIso = '';
-                        b.disabled = false;
-                        b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
-                        throw new Error('The two captures did not match (score ' + m.score + '). Start again with the same thumb.');
-                    }
-                    return post({ action: 'enroll_save', iso_template: firstIso, quality: String(cap.quality || 0) }).then(function (d) {
-                        firstIso = '';
-                        if (d.success) {
-                            enrolled = true;
-                            el('whoState').textContent = 'Registered. Capture your thumb to mark attendance.';
-                            b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture to mark attendance';
-                            b.disabled = false;
-                            msg('msg3', d.message, true);
-                        } else {
-                            b.disabled = false;
-                            b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
-                            msg('msg3', d.message || 'Could not register.', false);
-                        }
-                    });
-                });
-            }).catch(function (err) {
+        window.BiometricDevice.capture(deviceBase).then(function (cap) {
+            if (!firstIso) {
+                firstIso = cap.iso;
                 b.disabled = false;
-                msg('msg3', (err && err.message) ? err.message : 'Capture failed.', false);
-            });
-            return;
-        }
-
-        // Attendance: fetch stored template, capture once, match, mark.
-        post({ action: 'get_gallery' }).then(function (gal) {
-            if (!gal.success || !gal.iso_template) { throw new Error(gal.message || 'No registered fingerprint.'); }
-            return window.BiometricDevice.capture(deviceBase).then(function (cap) {
-                return window.BiometricDevice.match(deviceBase, cap.iso, gal.iso_template).then(function (m) {
-                    if (!m.matched) { throw new Error('Fingerprint did not match (score ' + m.score + '). Attendance not marked.'); }
-                    return post({ action: 'mark_attendance', iso_template: cap.iso, client_matched: '1' }).then(function (d) {
-                        b.disabled = false;
-                        if (d.success) {
-                            const kind = (d.scan_type === 'out') ? 'OUT' : 'IN';
-                            const time = d.scan_time ? (' at ' + d.scan_time) : '';
-                            msg('msg3', kind + ' attendance recorded' + time + '. Done!', true);
-                        } else {
-                            msg('msg3', d.message || 'Attendance not marked.', false);
-                        }
-                    });
+                b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (2 of 2)';
+                msg('msg3', 'First capture saved. Lift the thumb, then capture again.', true);
+                return;
+            }
+            return window.BiometricDevice.match(deviceBase, cap.iso, firstIso).then(function (m) {
+                if (!m.matched) {
+                    firstIso = '';
+                    b.disabled = false;
+                    b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
+                    throw new Error('The two captures did not match (score ' + m.score + '). Start again with the same thumb.');
+                }
+                return post({ action: 'enroll_save', iso_template: firstIso, quality: String(cap.quality || 0) }).then(function (d) {
+                    firstIso = '';
+                    b.disabled = false;
+                    if (d.success) {
+                        el('whoState').textContent = 'Registered. Use Mark attendance next time (last 6 digits of Aadhaar).';
+                        msg('msg3', d.message, true);
+                        if (resetTimer) clearTimeout(resetTimer);
+                        resetTimer = setTimeout(goAttend, 2500);
+                    } else {
+                        b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
+                        msg('msg3', d.message || 'Could not register.', false);
+                    }
                 });
             });
         }).catch(function (err) {
@@ -416,12 +502,63 @@ $vdev = '/assets/js/biometric_device.js?v=' . (@filemtime(__DIR__ . '/../assets/
         });
     });
 
+    el('btnAttend').addEventListener('click', function () {
+        if (!deviceBase) { msg('msgAttend', 'No reader detected on this PC.', false); return; }
+        const last6 = el('aadhaarLast6').value.replace(/\D/g, '');
+        if (last6.length !== 6) { msg('msgAttend', 'Enter the last 6 digits of your Aadhaar.', false); return; }
+        const b = el('btnAttend'); b.disabled = true;
+        msg('msgAttend', 'Checking… then place your thumb on the reader.', true);
+        post({ action: 'lookup_existing', aadhaar_last6: last6 }).then(function (d) {
+            if (!d.success || !d.candidates || !d.candidates.length) {
+                throw new Error(d.message || 'No registered fingerprint for this Aadhaar. Use New registration.');
+            }
+            return window.BiometricDevice.capture(deviceBase).then(function (cap) {
+                var seq = Promise.resolve(null);
+                d.candidates.forEach(function (c) {
+                    seq = seq.then(function (hit) {
+                        if (hit) return hit;
+                        return window.BiometricDevice.match(deviceBase, cap.iso, c.iso_template).then(function (m) {
+                            return m.matched ? { student: c, cap: cap } : null;
+                        });
+                    });
+                });
+                return seq.then(function (hit) {
+                    if (!hit) {
+                        throw new Error('Fingerprint did not match. Attendance not marked.');
+                    }
+                    return post({
+                        action: 'mark_attendance_existing',
+                        aadhaar_last6: last6,
+                        student_id: hit.student.student_id,
+                        iso_template: hit.cap.iso,
+                        client_matched: '1'
+                    }).then(function (res) {
+                        if (!res.success) {
+                            throw new Error(res.message || 'Attendance not marked.');
+                        }
+                        const kind = (res.scan_type === 'out') ? 'OUT' : 'IN';
+                        const time = res.scan_time ? (' at ' + res.scan_time) : '';
+                        const who = res.name ? (res.name + ' · ') : '';
+                        msg('msgAttend', who + kind + ' attendance recorded' + time + '.', true);
+                        if (resetTimer) clearTimeout(resetTimer);
+                        resetTimer = setTimeout(function () {
+                            post({ action: 'reset' }).finally(goAttend);
+                        }, 4000);
+                    });
+                });
+            });
+        }).catch(function (err) {
+            msg('msgAttend', (err && err.message) ? err.message : 'Could not mark attendance.', false);
+        }).finally(function () {
+            b.disabled = false;
+        });
+    });
+
     el('btnDone').addEventListener('click', function () {
         post({ action: 'reset' }).finally(function () {
-            firstIso = ''; enrolled = false;
-            el('identifier').value = ''; el('otp').value = '';
-            msg('msg1', '', true); msg('msg2', '', true); msg('msg3', '', true);
-            showStep(1); el('identifier').focus();
+            firstIso = '';
+            goAttend();
+            setTab('new');
         });
     });
 })();

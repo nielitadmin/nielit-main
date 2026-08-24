@@ -172,6 +172,117 @@ if (!function_exists('studentKioskLookup')) {
     }
 }
 
+if (!function_exists('studentKioskMaskAadhaar')) {
+    function studentKioskMaskAadhaar(string $aadhar): string
+    {
+        $digits = preg_replace('/\D/', '', $aadhar);
+        if (strlen((string) $digits) < 4) {
+            return 'not on file';
+        }
+        return 'XXXX XXXX ' . substr((string) $digits, -4);
+    }
+}
+
+if (!function_exists('studentKioskMaskMobile')) {
+    function studentKioskMaskMobile(string $mobile): string
+    {
+        $digits = preg_replace('/\D/', '', $mobile);
+        if (strlen((string) $digits) < 4) {
+            return 'not on file';
+        }
+        return substr((string) $digits, 0, 2) . str_repeat('*', max(0, strlen((string) $digits) - 4)) . substr((string) $digits, -2);
+    }
+}
+
+if (!function_exists('studentKioskPublicDetails')) {
+    /**
+     * Safe student card shown after OTP (no full Aadhaar).
+     * @param array<string,mixed> $row
+     * @return array<string,string>
+     */
+    function studentKioskPublicDetails(array $row): array
+    {
+        return [
+            'student_id' => (string) ($row['student_id'] ?? ''),
+            'name' => (string) ($row['name'] ?? ''),
+            'email_masked' => studentKioskMaskEmail((string) ($row['email'] ?? '')),
+            'mobile_masked' => studentKioskMaskMobile((string) ($row['mobile'] ?? '')),
+            'aadhaar_masked' => studentKioskMaskAadhaar((string) ($row['aadhar'] ?? '')),
+        ];
+    }
+}
+
+if (!function_exists('studentKioskFindEnrolledByAadhaarLast6')) {
+    /**
+     * Existing (already fingerprint-enrolled) students whose Aadhaar ends with these 6 digits.
+     * @return array{ok:bool,message:string,candidates:array<int,array{student_id:string,name:string,iso_template:string}>}
+     */
+    function studentKioskFindEnrolledByAadhaarLast6($conn, string $last6): array
+    {
+        $last6 = preg_replace('/\D/', '', $last6);
+        if (strlen((string) $last6) !== 6) {
+            return ['ok' => false, 'message' => 'Enter the last 6 digits of your Aadhaar.', 'candidates' => []];
+        }
+        ensureFingerprintTemplateTables($conn);
+        $sql = "SELECT s.student_id, s.name, s.aadhar, s.status
+                FROM students s
+                INNER JOIN student_fingerprint_templates t ON t.student_id = s.student_id
+                WHERE RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(s.aadhar, ''), ' ', ''), '-', ''), '/', ''), 6) = ?
+                GROUP BY s.student_id, s.name, s.aadhar, s.status
+                LIMIT 8";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return ['ok' => false, 'message' => 'Database error.', 'candidates' => []];
+        }
+        $stmt->bind_param('s', $last6);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $candidates = [];
+        while ($row = $res->fetch_assoc()) {
+            $status = strtolower(trim((string) ($row['status'] ?? 'active')));
+            if ($status !== '' && $status !== 'active') {
+                continue;
+            }
+            $sid = trim((string) ($row['student_id'] ?? ''));
+            if ($sid === '' || !function_exists('loadStudentFingerprintTemplate')) {
+                continue;
+            }
+            $iso = loadStudentFingerprintTemplate($conn, $sid);
+            if ($iso === '') {
+                continue;
+            }
+            $candidates[] = [
+                'student_id' => $sid,
+                'name' => (string) ($row['name'] ?? ''),
+                'iso_template' => $iso,
+            ];
+        }
+        $stmt->close();
+        if (empty($candidates)) {
+            return [
+                'ok' => false,
+                'message' => 'No registered fingerprint found for this Aadhaar. Use New registration first (OTP + fingerprint).',
+                'candidates' => [],
+            ];
+        }
+        $_SESSION['kiosk_last6'] = $last6;
+        $_SESSION['kiosk_last6_at'] = time();
+        return ['ok' => true, 'message' => 'ok', 'candidates' => $candidates];
+    }
+}
+
+if (!function_exists('studentKioskAadhaarLast6Matches')) {
+    function studentKioskAadhaarLast6Matches(string $aadhar, string $last6): bool
+    {
+        $digits = preg_replace('/\D/', '', $aadhar);
+        $last6 = preg_replace('/\D/', '', $last6);
+        if (strlen((string) $digits) < 6 || strlen((string) $last6) !== 6) {
+            return false;
+        }
+        return hash_equals(substr((string) $digits, -6), (string) $last6);
+    }
+}
+
 if (!function_exists('studentKioskMaskEmail')) {
     function studentKioskMaskEmail(string $email): string
     {
@@ -294,7 +405,9 @@ if (!function_exists('studentKioskClearVerification')) {
             $_SESSION['kiosk_otp_email'],
             $_SESSION['kiosk_otp_time'],
             $_SESSION['kiosk_verified_student'],
-            $_SESSION['kiosk_verified_at']
+            $_SESSION['kiosk_verified_at'],
+            $_SESSION['kiosk_last6'],
+            $_SESSION['kiosk_last6_at']
         );
     }
 }
