@@ -426,12 +426,12 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     }
     .ao-header-block { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: fixed; margin: 0 0 10px 0; }
     .ao-header-block td { border: none; vertical-align: middle; }
-    .ao-header-logo { width: 42mm; min-width: 38mm; max-width: 45mm; padding-right: 8px; }
+    .ao-header-logo { width: 34mm; min-width: 30mm; max-width: 36mm; padding-right: 8px; }
     .ao-header-logo img {
-        height: 16mm;
+        height: 13mm;
         width: auto;
-        max-width: 42mm;
-        max-height: 18mm;
+        max-width: 34mm;
+        max-height: 14mm;
         object-fit: contain;
         display: block;
     }
@@ -472,7 +472,7 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
     }
     .ao-light-table th {
         background: #fafafa;
-        font-size: 7px;
+        font-size: 8px;
         font-weight: 600;
         color: #333;
         border-color: #aaa;
@@ -495,15 +495,15 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
         break-inside: avoid;
         page-break-after: auto;
     }
-    .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-reg { width: 12%; font-size: 7px; word-break: break-word; overflow-wrap: anywhere; line-height: 1.25; }
-    .ao-students-table .ao-name { width: 20%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-father { width: 18%; font-size: 7.5px; text-align: left; }
-    .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 6.5px; }
-    .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 6px; word-break: break-word; overflow-wrap: anywhere; }
-    .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 7px; }
-    .ao-students-table .ao-cat { width: 6%; text-align: center; font-size: 6.5px; }
-    .ao-students-table .ao-remark { width: 16%; font-size: 6px; text-align: left; word-break: break-word; overflow-wrap: anywhere; }
+    .ao-students-table .ao-sl { width: 4%; text-align: center; font-size: 8px; }
+    .ao-students-table .ao-reg { width: 12%; font-size: 8px; word-break: break-word; overflow-wrap: anywhere; line-height: 1.25; }
+    .ao-students-table .ao-name { width: 20%; font-size: 8.5px; text-align: left; }
+    .ao-students-table .ao-father { width: 18%; font-size: 8.5px; text-align: left; }
+    .ao-students-table .ao-mobile { width: 9%; text-align: center; font-size: 8px; }
+    .ao-students-table .ao-aadhaar { width: 11%; text-align: center; font-size: 7.5px; word-break: break-word; overflow-wrap: anywhere; }
+    .ao-students-table .ao-gen { width: 4%; text-align: center; font-size: 8px; }
+    .ao-students-table .ao-cat { width: 6%; text-align: center; font-size: 8px; }
+    .ao-students-table .ao-remark { width: 16%; font-size: 7.5px; text-align: left; word-break: break-word; overflow-wrap: anywhere; }
     .ao-keep-together { page-break-inside: avoid; break-inside: avoid; }
     .ao-footer-block { margin-top: 8px; font-size: 7pt; line-height: 1.3; }
     .ao-footer-signature { margin-top: 10px; font-size: 7pt; line-height: 1.3; page-break-inside: avoid; break-inside: avoid; }
@@ -530,10 +530,10 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             margin: 0 !important;
         }
         .ao-header-logo img {
-            height: 16mm !important;
+            height: 13mm !important;
             width: auto !important;
-            max-width: 42mm !important;
-            max-height: 18mm !important;
+            max-width: 34mm !important;
+            max-height: 14mm !important;
         }
         .ao-light-table,
         .ao-header-block,
