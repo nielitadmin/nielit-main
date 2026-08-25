@@ -220,7 +220,7 @@ $qs = http_build_query([
                             <option value="0">All courses</option>
                             <?php foreach ($courses as $course): ?>
                                 <option value="<?php echo (int) $course['id']; ?>" <?php echo (int) $course['id'] === $courseId ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars((string) $course['course_name']); ?>
+                                    <?php echo htmlspecialchars(attendanceFormatCourseLabel($course)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>

@@ -172,6 +172,79 @@ if (!function_exists('attendanceListCoursesForCentre')) {
     }
 }
 
+if (!function_exists('attendanceFormatCourseLabel')) {
+    /**
+     * Course dropdown / report label with code, e.g. "DBC — Drone Boot Camp NO-13".
+     */
+    function attendanceFormatCourseLabel(array $course, bool $includeCentre = false): string
+    {
+        $name = trim((string) ($course['course_name'] ?? ''));
+        $code = trim((string) ($course['course_code'] ?? ''));
+        $label = $code !== '' ? ($code . ' — ' . $name) : $name;
+        if ($includeCentre) {
+            $centre = trim((string) ($course['centre_name'] ?? ''));
+            if ($centre !== '') {
+                $label .= ' — ' . $centre;
+            }
+        }
+        return $label !== '' ? $label : 'Course';
+    }
+}
+
+if (!function_exists('attendanceStudentCourseIds')) {
+    /**
+     * All course ids a student is enrolled in (students rows + student_enrollments).
+     * @return list<int>
+     */
+    function attendanceStudentCourseIds($conn, string $studentId): array
+    {
+        $ids = [];
+        $studentId = trim($studentId);
+        if ($studentId === '' || !($conn instanceof mysqli)) {
+            return $ids;
+        }
+        $add = static function ($id) use (&$ids): void {
+            $id = (int) $id;
+            if ($id > 0 && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        };
+        $stmt = $conn->prepare('SELECT DISTINCT course_id FROM students
+            WHERE LOWER(TRIM(student_id)) = LOWER(?) AND course_id IS NOT NULL AND course_id > 0');
+        if ($stmt) {
+            $stmt->bind_param('s', $studentId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $add($r['course_id'] ?? 0);
+            }
+            $stmt->close();
+        }
+        $tbl = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($tbl && $tbl->num_rows > 0) {
+            $sql = "SELECT DISTINCT se.course_id
+                    FROM student_enrollments se
+                    LEFT JOIN students s ON s.id = se.student_record_id
+                    LEFT JOIN student_accounts sa ON sa.id = se.account_id
+                    WHERE se.course_id IS NOT NULL AND se.course_id > 0
+                      AND LOWER(TRIM(IFNULL(se.status,''))) IN ('active','approved','')
+                      AND (LOWER(TRIM(IFNULL(s.student_id,''))) = LOWER(?)
+                           OR LOWER(TRIM(IFNULL(sa.student_id,''))) = LOWER(?))";
+            $enr = $conn->prepare($sql);
+            if ($enr) {
+                $enr->bind_param('ss', $studentId, $studentId);
+                $enr->execute();
+                $res = $enr->get_result();
+                while ($r = $res->fetch_assoc()) {
+                    $add($r['course_id'] ?? 0);
+                }
+                $enr->close();
+            }
+        }
+        return $ids;
+    }
+}
+
 if (!function_exists('attendanceCentreName')) {
     function attendanceCentreName($conn, int $centreId): string
     {
@@ -389,6 +462,29 @@ if (!function_exists('attendanceStudentInBatch')) {
                 $stmt->close();
                 if ($hit) {
                     return true;
+                }
+            }
+        }
+        $enrTbl = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enrTbl && $enrTbl->num_rows > 0) {
+            $col = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'batch_id'");
+            if ($col && $col->num_rows > 0) {
+                $sql = "SELECT se.id FROM student_enrollments se
+                        LEFT JOIN students s ON s.id = se.student_record_id
+                        LEFT JOIN student_accounts sa ON sa.id = se.account_id
+                        WHERE se.batch_id = ?
+                          AND (LOWER(TRIM(IFNULL(s.student_id,''))) = LOWER(?)
+                               OR LOWER(TRIM(IFNULL(sa.student_id,''))) = LOWER(?))
+                        LIMIT 1";
+                $enr = $conn->prepare($sql);
+                if ($enr) {
+                    $enr->bind_param('iss', $batch_id, $student_id, $student_id);
+                    $enr->execute();
+                    $hit = $enr->get_result()->fetch_assoc();
+                    $enr->close();
+                    if ($hit) {
+                        return true;
+                    }
                 }
             }
         }
@@ -844,8 +940,8 @@ function processInOutAttendanceForStudent($student_id, $session_id, $coordinator
             $student_name = $student_id;
         }
 
-        $student_status = $student_row['status'] ?? '';
-        if (!empty($student_status) && $student_status !== 'active') {
+        $student_status = strtolower(trim((string) ($student_row['status'] ?? '')));
+        if ($student_status !== '' && !in_array($student_status, ['active', 'approved'], true)) {
             return [
                 'success' => false,
                 'result' => 'invalid_status',
@@ -1036,6 +1132,9 @@ function attendanceStudentInCourse($conn, $student_id, $course_id, ?array $stude
     }
     if ($student_row && (int) ($student_row['course_id'] ?? 0) === $course_id) {
         return true;
+    }
+    if (function_exists('attendanceStudentCourseIds')) {
+        return in_array($course_id, attendanceStudentCourseIds($conn, $student_id), true);
     }
     $stmt = $conn->prepare('SELECT id FROM students WHERE LOWER(TRIM(student_id)) = LOWER(?) AND course_id = ? LIMIT 1');
     if ($stmt) {

@@ -638,48 +638,142 @@ if (!function_exists('studentKioskClearVerification')) {
     }
 }
 
+if (!function_exists('studentKioskActiveSessionsForStudent')) {
+    /**
+     * Active attendance sessions for every course the student is enrolled in
+     * (one latest session per course).
+     * @return array{ok:bool,message:string,sessions?:array<int,array<string,mixed>>}
+     */
+    function studentKioskActiveSessionsForStudent($conn, string $studentId): array
+    {
+        $studentId = trim($studentId);
+        if ($studentId === '') {
+            return ['ok' => false, 'message' => 'Verify your identity first.', 'sessions' => []];
+        }
+        $courseIds = function_exists('attendanceStudentCourseIds')
+            ? attendanceStudentCourseIds($conn, $studentId)
+            : [];
+        if ($courseIds === []) {
+            $stmt = $conn->prepare("SELECT DISTINCT course_id FROM students WHERE student_id = ? AND course_id IS NOT NULL AND course_id > 0");
+            if ($stmt) {
+                $stmt->bind_param('s', $studentId);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($r = $res->fetch_assoc()) {
+                    $cid = (int) ($r['course_id'] ?? 0);
+                    if ($cid > 0) {
+                        $courseIds[] = $cid;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+        if ($courseIds === []) {
+            return ['ok' => false, 'message' => 'No course enrolment found for you.', 'sessions' => []];
+        }
+        $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
+        $types = str_repeat('i', count($courseIds));
+        $sql = "SELECT id, session_name, course_id, course_name FROM attendance_sessions
+                WHERE status = 'active' AND course_id IN ($placeholders)
+                ORDER BY date DESC, id DESC";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return ['ok' => false, 'message' => 'Database error.', 'sessions' => []];
+        }
+        $stmt->bind_param($types, ...$courseIds);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $byCourse = [];
+        while ($row = $res->fetch_assoc()) {
+            $cid = (int) ($row['course_id'] ?? 0);
+            if ($cid > 0 && !isset($byCourse[$cid])) {
+                $byCourse[$cid] = $row;
+            }
+        }
+        $stmt->close();
+        $sessions = array_values($byCourse);
+        if ($sessions === []) {
+            return ['ok' => false, 'message' => 'No active attendance session for your class right now. Ask your coordinator to start one.', 'sessions' => []];
+        }
+        return ['ok' => true, 'message' => 'ok', 'sessions' => $sessions];
+    }
+}
+
 if (!function_exists('studentKioskActiveSessionForStudent')) {
     /**
-     * Find an active attendance session that the student belongs to (by course_id).
+     * Find an active attendance session that the student belongs to (by any enrolled course).
      * @return array{ok:bool,message:string,session_id?:int,session_name?:string}
      */
     function studentKioskActiveSessionForStudent($conn, string $studentId): array
     {
-        $studentId = trim($studentId);
-        if ($studentId === '') {
-            return ['ok' => false, 'message' => 'Verify your identity first.'];
+        $found = studentKioskActiveSessionsForStudent($conn, $studentId);
+        if (empty($found['ok']) || empty($found['sessions'][0])) {
+            return ['ok' => false, 'message' => (string) ($found['message'] ?? 'No active session.')];
         }
-        // All course ids this student is enrolled under.
-        $courseIds = [];
-        $stmt = $conn->prepare("SELECT DISTINCT course_id FROM students WHERE student_id = ? AND course_id IS NOT NULL AND course_id > 0");
-        if ($stmt) {
-            $stmt->bind_param('s', $studentId);
-            $stmt->execute();
-            $res = $stmt->get_result();
-            while ($r = $res->fetch_assoc()) {
-                $courseIds[] = (int) $r['course_id'];
+        $row = $found['sessions'][0];
+        return [
+            'ok' => true,
+            'message' => 'ok',
+            'session_id' => (int) $row['id'],
+            'session_name' => (string) ($row['session_name'] ?? ''),
+            'sessions' => $found['sessions'],
+        ];
+    }
+}
+
+if (!function_exists('studentKioskPunchAllActiveSessions')) {
+    /**
+     * Mark IN/OUT on every active session for the student's enrolled courses.
+     * @param array<string,mixed> $lookRow
+     * @return array<string,mixed>
+     */
+    function studentKioskPunchAllActiveSessions(
+        $conn,
+        string $studentId,
+        string $iso,
+        string $aadhaarLast4,
+        bool $clientMatched,
+        array $lookRow = []
+    ): array {
+        $found = studentKioskActiveSessionsForStudent($conn, $studentId);
+        if (empty($found['ok']) || empty($found['sessions'])) {
+            return ['success' => false, 'message' => (string) ($found['message'] ?? 'No active session.')];
+        }
+        $parts = [];
+        $okResult = null;
+        $failResult = null;
+        foreach ($found['sessions'] as $sess) {
+            $result = processBiometricMatchAttendanceFromIso(
+                $conn,
+                (int) ($sess['id'] ?? 0),
+                $studentId,
+                'self:' . $studentId,
+                $iso,
+                $aadhaarLast4,
+                null,
+                $clientMatched
+            );
+            if (is_array($result) && !empty($result['success'])) {
+                $kind = (($result['scan_type'] ?? '') === 'out') ? 'OUT' : 'IN';
+                $label = trim((string) ($sess['session_name'] ?? $sess['course_name'] ?? ''));
+                $time = trim((string) ($result['scan_time'] ?? ''));
+                $parts[] = $kind . ($label !== '' ? (' · ' . $label) : '') . ($time !== '' ? (' at ' . $time) : '');
+                $okResult = $result;
+            } elseif ($failResult === null) {
+                $failResult = is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.'];
             }
-            $stmt->close();
         }
-        if (empty($courseIds)) {
-            return ['ok' => false, 'message' => 'No course enrolment found for you.'];
+        if ($okResult === null) {
+            return is_array($failResult) ? $failResult : ['success' => false, 'message' => 'Could not save attendance.'];
         }
-        $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
-        $types = str_repeat('i', count($courseIds));
-        $sql = "SELECT id, session_name FROM attendance_sessions
-                WHERE status = 'active' AND course_id IN ($placeholders)
-                ORDER BY date DESC, id DESC LIMIT 1";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return ['ok' => false, 'message' => 'Database error.'];
+        $okResult['name'] = (string) ($lookRow['name'] ?? ($okResult['name'] ?? ''));
+        $okResult['student_id'] = $studentId;
+        if (function_exists('studentKioskResolvePhotoUrl')) {
+            $okResult['photo'] = studentKioskResolvePhotoUrl($conn, $studentId, $lookRow);
         }
-        $stmt->bind_param($types, ...$courseIds);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        if (!$row) {
-            return ['ok' => false, 'message' => 'No active attendance session for your class right now. Ask your coordinator to start one.'];
+        if ($parts !== []) {
+            $okResult['message'] = implode('; ', $parts);
         }
-        return ['ok' => true, 'message' => 'ok', 'session_id' => (int) $row['id'], 'session_name' => (string) $row['session_name']];
+        return $okResult;
     }
 }

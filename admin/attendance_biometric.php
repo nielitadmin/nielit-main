@@ -470,11 +470,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                 <option value="<?php echo (int) $course['id']; ?>"
                                         data-name="<?php echo htmlspecialchars((string) $course['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
                                         data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>">
-                                    <?php
-                                    $cLabel = (string) $course['course_name'];
-                                    $cCentre = trim((string) ($course['centre_name'] ?? ''));
-                                    echo htmlspecialchars($cCentre !== '' ? ($cLabel . ' — ' . $cCentre) : $cLabel);
-                                    ?>
+                                    <?php echo htmlspecialchars(attendanceFormatCourseLabel($course, true)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>

@@ -517,11 +517,7 @@ $active_theme = loadActiveTheme($conn);
                                                 <option value="<?php echo $course['id']; ?>"
                                                         data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>"
                                                         <?php echo $course['id'] == $selected_course ? 'selected' : ''; ?>>
-                                                    <?php
-                                                    $cLabel = (string) $course['course_name'];
-                                                    $cCentre = trim((string) ($course['centre_name'] ?? ''));
-                                                    echo htmlspecialchars($cCentre !== '' ? ($cLabel . ' — ' . $cCentre) : $cLabel);
-                                                    ?>
+                                                    <?php echo htmlspecialchars(attendanceFormatCourseLabel($course, true)); ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>

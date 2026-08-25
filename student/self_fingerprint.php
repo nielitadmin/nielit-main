@@ -124,27 +124,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($look['ok']) || empty($look['row']) || !studentKioskAadhaarLast6Matches((string) ($look['row']['aadhar'] ?? ''), $last6)) {
                 biometricKioskJsonExit(['success' => false, 'message' => 'Aadhaar digits do not match this student.']);
             }
-            $sess = studentKioskActiveSessionForStudent($conn, $sid);
-            if (empty($sess['ok'])) {
-                biometricKioskJsonExit(['success' => false, 'message' => (string) $sess['message']]);
-            }
             $digits = preg_replace('/\D/', '', (string) ($look['row']['aadhar'] ?? ''));
             $aadhaarLast4 = strlen((string) $digits) >= 4 ? substr((string) $digits, -4) : substr($last6, -4);
-            $result = processBiometricMatchAttendanceFromIso(
+            $result = studentKioskPunchAllActiveSessions(
                 $conn,
-                (int) $sess['session_id'],
                 $sid,
-                'self:' . $sid,
                 $iso,
                 $aadhaarLast4,
-                null,
-                (string) ($_POST['client_matched'] ?? '') === '1'
+                (string) ($_POST['client_matched'] ?? '') === '1',
+                is_array($look['row'] ?? null) ? $look['row'] : []
             );
-            if (is_array($result) && !empty($result['success'])) {
-                $result['name'] = (string) ($look['row']['name'] ?? '');
-                $result['student_id'] = $sid;
-                $result['photo'] = studentKioskResolvePhotoUrl($conn, $sid, is_array($look['row'] ?? null) ? $look['row'] : []);
-            }
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
 
@@ -198,10 +187,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (strlen($iso) < 40) {
                 biometricKioskJsonExit(['success' => false, 'message' => 'Capture the fingerprint again.']);
             }
-            $sess = studentKioskActiveSessionForStudent($conn, $verifiedSid);
-            if (empty($sess['ok'])) {
-                biometricKioskJsonExit(['success' => false, 'message' => (string) $sess['message']]);
-            }
             $aadhaarLast4 = '';
             $look = studentKioskLookup($conn, $verifiedSid);
             if ($look['ok']) {
@@ -210,21 +195,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $aadhaarLast4 = substr((string) $digits, -4);
                 }
             }
-            $result = processBiometricMatchAttendanceFromIso(
+            $result = studentKioskPunchAllActiveSessions(
                 $conn,
-                (int) $sess['session_id'],
                 $verifiedSid,
-                'self:' . $verifiedSid,
                 $iso,
                 $aadhaarLast4,
-                null,
-                (string) ($_POST['client_matched'] ?? '') === '1'
+                (string) ($_POST['client_matched'] ?? '') === '1',
+                $look['ok'] ? (array) $look['row'] : []
             );
-            if (is_array($result) && !empty($result['success'])) {
-                $result['name'] = $look['ok'] ? (string) ($look['row']['name'] ?? '') : '';
-                $result['student_id'] = $verifiedSid;
-                $result['photo'] = studentKioskResolvePhotoUrl($conn, $verifiedSid, $look['ok'] ? (array) $look['row'] : []);
-            }
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
 
@@ -593,11 +571,10 @@ $bgSlides = studentKioskBackgroundSlides();
                         if (!res.success) {
                             throw new Error(res.message || 'Attendance not marked.');
                         }
-                        const kind = (res.scan_type === 'out') ? 'OUT' : 'IN';
-                        const time = res.scan_time ? (' at ' + res.scan_time) : '';
-                        const who = res.name ? (res.name + ' · ') : '';
+                        const who = res.name ? (res.name + ' — ') : '';
+                        const detail = res.message || (((res.scan_type === 'out') ? 'OUT' : 'IN') + ' attendance recorded' + (res.scan_time ? (' at ' + res.scan_time) : ''));
                         showAttendResult(res.name || '', res.photo || '');
-                        msg('msgAttend', who + kind + ' attendance recorded' + time + '.', true);
+                        msg('msgAttend', who + detail, true);
                         if (resetTimer) clearTimeout(resetTimer);
                         resetTimer = setTimeout(function () {
                             post({ action: 'reset' }).finally(goAttend);

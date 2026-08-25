@@ -144,7 +144,7 @@ $enrollUrl = app_url('admin/attendance_fingerprint_enroll');
                         <option value="0">All courses</option>
                         <?php foreach ($courses as $c): ?>
                             <option value="<?php echo (int) $c['id']; ?>" <?php echo $courseId === (int) $c['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars((string) ($c['course_name'] ?? '')); ?>
+                                <?php echo htmlspecialchars(attendanceFormatCourseLabel($c)); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
