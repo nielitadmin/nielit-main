@@ -1,6 +1,6 @@
 <?php
 /**
- * Monthly fingerprint attendance record (IN/OUT grid) with Mantra device ID.
+ * Monthly fingerprint attendance record (IN/OUT grid) with device ID.
  */
 session_start();
 require_once __DIR__ . '/../config/config.php';
@@ -48,37 +48,41 @@ $monthNames = [
     9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
 ];
 $monthLabel = $monthNames[$month] . ' ' . $year;
-$colspan = 6 + $daysInMonth;
+$colspan = 6 + ($daysInMonth * 2);
 
-$formatDayCell = static function (array $times, bool $html): string {
+$dayInOutTimes = static function (array $times): array {
     $pairs = $times['pairs'] ?? [];
     if ($pairs === []) {
         $in = trim((string) ($times['in'] ?? ''));
         $out = trim((string) ($times['out'] ?? ''));
         if ($in === '' && $out === '') {
-            return '';
+            return ['in' => [], 'out' => []];
         }
         $pairs = [['in' => $in, 'out' => $out]];
     }
-    $lines = [];
+    $ins = [];
+    $outs = [];
     foreach ($pairs as $pair) {
         $in = trim((string) ($pair['in'] ?? ''));
         $out = trim((string) ($pair['out'] ?? ''));
         if ($in !== '') {
-            $lines[] = $in;
+            $ins[] = $in;
         }
         if ($out !== '') {
-            $lines[] = $out;
+            $outs[] = $out;
         }
     }
-    if ($lines === []) {
+    return ['in' => $ins, 'out' => $outs];
+};
+
+$formatTimeList = static function (array $times, bool $html): string {
+    if ($times === []) {
         return '';
     }
     if ($html) {
-        $safe = array_map('htmlspecialchars', $lines);
-        return implode('<br>', $safe);
+        return implode('<br>', array_map('htmlspecialchars', $times));
     }
-    return implode("\n", $lines);
+    return implode("\n", $times);
 };
 
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
@@ -95,12 +99,16 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
     echo '<tr><td colspan="' . $colspan . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint (Mantra)</td></tr>';
+    echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint attendance</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
-    echo '<td>Centre</td><td>Batch</td><td>Student ID</td><td>Name</td><td>Course / session</td><td>Mantra device ID</td>';
+    echo '<td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
     for ($d = 1; $d <= $daysInMonth; $d++) {
-        echo '<td>' . $d . '</td>';
+        echo '<td colspan="2">' . $d . '</td>';
+    }
+    echo '</tr><tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
+    for ($d = 1; $d <= $daysInMonth; $d++) {
+        echo '<td>IN</td><td>OUT</td>';
     }
     echo '</tr>';
     if ($report['rows'] === []) {
@@ -115,8 +123,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td>' . htmlspecialchars((string) $row['department']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['device_id']) . '</td>';
             for ($d = 1; $d <= $daysInMonth; $d++) {
-                $cell = $formatDayCell($row['days'][$d] ?? [], true);
-                echo '<td style="text-align:center;white-space:pre-wrap;">' . $cell . '</td>';
+                $io = $dayInOutTimes($row['days'][$d] ?? []);
+                echo '<td style="text-align:center;white-space:pre-wrap;">' . $formatTimeList($io['in'], true) . '</td>';
+                echo '<td style="text-align:center;white-space:pre-wrap;">' . $formatTimeList($io['out'], true) . '</td>';
             }
             echo '</tr>';
         }
@@ -152,8 +161,9 @@ $qs = http_build_query([
         .att-matrix .col-centre { min-width: 140px; }
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
-        .att-matrix .col-dev { min-width: 140px; }
-        .att-matrix .col-day { min-width: 72px; text-align: center; line-height: 1.25; font-size: 11px; }
+        .att-matrix .col-dev { min-width: 120px; }
+        .att-matrix .col-day { min-width: 64px; text-align: center; line-height: 1.25; font-size: 11px; }
+        .att-matrix .col-io { min-width: 52px; font-size: 10px; }
         .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
     </style>
 </head>
@@ -164,7 +174,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly IN/OUT record from Mantra fingerprint attendance. Each day lists every punch in order, so a new IN after OUT is shown.</p>
+                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day has separate IN and OUT times.</p>
             </div>
             <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
                 <i class="fas fa-file-excel"></i> Download Excel
@@ -245,14 +255,20 @@ $qs = http_build_query([
                     <table class="att-matrix">
                         <thead>
                             <tr>
-                                <th class="col-centre">Centre</th>
-                                <th class="col-centre">Batch</th>
-                                <th class="col-id">Student ID</th>
-                                <th class="col-name">Name</th>
-                                <th class="col-dept">Course / session</th>
-                                <th class="col-dev">Mantra device ID</th>
+                                <th class="col-centre" rowspan="2">Centre</th>
+                                <th class="col-centre" rowspan="2">Batch</th>
+                                <th class="col-id" rowspan="2">Student ID</th>
+                                <th class="col-name" rowspan="2">Name</th>
+                                <th class="col-dept" rowspan="2">Course / session</th>
+                                <th class="col-dev" rowspan="2">Device ID</th>
                                 <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                                    <th class="col-day"><?php echo $d; ?></th>
+                                    <th class="col-day" colspan="2"><?php echo $d; ?></th>
+                                <?php endfor; ?>
+                            </tr>
+                            <tr>
+                                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                    <th class="col-io">IN</th>
+                                    <th class="col-io">OUT</th>
                                 <?php endfor; ?>
                             </tr>
                         </thead>
@@ -274,7 +290,9 @@ $qs = http_build_query([
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
                                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                                        <td class="col-day"><?php echo $formatDayCell($row['days'][$d] ?? [], true); ?></td>
+                                        <?php $io = $dayInOutTimes($row['days'][$d] ?? []); ?>
+                                        <td class="col-day"><?php echo $formatTimeList($io['in'], true); ?></td>
+                                        <td class="col-day"><?php echo $formatTimeList($io['out'], true); ?></td>
                                     <?php endfor; ?>
                                 </tr>
                             <?php endforeach; ?>
