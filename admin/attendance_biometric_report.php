@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
+require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 
 date_default_timezone_set('Asia/Kolkata');
@@ -48,6 +49,15 @@ $monthNames = [
     9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
 ];
 $monthLabel = $monthNames[$month] . ' ' . $year;
+$courseLabel = 'All courses';
+foreach ($courses as $course) {
+    if ((int) ($course['id'] ?? 0) === $courseId) {
+        $courseLabel = attendanceFormatCourseLabel($course);
+        break;
+    }
+}
+$printedAt = $istNow->format('d/m/Y g:i:s A') . ' IST';
+$logoUrl = app_url('assets/images/bhubaneswar_logo.png');
 $colspan = 6 + ($daysInMonth * 2);
 
 $dayInOutTimes = static function (array $times): array {
@@ -165,23 +175,117 @@ $qs = http_build_query([
         .att-matrix .col-day { min-width: 64px; text-align: center; line-height: 1.25; font-size: 11px; }
         .att-matrix .col-io { min-width: 52px; font-size: 10px; }
         .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
+        .print-only { display: none; }
+        .print-signs { display: none; }
+        @page {
+            size: A4 landscape;
+            margin: 10mm 8mm 14mm 8mm;
+        }
+        @media print {
+            html, body.admin-body {
+                background: #fff !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .no-print,
+            .admin-sidebar,
+            .sidebar-toggle-btn,
+            .sidebar-overlay,
+            .toast,
+            .navbar { display: none !important; }
+            .admin-content {
+                margin: 0 !important;
+                padding: 0 !important;
+                width: 100% !important;
+                max-width: none !important;
+            }
+            .container-fluid { padding: 0 !important; }
+            .card, .card-body { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+            .att-wrap { overflow: visible !important; }
+            .att-title, .att-meta { display: none !important; }
+            .print-only { display: table-row !important; }
+            .print-signs { display: flex !important; }
+            .att-matrix {
+                width: 100% !important;
+                min-width: 0 !important;
+                font-size: 7.5px;
+            }
+            .att-matrix th, .att-matrix td {
+                padding: 2px 3px;
+                border-color: #0f172a;
+            }
+            .att-matrix thead th {
+                background: #93c5fd !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .att-matrix thead { display: table-header-group; }
+            .att-matrix tfoot { display: table-footer-group; }
+            .att-matrix tr { page-break-inside: avoid; }
+            .print-banner th {
+                background: #fff !important;
+                border: 0 !important;
+                padding: 0 0 6px !important;
+                text-align: left;
+            }
+            .lh-header { display: flex; align-items: center; gap: 10px; }
+            .lh-header img { height: 36px; width: auto; }
+            .lh-text { flex: 1; text-align: center; }
+            .lh-text p { margin: 0; line-height: 1.25; }
+            .lh-text .hi { font-size: 11px; font-weight: 700; }
+            .lh-text .en { font-size: 10px; font-weight: 700; }
+            .lh-text .tag { font-size: 8px; color: #334155; }
+            .lh-rule { border: 0; border-top: 1.5px solid #0f172a; margin: 4px 0 4px; }
+            .doc-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; margin: 0; text-align: center; }
+            .doc-meta { font-size: 8.5px; color: #334155; margin: 2px 0 0; text-align: center; }
+            .print-foot td {
+                border: 0 !important;
+                padding: 6px 4px 0 !important;
+                font-size: 8px;
+                color: #334155;
+                text-align: center;
+            }
+            .print-signs {
+                display: flex !important;
+                margin-top: 18px;
+                justify-content: space-between;
+                gap: 16px;
+                font-size: 9px;
+                text-align: center;
+                page-break-inside: avoid;
+            }
+            .print-signs > div { flex: 1; }
+            .print-signs .line {
+                border-bottom: 1px solid #0f172a;
+                height: 28px;
+                margin: 0 auto 6px;
+                width: 80%;
+            }
+        }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <?php require_once __DIR__ . '/includes/sidebar.php'; ?>
 <div class="admin-content">
     <div class="container-fluid py-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
                 <p class="text-muted mb-0">Monthly fingerprint attendance. Each day has separate IN and OUT times.</p>
             </div>
-            <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
-                <i class="fas fa-file-excel"></i> Download Excel
-            </a>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print (landscape)
+                </button>
+                <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
+                    <i class="fas fa-file-excel"></i> Download Excel
+                </a>
+            </div>
         </div>
 
-        <div class="card mb-3">
+        <div class="card mb-3 no-print">
             <div class="card-body">
                 <form method="get" class="row g-3 align-items-end">
                     <div class="col-md-3">
@@ -254,6 +358,27 @@ $qs = http_build_query([
                 <div class="att-wrap">
                     <table class="att-matrix">
                         <thead>
+                            <tr class="print-only print-banner">
+                                <th colspan="<?php echo (int) $colspan; ?>">
+                                    <div class="lh-header">
+                                        <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT">
+                                        <div class="lh-text">
+                                            <p class="hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI_FORMAL, ENT_QUOTES, 'UTF-8'); ?></p>
+                                            <p class="en">National Institute of Electronics and Information Technology (NIELIT)</p>
+                                            <p class="tag">(An Autonomous Scientific Society of <?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?>, Govt. of India)</p>
+                                        </div>
+                                    </div>
+                                    <hr class="lh-rule">
+                                    <p class="doc-title">Fingerprint Attendance Record</p>
+                                    <p class="doc-meta">
+                                        <strong>Month:</strong> <?php echo htmlspecialchars($monthLabel); ?>
+                                        &nbsp;|&nbsp; <strong>Centre:</strong> <?php echo htmlspecialchars($centreLabel); ?>
+                                        &nbsp;|&nbsp; <strong>Section:</strong> <?php echo htmlspecialchars($batchLabel); ?>
+                                        &nbsp;|&nbsp; <strong>Course:</strong> <?php echo htmlspecialchars($courseLabel); ?>
+                                        &nbsp;|&nbsp; <strong>Period:</strong> <?php echo htmlspecialchars($report['start'] . ' to ' . $report['end']); ?>
+                                    </p>
+                                </th>
+                            </tr>
                             <tr>
                                 <th class="col-centre" rowspan="2">Centre</th>
                                 <th class="col-centre" rowspan="2">Batch</th>
@@ -298,7 +423,29 @@ $qs = http_build_query([
                             <?php endforeach; ?>
                         <?php endif; ?>
                         </tbody>
+                        <tfoot>
+                            <tr class="print-only print-foot">
+                                <td colspan="<?php echo (int) $colspan; ?>">
+                                    NIELIT Bhubaneswar | Fingerprint Attendance Record | Printed: <?php echo htmlspecialchars($printedAt); ?>
+                                    | Page generated from the student portal
+                                </td>
+                            </tr>
+                        </tfoot>
                     </table>
+                </div>
+                <div class="print-signs">
+                    <div>
+                        <div class="line"></div>
+                        <strong>Faculty / Coordinator</strong>
+                    </div>
+                    <div>
+                        <div class="line"></div>
+                        <strong>Centre In-charge</strong>
+                    </div>
+                    <div>
+                        <div class="line"></div>
+                        <strong>Director / Authorised Signatory</strong>
+                    </div>
                 </div>
             </div>
         </div>
