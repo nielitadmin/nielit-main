@@ -182,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'saved' => $ok,
                 'name' => (string) ($details['name'] ?? ''),
                 'photo' => (string) ($details['photo'] ?? ''),
+                'courses' => is_array($details['courses'] ?? null) ? $details['courses'] : [],
                 'student_id' => $verifiedSid,
                 'message' => $ok ? 'Fingerprint registered. You can now mark attendance.' : 'Could not save fingerprint. Try again.',
             ]);
@@ -289,7 +290,9 @@ $bgSlides = studentKioskBackgroundSlides();
                 <div id="fpWho" class="fp-who" hidden>
                     <div id="fpWhoPhoto" class="kiosk-photo-wrap"></div>
                     <div id="fpWhoName" class="fp-who-name"></div>
+                    <div id="fpWhoCourses" class="fp-who-courses"></div>
                 </div>
+                <div id="fpPunches" class="fp-punches" hidden></div>
                 <p class="fp-subhint" id="fpSubhint">Keep it still until the scan finishes</p>
                 <button type="button" class="btn btn-attend big-btn fp-retry" id="fpRetry" hidden>Try again</button>
             </div>
@@ -369,7 +372,7 @@ $bgSlides = studentKioskBackgroundSlides();
     let attendBusy = false;
     let lastAuto6 = '';
     let autoTimer = null;
-    let currentWho = { name: '', photo: '' };
+    let currentWho = { name: '', photo: '', courses: [] };
 
     function el(id) { return document.getElementById(id); }
     function banner(cls, html) { const b = el('devBanner'); b.className = 'bio-banner ' + cls; b.innerHTML = html; }
@@ -398,7 +401,44 @@ $bgSlides = studentKioskBackgroundSlides();
         el('btnCapture').disabled = on;
         el('aadhaarLast6').readOnly = on;
     }
-    function fpShow(state, hint, sub, retry, who) {
+    function renderCourseLines(lines) {
+        const box = el('fpWhoCourses');
+        box.textContent = '';
+        (Array.isArray(lines) ? lines : []).forEach(function (line) {
+            if (!String(line || '').trim()) { return; }
+            const p = document.createElement('div');
+            p.textContent = line;
+            box.appendChild(p);
+        });
+    }
+    function renderPunches(list) {
+        const box = el('fpPunches');
+        box.textContent = '';
+        if (!Array.isArray(list) || !list.length) {
+            box.hidden = true;
+            return;
+        }
+        box.hidden = false;
+        list.forEach(function (p) {
+            const row = document.createElement('div');
+            const kind = String(p.scan_type || '').toLowerCase();
+            row.className = 'fp-punch' + (p.ok ? (kind === 'out' ? ' is-out' : '') : ' is-fail');
+            const k = document.createElement('span');
+            k.className = 'fp-punch-kind';
+            k.textContent = p.ok ? (kind === 'out' ? 'OUT' : 'IN') : '—';
+            const c = document.createElement('span');
+            c.className = 'fp-punch-course';
+            c.textContent = p.course || p.message || '';
+            const t = document.createElement('span');
+            t.className = 'fp-punch-time';
+            t.textContent = p.ok ? (p.scan_time || '') : (p.message || '');
+            row.appendChild(k);
+            row.appendChild(c);
+            row.appendChild(t);
+            box.appendChild(row);
+        });
+    }
+    function fpShow(state, hint, sub, retry, who, punches) {
         const ov = el('fpOverlay');
         ov.hidden = false;
         el('fpScanner').className = 'fp-scanner is-' + state;
@@ -417,10 +457,17 @@ $bgSlides = studentKioskBackgroundSlides();
             whoBox.hidden = false;
             renderPhoto('fpWhoPhoto', who.photo || '');
             el('fpWhoName').textContent = who.name || '';
+            renderCourseLines(who.courses || []);
         } else {
             whoBox.hidden = true;
             el('fpWhoPhoto').textContent = '';
             el('fpWhoName').textContent = '';
+            renderCourseLines([]);
+        }
+        if (state === 'success') {
+            renderPunches(punches || []);
+        } else {
+            renderPunches([]);
         }
     }
     function fpHide() {
@@ -430,6 +477,8 @@ $bgSlides = studentKioskBackgroundSlides();
         el('fpWho').hidden = true;
         el('fpWhoPhoto').textContent = '';
         el('fpWhoName').textContent = '';
+        renderCourseLines([]);
+        renderPunches([]);
     }
     function post(data) {
         const fd = new FormData();
@@ -453,15 +502,18 @@ $bgSlides = studentKioskBackgroundSlides();
         const rows = [
             ['Name', d.name || ''],
             ['Student ID', d.student_id || ''],
+            ['Course', Array.isArray(d.courses) && d.courses.length ? d.courses.join('\n') : ''],
             ['Mobile', d.mobile_masked || ''],
             ['Aadhaar', d.aadhaar_masked || ''],
             ['Email', d.email_masked || '']
         ];
         rows.forEach(function (r) {
+            if (!String(r[1] || '').trim()) { return; }
             const dt = document.createElement('dt');
             dt.textContent = r[0];
             const dd = document.createElement('dd');
             dd.textContent = r[1];
+            if (r[0] === 'Course') { dd.style.whiteSpace = 'pre-line'; }
             box.appendChild(dt);
             box.appendChild(dd);
         });
@@ -499,7 +551,7 @@ $bgSlides = studentKioskBackgroundSlides();
     function goAttend() {
         firstIso = '';
         lastAuto6 = '';
-        currentWho = { name: '', photo: '' };
+        currentWho = { name: '', photo: '', courses: [] };
         setBusy(false);
         fpHide();
         el('identifier').value = '';
@@ -561,7 +613,8 @@ $bgSlides = studentKioskBackgroundSlides();
             fillDetails(d.details || { name: d.name, student_id: d.student_id });
             currentWho = {
                 name: (d.details && d.details.name) ? d.details.name : (d.name || ''),
-                photo: (d.details && d.details.photo) ? d.details.photo : ''
+                photo: (d.details && d.details.photo) ? d.details.photo : '',
+                courses: (d.details && Array.isArray(d.details.courses)) ? d.details.courses : []
             };
             el('whoState').textContent = 'Capture the same thumb twice to register.';
             el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
@@ -602,7 +655,8 @@ $bgSlides = studentKioskBackgroundSlides();
                     if (d.success) {
                         currentWho = {
                             name: d.name || currentWho.name || '',
-                            photo: d.photo || currentWho.photo || ''
+                            photo: d.photo || currentWho.photo || '',
+                            courses: Array.isArray(d.courses) ? d.courses : (currentWho.courses || [])
                         };
                         fpShow('success', 'Fingerprint registered', 'You can mark attendance with the last 6 digits of Aadhaar', false, currentWho);
                         el('whoState').textContent = 'Registered. Use Mark attendance next time (last 6 digits of Aadhaar).';
@@ -674,16 +728,19 @@ $bgSlides = studentKioskBackgroundSlides();
                         const detail = res.message || (((res.scan_type === 'out') ? 'OUT' : 'IN') + ' attendance recorded' + (res.scan_time ? (' at ' + res.scan_time) : ''));
                         const ident = {
                             name: res.name || (hit.student && hit.student.name) || '',
-                            photo: res.photo || ''
+                            photo: res.photo || '',
+                            courses: Array.isArray(res.courses) ? res.courses : []
                         };
-                        fpShow('success', (res.scan_type === 'out' ? 'OUT recorded' : 'IN recorded'), detail, false, ident);
+                        const title = res.scan_type === 'mixed' ? 'Attendance recorded'
+                            : (res.scan_type === 'out' ? 'OUT recorded' : 'IN recorded');
+                        fpShow('success', title, '', false, ident, res.punches || []);
                         showAttendResult(ident.name, ident.photo);
                         msg('msgAttend', who + detail, true);
                         setBusy(false);
                         if (resetTimer) clearTimeout(resetTimer);
                         resetTimer = setTimeout(function () {
                             post({ action: 'reset' }).finally(goAttend);
-                        }, 4000);
+                        }, Array.isArray(res.punches) && res.punches.length > 1 ? 5500 : 4000);
                     });
                 });
             });

@@ -354,7 +354,70 @@ if (!function_exists('studentKioskPublicDetails')) {
             'mobile_masked' => studentKioskMaskMobile((string) ($row['mobile'] ?? '')),
             'aadhaar_masked' => studentKioskMaskAadhaar((string) ($row['aadhar'] ?? '')),
             'photo' => studentKioskResolvePhotoUrl($conn, (string) ($row['student_id'] ?? ''), $row),
+            'courses' => studentKioskCourseLabels($conn, (string) ($row['student_id'] ?? '')),
         ];
+    }
+}
+
+if (!function_exists('studentKioskCourseLabels')) {
+    /**
+     * Formatted course labels for every enrolment (code — name).
+     * @return list<string>
+     */
+    function studentKioskCourseLabels($conn, string $studentId): array
+    {
+        $labels = [];
+        $studentId = trim($studentId);
+        if ($studentId === '' || !($conn instanceof mysqli)) {
+            return $labels;
+        }
+        $ids = function_exists('attendanceStudentCourseIds')
+            ? attendanceStudentCourseIds($conn, $studentId)
+            : [];
+        if ($ids === []) {
+            return $labels;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $types = str_repeat('i', count($ids));
+        $stmt = $conn->prepare("SELECT id, course_name, course_code FROM courses WHERE id IN ($placeholders)");
+        if (!$stmt) {
+            return $labels;
+        }
+        $stmt->bind_param($types, ...$ids);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($res instanceof mysqli_result) {
+            while ($row = $res->fetch_assoc()) {
+                $label = function_exists('attendanceFormatCourseLabel')
+                    ? attendanceFormatCourseLabel($row)
+                    : trim((string) ($row['course_name'] ?? ''));
+                if ($label !== '' && !in_array($label, $labels, true)) {
+                    $labels[] = $label;
+                }
+            }
+        }
+        $stmt->close();
+        return $labels;
+    }
+}
+
+if (!function_exists('studentKioskSessionCourseLabel')) {
+    function studentKioskSessionCourseLabel(array $sess): string
+    {
+        if (function_exists('attendanceFormatCourseLabel')) {
+            $label = attendanceFormatCourseLabel([
+                'course_name' => $sess['course_name'] ?? '',
+                'course_code' => $sess['course_code'] ?? '',
+            ]);
+            if ($label !== '' && $label !== 'Course') {
+                return $label;
+            }
+        }
+        $name = trim((string) ($sess['course_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+        return trim((string) ($sess['session_name'] ?? 'Class'));
     }
 }
 
@@ -777,12 +840,23 @@ if (!function_exists('studentKioskActiveSessionsForStudent')) {
         }
         $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
         $types = str_repeat('i', count($courseIds));
-        $sql = "SELECT id, session_name, course_id FROM attendance_sessions
-                WHERE status = 'active' AND course_id IN ($placeholders)
-                ORDER BY `date` DESC, id DESC";
+        $sql = "SELECT s.id, s.session_name, s.course_id,
+                       IFNULL(c.course_name, '') AS course_name,
+                       IFNULL(c.course_code, '') AS course_code
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.status = 'active' AND s.course_id IN ($placeholders)
+                ORDER BY s.`date` DESC, s.id DESC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log('studentKioskActiveSessionsForStudent prepare: ' . $conn->error);
+            $sql = "SELECT id, session_name, course_id FROM attendance_sessions
+                    WHERE status = 'active' AND course_id IN ($placeholders)
+                    ORDER BY `date` DESC, id DESC";
+            $stmt = $conn->prepare($sql);
+        }
+        if (!$stmt) {
+            error_log('studentKioskActiveSessionsForStudent fallback prepare: ' . $conn->error);
             return ['ok' => false, 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.', 'sessions' => []];
         }
         $stmt->bind_param($types, ...$courseIds);
@@ -852,10 +926,13 @@ if (!function_exists('studentKioskPunchAllActiveSessions')) {
         if (empty($found['ok']) || empty($found['sessions'])) {
             return ['success' => false, 'message' => (string) ($found['message'] ?? 'No active session.')];
         }
+        $punches = [];
         $parts = [];
         $okResult = null;
         $failResult = null;
+        $kinds = [];
         foreach ($found['sessions'] as $sess) {
+            $courseLabel = studentKioskSessionCourseLabel($sess);
             $result = processBiometricMatchAttendanceFromIso(
                 $conn,
                 (int) ($sess['id'] ?? 0),
@@ -867,22 +944,51 @@ if (!function_exists('studentKioskPunchAllActiveSessions')) {
                 $clientMatched
             );
             if (is_array($result) && !empty($result['success'])) {
-                $kind = (($result['scan_type'] ?? '') === 'out') ? 'OUT' : 'IN';
-                $label = trim((string) ($sess['session_name'] ?? $sess['course_name'] ?? ''));
+                $kind = (($result['scan_type'] ?? '') === 'out') ? 'out' : 'in';
                 $time = trim((string) ($result['scan_time'] ?? ''));
-                $parts[] = $kind . ($label !== '' ? (' · ' . $label) : '') . ($time !== '' ? (' at ' . $time) : '');
+                $punches[] = [
+                    'ok' => true,
+                    'scan_type' => $kind,
+                    'scan_time' => $time,
+                    'course' => $courseLabel,
+                ];
+                $kinds[] = $kind;
+                $parts[] = strtoupper($kind) . ($courseLabel !== '' ? (' · ' . $courseLabel) : '') . ($time !== '' ? (' at ' . $time) : '');
                 $okResult = $result;
-            } elseif ($failResult === null) {
-                $failResult = is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.'];
+            } else {
+                $msg = is_array($result) ? (string) ($result['message'] ?? 'Could not save attendance.') : 'Could not save attendance.';
+                $punches[] = [
+                    'ok' => false,
+                    'scan_type' => '',
+                    'scan_time' => '',
+                    'course' => $courseLabel,
+                    'message' => $msg,
+                ];
+                if ($failResult === null) {
+                    $failResult = is_array($result) ? $result : ['success' => false, 'message' => $msg];
+                }
             }
         }
         if ($okResult === null) {
-            return is_array($failResult) ? $failResult : ['success' => false, 'message' => 'Could not save attendance.'];
+            $fail = is_array($failResult) ? $failResult : ['success' => false, 'message' => 'Could not save attendance.'];
+            $fail['punches'] = $punches;
+            return $fail;
         }
         $okResult['name'] = (string) ($lookRow['name'] ?? ($okResult['name'] ?? ''));
         $okResult['student_id'] = $studentId;
         if (function_exists('studentKioskResolvePhotoUrl')) {
             $okResult['photo'] = studentKioskResolvePhotoUrl($conn, $studentId, $lookRow);
+        }
+        $okResult['punches'] = $punches;
+        $okResult['courses'] = function_exists('studentKioskCourseLabels')
+            ? studentKioskCourseLabels($conn, $studentId)
+            : [];
+        if (in_array('in', $kinds, true) && in_array('out', $kinds, true)) {
+            $okResult['scan_type'] = 'mixed';
+        } elseif (in_array('out', $kinds, true) && !in_array('in', $kinds, true)) {
+            $okResult['scan_type'] = 'out';
+        } else {
+            $okResult['scan_type'] = 'in';
         }
         if ($parts !== []) {
             $okResult['message'] = implode('; ', $parts);

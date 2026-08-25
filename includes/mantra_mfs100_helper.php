@@ -818,26 +818,31 @@ if (!function_exists('processBiometricMatchAttendanceFromIso')) {
             ];
         }
 
-        $foundLocal = mantraMfs100DiscoverLocal();
-        $base = $mfsBase !== null && $mfsBase !== '' ? $mfsBase : (string) ($foundLocal['base'] ?? '');
-        if ($base !== '') {
-            $match = mantraMfs100MatchLocal($liveIso, $gallery, $base);
-            if (!$match['ok'] || !$match['matched']) {
-                if (function_exists('logBiometricCapture')) {
-                    logBiometricCapture($conn, $sessionId, $studentId, $coordinatorId, [], '', 'finger_mismatch');
+        // Browser already did 1:1 match (SecuGen/Mantra). Skip a second local
+        // match so dual-course punches all get an IN/OUT instead of stalling
+        // on another reader call.
+        if (!$clientMatched) {
+            $foundLocal = mantraMfs100DiscoverLocal();
+            $base = $mfsBase !== null && $mfsBase !== '' ? $mfsBase : (string) ($foundLocal['base'] ?? '');
+            if ($base !== '') {
+                $match = mantraMfs100MatchLocal($liveIso, $gallery, $base);
+                if (!$match['ok'] || !$match['matched']) {
+                    if (function_exists('logBiometricCapture')) {
+                        logBiometricCapture($conn, $sessionId, $studentId, $coordinatorId, [], '', 'finger_mismatch');
+                    }
+                    return [
+                        'success' => false,
+                        'result' => 'finger_mismatch',
+                        'message' => $match['message'] !== '' ? $match['message'] : 'Fingerprint did not match this student. Attendance not marked.',
+                    ];
                 }
+            } else {
                 return [
                     'success' => false,
                     'result' => 'finger_mismatch',
-                    'message' => $match['message'] !== '' ? $match['message'] : 'Fingerprint did not match this student. Attendance not marked.',
+                    'message' => 'Fingerprint did not match this student. Attendance not marked.',
                 ];
             }
-        } elseif (!$clientMatched) {
-            return [
-                'success' => false,
-                'result' => 'finger_mismatch',
-                'message' => 'Fingerprint did not match this student. Attendance not marked.',
-            ];
         }
 
         $sessionStmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
