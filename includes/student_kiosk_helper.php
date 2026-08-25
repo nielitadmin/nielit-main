@@ -211,7 +211,7 @@ if (!function_exists('studentKioskLookup')) {
 
         try {
             $row = null;
-            $sql = "SELECT student_id, name, email, aadhar, mobile, course_id, status
+            $sql = "SELECT student_id, name, email, aadhar, mobile, course_id, status, passport_photo
                     FROM students
                     WHERE LOWER(TRIM(student_id)) = LOWER(?)
                        OR RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(aadhar,''), ' ', ''), '-', ''), '/', ''), 12) = ?
@@ -302,13 +302,50 @@ if (!function_exists('studentKioskMaskMobile')) {
     }
 }
 
+if (!function_exists('studentKioskResolvePhotoUrl')) {
+    /**
+     * Public URL for the student's passport photo, or '' if none is on file.
+     */
+    function studentKioskResolvePhotoUrl($conn, string $studentId, array $row = []): string
+    {
+        if (function_exists('biometricStudentPhotoUrl') && trim((string) ($row['passport_photo'] ?? '')) !== '') {
+            $url = biometricStudentPhotoUrl($row);
+            if ($url !== '') {
+                return $url;
+            }
+        }
+        $studentId = trim($studentId);
+        if ($studentId === '' || !($conn instanceof mysqli)) {
+            return '';
+        }
+        $col = $conn->query("SHOW COLUMNS FROM students LIKE 'passport_photo'");
+        if (!$col || $col->num_rows === 0) {
+            return '';
+        }
+        $stmt = $conn->prepare('SELECT passport_photo FROM students
+            WHERE LOWER(TRIM(student_id)) = LOWER(?) AND IFNULL(passport_photo, \'\') <> \'\'
+            ORDER BY id DESC LIMIT 1');
+        if (!$stmt) {
+            return '';
+        }
+        $stmt->bind_param('s', $studentId);
+        $stmt->execute();
+        $hit = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$hit || !function_exists('biometricStudentPhotoUrl')) {
+            return '';
+        }
+        return biometricStudentPhotoUrl($hit);
+    }
+}
+
 if (!function_exists('studentKioskPublicDetails')) {
     /**
      * Safe student card shown after OTP (no full Aadhaar).
      * @param array<string,mixed> $row
      * @return array<string,string>
      */
-    function studentKioskPublicDetails(array $row): array
+    function studentKioskPublicDetails($conn, array $row): array
     {
         return [
             'student_id' => (string) ($row['student_id'] ?? ''),
@@ -316,6 +353,7 @@ if (!function_exists('studentKioskPublicDetails')) {
             'email_masked' => studentKioskMaskEmail((string) ($row['email'] ?? '')),
             'mobile_masked' => studentKioskMaskMobile((string) ($row['mobile'] ?? '')),
             'aadhaar_masked' => studentKioskMaskAadhaar((string) ($row['aadhar'] ?? '')),
+            'photo' => studentKioskResolvePhotoUrl($conn, (string) ($row['student_id'] ?? ''), $row),
         ];
     }
 }

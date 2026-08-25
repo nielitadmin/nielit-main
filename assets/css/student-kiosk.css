@@ -224,6 +224,45 @@ body.kiosk-page {
     font-weight: 600;
 }
 
+.kiosk-photo-wrap {
+    display: flex;
+    justify-content: center;
+    margin: 0 0 12px;
+}
+
+.kiosk-photo {
+    width: 128px;
+    height: 152px;
+    object-fit: cover;
+    border-radius: 14px;
+    border: 3px solid #fff;
+    box-shadow: 0 10px 22px rgba(15, 23, 42, 0.2);
+    background: #e2e8f0;
+}
+
+.kiosk-photo-empty {
+    width: 128px;
+    height: 152px;
+    border-radius: 14px;
+    background: #e8e4df;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.4rem;
+}
+
+.attend-result {
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+.attend-who {
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-top: 4px;
+}
+
 .fp-icon {
     font-size: 2.6rem;
     color: var(--kiosk-teal);

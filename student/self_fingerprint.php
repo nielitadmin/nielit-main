@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $sid = (string) ($res['student_id'] ?? '');
             $look = studentKioskLookup($conn, $sid);
-            $details = ($look['ok'] && !empty($look['row'])) ? studentKioskPublicDetails($look['row']) : [];
+            $details = ($look['ok'] && !empty($look['row'])) ? studentKioskPublicDetails($conn, $look['row']) : [];
             biometricKioskJsonExit([
                 'success' => true,
                 'message' => 'Identity verified. Confirm your details, then capture your thumb.',
@@ -143,6 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (is_array($result) && !empty($result['success'])) {
                 $result['name'] = (string) ($look['row']['name'] ?? '');
                 $result['student_id'] = $sid;
+                $result['photo'] = studentKioskResolvePhotoUrl($conn, $sid, is_array($look['row'] ?? null) ? $look['row'] : []);
             }
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
@@ -219,6 +220,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 null,
                 (string) ($_POST['client_matched'] ?? '') === '1'
             );
+            if (is_array($result) && !empty($result['success'])) {
+                $result['name'] = $look['ok'] ? (string) ($look['row']['name'] ?? '') : '';
+                $result['student_id'] = $verifiedSid;
+                $result['photo'] = studentKioskResolvePhotoUrl($conn, $verifiedSid, $look['ok'] ? (array) $look['row'] : []);
+            }
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
 
@@ -297,6 +303,10 @@ $bgSlides = studentKioskBackgroundSlides();
 
                 <!-- Existing student: last 6 Aadhaar + fingerprint -->
                 <div class="step active" id="stepAttend">
+                    <div id="attendResult" class="attend-result" hidden>
+                        <div id="attendPhoto" class="kiosk-photo-wrap"></div>
+                        <div id="attendWho" class="attend-who"></div>
+                    </div>
                     <label class="form-label fw-semibold">Last 6 digits of your Aadhaar</label>
                     <input class="form-control form-control-lg mb-3" id="aadhaarLast6" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="______">
                     <button class="btn btn-attend big-btn w-100 mb-2" id="btnAttend"><i class="fas fa-fingerprint"></i> Capture fingerprint for IN / OUT</button>
@@ -323,7 +333,9 @@ $bgSlides = studentKioskBackgroundSlides();
                 <!-- New student: confirm details + enrol fingerprint -->
                 <div class="step" id="step3">
                     <div class="text-center mb-3">
-                        <div class="fp-icon mb-2"><i class="fas fa-fingerprint"></i></div>
+                        <div id="regPhoto" class="kiosk-photo-wrap">
+                            <div class="kiosk-photo-empty"><i class="fas fa-user"></i></div>
+                        </div>
                         <div class="fw-semibold mb-2">Confirm your details</div>
                         <dl class="details-card mb-3" id="whoDetails"></dl>
                         <div class="small text-muted" id="whoState">Capture the same thumb twice to register.</div>
@@ -388,6 +400,7 @@ $bgSlides = studentKioskBackgroundSlides();
             });
     }
     function fillDetails(d) {
+        renderPhoto('regPhoto', d && d.photo);
         const box = el('whoDetails');
         box.textContent = '';
         const rows = [
@@ -406,11 +419,42 @@ $bgSlides = studentKioskBackgroundSlides();
             box.appendChild(dd);
         });
     }
+    function renderPhoto(containerId, url) {
+        const box = el(containerId);
+        if (!box) { return; }
+        box.textContent = '';
+        const clean = String(url || '').trim();
+        if (!clean) {
+            const empty = document.createElement('div');
+            empty.className = 'kiosk-photo-empty';
+            empty.innerHTML = '<i class="fas fa-user"></i>';
+            box.appendChild(empty);
+            return;
+        }
+        const img = document.createElement('img');
+        img.className = 'kiosk-photo';
+        img.alt = 'Student photo';
+        img.src = clean;
+        box.appendChild(img);
+    }
+    function showAttendResult(name, photoUrl) {
+        const wrap = el('attendResult');
+        wrap.hidden = false;
+        renderPhoto('attendPhoto', photoUrl);
+        el('attendWho').textContent = name || '';
+    }
+    function hideAttendResult() {
+        const wrap = el('attendResult');
+        wrap.hidden = true;
+        el('attendPhoto').textContent = '';
+        el('attendWho').textContent = '';
+    }
     function goAttend() {
         firstIso = '';
         el('identifier').value = '';
         el('otp').value = '';
         el('aadhaarLast6').value = '';
+        hideAttendResult();
         msg('msg1', '', true); msg('msg2', '', true); msg('msg3', '', true); msg('msgAttend', '', true);
         setTab('attend');
     }
@@ -519,6 +563,7 @@ $bgSlides = studentKioskBackgroundSlides();
         const last6 = el('aadhaarLast6').value.replace(/\D/g, '');
         if (last6.length !== 6) { msg('msgAttend', 'Enter the last 6 digits of your Aadhaar.', false); return; }
         const b = el('btnAttend'); b.disabled = true;
+        hideAttendResult();
         msg('msgAttend', 'Checking… then place your thumb on the reader.', true);
         post({ action: 'lookup_existing', aadhaar_last6: last6 }).then(function (d) {
             if (!d.success || !d.candidates || !d.candidates.length) {
@@ -551,6 +596,7 @@ $bgSlides = studentKioskBackgroundSlides();
                         const kind = (res.scan_type === 'out') ? 'OUT' : 'IN';
                         const time = res.scan_time ? (' at ' + res.scan_time) : '';
                         const who = res.name ? (res.name + ' · ') : '';
+                        showAttendResult(res.name || '', res.photo || '');
                         msg('msgAttend', who + kind + ' attendance recorded' + time + '.', true);
                         if (resetTimer) clearTimeout(resetTimer);
                         resetTimer = setTimeout(function () {
