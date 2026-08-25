@@ -842,7 +842,8 @@ if (!function_exists('processBiometricMatchAttendanceFromIso')) {
 
         $sessionStmt = $conn->prepare("SELECT * FROM attendance_sessions WHERE id = ? AND status = 'active'");
         if (!$sessionStmt) {
-            return ['success' => false, 'result' => 'error', 'message' => 'Database error.'];
+            error_log('processBiometricMatchAttendanceFromIso session prepare: ' . $conn->error);
+            return ['success' => false, 'result' => 'error', 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.'];
         }
         $sessionStmt->bind_param('i', $sessionId);
         $sessionStmt->execute();

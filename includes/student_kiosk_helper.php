@@ -370,40 +370,144 @@ if (!function_exists('studentKioskFindEnrolledByAadhaarLast6')) {
             return ['ok' => false, 'message' => 'Enter the last 6 digits of your Aadhaar.', 'candidates' => []];
         }
         ensureFingerprintTemplateTables($conn);
-        $sql = "SELECT s.student_id, s.name, s.aadhar, s.status
-                FROM students s
-                INNER JOIN student_fingerprint_templates t ON t.student_id = s.student_id
-                WHERE RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(s.aadhar, ''), ' ', ''), '-', ''), '/', ''), 6) = ?
-                GROUP BY s.student_id, s.name, s.aadhar, s.status
-                LIMIT 8";
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return ['ok' => false, 'message' => 'Database error.', 'candidates' => []];
-        }
-        $stmt->bind_param('s', $last6);
-        $stmt->execute();
-        $res = $stmt->get_result();
         $candidates = [];
-        while ($row = $res->fetch_assoc()) {
-            $status = strtolower(trim((string) ($row['status'] ?? 'active')));
-            if ($status !== '' && !in_array($status, ['active', 'approved'], true)) {
-                continue;
-            }
-            $sid = trim((string) ($row['student_id'] ?? ''));
-            if ($sid === '' || !function_exists('loadStudentFingerprintTemplate')) {
-                continue;
+        $seen = [];
+        $addCandidate = static function (string $sid, string $name) use ($conn, &$candidates, &$seen): void {
+            $sid = trim($sid);
+            if ($sid === '' || isset($seen[$sid]) || !function_exists('loadStudentFingerprintTemplate')) {
+                return;
             }
             $iso = loadStudentFingerprintTemplate($conn, $sid);
             if ($iso === '') {
-                continue;
+                return;
             }
+            $seen[$sid] = true;
             $candidates[] = [
                 'student_id' => $sid,
-                'name' => (string) ($row['name'] ?? ''),
+                'name' => $name,
                 'iso_template' => $iso,
             ];
+        };
+
+        $aadCol = 'aadhar';
+        foreach (['aadhar', 'aadhaar', 'aadhar_number'] as $tryCol) {
+            $chk = $conn->query("SHOW COLUMNS FROM students LIKE '" . $conn->real_escape_string($tryCol) . "'");
+            if ($chk && $chk->num_rows > 0) {
+                $aadCol = $tryCol;
+                break;
+            }
         }
-        $stmt->close();
+        $hasStatus = false;
+        $statusChk = $conn->query("SHOW COLUMNS FROM students LIKE 'status'");
+        if ($statusChk && $statusChk->num_rows > 0) {
+            $hasStatus = true;
+        }
+        $statusSelect = $hasStatus ? ', MAX(s.status) AS status' : ", 'active' AS status";
+        $digitsExpr = "RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(s.`$aadCol`, ''), ' ', ''), '-', ''), '/', ''), 6)";
+        $sql = "SELECT s.student_id, MAX(s.name) AS name, MAX(s.`$aadCol`) AS aadhar $statusSelect
+                FROM students s
+                INNER JOIN student_fingerprint_templates t
+                    ON LOWER(TRIM(t.student_id)) = LOWER(TRIM(s.student_id))
+                WHERE $digitsExpr = ?
+                GROUP BY s.student_id
+                LIMIT 8";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('studentKioskFindEnrolledByAadhaarLast6 prepare: ' . $conn->error);
+            $sql = "SELECT s.student_id, s.name, s.`$aadCol` AS aadhar"
+                . ($hasStatus ? ', s.status' : ", 'active' AS status")
+                . " FROM students s
+                    INNER JOIN student_fingerprint_templates t
+                        ON t.student_id = s.student_id
+                    WHERE $digitsExpr = ?
+                    LIMIT 8";
+            $stmt = $conn->prepare($sql);
+        }
+        if ($stmt) {
+            $stmt->bind_param('s', $last6);
+            if (!$stmt->execute()) {
+                error_log('studentKioskFindEnrolledByAadhaarLast6 execute: ' . $stmt->error);
+            }
+            $res = $stmt->get_result();
+            if ($res instanceof mysqli_result) {
+                while ($row = $res->fetch_assoc()) {
+                    $status = strtolower(trim((string) ($row['status'] ?? 'active')));
+                    if ($status !== '' && !in_array($status, ['active', 'approved'], true)) {
+                        continue;
+                    }
+                    $addCandidate(
+                        (string) ($row['student_id'] ?? ''),
+                        (string) ($row['name'] ?? '')
+                    );
+                }
+            }
+            $stmt->close();
+        } else {
+            error_log('studentKioskFindEnrolledByAadhaarLast6 fallback prepare: ' . $conn->error);
+        }
+
+        if (empty($candidates)) {
+            $accTbl = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+            if ($accTbl && $accTbl->num_rows > 0) {
+                $accCol = 'aadhar';
+                foreach (['aadhar', 'aadhaar'] as $tryCol) {
+                    $chk = $conn->query("SHOW COLUMNS FROM student_accounts LIKE '" . $conn->real_escape_string($tryCol) . "'");
+                    if ($chk && $chk->num_rows > 0) {
+                        $accCol = $tryCol;
+                        break;
+                    }
+                }
+                $accSql = "SELECT sa.student_id, sa.name, sa.`$accCol` AS aadhar, 'active' AS status
+                           FROM student_accounts sa
+                           INNER JOIN student_fingerprint_templates t
+                               ON LOWER(TRIM(t.student_id)) = LOWER(TRIM(sa.student_id))
+                           WHERE RIGHT(REPLACE(REPLACE(REPLACE(IFNULL(sa.`$accCol`, ''), ' ', ''), '-', ''), '/', ''), 6) = ?
+                           LIMIT 8";
+                $accStmt = $conn->prepare($accSql);
+                if ($accStmt) {
+                    $accStmt->bind_param('s', $last6);
+                    $accStmt->execute();
+                    $accRes = $accStmt->get_result();
+                    if ($accRes instanceof mysqli_result) {
+                        while ($row = $accRes->fetch_assoc()) {
+                            $addCandidate(
+                                (string) ($row['student_id'] ?? ''),
+                                (string) ($row['name'] ?? '')
+                            );
+                        }
+                    }
+                    $accStmt->close();
+                }
+            }
+        }
+
+        if (empty($candidates)) {
+            $tpl = $conn->query('SELECT DISTINCT student_id FROM student_fingerprint_templates LIMIT 4000');
+            if ($tpl instanceof mysqli_result) {
+                while ($t = $tpl->fetch_assoc()) {
+                    $sid = trim((string) ($t['student_id'] ?? ''));
+                    if ($sid === '' || isset($seen[$sid])) {
+                        continue;
+                    }
+                    $look = studentKioskLookup($conn, $sid);
+                    if (empty($look['ok']) || empty($look['row'])) {
+                        continue;
+                    }
+                    $status = strtolower(trim((string) ($look['row']['status'] ?? 'active')));
+                    if ($status !== '' && !in_array($status, ['active', 'approved'], true)) {
+                        continue;
+                    }
+                    if (!studentKioskAadhaarLast6Matches((string) ($look['row']['aadhar'] ?? ''), $last6)) {
+                        continue;
+                    }
+                    $addCandidate($sid, (string) ($look['row']['name'] ?? ''));
+                    if (count($candidates) >= 8) {
+                        break;
+                    }
+                }
+            }
+        }
+
         if (empty($candidates)) {
             return [
                 'ok' => false,
@@ -673,17 +777,26 @@ if (!function_exists('studentKioskActiveSessionsForStudent')) {
         }
         $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
         $types = str_repeat('i', count($courseIds));
-        $sql = "SELECT id, session_name, course_id, course_name FROM attendance_sessions
+        $sql = "SELECT id, session_name, course_id FROM attendance_sessions
                 WHERE status = 'active' AND course_id IN ($placeholders)
-                ORDER BY date DESC, id DESC";
+                ORDER BY `date` DESC, id DESC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
-            return ['ok' => false, 'message' => 'Database error.', 'sessions' => []];
+            error_log('studentKioskActiveSessionsForStudent prepare: ' . $conn->error);
+            return ['ok' => false, 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.', 'sessions' => []];
         }
         $stmt->bind_param($types, ...$courseIds);
-        $stmt->execute();
+        if (!$stmt->execute()) {
+            error_log('studentKioskActiveSessionsForStudent execute: ' . $stmt->error);
+            $stmt->close();
+            return ['ok' => false, 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.', 'sessions' => []];
+        }
         $res = $stmt->get_result();
         $byCourse = [];
+        if (!($res instanceof mysqli_result)) {
+            $stmt->close();
+            return ['ok' => false, 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.', 'sessions' => []];
+        }
         while ($row = $res->fetch_assoc()) {
             $cid = (int) ($row['course_id'] ?? 0);
             if ($cid > 0 && !isset($byCourse[$cid])) {
