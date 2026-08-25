@@ -171,7 +171,10 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                 <h2 class="mb-0"><i class="fas fa-fingerprint"></i> Fingerprint Enrolment</h2>
                 <p class="text-muted mb-0">Save each student’s thumb once. Attendance will then reject any other finger.</p>
             </div>
-            <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric')); ?>">Fingerprint Attendance</a>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric')); ?>">Fingerprint Attendance</a>
+                <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered candidates</a>
+            </div>
         </div>
 
         <div id="mfsBanner" class="bio-banner wait">Checking for a fingerprint reader on this PC…</div>
@@ -201,7 +204,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                     <div class="col-md-7">
                         <label class="form-label">Student ID</label>
                         <div class="input-group mb-2">
-                            <input class="form-control" id="lookupQ" autocomplete="off" placeholder="Type full Student ID then Find">
+                            <input class="form-control" id="lookupQ" autocomplete="off" placeholder="Type full Student ID then Find" value="<?php echo htmlspecialchars(trim((string) ($_GET['q'] ?? ''))); ?>">
                             <button class="btn btn-secondary" type="button" id="btnFind">Find</button>
                         </div>
                         <button class="btn btn-success w-100 mb-2" type="button" id="btnCapture" disabled>
@@ -363,6 +366,10 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             btn.disabled = false;
         });
     });
+
+    if ((document.getElementById('lookupQ').value || '').trim() !== '') {
+        findStudent();
+    }
 })();
 </script>
 </body>

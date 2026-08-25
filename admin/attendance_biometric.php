@@ -294,7 +294,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Before marking attendance (SecuGen Hamster Pro 20 or Mantra MFS100/MFS110)</h5></div>
             <div class="card-body">
-                <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a> using the same reader brand. The kiosk auto-detects whichever service is running and matches the live finger to the stored template.</p>
+                <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a> using the same reader brand. See all enrolled students on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered Candidates</a>. The kiosk auto-detects whichever service is running and matches the live finger to the stored template.</p>
                 <p class="mb-1"><strong>SecuGen Hamster Pro 20</strong></p>
                 <ol class="mb-2">
                     <li>Plug the reader into a direct USB port and install the SecuGen driver.</li>
@@ -339,6 +339,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                             <i class="fas fa-plus"></i> Create session
                         </button>
                         <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Enrol fingerprints</a>
+                        <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered candidates</a>
                     </div>
                 </form>
             </div>

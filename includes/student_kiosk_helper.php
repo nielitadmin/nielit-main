@@ -399,36 +399,97 @@ if (!function_exists('studentKioskMaskEmail')) {
             return 'your registered email';
         }
         [$local, $domain] = explode('@', $email, 2);
-        $lv = substr($local, 0, min(2, strlen($local)));
-        return $lv . str_repeat('*', max(3, strlen($local) - strlen($lv))) . '@' . $domain;
+        $len = strlen($local);
+        $head = substr($local, 0, min(2, $len));
+        $tail = $len > 4 ? substr($local, -2) : '';
+        $stars = max(3, $len - strlen($head) - strlen($tail));
+        return $head . str_repeat('*', $stars) . $tail . '@' . $domain;
+    }
+}
+
+if (!function_exists('studentKioskEmailsForOtp')) {
+    /**
+     * Unique valid emails from the kiosk row, students, and student_accounts.
+     * Admin login OTP goes to a different mailbox than the course record for some students.
+     * @return list<string>
+     */
+    function studentKioskEmailsForOtp($conn, array $studentRow): array
+    {
+        $emails = [];
+        $add = static function ($raw) use (&$emails): void {
+            $email = strtolower(trim((string) $raw));
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && !in_array($email, $emails, true)) {
+                $emails[] = $email;
+            }
+        };
+        $add($studentRow['email'] ?? '');
+        $studentId = trim((string) ($studentRow['student_id'] ?? ''));
+        if ($studentId === '' || !($conn instanceof mysqli)) {
+            return $emails;
+        }
+        $stmt = $conn->prepare('SELECT email FROM students WHERE LOWER(TRIM(student_id)) = LOWER(?) ORDER BY id DESC LIMIT 8');
+        if ($stmt) {
+            $stmt->bind_param('s', $studentId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $add($r['email'] ?? '');
+                }
+            }
+            $stmt->close();
+        }
+        $tbl = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+        if ($tbl && $tbl->num_rows > 0) {
+            $stmt = $conn->prepare('SELECT email FROM student_accounts WHERE LOWER(TRIM(student_id)) = LOWER(?) ORDER BY id DESC LIMIT 8');
+            if ($stmt) {
+                $stmt->bind_param('s', $studentId);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                if ($res) {
+                    while ($r = $res->fetch_assoc()) {
+                        $add($r['email'] ?? '');
+                    }
+                }
+                $stmt->close();
+            }
+        }
+        return $emails;
     }
 }
 
 if (!function_exists('studentKioskSendOtp')) {
     /**
-     * Generate + email a 6-digit OTP to the student and stash it in the session.
+     * Generate + email a 6-digit OTP to every email on file for this student.
      * @return array{success:bool,message:string,masked?:string}
      */
     function studentKioskSendOtp($conn, array $studentRow): array
     {
-        $email = trim((string) ($studentRow['email'] ?? ''));
         $studentId = (string) ($studentRow['student_id'] ?? '');
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $emails = studentKioskEmailsForOtp($conn, $studentRow);
+        if ($emails === []) {
             return ['success' => false, 'message' => 'No valid email is on file for this student. Contact the office.'];
         }
 
         $otp = (string) random_int(100000, 999999);
         $_SESSION['kiosk_otp'] = $otp;
         $_SESSION['kiosk_otp_student'] = $studentId;
-        $_SESSION['kiosk_otp_email'] = $email;
+        $_SESSION['kiosk_otp_email'] = $emails[0];
         $_SESSION['kiosk_otp_time'] = time();
         unset($_SESSION['kiosk_verified_student'], $_SESSION['kiosk_verified_at']);
 
-        $sent = ['ok' => false, 'error' => 'Mailer unavailable.', 'profile' => ''];
-        if (function_exists('sendPhpMailerWithSmtpFallback')) {
-            $sent = sendPhpMailerWithSmtpFallback(static function ($mail) use ($email, $otp) {
-                $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreplay@nielitbhubaneswar.in';
-                $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+        if (!function_exists('sendPhpMailerWithSmtpFallback')) {
+            return ['success' => false, 'message' => 'Could not send OTP email. Mailer is not available.'];
+        }
+
+        $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreplay@nielitbhubaneswar.in';
+        $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+        $okEmails = [];
+        $errors = [];
+
+        foreach ($emails as $email) {
+            // Same authenticated Hostinger path as admin login OTP (that Gmail already receives).
+            $sent = sendPhpMailerWithSmtpFallback(static function ($mail) use ($email, $otp, $fromEmail, $fromName) {
                 $mail->setFrom($fromEmail, $fromName);
                 $mail->addReplyTo($fromEmail, $fromName);
                 $mail->addAddress($email);
@@ -445,17 +506,34 @@ if (!function_exists('studentKioskSendOtp')) {
                     . '<h1 style="color:#0a1628;margin:0;font-size:34px;letter-spacing:8px;">' . htmlspecialchars($otp) . '</h1></div>'
                     . '<p style="font-size:13px;color:#64748b;">Valid for 10 minutes. Do not share this code with anyone.</p></div></div>';
                 $mail->AltBody = 'Your OTP for NIELIT Bhubaneswar fingerprint registration is: ' . $otp . ' (valid 10 minutes).';
-            }, ['timeout' => 25, 'authenticated_only' => true, 'prefer_remote' => true]);
+            }, ['timeout' => 25, 'authenticated_only' => true]);
+
+            $ok = !empty($sent['ok']);
+            if ($ok) {
+                $okEmails[] = $email;
+            } else {
+                $errors[] = $email . ': ' . trim((string) ($sent['error'] ?? 'send failed'));
+            }
+            if (function_exists('logOTP')) {
+                $purpose = 'Student Fingerprint Kiosk';
+                if (!empty($sent['profile'])) {
+                    $purpose .= ' [' . $sent['profile'] . ']';
+                }
+                logOTP($email, $otp, $purpose, $studentId, $ok ? 'sent' : 'failed');
+            }
         }
 
-        $ok = !empty($sent['ok']);
-        if (function_exists('logOTP')) {
-            logOTP($email, $otp, 'Student Fingerprint Kiosk', $studentId, $ok ? 'sent' : 'failed');
+        if ($okEmails !== []) {
+            $_SESSION['kiosk_otp_email'] = $okEmails[0];
+            $masks = array_map('studentKioskMaskEmail', $okEmails);
+            return [
+                'success' => true,
+                'message' => 'OTP sent.',
+                'masked' => implode(' and ', $masks),
+            ];
         }
-        if ($ok) {
-            return ['success' => true, 'message' => 'OTP sent.', 'masked' => studentKioskMaskEmail($email)];
-        }
-        $detail = trim((string) ($sent['error'] ?? ''));
+
+        $detail = implode(' | ', $errors);
         if ($detail !== '') {
             $detail = ' (' . substr(preg_replace('/\s+/', ' ', $detail), 0, 180) . ')';
         }

@@ -210,6 +210,212 @@ if (!function_exists('saveStudentFingerprintTemplate')) {
     }
 }
 
+if (!function_exists('fingerprintEnrolmentSourceLabel')) {
+    function fingerprintEnrolmentSourceLabel(string $enrolledBy): string
+    {
+        $enrolledBy = trim($enrolledBy);
+        if ($enrolledBy === '') {
+            return 'Unknown';
+        }
+        if (stripos($enrolledBy, 'self:') === 0) {
+            return 'Self (student kiosk)';
+        }
+        return $enrolledBy;
+    }
+}
+
+if (!function_exists('deleteStudentFingerprintTemplate')) {
+    function deleteStudentFingerprintTemplate($conn, string $studentId): bool
+    {
+        $studentId = trim($studentId);
+        if ($studentId === '' || !($conn instanceof mysqli)) {
+            return false;
+        }
+        ensureFingerprintTemplateTables($conn);
+        $stmt = $conn->prepare('DELETE FROM student_fingerprint_templates WHERE student_id = ?');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('s', $studentId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return $ok;
+    }
+}
+
+if (!function_exists('listStudentFingerprintRegistry')) {
+    /**
+     * @return array<int,array<string,mixed>>
+     */
+    function listStudentFingerprintRegistry($conn, string $search = '', int $courseId = 0): array
+    {
+        ensureFingerprintTemplateTables($conn);
+        $search = trim($search);
+        $sql = "SELECT t.id, t.student_id, t.finger_code, t.quality, t.enrolled_by, t.created_at, t.updated_at,
+                       s.id AS student_row_id, s.name, s.mobile, s.email, s.status, s.course_id,
+                       IFNULL(c.course_name, '') AS course_name
+                FROM student_fingerprint_templates t
+                LEFT JOIN students s ON LOWER(TRIM(s.student_id)) = LOWER(TRIM(t.student_id))
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE 1=1";
+        $types = '';
+        $params = [];
+        if ($courseId > 0) {
+            $sql .= ' AND s.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+            $sql .= ' AND (t.student_id LIKE ? OR s.name LIKE ? OR s.mobile LIKE ? OR s.email LIKE ?)';
+            $types .= 'ssss';
+            array_push($params, $like, $like, $like, $like);
+        }
+        $sql .= ' ORDER BY t.created_at DESC, t.id DESC, s.id DESC LIMIT 2000';
+        $stmt = $conn->prepare($sql);
+        $raw = [];
+        if ($stmt) {
+            if ($types !== '') {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $res = $stmt->get_result();
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $raw[] = $r;
+                }
+            }
+            $stmt->close();
+        } else {
+            $res = $conn->query('SELECT id, student_id, finger_code, quality, enrolled_by, created_at, updated_at FROM student_fingerprint_templates ORDER BY created_at DESC LIMIT 1000');
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $raw[] = $r;
+                }
+            }
+        }
+
+        $rows = [];
+        foreach ($raw as $r) {
+            $tid = (int) ($r['id'] ?? 0);
+            if ($tid > 0 && isset($rows[$tid])) {
+                continue;
+            }
+            if ($tid > 0) {
+                $rows[$tid] = $r;
+            } else {
+                $rows[] = $r;
+            }
+        }
+        $rows = array_values($rows);
+        if (count($rows) > 1000) {
+            $rows = array_slice($rows, 0, 1000);
+        }
+        return fingerprintEnrichRegistryFromAccounts($conn, $rows);
+    }
+}
+
+if (!function_exists('fingerprintEnrichRegistryFromAccounts')) {
+    /**
+     * Fill blank name/mobile/email from student_accounts when the students row is missing.
+     * @param array<int,array<string,mixed>> $rows
+     * @return array<int,array<string,mixed>>
+     */
+    function fingerprintEnrichRegistryFromAccounts($conn, array $rows): array
+    {
+        if ($rows === [] || !($conn instanceof mysqli)) {
+            return $rows;
+        }
+        $need = [];
+        foreach ($rows as $i => $r) {
+            if (trim((string) ($r['name'] ?? '')) === '') {
+                $sid = trim((string) ($r['student_id'] ?? ''));
+                if ($sid !== '') {
+                    $need[strtolower($sid)] = $i;
+                }
+            }
+        }
+        if ($need === []) {
+            return $rows;
+        }
+        $tbl = $conn->query("SHOW TABLES LIKE 'student_accounts'");
+        if (!$tbl || $tbl->num_rows === 0) {
+            return $rows;
+        }
+        $ids = array_keys($need);
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $sql = "SELECT student_id, name, mobile, email FROM student_accounts WHERE LOWER(TRIM(student_id)) IN ($placeholders)";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return $rows;
+        }
+        $types = str_repeat('s', count($ids));
+        $stmt->bind_param($types, ...$ids);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        if ($res) {
+            while ($acc = $res->fetch_assoc()) {
+                $key = strtolower(trim((string) ($acc['student_id'] ?? '')));
+                if (!isset($need[$key])) {
+                    continue;
+                }
+                $i = $need[$key];
+                if (trim((string) ($rows[$i]['name'] ?? '')) === '' && !empty($acc['name'])) {
+                    $rows[$i]['name'] = $acc['name'];
+                }
+                if (trim((string) ($rows[$i]['mobile'] ?? '')) === '' && !empty($acc['mobile'])) {
+                    $rows[$i]['mobile'] = $acc['mobile'];
+                }
+                if (trim((string) ($rows[$i]['email'] ?? '')) === '' && !empty($acc['email'])) {
+                    $rows[$i]['email'] = $acc['email'];
+                }
+            }
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
+if (!function_exists('listStudentsMissingFingerprint')) {
+    /**
+     * Active/approved students in a course who have not enrolled a fingerprint.
+     * @return array<int,array<string,mixed>>
+     */
+    function listStudentsMissingFingerprint($conn, int $courseId): array
+    {
+        if ($courseId <= 0) {
+            return [];
+        }
+        ensureFingerprintTemplateTables($conn);
+        $sql = "SELECT s.student_id, s.name, s.mobile, s.email, s.status, IFNULL(c.course_name, '') AS course_name
+                FROM students s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.course_id = ?
+                  AND LOWER(TRIM(IFNULL(s.status,''))) IN ('active','approved','')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM student_fingerprint_templates t
+                      WHERE LOWER(TRIM(t.student_id)) = LOWER(TRIM(s.student_id))
+                  )
+                ORDER BY s.name ASC
+                LIMIT 1000";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
 if (!function_exists('mantraMfs100Http')) {
     /**
      * @return array{ok:bool,body:string,error:string,http_code:int}
