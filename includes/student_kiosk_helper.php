@@ -116,6 +116,37 @@ if (!function_exists('studentKioskIpAllowed')) {
     }
 }
 
+if (!function_exists('studentKioskDeviceLabel')) {
+    /**
+     * Printable kiosk device id: allowed-IP label, else the client IP.
+     */
+    function studentKioskDeviceLabel($conn, string $ip = ''): string
+    {
+        if ($ip === '' && function_exists('studentKioskClientIp')) {
+            $ip = studentKioskClientIp();
+        }
+        $ip = trim($ip);
+        if ($ip === '' || $ip === 'unknown') {
+            return '';
+        }
+        if ($conn instanceof mysqli && function_exists('ensureStudentKioskTables')) {
+            ensureStudentKioskTables($conn);
+            $stmt = $conn->prepare('SELECT label FROM student_kiosk_allowed_ips WHERE ip_address = ? LIMIT 1');
+            if ($stmt) {
+                $stmt->bind_param('s', $ip);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                $label = trim((string) ($row['label'] ?? ''));
+                if ($label !== '') {
+                    return $label . ' · ' . $ip;
+                }
+            }
+        }
+        return $ip;
+    }
+}
+
 if (!function_exists('studentKioskAddIp')) {
     /** @return array{success:bool,message:string} */
     function studentKioskAddIp($conn, string $ip, string $label, string $by): array

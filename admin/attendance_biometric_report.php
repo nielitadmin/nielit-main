@@ -58,8 +58,8 @@ foreach ($courses as $course) {
 }
 $printedAt = $istNow->format('d/m/Y g:i:s A') . ' IST';
 $logoUrl = app_url('assets/images/bhubaneswar_logo.png');
-$colspan = 6 + $daysInMonth;
-$colspanPrint = 3 + $daysInMonth;
+$colspan = 6 + ($daysInMonth * 2);
+$colspanPrint = 4 + ($daysInMonth * 2);
 $colspanExcel = 6 + ($daysInMonth * 2);
 
 $dayInOutTimes = static function (array $times): array {
@@ -199,16 +199,16 @@ $qs = http_build_query([
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
         .att-matrix .col-dev { min-width: 120px; }
-        .att-matrix .col-stack {
-            min-width: 58px;
+        .att-matrix .col-day { min-width: 48px; text-align: center; }
+        .att-matrix .col-io {
+            min-width: 44px;
             text-align: center;
             font-size: 10px;
             line-height: 1.2;
             padding: 3px 4px;
         }
-        .io-in, .io-out { display: block; }
-        .io-in { color: #0f766e; font-weight: 700; }
-        .io-out { color: #b45309; font-weight: 700; border-top: 1px solid #cbd5e1; margin-top: 2px; padding-top: 2px; }
+        .att-matrix .col-io.is-in { color: #0f766e; font-weight: 700; }
+        .att-matrix .col-io.is-out { color: #b45309; font-weight: 700; }
         .t-short { display: none; }
         .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
         .print-only { display: none; }
@@ -270,18 +270,18 @@ $qs = http_build_query([
             .att-matrix thead { display: table-header-group; }
             .att-matrix tfoot { display: table-footer-group; }
             .att-matrix tbody tr { page-break-inside: avoid; }
-            .att-matrix .col-id { width: 22mm; font-size: 6.5px; }
-            .att-matrix .col-name { width: 28mm; min-width: 0; font-size: 6.5px; }
-            .att-matrix .col-dept { width: 26mm; min-width: 0; font-size: 6px; }
-            .att-matrix .col-stack {
+            .att-matrix .col-id { width: 20mm; font-size: 6.5px; }
+            .att-matrix .col-name { width: 24mm; min-width: 0; font-size: 6.5px; }
+            .att-matrix .col-dept { width: 22mm; min-width: 0; font-size: 6px; }
+            .att-matrix .col-dev { width: 18mm; min-width: 0; font-size: 5.5px; }
+            .att-matrix .col-day,
+            .att-matrix .col-io {
                 min-width: 0 !important;
                 width: auto;
-                font-size: 5.5px;
+                font-size: 5px;
                 padding: 1px 0;
-                line-height: 1.15;
+                line-height: 1.1;
             }
-            .io-in, .io-out { border: 0; margin: 0; padding: 0; }
-            .io-out { border-top: 0.4pt solid #94a3b8; margin-top: 1px; padding-top: 1px; }
             .print-banner th {
                 background: #fff !important;
                 border: 0 !important;
@@ -331,7 +331,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day shows IN on top and OUT below so all days fit on A4 landscape.</p>
+                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day has separate IN and OUT columns.</p>
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
@@ -439,14 +439,20 @@ $qs = http_build_query([
                                 </th>
                             </tr>
                             <tr>
-                                <th class="col-centre print-hide" rowspan="1">Centre</th>
-                                <th class="col-centre print-hide" rowspan="1">Batch</th>
-                                <th class="col-id" rowspan="1">Student ID</th>
-                                <th class="col-name" rowspan="1">Name</th>
-                                <th class="col-dept" rowspan="1">Course / session</th>
-                                <th class="col-dev print-hide" rowspan="1">Device ID</th>
+                                <th class="col-centre print-hide" rowspan="2">Centre</th>
+                                <th class="col-centre print-hide" rowspan="2">Batch</th>
+                                <th class="col-id" rowspan="2">Student ID</th>
+                                <th class="col-name" rowspan="2">Name</th>
+                                <th class="col-dept" rowspan="2">Course / session</th>
+                                <th class="col-dev" rowspan="2">Device ID</th>
                                 <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                                    <th class="col-stack"><?php echo $d; ?></th>
+                                    <th class="col-day" colspan="2"><?php echo $d; ?></th>
+                                <?php endfor; ?>
+                            </tr>
+                            <tr>
+                                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                    <th class="col-io is-in">IN</th>
+                                    <th class="col-io is-out">OUT</th>
                                 <?php endfor; ?>
                             </tr>
                         </thead>
@@ -466,18 +472,16 @@ $qs = http_build_query([
                                     <td><?php echo htmlspecialchars((string) $row['student_id']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>
-                                    <td class="print-hide"><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
+                                    <td class="col-dev"><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
                                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                                         <?php $io = $dayInOutTimes($row['days'][$d] ?? []); ?>
-                                        <td class="col-stack">
-                                            <span class="io-in">
-                                                <span class="t-full"><?php echo $formatTimeList($io['in'], true) !== '' ? $formatTimeList($io['in'], true) : '&nbsp;'; ?></span>
-                                                <span class="t-short"><?php echo $formatTimeListCompact($io['in']) !== '' ? $formatTimeListCompact($io['in']) : '&nbsp;'; ?></span>
-                                            </span>
-                                            <span class="io-out">
-                                                <span class="t-full"><?php echo $formatTimeList($io['out'], true) !== '' ? $formatTimeList($io['out'], true) : '&nbsp;'; ?></span>
-                                                <span class="t-short"><?php echo $formatTimeListCompact($io['out']) !== '' ? $formatTimeListCompact($io['out']) : '&nbsp;'; ?></span>
-                                            </span>
+                                        <td class="col-io is-in">
+                                            <span class="t-full"><?php echo $formatTimeList($io['in'], true); ?></span>
+                                            <span class="t-short"><?php echo $formatTimeListCompact($io['in']); ?></span>
+                                        </td>
+                                        <td class="col-io is-out">
+                                            <span class="t-full"><?php echo $formatTimeList($io['out'], true); ?></span>
+                                            <span class="t-short"><?php echo $formatTimeListCompact($io['out']); ?></span>
                                         </td>
                                     <?php endfor; ?>
                                 </tr>

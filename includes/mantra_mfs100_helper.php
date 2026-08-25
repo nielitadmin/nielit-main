@@ -879,12 +879,18 @@ if (!function_exists('processBiometricMatchAttendanceFromIso')) {
 
         $marked = processInOutAttendanceForStudent($studentId, $sessionId, $coordinatorId, $conn, 'biometric');
         if (function_exists('logBiometricCapture')) {
+            $ip = function_exists('studentKioskClientIp') ? studentKioskClientIp() : (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+            $device = function_exists('studentKioskDeviceLabel') ? studentKioskDeviceLabel($conn, $ip) : $ip;
             logBiometricCapture(
                 $conn,
                 $sessionId,
                 $studentId,
                 $coordinatorId,
-                [],
+                [
+                    'dc' => $device !== '' ? $device : $ip,
+                    'mi' => 'Fingerprint kiosk',
+                    'rds_id' => $ip,
+                ],
                 hash('sha256', $liveIso),
                 !empty($marked['success']) ? 'ok' : (string) ($marked['result'] ?? 'fail')
             );

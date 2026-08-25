@@ -625,14 +625,24 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
 
         $createdSelect = $hasCreated ? 'l.created_at' : 'l.scan_time AS created_at';
-        $deviceSelect = $bioOk
-            ? "(SELECT IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model)))
+        $bioDevice = "''";
+        if ($bioOk) {
+            $bioDevice = "(SELECT IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model)))
                 FROM biometric_capture_logs b
                 WHERE b.result IN ('ok', 'success')
                   AND TRIM(b.student_id) = TRIM(l.student_id)
                   AND (b.session_id = l.session_id OR b.session_id = 0)
-                ORDER BY b.id DESC LIMIT 1)"
-            : "''";
+                ORDER BY b.id DESC LIMIT 1)";
+        }
+        $kioskDevice = "''";
+        $kioskTbl = $conn->query("SHOW TABLES LIKE 'student_kiosk_allowed_ips'");
+        if ($kioskTbl && $kioskTbl->num_rows > 0) {
+            $kioskDevice = "(SELECT IFNULL(NULLIF(TRIM(k.label), ''), k.ip_address)
+                FROM student_kiosk_allowed_ips k
+                WHERE k.ip_address = l.ip_address
+                LIMIT 1)";
+        }
+        $deviceSelect = "TRIM(IFNULL(NULLIF({$bioDevice}, ''), IFNULL(NULLIF({$kioskDevice}, ''), NULLIF(TRIM(l.ip_address), ''))))";
 
         $batchSelect = "'' AS batch_name";
         $batchJoin = '';
