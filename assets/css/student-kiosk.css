@@ -412,6 +412,38 @@ body.kiosk-page {
 
 .fp-retry[hidden] { display: none !important; }
 
+.fp-who {
+    margin: 10px 0 2px;
+}
+
+.fp-who[hidden] { display: none !important; }
+
+.fp-who-name {
+    font-family: 'Sora', 'Segoe UI', sans-serif;
+    font-weight: 800;
+    font-size: 1.12rem;
+    color: #0f172a;
+    margin-top: 8px;
+    line-height: 1.3;
+}
+
+.fp-overlay.is-identified .fp-scanner {
+    width: 92px;
+    height: 92px;
+    margin-bottom: 10px;
+}
+
+.fp-overlay.is-identified .fp-core {
+    inset: 10px;
+    font-size: 1.85rem;
+}
+
+.fp-overlay.is-identified .fp-who .kiosk-photo,
+.fp-overlay.is-identified .fp-who .kiosk-photo-empty {
+    width: 118px;
+    height: 140px;
+}
+
 .fp-scanner.is-looking .fp-core {
     animation: fpBreathe 1.4s ease-in-out infinite;
 }

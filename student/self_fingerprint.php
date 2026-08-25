@@ -175,9 +175,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 biometricKioskJsonExit(['success' => false, 'message' => 'Capture the fingerprint again.']);
             }
             $ok = saveStudentFingerprintTemplate($conn, $verifiedSid, $iso, 'self:' . $verifiedSid, 'R1', $quality);
+            $look = studentKioskLookup($conn, $verifiedSid);
+            $details = ($look['ok'] && !empty($look['row'])) ? studentKioskPublicDetails($conn, $look['row']) : [];
             biometricKioskJsonExit([
                 'success' => $ok,
                 'saved' => $ok,
+                'name' => (string) ($details['name'] ?? ''),
+                'photo' => (string) ($details['photo'] ?? ''),
+                'student_id' => $verifiedSid,
                 'message' => $ok ? 'Fingerprint registered. You can now mark attendance.' : 'Could not save fingerprint. Try again.',
             ]);
         }
@@ -281,6 +286,10 @@ $bgSlides = studentKioskBackgroundSlides();
                     </div>
                 </div>
                 <p class="fp-hint" id="fpHint">Place your thumb on the reader</p>
+                <div id="fpWho" class="fp-who" hidden>
+                    <div id="fpWhoPhoto" class="kiosk-photo-wrap"></div>
+                    <div id="fpWhoName" class="fp-who-name"></div>
+                </div>
                 <p class="fp-subhint" id="fpSubhint">Keep it still until the scan finishes</p>
                 <button type="button" class="btn btn-attend big-btn fp-retry" id="fpRetry" hidden>Try again</button>
             </div>
@@ -360,6 +369,7 @@ $bgSlides = studentKioskBackgroundSlides();
     let attendBusy = false;
     let lastAuto6 = '';
     let autoTimer = null;
+    let currentWho = { name: '', photo: '' };
 
     function el(id) { return document.getElementById(id); }
     function banner(cls, html) { const b = el('devBanner'); b.className = 'bio-banner ' + cls; b.innerHTML = html; }
@@ -388,23 +398,38 @@ $bgSlides = studentKioskBackgroundSlides();
         el('btnCapture').disabled = on;
         el('aadhaarLast6').readOnly = on;
     }
-    function fpShow(state, hint, sub, retry) {
+    function fpShow(state, hint, sub, retry, who) {
         const ov = el('fpOverlay');
         ov.hidden = false;
         el('fpScanner').className = 'fp-scanner is-' + state;
         el('fpIcon').className = 'fas ' + (
             state === 'success' ? 'fa-check' :
             state === 'error' ? 'fa-times' :
-            state === 'matching' ? 'fa-fingerprint' :
             'fa-fingerprint'
         );
         el('fpHint').textContent = hint || '';
         el('fpSubhint').textContent = sub || '';
         el('fpRetry').hidden = !retry;
+        const ident = who && (String(who.name || '').trim() !== '' || String(who.photo || '').trim() !== '');
+        ov.classList.toggle('is-identified', !!(state === 'success' && ident));
+        const whoBox = el('fpWho');
+        if (state === 'success' && ident) {
+            whoBox.hidden = false;
+            renderPhoto('fpWhoPhoto', who.photo || '');
+            el('fpWhoName').textContent = who.name || '';
+        } else {
+            whoBox.hidden = true;
+            el('fpWhoPhoto').textContent = '';
+            el('fpWhoName').textContent = '';
+        }
     }
     function fpHide() {
         el('fpOverlay').hidden = true;
+        el('fpOverlay').classList.remove('is-identified');
         el('fpRetry').hidden = true;
+        el('fpWho').hidden = true;
+        el('fpWhoPhoto').textContent = '';
+        el('fpWhoName').textContent = '';
     }
     function post(data) {
         const fd = new FormData();
@@ -474,6 +499,7 @@ $bgSlides = studentKioskBackgroundSlides();
     function goAttend() {
         firstIso = '';
         lastAuto6 = '';
+        currentWho = { name: '', photo: '' };
         setBusy(false);
         fpHide();
         el('identifier').value = '';
@@ -533,6 +559,10 @@ $bgSlides = studentKioskBackgroundSlides();
                 return;
             }
             fillDetails(d.details || { name: d.name, student_id: d.student_id });
+            currentWho = {
+                name: (d.details && d.details.name) ? d.details.name : (d.name || ''),
+                photo: (d.details && d.details.photo) ? d.details.photo : ''
+            };
             el('whoState').textContent = 'Capture the same thumb twice to register.';
             el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
             firstIso = '';
@@ -570,12 +600,16 @@ $bgSlides = studentKioskBackgroundSlides();
                 return post({ action: 'enroll_save', iso_template: firstIso, quality: String(cap.quality || 0) }).then(function (d) {
                     firstIso = '';
                     if (d.success) {
-                        fpShow('success', 'Fingerprint registered', 'You can mark attendance with the last 6 digits of Aadhaar', false);
+                        currentWho = {
+                            name: d.name || currentWho.name || '',
+                            photo: d.photo || currentWho.photo || ''
+                        };
+                        fpShow('success', 'Fingerprint registered', 'You can mark attendance with the last 6 digits of Aadhaar', false, currentWho);
                         el('whoState').textContent = 'Registered. Use Mark attendance next time (last 6 digits of Aadhaar).';
                         msg('msg3', d.message, true);
                         setBusy(false);
                         if (resetTimer) clearTimeout(resetTimer);
-                        resetTimer = setTimeout(goAttend, 2200);
+                        resetTimer = setTimeout(goAttend, 4000);
                     } else {
                         el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
                         throw new Error(d.message || 'Could not register.');
@@ -638,14 +672,18 @@ $bgSlides = studentKioskBackgroundSlides();
                         }
                         const who = res.name ? (res.name + ' — ') : '';
                         const detail = res.message || (((res.scan_type === 'out') ? 'OUT' : 'IN') + ' attendance recorded' + (res.scan_time ? (' at ' + res.scan_time) : ''));
-                        fpShow('success', (res.scan_type === 'out' ? 'OUT recorded' : 'IN recorded'), res.name || '', false);
-                        showAttendResult(res.name || '', res.photo || '');
+                        const ident = {
+                            name: res.name || (hit.student && hit.student.name) || '',
+                            photo: res.photo || ''
+                        };
+                        fpShow('success', (res.scan_type === 'out' ? 'OUT recorded' : 'IN recorded'), detail, false, ident);
+                        showAttendResult(ident.name, ident.photo);
                         msg('msgAttend', who + detail, true);
                         setBusy(false);
                         if (resetTimer) clearTimeout(resetTimer);
                         resetTimer = setTimeout(function () {
                             post({ action: 'reset' }).finally(goAttend);
-                        }, 2800);
+                        }, 4000);
                     });
                 });
             });
