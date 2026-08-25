@@ -58,7 +58,9 @@ foreach ($courses as $course) {
 }
 $printedAt = $istNow->format('d/m/Y g:i:s A') . ' IST';
 $logoUrl = app_url('assets/images/bhubaneswar_logo.png');
-$colspan = 6 + ($daysInMonth * 2);
+$colspan = 6 + $daysInMonth;
+$colspanPrint = 3 + $daysInMonth;
+$colspanExcel = 6 + ($daysInMonth * 2);
 
 $dayInOutTimes = static function (array $times): array {
     $pairs = $times['pairs'] ?? [];
@@ -95,6 +97,31 @@ $formatTimeList = static function (array $times, bool $html): string {
     return implode("\n", $times);
 };
 
+$compactClock = static function (string $time): string {
+    $time = trim($time);
+    if ($time === '') {
+        return '';
+    }
+    if (preg_match('/\s*am$/i', $time)) {
+        return trim((string) preg_replace('/\s*am$/i', '', $time)) . 'a';
+    }
+    if (preg_match('/\s*pm$/i', $time)) {
+        return trim((string) preg_replace('/\s*pm$/i', '', $time)) . 'p';
+    }
+    return $time;
+};
+
+$formatTimeListCompact = static function (array $times) use ($compactClock): string {
+    $out = [];
+    foreach ($times as $time) {
+        $short = $compactClock((string) $time);
+        if ($short !== '') {
+            $out[] = htmlspecialchars($short);
+        }
+    }
+    return implode('<br>', $out);
+};
+
 if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     $filename = 'Attendance_Record_' . $year . '-' . str_pad((string) $month, 2, '0', STR_PAD_LEFT) . '.xls';
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
@@ -104,12 +131,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
     echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>';
     echo '<table border="1">';
-    echo '<tr><td colspan="' . $colspan . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('d/m/Y g:i:s A')) . ' IST</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
-    echo '<tr><td colspan="' . $colspan . '">NIELIT Bhubaneswar — Fingerprint attendance</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '">Create Time: ' . htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('d/m/Y g:i:s A')) . ' IST</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '">Mode Date: ' . htmlspecialchars($report['start']) . ' to ' . htmlspecialchars($report['end']) . '</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
+    echo '<tr><td colspan="' . $colspanExcel . '">NIELIT Bhubaneswar — Fingerprint attendance</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
     echo '<td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
@@ -122,7 +149,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     }
     echo '</tr>';
     if ($report['rows'] === []) {
-        echo '<tr><td colspan="' . $colspan . '" style="text-align:center;">No fingerprint attendance in this month.</td></tr>';
+        echo '<tr><td colspan="' . $colspanExcel . '" style="text-align:center;">No fingerprint attendance in this month.</td></tr>';
     } else {
         foreach ($report['rows'] as $row) {
             echo '<tr>';
@@ -172,20 +199,31 @@ $qs = http_build_query([
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
         .att-matrix .col-dev { min-width: 120px; }
-        .att-matrix .col-day { min-width: 64px; text-align: center; line-height: 1.25; font-size: 11px; }
-        .att-matrix .col-io { min-width: 52px; font-size: 10px; }
+        .att-matrix .col-stack {
+            min-width: 58px;
+            text-align: center;
+            font-size: 10px;
+            line-height: 1.2;
+            padding: 3px 4px;
+        }
+        .io-in, .io-out { display: block; }
+        .io-in { color: #0f766e; font-weight: 700; }
+        .io-out { color: #b45309; font-weight: 700; border-top: 1px solid #cbd5e1; margin-top: 2px; padding-top: 2px; }
+        .t-short { display: none; }
         .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
         .print-only { display: none; }
         .print-signs { display: none; }
+        .print-hint { font-size: 0.82rem; color: #64748b; }
         @page {
             size: A4 landscape;
-            margin: 10mm 8mm 14mm 8mm;
+            margin: 8mm 6mm 10mm 6mm;
         }
         @media print {
             html, body.admin-body {
                 background: #fff !important;
                 margin: 0 !important;
                 padding: 0 !important;
+                width: 297mm !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -195,6 +233,7 @@ $qs = http_build_query([
             .sidebar-overlay,
             .toast,
             .navbar { display: none !important; }
+            .print-hide { display: none !important; }
             .admin-content {
                 margin: 0 !important;
                 padding: 0 !important;
@@ -207,60 +246,79 @@ $qs = http_build_query([
             .att-title, .att-meta { display: none !important; }
             .print-only { display: table-row !important; }
             .print-signs { display: flex !important; }
+            .t-full { display: none !important; }
+            .t-short { display: inline !important; }
             .att-matrix {
-                width: 100% !important;
+                table-layout: fixed !important;
+                width: 277mm !important;
                 min-width: 0 !important;
-                font-size: 7.5px;
+                max-width: 277mm !important;
+                font-size: 6px;
             }
             .att-matrix th, .att-matrix td {
-                padding: 2px 3px;
+                padding: 1px 1px;
                 border-color: #0f172a;
+                word-break: break-word;
+                overflow: hidden;
             }
             .att-matrix thead th {
                 background: #93c5fd !important;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                white-space: normal;
             }
             .att-matrix thead { display: table-header-group; }
             .att-matrix tfoot { display: table-footer-group; }
-            .att-matrix tr { page-break-inside: avoid; }
+            .att-matrix tbody tr { page-break-inside: avoid; }
+            .att-matrix .col-id { width: 22mm; font-size: 6.5px; }
+            .att-matrix .col-name { width: 28mm; min-width: 0; font-size: 6.5px; }
+            .att-matrix .col-dept { width: 26mm; min-width: 0; font-size: 6px; }
+            .att-matrix .col-stack {
+                min-width: 0 !important;
+                width: auto;
+                font-size: 5.5px;
+                padding: 1px 0;
+                line-height: 1.15;
+            }
+            .io-in, .io-out { border: 0; margin: 0; padding: 0; }
+            .io-out { border-top: 0.4pt solid #94a3b8; margin-top: 1px; padding-top: 1px; }
             .print-banner th {
                 background: #fff !important;
                 border: 0 !important;
-                padding: 0 0 6px !important;
+                padding: 0 0 4px !important;
                 text-align: left;
             }
-            .lh-header { display: flex; align-items: center; gap: 10px; }
-            .lh-header img { height: 36px; width: auto; }
+            .lh-header { display: flex; align-items: center; gap: 8px; }
+            .lh-header img { height: 28px; width: auto; }
             .lh-text { flex: 1; text-align: center; }
-            .lh-text p { margin: 0; line-height: 1.25; }
-            .lh-text .hi { font-size: 11px; font-weight: 700; }
-            .lh-text .en { font-size: 10px; font-weight: 700; }
-            .lh-text .tag { font-size: 8px; color: #334155; }
-            .lh-rule { border: 0; border-top: 1.5px solid #0f172a; margin: 4px 0 4px; }
-            .doc-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; margin: 0; text-align: center; }
-            .doc-meta { font-size: 8.5px; color: #334155; margin: 2px 0 0; text-align: center; }
+            .lh-text p { margin: 0; line-height: 1.2; }
+            .lh-text .hi { font-size: 10px; font-weight: 700; }
+            .lh-text .en { font-size: 9px; font-weight: 700; }
+            .lh-text .tag { font-size: 7px; color: #334155; }
+            .lh-rule { border: 0; border-top: 1.5px solid #0f172a; margin: 3px 0; }
+            .doc-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; margin: 0; text-align: center; }
+            .doc-meta { font-size: 7.5px; color: #334155; margin: 2px 0 0; text-align: center; }
             .print-foot td {
                 border: 0 !important;
-                padding: 6px 4px 0 !important;
-                font-size: 8px;
+                padding: 4px 2px 0 !important;
+                font-size: 7px;
                 color: #334155;
                 text-align: center;
             }
             .print-signs {
                 display: flex !important;
-                margin-top: 18px;
+                margin-top: 10px;
                 justify-content: space-between;
-                gap: 16px;
-                font-size: 9px;
+                gap: 12px;
+                font-size: 8px;
                 text-align: center;
                 page-break-inside: avoid;
             }
             .print-signs > div { flex: 1; }
             .print-signs .line {
                 border-bottom: 1px solid #0f172a;
-                height: 28px;
-                margin: 0 auto 6px;
+                height: 20px;
+                margin: 0 auto 4px;
                 width: 80%;
             }
         }
@@ -273,17 +331,18 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day has separate IN and OUT times.</p>
+                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day shows IN on top and OUT below so all days fit on A4 landscape.</p>
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
-                    <i class="fas fa-print"></i> Print (landscape)
+                    <i class="fas fa-print"></i> Print A4 landscape
                 </button>
                 <a class="btn btn-success" href="attendance_biometric_report.php?<?php echo htmlspecialchars($qs); ?>">
                     <i class="fas fa-file-excel"></i> Download Excel
                 </a>
             </div>
         </div>
+        <p class="print-hint no-print mb-2">Print uses A4 landscape so all <?php echo (int) $daysInMonth; ?> days fit. In the printer dialog choose <strong>A4</strong> and <strong>Landscape</strong> (not Portrait).</p>
 
         <div class="card mb-3 no-print">
             <div class="card-body">
@@ -359,7 +418,7 @@ $qs = http_build_query([
                     <table class="att-matrix">
                         <thead>
                             <tr class="print-only print-banner">
-                                <th colspan="<?php echo (int) $colspan; ?>">
+                                <th colspan="<?php echo (int) $colspanPrint; ?>">
                                     <div class="lh-header">
                                         <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT">
                                         <div class="lh-text">
@@ -380,20 +439,14 @@ $qs = http_build_query([
                                 </th>
                             </tr>
                             <tr>
-                                <th class="col-centre" rowspan="2">Centre</th>
-                                <th class="col-centre" rowspan="2">Batch</th>
-                                <th class="col-id" rowspan="2">Student ID</th>
-                                <th class="col-name" rowspan="2">Name</th>
-                                <th class="col-dept" rowspan="2">Course / session</th>
-                                <th class="col-dev" rowspan="2">Device ID</th>
+                                <th class="col-centre print-hide" rowspan="1">Centre</th>
+                                <th class="col-centre print-hide" rowspan="1">Batch</th>
+                                <th class="col-id" rowspan="1">Student ID</th>
+                                <th class="col-name" rowspan="1">Name</th>
+                                <th class="col-dept" rowspan="1">Course / session</th>
+                                <th class="col-dev print-hide" rowspan="1">Device ID</th>
                                 <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                                    <th class="col-day" colspan="2"><?php echo $d; ?></th>
-                                <?php endfor; ?>
-                            </tr>
-                            <tr>
-                                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
-                                    <th class="col-io">IN</th>
-                                    <th class="col-io">OUT</th>
+                                    <th class="col-stack"><?php echo $d; ?></th>
                                 <?php endfor; ?>
                             </tr>
                         </thead>
@@ -408,16 +461,24 @@ $qs = http_build_query([
                         <?php else: ?>
                             <?php foreach ($report['rows'] as $row): ?>
                                 <tr>
-                                    <td><?php echo htmlspecialchars((string) ($row['centre'] ?? '—')); ?></td>
-                                    <td><?php echo htmlspecialchars((string) ($row['batch'] ?? '—')); ?></td>
+                                    <td class="print-hide"><?php echo htmlspecialchars((string) ($row['centre'] ?? '—')); ?></td>
+                                    <td class="print-hide"><?php echo htmlspecialchars((string) ($row['batch'] ?? '—')); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['student_id']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>
-                                    <td><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
+                                    <td class="print-hide"><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
                                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                                         <?php $io = $dayInOutTimes($row['days'][$d] ?? []); ?>
-                                        <td class="col-day"><?php echo $formatTimeList($io['in'], true); ?></td>
-                                        <td class="col-day"><?php echo $formatTimeList($io['out'], true); ?></td>
+                                        <td class="col-stack">
+                                            <span class="io-in">
+                                                <span class="t-full"><?php echo $formatTimeList($io['in'], true) !== '' ? $formatTimeList($io['in'], true) : '&nbsp;'; ?></span>
+                                                <span class="t-short"><?php echo $formatTimeListCompact($io['in']) !== '' ? $formatTimeListCompact($io['in']) : '&nbsp;'; ?></span>
+                                            </span>
+                                            <span class="io-out">
+                                                <span class="t-full"><?php echo $formatTimeList($io['out'], true) !== '' ? $formatTimeList($io['out'], true) : '&nbsp;'; ?></span>
+                                                <span class="t-short"><?php echo $formatTimeListCompact($io['out']) !== '' ? $formatTimeListCompact($io['out']) : '&nbsp;'; ?></span>
+                                            </span>
+                                        </td>
                                     <?php endfor; ?>
                                 </tr>
                             <?php endforeach; ?>
@@ -425,7 +486,7 @@ $qs = http_build_query([
                         </tbody>
                         <tfoot>
                             <tr class="print-only print-foot">
-                                <td colspan="<?php echo (int) $colspan; ?>">
+                                <td colspan="<?php echo (int) $colspanPrint; ?>">
                                     NIELIT Bhubaneswar | Fingerprint Attendance Record | Printed: <?php echo htmlspecialchars($printedAt); ?>
                                     | Page generated from the student portal
                                 </td>
