@@ -271,6 +271,19 @@ $bgSlides = studentKioskBackgroundSlides();
         <p class="kiosk-foot">This PC · IP <span class="muted-ip"><?php echo htmlspecialchars($clientIp !== '' ? $clientIp : 'unknown'); ?></span></p>
     <?php else: ?>
         <div class="card kiosk-card">
+            <div id="fpOverlay" class="fp-overlay" hidden>
+                <div class="fp-scanner is-scanning" id="fpScanner">
+                    <span class="fp-ring"></span>
+                    <span class="fp-ring-2"></span>
+                    <div class="fp-core">
+                        <i id="fpIcon" class="fas fa-fingerprint"></i>
+                        <span class="fp-beam"></span>
+                    </div>
+                </div>
+                <p class="fp-hint" id="fpHint">Place your thumb on the reader</p>
+                <p class="fp-subhint" id="fpSubhint">Keep it still until the scan finishes</p>
+                <button type="button" class="btn btn-attend big-btn fp-retry" id="fpRetry" hidden>Try again</button>
+            </div>
             <div class="card-body p-4">
                 <div id="devBanner" class="bio-banner wait">Checking for a fingerprint reader on this PC…</div>
 
@@ -286,7 +299,8 @@ $bgSlides = studentKioskBackgroundSlides();
                         <div id="attendWho" class="attend-who"></div>
                     </div>
                     <label class="form-label fw-semibold">Last 6 digits of your Aadhaar</label>
-                    <input class="form-control form-control-lg mb-3" id="aadhaarLast6" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="______">
+                    <input class="form-control form-control-lg mb-2" id="aadhaarLast6" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="______">
+                    <p class="attend-auto-hint">Capture starts automatically after 6 digits. Then place your thumb on the reader.</p>
                     <button class="btn btn-attend big-btn w-100 mb-2" id="btnAttend"><i class="fas fa-fingerprint"></i> Capture fingerprint for IN / OUT</button>
                     <div id="msgAttend" class="small mt-2"></div>
                 </div>
@@ -343,6 +357,9 @@ $bgSlides = studentKioskBackgroundSlides();
     let deviceBase = '';
     let firstIso = '';
     let resetTimer = null;
+    let attendBusy = false;
+    let lastAuto6 = '';
+    let autoTimer = null;
 
     function el(id) { return document.getElementById(id); }
     function banner(cls, html) { const b = el('devBanner'); b.className = 'bio-banner ' + cls; b.innerHTML = html; }
@@ -352,6 +369,7 @@ $bgSlides = studentKioskBackgroundSlides();
         });
     }
     function setTab(mode) {
+        if (attendBusy) { return; }
         el('tabAttend').classList.toggle('active', mode === 'attend');
         el('tabNew').classList.toggle('active', mode === 'new');
         if (mode === 'attend') { show('stepAttend'); el('aadhaarLast6').focus(); }
@@ -361,6 +379,32 @@ $bgSlides = studentKioskBackgroundSlides();
         const m = el(id);
         m.className = 'small mt-2 ' + (ok ? 'text-success' : 'text-danger');
         m.textContent = text || '';
+    }
+    function setBusy(on) {
+        attendBusy = on;
+        el('tabAttend').disabled = on;
+        el('tabNew').disabled = on;
+        el('btnAttend').disabled = on;
+        el('btnCapture').disabled = on;
+        el('aadhaarLast6').readOnly = on;
+    }
+    function fpShow(state, hint, sub, retry) {
+        const ov = el('fpOverlay');
+        ov.hidden = false;
+        el('fpScanner').className = 'fp-scanner is-' + state;
+        el('fpIcon').className = 'fas ' + (
+            state === 'success' ? 'fa-check' :
+            state === 'error' ? 'fa-times' :
+            state === 'matching' ? 'fa-fingerprint' :
+            'fa-fingerprint'
+        );
+        el('fpHint').textContent = hint || '';
+        el('fpSubhint').textContent = sub || '';
+        el('fpRetry').hidden = !retry;
+    }
+    function fpHide() {
+        el('fpOverlay').hidden = true;
+        el('fpRetry').hidden = true;
     }
     function post(data) {
         const fd = new FormData();
@@ -429,6 +473,9 @@ $bgSlides = studentKioskBackgroundSlides();
     }
     function goAttend() {
         firstIso = '';
+        lastAuto6 = '';
+        setBusy(false);
+        fpHide();
         el('identifier').value = '';
         el('otp').value = '';
         el('aadhaarLast6').value = '';
@@ -499,55 +546,73 @@ $bgSlides = studentKioskBackgroundSlides();
 
     el('btnCapture').addEventListener('click', function () {
         if (!deviceBase) { msg('msg3', 'No reader detected on this PC.', false); return; }
-        const b = el('btnCapture'); b.disabled = true;
-        msg('msg3', 'Place your thumb on the reader…', true);
+        if (attendBusy) { return; }
+        setBusy(true);
+        fpShow('scanning', 'Place your thumb on the reader', 'Same thumb, twice — keep it still', false);
+        msg('msg3', '', true);
         window.BiometricDevice.capture(deviceBase).then(function (cap) {
             if (!firstIso) {
                 firstIso = cap.iso;
-                b.disabled = false;
-                b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (2 of 2)';
+                setBusy(false);
+                fpShow('success', 'First capture saved', 'Lift the thumb, then capture again', false);
+                el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (2 of 2)';
                 msg('msg3', 'First capture saved. Lift the thumb, then capture again.', true);
+                setTimeout(fpHide, 900);
                 return;
             }
+            fpShow('matching', 'Matching the two captures…', '', false);
             return window.BiometricDevice.match(deviceBase, cap.iso, firstIso).then(function (m) {
                 if (!m.matched) {
                     firstIso = '';
-                    b.disabled = false;
-                    b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
+                    el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
                     throw new Error('The two captures did not match (score ' + m.score + '). Start again with the same thumb.');
                 }
                 return post({ action: 'enroll_save', iso_template: firstIso, quality: String(cap.quality || 0) }).then(function (d) {
                     firstIso = '';
-                    b.disabled = false;
                     if (d.success) {
+                        fpShow('success', 'Fingerprint registered', 'You can mark attendance with the last 6 digits of Aadhaar', false);
                         el('whoState').textContent = 'Registered. Use Mark attendance next time (last 6 digits of Aadhaar).';
                         msg('msg3', d.message, true);
+                        setBusy(false);
                         if (resetTimer) clearTimeout(resetTimer);
-                        resetTimer = setTimeout(goAttend, 2500);
+                        resetTimer = setTimeout(goAttend, 2200);
                     } else {
-                        b.innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
-                        msg('msg3', d.message || 'Could not register.', false);
+                        el('btnCapture').innerHTML = '<i class="fas fa-fingerprint"></i> Capture thumb (1 of 2)';
+                        throw new Error(d.message || 'Could not register.');
                     }
                 });
             });
         }).catch(function (err) {
-            b.disabled = false;
+            setBusy(false);
+            fpShow('error', (err && err.message) ? err.message : 'Capture failed.', 'Tap Try again when ready', true);
             msg('msg3', (err && err.message) ? err.message : 'Capture failed.', false);
         });
     });
 
-    el('btnAttend').addEventListener('click', function () {
-        if (!deviceBase) { msg('msgAttend', 'No reader detected on this PC.', false); return; }
+    function startAttendCapture() {
+        if (attendBusy) { return; }
+        if (!deviceBase) {
+            msg('msgAttend', 'No reader detected on this PC.', false);
+            fpShow('error', 'No fingerprint reader detected on this PC.', 'Start the reader service, then try again', true);
+            return;
+        }
         const last6 = el('aadhaarLast6').value.replace(/\D/g, '');
-        if (last6.length !== 6) { msg('msgAttend', 'Enter the last 6 digits of your Aadhaar.', false); return; }
-        const b = el('btnAttend'); b.disabled = true;
+        if (last6.length !== 6) {
+            msg('msgAttend', 'Enter the last 6 digits of your Aadhaar.', false);
+            return;
+        }
+        setBusy(true);
         hideAttendResult();
-        msg('msgAttend', 'Checking… then place your thumb on the reader.', true);
+        msg('msgAttend', '', true);
+        fpShow('looking', 'Finding your record…', 'Then place your thumb on the reader', false);
+        el('aadhaarLast6').blur();
         post({ action: 'lookup_existing', aadhaar_last6: last6 }).then(function (d) {
             if (!d.success || !d.candidates || !d.candidates.length) {
                 throw new Error(d.message || 'No registered fingerprint for this Aadhaar. Use New registration.');
             }
+            fpShow('scanning', 'Place your thumb on the reader', 'Keep it still until the scan finishes', false);
             return window.BiometricDevice.capture(deviceBase).then(function (cap) {
+                fpShow('matching', 'Matching fingerprint…', '', false);
                 var seq = Promise.resolve(null);
                 d.candidates.forEach(function (c) {
                     seq = seq.then(function (hit) {
@@ -573,20 +638,55 @@ $bgSlides = studentKioskBackgroundSlides();
                         }
                         const who = res.name ? (res.name + ' — ') : '';
                         const detail = res.message || (((res.scan_type === 'out') ? 'OUT' : 'IN') + ' attendance recorded' + (res.scan_time ? (' at ' + res.scan_time) : ''));
+                        fpShow('success', (res.scan_type === 'out' ? 'OUT recorded' : 'IN recorded'), res.name || '', false);
                         showAttendResult(res.name || '', res.photo || '');
                         msg('msgAttend', who + detail, true);
+                        setBusy(false);
                         if (resetTimer) clearTimeout(resetTimer);
                         resetTimer = setTimeout(function () {
                             post({ action: 'reset' }).finally(goAttend);
-                        }, 4000);
+                        }, 2800);
                     });
                 });
             });
         }).catch(function (err) {
-            msg('msgAttend', (err && err.message) ? err.message : 'Could not mark attendance.', false);
-        }).finally(function () {
-            b.disabled = false;
+            setBusy(false);
+            const text = (err && err.message) ? err.message : 'Could not mark attendance.';
+            fpShow('error', text, 'Tap Try again, or change the Aadhaar digits', true);
+            msg('msgAttend', text, false);
+            if (resetTimer) clearTimeout(resetTimer);
+            resetTimer = setTimeout(function () {
+                if (!el('fpOverlay').hidden && el('fpScanner').classList.contains('is-error')) {
+                    fpHide();
+                    lastAuto6 = '';
+                    el('aadhaarLast6').focus();
+                }
+            }, 3200);
         });
+    }
+
+    el('btnAttend').addEventListener('click', startAttendCapture);
+    el('fpRetry').addEventListener('click', function () {
+        fpHide();
+        if (resetTimer) { clearTimeout(resetTimer); resetTimer = null; }
+        if (el('step3').classList.contains('active')) {
+            el('btnCapture').click();
+            return;
+        }
+        lastAuto6 = el('aadhaarLast6').value.replace(/\D/g, '');
+        startAttendCapture();
+    });
+    el('aadhaarLast6').addEventListener('input', function () {
+        this.value = this.value.replace(/\D/g, '').slice(0, 6);
+        const last6 = this.value;
+        if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+        if (last6.length !== 6) {
+            lastAuto6 = '';
+            return;
+        }
+        if (attendBusy || last6 === lastAuto6) { return; }
+        lastAuto6 = last6;
+        autoTimer = setTimeout(startAttendCapture, 280);
     });
 
     el('btnDone').addEventListener('click', function () {

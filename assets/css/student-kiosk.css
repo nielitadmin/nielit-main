@@ -108,6 +108,7 @@ body.kiosk-page {
 }
 
 .kiosk-card {
+    position: relative;
     border: 1px solid rgba(255, 255, 255, 0.55);
     border-radius: 24px;
     background: rgba(250, 249, 247, 0.88);
@@ -164,6 +165,11 @@ body.kiosk-page {
     background: linear-gradient(135deg, var(--kiosk-navy) 0%, var(--kiosk-navy-mid) 100%);
     color: #fff;
     box-shadow: 0 8px 18px rgba(10, 22, 40, 0.28);
+}
+
+.mode-tabs button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
 .step { display: none; }
@@ -308,6 +314,168 @@ body.kiosk-page {
 }
 
 .blocked-icon { font-size: 2.6rem; color: #ef4444; }
+
+.fp-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 28px 22px 32px;
+    background: rgba(250, 249, 247, 0.96);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    text-align: center;
+}
+
+.fp-overlay[hidden] { display: none !important; }
+
+.fp-scanner {
+    position: relative;
+    width: 176px;
+    height: 176px;
+    margin-bottom: 18px;
+}
+
+.fp-ring,
+.fp-ring-2 {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(13, 148, 136, 0.28);
+    pointer-events: none;
+}
+
+.fp-scanner.is-scanning .fp-ring,
+.fp-scanner.is-looking .fp-ring {
+    animation: fpPulse 1.8s ease-out infinite;
+}
+
+.fp-scanner.is-scanning .fp-ring-2,
+.fp-scanner.is-looking .fp-ring-2 {
+    animation: fpPulse 1.8s ease-out infinite 0.55s;
+}
+
+.fp-core {
+    position: absolute;
+    inset: 28px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 36% 28%, #2dd4bf 0%, #0d9488 42%, #0f766e 100%);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3.15rem;
+    overflow: hidden;
+    box-shadow:
+        0 16px 36px rgba(13, 148, 136, 0.38),
+        0 0 0 6px rgba(13, 148, 136, 0.12);
+}
+
+.fp-beam {
+    position: absolute;
+    left: 10%;
+    right: 10%;
+    height: 4px;
+    border-radius: 4px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.95), transparent);
+    box-shadow: 0 0 16px rgba(255, 255, 255, 0.85);
+    opacity: 0;
+}
+
+.fp-scanner.is-scanning .fp-beam {
+    animation: fpScan 1.55s ease-in-out infinite;
+}
+
+.fp-hint {
+    margin: 0;
+    max-width: 280px;
+    font-weight: 700;
+    font-size: 1.02rem;
+    color: #0f172a;
+    line-height: 1.4;
+}
+
+.fp-subhint {
+    margin: 8px 0 0;
+    font-size: 0.88rem;
+    font-weight: 500;
+    color: var(--kiosk-muted);
+}
+
+.fp-retry {
+    margin-top: 16px;
+    min-width: 180px;
+}
+
+.fp-retry[hidden] { display: none !important; }
+
+.fp-scanner.is-looking .fp-core {
+    animation: fpBreathe 1.4s ease-in-out infinite;
+}
+
+.fp-scanner.is-matching .fp-core {
+    animation: fpBreathe 0.9s ease-in-out infinite;
+}
+
+.fp-scanner.is-success .fp-ring,
+.fp-scanner.is-success .fp-ring-2 {
+    border-color: rgba(22, 163, 74, 0.4);
+    animation: none;
+}
+
+.fp-scanner.is-success .fp-core {
+    background: radial-gradient(circle at 36% 28%, #4ade80 0%, #16a34a 55%, #15803d 100%);
+    box-shadow: 0 16px 36px rgba(22, 163, 74, 0.38), 0 0 0 6px rgba(22, 163, 74, 0.12);
+}
+
+.fp-scanner.is-error .fp-ring,
+.fp-scanner.is-error .fp-ring-2 {
+    border-color: rgba(239, 68, 68, 0.4);
+    animation: none;
+}
+
+.fp-scanner.is-error .fp-core {
+    background: radial-gradient(circle at 36% 28%, #f87171 0%, #dc2626 55%, #b91c1c 100%);
+    box-shadow: 0 16px 36px rgba(220, 38, 38, 0.35), 0 0 0 6px rgba(220, 38, 38, 0.12);
+}
+
+.attend-auto-hint {
+    color: var(--kiosk-muted);
+    font-size: 0.86rem;
+    margin: -4px 0 12px;
+}
+
+@keyframes fpPulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(1.42); opacity: 0; }
+}
+
+@keyframes fpScan {
+    0% { top: 14%; opacity: 0; }
+    12% { opacity: 1; }
+    88% { opacity: 1; }
+    100% { top: 82%; opacity: 0; }
+}
+
+@keyframes fpBreathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fp-scanner.is-scanning .fp-ring,
+    .fp-scanner.is-scanning .fp-ring-2,
+    .fp-scanner.is-looking .fp-ring,
+    .fp-scanner.is-looking .fp-ring-2,
+    .fp-scanner.is-scanning .fp-beam,
+    .fp-scanner.is-looking .fp-core,
+    .fp-scanner.is-matching .fp-core {
+        animation: none;
+    }
+}
 
 @media (max-width: 520px) {
     .kiosk-brand { flex-direction: column; text-align: center; }
