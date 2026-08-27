@@ -672,9 +672,10 @@ if (!function_exists('fingerprintStudentEnrolledBatchSql')) {
         $courseOk = "(s.course_id IS NULL OR s.course_id = 0 OR bb.course_id = s.course_id)";
         if ($hasBs && $hasBatches) {
             $parts[] = "(SELECT bb.batch_name FROM batch_students bs
-                INNER JOIN batches bb ON bb.id = bs.batch_id AND {$courseOk}
+                INNER JOIN batches bb ON bb.id = bs.batch_id
                 {$stJoin}
                 WHERE {$match}
+                  AND {$courseOk}
                 ORDER BY bs.id DESC LIMIT 1)";
         }
         $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
@@ -698,9 +699,10 @@ if (!function_exists('fingerprintStudentEnrolledBatchSql')) {
                 }
                 if ($enrWhere !== []) {
                     $parts[] = "(SELECT bb.batch_name FROM student_enrollments se
-                        INNER JOIN batches bb ON bb.id = se.batch_id AND {$courseOk}
+                        INNER JOIN batches bb ON bb.id = se.batch_id
                         {$enrJoins}
                         WHERE (" . implode(' OR ', $enrWhere) . ")
+                          AND {$courseOk}
                         ORDER BY se.id DESC LIMIT 1)";
                 }
             }
@@ -712,8 +714,9 @@ if (!function_exists('fingerprintStudentEnrolledBatchSql')) {
         }
         if ($stuBatch && $hasBatches) {
             $parts[] = "(SELECT bb.batch_name FROM students st3
-                INNER JOIN batches bb ON bb.id = st3.batch_id AND {$courseOk}
+                INNER JOIN batches bb ON bb.id = st3.batch_id
                 WHERE LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id))
+                  AND {$courseOk}
                 ORDER BY st3.id DESC LIMIT 1)";
         }
         $expr = "IFNULL(b.batch_name, '')";
@@ -749,9 +752,9 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
         $courseOk = "(s.course_id IS NULL OR s.course_id = 0 OR bb.course_id = s.course_id)";
         if ($hasBs && $hasBatches) {
             $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
-                INNER JOIN batches bb ON bb.id = bs.batch_id AND {$courseOk}
+                INNER JOIN batches bb ON bb.id = bs.batch_id
                 {$stJoin}
-                WHERE bs.batch_id = ? AND {$match})";
+                WHERE bs.batch_id = ? AND {$match} AND {$courseOk})";
         }
         $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
         if ($enr && $hasBatches) {
@@ -759,9 +762,10 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
             $enrRec = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'");
             if ($enrCol && $enrCol->num_rows > 0 && $enrRec && $enrRec->num_rows > 0) {
                 $ors[] = "EXISTS (SELECT 1 FROM student_enrollments se
-                    INNER JOIN batches bb ON bb.id = se.batch_id AND {$courseOk}
+                    INNER JOIN batches bb ON bb.id = se.batch_id
                     LEFT JOIN students st2 ON st2.id = se.student_record_id
                     WHERE se.batch_id = ?
+                      AND {$courseOk}
                       AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id)))";
             }
         }
@@ -844,6 +848,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     s.course_name,
                     s.session_name,
                     s.subject,
+                    s.date AS session_date,
                     IFNULL(ct.name, '') AS centre_name,
                     {$batchSelect},
                     l.ip_address,
@@ -854,11 +859,13 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 LEFT JOIN centres ct ON ct.id = c.centre_id
                 {$batchJoin}
                 WHERE l.status = 'valid'
-                  AND l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY)
-                  AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY)";
+                  AND (
+                        (l.scan_time >= DATE_SUB(?, INTERVAL 1 DAY) AND l.scan_time < DATE_ADD(?, INTERVAL 2 DAY))
+                     OR (s.date >= ? AND s.date <= ?)
+                  )";
         $fingerprintWhere = [];
         if ($hasMethod) {
-            $fingerprintWhere[] = "l.scan_method = 'biometric'";
+            $fingerprintWhere[] = "LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('biometric', 'fingerprint')";
         }
         if ($bioOk) {
             $fingerprintWhere[] = "EXISTS (
@@ -866,17 +873,19 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 WHERE b2.result IN ('ok', 'success')
                   AND TRIM(b2.student_id) = TRIM(l.student_id)
                   AND (b2.session_id = l.session_id
+                       OR b2.session_id = 0
                        OR ABS(TIMESTAMPDIFF(MINUTE, b2.created_at, l.scan_time)) <= 360)
             )";
             $fingerprintWhere[] = "l.session_id IN (
-                SELECT DISTINCT session_id FROM biometric_capture_logs WHERE result IN ('ok', 'success')
+                SELECT DISTINCT session_id FROM biometric_capture_logs WHERE result IN ('ok', 'success') AND session_id > 0
             )";
         }
+        $fingerprintWhere[] = "l.coordinator_id LIKE 'self:%'";
         if ($fingerprintWhere !== []) {
             $sql .= ' AND (' . implode(' OR ', $fingerprintWhere) . ')';
         }
-        $types = 'ss';
-        $params = [$start, $end];
+        $types = 'ssss';
+        $params = [$start, $end, $start, $end];
         if ($courseId > 0) {
             $sql .= ' AND s.course_id = ?';
             $types .= 'i';
@@ -912,6 +921,11 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
         $sql .= ' ORDER BY centre_name ASC, batch_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
         $stmt = $conn->prepare($sql);
+        if (!$stmt && $batchSelect !== "IFNULL(b.batch_name, '') AS batch_name" && $batchSelect !== "'' AS batch_name") {
+            error_log('getFingerprintMonthlyRecord enrolled-batch SQL failed, retrying simple batch: ' . $conn->error);
+            $sql = str_replace($batchSelect, "IFNULL(b.batch_name, '') AS batch_name", $sql);
+            $stmt = $conn->prepare($sql);
+        }
         if (!$stmt) {
             error_log('getFingerprintMonthlyRecord prepare failed: ' . $conn->error);
             return $out;
@@ -955,14 +969,18 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             }
             $istDay = $ist->format('Y-m-d');
             $naiveDay = substr(trim($scanRaw), 0, 10);
+            $sessionDay = substr(trim((string) ($row['session_date'] ?? '')), 0, 10);
             $inMonth = ($istDay >= $start && $istDay <= $end)
-                || ($naiveDay >= $start && $naiveDay <= $end);
+                || ($naiveDay >= $start && $naiveDay <= $end)
+                || ($sessionDay >= $start && $sessionDay <= $end);
             if (!$inMonth) {
                 continue;
             }
             $day = (int) $ist->format('j');
             if ($naiveDay >= $start && $naiveDay <= $end && ($istDay < $start || $istDay > $end)) {
                 $day = (int) substr($naiveDay, 8, 2);
+            } elseif (($istDay < $start || $istDay > $end) && $sessionDay >= $start && $sessionDay <= $end) {
+                $day = (int) substr($sessionDay, 8, 2);
             }
             if ($day < 1 || $day > $days) {
                 continue;
@@ -1102,5 +1120,42 @@ if (!function_exists('fingerprintSumSessionClassesHeld')) {
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+    }
+}
+
+if (!function_exists('fingerprintLatestPunchMonth')) {
+    /**
+     * @return array{year:int,month:int,session_year?:int,session_month?:int}|null
+     */
+    function fingerprintLatestPunchMonth($conn): ?array
+    {
+        if (!($conn instanceof mysqli)) {
+            return null;
+        }
+        $hasLogs = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
+        if (!$hasLogs || $hasLogs->num_rows === 0) {
+            return null;
+        }
+        $sql = "SELECT l.scan_time, s.date AS session_date
+                FROM attendance_logs l
+                INNER JOIN attendance_sessions s ON s.id = l.session_id
+                WHERE l.status = 'valid'
+                ORDER BY l.id DESC LIMIT 1";
+        $res = $conn->query($sql);
+        $row = $res ? $res->fetch_assoc() : null;
+        if (!$row) {
+            return null;
+        }
+        $scan = substr(trim((string) ($row['scan_time'] ?? '')), 0, 10);
+        $sess = substr(trim((string) ($row['session_date'] ?? '')), 0, 10);
+        if (!preg_match('/^(\d{4})-(\d{2})/', $scan, $m)) {
+            return null;
+        }
+        $out = ['year' => (int) $m[1], 'month' => (int) $m[2]];
+        if (preg_match('/^(\d{4})-(\d{2})/', $sess, $sm)) {
+            $out['session_year'] = (int) $sm[1];
+            $out['session_month'] = (int) $sm[2];
+        }
+        return $out;
     }
 }

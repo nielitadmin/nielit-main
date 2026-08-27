@@ -71,6 +71,8 @@ foreach ($courses as $course) {
 }
 $printedAt = $istNow->format('d/m/Y g:i:s A') . ' IST';
 $logoUrl = app_url('assets/images/bhubaneswar_logo.png');
+$latestPunch = fingerprintLatestPunchMonth($conn);
+$yearFrom = max((int) date('Y') + 3, 2028, $year, (int) ($latestPunch['year'] ?? 0), (int) ($latestPunch['session_year'] ?? 0));
 $colspan = 6 + $extraCols + ($daysInMonth * 2);
 $colspanPrint = 4 + ($daysInMonth * 2);
 $colspanExcel = 6 + $extraCols + ($daysInMonth * 2);
@@ -419,7 +421,7 @@ $qs = http_build_query([
                     <div class="col-md-2">
                         <label class="form-label">Year</label>
                         <select class="form-select" name="year">
-                            <?php for ($y = (int) date('Y'); $y >= 2024; $y--): ?>
+                            <?php for ($y = $yearFrom; $y >= 2024; $y--): ?>
                                 <option value="<?php echo $y; ?>" <?php echo $y === $year ? 'selected' : ''; ?>><?php echo $y; ?></option>
                             <?php endfor; ?>
                         </select>
@@ -519,6 +521,34 @@ $qs = http_build_query([
                                 <td colspan="<?php echo (int) $colspan; ?>" class="text-center text-muted py-4">
                                     No fingerprint attendance in <?php echo htmlspecialchars($monthLabel); ?>.
                                     Mark students on Fingerprint Attendance first.
+                                    <?php
+                                    if (is_array($latestPunch) && !empty($latestPunch['year'])) {
+                                        $ly = (int) $latestPunch['year'];
+                                        $lm = (int) $latestPunch['month'];
+                                        $lLabel = ($monthNames[$lm] ?? ('Month ' . $lm)) . ' ' . $ly;
+                                        $lQs = http_build_query([
+                                            'year' => $ly,
+                                            'month' => $lm,
+                                            'course_id' => $courseId > 0 ? $courseId : 0,
+                                            'centre_id' => $centreId > 0 ? $centreId : 0,
+                                            'batch_id' => $batchId > 0 ? $batchId : 0,
+                                        ]);
+                                        echo ' Latest punch is in <a href="attendance_biometric_report.php?' . htmlspecialchars($lQs) . '">' . htmlspecialchars($lLabel) . '</a>.';
+                                        $sy = (int) ($latestPunch['session_year'] ?? 0);
+                                        $sm = (int) ($latestPunch['session_month'] ?? 0);
+                                        if ($sy > 0 && ($sy !== $ly || $sm !== $lm)) {
+                                            $sLabel = ($monthNames[$sm] ?? ('Month ' . $sm)) . ' ' . $sy;
+                                            $sQs = http_build_query([
+                                                'year' => $sy,
+                                                'month' => $sm,
+                                                'course_id' => $courseId > 0 ? $courseId : 0,
+                                                'centre_id' => $centreId > 0 ? $centreId : 0,
+                                                'batch_id' => $batchId > 0 ? $batchId : 0,
+                                            ]);
+                                            echo ' Session date is <a href="attendance_biometric_report.php?' . htmlspecialchars($sQs) . '">' . htmlspecialchars($sLabel) . '</a>.';
+                                        }
+                                    }
+                                    ?>
                                 </td>
                             </tr>
                         <?php else: ?>
