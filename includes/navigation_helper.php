@@ -185,6 +185,12 @@ function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): st
         $html = getFallbackNavigationMenu($currentPage);
     }
 
+    if (stripos($html, 'public/recruitment') === false && stripos($html, '>Recruitment<') === false) {
+        $recActive = (stripos($currentPage, 'recruitment') !== false) ? ' active' : '';
+        $recLink = '<li class="nav-item"><a class="nav-link' . $recActive . '" href="' . htmlspecialchars(app_url('public/recruitment'), ENT_QUOTES, 'UTF-8') . '">Recruitment</a></li>';
+        $html = $recLink . $html;
+    }
+
     return $html;
 }
 
@@ -287,6 +293,7 @@ function getFallbackNavigationMenu($currentPage = '') {
 
     return '
         <li class="nav-item"><a class="nav-link' . ($currentPage === '' || $currentPage === 'index.php' ? ' active' : '') . '" href="' . htmlspecialchars(app_url('index'), ENT_QUOTES, 'UTF-8') . '">Home</a></li>
+        <li class="nav-item"><a class="nav-link' . $is('recruitment') . '" href="' . htmlspecialchars(app_url('public/recruitment'), ENT_QUOTES, 'UTF-8') . '">Recruitment</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $job_fair_url . '" target="_blank" rel="noopener">Job Fair</a></li>
         <li class="nav-item"><a class="nav-link" href="' . $mock_test_url . '" target="_blank" rel="noopener">Mock Test</a></li>
 

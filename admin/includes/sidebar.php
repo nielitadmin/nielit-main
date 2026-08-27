@@ -89,6 +89,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-list"></i> Requirements
+            </a>
+        </div>
 
         <?php elseif ($is_front_office): ?>
         <!-- Front Office Desk - Students only -->
@@ -97,11 +102,21 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-list"></i> Requirements
+            </a>
+        </div>
 
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-list"></i> Requirements
             </a>
         </div>
         <?php endif; ?>
@@ -329,6 +344,31 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
                 <i class="fas fa-chart-bar"></i> Attendance Reports
+            </a>
+        </div>
+        <?php endif; ?>
+
+        <?php
+        $canAccessRecruitment = false;
+        if (isset($conn) && $conn instanceof mysqli) {
+            $recHelper = __DIR__ . '/../../includes/recruitment_helper.php';
+            if (is_file($recHelper)) {
+                require_once $recHelper;
+                $canAccessRecruitment = function_exists('recruitmentCanAccess') && recruitmentCanAccess();
+            }
+        }
+        ?>
+        <?php if ($canAccessRecruitment): ?>
+        <div class="nav-divider"></div>
+        <div class="nav-section-title">Recruitment</div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/recruitment'); ?>" class="nav-link <?php echo ($current_page === 'recruitment.php') ? 'active' : ''; ?>">
+                <i class="fas fa-briefcase"></i> Job Openings
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/recruitment_applications'); ?>" class="nav-link <?php echo in_array($current_page, ['recruitment_applications.php', 'recruitment_application.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-file-alt"></i> Applications
             </a>
         </div>
         <?php endif; ?>

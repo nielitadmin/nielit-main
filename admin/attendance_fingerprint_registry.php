@@ -202,6 +202,7 @@ $enrollUrl = app_url('admin/attendance_fingerprint_enroll');
                                     <td><?php echo htmlspecialchars((string) ($row['email'] ?? '')); ?></td>
                                     <td><?php echo htmlspecialchars((string) ($row['status'] ?? '')); ?></td>
                                     <td class="text-end">
+                                        <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/requirements_candidate') . '?id=' . rawurlencode((string) $row['student_id'])); ?>">Details</a>
                                         <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($enrollUrl . '?q=' . urlencode((string) $row['student_id'])); ?>">Enrol</a>
                                     </td>
                                 </tr>
@@ -244,6 +245,7 @@ $enrollUrl = app_url('admin/attendance_fingerprint_enroll');
                                 <td><?php echo !empty($row['created_at']) ? htmlspecialchars(date('d M Y, h:i A', strtotime((string) $row['created_at']))) : ''; ?></td>
                                 <td><?php echo (int) ($row['quality'] ?? 0); ?></td>
                                 <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/requirements_candidate') . '?id=' . rawurlencode((string) $row['student_id'])); ?>">Details</a>
                                     <form method="post" class="d-inline" onsubmit="return confirm('Remove this fingerprint? The student will need to enrol again.');">
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
                                         <input type="hidden" name="action" value="delete">

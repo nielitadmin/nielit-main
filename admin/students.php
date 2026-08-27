@@ -2303,6 +2303,10 @@ if ($other_gender_count > 0) {
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
+                                <a href="<?php echo htmlspecialchars(app_url('admin/requirements_candidate') . '?id=' . rawurlencode((string) $row['student_id'])); ?>"
+                                   class="btn btn-outline-primary btn-sm" title="Requirements / candidate details">
+                                    <i class="fas fa-clipboard-list"></i>
+                                </a>
                                 <a href="<?php echo htmlspecialchars(relative_url('download_student_form.php')); ?>?record_id=<?php echo $primary_record_id; ?>"
                                    class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                     <i class="fas fa-download"></i>
