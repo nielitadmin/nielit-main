@@ -9,7 +9,7 @@
  * Both underlying clients already share the same shape, so this layer just picks
  * the live one and forwards calls:
  *   discover()                         -> { base, provider, label } | null
- *   capture(base[, quality, timeout])  -> { iso, quality, raw }
+ *   capture(base[, quality, timeout])  -> { iso, quality, device_id, model, raw }
  *   match(base, probeIso, galleryIso)  -> { matched, score, raw }
  *
  * Load order on the page: secugen_webapi.js, mantra_mfs100.js, then this file.

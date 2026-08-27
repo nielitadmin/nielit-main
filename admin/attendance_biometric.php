@@ -76,6 +76,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
         if ($action === 'match_and_mark') {
+            $deviceId = function_exists('biometricSanitizeReaderId')
+                ? biometricSanitizeReaderId((string) ($_POST['device_id'] ?? ''))
+                : trim((string) ($_POST['device_id'] ?? ''));
+            $deviceModel = preg_replace('/[^A-Za-z0-9 _\-\.]/', '', trim((string) ($_POST['device_model'] ?? '')));
+            if (strlen($deviceModel) > 80) {
+                $deviceModel = substr($deviceModel, 0, 80);
+            }
             $result = processBiometricMatchAttendanceFromIso(
                 $conn,
                 (int) ($_POST['session_id'] ?? 0),
@@ -84,7 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string) ($_POST['iso_template'] ?? ''),
                 (string) ($_POST['aadhaar_last4'] ?? ''),
                 null,
-                (string) ($_POST['client_matched'] ?? '') === '1'
+                (string) ($_POST['client_matched'] ?? '') === '1',
+                $deviceId,
+                $deviceModel
             );
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
@@ -633,7 +642,9 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                         student_id: foundStudent.student_id,
                         aadhaar_last4: document.getElementById('aadhaarLast4').value,
                         iso_template: cap.iso,
-                        client_matched: '1'
+                        client_matched: '1',
+                        device_id: cap.device_id || '',
+                        device_model: cap.model || ''
                     });
                 });
             });

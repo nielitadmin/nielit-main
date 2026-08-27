@@ -126,13 +126,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $digits = preg_replace('/\D/', '', (string) ($look['row']['aadhar'] ?? ''));
             $aadhaarLast4 = strlen((string) $digits) >= 4 ? substr((string) $digits, -4) : substr($last6, -4);
+            $deviceId = function_exists('biometricSanitizeReaderId')
+                ? biometricSanitizeReaderId((string) ($_POST['device_id'] ?? ''))
+                : trim((string) ($_POST['device_id'] ?? ''));
+            $deviceModel = preg_replace('/[^A-Za-z0-9 _\-\.]/', '', trim((string) ($_POST['device_model'] ?? '')));
+            if (strlen($deviceModel) > 80) {
+                $deviceModel = substr($deviceModel, 0, 80);
+            }
             $result = studentKioskPunchAllActiveSessions(
                 $conn,
                 $sid,
                 $iso,
                 $aadhaarLast4,
                 (string) ($_POST['client_matched'] ?? '') === '1',
-                is_array($look['row'] ?? null) ? $look['row'] : []
+                is_array($look['row'] ?? null) ? $look['row'] : [],
+                $deviceId,
+                $deviceModel
             );
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
@@ -201,13 +210,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $aadhaarLast4 = substr((string) $digits, -4);
                 }
             }
+            $deviceId = function_exists('biometricSanitizeReaderId')
+                ? biometricSanitizeReaderId((string) ($_POST['device_id'] ?? ''))
+                : trim((string) ($_POST['device_id'] ?? ''));
+            $deviceModel = preg_replace('/[^A-Za-z0-9 _\-\.]/', '', trim((string) ($_POST['device_model'] ?? '')));
+            if (strlen($deviceModel) > 80) {
+                $deviceModel = substr($deviceModel, 0, 80);
+            }
             $result = studentKioskPunchAllActiveSessions(
                 $conn,
                 $verifiedSid,
                 $iso,
                 $aadhaarLast4,
                 (string) ($_POST['client_matched'] ?? '') === '1',
-                $look['ok'] ? (array) $look['row'] : []
+                $look['ok'] ? (array) $look['row'] : [],
+                $deviceId,
+                $deviceModel
             );
             biometricKioskJsonExit(is_array($result) ? $result : ['success' => false, 'message' => 'Could not save attendance.']);
         }
@@ -719,7 +737,9 @@ $bgSlides = studentKioskBackgroundSlides();
                         aadhaar_last6: last6,
                         student_id: hit.student.student_id,
                         iso_template: hit.cap.iso,
-                        client_matched: '1'
+                        client_matched: '1',
+                        device_id: hit.cap.device_id || '',
+                        device_model: hit.cap.model || ''
                     }).then(function (res) {
                         if (!res.success) {
                             throw new Error(res.message || 'Attendance not marked.');

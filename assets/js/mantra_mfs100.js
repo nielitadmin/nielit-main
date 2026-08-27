@@ -146,7 +146,7 @@
             if (!iso) {
                 throw new Error('Device did not return an ISO template. Install MFS110 Client Service (not only RD Service).');
             }
-            return { iso: iso, quality: parseInt(resp.Quality || '0', 10) || 0, raw: resp };
+            return { iso: iso, quality: parseInt(resp.Quality || '0', 10) || 0, device_id: String(resp.SerialNumber || resp.SerialNo || resp.DeviceId || '').trim(), raw: resp };
         });
     }
 

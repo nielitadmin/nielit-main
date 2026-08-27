@@ -102,6 +102,24 @@
         return '';
     }
 
+    function serialFrom(resp) {
+        if (!resp) {
+            return '';
+        }
+        var lower = {};
+        Object.keys(resp).forEach(function (k) {
+            lower[String(k).toLowerCase()] = resp[k];
+        });
+        var keys = ['serialnumber', 'serialno', 'deviceserial', 'sn', 'serial'];
+        for (var i = 0; i < keys.length; i++) {
+            var v = String(lower[keys[i]] || '').trim();
+            if (v && v !== '0' && v.length >= 4) {
+                return v;
+            }
+        }
+        return '';
+    }
+
     // Probe each base with a no-cors request; fetch resolves if the port is listening,
     // rejects if the connection is refused. Lets us pick the live base for capture/match.
     function discover() {
@@ -157,6 +175,8 @@
             return {
                 iso: iso,
                 quality: parseInt(resp.ImageQuality || resp.Quality || '0', 10) || 0,
+                device_id: serialFrom(resp),
+                model: String(resp.Model || '').trim(),
                 raw: resp
             };
         });

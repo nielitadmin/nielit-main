@@ -411,17 +411,48 @@ if (!function_exists('logBiometricCapture')) {
     }
 }
 
+if (!function_exists('biometricLooksLikeReaderSerial')) {
+    function biometricLooksLikeReaderSerial(string $value): bool
+    {
+        $value = trim($value);
+        if ($value === '' || strpbrk($value, " \t\n") !== false) {
+            return false;
+        }
+        if (filter_var($value, FILTER_VALIDATE_IP)) {
+            return false;
+        }
+        return (bool) preg_match('/^[A-Za-z0-9_\-\.]{4,64}$/', $value) && preg_match('/[0-9]/', $value);
+    }
+}
+
+if (!function_exists('biometricSanitizeReaderId')) {
+    function biometricSanitizeReaderId(string $raw): string
+    {
+        $raw = trim($raw);
+        if ($raw === '' || strlen($raw) > 64) {
+            return '';
+        }
+        if (biometricLooksLikeReaderSerial($raw) || filter_var($raw, FILTER_VALIDATE_IP)) {
+            return $raw;
+        }
+        return '';
+    }
+}
+
 if (!function_exists('biometricNormalizeDeviceId')) {
     /**
-     * Device ID is the kiosk PC address, not the centre/kiosk label.
+     * Prefer the SecuGen/Mantra reader serial; fall back to the kiosk IP.
      */
     function biometricNormalizeDeviceId(string $ip, string $fallback = ''): string
     {
+        $fallback = trim($fallback);
+        if (biometricLooksLikeReaderSerial($fallback)) {
+            return $fallback;
+        }
         $ip = trim($ip);
         if ($ip !== '' && $ip !== 'unknown' && filter_var($ip, FILTER_VALIDATE_IP)) {
             return $ip;
         }
-        $fallback = trim($fallback);
         if ($fallback !== '' && filter_var($fallback, FILTER_VALIDATE_IP)) {
             return $fallback;
         }
@@ -654,7 +685,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $createdSelect = $hasCreated ? 'l.created_at' : 'l.scan_time AS created_at';
         $bioDevice = "''";
         if ($bioOk) {
-            $bioDevice = "(SELECT IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_code))
+            $bioDevice = "(SELECT IFNULL(NULLIF(TRIM(b.device_code), ''), TRIM(b.rds_id))
                 FROM biometric_capture_logs b
                 WHERE b.result IN ('ok', 'success')
                   AND TRIM(b.student_id) = TRIM(l.student_id)

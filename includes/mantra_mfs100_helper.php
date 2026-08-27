@@ -801,7 +801,7 @@ if (!function_exists('processBiometricMatchAttendanceFromIso')) {
      *
      * @return array<string,mixed>
      */
-    function processBiometricMatchAttendanceFromIso($conn, int $sessionId, string $studentId, string $coordinatorId, string $liveIso, string $aadhaarLast4 = '', ?string $mfsBase = null, bool $clientMatched = false): array
+    function processBiometricMatchAttendanceFromIso($conn, int $sessionId, string $studentId, string $coordinatorId, string $liveIso, string $aadhaarLast4 = '', ?string $mfsBase = null, bool $clientMatched = false, string $deviceId = '', string $deviceModel = ''): array
     {
         $studentId = trim($studentId);
         $liveIso = trim($liveIso);
@@ -880,14 +880,23 @@ if (!function_exists('processBiometricMatchAttendanceFromIso')) {
         $marked = processInOutAttendanceForStudent($studentId, $sessionId, $coordinatorId, $conn, 'biometric');
         if (function_exists('logBiometricCapture')) {
             $ip = function_exists('studentKioskClientIp') ? studentKioskClientIp() : (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+            $serial = function_exists('biometricSanitizeReaderId') ? biometricSanitizeReaderId($deviceId) : trim($deviceId);
+            if ($serial !== '' && function_exists('biometricLooksLikeReaderSerial') && !biometricLooksLikeReaderSerial($serial)) {
+                $serial = '';
+            }
+            $model = trim($deviceModel);
+            $model = preg_replace('/[^A-Za-z0-9 _\-\.]/', '', $model);
+            if (strlen($model) > 80) {
+                $model = substr($model, 0, 80);
+            }
             logBiometricCapture(
                 $conn,
                 $sessionId,
                 $studentId,
                 $coordinatorId,
                 [
-                    'dc' => $ip,
-                    'mi' => 'Fingerprint kiosk',
+                    'dc' => $serial !== '' ? $serial : $ip,
+                    'mi' => $model !== '' ? $model : ($serial !== '' ? 'SecuGen' : 'Fingerprint kiosk'),
                     'rds_id' => $ip,
                 ],
                 hash('sha256', $liveIso),

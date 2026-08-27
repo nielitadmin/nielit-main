@@ -951,7 +951,9 @@ if (!function_exists('studentKioskPunchAllActiveSessions')) {
         string $iso,
         string $aadhaarLast4,
         bool $clientMatched,
-        array $lookRow = []
+        array $lookRow = [],
+        string $deviceId = '',
+        string $deviceModel = ''
     ): array {
         $found = studentKioskActiveSessionsForStudent($conn, $studentId);
         if (empty($found['ok']) || empty($found['sessions'])) {
@@ -972,7 +974,9 @@ if (!function_exists('studentKioskPunchAllActiveSessions')) {
                 $iso,
                 $aadhaarLast4,
                 null,
-                $clientMatched
+                $clientMatched,
+                $deviceId,
+                $deviceModel
             );
             if (is_array($result) && !empty($result['success'])) {
                 $kind = (($result['scan_type'] ?? '') === 'out') ? 'out' : 'in';
