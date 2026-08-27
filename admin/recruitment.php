@@ -79,7 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'experience' => $_POST['experience'] ?? '',
         'age_limit' => $_POST['age_limit'] ?? '',
         'description' => $_POST['description'] ?? '',
-        'instructions' => $_POST['instructions'] ?? '',
+        'instructions' => (trim((string) ($_POST['instructions'] ?? '')) !== ''
+            ? trim((string) $_POST['instructions'])
+            : recruitmentDefaultInstructions()),
         'last_date' => $_POST['last_date'] ?? '',
         'open_from' => $_POST['open_from'] ?? '',
         'status' => $_POST['status'] ?? 'draft',
@@ -210,7 +212,7 @@ $page_title = 'Recruitment';
                     </div>
                     <div class="col-12">
                         <label class="form-label">What candidates should do</label>
-                        <textarea class="form-control" name="instructions" rows="4" placeholder="e.g. Fill the online form, upload resume and photo, keep Aadhaar ready, no fee."><?php echo htmlspecialchars((string) ($j['instructions'] ?? '')); ?></textarea>
+                        <textarea class="form-control" name="instructions" rows="6" placeholder="What candidates must do and which documents to attach"><?php echo htmlspecialchars((string) ($j['instructions'] ?? ($job ? '' : recruitmentDefaultInstructions()))); ?></textarea>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Advertisement (PDF / image)</label>

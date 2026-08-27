@@ -125,8 +125,221 @@ if (!function_exists('ensureRecruitmentTables')) {
             error_log('ensureRecruitmentTables applications: ' . $conn->error);
             return false;
         }
+        recruitmentEnsureApplicationExtraColumns($conn);
         $ready = true;
         return true;
+    }
+}
+
+if (!function_exists('recruitmentEnsureApplicationExtraColumns')) {
+    function recruitmentEnsureApplicationExtraColumns($conn): void
+    {
+        if (!($conn instanceof mysqli)) {
+            return;
+        }
+        $need = [
+            'name_first' => 'VARCHAR(120) NULL',
+            'name_middle' => 'VARCHAR(120) NULL',
+            'name_last' => 'VARCHAR(120) NULL',
+            'marital_status' => 'VARCHAR(40) NULL',
+            'nationality' => "VARCHAR(80) NULL DEFAULT 'Indian'",
+            'pwd_status' => "VARCHAR(10) NULL DEFAULT 'No'",
+            'age_years' => 'INT NULL',
+            'age_months' => 'INT NULL',
+            'age_days' => 'INT NULL',
+            'alt_mobile' => 'VARCHAR(20) NULL',
+            'permanent_address' => 'TEXT NULL',
+            'permanent_pincode' => 'VARCHAR(12) NULL',
+            'education_json' => 'LONGTEXT NULL',
+            'experience_json' => 'LONGTEXT NULL',
+            'marksheet_x_path' => 'VARCHAR(255) NULL',
+            'marksheet_xii_path' => 'VARCHAR(255) NULL',
+            'degree_doc_path' => 'VARCHAR(255) NULL',
+            'cgpa_formula_path' => 'VARCHAR(255) NULL',
+            'experience_doc_path' => 'VARCHAR(255) NULL',
+            'payslip_path' => 'VARCHAR(255) NULL',
+            'dob_cert_path' => 'VARCHAR(255) NULL',
+            'aadhaar_doc_path' => 'VARCHAR(255) NULL',
+            'signature_path' => 'VARCHAR(255) NULL',
+            'category_cert_path' => 'VARCHAR(255) NULL',
+            'pwd_cert_path' => 'VARCHAR(255) NULL',
+            'pwd_type' => 'VARCHAR(40) NULL',
+            'pwd_percent' => 'VARCHAR(20) NULL',
+            'computer_knowledge' => 'TEXT NULL',
+            'additional_info' => 'TEXT NULL',
+            'application_place' => 'VARCHAR(120) NULL',
+        ];
+        $have = [];
+        $r = $conn->query('SHOW COLUMNS FROM recruitment_applications');
+        if ($r) {
+            while ($row = $r->fetch_assoc()) {
+                $have[(string) $row['Field']] = true;
+            }
+        }
+        foreach ($need as $col => $def) {
+            if (isset($have[$col])) {
+                continue;
+            }
+            $conn->query("ALTER TABLE recruitment_applications ADD COLUMN `{$col}` {$def}");
+        }
+    }
+}
+
+if (!function_exists('recruitmentOfficialDocuments')) {
+    /**
+     * Official NIELIT Bhubaneswar application form attachments.
+     * @return list<array{key:string,label:string,required:bool,accept:string,ext:list<string>}>
+     */
+    function recruitmentOfficialDocuments(): array
+    {
+        $pdfImg = ['pdf', 'jpg', 'jpeg', 'png'];
+        return [
+            ['key' => 'photo', 'item' => '', 'label' => 'Recent passport size photograph', 'required' => true, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'photo_path'],
+            ['key' => 'marksheet_x', 'item' => 'i', 'label' => 'Marksheet of Class X', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_x_path'],
+            ['key' => 'marksheet_xii', 'item' => 'ii', 'label' => 'Marksheet of Class XII', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_xii_path'],
+            ['key' => 'degree_doc', 'item' => 'iii', 'label' => 'Qualification degree / certificate and final consolidated marksheet (aggregate % or CGPA)', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'degree_doc_path'],
+            ['key' => 'cgpa_formula', 'item' => '', 'label' => 'CGPA to % conversion formula issued by the University (if CGPA is awarded)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'cgpa_formula_path'],
+            ['key' => 'experience_doc', 'item' => 'iv', 'label' => 'Self-attested experience certificates (including current place of working)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'experience_doc_path'],
+            ['key' => 'payslip', 'item' => 'v', 'label' => 'Last three-month payslip or bank statement showing salary credited', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'payslip_path'],
+            ['key' => 'dob_cert', 'item' => 'vi', 'label' => 'Date of Birth certificate / Class X certificate as proof of age', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'dob_cert_path'],
+            ['key' => 'aadhaar_doc', 'item' => 'vii', 'label' => 'Aadhaar card', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'aadhaar_doc_path'],
+            ['key' => 'resume', 'item' => 'viii', 'label' => 'CV / Resume of the candidate', 'required' => true, 'accept' => '.pdf', 'ext' => ['pdf'], 'column' => 'resume_path'],
+            ['key' => 'category_cert', 'item' => '', 'label' => 'Caste / category certificate (SC / ST / OBC / EWS)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'category_cert_path'],
+            ['key' => 'pwd_cert', 'item' => '', 'label' => 'PwD certificate (if applicable)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'pwd_cert_path'],
+            ['key' => 'signature', 'item' => '', 'label' => 'Signature of the candidate', 'required' => true, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'signature_path'],
+        ];
+    }
+}
+
+if (!function_exists('recruitmentDefaultInstructions')) {
+    function recruitmentDefaultInstructions(): string
+    {
+        return "Fill this online application form completely in CAPITAL letters where asked.\n"
+            . "Upload a recent passport photograph and the documents listed below (self-attested scanned copies).\n"
+            . "Name and Date of Birth must match Class X / Aadhaar.\n"
+            . "Submit only one application for this post. Incomplete applications will be rejected.\n\n"
+            . "Documents required:\n"
+            . "i. Marksheet of Class X\n"
+            . "ii. Marksheet of Class XII\n"
+            . "iii. Qualification degree/certificate and final consolidated marksheet (aggregate % or CGPA). If CGPA is awarded, also attach the University CGPA-to-% conversion formula.\n"
+            . "iv. Self-attested experience certificates (including current place of working)\n"
+            . "v. Last three-month payslip or bank statement showing salary credited\n"
+            . "vi. Date of Birth certificate / Class X certificate as proof of age\n"
+            . "vii. Aadhaar card\n"
+            . "viii. CV / Resume\n"
+            . "Also affix/upload a recent passport photograph and your signature. Attach caste/PwD certificate if applicable.";
+    }
+}
+
+if (!function_exists('recruitmentCollectEducation')) {
+    /**
+     * @return list<array{exam:string,board:string,year:string,percent:string,subjects:string}>
+     */
+    function recruitmentCollectEducation(array $post): array
+    {
+        $exams = $post['edu_exam'] ?? [];
+        $boards = $post['edu_board'] ?? [];
+        $years = $post['edu_year'] ?? [];
+        $percents = $post['edu_percent'] ?? [];
+        $subjects = $post['edu_subjects'] ?? [];
+        if (!is_array($exams)) {
+            return [];
+        }
+        $rows = [];
+        foreach ($exams as $i => $exam) {
+            $exam = trim((string) $exam);
+            $board = trim((string) ($boards[$i] ?? ''));
+            $year = trim((string) ($years[$i] ?? ''));
+            $percent = trim((string) ($percents[$i] ?? ''));
+            $subj = trim((string) ($subjects[$i] ?? ''));
+            if ($exam === '' && $board === '' && $year === '') {
+                continue;
+            }
+            $rows[] = [
+                'exam' => $exam,
+                'board' => $board,
+                'year' => $year,
+                'percent' => $percent,
+                'subjects' => $subj,
+            ];
+        }
+        return $rows;
+    }
+}
+
+if (!function_exists('recruitmentCollectExperience')) {
+    /**
+     * @return list<array{org:string,post:string,from:string,to:string,duration:string,nature:string}>
+     */
+    function recruitmentCollectExperience(array $post): array
+    {
+        $orgs = $post['exp_org'] ?? [];
+        if (!is_array($orgs)) {
+            return [];
+        }
+        $rows = [];
+        foreach ($orgs as $i => $org) {
+            $org = trim((string) $org);
+            $postName = trim((string) (($post['exp_post'][$i] ?? '')));
+            $from = trim((string) (($post['exp_from'][$i] ?? '')));
+            $to = trim((string) (($post['exp_to'][$i] ?? '')));
+            $dur = trim((string) (($post['exp_duration'][$i] ?? '')));
+            $nature = trim((string) (($post['exp_nature'][$i] ?? '')));
+            if ($org === '' && $postName === '' && $from === '') {
+                continue;
+            }
+            $rows[] = [
+                'org' => $org,
+                'post' => $postName,
+                'from' => $from,
+                'to' => $to,
+                'duration' => $dur,
+                'nature' => $nature,
+            ];
+        }
+        return $rows;
+    }
+}
+
+if (!function_exists('recruitmentAgeParts')) {
+    /**
+     * @return array{years:int,months:int,days:int}
+     */
+    function recruitmentAgeParts(string $dob, string $asOn): array
+    {
+        $empty = ['years' => 0, 'months' => 0, 'days' => 0];
+        if ($dob === '' || $asOn === '') {
+            return $empty;
+        }
+        try {
+            $from = new DateTime($dob);
+            $to = new DateTime($asOn);
+            if ($from > $to) {
+                return $empty;
+            }
+            $diff = $from->diff($to);
+            return ['years' => (int) $diff->y, 'months' => (int) $diff->m, 'days' => (int) $diff->d];
+        } catch (Throwable $e) {
+            return $empty;
+        }
+    }
+}
+
+if (!function_exists('recruitmentDecodeJsonList')) {
+    /**
+     * @return list<array<string,mixed>>
+     */
+    function recruitmentDecodeJsonList($json): array
+    {
+        if (is_array($json)) {
+            return $json;
+        }
+        $json = trim((string) $json);
+        if ($json === '') {
+            return [];
+        }
+        $data = json_decode($json, true);
+        return is_array($data) ? $data : [];
     }
 }
 
@@ -513,8 +726,8 @@ if (!function_exists('recruitmentSubmitApplication')) {
         if (strlen((string) $mobile) !== 10) {
             return ['success' => false, 'message' => 'Please enter a valid 10-digit mobile number.'];
         }
-        if ($aadhar !== '' && strlen((string) $aadhar) !== 12) {
-            return ['success' => false, 'message' => 'Aadhaar must be 12 digits.'];
+        if (strlen((string) $aadhar) !== 12) {
+            return ['success' => false, 'message' => 'Aadhaar number is required (12 digits).'];
         }
 
         $dup = $conn->prepare(
@@ -533,7 +746,17 @@ if (!function_exists('recruitmentSubmitApplication')) {
         }
 
         $appNo = recruitmentNextApplicationNo($conn);
+        $first = strtoupper(trim((string) ($data['name_first'] ?? '')));
+        $middle = strtoupper(trim((string) ($data['name_middle'] ?? '')));
+        $last = strtoupper(trim((string) ($data['name_last'] ?? '')));
+        if ($name === '') {
+            $name = trim($first . ' ' . $middle . ' ' . $last);
+            $name = preg_replace('/\s+/', ' ', $name) ?? $name;
+        }
         $father = trim((string) ($data['father_name'] ?? ''));
+        if ($father === '') {
+            return ['success' => false, 'message' => "Please enter Father's / Husband's name."];
+        }
         $mother = trim((string) ($data['mother_name'] ?? ''));
         $dob = trim((string) ($data['dob'] ?? ''));
         $gender = trim((string) ($data['gender'] ?? ''));
@@ -542,13 +765,34 @@ if (!function_exists('recruitmentSubmitApplication')) {
         $city = trim((string) ($data['city'] ?? ''));
         $state = trim((string) ($data['state'] ?? ''));
         $pincode = trim((string) ($data['pincode'] ?? ''));
-        $qualification = trim((string) ($data['qualification'] ?? ''));
+        $education = recruitmentCollectEducation($data['_post'] ?? $data);
+        $experience = recruitmentCollectExperience($data['_post'] ?? $data);
+        $qual = trim((string) ($data['qualification'] ?? ''));
+        if ($qual === '' && $education !== []) {
+            $qual = (string) ($education[count($education) - 1]['exam'] ?? '');
+        }
         $expYears = trim((string) ($data['experience_years'] ?? ''));
         $expDetails = trim((string) ($data['experience_details'] ?? ''));
+        if ($expDetails === '' && $experience !== []) {
+            $bits = [];
+            foreach ($experience as $er) {
+                $bits[] = trim(($er['post'] ?? '') . ' at ' . ($er['org'] ?? ''));
+            }
+            $expDetails = implode('; ', array_filter($bits));
+        }
         $photo = trim((string) ($data['photo_path'] ?? ''));
         $resume = trim((string) ($data['resume_path'] ?? ''));
         if ($resume === '') {
-            return ['success' => false, 'message' => 'Please upload your resume (PDF).'];
+            return ['success' => false, 'message' => 'Please upload your CV / Resume (PDF).'];
+        }
+        if ($photo === '') {
+            return ['success' => false, 'message' => 'Please upload a recent passport photograph.'];
+        }
+        if (trim((string) ($data['signature_path'] ?? '')) === '') {
+            return ['success' => false, 'message' => 'Please upload your signature.'];
+        }
+        if ($education === []) {
+            return ['success' => false, 'message' => 'Please enter particulars of examinations passed, commencing from Class X.'];
         }
 
         $sql = 'INSERT INTO recruitment_applications
@@ -561,15 +805,78 @@ if (!function_exists('recruitmentSubmitApplication')) {
             return ['success' => false, 'message' => 'Could not save the application. Please try again.'];
         }
         $stmt->bind_param(
-            'issssssssssssssssss',
+            'isssssssssssssssssss',
             $jobId, $appNo, $name, $father, $mother, $dob, $gender, $category, $aadhar,
-            $email, $mobile, $address, $city, $state, $pincode, $qualification, $expYears,
+            $email, $mobile, $address, $city, $state, $pincode, $qual, $expYears,
             $expDetails, $photo, $resume
         );
         $ok = $stmt->execute();
+        $newId = $ok ? (int) $stmt->insert_id : 0;
         $stmt->close();
-        if (!$ok) {
+        if (!$ok || $newId <= 0) {
             return ['success' => false, 'message' => 'Could not save the application. Please try again.'];
+        }
+
+        $asOn = trim((string) ($job['last_date'] ?? '')) ?: date('Y-m-d');
+        $age = recruitmentAgeParts($dob, $asOn);
+        $eduJson = json_encode($education, JSON_UNESCAPED_UNICODE);
+        $expJson = json_encode($experience, JSON_UNESCAPED_UNICODE);
+        $permAddr = trim((string) ($data['permanent_address'] ?? ''));
+        if ($permAddr === '') {
+            $permAddr = $address;
+        }
+        $permPin = trim((string) ($data['permanent_pincode'] ?? ''));
+        if ($permPin === '') {
+            $permPin = $pincode;
+        }
+        $ageY = (int) $age['years'];
+        $ageM = (int) $age['months'];
+        $ageD = (int) $age['days'];
+        $extra = $conn->prepare(
+            'UPDATE recruitment_applications SET
+                name_first=?, name_middle=?, name_last=?, marital_status=?, nationality=?, pwd_status=?,
+                age_years=?, age_months=?, age_days=?, alt_mobile=?,
+                permanent_address=?, permanent_pincode=?, education_json=?, experience_json=?,
+                marksheet_x_path=?, marksheet_xii_path=?, degree_doc_path=?, cgpa_formula_path=?,
+                experience_doc_path=?, payslip_path=?, dob_cert_path=?, aadhaar_doc_path=?,
+                signature_path=?, category_cert_path=?, pwd_cert_path=?,
+                pwd_type=?, pwd_percent=?, computer_knowledge=?, additional_info=?, application_place=?
+             WHERE id=?'
+        );
+        if ($extra) {
+            $marital = trim((string) ($data['marital_status'] ?? ''));
+            $nation = trim((string) ($data['nationality'] ?? 'Indian')) ?: 'Indian';
+            $pwd = trim((string) ($data['pwd_status'] ?? 'No')) ?: 'No';
+            $alt = (string) preg_replace('/\D/', '', (string) ($data['alt_mobile'] ?? ''));
+            $mx = trim((string) ($data['marksheet_x_path'] ?? ''));
+            $mxii = trim((string) ($data['marksheet_xii_path'] ?? ''));
+            $deg = trim((string) ($data['degree_doc_path'] ?? ''));
+            $cgpa = trim((string) ($data['cgpa_formula_path'] ?? ''));
+            $exd = trim((string) ($data['experience_doc_path'] ?? ''));
+            $pay = trim((string) ($data['payslip_path'] ?? ''));
+            $dobc = trim((string) ($data['dob_cert_path'] ?? ''));
+            $aadDoc = trim((string) ($data['aadhaar_doc_path'] ?? ''));
+            $sig = trim((string) ($data['signature_path'] ?? ''));
+            $catCert = trim((string) ($data['category_cert_path'] ?? ''));
+            $pwdCert = trim((string) ($data['pwd_cert_path'] ?? ''));
+            $pwdType = trim((string) ($data['pwd_type'] ?? ''));
+            $pwdPct = trim((string) ($data['pwd_percent'] ?? ''));
+            $comp = trim((string) ($data['computer_knowledge'] ?? ''));
+            $addInfo = trim((string) ($data['additional_info'] ?? ''));
+            $place = trim((string) ($data['application_place'] ?? ''));
+            $extra->bind_param(
+                'ssssssiiisssssssssssssssssssssi',
+                $first, $middle, $last, $marital, $nation, $pwd,
+                $ageY, $ageM, $ageD, $alt,
+                $permAddr, $permPin, $eduJson, $expJson,
+                $mx, $mxii, $deg, $cgpa, $exd, $pay, $dobc, $aadDoc,
+                $sig, $catCert, $pwdCert, $pwdType, $pwdPct, $comp, $addInfo, $place,
+                $newId
+            );
+            $extra->execute();
+            $extra->close();
+        } else {
+            error_log('recruitmentSubmitApplication extra: ' . $conn->error);
         }
         return [
             'success' => true,
