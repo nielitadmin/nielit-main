@@ -374,6 +374,202 @@ if (!function_exists('attendanceSumSessionClassesHeld')) {
     }
 }
 
+if (!function_exists('attendanceStudentCourseAndBatchIds')) {
+    /**
+     * @return array{courses:list<int>,batches:list<int>}
+     */
+    function attendanceStudentCourseAndBatchIds($conn, string $student_id): array
+    {
+        $courses = [];
+        $batches = [];
+        $student_id = trim($student_id);
+        if ($student_id === '' || !($conn instanceof mysqli)) {
+            return ['courses' => [], 'batches' => []];
+        }
+        $ids = attendanceStudentRecordIds($conn, $student_id);
+        $hasCourse = ($col = $conn->query("SHOW COLUMNS FROM students LIKE 'course_id'")) && $col->num_rows > 0;
+        $hasBatch = ($col = $conn->query("SHOW COLUMNS FROM students LIKE 'batch_id'")) && $col->num_rows > 0;
+        if ($ids !== [] && ($hasCourse || $hasBatch)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $select = 'id';
+            if ($hasCourse) {
+                $select .= ', course_id';
+            }
+            if ($hasBatch) {
+                $select .= ', batch_id';
+            }
+            $stmt = $conn->prepare("SELECT {$select} FROM students WHERE id IN ({$placeholders})");
+            if ($stmt) {
+                $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $cid = (int) ($row['course_id'] ?? 0);
+                    $bid = (int) ($row['batch_id'] ?? 0);
+                    if ($cid > 0) {
+                        $courses[$cid] = $cid;
+                    }
+                    if ($bid > 0) {
+                        $batches[$bid] = $bid;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+        $enr = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enr && $enr->num_rows > 0) {
+            $enrCourse = ($col = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'course_id'")) && $col->num_rows > 0;
+            $enrBatch = ($col = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'batch_id'")) && $col->num_rows > 0;
+            $enrRec = ($col = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'")) && $col->num_rows > 0;
+            $hasAccounts = ($t = $conn->query("SHOW TABLES LIKE 'student_accounts'")) && $t->num_rows > 0;
+            if ($enrCourse || $enrBatch) {
+                $joins = '';
+                $wheres = [];
+                if ($enrRec) {
+                    $joins .= ' LEFT JOIN students st ON st.id = se.student_record_id';
+                    $wheres[] = "LOWER(TRIM(IFNULL(st.student_id,''))) = LOWER(?)";
+                }
+                if ($hasAccounts && ($acc = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'account_id'")) && $acc->num_rows > 0) {
+                    $joins .= ' LEFT JOIN student_accounts sa ON sa.id = se.account_id';
+                    $wheres[] = "LOWER(TRIM(IFNULL(sa.student_id,''))) = LOWER(?)";
+                }
+                if ($wheres !== []) {
+                    $sel = 'se.id';
+                    if ($enrCourse) {
+                        $sel .= ', se.course_id';
+                    }
+                    if ($enrBatch) {
+                        $sel .= ', se.batch_id';
+                    }
+                    $sql = "SELECT {$sel} FROM student_enrollments se {$joins} WHERE (" . implode(' OR ', $wheres) . ')';
+                    $stmt = $conn->prepare($sql);
+                    if ($stmt) {
+                        $bind = array_fill(0, count($wheres), $student_id);
+                        $stmt->bind_param(str_repeat('s', count($bind)), ...$bind);
+                        $stmt->execute();
+                        $res = $stmt->get_result();
+                        while ($row = $res->fetch_assoc()) {
+                            $cid = (int) ($row['course_id'] ?? 0);
+                            $bid = (int) ($row['batch_id'] ?? 0);
+                            if ($cid > 0) {
+                                $courses[$cid] = $cid;
+                            }
+                            if ($bid > 0) {
+                                $batches[$bid] = $bid;
+                            }
+                        }
+                        $stmt->close();
+                    }
+                }
+            }
+        }
+        $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if ($bs && $bs->num_rows > 0) {
+            $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+            $ors = ['CAST(bs.student_id AS CHAR) = ?'];
+            $types = 's';
+            $params = [$student_id];
+            if ($ids !== []) {
+                $ors[] = 'bs.student_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+                $types .= str_repeat('i', count($ids));
+                $params = array_merge($params, $ids);
+                if ($hasRecordCol) {
+                    $ors[] = 'bs.student_record_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')';
+                    $types .= str_repeat('i', count($ids));
+                    $params = array_merge($params, $ids);
+                }
+            }
+            $stmt = $conn->prepare('SELECT DISTINCT bs.batch_id FROM batch_students bs WHERE ' . implode(' OR ', $ors));
+            if ($stmt) {
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $bid = (int) ($row['batch_id'] ?? 0);
+                    if ($bid > 0) {
+                        $batches[$bid] = $bid;
+                    }
+                }
+                $stmt->close();
+            }
+        }
+        return [
+            'courses' => array_values($courses),
+            'batches' => array_values($batches),
+        ];
+    }
+}
+
+if (!function_exists('attendanceClassesHeldForStudent')) {
+    /**
+     * Auto total classes held for a student from their sessions (no manual entry).
+     *
+     * @return array{total:int,by_batch:array<int,int>}
+     */
+    function attendanceClassesHeldForStudent($conn, string $student_id, int $onlyBatchId = 0): array
+    {
+        $out = ['total' => 0, 'by_batch' => []];
+        if (!($conn instanceof mysqli) || !attendanceSessionsHaveClassesHeldColumn($conn)) {
+            return $out;
+        }
+        $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
+        $courses = $scope['courses'];
+        $batches = $scope['batches'];
+        if ($onlyBatchId > 0) {
+            $batches = in_array($onlyBatchId, $batches, true) ? [$onlyBatchId] : [$onlyBatchId];
+            $courses = [];
+        }
+        $clauses = [];
+        $types = '';
+        $params = [];
+        if ($batches !== [] && attendanceSessionsHaveBatchColumn($conn)) {
+            $placeholders = implode(',', array_fill(0, count($batches), '?'));
+            $clauses[] = "s.batch_id IN ({$placeholders})";
+            $types .= str_repeat('i', count($batches));
+            $params = array_merge($params, $batches);
+        }
+        if ($courses !== []) {
+            $placeholders = implode(',', array_fill(0, count($courses), '?'));
+            $noBatch = attendanceSessionsHaveBatchColumn($conn)
+                ? ' AND (s.batch_id IS NULL OR s.batch_id = 0)'
+                : '';
+            $clauses[] = "(s.course_id IN ({$placeholders}){$noBatch})";
+            $types .= str_repeat('i', count($courses));
+            $params = array_merge($params, $courses);
+        }
+        $hasSummary = ($t = $conn->query("SHOW TABLES LIKE 'attendance_summary'")) && $t->num_rows > 0;
+        if ($hasSummary) {
+            $clauses[] = "s.id IN (SELECT a.session_id FROM attendance_summary a WHERE LOWER(TRIM(a.student_id)) = LOWER(?) AND a.session_id > 0)";
+            $types .= 's';
+            $params[] = $student_id;
+        }
+        if ($clauses === []) {
+            return $out;
+        }
+        $sql = "SELECT IFNULL(s.batch_id, 0) AS batch_id, COALESCE(SUM(s.classes_held), 0) AS held
+                FROM attendance_sessions s
+                WHERE s.classes_held > 0 AND (" . implode(' OR ', $clauses) . ")
+                GROUP BY IFNULL(s.batch_id, 0)";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return $out;
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $total = 0;
+        while ($row = $res->fetch_assoc()) {
+            $held = max(0, (int) ($row['held'] ?? 0));
+            $bid = (int) ($row['batch_id'] ?? 0);
+            $out['by_batch'][$bid] = ($out['by_batch'][$bid] ?? 0) + $held;
+            $total += $held;
+        }
+        $stmt->close();
+        $out['total'] = max(0, $total);
+        return $out;
+    }
+}
+
 if (!function_exists('attendanceListBatchesForCourse')) {
     /**
      * @return array<int,array<string,mixed>>
@@ -706,6 +902,17 @@ if (!function_exists('attendanceSyncBatchAttendance')) {
             return;
         }
         $percent = 0.0;
+        $held = 0;
+        if (attendanceSessionsHaveBatchColumn($conn) && attendanceSessionsHaveClassesHeldColumn($conn)) {
+            $heldStmt = $conn->prepare('SELECT COALESCE(SUM(classes_held), 0) AS held FROM attendance_sessions WHERE batch_id = ? AND classes_held > 0');
+            if ($heldStmt) {
+                $heldStmt->bind_param('i', $batch_id);
+                $heldStmt->execute();
+                $heldRow = $heldStmt->get_result()->fetch_assoc();
+                $heldStmt->close();
+                $held = max(0, (int) ($heldRow['held'] ?? 0));
+            }
+        }
         if (attendanceSessionsHaveBatchColumn($conn)) {
             $sum = $conn->prepare(
                 "SELECT COUNT(*) AS total_days,
@@ -721,7 +928,12 @@ if (!function_exists('attendanceSyncBatchAttendance')) {
                 $sum->close();
                 $total = (int) ($row['total_days'] ?? 0);
                 $present = (int) ($row['present_days'] ?? 0);
-                if ($total > 0) {
+                if ($held > 0) {
+                    $percent = round(($present / $held) * 100, 2);
+                    if ($percent > 100) {
+                        $percent = 100.0;
+                    }
+                } elseif ($total > 0) {
                     $percent = round(($present / $total) * 100, 2);
                 }
             }
@@ -766,6 +978,7 @@ if (!function_exists('getStudentPortalAttendance')) {
             'partial_count' => 0,
             'late_count' => 0,
             'attendance_percentage' => 0.0,
+            'classes_held' => 0,
             'records' => [],
             'batches' => [],
         ];
@@ -859,12 +1072,29 @@ if (!function_exists('getStudentPortalAttendance')) {
                         ];
                     }
                     $total = count($rows);
-                    $pct = $total > 0 ? round((($present + $partial) / $total) * 100, 1) : 0.0;
+                    $heldInfo = attendanceClassesHeldForStudent($conn, $student_id, $batch_id);
+                    $held = (int) ($heldInfo['total'] ?? 0);
+                    $attended = $present + $partial;
+                    if ($held > 0) {
+                        $total = $held;
+                        $absent = max(0, $held - $attended);
+                        $pct = round(($attended / $held) * 100, 1);
+                        if ($pct > 100) {
+                            $pct = 100.0;
+                        }
+                    } else {
+                        $pct = $total > 0 ? round(($attended / $total) * 100, 1) : 0.0;
+                    }
                     $batches = [];
                     foreach ($byBatch as $brow) {
                         $btotal = (int) $brow['total'];
+                        $bheld = (int) ($heldInfo['by_batch'][(int) $brow['batch_id']] ?? 0);
+                        if ($bheld > 0) {
+                            $btotal = $bheld;
+                            $brow['total'] = $bheld;
+                        }
                         $brow['attendance_percentage'] = $btotal > 0
-                            ? round(($brow['present'] / $btotal) * 100, 1)
+                            ? min(100.0, round(($brow['present'] / $btotal) * 100, 1))
                             : 0.0;
                         $batches[] = $brow;
                     }
@@ -875,10 +1105,26 @@ if (!function_exists('getStudentPortalAttendance')) {
                         'partial_count' => $partial,
                         'late_count' => $partial,
                         'attendance_percentage' => $pct,
+                        'classes_held' => $held,
                         'records' => $records,
                         'batches' => $batches,
                     ];
                 }
+            }
+            $heldInfo = attendanceClassesHeldForStudent($conn, $student_id, $batch_id);
+            $held = (int) ($heldInfo['total'] ?? 0);
+            if ($held > 0) {
+                return [
+                    'total_classes' => $held,
+                    'present_count' => 0,
+                    'absent_count' => $held,
+                    'partial_count' => 0,
+                    'late_count' => 0,
+                    'attendance_percentage' => 0.0,
+                    'classes_held' => $held,
+                    'records' => [],
+                    'batches' => [],
+                ];
             }
         }
 

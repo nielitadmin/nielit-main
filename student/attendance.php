@@ -32,6 +32,7 @@ $absent_count = (int) $portal['absent_count'];
 $late_count = (int) $portal['late_count'];
 $partial_count = (int) $portal['partial_count'];
 $attendance_percentage = (float) $portal['attendance_percentage'];
+$classes_held = (int) ($portal['classes_held'] ?? 0);
 $attendance_records = $portal['records'];
 $batch_breakdown = $portal['batches'];
 
@@ -44,7 +45,7 @@ include 'includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-calendar-check"></i> Attendance Record</h2>
-            <p class="text-muted">Track your class attendance by section (morning, evening, etc.). QR and fingerprint punches from your coordinator appear here.</p>
+            <p class="text-muted">Track your class attendance by section (morning, evening, etc.). QR and fingerprint punches from your coordinator appear here. Attendance % is calculated automatically from classes held when your coordinator has set that number.</p>
         </div>
     </div>
 
@@ -57,7 +58,7 @@ include 'includes/header.php';
                 </div>
                 <div class="stat-content">
                     <h3><?php echo $total_classes; ?></h3>
-                    <p>Total Classes</p>
+                    <p><?php echo $classes_held > 0 ? 'Classes held' : 'Total Classes'; ?></p>
                 </div>
             </div>
         </div>
@@ -261,6 +262,9 @@ include 'includes/header.php';
                             </text>
                         </svg>
                     </div>
+                    <?php if ($classes_held > 0): ?>
+                        <p class="text-muted small mb-2">% = (Present + Partial) ÷ <?php echo (int) $classes_held; ?> classes held</p>
+                    <?php endif; ?>
                     <?php if ($attendance_percentage >= 75): ?>
                         <div class="alert alert-success">
                             <i class="fas fa-check-circle"></i> Excellent! You're maintaining good attendance.
@@ -292,7 +296,7 @@ include 'includes/header.php';
                             <thead>
                                 <tr>
                                     <th>Section</th>
-                                    <th>Classes</th>
+                                    <th>Classes held</th>
                                     <th>Present / Partial</th>
                                     <th>Attendance %</th>
                                 </tr>
