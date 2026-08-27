@@ -1548,6 +1548,37 @@ if (!function_exists('attendanceRunSummaryReport')) {
     }
 }
 
+if (!function_exists('attendanceApplyClassesHeld')) {
+    /**
+     * Recalculate % using classes actually held: (present + partial) / classes_held × 100.
+     * Leave $classesHeld at 0 to keep the default (marked days only).
+     *
+     * @param array<int,array<string,mixed>> $rows
+     * @return array<int,array<string,mixed>>
+     */
+    function attendanceApplyClassesHeld(array $rows, int $classesHeld): array
+    {
+        if ($classesHeld <= 0 || $rows === []) {
+            return $rows;
+        }
+        foreach ($rows as &$row) {
+            $present = (int) ($row['present_days'] ?? 0);
+            $partial = (int) ($row['partial_days'] ?? 0);
+            $attended = $present + $partial;
+            $row['classes_held'] = $classesHeld;
+            $row['total_days'] = $classesHeld;
+            $row['absent_days'] = max(0, $classesHeld - $attended);
+            $pct = round(($attended / $classesHeld) * 100, 2);
+            if ($pct > 100) {
+                $pct = 100.0;
+            }
+            $row['attendance_percentage'] = $pct;
+        }
+        unset($row);
+        return $rows;
+    }
+}
+
 /**
  * Get monthly attendance report
  */

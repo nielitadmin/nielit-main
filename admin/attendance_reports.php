@@ -33,6 +33,10 @@ $selected_student = $_GET['student_id'] ?? '';
 $selected_course = $_GET['course_id'] ?? '';
 $selected_centre = (int) ($_GET['centre_id'] ?? 0);
 $selected_batch = (int) ($_GET['batch_id'] ?? 0);
+$classes_held = (int) ($_GET['classes_held'] ?? 0);
+if ($classes_held < 0 || $classes_held > 500) {
+    $classes_held = 0;
+}
 $report_centres = attendanceListCentres($conn);
 $report_batches = attendanceListBatchesForCourse($conn, 0, 0);
 $centre_label = attendanceCentreName($conn, $selected_centre);
@@ -73,6 +77,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             ];
             $report_title = "Monthly Attendance Report - {$months[$selected_month]} {$selected_year}";
     }
+    $report_data = attendanceApplyClassesHeld($report_data, $classes_held);
     
     // Create Excel filename
     $filename = strtolower(str_replace([' ', '-', '(', ')'], '_', $report_title)) . ".xls";
@@ -100,6 +105,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
         echo '<tr><td style="font-weight:bold;">Course Filter:</td><td colspan="11">' . htmlspecialchars($selected_course) . '</td></tr>';
     }
     echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="11">' . date('d M Y h:i A') . '</td></tr>';
+    if ($classes_held > 0) {
+        echo '<tr><td style="font-weight:bold;">Total classes held:</td><td colspan="11">' . $classes_held . ' (Attendance % = (Present + Partial) / ' . $classes_held . ')</td></tr>';
+    } else {
+        echo '<tr><td style="font-weight:bold;">Attendance %:</td><td colspan="11">(Present + Partial) / marked days</td></tr>';
+    }
     echo '<tr><td colspan="12"></td></tr>'; // Empty row
 
     // Column headers
@@ -109,7 +119,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<td>Student Name</td>';
     echo '<td>Student ID</td>';
     echo '<td>Course</td>';
-    echo '<td>Total Days</td>';
+    echo '<td>' . ($classes_held > 0 ? 'Classes held' : 'Total Days') . '</td>';
     echo '<td>Present</td>';
     echo '<td>Partial</td>';
     echo '<td>Absent</td>';
@@ -194,6 +204,7 @@ switch ($report_type) {
         ];
         $report_title = "Monthly Report - {$months[$selected_month]} {$selected_year}";
 }
+$report_data = attendanceApplyClassesHeld($report_data, $classes_held);
 
 // Get available years and months
 $years_query = "SELECT DISTINCT YEAR(date) as year FROM attendance_summary ORDER BY year DESC";
@@ -522,7 +533,13 @@ $active_theme = loadActiveTheme($conn);
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    
+                                    <div class="col-md-3">
+                                        <label class="form-label text-white">Total classes held</label>
+                                        <input type="number" name="classes_held" class="form-control" min="1" max="500" step="1"
+                                               value="<?php echo $classes_held > 0 ? (int) $classes_held : ''; ?>"
+                                               placeholder="e.g. 22">
+                                        <small class="text-white-50">Denominator for Attendance %. Leave blank to use marked days only.</small>
+                                    </div>
                                     <div class="col-md-2">
                                         <label class="form-label text-white">&nbsp;</label>
                                         <button type="submit" class="btn btn-light w-100">
@@ -578,6 +595,9 @@ $active_theme = loadActiveTheme($conn);
                             <?php if ($selected_centre > 0): ?>
                                 <small class="ms-2 text-muted"><?php echo htmlspecialchars($centre_label); ?></small>
                             <?php endif; ?>
+                            <?php if ($classes_held > 0): ?>
+                                <small class="ms-2 text-muted">· % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?> classes held</small>
+                            <?php endif; ?>
                         </h5>
                         <div>
                             <button class="btn btn-success btn-sm" onclick="exportToExcel()">
@@ -599,7 +619,7 @@ $active_theme = loadActiveTheme($conn);
                                             <th>Student Name</th>
                                             <th>Student ID</th>
                                             <th>Course</th>
-                                            <th>Total Days</th>
+                                            <th><?php echo $classes_held > 0 ? 'Classes held' : 'Total Days'; ?></th>
                                             <th>Present</th>
                                             <th>Partial</th>
                                             <th>Absent</th>
