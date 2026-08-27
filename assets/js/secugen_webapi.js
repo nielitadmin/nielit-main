@@ -32,13 +32,11 @@
         Object.keys(options || {}).forEach(function (k) { opts[k] = options[k]; });
         opts.signal = ctrl.signal;
         opts.cache = 'no-store';
+        opts.mode = opts.mode || 'cors';
+        if (!opts.targetAddressSpace) {
+            opts.targetAddressSpace = 'loopback';
+        }
         return fetch(url, opts).finally(function () { clearTimeout(timer); });
-    }
-
-    function form(params) {
-        return Object.keys(params).map(function (k) {
-            return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
-        }).join('&');
     }
 
     function parseJson(text) {
@@ -88,6 +86,8 @@
         code = parseInt(code, 10) || 0;
         var map = {
             2: 'Invalid parameter sent to the reader.',
+            3: 'Invalid parameters sent to the fingerprint sensor.',
+            7: 'SecuGen algorithm DLL failed to load. Reinstall the SecuGen WebAPI client (SGIBIOSRV).',
             51: 'System file load failure.',
             52: 'Sensor chip initialization failed.',
             53: 'Reader not found. Plug in the SecuGen Hamster Pro 20 and try again.',
@@ -99,7 +99,14 @@
             59: 'Reader is busy. Close other fingerprint apps and try again.',
             60: 'Could not read the reader serial number.',
             61: 'Unsupported reader.',
-            63: 'SecuGen WebAPI service (SGIBIOSRV) is not running. Start it, then refresh.'
+            63: 'SecuGen WebAPI service (SGIBIOSRV) is not running. Start it, then refresh.',
+            101: 'Fingerprint has too few details. Press the thumb firmer and flatter, then try again.',
+            105: 'Could not extract fingerprint features. Clean the reader and press the thumb firmly.',
+            4000: 'Invalid parameter sent to SecuGen WebAPI.',
+            10001: 'SecuGen WebAPI license error. Install a domain license key.',
+            10002: 'SecuGen WebAPI license does not match this website domain.',
+            10003: 'SecuGen WebAPI license expired. Install a domain license key.',
+            10004: 'SecuGen WebAPI did not receive the page origin. Open this kiosk over https and retry.'
         };
         if (map[code]) {
             return map[code];
@@ -171,19 +178,45 @@
         return seq;
     }
 
-    function post(base, method, params, ms) {
-        return fetchTimeout(base + method, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: form(params)
-        }, ms || 20000).then(function (res) {
-            return res.text().then(function (text) {
-                var json = parseJson(text);
-                if (!json) {
-                    throw new Error('SecuGen WebAPI did not return JSON. Confirm SGIBIOSRV is running.');
+    function post(base, method, body, ms) {
+        var url = String(base || '') + method;
+        return new Promise(function (resolve, reject) {
+            var xhr = new XMLHttpRequest();
+            var timer = setTimeout(function () {
+                try { xhr.abort(); } catch (e) {}
+                reject(new Error('SecuGen WebAPI timed out. Confirm SGIBIOSRV is running.'));
+            }, ms || 20000);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState !== 4) {
+                    return;
                 }
-                return json;
-            });
+                clearTimeout(timer);
+                if (xhr.status === 404) {
+                    reject(new Error('SecuGen WebAPI endpoint not found. Reinstall the WebAPI client.'));
+                    return;
+                }
+                if (xhr.status === 0) {
+                    reject(new Error('Cannot reach SecuGen WebAPI. Start SGIBIOSRV and open https://localhost:8443/SGIFPCapture once to accept the certificate.'));
+                    return;
+                }
+                if (xhr.status !== 200) {
+                    reject(new Error('SecuGen WebAPI HTTP ' + xhr.status + '.'));
+                    return;
+                }
+                var json = parseJson(xhr.responseText);
+                if (!json) {
+                    reject(new Error('SecuGen WebAPI did not return JSON. Confirm SGIBIOSRV is running.'));
+                    return;
+                }
+                resolve(json);
+            };
+            xhr.onerror = function () {
+                clearTimeout(timer);
+                reject(new Error('Cannot reach SecuGen WebAPI. Start SGIBIOSRV and accept the HTTPS certificate.'));
+            };
+            // Match the official SecuGen demo: POST form body, let the browser set Content-Type.
+            xhr.open('POST', url, true);
+            xhr.send(body);
         });
     }
 
@@ -191,31 +224,30 @@
         base = base || bases()[0];
         quality = quality || 50;
         timeout = timeout || 10000;
-        // Official SecuGen sample uses camelCase templateFormat / licstr.
-        // Also send PascalCase aliases — some SGIBIOSRV builds are case-sensitive.
-        return post(base, 'SGIFPCapture', {
-            Timeout: timeout,
-            Quality: quality,
-            templateFormat: 'ISO',
-            TemplateFormat: 'ISO',
-            licstr: LIC,
-            Licstr: LIC
-        }, timeout + 8000).then(function (resp) {
+        // Exact parameter names/order from SecuGen Demo1.aspx. Duplicate PascalCase
+        // keys (TemplateFormat + templateFormat) can make SGIBIOSRV skip the template.
+        var body = 'Timeout=' + encodeURIComponent(String(timeout))
+            + '&Quality=' + encodeURIComponent(String(quality))
+            + '&licstr=' + encodeURIComponent(LIC)
+            + '&templateFormat=ISO'
+            + '&imageWSQRate=0.75';
+        return post(base, 'SGIFPCapture', body, timeout + 8000).then(function (resp) {
             var code = parseInt(field(resp, ['ErrorCode', 'errorCode', 'ErrCode']), 10) || 0;
             if (code !== 0) {
                 throw new Error(errorText(code));
             }
             var iso = isoFrom(resp);
+            var qualityN = parseInt(field(resp, ['ImageQuality', 'Quality']), 10) || 0;
+            var nfiq = parseInt(field(resp, ['NFIQ']), 10) || 0;
             if (!iso) {
-                var qualityN = parseInt(field(resp, ['ImageQuality', 'Quality']), 10) || 0;
-                if (qualityN > 0 && qualityN < 40) {
-                    throw new Error('Fingerprint image is too faint. Lift the thumb, press firmly and flat, then try again.');
+                if (nfiq >= 4 || (qualityN > 0 && qualityN < 40)) {
+                    throw new Error('Fingerprint image is too faint or smudged. Wipe the glass, press the thumb firmly and flat, then try again.');
                 }
-                throw new Error('The reader captured the finger but did not return a template. Lift the thumb and try again. If this keeps happening, restart SGIBIOSRV and confirm the SecuGen WebAPI license for this website.');
+                throw new Error('The reader got an image but SecuGen did not extract a template. Restart SGIBIOSRV. If this website has been used with this reader for more than 60 days, install a SecuGen WebAPI license for this domain.');
             }
             return {
                 iso: iso,
-                quality: parseInt(field(resp, ['ImageQuality', 'Quality']) || '0', 10) || 0,
+                quality: qualityN,
                 device_id: serialFrom(resp),
                 model: String(field(resp, ['Model']) || '').trim(),
                 raw: resp
@@ -225,16 +257,11 @@
 
     function match(base, probeIso, galleryIso) {
         base = base || bases()[0];
-        return post(base, 'SGIMatchScore', {
-            template1: probeIso,
-            template2: galleryIso,
-            Template1: probeIso,
-            Template2: galleryIso,
-            templateFormat: 'ISO',
-            TemplateFormat: 'ISO',
-            licstr: LIC,
-            Licstr: LIC
-        }, 15000).then(function (resp) {
+        var body = 'licstr=' + encodeURIComponent(LIC)
+            + '&templateFormat=ISO'
+            + '&Template1=' + encodeURIComponent(probeIso)
+            + '&Template2=' + encodeURIComponent(galleryIso);
+        return post(base, 'SGIMatchScore', body, 15000).then(function (resp) {
             var code = parseInt(field(resp, ['ErrorCode', 'errorCode', 'ErrCode']), 10) || 0;
             if (code !== 0) {
                 throw new Error(errorText(code));
