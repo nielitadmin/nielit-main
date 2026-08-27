@@ -20,6 +20,9 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/attendance_access_helper.php';
+attendance_require_access($conn, ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST');
+
 $admin_id = (string) $_SESSION['admin'];
 ensureFingerprintTemplateTables($conn);
 

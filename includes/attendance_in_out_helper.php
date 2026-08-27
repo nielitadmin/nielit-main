@@ -4,6 +4,11 @@
  * NIELIT Bhubaneswar - Advanced QR Attendance Management
  */
 
+$attendanceAccessHelper = __DIR__ . '/attendance_access_helper.php';
+if (is_file($attendanceAccessHelper)) {
+    require_once $attendanceAccessHelper;
+}
+
 if (!function_exists('ensureAttendanceInOutTables')) {
     /**
      * Create IN/OUT tables if this database never ran the enhanced attendance migration.
@@ -112,7 +117,11 @@ if (!function_exists('attendanceListCentres')) {
         }
         $sql .= " ORDER BY name ASC";
         $r = $conn->query($sql);
-        return $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        if (function_exists('attendanceRestrictCentreRows')) {
+            return attendanceRestrictCentreRows($conn, $rows);
+        }
+        return $rows;
     }
 }
 
@@ -167,6 +176,9 @@ if (!function_exists('attendanceListCoursesForCentre')) {
         if ($rows === [] && $centreId === 0) {
             $r = $conn->query("SELECT id, course_name, course_code, 0 AS centre_id, '' AS centre_name FROM courses ORDER BY course_name");
             $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        }
+        if (function_exists('attendanceRestrictCourseRows')) {
+            $rows = attendanceRestrictCourseRows($conn, $rows ?: []);
         }
         return $rows ?: [];
     }
@@ -1458,7 +1470,7 @@ function getSessionAttendanceList($session_id, $conn) {
 }
 
 if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {
-    function attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, &$where_clause, &$params, &$types, $batch_id = 0)
+    function attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, &$where_clause, &$params, &$types, $batch_id = 0, $conn = null)
     {
         $course_id = ($course_id !== null && $course_id !== '') ? (int) $course_id : 0;
         $centre_id = (int) $centre_id;
@@ -1482,6 +1494,9 @@ if (!function_exists('attendanceAppendStudentCourseCentreFilters')) {
             $where_clause .= " AND sess.batch_id = ?";
             $params[] = $batch_id;
             $types .= "i";
+        }
+        if (function_exists('attendanceAppendGrantedCentreFilter')) {
+            attendanceAppendGrantedCentreFilter($conn ?? ($GLOBALS['conn'] ?? null), $where_clause, $params, $types);
         }
     }
 }
@@ -1593,7 +1608,7 @@ function getMonthlyAttendanceReport($student_id = null, $year = null, $month = n
     $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) = ?";
     $params = [$year, $month];
     $types = "ii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id, $conn);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getMonthlyAttendanceReport');
 }
@@ -1612,7 +1627,7 @@ function getWeeklyAttendanceReport($student_id = null, $year = null, $week = nul
     $where_clause = "WHERE YEAR(a.date) = ? AND WEEK(a.date, 1) = ?";
     $params = [$year, $week];
     $types = "ii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id, $conn);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getWeeklyAttendanceReport');
 }
@@ -1634,7 +1649,7 @@ function getQuarterlyAttendanceReport($student_id = null, $year = null, $quarter
     $where_clause = "WHERE YEAR(a.date) = ? AND MONTH(a.date) BETWEEN ? AND ?";
     $params = [$year, $start_month, $end_month];
     $types = "iii";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id, $conn);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getQuarterlyAttendanceReport');
 }
@@ -1652,7 +1667,7 @@ function getYearlyAttendanceReport($student_id = null, $year = null, $course_id 
     $where_clause = "WHERE YEAR(a.date) = ?";
     $params = [$year];
     $types = "i";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id, $conn);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getYearlyAttendanceReport');
 }
@@ -1672,7 +1687,7 @@ function getCustomRangeAttendanceReport($student_id = null, $start_date = null, 
     $where_clause = "WHERE a.date BETWEEN ? AND ?";
     $params = [$start_date, $end_date];
     $types = "ss";
-    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id);
+    attendanceAppendStudentCourseCentreFilters($student_id, $course_id, $centre_id, $where_clause, $params, $types, $batch_id, $conn);
 
     return attendanceRunSummaryReport($conn, $where_clause, $types, $params, 'getCustomRangeAttendanceReport');
 }

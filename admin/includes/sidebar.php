@@ -259,7 +259,48 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
 
         <div class="nav-divider"></div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chart-line"></i> Report Monitor
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
+                <i class="fas fa-list-alt"></i> OTP Logs
+            </a>
+        </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('api/admin/manage_api_keys'); ?>" class="nav-link <?php echo ($current_page === 'manage_api_keys.php') ? 'active' : ''; ?>">
+                <i class="fas fa-key"></i> API Management
+            </a>
+        </div>
+        <?php endif; ?>
+        
+        
+        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <!-- This section is now empty as Reset Password moved to shared section -->
+        <?php endif; ?>
+
+        <?php
+        $canAccessAttendance = $is_master_admin;
+        if (!$canAccessAttendance && isset($conn) && $conn instanceof mysqli) {
+            $attHelper = __DIR__ . '/../../includes/attendance_access_helper.php';
+            if (is_file($attHelper)) {
+                require_once $attHelper;
+                $canAccessAttendance = function_exists('admin_can_access_attendance') && admin_can_access_attendance($conn);
+            }
+        }
+        ?>
+        <?php if ($canAccessAttendance): ?>
+        <div class="nav-divider"></div>
         <div class="nav-section-title">Student Attendance</div>
+        <?php if ($is_master_admin): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_attendance_access'); ?>" class="nav-link <?php echo ($current_page === 'manage_attendance_access.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-shield"></i> Grant Attendance Access
+            </a>
+        </div>
+        <?php endif; ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/attendance_scanner'); ?>" class="nav-link <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
                 <i class="fas fa-qrcode"></i> QR Attendance Scanner
@@ -290,28 +331,6 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-chart-bar"></i> Attendance Reports
             </a>
         </div>
-
-        <div class="nav-divider"></div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chart-line"></i> Report Monitor
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="nav-link <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
-                <i class="fas fa-list-alt"></i> OTP Logs
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('api/admin/manage_api_keys'); ?>" class="nav-link <?php echo ($current_page === 'manage_api_keys.php') ? 'active' : ''; ?>">
-                <i class="fas fa-key"></i> API Management
-            </a>
-        </div>
-        <?php endif; ?>
-        
-        
-        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
-        <!-- This section is now empty as Reset Password moved to shared section -->
         <?php endif; ?>
 
         <?php

@@ -17,6 +17,9 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/attendance_access_helper.php';
+attendance_require_access($conn);
+
 ensureFingerprintTemplateTables($conn);
 
 if (empty($_SESSION['csrf_token'])) {

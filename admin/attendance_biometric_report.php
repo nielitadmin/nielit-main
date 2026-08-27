@@ -21,6 +21,8 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+attendance_require_access($conn);
+
 $istNow = new DateTime('now', new DateTimeZone('Asia/Kolkata'));
 $year = (int) ($_GET['year'] ?? $istNow->format('Y'));
 $month = (int) ($_GET['month'] ?? $istNow->format('n'));

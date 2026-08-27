@@ -18,6 +18,8 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+attendance_require_access($conn);
+
 $admin_id = $_SESSION['admin'];
 $admin_name = $_SESSION['admin_name'] ?? 'Administrator';
 

@@ -5,6 +5,10 @@
  */
 
 require_once __DIR__ . '/../phpqrcode/qrlib.php';
+$attendanceAccessHelper = __DIR__ . '/attendance_access_helper.php';
+if (is_file($attendanceAccessHelper)) {
+    require_once $attendanceAccessHelper;
+}
 
 /**
  * Generate unique QR code for student attendance
@@ -137,6 +141,12 @@ function createAttendanceSession($session_data, $conn) {
             return [
                 'success' => false,
                 'message' => 'Please select a course.'
+            ];
+        }
+        if (function_exists('attendanceAdminCanUseCourse') && !attendanceAdminCanUseCourse($conn, $courseId)) {
+            return [
+                'success' => false,
+                'message' => 'That course is not in a centre assigned to you.'
             ];
         }
         if ($batchId > 0) {

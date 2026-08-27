@@ -14,6 +14,10 @@ if (!isset($_SESSION['admin'])) {
     exit;
 }
 
+if (function_exists('attendance_require_access')) {
+    attendance_require_access($conn);
+}
+
 $session_id = $_GET['session_id'] ?? 0;
 
 if (!$session_id) {

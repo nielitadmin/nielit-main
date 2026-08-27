@@ -754,6 +754,20 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             $sql .= ' AND c.centre_id = ?';
             $types .= 'i';
             $params[] = $centreId;
+        } elseif (function_exists('attendanceAdminCentreIds')) {
+            $granted = attendanceAdminCentreIds($conn);
+            if (is_array($granted)) {
+                if ($granted === []) {
+                    $sql .= ' AND 1=0';
+                } else {
+                    $placeholders = implode(',', array_fill(0, count($granted), '?'));
+                    $sql .= " AND c.centre_id IN ({$placeholders})";
+                    foreach ($granted as $gid) {
+                        $types .= 'i';
+                        $params[] = $gid;
+                    }
+                }
+            }
         }
         if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
             $sql .= ' AND s.batch_id = ?';
