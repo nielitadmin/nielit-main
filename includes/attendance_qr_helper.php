@@ -163,14 +163,6 @@ function createAttendanceSession($session_data, $conn) {
                     return ['success' => false, 'message' => 'Selected batch does not belong to this course.'];
                 }
             }
-        } elseif (function_exists('attendanceListBatchesForCourse')) {
-            $courseBatches = attendanceListBatchesForCourse($conn, $courseId, 0);
-            if ($courseBatches !== []) {
-                return [
-                    'success' => false,
-                    'message' => 'Please select a section for this course.'
-                ];
-            }
         }
 
         $sessionName = trim((string) ($session_data['session_name'] ?? ''));
@@ -310,11 +302,6 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
                 if ((int) ($batchRow['course_id'] ?? 0) !== $courseId) {
                     return ['success' => false, 'message' => 'Selected batch does not belong to this course.'];
                 }
-            }
-        } elseif (function_exists('attendanceListBatchesForCourse')) {
-            $courseBatches = attendanceListBatchesForCourse($conn, $courseId, 0);
-            if ($courseBatches !== []) {
-                return ['success' => false, 'message' => 'Please select a section for this course.'];
             }
         }
 

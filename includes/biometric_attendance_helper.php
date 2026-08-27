@@ -645,6 +645,138 @@ if (!function_exists('biometricPunchIstDateTime')) {
     }
 }
 
+if (!function_exists('fingerprintStudentEnrolledBatchSql')) {
+    /**
+     * Prefer the student's current section (batch_students / enrollments / students.batch_id)
+     * so punches still appear after they are assigned to a batch, or if the session had none.
+     */
+    function fingerprintStudentEnrolledBatchSql($conn): string
+    {
+        $parts = [];
+        $hasBs = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
+        $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
+        $hasStudents = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'students'")) && $t->num_rows > 0;
+        $hasRecordCol = false;
+        if ($hasBs) {
+            $col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+            $hasRecordCol = $col && $col->num_rows > 0;
+        }
+        $stJoin = "LEFT JOIN students st ON (st.id = bs.student_id
+            OR LOWER(TRIM(CAST(st.student_id AS CHAR))) = LOWER(TRIM(CAST(bs.student_id AS CHAR)))";
+        if ($hasRecordCol) {
+            $stJoin .= " OR st.id = bs.student_record_id";
+        }
+        $stJoin .= ')';
+        $match = "(LOWER(TRIM(IFNULL(st.student_id,''))) = LOWER(TRIM(l.student_id))
+            OR CAST(bs.student_id AS CHAR) = TRIM(l.student_id))";
+        $courseOk = "(s.course_id IS NULL OR s.course_id = 0 OR bb.course_id = s.course_id)";
+        if ($hasBs && $hasBatches) {
+            $parts[] = "(SELECT bb.batch_name FROM batch_students bs
+                INNER JOIN batches bb ON bb.id = bs.batch_id AND {$courseOk}
+                {$stJoin}
+                WHERE {$match}
+                ORDER BY bs.id DESC LIMIT 1)";
+        }
+        $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
+        if ($enr && $hasBatches) {
+            $enrCol = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'batch_id'");
+            $enrRec = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'");
+            $hasAccounts = ($t = $conn->query("SHOW TABLES LIKE 'student_accounts'")) && $t->num_rows > 0;
+            if ($enrCol && $enrCol->num_rows > 0) {
+                $enrJoins = '';
+                $enrWhere = [];
+                if ($enrRec && $enrRec->num_rows > 0) {
+                    $enrJoins .= ' LEFT JOIN students st2 ON st2.id = se.student_record_id';
+                    $enrWhere[] = "LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id))";
+                }
+                if ($hasAccounts) {
+                    $accCol = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'account_id'");
+                    if ($accCol && $accCol->num_rows > 0) {
+                        $enrJoins .= ' LEFT JOIN student_accounts sa ON sa.id = se.account_id';
+                        $enrWhere[] = "LOWER(TRIM(IFNULL(sa.student_id,''))) = LOWER(TRIM(l.student_id))";
+                    }
+                }
+                if ($enrWhere !== []) {
+                    $parts[] = "(SELECT bb.batch_name FROM student_enrollments se
+                        INNER JOIN batches bb ON bb.id = se.batch_id AND {$courseOk}
+                        {$enrJoins}
+                        WHERE (" . implode(' OR ', $enrWhere) . ")
+                        ORDER BY se.id DESC LIMIT 1)";
+                }
+            }
+        }
+        $stuBatch = false;
+        if ($hasStudents) {
+            $col = $conn->query("SHOW COLUMNS FROM students LIKE 'batch_id'");
+            $stuBatch = $col && $col->num_rows > 0;
+        }
+        if ($stuBatch && $hasBatches) {
+            $parts[] = "(SELECT bb.batch_name FROM students st3
+                INNER JOIN batches bb ON bb.id = st3.batch_id AND {$courseOk}
+                WHERE LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id))
+                ORDER BY st3.id DESC LIMIT 1)";
+        }
+        $expr = "IFNULL(b.batch_name, '')";
+        foreach (array_reverse($parts) as $sub) {
+            $expr = "IFNULL(NULLIF(TRIM({$sub}), ''), {$expr})";
+        }
+        return $expr . ' AS batch_name';
+    }
+}
+
+if (!function_exists('fingerprintStudentInBatchExistsSql')) {
+    /**
+     * True if this punch belongs to a student currently in the filtered batch.
+     */
+    function fingerprintStudentInBatchExistsSql($conn): string
+    {
+        $ors = ['s.batch_id = ?'];
+        $hasBs = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
+        $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
+        $hasRecordCol = false;
+        if ($hasBs) {
+            $col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+            $hasRecordCol = $col && $col->num_rows > 0;
+        }
+        $stJoin = "LEFT JOIN students st ON (st.id = bs.student_id
+            OR LOWER(TRIM(CAST(st.student_id AS CHAR))) = LOWER(TRIM(CAST(bs.student_id AS CHAR)))";
+        if ($hasRecordCol) {
+            $stJoin .= " OR st.id = bs.student_record_id";
+        }
+        $stJoin .= ')';
+        $match = "(LOWER(TRIM(IFNULL(st.student_id,''))) = LOWER(TRIM(l.student_id))
+            OR CAST(bs.student_id AS CHAR) = TRIM(l.student_id))";
+        $courseOk = "(s.course_id IS NULL OR s.course_id = 0 OR bb.course_id = s.course_id)";
+        if ($hasBs && $hasBatches) {
+            $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
+                INNER JOIN batches bb ON bb.id = bs.batch_id AND {$courseOk}
+                {$stJoin}
+                WHERE bs.batch_id = ? AND {$match})";
+        }
+        $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
+        if ($enr && $hasBatches) {
+            $enrCol = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'batch_id'");
+            $enrRec = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'");
+            if ($enrCol && $enrCol->num_rows > 0 && $enrRec && $enrRec->num_rows > 0) {
+                $ors[] = "EXISTS (SELECT 1 FROM student_enrollments se
+                    INNER JOIN batches bb ON bb.id = se.batch_id AND {$courseOk}
+                    LEFT JOIN students st2 ON st2.id = se.student_record_id
+                    WHERE se.batch_id = ?
+                      AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id)))";
+            }
+        }
+        $hasStudents = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'students'")) && $t->num_rows > 0;
+        if ($hasStudents) {
+            $col = $conn->query("SHOW COLUMNS FROM students LIKE 'batch_id'");
+            if ($col && $col->num_rows > 0) {
+                $ors[] = "EXISTS (SELECT 1 FROM students st3
+                    WHERE st3.batch_id = ? AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id)))";
+            }
+        }
+        return ' AND (' . implode(' OR ', $ors) . ')';
+    }
+}
+
 if (!function_exists('getFingerprintMonthlyRecord')) {
     /**
      * Monthly IN/OUT grid for fingerprint attendance, with Mantra device IDs.
@@ -698,7 +830,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         if (attendanceSessionsHaveBatchColumn($conn)) {
             $bt = $conn->query("SHOW TABLES LIKE 'batches'");
             if ($bt && $bt->num_rows > 0) {
-                $batchSelect = "IFNULL(b.batch_name, '') AS batch_name";
+                $batchSelect = fingerprintStudentEnrolledBatchSql($conn);
                 $batchJoin = " LEFT JOIN batches b ON b.id = s.batch_id ";
             }
         }
@@ -770,9 +902,13 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             }
         }
         if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
-            $sql .= ' AND s.batch_id = ?';
-            $types .= 'i';
-            $params[] = $batchId;
+            $batchFilterSql = fingerprintStudentInBatchExistsSql($conn);
+            $sql .= $batchFilterSql;
+            $placeholders = substr_count($batchFilterSql, '?');
+            for ($i = 0; $i < $placeholders; $i++) {
+                $types .= 'i';
+                $params[] = $batchId;
+            }
         }
         $sql .= ' ORDER BY centre_name ASC, batch_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
         $stmt = $conn->prepare($sql);

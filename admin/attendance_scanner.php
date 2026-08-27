@@ -388,9 +388,9 @@ $active_theme = loadActiveTheme($conn);
                         <?php endif; ?>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Section (batch)</label>
-                        <select class="form-select" name="batch_id" id="sessionBatch" required>
-                            <option value="">Select section</option>
+                        <label class="form-label">Section (batch) <span class="text-muted fw-normal">(optional)</span></label>
+                        <select class="form-select" name="batch_id" id="sessionBatch">
+                            <option value="">None — assign later (optional)</option>
                             <?php foreach ($allBatches as $batch): ?>
                                 <option value="<?php echo (int) $batch['id']; ?>"
                                         data-course="<?php echo (int) ($batch['course_id'] ?? 0); ?>"
@@ -399,6 +399,7 @@ $active_theme = loadActiveTheme($conn);
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <small class="text-muted">You can create now and set the section later with Edit session. Fingerprint punches still show on the report when the student is assigned to a section.</small>
                     </div>
                     
                     <div class="row">
@@ -800,7 +801,8 @@ $active_theme = loadActiveTheme($conn);
         filterSessionBatches();
         const batchSel = document.getElementById('sessionBatch');
         if (batchSel) {
-            batchSel.value = btn.getAttribute('data-batch') || '';
+            const bid = String(btn.getAttribute('data-batch') || '');
+            batchSel.value = (bid === '' || bid === '0') ? '' : bid;
         }
         const modal = new bootstrap.Modal(document.getElementById('createSessionModal'));
         modal.show();
