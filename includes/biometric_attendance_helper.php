@@ -411,6 +411,33 @@ if (!function_exists('logBiometricCapture')) {
     }
 }
 
+if (!function_exists('biometricNormalizeDeviceId')) {
+    /**
+     * Device ID is the kiosk PC address, not the centre/kiosk label.
+     */
+    function biometricNormalizeDeviceId(string $ip, string $fallback = ''): string
+    {
+        $ip = trim($ip);
+        if ($ip !== '' && $ip !== 'unknown' && filter_var($ip, FILTER_VALIDATE_IP)) {
+            return $ip;
+        }
+        $fallback = trim($fallback);
+        if ($fallback !== '' && filter_var($fallback, FILTER_VALIDATE_IP)) {
+            return $fallback;
+        }
+        if (preg_match('/((?:\d{1,3}\.){3}\d{1,3})/', $fallback, $m) && filter_var($m[1], FILTER_VALIDATE_IP)) {
+            return $m[1];
+        }
+        if (preg_match('/([0-9a-f:]{3,})/i', $fallback, $m) && filter_var($m[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6)) {
+            return $m[1];
+        }
+        if ($ip !== '' && $ip !== 'unknown') {
+            return $ip;
+        }
+        return '';
+    }
+}
+
 if (!function_exists('processBiometricKioskAttendance')) {
     /**
      * @return array<string,mixed>
@@ -627,22 +654,13 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         $createdSelect = $hasCreated ? 'l.created_at' : 'l.scan_time AS created_at';
         $bioDevice = "''";
         if ($bioOk) {
-            $bioDevice = "(SELECT IFNULL(NULLIF(TRIM(b.device_code), ''), IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_model)))
+            $bioDevice = "(SELECT IFNULL(NULLIF(TRIM(b.rds_id), ''), TRIM(b.device_code))
                 FROM biometric_capture_logs b
                 WHERE b.result IN ('ok', 'success')
                   AND TRIM(b.student_id) = TRIM(l.student_id)
                   AND (b.session_id = l.session_id OR b.session_id = 0)
                 ORDER BY b.id DESC LIMIT 1)";
         }
-        $kioskDevice = "''";
-        $kioskTbl = $conn->query("SHOW TABLES LIKE 'student_kiosk_allowed_ips'");
-        if ($kioskTbl && $kioskTbl->num_rows > 0) {
-            $kioskDevice = "(SELECT IFNULL(NULLIF(TRIM(k.label), ''), k.ip_address)
-                FROM student_kiosk_allowed_ips k
-                WHERE k.ip_address = l.ip_address
-                LIMIT 1)";
-        }
-        $deviceSelect = "TRIM(IFNULL(NULLIF({$bioDevice}, ''), IFNULL(NULLIF({$kioskDevice}, ''), NULLIF(TRIM(l.ip_address), ''))))";
 
         $batchSelect = "'' AS batch_name";
         $batchJoin = '';
@@ -665,7 +683,8 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     s.subject,
                     IFNULL(ct.name, '') AS centre_name,
                     {$batchSelect},
-                    {$deviceSelect} AS device_id
+                    l.ip_address,
+                    {$bioDevice} AS bio_device
                 FROM attendance_logs l
                 INNER JOIN attendance_sessions s ON s.id = l.session_id
                 LEFT JOIN courses c ON c.id = s.course_id
@@ -736,7 +755,10 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     'days' => [],
                 ];
             }
-            $device = trim((string) ($row['device_id'] ?? ''));
+            $device = biometricNormalizeDeviceId(
+                (string) ($row['ip_address'] ?? ''),
+                (string) ($row['bio_device'] ?? '')
+            );
             if ($device !== '') {
                 $byStudent[$rowKey]['devices'][$device] = true;
             }

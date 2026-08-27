@@ -190,7 +190,19 @@ $qs = http_build_query([
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
         .att-meta { font-size: 0.9rem; color: #334155; }
-        .att-wrap { overflow-x: auto; background: #fff; }
+        .att-title { text-align: left; font-size: 1.35rem; font-weight: 700; margin: 0 0 0.75rem; }
+        .att-card,
+        .att-card .card-body {
+            max-width: 100%;
+            overflow: hidden;
+        }
+        .att-wrap {
+            overflow-x: auto;
+            max-width: 100%;
+            width: 100%;
+            background: #fff;
+            -webkit-overflow-scrolling: touch;
+        }
         .att-matrix { border-collapse: collapse; width: max-content; min-width: 100%; font-size: 12px; }
         .att-matrix th, .att-matrix td { border: 1px solid #94a3b8; padding: 4px 6px; vertical-align: middle; }
         .att-matrix thead th { background: #93c5fd; color: #0f172a; text-align: center; font-weight: 700; white-space: nowrap; }
@@ -210,7 +222,6 @@ $qs = http_build_query([
         .att-matrix .col-io.is-in { color: #0f766e; font-weight: 700; }
         .att-matrix .col-io.is-out { color: #b45309; font-weight: 700; }
         .t-short { display: none; }
-        .att-title { text-align: center; font-size: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; }
         .print-only { display: none; }
         .print-signs { display: none; }
         .print-hint { font-size: 0.82rem; color: #64748b; }
@@ -405,7 +416,7 @@ $qs = http_build_query([
             </div>
         </div>
 
-        <div class="card">
+        <div class="card att-card">
             <div class="card-body">
                 <div class="att-meta mb-2">
                     Create Time: <?php echo htmlspecialchars((new DateTime('now', new DateTimeZone('Asia/Kolkata')))->format('d/m/Y g:i:s A')); ?> IST<br>
