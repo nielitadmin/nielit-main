@@ -330,6 +330,50 @@ if (!function_exists('attendanceSaveSessionClassesHeld')) {
     }
 }
 
+if (!function_exists('attendanceSumSessionClassesHeld')) {
+    /**
+     * Sum of classes_held saved on sessions in this month (optional course / centre / section).
+     */
+    function attendanceSumSessionClassesHeld($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): int
+    {
+        if (!($conn instanceof mysqli) || !attendanceSessionsHaveClassesHeldColumn($conn)) {
+            return 0;
+        }
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = date('Y-m-t', strtotime($start));
+        $sql = "SELECT COALESCE(SUM(s.classes_held), 0) AS held
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
+        $types = 'ss';
+        $params = [$start, $end];
+        if ($courseId > 0) {
+            $sql .= ' AND s.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($centreId > 0) {
+            $sql .= ' AND c.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
+            $sql .= ' AND s.batch_id = ?';
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+    }
+}
+
 if (!function_exists('attendanceListBatchesForCourse')) {
     /**
      * @return array<int,array<string,mixed>>

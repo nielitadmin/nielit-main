@@ -1084,42 +1084,10 @@ if (!function_exists('fingerprintSumSessionClassesHeld')) {
      */
     function fingerprintSumSessionClassesHeld($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): int
     {
-        if (!($conn instanceof mysqli) || !function_exists('attendanceSessionsHaveClassesHeldColumn')
-            || !attendanceSessionsHaveClassesHeldColumn($conn)) {
-            return 0;
+        if (function_exists('attendanceSumSessionClassesHeld')) {
+            return attendanceSumSessionClassesHeld($conn, $year, $month, $courseId, $centreId, $batchId);
         }
-        $start = sprintf('%04d-%02d-01', $year, $month);
-        $end = date('Y-m-t', strtotime($start));
-        $sql = "SELECT COALESCE(SUM(s.classes_held), 0) AS held
-                FROM attendance_sessions s
-                LEFT JOIN courses c ON c.id = s.course_id
-                WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
-        $types = 'ss';
-        $params = [$start, $end];
-        if ($courseId > 0) {
-            $sql .= ' AND s.course_id = ?';
-            $types .= 'i';
-            $params[] = $courseId;
-        }
-        if ($centreId > 0) {
-            $sql .= ' AND c.centre_id = ?';
-            $types .= 'i';
-            $params[] = $centreId;
-        }
-        if ($batchId > 0 && function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
-            $sql .= ' AND s.batch_id = ?';
-            $types .= 'i';
-            $params[] = $batchId;
-        }
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return 0;
-        }
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+        return 0;
     }
 }
 

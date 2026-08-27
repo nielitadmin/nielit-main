@@ -35,9 +35,22 @@ $selected_student = $_GET['student_id'] ?? '';
 $selected_course = $_GET['course_id'] ?? '';
 $selected_centre = (int) ($_GET['centre_id'] ?? 0);
 $selected_batch = (int) ($_GET['batch_id'] ?? 0);
-$classes_held = (int) ($_GET['classes_held'] ?? 0);
-if ($classes_held < 0 || $classes_held > 500) {
-    $classes_held = 0;
+$rawHeld = $_GET['classes_held'] ?? '';
+if (is_array($rawHeld)) {
+    $rawHeld = (string) end($rawHeld);
+}
+$typedHeld = preg_replace('/\D+/', '', (string) $rawHeld);
+if ($typedHeld !== '') {
+    $classes_held = attendanceNormalizeClassesHeld($typedHeld);
+} else {
+    $classes_held = attendanceSumSessionClassesHeld(
+        $conn,
+        (int) $selected_year,
+        (int) $selected_month,
+        (int) $selected_course,
+        $selected_centre,
+        $selected_batch
+    );
 }
 $report_centres = attendanceListCentres($conn);
 $report_batches = attendanceListBatchesForCourse($conn, 0, 0);
@@ -362,7 +375,7 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                         </div>
 
-                        <form method="GET" class="row g-3" id="filterForm">
+                        <form method="GET" action="<?php echo htmlspecialchars(app_url('admin/attendance_reports')); ?>" class="row g-3" id="filterForm">
                             <input type="hidden" name="report_type" id="selected_report_type" value="<?php echo $report_type; ?>">
                             
                             <!-- Monthly Filters -->
@@ -537,10 +550,11 @@ $active_theme = loadActiveTheme($conn);
                                     </div>
                                     <div class="col-md-3">
                                         <label class="form-label text-white">Total classes held</label>
-                                        <input type="number" name="classes_held" class="form-control" min="1" max="500" step="1"
+                                        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3"
+                                               name="classes_held" id="reportClassesHeld" class="form-control"
                                                value="<?php echo $classes_held > 0 ? (int) $classes_held : ''; ?>"
-                                               placeholder="e.g. 22">
-                                        <small class="text-white-50">Denominator for Attendance %. Leave blank to use marked days only.</small>
+                                               placeholder="e.g. 22" autocomplete="off">
+                                        <small class="text-white-50">% = (Present + Partial) ÷ this number. Type 10 then click <strong>Generate Report</strong>.</small>
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label text-white">&nbsp;</label>
@@ -789,6 +803,17 @@ $active_theme = loadActiveTheme($conn);
                 reportCourse.addEventListener('change', filterReportBatches);
             }
             filterReportCourses();
+            const filterForm = document.getElementById('filterForm');
+            if (filterForm) {
+                filterForm.addEventListener('submit', function () {
+                    document.querySelectorAll('#filterForm .filter-group').forEach(function (group) {
+                        const hidden = group.style.display === 'none';
+                        group.querySelectorAll('select, input').forEach(function (el) {
+                            el.disabled = hidden;
+                        });
+                    });
+                });
+            }
         });
         
         function exportToExcel() {
