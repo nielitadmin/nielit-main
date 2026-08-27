@@ -62,6 +62,28 @@
         }
     }
 
+    function lowerMap(resp) {
+        var out = {};
+        if (!resp || typeof resp !== 'object') {
+            return out;
+        }
+        Object.keys(resp).forEach(function (k) {
+            out[String(k).toLowerCase()] = resp[k];
+        });
+        return out;
+    }
+
+    function field(resp, names) {
+        var map = lowerMap(resp);
+        for (var i = 0; i < names.length; i++) {
+            var v = map[String(names[i]).toLowerCase()];
+            if (v !== undefined && v !== null && String(v).trim() !== '') {
+                return v;
+            }
+        }
+        return '';
+    }
+
     function errorText(code) {
         code = parseInt(code, 10) || 0;
         var map = {
@@ -88,34 +110,45 @@
         return 'Fingerprint operation failed (code ' + code + ').';
     }
 
+    function looksLikeImage(v) {
+        v = String(v || '').replace(/\s/g, '');
+        return v.indexOf('Qk') === 0 || v.indexOf('/9j') === 0 || v.indexOf('iVBOR') === 0;
+    }
+
     function isoFrom(resp) {
         if (!resp) {
             return '';
         }
-        var keys = ['TemplateBase64', 'BIRTemplateBase64', 'IsoTemplate', 'ISOTemplate'];
-        for (var i = 0; i < keys.length; i++) {
-            var v = String(resp[keys[i]] || '').trim();
-            if (v.length > 40) {
-                return v;
+        var named = [
+            'TemplateBase64', 'templateBase64', 'BIRTemplateBase64',
+            'IsoTemplate', 'ISOTemplate', 'ISOTemplateBase64', 'IsoTemplateBase64',
+            'FPTemplate', 'FPTemplateBase64', 'MinTemplate'
+        ];
+        var v = String(field(resp, named) || '').replace(/\s/g, '');
+        if (v.length > 40 && !looksLikeImage(v)) {
+            return v;
+        }
+        var map = lowerMap(resp);
+        var keys = Object.keys(map);
+        var i;
+        for (i = 0; i < keys.length; i++) {
+            var name = keys[i];
+            var val = String(map[name] || '').replace(/\s/g, '');
+            if (val.length < 80 || looksLikeImage(val)) {
+                continue;
+            }
+            // ISO 19794-2 FMR header is ASCII "FMR" → base64 "Rk1S"
+            if (val.indexOf('Rk1S') === 0 || name.indexOf('template') !== -1) {
+                return val;
             }
         }
         return '';
     }
 
     function serialFrom(resp) {
-        if (!resp) {
-            return '';
-        }
-        var lower = {};
-        Object.keys(resp).forEach(function (k) {
-            lower[String(k).toLowerCase()] = resp[k];
-        });
-        var keys = ['serialnumber', 'serialno', 'deviceserial', 'sn', 'serial'];
-        for (var i = 0; i < keys.length; i++) {
-            var v = String(lower[keys[i]] || '').trim();
-            if (v && v !== '0' && v.length >= 4) {
-                return v;
-            }
+        var v = String(field(resp, ['SerialNumber', 'SerialNo', 'DeviceSerial', 'SN', 'Serial']) || '').trim();
+        if (v && v !== '0' && v.length >= 4) {
+            return v;
         }
         return '';
     }
@@ -156,27 +189,35 @@
 
     function capture(base, quality, timeout) {
         base = base || bases()[0];
-        quality = quality || 60;
+        quality = quality || 50;
         timeout = timeout || 10000;
+        // Official SecuGen sample uses camelCase templateFormat / licstr.
+        // Also send PascalCase aliases — some SGIBIOSRV builds are case-sensitive.
         return post(base, 'SGIFPCapture', {
             Timeout: timeout,
             Quality: quality,
+            templateFormat: 'ISO',
             TemplateFormat: 'ISO',
-            licstr: LIC
+            licstr: LIC,
+            Licstr: LIC
         }, timeout + 8000).then(function (resp) {
-            var code = parseInt(resp.ErrorCode, 10) || 0;
+            var code = parseInt(field(resp, ['ErrorCode', 'errorCode', 'ErrCode']), 10) || 0;
             if (code !== 0) {
                 throw new Error(errorText(code));
             }
             var iso = isoFrom(resp);
             if (!iso) {
-                throw new Error('The reader did not return an ISO template. Update the SecuGen WebAPI client.');
+                var qualityN = parseInt(field(resp, ['ImageQuality', 'Quality']), 10) || 0;
+                if (qualityN > 0 && qualityN < 40) {
+                    throw new Error('Fingerprint image is too faint. Lift the thumb, press firmly and flat, then try again.');
+                }
+                throw new Error('The reader captured the finger but did not return a template. Lift the thumb and try again. If this keeps happening, restart SGIBIOSRV and confirm the SecuGen WebAPI license for this website.');
             }
             return {
                 iso: iso,
-                quality: parseInt(resp.ImageQuality || resp.Quality || '0', 10) || 0,
+                quality: parseInt(field(resp, ['ImageQuality', 'Quality']) || '0', 10) || 0,
                 device_id: serialFrom(resp),
-                model: String(resp.Model || '').trim(),
+                model: String(field(resp, ['Model']) || '').trim(),
                 raw: resp
             };
         });
@@ -185,16 +226,20 @@
     function match(base, probeIso, galleryIso) {
         base = base || bases()[0];
         return post(base, 'SGIMatchScore', {
+            template1: probeIso,
+            template2: galleryIso,
             Template1: probeIso,
             Template2: galleryIso,
+            templateFormat: 'ISO',
             TemplateFormat: 'ISO',
-            licstr: LIC
+            licstr: LIC,
+            Licstr: LIC
         }, 15000).then(function (resp) {
-            var code = parseInt(resp.ErrorCode, 10) || 0;
+            var code = parseInt(field(resp, ['ErrorCode', 'errorCode', 'ErrCode']), 10) || 0;
             if (code !== 0) {
                 throw new Error(errorText(code));
             }
-            var score = parseInt(resp.MatchingScore, 10) || 0;
+            var score = parseInt(field(resp, ['MatchingScore', 'MatchScore', 'Score']), 10) || 0;
             return {
                 matched: score >= THRESHOLD,
                 score: score,
@@ -204,11 +249,11 @@
     }
 
     function isMatch(resp) {
-        var code = parseInt(resp && resp.ErrorCode, 10) || 0;
+        var code = parseInt(field(resp, ['ErrorCode', 'errorCode', 'ErrCode']), 10) || 0;
         if (code !== 0) {
             return false;
         }
-        return (parseInt(resp.MatchingScore, 10) || 0) >= THRESHOLD;
+        return (parseInt(field(resp, ['MatchingScore', 'MatchScore', 'Score']), 10) || 0) >= THRESHOLD;
     }
 
     global.SecuGenWebApi = {
