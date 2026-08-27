@@ -235,6 +235,9 @@ function createAttendanceSession($session_data, $conn) {
 
         if ($stmt->execute()) {
             $session_id = $conn->insert_id;
+            if (function_exists('attendanceSaveSessionClassesHeld')) {
+                attendanceSaveSessionClassesHeld($conn, (int) $session_id, $session_data['classes_held'] ?? 0);
+            }
             return [
                 'success' => true,
                 'session_id' => $session_id,
@@ -365,6 +368,9 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
         }
         if ($stmt->execute()) {
             $stmt->close();
+            if (function_exists('attendanceSaveSessionClassesHeld')) {
+                attendanceSaveSessionClassesHeld($conn, $session_id, $session_data['classes_held'] ?? 0);
+            }
             return ['success' => true, 'session_id' => $session_id, 'message' => 'Session updated.'];
         }
         $err = $stmt->error;

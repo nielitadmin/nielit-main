@@ -1031,8 +1031,76 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             }
             $row['department'] = $dept !== '' ? $dept : '—';
             unset($row['devices'], $row['session'], $row['subject']);
+            $present = 0;
+            $partial = 0;
+            foreach ($row['days'] as $cell) {
+                $hasIn = trim((string) ($cell['in'] ?? '')) !== '';
+                $hasOut = trim((string) ($cell['out'] ?? '')) !== '';
+                if (!$hasIn && !$hasOut && !empty($cell['pairs']) && is_array($cell['pairs'])) {
+                    foreach ($cell['pairs'] as $pair) {
+                        if (trim((string) ($pair['in'] ?? '')) !== '') {
+                            $hasIn = true;
+                        }
+                        if (trim((string) ($pair['out'] ?? '')) !== '') {
+                            $hasOut = true;
+                        }
+                    }
+                }
+                if ($hasIn && $hasOut) {
+                    $present++;
+                } elseif ($hasIn || $hasOut) {
+                    $partial++;
+                }
+            }
+            $row['present_days'] = $present;
+            $row['partial_days'] = $partial;
             $out['rows'][] = $row;
         }
         return $out;
+    }
+}
+
+if (!function_exists('fingerprintSumSessionClassesHeld')) {
+    /**
+     * Sum of classes_held on sessions in this month (optional course / centre / section).
+     */
+    function fingerprintSumSessionClassesHeld($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): int
+    {
+        if (!($conn instanceof mysqli) || !function_exists('attendanceSessionsHaveClassesHeldColumn')
+            || !attendanceSessionsHaveClassesHeldColumn($conn)) {
+            return 0;
+        }
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = date('Y-m-t', strtotime($start));
+        $sql = "SELECT COALESCE(SUM(s.classes_held), 0) AS held
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
+        $types = 'ss';
+        $params = [$start, $end];
+        if ($courseId > 0) {
+            $sql .= ' AND s.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($centreId > 0) {
+            $sql .= ' AND c.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        if ($batchId > 0 && function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
+            $sql .= ' AND s.batch_id = ?';
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return attendanceNormalizeClassesHeld($row['held'] ?? 0);
     }
 }

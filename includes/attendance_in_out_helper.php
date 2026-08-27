@@ -82,6 +82,7 @@ if (!function_exists('ensureAttendanceInOutTables')) {
             'min_duration_minutes' => 'ALTER TABLE attendance_sessions ADD COLUMN min_duration_minutes INT DEFAULT 1',
             'auto_out_hours' => 'ALTER TABLE attendance_sessions ADD COLUMN auto_out_hours INT DEFAULT 8',
             'batch_id' => 'ALTER TABLE attendance_sessions ADD COLUMN batch_id INT NULL DEFAULT NULL AFTER course_id',
+            'classes_held' => 'ALTER TABLE attendance_sessions ADD COLUMN classes_held INT NULL DEFAULT NULL',
         ];
         foreach ($sessionCols as $col => $alter) {
             $check = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE '" . $conn->real_escape_string($col) . "'");
@@ -285,6 +286,47 @@ if (!function_exists('attendanceSessionsHaveBatchColumn')) {
         ensureAttendanceInOutTables($conn);
         $col = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE 'batch_id'");
         return $col && $col->num_rows > 0;
+    }
+}
+
+if (!function_exists('attendanceNormalizeClassesHeld')) {
+    function attendanceNormalizeClassesHeld($value): int
+    {
+        $n = (int) $value;
+        if ($n < 0 || $n > 500) {
+            return 0;
+        }
+        return $n;
+    }
+}
+
+if (!function_exists('attendanceSessionsHaveClassesHeldColumn')) {
+    function attendanceSessionsHaveClassesHeldColumn($conn): bool
+    {
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+        ensureAttendanceInOutTables($conn);
+        $col = $conn->query("SHOW COLUMNS FROM attendance_sessions LIKE 'classes_held'");
+        return $col && $col->num_rows > 0;
+    }
+}
+
+if (!function_exists('attendanceSaveSessionClassesHeld')) {
+    function attendanceSaveSessionClassesHeld($conn, int $sessionId, $classesHeld): void
+    {
+        $sessionId = (int) $sessionId;
+        $classesHeld = attendanceNormalizeClassesHeld($classesHeld);
+        if ($sessionId <= 0 || !attendanceSessionsHaveClassesHeldColumn($conn)) {
+            return;
+        }
+        $stmt = $conn->prepare('UPDATE attendance_sessions SET classes_held = ? WHERE id = ?');
+        if (!$stmt) {
+            return;
+        }
+        $stmt->bind_param('ii', $classesHeld, $sessionId);
+        $stmt->execute();
+        $stmt->close();
     }
 }
 

@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'date' => $_POST['date'] ?? date('Y-m-d'),
                 'start_time' => $_POST['start_time'] ?? '',
                 'end_time' => $_POST['end_time'] ?? '',
+                'classes_held' => $_POST['classes_held'] ?? 0,
                 'coordinator_id' => $admin_id,
                 'coordinator_name' => $admin_name
             ];
@@ -59,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'date' => $_POST['date'] ?? date('Y-m-d'),
                 'start_time' => $_POST['start_time'] ?? '',
                 'end_time' => $_POST['end_time'] ?? '',
+                'classes_held' => $_POST['classes_held'] ?? 0,
                 'coordinator_id' => $admin_id,
             ];
             $result = updateAttendanceSession((int) ($_POST['session_id'] ?? 0), $session_data, $conn);
@@ -273,6 +275,8 @@ $active_theme = loadActiveTheme($conn);
                                             $sectionWord = $sectionStudents === 1 ? 'student' : 'students';
                                             ?>
                                             <p class="mb-1"><strong>Students:</strong> <?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0) > 0 ? ($sectionStudents . ' ' . $sectionWord) : '—'; ?></p>
+                                            <?php $sessionHeld = (int) ($session['classes_held'] ?? 0); ?>
+                                            <p class="mb-1"><strong>Classes held:</strong> <?php echo $sessionHeld > 0 ? $sessionHeld : '—'; ?></p>
                                             <p class="mb-1"><strong>Date:</strong> <?php echo date('d M Y', strtotime($session['date'])); ?> <small class="text-muted">(each day is saved separately)</small></p>
                                             <p class="mb-3"><strong>Time:</strong> <?php echo date('h:i A', strtotime($session['start_time'])) . ' - ' . date('h:i A', strtotime($session['end_time'])); ?></p>
                                             
@@ -287,6 +291,7 @@ $active_theme = loadActiveTheme($conn);
                                                     data-course="<?php echo (int) ($session['course_id'] ?? 0); ?>"
                                                     data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-batch="<?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0); ?>"
+                                                    data-classes-held="<?php echo (int) ($session['classes_held'] ?? 0); ?>"
                                                     data-date="<?php echo htmlspecialchars(substr((string) $session['date'], 0, 10), ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-start="<?php echo htmlspecialchars(substr((string) $session['start_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-end="<?php echo htmlspecialchars(substr((string) $session['end_time'], 0, 5), ENT_QUOTES, 'UTF-8'); ?>">
@@ -400,6 +405,11 @@ $active_theme = loadActiveTheme($conn);
                             <?php endforeach; ?>
                         </select>
                         <small class="text-muted">You can create now and set the section later with Edit session. Fingerprint punches still show on the report when the student is assigned to a section.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Total classes held <span class="text-muted fw-normal">(optional)</span></label>
+                        <input type="number" class="form-control" name="classes_held" id="sessionClassesHeld" min="1" max="500" step="1" placeholder="e.g. 22">
+                        <small class="text-muted">Used for Attendance %: (Present + Partial) ÷ classes held. You can set this later with Edit session.</small>
                     </div>
                     
                     <div class="row">
@@ -803,6 +813,11 @@ $active_theme = loadActiveTheme($conn);
         if (batchSel) {
             const bid = String(btn.getAttribute('data-batch') || '');
             batchSel.value = (bid === '' || bid === '0') ? '' : bid;
+        }
+        const heldEl = document.getElementById('sessionClassesHeld');
+        if (heldEl) {
+            const held = String(btn.getAttribute('data-classes-held') || '');
+            heldEl.value = (held === '' || held === '0') ? '' : held;
         }
         const modal = new bootstrap.Modal(document.getElementById('createSessionModal'));
         modal.show();
