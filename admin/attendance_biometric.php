@@ -377,7 +377,9 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                     <div class="card-body">
                                         <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                         <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
-                                        <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars((string) $session['course_name']); ?></p>
+                                        <?php $courseShow = attendanceSessionCourseDisplay($session); ?>
+                                        <p class="mb-1"><strong>Course name:</strong> <?php echo htmlspecialchars($courseShow['name']); ?></p>
+                                        <p class="mb-1"><strong>Course code:</strong> <?php echo htmlspecialchars($courseShow['code']); ?></p>
                                         <?php
                                         $sectionStudents = (int) ($session['student_count'] ?? 0);
                                         $sectionWord = $sectionStudents === 1 ? 'student' : 'students';
@@ -392,6 +394,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                                 data-centre="<?php echo (int) ($session['course_centre_id'] ?? 0); ?>"
                                                 data-course="<?php echo (int) ($session['course_id'] ?? 0); ?>"
                                                 data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                data-course-code="<?php echo htmlspecialchars((string) ($session['course_code'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                                 data-batch="<?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0); ?>"
                                                 data-classes-held="<?php echo (int) ($session['classes_held'] ?? 0); ?>"
                                                 data-date="<?php echo htmlspecialchars(substr((string) $session['date'], 0, 10), ENT_QUOTES, 'UTF-8'); ?>"
@@ -405,7 +408,9 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                             <button class="btn btn-primary btn-sm w-100 mb-2 js-open-kiosk" type="button"
                                                     data-session-id="<?php echo (int) $session['id']; ?>"
                                                     data-session-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                                                    data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                    data-course-name="<?php echo htmlspecialchars($courseShow['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-course-code="<?php echo htmlspecialchars($courseShow['code'] === '—' ? '' : $courseShow['code'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-course-label="<?php echo htmlspecialchars($courseShow['label'], ENT_QUOTES, 'UTF-8'); ?>">
                                                 <i class="fas fa-fingerprint"></i> Open fingerprint kiosk
                                             </button>
                                             <button class="btn btn-danger btn-sm w-100" type="button" onclick="deactivateSession(<?php echo (int) $session['id']; ?>)">End session</button>
@@ -481,7 +486,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Course</label>
+                        <label class="form-label">Course (code and name)</label>
                         <select class="form-select" name="course_id" id="sessionCourse" required>
                             <option value="">Select course</option>
                             <?php foreach ($allCourses as $course): ?>
@@ -878,14 +883,15 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             }
         });
     };
-    function openKiosk(id, name, courseName) {
+    function openKiosk(id, name, courseLabel) {
         sessionId = parseInt(id, 10) || 0;
         resetStudent();
         kioskMsg('');
         document.getElementById('kioskTitle').textContent = 'Fingerprint kiosk — ' + (name || '');
         const hint = document.getElementById('kioskHint');
         if (hint) {
-            hint.textContent = 'This session is for ' + (courseName || 'the selected course') + '. Type the full Student ID (not the name), then Find. Only students assigned to this batch can be marked.';
+            const courseText = courseLabel || 'the selected course';
+            hint.textContent = 'This session is for ' + courseText + '. Type the full Student ID (not the name), then Find. Only students assigned to this batch can be marked.';
         }
         document.getElementById('kioskPanel').classList.add('is-open');
         document.getElementById('kioskPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -900,7 +906,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
             openKiosk(
                 btn.getAttribute('data-session-id'),
                 btn.getAttribute('data-session-name') || '',
-                btn.getAttribute('data-course-name') || ''
+                btn.getAttribute('data-course-label') || btn.getAttribute('data-course-name') || ''
             );
         });
     });
@@ -990,10 +996,11 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
 
     if (openSessionId > 0) {
         const match = <?php echo json_encode(array_values(array_map(static function ($s) {
+            $show = attendanceSessionCourseDisplay($s);
             return [
                 'id' => (int) $s['id'],
                 'name' => (string) $s['session_name'],
-                'course' => (string) $s['course_name'],
+                'course' => $show['label'] !== '' ? $show['label'] : (string) $s['course_name'],
                 'status' => (string) $s['status'],
             ];
         }, $active_sessions))); ?>.find(function (s) { return s.id === openSessionId && s.status === 'active'; });

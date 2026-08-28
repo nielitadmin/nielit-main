@@ -554,7 +554,14 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $ba
         $studentCountSelect = ', (SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = s.batch_id) AS student_count';
     }
     $batchJoin = $hasBatchCol ? " LEFT JOIN batches b ON b.id = s.batch_id " : '';
+    $courseCodeSelect = ", '' AS course_code";
+    $codeCol = $conn->query("SHOW COLUMNS FROM courses LIKE 'course_code'");
+    if ($codeCol && $codeCol->num_rows > 0) {
+        $courseCodeSelect = ", IFNULL(c.course_code, '') AS course_code";
+    }
     $sql = "SELECT s.*, IFNULL(ct.name, '') AS centre_name, IFNULL(c.centre_id, 0) AS course_centre_id
+            {$courseCodeSelect},
+            IFNULL(NULLIF(TRIM(IFNULL(c.course_name, '')), ''), s.course_name) AS course_name
             {$batchSelect}
             {$studentCountSelect}
             FROM attendance_sessions s

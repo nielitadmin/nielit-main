@@ -269,7 +269,9 @@ $active_theme = loadActiveTheme($conn);
                                         <div class="card-body">
                                             <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                             <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
-                                            <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars($session['course_name']); ?></p>
+                                            <?php $courseShow = attendanceSessionCourseDisplay($session); ?>
+                                            <p class="mb-1"><strong>Course name:</strong> <?php echo htmlspecialchars($courseShow['name']); ?></p>
+                                            <p class="mb-1"><strong>Course code:</strong> <?php echo htmlspecialchars($courseShow['code']); ?></p>
                                             <?php
                                             $sectionStudents = (int) ($session['student_count'] ?? 0);
                                             $sectionWord = $sectionStudents === 1 ? 'student' : 'students';
@@ -290,6 +292,7 @@ $active_theme = loadActiveTheme($conn);
                                                     data-centre="<?php echo (int) ($session['course_centre_id'] ?? 0); ?>"
                                                     data-course="<?php echo (int) ($session['course_id'] ?? 0); ?>"
                                                     data-course-name="<?php echo htmlspecialchars((string) $session['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                                    data-course-code="<?php echo htmlspecialchars((string) ($session['course_code'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                                     data-batch="<?php echo (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0); ?>"
                                                     data-classes-held="<?php echo (int) ($session['classes_held'] ?? 0); ?>"
                                                     data-date="<?php echo htmlspecialchars(substr((string) $session['date'], 0, 10), ENT_QUOTES, 'UTF-8'); ?>"
@@ -372,7 +375,7 @@ $active_theme = loadActiveTheme($conn);
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Course</label>
+                        <label class="form-label">Course (code and name)</label>
                         <select class="form-select" name="course_id" id="sessionCourse" required onchange="updateCourseName(this)">
                             <option value="">Select Course</option>
                             <?php if (empty($allCourses)): ?>

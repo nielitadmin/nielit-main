@@ -204,6 +204,32 @@ if (!function_exists('attendanceFormatCourseLabel')) {
     }
 }
 
+if (!function_exists('attendanceSessionCourseDisplay')) {
+    /**
+     * Course name and code for session cards / kiosk (from joined courses row).
+     *
+     * @return array{name:string,code:string,label:string}
+     */
+    function attendanceSessionCourseDisplay(array $session): array
+    {
+        $name = trim((string) ($session['course_name'] ?? ''));
+        $code = trim((string) ($session['course_code'] ?? ''));
+        $label = '';
+        if ($code !== '' && $name !== '') {
+            $label = $code . ' — ' . $name;
+        } elseif ($name !== '') {
+            $label = $name;
+        } elseif ($code !== '') {
+            $label = $code;
+        }
+        return [
+            'name' => $name !== '' ? $name : '—',
+            'code' => $code !== '' ? $code : '—',
+            'label' => $label,
+        ];
+    }
+}
+
 if (!function_exists('attendanceStudentCourseIds')) {
     /**
      * All course ids a student is enrolled in (students rows + student_enrollments).
