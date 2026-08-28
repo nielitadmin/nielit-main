@@ -278,7 +278,7 @@ function recVal(array $row, string $key): string
         <?php if ($canEdit): ?>
         <form class="req-card" method="post" id="statusForm">
             <h5>Recruitment process</h5>
-            <p class="text-muted small">Change the status to move this candidate through the process. Shortlist, select, and reject send an email to the candidate. For rejection you must enter the basis — that text is included in the email.</p>
+            <p class="text-muted small">Change the status to move this candidate through the process. Shortlist, select, and reject send an email to the candidate with the filled application form attached as a PDF. For rejection you must enter the basis — that text is included in the email.</p>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
             <div class="row g-3">
                 <div class="col-md-4">
@@ -296,7 +296,7 @@ function recVal(array $row, string $key): string
                 <div class="col-12">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="notify_email" id="notifyEmail" value="1" checked>
-                        <label class="form-check-label" for="notifyEmail">Send email to the candidate (thank-you is sent on apply; this sends shortlisted / selected / rejected)</label>
+                        <label class="form-check-label" for="notifyEmail">Send email to the candidate with the filled application form (PDF). Thank-you is sent on apply; this sends shortlisted / selected / rejected.</label>
                     </div>
                 </div>
             </div>

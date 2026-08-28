@@ -145,9 +145,9 @@ $page_title = 'Recruitment';
         <div class="alert alert-light border mb-4">
             <strong>Recruitment process</strong>
             <ol class="mb-0 mt-2 small">
-                <li>Candidate applies online and receives a thank-you email with the application number.</li>
-                <li>Review the application, then set status to <strong>Shortlisted</strong> — the candidate is emailed that they are shortlisted for that job.</li>
-                <li>Set <strong>Selected</strong> to send a selection email, or <strong>Rejected</strong> with the basis of rejection — that reason is emailed to the candidate.</li>
+                <li>Candidate applies online and receives a thank-you email with the application number and the filled form (PDF).</li>
+                <li>Review the application, then set status to <strong>Shortlisted</strong> — the candidate is emailed that they are shortlisted, with the form attached.</li>
+                <li>Set <strong>Selected</strong> to send a selection email, or <strong>Rejected</strong> with the basis of rejection — that reason is emailed to the candidate with the form attached.</li>
             </ol>
         </div>
 

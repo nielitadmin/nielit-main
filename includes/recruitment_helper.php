@@ -947,7 +947,8 @@ if (!function_exists('recruitmentSubmitApplication')) {
         } else {
             error_log('recruitmentSubmitApplication extra: ' . $conn->error);
         }
-        $emailOk = recruitmentQueueThankYouEmail($conn, [
+        $saved = recruitmentGetApplication($conn, $newId);
+        $emailOk = recruitmentQueueThankYouEmail($conn, is_array($saved) ? $saved : [
             'name' => $name,
             'email' => $email,
             'application_no' => $appNo,
@@ -1150,7 +1151,7 @@ if (!function_exists('recruitmentUpdateApplicationStatus')) {
         if ($notify && in_array($status, ['shortlisted', 'rejected', 'selected'], true)) {
             $queued = recruitmentQueueStatusEmail($conn, $app, $status, $remarks);
             $emailNote = $queued
-                ? ' An email will be sent to the candidate shortly.'
+                ? ' An email with the filled application form (PDF) will be sent to the candidate shortly.'
                 : ' Status saved, but the email could not be queued.';
         }
         return ['success' => true, 'message' => 'Application updated.' . $emailNote];
@@ -1304,8 +1305,52 @@ if (!function_exists('listRecruitmentAccessCandidates')) {
     }
 }
 
+if (!function_exists('recruitmentApplicationFormPdfBytes')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentApplicationFormPdfBytes(array $app): string
+    {
+        $renderer = __DIR__ . '/render_recruitment_application_form_pdf.php';
+        if (is_file($renderer)) {
+            require_once $renderer;
+        }
+        if (!function_exists('outputRecruitmentApplicationFormPdf')) {
+            return '';
+        }
+        try {
+            $pdf = outputRecruitmentApplicationFormPdf($app, 'S');
+            return is_string($pdf) && $pdf !== '' ? $pdf : '';
+        } catch (Throwable $e) {
+            error_log('Recruitment form PDF for email failed: ' . $e->getMessage());
+            return '';
+        }
+    }
+}
+
+if (!function_exists('recruitmentFormPdfMailAttachment')) {
+    /**
+     * @param array<string,mixed> $app
+     * @return list<array{filename:string,content:string,mime:string}>
+     */
+    function recruitmentFormPdfMailAttachment(array $app): array
+    {
+        $bytes = recruitmentApplicationFormPdfBytes($app);
+        if ($bytes === '') {
+            return [];
+        }
+        $no = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($app['application_no'] ?? 'form')) ?: 'form';
+        return [[
+            'filename' => 'NIELIT_Application_Form_' . $no . '.pdf',
+            'content' => $bytes,
+            'mime' => 'application/pdf',
+        ]];
+    }
+}
+
 if (!function_exists('recruitmentSendMail')) {
-    function recruitmentSendMail(string $to, string $name, string $subject, string $html, string $text): bool
+    /**
+     * @param list<array{filename?:string,content?:string,mime?:string}> $attachments
+     */
+    function recruitmentSendMail(string $to, string $name, string $subject, string $html, string $text, array $attachments = []): bool
     {
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
             return false;
@@ -1319,7 +1364,8 @@ if (!function_exists('recruitmentSendMail')) {
         }
         $fromEmail = defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : '';
         $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
-        $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to, $name, $subject, $html, $text, $fromEmail, $fromName) {
+        $timeout = $attachments !== [] ? 20 : 12;
+        $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to, $name, $subject, $html, $text, $fromEmail, $fromName, $attachments) {
             if ($fromEmail !== '') {
                 $mail->setFrom($fromEmail, $fromName);
                 $mail->addReplyTo($fromEmail, $fromName);
@@ -1329,7 +1375,16 @@ if (!function_exists('recruitmentSendMail')) {
             $mail->Subject = $subject;
             $mail->Body = $html;
             $mail->AltBody = $text;
-        }, ['timeout' => 12]);
+            foreach ($attachments as $att) {
+                $bytes = (string) ($att['content'] ?? '');
+                if ($bytes === '') {
+                    continue;
+                }
+                $fn = trim((string) ($att['filename'] ?? 'attachment.pdf')) ?: 'attachment.pdf';
+                $mime = trim((string) ($att['mime'] ?? 'application/pdf')) ?: 'application/pdf';
+                $mail->addStringAttachment($bytes, $fn, 'base64', $mime);
+            }
+        }, ['timeout' => $timeout]);
         if (!empty($result['ok'])) {
             return true;
         }
@@ -1372,24 +1427,31 @@ if (!function_exists('recruitmentSendThankYouEmail')) {
         $advtLine = $advt !== '' ? '<p>Advertisement no.: <strong>' . htmlspecialchars($advt, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
         $lastLine = ($last !== '' && $last !== '—') ? '<p>Last date of application: <strong>' . htmlspecialchars($last, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
         $formUrl = htmlspecialchars(recruitmentApplicationFormUrl($app), ENT_QUOTES, 'UTF-8');
+        $attachments = recruitmentFormPdfMailAttachment($app);
+        $formNote = $attachments !== []
+            ? '<p>Your filled <strong>application form (PDF)</strong> is attached to this email. Please keep a copy for your records. You can also download it using the button below.</p>'
+            : '<p>Please download and keep a copy of your filled application form:</p>';
         $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
             . '<p>Thank you for applying for <strong>' . $post . '</strong> at NIELIT Bhubaneswar.</p>'
             . '<p>Your application has been received. Please save your application number:</p>'
             . '<p style="background:#e8f0fe;border-left:4px solid #1a56db;padding:12px 16px;font-size:18px;font-weight:700;">' . $no . '</p>'
             . $advtLine . $lastLine
+            . $formNote
             . '<p><a href="' . $formUrl . '" style="display:inline-block;background:#1a56db;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Download / print your application form</a></p>'
             . '<p>We will review your application and contact you by email if you are shortlisted, selected, or if we need more information.</p>'
             . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
         $text = "Dear {$name},\n\nThank you for applying for " . strip_tags($post)
             . " at NIELIT Bhubaneswar.\nYour application number is " . strip_tags($no)
-            . ".\nDownload / print your application form: " . recruitmentApplicationFormUrl($app)
+            . ($attachments !== [] ? ".\nYour filled application form is attached as a PDF." : '')
+            . "\nDownload / print your application form: " . recruitmentApplicationFormUrl($app)
             . "\n\nWe will contact you by email regarding the next steps.\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         return recruitmentSendMail(
             $email,
             $name,
             'Thank you for applying — ' . strip_tags($post) . ' | NIELIT Bhubaneswar',
             recruitmentEmailWrap('Thank you for applying', $inner),
-            $text
+            $text,
+            $attachments
         );
     }
 }
@@ -1406,6 +1468,14 @@ if (!function_exists('recruitmentSendStatusEmail')) {
         $safePost = htmlspecialchars($post, ENT_QUOTES, 'UTF-8');
         $safeNo = htmlspecialchars($no, ENT_QUOTES, 'UTF-8');
         $safeRemarks = htmlspecialchars($remarks, ENT_QUOTES, 'UTF-8');
+        $formUrl = htmlspecialchars(recruitmentApplicationFormUrl($app), ENT_QUOTES, 'UTF-8');
+        $attachments = recruitmentFormPdfMailAttachment($app);
+        $formBlock = ($attachments !== []
+                ? '<p>Your filled application form is attached to this email as a PDF.</p>'
+                : '')
+            . '<p><a href="' . $formUrl . '" style="display:inline-block;background:#1a56db;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Download / print your application form</a></p>';
+        $formText = ($attachments !== [] ? "Your filled application form is attached as a PDF.\n" : '')
+            . 'Download / print your application form: ' . recruitmentApplicationFormUrl($app) . "\n";
         if ($status === 'shortlisted') {
             $heading = 'You have been shortlisted';
             $subject = 'You have been shortlisted for ' . $post . ' | NIELIT Bhubaneswar';
@@ -1413,10 +1483,12 @@ if (!function_exists('recruitmentSendStatusEmail')) {
                 . '<p>You have been <strong>shortlisted</strong> for <strong>' . $safePost . '</strong>.</p>'
                 . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
                 . ($safeRemarks !== '' ? '<p>Further details:<br>' . nl2br($safeRemarks) . '</p>' : '')
+                . $formBlock
                 . '<p>Please check your email regularly for interview / next-step instructions.</p>'
                 . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
             $text = "Dear {$name},\n\nYou have been shortlisted for {$post}.\nApplication number: {$no}\n"
                 . ($remarks !== '' ? "Details: {$remarks}\n" : '')
+                . $formText
                 . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         } elseif ($status === 'selected') {
             $heading = 'You have been selected';
@@ -1425,10 +1497,12 @@ if (!function_exists('recruitmentSendStatusEmail')) {
                 . '<p>Congratulations. You have been <strong>selected</strong> for <strong>' . $safePost . '</strong>.</p>'
                 . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
                 . ($safeRemarks !== '' ? '<p>' . nl2br($safeRemarks) . '</p>' : '')
+                . $formBlock
                 . '<p>Our team will contact you with joining / further instructions.</p>'
                 . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
             $text = "Dear {$name},\n\nCongratulations. You have been selected for {$post}.\nApplication number: {$no}\n"
                 . ($remarks !== '' ? "{$remarks}\n" : '')
+                . $formText
                 . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         } else {
             $heading = 'Application update';
@@ -1437,13 +1511,15 @@ if (!function_exists('recruitmentSendStatusEmail')) {
                 . '<p>Thank you for applying for <strong>' . $safePost . '</strong> (application <strong>' . $safeNo . '</strong>).</p>'
                 . '<p>We regret to inform you that your application has <strong>not been shortlisted</strong>.</p>'
                 . '<p><strong>Basis of rejection:</strong><br>' . ($safeRemarks !== '' ? nl2br($safeRemarks) : 'Not specified.') . '</p>'
+                . $formBlock
                 . '<p>We appreciate your interest in NIELIT Bhubaneswar and wish you the best for the future.</p>'
                 . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
             $text = "Dear {$name},\n\nYour application for {$post} ({$no}) has not been shortlisted.\n"
-                . "Basis of rejection: " . ($remarks !== '' ? $remarks : 'Not specified.')
-                . "\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+                . "Basis of rejection: " . ($remarks !== '' ? $remarks : 'Not specified.') . "\n"
+                . $formText
+                . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         }
-        return recruitmentSendMail($email, $name, $subject, recruitmentEmailWrap($heading, $inner), $text);
+        return recruitmentSendMail($email, $name, $subject, recruitmentEmailWrap($heading, $inner), $text, $attachments);
     }
 }
 

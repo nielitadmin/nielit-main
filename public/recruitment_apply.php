@@ -278,7 +278,7 @@ if ($error !== '') {
                     <p class="text-muted mb-2">Please save your application number for future reference.</p>
                     <div class="fs-4 fw-semibold mb-3"><?php echo htmlspecialchars($successNo); ?></div>
                     <p class="text-muted"><?php echo $emailSent
-                        ? 'A thank-you email will be sent shortly to the address you entered. It includes a link to download this form.'
+                        ? 'A thank-you email will be sent shortly to the address you entered. It includes your filled application form as a PDF attachment, plus a download link.'
                         : 'Please save this number. If you do not receive a confirmation email, check spam or contact the centre.'; ?></p>
                     <?php
                     $filledFormUrl = recruitmentApplicationFormUrl([
