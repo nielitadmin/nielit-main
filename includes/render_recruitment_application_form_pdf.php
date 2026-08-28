@@ -145,17 +145,17 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pageRight = 198.0;
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $headerY = 12.5;
-        $logoW = 16.0;
-        $textX = 31.0;
-        $textW = $pageRight - $textX;
-        $logoH = 0.0;
+        $logoH = 22.0;
+        $logoW = 22.0;
         if (is_file($logoPath)) {
             $imgSize = @getimagesize($logoPath);
-            $logoH = ($imgSize && !empty($imgSize[0]))
-                ? $logoW * ($imgSize[1] / $imgSize[0])
-                : 14.0;
-            $pdf->Image($logoPath, $pageLeft, $headerY, $logoW, 0, 'PNG');
+            if ($imgSize && !empty($imgSize[1])) {
+                $logoW = $logoH * ($imgSize[0] / $imgSize[1]);
+            }
+            $pdf->Image($logoPath, $pageLeft, $headerY, $logoW, $logoH, 'PNG');
         }
+        $textX = $pageLeft + $logoW + 4.0;
+        $textW = $pageRight - $textX;
 
         $hindiFont = getTcpdfDevanagariFontName();
         $pdf->SetXY($textX, $headerY);
