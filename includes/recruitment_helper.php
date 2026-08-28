@@ -208,6 +208,7 @@ if (!function_exists('ensureRecruitmentTables')) {
         }
         recruitmentEnsureApplicationExtraColumns($conn);
         ensureRecruitmentAccessTable($conn);
+        ensureRecruitmentEmailQueueTable($conn);
         $ready = true;
         return true;
     }
@@ -276,19 +277,19 @@ if (!function_exists('recruitmentOfficialDocuments')) {
     {
         $pdfImg = ['pdf', 'jpg', 'jpeg', 'png'];
         return [
-            ['key' => 'photo', 'item' => '', 'label' => 'Recent passport size photograph', 'required' => true, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'photo_path'],
-            ['key' => 'marksheet_x', 'item' => 'i', 'label' => 'Marksheet of Class X', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_x_path'],
-            ['key' => 'marksheet_xii', 'item' => 'ii', 'label' => 'Marksheet of Class XII', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_xii_path'],
-            ['key' => 'degree_doc', 'item' => 'iii', 'label' => 'Qualification degree / certificate and final consolidated marksheet (aggregate % or CGPA)', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'degree_doc_path'],
+            ['key' => 'photo', 'item' => '', 'label' => 'Recent passport size photograph', 'required' => false, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'photo_path'],
+            ['key' => 'marksheet_x', 'item' => 'i', 'label' => 'Marksheet of Class X', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_x_path'],
+            ['key' => 'marksheet_xii', 'item' => 'ii', 'label' => 'Marksheet of Class XII', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'marksheet_xii_path'],
+            ['key' => 'degree_doc', 'item' => 'iii', 'label' => 'Qualification degree / certificate and final consolidated marksheet (aggregate % or CGPA)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'degree_doc_path'],
             ['key' => 'cgpa_formula', 'item' => '', 'label' => 'CGPA to % conversion formula issued by the University (if CGPA is awarded)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'cgpa_formula_path'],
             ['key' => 'experience_doc', 'item' => 'iv', 'label' => 'Self-attested experience certificates (including current place of working)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'experience_doc_path'],
             ['key' => 'payslip', 'item' => 'v', 'label' => 'Last three-month payslip or bank statement showing salary credited', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'payslip_path'],
-            ['key' => 'dob_cert', 'item' => 'vi', 'label' => 'Date of Birth certificate / Class X certificate as proof of age', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'dob_cert_path'],
-            ['key' => 'aadhaar_doc', 'item' => 'vii', 'label' => 'Aadhaar card', 'required' => true, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'aadhaar_doc_path'],
-            ['key' => 'resume', 'item' => 'viii', 'label' => 'CV / Resume of the candidate', 'required' => true, 'accept' => '.pdf', 'ext' => ['pdf'], 'column' => 'resume_path'],
+            ['key' => 'dob_cert', 'item' => 'vi', 'label' => 'Date of Birth certificate / Class X certificate as proof of age', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'dob_cert_path'],
+            ['key' => 'aadhaar_doc', 'item' => 'vii', 'label' => 'Aadhaar card', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'aadhaar_doc_path'],
+            ['key' => 'resume', 'item' => 'viii', 'label' => 'CV / Resume of the candidate', 'required' => false, 'accept' => '.pdf', 'ext' => ['pdf'], 'column' => 'resume_path'],
             ['key' => 'category_cert', 'item' => '', 'label' => 'Caste / category certificate (SC / ST / OBC / EWS)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'category_cert_path'],
             ['key' => 'pwd_cert', 'item' => '', 'label' => 'PwD certificate (if applicable)', 'required' => false, 'accept' => '.pdf,.jpg,.jpeg,.png', 'ext' => $pdfImg, 'column' => 'pwd_cert_path'],
-            ['key' => 'signature', 'item' => '', 'label' => 'Signature of the candidate', 'required' => true, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'signature_path'],
+            ['key' => 'signature', 'item' => '', 'label' => 'Signature of the candidate', 'required' => false, 'accept' => '.jpg,.jpeg,.png', 'ext' => ['jpg', 'jpeg', 'png'], 'column' => 'signature_path'],
         ];
     }
 }
@@ -300,7 +301,8 @@ if (!function_exists('recruitmentDefaultInstructions')) {
             . "Upload a recent passport photograph and the documents listed below (self-attested scanned copies).\n"
             . "Name and Date of Birth must match Class X / Aadhaar.\n"
             . "Submit only one application for this post. Incomplete applications will be rejected.\n\n"
-            . "Documents required:\n"
+            . "Upload scanned copies where you have them (each file max 5 MB). Incomplete applications may be reviewed as received.\n\n"
+            . "Documents to attach if available:\n"
             . "i. Marksheet of Class X\n"
             . "ii. Marksheet of Class XII\n"
             . "iii. Qualification degree/certificate and final consolidated marksheet (aggregate % or CGPA). If CGPA is awarded, also attach the University CGPA-to-% conversion formula.\n"
@@ -868,15 +870,6 @@ if (!function_exists('recruitmentSubmitApplication')) {
         }
         $photo = trim((string) ($data['photo_path'] ?? ''));
         $resume = trim((string) ($data['resume_path'] ?? ''));
-        if ($resume === '') {
-            return ['success' => false, 'message' => 'Please upload your CV / Resume (PDF).'];
-        }
-        if ($photo === '') {
-            return ['success' => false, 'message' => 'Please upload a recent passport photograph.'];
-        }
-        if (trim((string) ($data['signature_path'] ?? '')) === '') {
-            return ['success' => false, 'message' => 'Please upload your signature.'];
-        }
         if ($education === []) {
             return ['success' => false, 'message' => 'Please enter particulars of examinations passed, commencing from Class X.'];
         }
@@ -964,7 +957,7 @@ if (!function_exists('recruitmentSubmitApplication')) {
         } else {
             error_log('recruitmentSubmitApplication extra: ' . $conn->error);
         }
-        $emailOk = recruitmentSendThankYouEmail([
+        $emailOk = recruitmentQueueThankYouEmail($conn, [
             'name' => $name,
             'email' => $email,
             'application_no' => $appNo,
@@ -1086,10 +1079,10 @@ if (!function_exists('recruitmentUpdateApplicationStatus')) {
         $app['admin_remarks'] = $remarks;
         $emailNote = '';
         if ($notify && in_array($status, ['shortlisted', 'rejected', 'selected'], true)) {
-            $sent = recruitmentSendStatusEmail($app, $status, $remarks);
-            $emailNote = $sent
-                ? ' An email was sent to the candidate.'
-                : ' Status saved, but the email could not be sent. Check SMTP settings.';
+            $queued = recruitmentQueueStatusEmail($conn, $app, $status, $remarks);
+            $emailNote = $queued
+                ? ' An email will be sent to the candidate shortly.'
+                : ' Status saved, but the email could not be queued.';
         }
         return ['success' => true, 'message' => 'Application updated.' . $emailNote];
     }
@@ -1381,4 +1374,281 @@ if (!function_exists('recruitmentSendStatusEmail')) {
         return recruitmentSendMail($email, $name, $subject, recruitmentEmailWrap($heading, $inner), $text);
     }
 }
+
+if (!function_exists('ensureRecruitmentEmailQueueTable')) {
+    function ensureRecruitmentEmailQueueTable($conn): bool
+    {
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+        $sql = "CREATE TABLE IF NOT EXISTS recruitment_email_queue (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            mail_kind VARCHAR(40) NOT NULL,
+            to_email VARCHAR(255) NOT NULL,
+            to_name VARCHAR(255) NULL,
+            payload LONGTEXT NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            attempts INT NOT NULL DEFAULT 0,
+            last_error TEXT NULL,
+            locked_at DATETIME NULL,
+            sent_at DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_rec_mail_status (status, id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        if (!$conn->query($sql)) {
+            error_log('ensureRecruitmentEmailQueueTable: ' . $conn->error);
+            return false;
+        }
+        return true;
+    }
+}
+
+if (!function_exists('recruitmentMailWorkerSecret')) {
+    function recruitmentMailWorkerSecret(): string
+    {
+        return hash('sha256', (defined('SMTP_USERNAME') ? SMTP_USERNAME : 'nielit') . '|recruitment-mail|' . (defined('APP_URL') ? APP_URL : ''));
+    }
+}
+
+if (!function_exists('recruitmentMailWorkerUrl')) {
+    function recruitmentMailWorkerUrl(): string
+    {
+        $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+        $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
+        if (strlen($dir) >= 6 && substr($dir, -6) === '/admin') {
+            $dir = substr($dir, 0, -6) . '/public';
+        }
+        if ($dir === '' || $dir === '/' || $dir === '.') {
+            $dir = '/public';
+        } elseif (substr($dir, -7) !== '/public') {
+            $dir = rtrim($dir, '/') . '/public';
+        }
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+        if ($host !== '') {
+            $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                || ((int) ($_SERVER['SERVER_PORT'] ?? 80) === 443);
+            return ($https ? 'https' : 'http') . '://' . $host . $dir . '/recruitment_mail_worker.php';
+        }
+        return rtrim((string) (defined('APP_URL') ? APP_URL : ''), '/') . '/public/recruitment_mail_worker.php';
+    }
+}
+
+if (!function_exists('recruitmentKickMailWorker')) {
+    function recruitmentKickMailWorker(): void
+    {
+        static $kicked = false;
+        if ($kicked) {
+            return;
+        }
+        $kicked = true;
+        $url = recruitmentMailWorkerUrl();
+        $token = recruitmentMailWorkerSecret();
+        if ($url === '' || !function_exists('curl_init')) {
+            register_shutdown_function(static function () {
+                $conn = recruitmentDb();
+                if ($conn) {
+                    recruitmentProcessMailQueue($conn, 5);
+                }
+            });
+            return;
+        }
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query(['token' => $token]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT_MS => 250,
+            CURLOPT_TIMEOUT_MS => 450,
+            CURLOPT_NOSIGNAL => 1,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
+        ]);
+        @curl_exec($ch);
+        $errno = curl_errno($ch);
+        curl_close($ch);
+        // 0 = worker replied, 28 = timed out (worker still sending). Anything else: send after this page finishes.
+        if ($errno !== 0 && $errno !== 28) {
+            register_shutdown_function(static function () {
+                $conn = recruitmentDb();
+                if ($conn) {
+                    recruitmentProcessMailQueue($conn, 5);
+                }
+            });
+        }
+    }
+}
+
+if (!function_exists('recruitmentQueueMail')) {
+    /**
+     * @param array<string,mixed> $payload
+     */
+    function recruitmentQueueMail($conn, string $kind, string $toEmail, string $toName, array $payload): bool
+    {
+        $conn = recruitmentDb($conn);
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+        $toEmail = trim($toEmail);
+        if ($toEmail === '' || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        ensureRecruitmentEmailQueueTable($conn);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        if (!is_string($json) || $json === '') {
+            return false;
+        }
+        $status = 'pending';
+        $stmt = $conn->prepare(
+            'INSERT INTO recruitment_email_queue (mail_kind, to_email, to_name, payload, status) VALUES (?,?,?,?,?)'
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('sssss', $kind, $toEmail, $toName, $json, $status);
+        $ok = $stmt->execute();
+        $stmt->close();
+        if ($ok) {
+            recruitmentKickMailWorker();
+        }
+        return $ok;
+    }
+}
+
+if (!function_exists('recruitmentQueueThankYouEmail')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentQueueThankYouEmail($conn, array $app): bool
+    {
+        return recruitmentQueueMail(
+            $conn,
+            'thankyou',
+            (string) ($app['email'] ?? ''),
+            (string) ($app['name'] ?? ''),
+            $app
+        );
+    }
+}
+
+if (!function_exists('recruitmentQueueStatusEmail')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentQueueStatusEmail($conn, array $app, string $status, string $remarks): bool
+    {
+        return recruitmentQueueMail(
+            $conn,
+            'status',
+            (string) ($app['email'] ?? ''),
+            (string) ($app['name'] ?? ''),
+            ['app' => $app, 'status' => $status, 'remarks' => $remarks]
+        );
+    }
+}
+
+if (!function_exists('recruitmentDeliverQueuedMail')) {
+    /** @param array<string,mixed> $row */
+    function recruitmentDeliverQueuedMail(array $row): bool
+    {
+        $kind = (string) ($row['mail_kind'] ?? '');
+        $payload = json_decode((string) ($row['payload'] ?? ''), true);
+        if (!is_array($payload)) {
+            return false;
+        }
+        if ($kind === 'thankyou') {
+            return recruitmentSendThankYouEmail($payload);
+        }
+        if ($kind === 'status') {
+            $app = is_array($payload['app'] ?? null) ? $payload['app'] : $payload;
+            return recruitmentSendStatusEmail(
+                $app,
+                (string) ($payload['status'] ?? ''),
+                (string) ($payload['remarks'] ?? '')
+            );
+        }
+        return false;
+    }
+}
+
+if (!function_exists('recruitmentProcessMailQueue')) {
+    function recruitmentProcessMailQueue($conn, int $limit = 8): int
+    {
+        $conn = recruitmentDb($conn);
+        if (!($conn instanceof mysqli)) {
+            return 0;
+        }
+        ensureRecruitmentEmailQueueTable($conn);
+        $limit = max(1, min(20, $limit));
+        $res = $conn->query(
+            "SELECT id FROM recruitment_email_queue
+             WHERE (status = 'pending' OR (status IN ('failed','sending') AND attempts < 5
+                    AND (locked_at IS NULL OR locked_at < DATE_SUB(NOW(), INTERVAL 3 MINUTE))))
+             ORDER BY id ASC
+             LIMIT {$limit}"
+        );
+        if (!$res) {
+            return 0;
+        }
+        $ids = [];
+        while ($row = $res->fetch_assoc()) {
+            $ids[] = (int) $row['id'];
+        }
+        $done = 0;
+        foreach ($ids as $id) {
+            $lock = $conn->prepare(
+                "UPDATE recruitment_email_queue
+                 SET status = 'sending', locked_at = NOW(), attempts = attempts + 1
+                 WHERE id = ? AND status IN ('pending','failed','sending')"
+            );
+            if (!$lock) {
+                continue;
+            }
+            $lock->bind_param('i', $id);
+            $lock->execute();
+            $took = $lock->affected_rows > 0;
+            $lock->close();
+            if (!$took) {
+                continue;
+            }
+            $get = $conn->prepare('SELECT * FROM recruitment_email_queue WHERE id = ? LIMIT 1');
+            if (!$get) {
+                continue;
+            }
+            $get->bind_param('i', $id);
+            $get->execute();
+            $job = $get->get_result()->fetch_assoc();
+            $get->close();
+            if (!$job) {
+                continue;
+            }
+            $ok = false;
+            $err = '';
+            try {
+                $ok = recruitmentDeliverQueuedMail($job);
+                if (!$ok) {
+                    $err = 'Send returned false';
+                }
+            } catch (Throwable $e) {
+                $err = $e->getMessage();
+            }
+            if ($ok) {
+                $upd = $conn->prepare("UPDATE recruitment_email_queue SET status = 'sent', sent_at = NOW(), last_error = NULL WHERE id = ?");
+                if ($upd) {
+                    $upd->bind_param('i', $id);
+                    $upd->execute();
+                    $upd->close();
+                }
+                $done++;
+            } else {
+                $upd = $conn->prepare("UPDATE recruitment_email_queue SET status = 'failed', last_error = ? WHERE id = ?");
+                if ($upd) {
+                    $upd->bind_param('si', $err, $id);
+                    $upd->execute();
+                    $upd->close();
+                }
+            }
+        }
+        return $done;
+    }
+}
+
 

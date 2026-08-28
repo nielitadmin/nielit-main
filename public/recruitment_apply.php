@@ -42,17 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accepting) {
                     break;
                 }
                 $paths[$doc['column']] = $up['path'];
-            } elseif (!empty($doc['required'])) {
-                $error = 'Please upload: ' . $doc['label'] . '.';
-                break;
             }
-        }
-        $categorySel = trim((string) ($_POST['category'] ?? ''));
-        if ($error === '' && $categorySel !== '' && $categorySel !== 'General' && empty($paths['category_cert_path'])) {
-            $error = 'Please upload caste / category certificate.';
-        }
-        if ($error === '' && (($_POST['pwd_status'] ?? '') === 'Yes') && empty($paths['pwd_cert_path'])) {
-            $error = 'Please upload PwD certificate.';
         }
         if ($error === '') {
             $first = strtoupper(trim((string) ($_POST['name_first'] ?? '')));
@@ -281,7 +271,7 @@ if ($error !== '') {
                     <p class="text-muted mb-2">Please save your application number for future reference.</p>
                     <div class="fs-4 fw-semibold mb-3"><?php echo htmlspecialchars($successNo); ?></div>
                     <p class="text-muted"><?php echo $emailSent
-                        ? 'A thank-you email has been sent to the address you entered.'
+                        ? 'A thank-you email will be sent shortly to the address you entered.'
                         : 'Please save this number. If you do not receive a confirmation email, check spam or contact the centre.'; ?></p>
                     <a class="btn btn-primary" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Back to openings</a>
                 </div>
@@ -386,12 +376,12 @@ if ($error !== '') {
                                     </div>
                                 </div>
                                 <div class="col-lg-3">
-                                    <label class="form-label d-block">Photograph *</label>
+                                    <label class="form-label d-block">Photograph</label>
                                     <div class="rec-photo">
                                         <img id="photoPreview" alt="Photograph preview">
                                         <div class="hint fw-semibold mb-1">Passport size photo</div>
-                                        <input class="form-control form-control-sm" type="file" name="photo" id="photoFile" accept=".jpg,.jpeg,.png" required>
-                                        <div class="hint mt-1">JPG / PNG, max 5 MB</div>
+                                        <input class="form-control form-control-sm" type="file" name="photo" id="photoFile" accept=".jpg,.jpeg,.png">
+                                        <div class="hint mt-1">JPG / PNG, max 5 MB (optional)</div>
                                     </div>
                                 </div>
                                 <div class="col-md-4">
@@ -584,7 +574,7 @@ if ($error !== '') {
 
                         <div class="rec-panel" data-panel="3">
                             <h3>Documents</h3>
-                            <p class="rec-help">Upload self-attested scanned copies (PDF / JPG / PNG). <strong>Each file must be 5 MB or smaller.</strong> Incomplete applications will be rejected.</p>
+                            <p class="rec-help">Upload self-attested scanned copies if you have them (PDF / JPG / PNG, max 5 MB each). <strong>No document is mandatory</strong> — you can continue without a file.</p>
                             <div class="row g-3">
                             <?php foreach (recruitmentOfficialDocuments() as $doc): ?>
                                 <?php if (in_array($doc['key'], ['photo', 'signature'], true)) { continue; } ?>
@@ -609,7 +599,7 @@ if ($error !== '') {
                             <div class="rec-check">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" name="declaration_docs" id="decDocs" value="1" required>
-                                    <label class="form-check-label" for="decDocs">All the documents mentioned above are attached (Yes).</label>
+                                    <label class="form-check-label" for="decDocs">I have attached the documents I have available for this application.</label>
                                 </div>
                             </div>
                             <div class="rec-check">
@@ -640,8 +630,8 @@ if ($error !== '') {
                                     <input class="form-control" value="<?php echo date('d-m-Y'); ?>" readonly>
                                 </div>
                                 <div class="col-md-4">
-                                    <label class="form-label">Signature of the candidate * <span class="text-muted fw-normal">(JPG / PNG, max 5 MB)</span></label>
-                                    <input class="form-control" type="file" name="signature" accept=".jpg,.jpeg,.png" required>
+                                    <label class="form-label">Signature of the candidate <span class="text-muted fw-normal">(JPG / PNG, max 5 MB, optional)</span></label>
+                                    <input class="form-control" type="file" name="signature" accept=".jpg,.jpeg,.png">
                                 </div>
                             </div>
                         </div>
@@ -753,22 +743,9 @@ if ($error !== '') {
                 var el = document.getElementById(id);
                 if (el) el.style.display = yes ? '' : 'none';
             });
-            var pwdInput = document.querySelector('[data-doc-key="pwd_cert"] input');
-            if (pwdInput) pwdInput.required = yes;
         }
         var pwd = document.getElementById('pwdField');
         if (pwd) { pwd.addEventListener('change', togglePwd); togglePwd(); }
-
-        function toggleCategory() {
-            var cat = document.getElementById('categoryField');
-            var need = cat && cat.value && cat.value !== 'General';
-            var wrap = document.querySelector('[data-doc-key="category_cert"]');
-            var inp = wrap ? wrap.querySelector('input') : null;
-            if (wrap) wrap.style.display = need ? '' : 'none';
-            if (inp) inp.required = !!need;
-        }
-        var cat = document.getElementById('categoryField');
-        if (cat) { cat.addEventListener('change', toggleCategory); toggleCategory(); }
 
         document.querySelectorAll('.rec-file input[type="file"]').forEach(function (inp) {
             inp.addEventListener('change', function () {

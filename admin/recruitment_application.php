@@ -267,7 +267,7 @@ function recVal(array $row, string $key): string
                         <?php if ($path !== ''): ?>
                             <a target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl($path)); ?>"><?php echo ($doc['item'] !== '' ? htmlspecialchars($doc['item']) . ') ' : '') . htmlspecialchars($doc['label']); ?></a>
                         <?php else: ?>
-                            <span class="text-danger"><?php echo ($doc['item'] !== '' ? htmlspecialchars($doc['item']) . ') ' : '') . htmlspecialchars($doc['label']); ?> — not uploaded</span>
+                            <span class="text-muted"><?php echo ($doc['item'] !== '' ? htmlspecialchars($doc['item']) . ') ' : '') . htmlspecialchars($doc['label']); ?> — not uploaded</span>
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>

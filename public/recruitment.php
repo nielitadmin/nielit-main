@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/public_theme_helper.php';
 require_once __DIR__ . '/../includes/recruitment_helper.php';
 
 ensureRecruitmentTables($conn);
+recruitmentKickMailWorker();
 $jobs = recruitmentListOpenJobs($conn);
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);

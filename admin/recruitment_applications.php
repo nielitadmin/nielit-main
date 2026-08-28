@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/recruitment_helper.php';
 
 recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
+recruitmentKickMailWorker();
 
 $jobId = (int) ($_GET['job_id'] ?? 0);
 $status = (string) ($_GET['status'] ?? 'all');

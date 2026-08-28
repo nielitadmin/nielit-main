@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/recruitment_helper.php';
 
 recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
+recruitmentKickMailWorker();
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
