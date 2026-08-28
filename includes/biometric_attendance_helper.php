@@ -783,11 +783,11 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
 
 if (!function_exists('getFingerprintMonthlyRecord')) {
     /**
-     * Monthly IN/OUT grid for fingerprint attendance, with Mantra device IDs.
+     * Monthly IN/OUT grid. $methodFilter = 'fingerprint' (kiosk only) or 'all' (QR + fingerprint).
      *
      * @return array{days:int,start:string,end:string,rows:array<int,array<string,mixed>>}
      */
-    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): array
+    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0, string $methodFilter = 'fingerprint'): array
     {
         $days = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
         $start = sprintf('%04d-%02d-01', $year, $month);
@@ -864,23 +864,28 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                      OR (s.date >= ? AND s.date <= ?)
                   )";
         $fingerprintWhere = [];
-        if ($hasMethod) {
-            $fingerprintWhere[] = "LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('biometric', 'fingerprint')";
+        $methodFilter = strtolower(trim($methodFilter));
+        if ($methodFilter !== 'all' && $methodFilter !== 'qr') {
+            if ($hasMethod) {
+                $fingerprintWhere[] = "LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('biometric', 'fingerprint')";
+            }
+            if ($bioOk) {
+                $fingerprintWhere[] = "EXISTS (
+                    SELECT 1 FROM biometric_capture_logs b2
+                    WHERE b2.result IN ('ok', 'success')
+                      AND TRIM(b2.student_id) = TRIM(l.student_id)
+                      AND (b2.session_id = l.session_id
+                           OR b2.session_id = 0
+                           OR ABS(TIMESTAMPDIFF(MINUTE, b2.created_at, l.scan_time)) <= 360)
+                )";
+                $fingerprintWhere[] = "l.session_id IN (
+                    SELECT DISTINCT session_id FROM biometric_capture_logs WHERE result IN ('ok', 'success') AND session_id > 0
+                )";
+            }
+            $fingerprintWhere[] = "l.coordinator_id LIKE 'self:%'";
+        } elseif ($methodFilter === 'qr' && $hasMethod) {
+            $fingerprintWhere[] = "(LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('qr', '') OR l.scan_method IS NULL)";
         }
-        if ($bioOk) {
-            $fingerprintWhere[] = "EXISTS (
-                SELECT 1 FROM biometric_capture_logs b2
-                WHERE b2.result IN ('ok', 'success')
-                  AND TRIM(b2.student_id) = TRIM(l.student_id)
-                  AND (b2.session_id = l.session_id
-                       OR b2.session_id = 0
-                       OR ABS(TIMESTAMPDIFF(MINUTE, b2.created_at, l.scan_time)) <= 360)
-            )";
-            $fingerprintWhere[] = "l.session_id IN (
-                SELECT DISTINCT session_id FROM biometric_capture_logs WHERE result IN ('ok', 'success') AND session_id > 0
-            )";
-        }
-        $fingerprintWhere[] = "l.coordinator_id LIKE 'self:%'";
         if ($fingerprintWhere !== []) {
             $sql .= ' AND (' . implode(' OR ', $fingerprintWhere) . ')';
         }
@@ -1027,8 +1032,40 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
         unset($stu);
 
+        if ($methodFilter === 'all' && function_exists('attendanceListRosterForReport')) {
+            $roster = attendanceListRosterForReport($conn, $courseId, $centreId, $batchId);
+            foreach ($roster as $stu) {
+                $sid = trim((string) ($stu['student_id'] ?? ''));
+                if ($sid === '') {
+                    continue;
+                }
+                $rowKey = $sid . "\t" . (string) ($stu['centre_name'] ?? '') . "\t" . (string) ($stu['batch_name'] ?? '') . "\t" . (string) ($stu['course_name'] ?? '');
+                $found = false;
+                foreach (array_keys($byStudent) as $existingKey) {
+                    if (strpos($existingKey, $sid . "\t") === 0) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if ($found) {
+                    continue;
+                }
+                $byStudent[$rowKey] = [
+                    'student_id' => $sid,
+                    'name' => (string) ($stu['student_name'] ?? $sid),
+                    'centre' => trim((string) ($stu['centre_name'] ?? '')),
+                    'batch' => trim((string) ($stu['batch_name'] ?? '')),
+                    'course' => (string) ($stu['course_name'] ?? ''),
+                    'session' => '',
+                    'subject' => '',
+                    'devices' => [],
+                    'days' => [],
+                ];
+            }
+        }
+
         foreach ($byStudent as $row) {
-            if (empty($row['days'])) {
+            if ($methodFilter !== 'all' && empty($row['days'])) {
                 continue;
             }
             $devices = array_keys($row['devices']);
@@ -1080,7 +1117,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
 
 if (!function_exists('fingerprintSumSessionClassesHeld')) {
     /**
-     * Sum of classes_held on sessions in this month (optional course / centre / section).
+     * Classes held from Create/Edit session (MAX per month so the same total is not summed twice).
      */
     function fingerprintSumSessionClassesHeld($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): int
     {

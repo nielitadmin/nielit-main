@@ -511,7 +511,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                     <div class="mb-3">
                         <label class="form-label">Total classes held <span class="text-muted fw-normal">(optional)</span></label>
                         <input type="number" class="form-control" name="classes_held" id="sessionClassesHeld" min="1" max="500" step="1" placeholder="e.g. 22">
-                        <small class="text-muted">Used for Attendance % on Fingerprint Report: (Present + Partial) ÷ classes held. You can also set this later with Edit session.</small>
+                        <small class="text-muted">This number is used automatically on Attendance Reports and Fingerprint Report for Attendance %: (Present + Partial) ÷ classes held. You can also set it later with Edit session.</small>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">

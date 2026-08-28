@@ -45,16 +45,13 @@ $batches = attendanceListBatchesForCourse($conn, $courseId, $centreId);
 $batchLabel = attendanceBatchName($conn, $batchId);
 $report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId, $batchId);
 $sessionHeld = fingerprintSumSessionClassesHeld($conn, $year, $month, $courseId, $centreId, $batchId);
-if (array_key_exists('classes_held', $_GET) && trim((string) $_GET['classes_held']) !== '') {
-    $classes_held = attendanceNormalizeClassesHeld($_GET['classes_held']);
-} else {
-    $classes_held = $sessionHeld;
-}
+$classes_held = $sessionHeld;
 if ($classes_held > 0) {
     $report['rows'] = attendanceApplyClassesHeld($report['rows'], $classes_held);
 }
 $showPct = $classes_held > 0;
-$extraCols = $showPct ? 4 : 0;
+$extraCols = 4;
+$sessionSetupUrl = app_url('admin/attendance_biometric');
 $daysInMonth = (int) $report['days'];
 $monthNames = [
     1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
@@ -152,15 +149,15 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspanExcel . '">Centre: ' . htmlspecialchars($centreLabel) . '</td></tr>';
     echo '<tr><td colspan="' . $colspanExcel . '">Batch: ' . htmlspecialchars($batchLabel) . '</td></tr>';
     if ($showPct) {
-        echo '<tr><td colspan="' . $colspanExcel . '">Total classes held: ' . (int) $classes_held . ' — Attendance % = (Present + Partial) / ' . (int) $classes_held . '</td></tr>';
+        echo '<tr><td colspan="' . $colspanExcel . '">Total classes held: ' . (int) $classes_held . ' (from session) — Attendance % = (Present + Partial) / ' . (int) $classes_held . '</td></tr>';
+    } else {
+        echo '<tr><td colspan="' . $colspanExcel . '">Total classes held: not set. Enter it when you create or edit a session on Fingerprint Attendance.</td></tr>';
     }
     echo '<tr><td colspan="' . $colspanExcel . '">NIELIT Bhubaneswar — Fingerprint attendance</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
     echo '<td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
-    if ($showPct) {
-        echo '<td rowspan="2">Present</td><td rowspan="2">Partial</td><td rowspan="2">Classes held</td><td rowspan="2">Attendance %</td>';
-    }
+    echo '<td rowspan="2">Present</td><td rowspan="2">Partial</td><td rowspan="2">Classes held</td><td rowspan="2">Attendance %</td>';
     for ($d = 1; $d <= $daysInMonth; $d++) {
         echo '<td colspan="2">' . $d . '</td>';
     }
@@ -180,12 +177,10 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td>' . htmlspecialchars((string) $row['name']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['department']) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['device_id']) . '</td>';
-            if ($showPct) {
-                echo '<td style="text-align:center;">' . (int) ($row['present_days'] ?? 0) . '</td>';
-                echo '<td style="text-align:center;">' . (int) ($row['partial_days'] ?? 0) . '</td>';
-                echo '<td style="text-align:center;">' . (int) $classes_held . '</td>';
-                echo '<td style="text-align:center;">' . htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)) . '</td>';
-            }
+            echo '<td style="text-align:center;">' . (int) ($row['present_days'] ?? 0) . '</td>';
+            echo '<td style="text-align:center;">' . (int) ($row['partial_days'] ?? 0) . '</td>';
+            echo '<td style="text-align:center;">' . ($classes_held > 0 ? (int) $classes_held : '—') . '</td>';
+            echo '<td style="text-align:center;">' . ($classes_held > 0 ? htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)) : '—') . '</td>';
             for ($d = 1; $d <= $daysInMonth; $d++) {
                 $io = $dayInOutTimes($row['days'][$d] ?? []);
                 echo '<td style="text-align:center;white-space:pre-wrap;">' . $formatTimeList($io['in'], true) . '</td>';
@@ -205,7 +200,6 @@ $qs = http_build_query([
     'course_id' => $courseId > 0 ? $courseId : '',
     'centre_id' => $centreId > 0 ? $centreId : '',
     'batch_id' => $batchId > 0 ? $batchId : '',
-    'classes_held' => $classes_held > 0 ? $classes_held : '',
     'export' => 'excel',
 ]);
 ?>
@@ -370,7 +364,7 @@ $qs = http_build_query([
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
             <div>
                 <h2 class="mb-0"><i class="fas fa-th"></i> Fingerprint Report</h2>
-                <p class="text-muted mb-0">Monthly fingerprint attendance. Each day has separate IN and OUT columns.</p>
+                <p class="text-muted mb-0">Monthly fingerprint attendance. The report loads when you change a filter. Classes held and Attendance % come from the session on Fingerprint Attendance.</p>
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
@@ -385,7 +379,7 @@ $qs = http_build_query([
 
         <div class="card mb-3 no-print">
             <div class="card-body">
-                <form method="get" class="row g-3 align-items-end">
+                <form method="get" class="row g-3 align-items-end" id="fingerprintReportForm">
                     <div class="col-md-3">
                         <label class="form-label">Centre</label>
                         <select class="form-select" name="centre_id" onchange="this.form.submit()">
@@ -399,7 +393,7 @@ $qs = http_build_query([
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Section</label>
-                        <select class="form-select" name="batch_id">
+                        <select class="form-select" name="batch_id" onchange="this.form.submit()">
                             <option value="0">All sections</option>
                             <?php foreach ($batches as $batch): ?>
                                 <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
@@ -410,7 +404,7 @@ $qs = http_build_query([
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Month</label>
-                        <select class="form-select" name="month">
+                        <select class="form-select" name="month" onchange="this.form.submit()">
                             <?php foreach ($monthNames as $num => $name): ?>
                                 <option value="<?php echo (int) $num; ?>" <?php echo $num === $month ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($name); ?>
@@ -420,7 +414,7 @@ $qs = http_build_query([
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Year</label>
-                        <select class="form-select" name="year">
+                        <select class="form-select" name="year" onchange="this.form.submit()">
                             <?php for ($y = $yearFrom; $y >= 2024; $y--): ?>
                                 <option value="<?php echo $y; ?>" <?php echo $y === $year ? 'selected' : ''; ?>><?php echo $y; ?></option>
                             <?php endfor; ?>
@@ -428,7 +422,7 @@ $qs = http_build_query([
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Course</label>
-                        <select class="form-select" name="course_id">
+                        <select class="form-select" name="course_id" onchange="this.form.submit()">
                             <option value="0">All courses</option>
                             <?php foreach ($courses as $course): ?>
                                 <option value="<?php echo (int) $course['id']; ?>" <?php echo (int) $course['id'] === $courseId ? 'selected' : ''; ?>>
@@ -437,14 +431,19 @@ $qs = http_build_query([
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Total classes held</label>
-                        <input type="number" class="form-control" name="classes_held" min="1" max="500" step="1"
-                               value="<?php echo $classes_held > 0 ? (int) $classes_held : ''; ?>"
-                               placeholder="e.g. 22">
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100" type="submit">Show</button>
+                    <div class="col-12">
+                        <div class="alert alert-light border py-2 mb-0 small">
+                            <?php if ($showPct): ?>
+                                <strong>Total classes held:</strong> <?php echo (int) $classes_held; ?>
+                                (from session)
+                                · Attendance % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?>
+                            <?php else: ?>
+                                <strong>Total classes held</strong> is not set for this month / course / section.
+                                Create or edit the session on
+                                <a href="<?php echo htmlspecialchars($sessionSetupUrl); ?>">Fingerprint Attendance</a>
+                                and enter Total classes held. Attendance % will then calculate automatically.
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -457,8 +456,10 @@ $qs = http_build_query([
                     Centre: <?php echo htmlspecialchars($centreLabel); ?><br>
                     Batch: <?php echo htmlspecialchars($batchLabel); ?><br>
                     <?php if ($showPct): ?>
-                        Total classes held: <?php echo (int) $classes_held; ?>
+                        Total classes held: <?php echo (int) $classes_held; ?> (from session)
                         · Attendance % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?><br>
+                    <?php else: ?>
+                        Total classes held: not set — enter it when you create or edit a session on Fingerprint Attendance.<br>
                     <?php endif; ?>
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>
                 </div>
@@ -486,6 +487,8 @@ $qs = http_build_query([
                                         <?php if ($showPct): ?>
                                             &nbsp;|&nbsp; <strong>Classes held:</strong> <?php echo (int) $classes_held; ?>
                                             &nbsp;|&nbsp; <strong>%:</strong> (Present + Partial) ÷ <?php echo (int) $classes_held; ?>
+                                        <?php else: ?>
+                                            &nbsp;|&nbsp; <strong>Classes held:</strong> not set on session
                                         <?php endif; ?>
                                         &nbsp;|&nbsp; <strong>Period:</strong> <?php echo htmlspecialchars($report['start'] . ' to ' . $report['end']); ?>
                                     </p>
@@ -498,12 +501,10 @@ $qs = http_build_query([
                                 <th class="col-name" rowspan="2">Name</th>
                                 <th class="col-dept" rowspan="2">Course / session</th>
                                 <th class="col-dev" rowspan="2">Device ID</th>
-                                <?php if ($showPct): ?>
-                                    <th class="col-pct print-hide" rowspan="2">Present</th>
-                                    <th class="col-pct print-hide" rowspan="2">Partial</th>
-                                    <th class="col-pct print-hide" rowspan="2">Held</th>
-                                    <th class="col-pct print-hide" rowspan="2">Att %</th>
-                                <?php endif; ?>
+                                <th class="col-pct print-hide" rowspan="2">Present</th>
+                                <th class="col-pct print-hide" rowspan="2">Partial</th>
+                                <th class="col-pct print-hide" rowspan="2">Held</th>
+                                <th class="col-pct print-hide" rowspan="2">Att %</th>
                                 <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                                     <th class="col-day" colspan="2"><?php echo $d; ?></th>
                                 <?php endfor; ?>
@@ -560,12 +561,10 @@ $qs = http_build_query([
                                     <td><?php echo htmlspecialchars((string) $row['name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['department']); ?></td>
                                     <td class="col-dev"><?php echo htmlspecialchars((string) $row['device_id']); ?></td>
-                                    <?php if ($showPct): ?>
-                                        <td class="col-pct print-hide"><?php echo (int) ($row['present_days'] ?? 0); ?></td>
-                                        <td class="col-pct print-hide"><?php echo (int) ($row['partial_days'] ?? 0); ?></td>
-                                        <td class="col-pct print-hide"><?php echo (int) $classes_held; ?></td>
-                                        <td class="col-pct print-hide"><?php echo htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)); ?></td>
-                                    <?php endif; ?>
+                                    <td class="col-pct print-hide"><?php echo (int) ($row['present_days'] ?? 0); ?></td>
+                                    <td class="col-pct print-hide"><?php echo (int) ($row['partial_days'] ?? 0); ?></td>
+                                    <td class="col-pct print-hide"><?php echo $classes_held > 0 ? (int) $classes_held : '—'; ?></td>
+                                    <td class="col-pct print-hide"><?php echo $classes_held > 0 ? htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)) : '—'; ?></td>
                                     <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
                                         <?php $io = $dayInOutTimes($row['days'][$d] ?? []); ?>
                                         <td class="col-io is-in">

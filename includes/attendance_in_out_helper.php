@@ -332,19 +332,48 @@ if (!function_exists('attendanceSaveSessionClassesHeld')) {
 
 if (!function_exists('attendanceSumSessionClassesHeld')) {
     /**
-     * Sum of classes_held saved on sessions in this month (optional course / centre / section).
+     * Classes held from Create/Edit session (Fingerprint Attendance).
+     * Uses MAX per calendar month so entering 22 on more than one session in the same
+     * month does not double-count, then sums those monthly values for a longer period.
      */
-    function attendanceSumSessionClassesHeld($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): int
-    {
+    function attendanceSumSessionClassesHeld(
+        $conn,
+        int $year,
+        int $month,
+        int $courseId = 0,
+        int $centreId = 0,
+        int $batchId = 0,
+        int $quarter = 0,
+        string $startDate = '',
+        string $endDate = ''
+    ): int {
         if (!($conn instanceof mysqli) || !attendanceSessionsHaveClassesHeldColumn($conn)) {
             return 0;
         }
-        $start = sprintf('%04d-%02d-01', $year, $month);
-        $end = date('Y-m-t', strtotime($start));
-        $sql = "SELECT COALESCE(SUM(s.classes_held), 0) AS held
-                FROM attendance_sessions s
-                LEFT JOIN courses c ON c.id = s.course_id
-                WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
+        $start = '';
+        $end = '';
+        if ($startDate !== '' && $endDate !== '') {
+            $start = $startDate;
+            $end = $endDate;
+        } elseif ($month >= 1 && $month <= 12 && $year > 0) {
+            $start = sprintf('%04d-%02d-01', $year, $month);
+            $end = date('Y-m-t', strtotime($start));
+        } elseif ($quarter >= 1 && $quarter <= 4 && $year > 0) {
+            $qStartMonth = (($quarter - 1) * 3) + 1;
+            $start = sprintf('%04d-%02d-01', $year, $qStartMonth);
+            $end = date('Y-m-t', strtotime(sprintf('%04d-%02d-01', $year, $qStartMonth + 2)));
+        } elseif ($year > 0) {
+            $start = sprintf('%04d-01-01', $year);
+            $end = sprintf('%04d-12-31', $year);
+        }
+        if ($start === '' || $end === '') {
+            return 0;
+        }
+        $sql = "SELECT COALESCE(SUM(t.mx), 0) AS held FROM (
+                    SELECT MAX(s.classes_held) AS mx
+                    FROM attendance_sessions s
+                    LEFT JOIN courses c ON c.id = s.course_id
+                    WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
         $types = 'ss';
         $params = [$start, $end];
         if ($courseId > 0) {
@@ -362,6 +391,8 @@ if (!function_exists('attendanceSumSessionClassesHeld')) {
             $types .= 'i';
             $params[] = $batchId;
         }
+        $sql .= ' GROUP BY YEAR(s.date), MONTH(s.date)
+                ) t';
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return 0;
@@ -371,6 +402,168 @@ if (!function_exists('attendanceSumSessionClassesHeld')) {
         $row = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+    }
+}
+
+if (!function_exists('attendanceListRosterForReport')) {
+    /**
+     * Enrolled students for a course / centre / section, used to fill zero-attendance rows.
+     *
+     * @return list<array<string,mixed>>
+     */
+    function attendanceListRosterForReport($conn, int $courseId = 0, int $centreId = 0, int $batchId = 0): array
+    {
+        if (!($conn instanceof mysqli) || ($courseId <= 0 && $centreId <= 0 && $batchId <= 0)) {
+            return [];
+        }
+        $hasStudents = ($t = $conn->query("SHOW TABLES LIKE 'students'")) && $t->num_rows > 0;
+        if (!$hasStudents) {
+            return [];
+        }
+        $hasCourseCol = ($col = $conn->query("SHOW COLUMNS FROM students LIKE 'course_id'")) && $col->num_rows > 0;
+        $hasBatchCol = ($col = $conn->query("SHOW COLUMNS FROM students LIKE 'batch_id'")) && $col->num_rows > 0;
+        $hasStatus = ($col = $conn->query("SHOW COLUMNS FROM students LIKE 'status'")) && $col->num_rows > 0;
+        $sql = "SELECT st.student_id, st.name AS student_name,
+                       IFNULL(c.course_name, '') AS course_name,
+                       IFNULL(ct.name, '') AS centre_name,
+                       IFNULL(b.batch_name, '') AS batch_name
+                FROM students st
+                LEFT JOIN courses c ON c.id = " . ($hasCourseCol ? 'st.course_id' : '0') . "
+                LEFT JOIN centres ct ON ct.id = c.centre_id
+                LEFT JOIN batches b ON b.id = " . ($hasBatchCol ? 'st.batch_id' : '0') . "
+                WHERE TRIM(IFNULL(st.student_id,'')) <> ''";
+        $types = '';
+        $params = [];
+        if ($hasStatus) {
+            $sql .= " AND (st.status IS NULL OR st.status = '' OR LOWER(st.status) IN ('active','approved'))";
+        }
+        if ($courseId > 0 && $hasCourseCol) {
+            $sql .= ' AND st.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($centreId > 0) {
+            $sql .= ' AND c.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        if ($batchId > 0 && $hasBatchCol) {
+            $sql .= ' AND st.batch_id = ?';
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+        $hasBs = ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
+        if ($batchId > 0 && $hasBs) {
+            $sql .= " UNION
+                SELECT st.student_id, st.name AS student_name,
+                       IFNULL(c.course_name, '') AS course_name,
+                       IFNULL(ct.name, '') AS centre_name,
+                       IFNULL(b.batch_name, '') AS batch_name
+                FROM batch_students bs
+                INNER JOIN students st ON (
+                    st.id = bs.student_id
+                    OR LOWER(TRIM(CAST(st.student_id AS CHAR))) = LOWER(TRIM(CAST(bs.student_id AS CHAR)))
+                )
+                LEFT JOIN batches b ON b.id = bs.batch_id
+                LEFT JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres ct ON ct.id = c.centre_id
+                WHERE bs.batch_id = ? AND TRIM(IFNULL(st.student_id,'')) <> ''";
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+        $sql .= ' ORDER BY student_name ASC';
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('attendanceListRosterForReport: ' . $conn->error);
+            return [];
+        }
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        $seen = [];
+        while ($row = $res->fetch_assoc()) {
+            $sid = strtolower(trim((string) ($row['student_id'] ?? '')));
+            if ($sid === '' || isset($seen[$sid])) {
+                continue;
+            }
+            $seen[$sid] = true;
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
+if (!function_exists('attendanceSummaryFromMonthlyGrid')) {
+    /**
+     * @param array{rows?:list<array<string,mixed>>} $grid
+     * @return list<array<string,mixed>>
+     */
+    function attendanceSummaryFromMonthlyGrid(array $grid, int $classesHeld = 0): array
+    {
+        $out = [];
+        foreach (($grid['rows'] ?? []) as $r) {
+            $present = (int) ($r['present_days'] ?? 0);
+            $partial = (int) ($r['partial_days'] ?? 0);
+            $attended = $present + $partial;
+            $held = $classesHeld > 0 ? $classesHeld : $attended;
+            $absent = max(0, $held - $attended);
+            $pct = $held > 0 ? round(($attended / $held) * 100, 2) : 0.0;
+            if ($pct > 100) {
+                $pct = 100.0;
+            }
+            $out[] = [
+                'student_id' => (string) ($r['student_id'] ?? ''),
+                'student_name' => (string) ($r['name'] ?? ''),
+                'course_name' => (string) (($r['course'] ?? '') !== '' ? $r['course'] : ($r['department'] ?? 'N/A')),
+                'centre_name' => (string) ($r['centre'] ?? ''),
+                'batch_name' => (string) ($r['batch'] ?? ''),
+                'total_days' => $held > 0 ? $held : $attended,
+                'present_days' => $present,
+                'partial_days' => $partial,
+                'absent_days' => $absent,
+                'total_minutes' => 0,
+                'total_hours' => 0,
+                'attendance_percentage' => $pct,
+                'classes_held' => $held,
+            ];
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('attendanceCellInOutTimes')) {
+    /**
+     * @param array<string,mixed> $times
+     * @return array{in:list<string>,out:list<string>}
+     */
+    function attendanceCellInOutTimes(array $times): array
+    {
+        $pairs = $times['pairs'] ?? [];
+        if ($pairs === []) {
+            $in = trim((string) ($times['in'] ?? ''));
+            $out = trim((string) ($times['out'] ?? ''));
+            if ($in === '' && $out === '') {
+                return ['in' => [], 'out' => []];
+            }
+            $pairs = [['in' => $in, 'out' => $out]];
+        }
+        $ins = [];
+        $outs = [];
+        foreach ($pairs as $pair) {
+            $in = trim((string) ($pair['in'] ?? ''));
+            $out = trim((string) ($pair['out'] ?? ''));
+            if ($in !== '') {
+                $ins[] = $in;
+            }
+            if ($out !== '') {
+                $outs[] = $out;
+            }
+        }
+        return ['in' => $ins, 'out' => $outs];
     }
 }
 
@@ -546,10 +739,13 @@ if (!function_exists('attendanceClassesHeldForStudent')) {
         if ($clauses === []) {
             return $out;
         }
-        $sql = "SELECT IFNULL(s.batch_id, 0) AS batch_id, COALESCE(SUM(s.classes_held), 0) AS held
-                FROM attendance_sessions s
-                WHERE s.classes_held > 0 AND (" . implode(' OR ', $clauses) . ")
-                GROUP BY IFNULL(s.batch_id, 0)";
+        $sql = "SELECT batch_id, COALESCE(SUM(mx), 0) AS held FROM (
+                    SELECT IFNULL(s.batch_id, 0) AS batch_id, MAX(s.classes_held) AS mx
+                    FROM attendance_sessions s
+                    WHERE s.classes_held > 0 AND (" . implode(' OR ', $clauses) . ")
+                    GROUP BY IFNULL(s.batch_id, 0), YEAR(s.date), MONTH(s.date)
+                ) t
+                GROUP BY batch_id";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return $out;
@@ -904,7 +1100,14 @@ if (!function_exists('attendanceSyncBatchAttendance')) {
         $percent = 0.0;
         $held = 0;
         if (attendanceSessionsHaveBatchColumn($conn) && attendanceSessionsHaveClassesHeldColumn($conn)) {
-            $heldStmt = $conn->prepare('SELECT COALESCE(SUM(classes_held), 0) AS held FROM attendance_sessions WHERE batch_id = ? AND classes_held > 0');
+            $heldStmt = $conn->prepare(
+                'SELECT COALESCE(SUM(mx), 0) AS held FROM (
+                     SELECT MAX(classes_held) AS mx
+                     FROM attendance_sessions
+                     WHERE batch_id = ? AND classes_held > 0
+                     GROUP BY YEAR(`date`), MONTH(`date`)
+                 ) t'
+            );
             if ($heldStmt) {
                 $heldStmt->bind_param('i', $batch_id);
                 $heldStmt->execute();

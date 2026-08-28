@@ -11,6 +11,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/attendance_in_out_helper.php';
+require_once __DIR__ . '/../includes/biometric_attendance_helper.php';
 
 // Check if admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -19,6 +20,7 @@ if (!isset($_SESSION['admin'])) {
 }
 
 attendance_require_access($conn);
+ensureAttendanceInOutTables($conn);
 
 $admin_id = $_SESSION['admin'];
 $admin_name = $_SESSION['admin_name'] ?? 'Administrator';
@@ -35,23 +37,46 @@ $selected_student = $_GET['student_id'] ?? '';
 $selected_course = $_GET['course_id'] ?? '';
 $selected_centre = (int) ($_GET['centre_id'] ?? 0);
 $selected_batch = (int) ($_GET['batch_id'] ?? 0);
-$rawHeld = $_GET['classes_held'] ?? '';
-if (is_array($rawHeld)) {
-    $rawHeld = (string) end($rawHeld);
+$heldYear = (int) $selected_year;
+$heldMonth = (int) $selected_month;
+$heldQuarter = 0;
+$heldStart = '';
+$heldEnd = '';
+if ($report_type === 'yearly') {
+    $heldMonth = 0;
+} elseif ($report_type === 'quarterly') {
+    $heldMonth = 0;
+    $heldQuarter = (int) $selected_quarter;
+} elseif ($report_type === 'weekly') {
+    $heldMonth = 0;
+    try {
+        $weekDto = new DateTime();
+        $weekDto->setISODate((int) $selected_year, max(1, min(53, (int) $selected_week)));
+        $heldStart = $weekDto->format('Y-m-d');
+        $weekDto->modify('+6 days');
+        $heldEnd = $weekDto->format('Y-m-d');
+    } catch (Exception $e) {
+        $heldMonth = (int) $selected_month;
+        $heldStart = '';
+        $heldEnd = '';
+    }
+} elseif ($report_type === 'custom' && $start_date !== '' && $end_date !== '') {
+    $heldMonth = 0;
+    $heldStart = $start_date;
+    $heldEnd = $end_date;
 }
-$typedHeld = preg_replace('/\D+/', '', (string) $rawHeld);
-if ($typedHeld !== '') {
-    $classes_held = attendanceNormalizeClassesHeld($typedHeld);
-} else {
-    $classes_held = attendanceSumSessionClassesHeld(
-        $conn,
-        (int) $selected_year,
-        (int) $selected_month,
-        (int) $selected_course,
-        $selected_centre,
-        $selected_batch
-    );
-}
+$classes_held = attendanceSumSessionClassesHeld(
+    $conn,
+    $heldYear,
+    $heldMonth,
+    (int) $selected_course,
+    $selected_centre,
+    $selected_batch,
+    $heldQuarter,
+    $heldStart,
+    $heldEnd
+);
+$sessionSetupUrl = app_url('admin/attendance_biometric');
 $report_centres = attendanceListCentres($conn);
 $report_batches = attendanceListBatchesForCourse($conn, 0, 0);
 $centre_label = attendanceCentreName($conn, $selected_centre);
@@ -92,6 +117,28 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             ];
             $report_title = "Monthly Attendance Report - {$months[$selected_month]} {$selected_year}";
     }
+    $monthlyGrid = null;
+    if ($report_type === 'monthly' && function_exists('getFingerprintMonthlyRecord')) {
+        $monthlyGrid = getFingerprintMonthlyRecord(
+            $conn,
+            (int) $selected_year,
+            (int) $selected_month,
+            (int) $selected_course,
+            $selected_centre,
+            $selected_batch,
+            'all'
+        );
+        if ($selected_student !== '') {
+            $sid = strtolower(trim((string) $selected_student));
+            $monthlyGrid['rows'] = array_values(array_filter($monthlyGrid['rows'], static function ($r) use ($sid) {
+                return strtolower(trim((string) ($r['student_id'] ?? ''))) === $sid;
+            }));
+        }
+        $fromGrid = attendanceSummaryFromMonthlyGrid($monthlyGrid, 0);
+        if ($fromGrid !== []) {
+            $report_data = $fromGrid;
+        }
+    }
     $report_data = attendanceApplyClassesHeld($report_data, $classes_held);
     
     // Create Excel filename
@@ -121,9 +168,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     }
     echo '<tr><td style="font-weight:bold;">Generated:</td><td colspan="11">' . date('d M Y h:i A') . '</td></tr>';
     if ($classes_held > 0) {
-        echo '<tr><td style="font-weight:bold;">Total classes held:</td><td colspan="11">' . $classes_held . ' (Attendance % = (Present + Partial) / ' . $classes_held . ')</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Total classes held:</td><td colspan="11">' . $classes_held . ' (from session — Attendance % = (Present + Partial) / ' . $classes_held . ')</td></tr>';
     } else {
-        echo '<tr><td style="font-weight:bold;">Attendance %:</td><td colspan="11">(Present + Partial) / marked days</td></tr>';
+        echo '<tr><td style="font-weight:bold;">Total classes held:</td><td colspan="11">Not set. Enter it when you create or edit a session on Fingerprint Attendance.</td></tr>';
     }
     echo '<tr><td colspan="12"></td></tr>'; // Empty row
 
@@ -134,7 +181,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<td>Student Name</td>';
     echo '<td>Student ID</td>';
     echo '<td>Course</td>';
-    echo '<td>' . ($classes_held > 0 ? 'Classes held' : 'Total Days') . '</td>';
+    echo '<td>Classes held</td>';
     echo '<td>Present</td>';
     echo '<td>Partial</td>';
     echo '<td>Absent</td>';
@@ -167,13 +214,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td>' . htmlspecialchars($record['student_name']) . '</td>';
             echo '<td>' . htmlspecialchars($record['student_id']) . '</td>';
             echo '<td>' . htmlspecialchars($record['course_name'] ?? 'N/A') . '</td>';
-            echo '<td>' . $record['total_days'] . '</td>';
+            echo '<td>' . ($classes_held > 0 ? (int) $classes_held : '—') . '</td>';
             echo '<td>' . $record['present_days'] . '</td>';
             echo '<td>' . $record['partial_days'] . '</td>';
             echo '<td>' . $record['absent_days'] . '</td>';
             echo '<td>' . round($record['total_hours'], 2) . '</td>';
-            echo '<td>' . round($percentage, 1) . '%</td>';
-            echo '<td>' . $grade . '</td>';
+            echo '<td>' . ($classes_held > 0 ? round($percentage, 1) . '%' : '—') . '</td>';
+            echo '<td>' . ($classes_held > 0 ? $grade : '—') . '</td>';
             echo '</tr>';
         }
     } else {
@@ -181,6 +228,47 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     }
 
     echo '</table>';
+
+    if (is_array($monthlyGrid) && !empty($monthlyGrid['rows'])) {
+        $daysInMonth = (int) ($monthlyGrid['days'] ?? 0);
+        echo '<br><table border="1">';
+        echo '<tr><td colspan="' . (8 + ($daysInMonth * 2)) . '" style="font-weight:bold;font-size:14px;">Day-wise IN / OUT (QR + fingerprint)</td></tr>';
+        echo '<tr style="background-color:#f0f0f0;font-weight:bold;">';
+        echo '<td>Centre</td><td>Batch</td><td>Student ID</td><td>Name</td><td>Present</td><td>Partial</td><td>Classes held</td><td>Attendance %</td>';
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            echo '<td colspan="2">' . $d . '</td>';
+        }
+        echo '</tr><tr style="background-color:#f0f0f0;font-weight:bold;">';
+        echo '<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>';
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            echo '<td>IN</td><td>OUT</td>';
+        }
+        echo '</tr>';
+        foreach ($monthlyGrid['rows'] as $grow) {
+            $present = (int) ($grow['present_days'] ?? 0);
+            $partial = (int) ($grow['partial_days'] ?? 0);
+            $attended = $present + $partial;
+            $pct = $classes_held > 0 ? min(100, round(($attended / $classes_held) * 100, 1)) : 0;
+            echo '<tr>';
+            echo '<td>' . htmlspecialchars((string) ($grow['centre'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($grow['batch'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($grow['student_id'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($grow['name'] ?? '')) . '</td>';
+            echo '<td>' . $present . '</td>';
+            echo '<td>' . $partial . '</td>';
+            echo '<td>' . ($classes_held > 0 ? (int) $classes_held : '—') . '</td>';
+            echo '<td>' . ($classes_held > 0 ? $pct . '%' : '—') . '</td>';
+            $daysMap = is_array($grow['days'] ?? null) ? $grow['days'] : [];
+            for ($d = 1; $d <= $daysInMonth; $d++) {
+                $io = attendanceCellInOutTimes(is_array($daysMap[$d] ?? null) ? $daysMap[$d] : []);
+                echo '<td>' . htmlspecialchars(implode("\n", $io['in'])) . '</td>';
+                echo '<td>' . htmlspecialchars(implode("\n", $io['out'])) . '</td>';
+            }
+            echo '</tr>';
+        }
+        echo '</table>';
+    }
+
     echo '</body>';
     echo '</html>';
     exit;
@@ -219,12 +307,45 @@ switch ($report_type) {
         ];
         $report_title = "Monthly Report - {$months[$selected_month]} {$selected_year}";
 }
+$monthlyGrid = null;
+if ($report_type === 'monthly' && function_exists('getFingerprintMonthlyRecord')) {
+    $monthlyGrid = getFingerprintMonthlyRecord(
+        $conn,
+        (int) $selected_year,
+        (int) $selected_month,
+        (int) $selected_course,
+        $selected_centre,
+        $selected_batch,
+        'all'
+    );
+    if ($selected_student !== '') {
+        $sid = strtolower(trim((string) $selected_student));
+        $monthlyGrid['rows'] = array_values(array_filter($monthlyGrid['rows'], static function ($r) use ($sid) {
+            return strtolower(trim((string) ($r['student_id'] ?? ''))) === $sid;
+        }));
+    }
+    $fromGrid = attendanceSummaryFromMonthlyGrid($monthlyGrid, 0);
+    if ($fromGrid !== []) {
+        $report_data = $fromGrid;
+    }
+}
 $report_data = attendanceApplyClassesHeld($report_data, $classes_held);
 
-// Get available years and months
-$years_query = "SELECT DISTINCT YEAR(date) as year FROM attendance_summary ORDER BY year DESC";
-$years_result = $conn->query($years_query);
-$available_years = $years_result ? $years_result->fetch_all(MYSQLI_ASSOC) : [];
+// Get available years and months (summary + live IN/OUT logs)
+$available_years = [];
+$years_result = $conn->query(
+    "SELECT DISTINCT y AS year FROM (
+        SELECT YEAR(date) AS y FROM attendance_summary WHERE date IS NOT NULL
+        UNION SELECT YEAR(scan_time) AS y FROM attendance_logs WHERE scan_time IS NOT NULL
+        UNION SELECT YEAR(date) AS y FROM attendance_sessions WHERE date IS NOT NULL
+     ) years WHERE y IS NOT NULL AND y >= 2020 ORDER BY year DESC"
+);
+if ($years_result) {
+    $available_years = $years_result->fetch_all(MYSQLI_ASSOC);
+}
+if ($available_years === []) {
+    $available_years = [['year' => (int) date('Y')]];
+}
 
 // Get students for filter
 $students_query = "SELECT DISTINCT student_id, student_name FROM attendance_summary ORDER BY student_name";
@@ -323,6 +444,13 @@ $active_theme = loadActiveTheme($conn);
             font-size: 0.75rem;
             font-weight: bold;
         }
+        .att-wrap { overflow-x: auto; }
+        .att-matrix { border-collapse: collapse; font-size: 12px; min-width: 100%; }
+        .att-matrix th, .att-matrix td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: center; white-space: nowrap; }
+        .att-matrix thead th { background: #0f172a; color: #fff; }
+        .att-matrix .col-name, .att-matrix .col-id { text-align: left; }
+        .att-matrix .col-io.is-in { color: #0f766e; font-weight: 700; }
+        .att-matrix .col-io.is-out { color: #b45309; font-weight: 700; }
     </style>
 </head>
 <body>
@@ -338,8 +466,8 @@ $active_theme = loadActiveTheme($conn);
         <!-- Page Header -->
         <div class="row mb-4">
             <div class="col-12">
-                <h2><i class="fas fa-chart-bar"></i> Enhanced Attendance Reports</h2>
-                <p class="text-muted">Comprehensive attendance analytics with flexible reporting options</p>
+                <h2><i class="fas fa-chart-bar"></i> Attendance Reports</h2>
+                <p class="text-muted mb-0">The report loads when you change a filter. Total classes held and Attendance % come from the session you create or edit on Fingerprint Attendance — you do not enter them here.</p>
             </div>
         </div>
 
@@ -548,19 +676,19 @@ $active_theme = loadActiveTheme($conn);
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
-                                    <div class="col-md-3">
-                                        <label class="form-label text-white">Total classes held</label>
-                                        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3"
-                                               name="classes_held" id="reportClassesHeld" class="form-control"
-                                               value="<?php echo $classes_held > 0 ? (int) $classes_held : ''; ?>"
-                                               placeholder="e.g. 22" autocomplete="off">
-                                        <small class="text-white-50">% = (Present + Partial) ÷ this number. Type 10 then click <strong>Generate Report</strong>.</small>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <label class="form-label text-white">&nbsp;</label>
-                                        <button type="submit" class="btn btn-light w-100">
-                                            <i class="fas fa-filter"></i> Generate Report
-                                        </button>
+                                    <div class="col-12">
+                                        <div class="alert alert-light py-2 mb-0 small">
+                                            <?php if ($classes_held > 0): ?>
+                                                <strong>Total classes held:</strong> <?php echo (int) $classes_held; ?>
+                                                (from session)
+                                                · Attendance % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?>
+                                            <?php else: ?>
+                                                <strong>Total classes held</strong> is not set for this filter.
+                                                Create or edit the session on
+                                                <a href="<?php echo htmlspecialchars($sessionSetupUrl); ?>">Fingerprint Attendance</a>
+                                                and enter Total classes held. Attendance % will then calculate automatically.
+                                            <?php endif; ?>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -585,7 +713,7 @@ $active_theme = loadActiveTheme($conn);
                         <p class="mb-0">Total Students</p>
                     </div>
                     <div class="col-md-3">
-                        <h3><?php echo round($avg_attendance, 1); ?>%</h3>
+                        <h3><?php echo $classes_held > 0 ? round($avg_attendance, 1) . '%' : '—'; ?></h3>
                         <p class="mb-0">Average Attendance</p>
                     </div>
                     <div class="col-md-3">
@@ -593,7 +721,7 @@ $active_theme = loadActiveTheme($conn);
                         <p class="mb-0">Total Hours</p>
                     </div>
                     <div class="col-md-3">
-                        <h3><?php echo $excellent_count; ?></h3>
+                        <h3><?php echo $classes_held > 0 ? $excellent_count : '—'; ?></h3>
                         <p class="mb-0">Excellent (90%+)</p>
                     </div>
                 </div>
@@ -612,7 +740,9 @@ $active_theme = loadActiveTheme($conn);
                                 <small class="ms-2 text-muted"><?php echo htmlspecialchars($centre_label); ?></small>
                             <?php endif; ?>
                             <?php if ($classes_held > 0): ?>
-                                <small class="ms-2 text-muted">· % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?> classes held</small>
+                                <small class="ms-2 text-muted">· Classes held <?php echo (int) $classes_held; ?> · % = (Present + Partial) ÷ <?php echo (int) $classes_held; ?></small>
+                            <?php else: ?>
+                                <small class="ms-2 text-muted">· Set Total classes held on the session to calculate Attendance %</small>
                             <?php endif; ?>
                         </h5>
                         <div>
@@ -635,7 +765,7 @@ $active_theme = loadActiveTheme($conn);
                                             <th>Student Name</th>
                                             <th>Student ID</th>
                                             <th>Course</th>
-                                            <th><?php echo $classes_held > 0 ? 'Classes held' : 'Total Days'; ?></th>
+                                            <th>Classes held</th>
                                             <th>Present</th>
                                             <th>Partial</th>
                                             <th>Absent</th>
@@ -671,18 +801,26 @@ $active_theme = loadActiveTheme($conn);
                                                 <td><strong><?php echo htmlspecialchars($record['student_name']); ?></strong></td>
                                                 <td><code><?php echo htmlspecialchars($record['student_id']); ?></code></td>
                                                 <td><?php echo htmlspecialchars($record['course_name'] ?? 'N/A'); ?></td>
-                                                <td><?php echo $record['total_days']; ?></td>
+                                                <td><?php echo $classes_held > 0 ? (int) $classes_held : '—'; ?></td>
                                                 <td><span class="badge bg-success"><?php echo $record['present_days']; ?></span></td>
                                                 <td><span class="badge bg-warning"><?php echo $record['partial_days']; ?></span></td>
                                                 <td><span class="badge bg-danger"><?php echo $record['absent_days']; ?></span></td>
                                                 <td><?php echo $record['total_hours']; ?>h</td>
                                                 <td>
+                                                    <?php if ($classes_held > 0): ?>
                                                     <span class="attendance-percentage <?php echo $grade_class; ?>">
                                                         <?php echo $percentage; ?>%
                                                     </span>
+                                                    <?php else: ?>
+                                                    <span class="text-muted">—</span>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
+                                                    <?php if ($classes_held > 0): ?>
                                                     <span class="badge bg-primary"><?php echo $grade; ?></span>
+                                                    <?php else: ?>
+                                                    <span class="text-muted">—</span>
+                                                    <?php endif; ?>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -705,6 +843,80 @@ $active_theme = loadActiveTheme($conn);
                 </div>
             </div>
         </div>
+
+        <?php if ($report_type === 'monthly' && is_array($monthlyGrid)): ?>
+        <?php
+            $daysInMonth = (int) ($monthlyGrid['days'] ?? 0);
+            $gridRows = $monthlyGrid['rows'] ?? [];
+        ?>
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-clock"></i> Day-wise IN / OUT (QR + fingerprint)</h5>
+                        <small class="text-muted">Same totals as above. IN and OUT come from every valid punch this month.</small>
+                    </div>
+                    <div class="card-body">
+                        <?php if ($gridRows === [] || $daysInMonth < 1): ?>
+                            <p class="text-muted mb-0">No IN/OUT punches in this month for the selected filters. Mark attendance with QR or fingerprint, or pick a course/section to list all enrolled students.</p>
+                        <?php else: ?>
+                            <div class="att-wrap">
+                                <table class="att-matrix">
+                                    <thead>
+                                        <tr>
+                                            <th rowspan="2">Centre</th>
+                                            <th rowspan="2">Batch</th>
+                                            <th class="col-id" rowspan="2">Student ID</th>
+                                            <th class="col-name" rowspan="2">Name</th>
+                                            <th rowspan="2">Present</th>
+                                            <th rowspan="2">Partial</th>
+                                            <th rowspan="2">Held</th>
+                                            <th rowspan="2">Att %</th>
+                                            <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                                <th colspan="2"><?php echo $d; ?></th>
+                                            <?php endfor; ?>
+                                        </tr>
+                                        <tr>
+                                            <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                                <th class="col-io is-in">IN</th>
+                                                <th class="col-io is-out">OUT</th>
+                                            <?php endfor; ?>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($gridRows as $grow): ?>
+                                        <?php
+                                            $present = (int) ($grow['present_days'] ?? 0);
+                                            $partial = (int) ($grow['partial_days'] ?? 0);
+                                            $attended = $present + $partial;
+                                            $pct = $classes_held > 0 ? round(($attended / $classes_held) * 100, 1) : 0;
+                                            $daysMap = is_array($grow['days'] ?? null) ? $grow['days'] : [];
+                                        ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars((string) ($grow['centre'] ?? '—')); ?></td>
+                                            <td><?php echo htmlspecialchars((string) ($grow['batch'] ?? '—')); ?></td>
+                                            <td class="col-id"><code><?php echo htmlspecialchars((string) ($grow['student_id'] ?? '')); ?></code></td>
+                                            <td class="col-name"><?php echo htmlspecialchars((string) ($grow['name'] ?? '')); ?></td>
+                                            <td><?php echo $present; ?></td>
+                                            <td><?php echo $partial; ?></td>
+                                            <td><?php echo $classes_held > 0 ? (int) $classes_held : '—'; ?></td>
+                                            <td><?php echo $classes_held > 0 ? min(100, $pct) . '%' : '—'; ?></td>
+                                            <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                                <?php $io = attendanceCellInOutTimes(is_array($daysMap[$d] ?? null) ? $daysMap[$d] : []); ?>
+                                                <td class="col-io is-in"><?php echo $io['in'] !== [] ? implode('<br>', array_map('htmlspecialchars', $io['in'])) : ''; ?></td>
+                                                <td class="col-io is-out"><?php echo $io['out'] !== [] ? implode('<br>', array_map('htmlspecialchars', $io['out'])) : ''; ?></td>
+                                            <?php endfor; ?>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
             </div>
         </div>
     </div>
@@ -713,7 +925,21 @@ $active_theme = loadActiveTheme($conn);
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Handle report type switching
+        function submitReportFilters() {
+            const filterForm = document.getElementById('filterForm');
+            if (!filterForm) {
+                return;
+            }
+            document.querySelectorAll('#filterForm .filter-group').forEach(function (group) {
+                const hidden = group.style.display === 'none';
+                group.querySelectorAll('select, input').forEach(function (el) {
+                    el.disabled = hidden;
+                });
+            });
+            filterForm.submit();
+        }
+
+        // Handle report type switching — reload the report immediately
         document.querySelectorAll('input[name="report_type"]').forEach(radio => {
             radio.addEventListener('change', function() {
                 const reportType = this.value;
@@ -731,6 +957,7 @@ $active_theme = loadActiveTheme($conn);
                 if (filterGroup) {
                     filterGroup.style.display = 'block';
                 }
+                submitReportFilters();
             });
         });
         
@@ -794,14 +1021,6 @@ $active_theme = loadActiveTheme($conn);
             if (currentFilterGroup) {
                 currentFilterGroup.style.display = 'block';
             }
-            const reportCentre = document.getElementById('reportCentre');
-            const reportCourse = document.getElementById('reportCourse');
-            if (reportCentre) {
-                reportCentre.addEventListener('change', filterReportCourses);
-            }
-            if (reportCourse) {
-                reportCourse.addEventListener('change', filterReportBatches);
-            }
             filterReportCourses();
             const filterForm = document.getElementById('filterForm');
             if (filterForm) {
@@ -811,6 +1030,16 @@ $active_theme = loadActiveTheme($conn);
                         group.querySelectorAll('select, input').forEach(function (el) {
                             el.disabled = hidden;
                         });
+                    });
+                });
+                filterForm.querySelectorAll('select, input[type="date"]').forEach(function (el) {
+                    el.addEventListener('change', function () {
+                        if (el.id === 'reportCentre') {
+                            filterReportCourses();
+                        } else if (el.id === 'reportCourse') {
+                            filterReportBatches();
+                        }
+                        submitReportFilters();
                     });
                 });
             }
