@@ -20,7 +20,7 @@ if (!class_exists('RecruitmentApplicationFormPdf')) {
 
         public function Footer()
         {
-            $this->SetY(-14);
+            $this->SetY(-18);
             $this->SetFont('helvetica', '', 7);
             $this->SetTextColor(90, 90, 90);
             $this->Cell(93, 5, 'NIELIT Bhubaneswar — FORM OF APPLICATION', 0, 0, 'L');
@@ -66,6 +66,23 @@ if (!function_exists('recruitmentFormPdfCell')) {
             $pdf->SetFont('helvetica', '', $size);
         }
         $pdf->Cell($w, $h, $txt, 1, $ln, 'L');
+    }
+}
+
+if (!function_exists('recruitmentFormPdfFitImage')) {
+    function recruitmentFormPdfFitImage(TCPDF $pdf, string $file, float $x, float $y, float $boxW, float $boxH): void
+    {
+        $info = @getimagesize($file);
+        $iw = ($info && !empty($info[0])) ? (float) $info[0] : 0.0;
+        $ih = ($info && !empty($info[1])) ? (float) $info[1] : 0.0;
+        if ($iw <= 0 || $ih <= 0) {
+            $pdf->Image($file, $x, $y, $boxW, 0, '', '', '', true, 150);
+            return;
+        }
+        $scale = min($boxW / $iw, $boxH / $ih);
+        $dw = $iw * $scale;
+        $dh = $ih * $scale;
+        $pdf->Image($file, $x + (($boxW - $dw) / 2), $y + (($boxH - $dh) / 2), $dw, $dh, '', '', '', true, 150);
     }
 }
 
@@ -141,8 +158,8 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->setPrintFooter(true);
         $pdf->SetMargins(12, 12, 12);
         $pdf->SetHeaderMargin(0);
-        $pdf->SetFooterMargin(12);
-        $pdf->SetAutoPageBreak(false, 16);
+        $pdf->SetFooterMargin(18);
+        $pdf->SetAutoPageBreak(false, 20);
         $pdf->AddPage();
 
         $h = 8.2;
@@ -201,23 +218,7 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->Rect($photoX, $photoY, $photoW, $photoH);
         $photoFile = recruitmentFormPdfFile((string) ($app['photo_path'] ?? ''));
         if ($photoFile !== '') {
-            $pdf->Image(
-                $photoFile,
-                $photoX + 0.6,
-                $photoY + 0.6,
-                $photoW - 1.2,
-                $photoH - 1.2,
-                '',
-                '',
-                '',
-                true,
-                150,
-                '',
-                false,
-                false,
-                0,
-                'CM'
-            );
+            recruitmentFormPdfFitImage($pdf, $photoFile, $photoX + 0.6, $photoY + 0.6, $photoW - 1.2, $photoH - 1.2);
         } else {
             $pdf->SetXY($photoX, $photoY + 12);
             $pdf->SetFont('helvetica', '', 6.5);
@@ -257,10 +258,12 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         recruitmentFormPdfCell($pdf, 'Middle', $middle, $nameThird, $h, 0, 8.5);
         recruitmentFormPdfCell($pdf, 'Last', $last, $leftW - (2 * $nameThird), $h, 1, 8.5);
 
-        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $leftW, $h);
-        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $leftW, $h);
+        $pdf->SetY(max($pdf->GetY(), $photoY + $photoH + 1.6));
 
-        $pdf->SetY(max($pdf->GetY(), $photoY + $photoH + 2.0));
+        $father = strtoupper(recruitmentFormPdfText($app['father_name'] ?? ''));
+        $mother = strtoupper(recruitmentFormPdfText($app['mother_name'] ?? ''));
+        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", $father, $w, $h);
+        recruitmentFormPdfCell($pdf, "Mother's name", $mother, $w, $h);
 
         $dob = recruitmentFormPdfText($app['dob'] ?? '');
         if ($dob !== '' && function_exists('recruitmentFormatDate')) {
@@ -330,15 +333,21 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         recruitmentFormPdfBox($pdf, $perm, $w, 12.5);
         recruitmentFormPdfCell($pdf, 'Permanent PIN', recruitmentFormPdfText($app['permanent_pincode'] ?? ''), $w, $h);
 
-        $page1Bottom = 277.5;
-        $eduHeaderH = 8.4;
-        $tableHeadH = 8.4;
+        $page1Bottom = 270.0;
+        $eduHeaderH = 8.0;
+        $tableHeadH = 7.6;
         $needEdu = 4;
-        $gap = 1.6;
+        $gap = 1.4;
         $remain = $page1Bottom - $pdf->GetY() - $gap - $eduHeaderH - $tableHeadH;
-        $eduRowH = $remain / $needEdu;
-        if ($eduRowH < 8.0) {
-            $eduRowH = 8.0;
+        while ($needEdu > 2 && $remain / $needEdu < 6.4) {
+            $needEdu--;
+        }
+        $eduRowH = $remain / max(1, $needEdu);
+        if ($eduRowH > 9.5) {
+            $eduRowH = 9.5;
+        }
+        if ($eduRowH < 5.8) {
+            $eduRowH = max(5.4, $remain / max(1, $needEdu));
         }
 
         $pdf->Ln($gap);
