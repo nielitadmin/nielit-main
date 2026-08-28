@@ -101,7 +101,8 @@ function recVal(array $row, string $key): string
                     </div>
                 </div>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-primary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?id=' . (int) $app['id']); ?>">Print / PDF form</a>
                 <?php if (!empty($app['resume_path'])): ?>
                     <a class="btn btn-outline-primary" target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['resume_path'])); ?>">Resume</a>
                 <?php endif; ?>

@@ -10,14 +10,6 @@ if (!function_exists('recruitmentCanAccess')) {
         if ($role === 'master_admin') {
             return true;
         }
-        if (in_array($role, [
-            'course_coordinator',
-            'front_office_desk',
-            'placement_coordinator',
-            'data_entry_operator',
-        ], true)) {
-            return true;
-        }
         return recruitmentGrantedLevel($conn) !== '';
     }
 }
@@ -38,7 +30,7 @@ if (!function_exists('recruitmentRequireAccess')) {
             }
         }
         if (!recruitmentCanAccess(null, $conn)) {
-            $_SESSION['message'] = 'Access denied. Recruitment is not available for your role. Ask a Master Admin to grant it.';
+            $_SESSION['message'] = 'Access denied. Recruitment is closed unless a Master Admin grants you access.';
             $_SESSION['message_type'] = 'danger';
             $dash = function_exists('app_url') ? app_url('admin/dashboard') : 'dashboard.php';
             header('Location: ' . $dash);
@@ -52,9 +44,6 @@ if (!function_exists('recruitmentCanEdit')) {
     {
         $role = $role ?? (string) ($_SESSION['admin_role'] ?? '');
         if ($role === 'master_admin') {
-            return true;
-        }
-        if (in_array($role, ['course_coordinator', 'placement_coordinator'], true)) {
             return true;
         }
         return recruitmentGrantedLevel($conn) === 'edit';
@@ -298,6 +287,7 @@ if (!function_exists('recruitmentDefaultInstructions')) {
     function recruitmentDefaultInstructions(): string
     {
         return "Fill this online application form completely in CAPITAL letters where asked.\n"
+            . "You may also download the printable application form from the recruitment page and use it for any post.\n"
             . "Upload a recent passport photograph and the documents listed below (self-attested scanned copies).\n"
             . "Name and Date of Birth must match Class X / Aadhaar.\n"
             . "Submit only one application for this post. Incomplete applications will be rejected.\n\n"
@@ -1051,6 +1041,85 @@ if (!function_exists('recruitmentGetApplication')) {
     }
 }
 
+if (!function_exists('recruitmentGetApplicationByNo')) {
+    function recruitmentGetApplicationByNo($conn, string $applicationNo): ?array
+    {
+        $applicationNo = trim($applicationNo);
+        if ($applicationNo === '') {
+            return null;
+        }
+        ensureRecruitmentTables($conn);
+        $stmt = $conn->prepare(
+            'SELECT a.*, j.title AS job_title, j.advt_no, j.post_type, j.location AS job_location,
+                    j.eligibility, j.last_date
+             FROM recruitment_applications a
+             LEFT JOIN recruitment_jobs j ON j.id = a.job_id
+             WHERE a.application_no = ? LIMIT 1'
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $applicationNo);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('recruitmentApplicationFormToken')) {
+    function recruitmentApplicationFormToken(string $applicationNo, string $email): string
+    {
+        $key = hash('sha256', (defined('SMTP_USERNAME') ? SMTP_USERNAME : 'nielit') . '|rec-form|' . (defined('APP_URL') ? APP_URL : ''));
+        return hash_hmac('sha256', strtolower(trim($applicationNo)) . '|' . strtolower(trim($email)), $key);
+    }
+}
+
+if (!function_exists('recruitmentApplicationFormTokenValid')) {
+    function recruitmentApplicationFormTokenValid(string $applicationNo, string $email, string $token): bool
+    {
+        if ($token === '' || $applicationNo === '' || $email === '') {
+            return false;
+        }
+        return hash_equals(recruitmentApplicationFormToken($applicationNo, $email), $token);
+    }
+}
+
+if (!function_exists('recruitmentApplicationFormUrl')) {
+    /**
+     * Public URL for the blank form, a job-prefilled blank form, or a filled application PDF.
+     *
+     * @param array<string,mixed>|null $app
+     */
+    function recruitmentApplicationFormUrl(?array $app = null, bool $blank = false, int $jobId = 0): string
+    {
+        if (!function_exists('app_url')) {
+            $uh = __DIR__ . '/url_helper.php';
+            if (is_file($uh)) {
+                require_once $uh;
+            }
+        }
+        $base = function_exists('app_url') ? app_url('public/recruitment_form') : (defined('APP_URL') ? rtrim(APP_URL, '/') . '/public/recruitment_form.php' : '/public/recruitment_form.php');
+        if ($blank || $app === null) {
+            $q = ['blank' => '1'];
+            if ($jobId > 0) {
+                $q['job'] = (string) $jobId;
+            }
+            return $base . '?' . http_build_query($q);
+        }
+        $no = trim((string) ($app['application_no'] ?? ''));
+        $email = trim((string) ($app['email'] ?? ''));
+        if ($no === '') {
+            return $base . '?blank=1';
+        }
+        $q = ['no' => $no, 't' => recruitmentApplicationFormToken($no, $email)];
+        if ($email !== '') {
+            $q['email'] = $email;
+        }
+        return $base . '?' . http_build_query($q);
+    }
+}
+
 if (!function_exists('recruitmentUpdateApplicationStatus')) {
     function recruitmentUpdateApplicationStatus($conn, int $id, string $status, string $remarks, bool $notify = true): array
     {
@@ -1302,16 +1371,19 @@ if (!function_exists('recruitmentSendThankYouEmail')) {
         $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
         $advtLine = $advt !== '' ? '<p>Advertisement no.: <strong>' . htmlspecialchars($advt, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
         $lastLine = ($last !== '' && $last !== '—') ? '<p>Last date of application: <strong>' . htmlspecialchars($last, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
+        $formUrl = htmlspecialchars(recruitmentApplicationFormUrl($app), ENT_QUOTES, 'UTF-8');
         $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
             . '<p>Thank you for applying for <strong>' . $post . '</strong> at NIELIT Bhubaneswar.</p>'
             . '<p>Your application has been received. Please save your application number:</p>'
             . '<p style="background:#e8f0fe;border-left:4px solid #1a56db;padding:12px 16px;font-size:18px;font-weight:700;">' . $no . '</p>'
             . $advtLine . $lastLine
+            . '<p><a href="' . $formUrl . '" style="display:inline-block;background:#1a56db;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Download / print your application form</a></p>'
             . '<p>We will review your application and contact you by email if you are shortlisted, selected, or if we need more information.</p>'
             . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
         $text = "Dear {$name},\n\nThank you for applying for " . strip_tags($post)
             . " at NIELIT Bhubaneswar.\nYour application number is " . strip_tags($no)
-            . ".\n\nWe will contact you by email regarding the next steps.\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+            . ".\nDownload / print your application form: " . recruitmentApplicationFormUrl($app)
+            . "\n\nWe will contact you by email regarding the next steps.\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         return recruitmentSendMail(
             $email,
             $name,

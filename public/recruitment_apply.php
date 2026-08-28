@@ -17,6 +17,7 @@ $jobId = (int) ($_GET['job'] ?? ($_POST['job_id'] ?? 0));
 $job = recruitmentGetJob($conn, $jobId);
 $error = '';
 $successNo = '';
+$successEmail = '';
 $emailSent = false;
 
 if (!$job || !recruitmentJobIsAccepting($job)) {
@@ -84,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $accepting) {
             ]));
             if (!empty($result['success'])) {
                 $successNo = (string) ($result['application_no'] ?? '');
+                $successEmail = strtolower(trim((string) ($_POST['email'] ?? '')));
                 $emailSent = !empty($result['email_sent']);
             } else {
                 $error = $result['message'] ?? 'Could not submit the application.';
@@ -262,7 +264,12 @@ if ($error !== '') {
     </section>
     <section class="pb-5">
         <div class="container rec-wrap">
-            <a class="btn btn-outline-primary btn-sm mb-4" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">&larr; All openings</a>
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <a class="btn btn-outline-primary btn-sm" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">&larr; All openings</a>
+                <?php if ($job): ?>
+                    <a class="btn btn-outline-secondary btn-sm" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true, (int) $job['id'])); ?>">Download blank form for this post (PDF)</a>
+                <?php endif; ?>
+            </div>
 
             <?php if ($successNo !== ''): ?>
                 <div class="rec-success">
@@ -271,9 +278,16 @@ if ($error !== '') {
                     <p class="text-muted mb-2">Please save your application number for future reference.</p>
                     <div class="fs-4 fw-semibold mb-3"><?php echo htmlspecialchars($successNo); ?></div>
                     <p class="text-muted"><?php echo $emailSent
-                        ? 'A thank-you email will be sent shortly to the address you entered.'
+                        ? 'A thank-you email will be sent shortly to the address you entered. It includes a link to download this form.'
                         : 'Please save this number. If you do not receive a confirmation email, check spam or contact the centre.'; ?></p>
-                    <a class="btn btn-primary" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Back to openings</a>
+                    <?php
+                    $filledFormUrl = recruitmentApplicationFormUrl([
+                        'application_no' => $successNo,
+                        'email' => $successEmail,
+                    ]);
+                    ?>
+                    <a class="btn btn-primary" href="<?php echo htmlspecialchars($filledFormUrl); ?>" target="_blank">Download / print application form</a>
+                    <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Back to openings</a>
                 </div>
             <?php elseif (!$job): ?>
                 <div class="alert alert-warning">This job opening was not found. Please choose an open job from the recruitment page.</div>

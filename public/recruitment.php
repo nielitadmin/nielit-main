@@ -75,6 +75,16 @@ emitPublicThemeHead($conn);
     </section>
     <section class="py-5">
         <div class="container">
+            <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+                <div>
+                    <strong>Application form</strong>
+                    <div class="small text-muted mb-0">One printable form for every post — use it online, at a walk-in, or offline.</div>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-primary btn-sm" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true)); ?>">Download blank form (PDF)</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars(app_url('public/recruitment_form')); ?>">Download a filled form</a>
+                </div>
+            </div>
             <?php if (empty($jobs)): ?>
                 <div class="alert alert-info">No job openings are accepting applications right now. Please check back later.</div>
             <?php else: ?>
@@ -98,6 +108,7 @@ emitPublicThemeHead($conn);
                                     <a class="btn btn-primary mt-2" href="<?php echo htmlspecialchars(app_url('public/recruitment_apply') . '?job=' . (int) $job['id']); ?>">
                                         View &amp; apply
                                     </a>
+                                    <a class="btn btn-link btn-sm px-0 mt-1" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true, (int) $job['id'])); ?>">Blank form for this post</a>
                                 </div>
                             </div>
                         </div>

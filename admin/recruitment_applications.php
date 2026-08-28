@@ -114,6 +114,7 @@ $page_title = 'Recruitment applications';
                             </td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id']); ?>">View details</a>
+                                <a class="btn btn-sm btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?id=' . (int) $row['id']); ?>">PDF</a>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>

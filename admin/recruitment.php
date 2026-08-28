@@ -124,6 +124,7 @@ $page_title = 'Recruitment';
             </div>
             <div class="d-flex gap-2">
                 <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_applications')); ?>">Applications</a>
+                <a class="btn btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?blank=1'); ?>">Blank form PDF</a>
                 <a class="btn btn-outline-primary" target="_blank" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Public portal</a>
                 <?php if ($canEdit && !$showForm): ?>
                     <a class="btn btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment') . '?new=1'); ?>"><i class="fas fa-plus"></i> New job opening</a>
@@ -296,6 +297,7 @@ $page_title = 'Recruitment';
                             <td><?php echo (int) ($row['application_count'] ?? 0); ?></td>
                             <td class="text-end">
                                 <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_applications') . '?job_id=' . (int) $row['id']); ?>">Applications</a>
+                                <a class="btn btn-sm btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?job=' . (int) $row['id']); ?>">Form PDF</a>
                                 <?php if ($canEdit): ?>
                                     <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment') . '?edit=' . (int) $row['id']); ?>">Edit</a>
                                     <form method="post" class="d-inline" onsubmit="return confirm('Delete this job and all its applications?');">

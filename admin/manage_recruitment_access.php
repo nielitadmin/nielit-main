@@ -86,7 +86,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-user-shield"></i> Grant Recruitment Access</h4>
-                <small>Share job openings, applications, and shortlist / reject emails with other staff</small>
+                <small>Only Master Admin can open recruitment for other staff. Nobody else has access by default.</small>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -105,9 +105,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                 </div>
                 <div style="padding:1rem 1.25rem;">
                     <p class="att-muted mb-3">
-                        <strong>View</strong> lets them open Job Openings and Applications.
-                        <strong>Manage</strong> also lets them create jobs and shortlist / reject candidates (emails go out automatically).
-                        Course Coordinators and Placement Coordinators already have manage access by role.
+                        By default nobody except Master Admin can open Job Openings or Applications.
+                        Grant <strong>View</strong> to let them see jobs and applications, or <strong>Manage</strong> to also create jobs and shortlist / reject candidates.
                     </p>
                     <div class="table-responsive">
                         <table class="table table-hover att-grant-table">
@@ -126,9 +125,6 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     <?php foreach ($candidates as $c): ?>
                                         <?php
                                         $role = (string) ($c['role'] ?? '');
-                                        $byRole = in_array($role, ['course_coordinator', 'placement_coordinator'], true)
-                                            ? 'manage'
-                                            : (in_array($role, ['front_office_desk', 'data_entry_operator'], true) ? 'view' : '');
                                         $grantLevel = (string) ($c['grant_level'] ?? '');
                                         ?>
                                         <tr>
@@ -138,20 +134,16 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                                 <?php if ($grantLevel === 'edit'): ?>
                                                     <span class="badge bg-success">Granted: Manage</span>
                                                 <?php elseif ($grantLevel === 'view'): ?>
-                                                    <span class="badge bg-success">Granted: View</span>
-                                                <?php elseif ($byRole === 'manage'): ?>
-                                                    <span class="badge bg-light text-dark">By role: Manage</span>
-                                                <?php elseif ($byRole === 'view'): ?>
-                                                    <span class="badge bg-light text-dark">By role: View</span>
+                                                    <span class="badge bg-info text-dark">Granted: View</span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-secondary">Not granted</span>
+                                                    <span class="badge bg-secondary">No access</span>
                                                 <?php endif; ?>
                                                 <?php if ($grantLevel !== ''): ?>
                                                     <form method="post" style="display:inline;margin-left:8px;">
                                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
                                                         <input type="hidden" name="action" value="revoke">
                                                         <input type="hidden" name="admin_id" value="<?php echo (int) $c['id']; ?>">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke extra grant</button>
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
                                                     </form>
                                                 <?php endif; ?>
                                             </td>
