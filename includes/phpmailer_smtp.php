@@ -11,6 +11,30 @@ require_once __DIR__ . '/../libraries/PHPMailer/src/SMTP.php';
 require_once __DIR__ . '/../config/email.php';
 require_once __DIR__ . '/mail_logger.php';
 
+if (!function_exists('nielitSmtpMailbox')) {
+    /**
+     * Mailbox used for SMTP login and From. Maps the old noreplay@ typo
+     * to noreply@ so live config that was not updated still authenticates.
+     */
+    function nielitSmtpMailbox(): string
+    {
+        $canonical = 'noreply@nielitbhubaneswar.in';
+        $legacy = 'noreplay@nielitbhubaneswar.in';
+        $user = defined('SMTP_USERNAME') ? strtolower(trim((string) SMTP_USERNAME)) : '';
+        $from = defined('SMTP_FROM_EMAIL') ? strtolower(trim((string) SMTP_FROM_EMAIL)) : '';
+        if ($user === '' || $user === $legacy || $from === $legacy) {
+            return $canonical;
+        }
+        if ($from !== '' && strpos($from, '@') !== false) {
+            return trim((string) SMTP_FROM_EMAIL);
+        }
+        if ($user !== '' && strpos($user, '@') !== false) {
+            return trim((string) SMTP_USERNAME);
+        }
+        return $canonical;
+    }
+}
+
 if (!function_exists('isLikelyHostingerSharedHosting')) {
     function isLikelyHostingerSharedHosting(): bool
     {
@@ -60,7 +84,7 @@ if (!function_exists('configurePhpMailerSmtp')) {
         $mail->SMTPAuth = array_key_exists('auth', $options)
             ? (bool) $options['auth']
             : true;
-        $mail->Username = defined('SMTP_USERNAME') ? SMTP_USERNAME : '';
+        $mail->Username = nielitSmtpMailbox();
         $mail->Password = defined('SMTP_PASSWORD') ? SMTP_PASSWORD : '';
         $mail->SMTPSecure = $secure;
         $mail->Port = $port;
@@ -78,22 +102,22 @@ if (!function_exists('applyPhpMailerIdentity')) {
      */
     function applyPhpMailerIdentity(PHPMailer $mail): void
     {
-        $fromEmail = defined('SMTP_FROM_EMAIL') ? trim((string) SMTP_FROM_EMAIL) : '';
+        $fromEmail = nielitSmtpMailbox();
         $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
-        $currentFrom = strtolower(trim((string) $mail->From));
         if ($fromEmail !== '' && strpos($fromEmail, '@') !== false) {
-            if ($currentFrom === '' || $currentFrom === 'root@localhost') {
-                $mail->setFrom($fromEmail, $fromName, false);
-            }
-            if (trim((string) $mail->Sender) === '') {
-                $mail->Sender = $fromEmail;
-            }
+            $mail->setFrom($fromEmail, $fromName, true);
+            $mail->Sender = $fromEmail;
             $domain = strtolower(substr(strrchr($fromEmail, '@'), 1));
             if ($domain !== '') {
                 $mail->Hostname = $domain;
             }
+            $mail->XMailer = 'NIELIT Bhubaneswar';
         }
-        if ($fromEmail !== '' && method_exists($mail, 'addReplyTo') && empty($mail->getReplyToAddresses())) {
+        if ($fromEmail !== '' && method_exists($mail, 'addReplyTo')) {
+            try {
+                $mail->clearReplyTos();
+            } catch (Throwable $e) {
+            }
             $mail->addReplyTo($fromEmail, $fromName);
         }
     }
@@ -179,9 +203,12 @@ if (!function_exists('phpMailerSmtpProfiles')) {
             ];
         }
 
-        // Shared hosting: local SMTP is fast but Gmail often never receives it
-        // (accepted by the server, then dropped). Prefer smtp.hostinger.com for OTP.
-        $preferRemote = !empty($options['prefer_remote']);
+        // Authenticated smtp.hostinger.com first so Hostinger can DKIM-sign as
+        // noreply@nielitbhubaneswar.in. Unauthenticated php mail() shows
+        // "via srvXXXX.main-hosting.eu" and Gmail often files it as spam.
+        $preferRemote = array_key_exists('prefer_remote', $options)
+            ? !empty($options['prefer_remote'])
+            : true;
         if ($preferRemote) {
             $profiles = array_merge($remoteProfiles, $localAuthProfiles, $localUnauthProfiles);
         } elseif (isLikelyHostingerSharedHosting()) {
@@ -210,7 +237,9 @@ if (!function_exists('sendPhpMailerWithSmtpFallback')) {
         $timeout = (int) ($options['timeout'] ?? 12);
         $errors = [];
 
-        $skipUnauth = !empty($options['authenticated_only']);
+        $skipUnauth = array_key_exists('authenticated_only', $options)
+            ? !empty($options['authenticated_only'])
+            : true;
         foreach (phpMailerSmtpProfiles($options) as $profile) {
             $isUnauth = (($profile['transport'] ?? 'smtp') === 'mail')
                 || (array_key_exists('auth', $profile) && $profile['auth'] === false);

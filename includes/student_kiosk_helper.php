@@ -718,7 +718,9 @@ if (!function_exists('studentKioskSendOtp')) {
             return ['success' => false, 'message' => 'Could not send OTP email. Mailer is not available.'];
         }
 
-        $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreplay@nielitbhubaneswar.in';
+        $fromEmail = function_exists('nielitSmtpMailbox')
+            ? nielitSmtpMailbox()
+            : (defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'noreply@nielitbhubaneswar.in');
         $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
         $okEmails = [];
         $errors = [];

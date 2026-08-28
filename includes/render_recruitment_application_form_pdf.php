@@ -1,272 +1,429 @@
 <?php
 /**
- * Printable NIELIT FORM OF APPLICATION (blank or filled) for any recruitment post.
+ * Official-style 2-page NIELIT FORM OF APPLICATION (blank or filled).
  */
 require_once __DIR__ . '/institute_branding.php';
 require_once __DIR__ . '/../libraries/tcpdf/tcpdf.php';
+
+if (!class_exists('RecruitmentApplicationFormPdf')) {
+    class RecruitmentApplicationFormPdf extends TCPDF
+    {
+        public function Header()
+        {
+            $this->SetDrawColor(40, 40, 40);
+            $this->SetLineWidth(0.55);
+            $this->Rect(8, 8, 194, 281, 'D');
+            $this->SetLineWidth(0.2);
+            $this->Rect(9.2, 9.2, 191.6, 278.6, 'D');
+        }
+
+        public function Footer()
+        {
+            $this->SetY(-14);
+            $this->SetFont('helvetica', '', 7);
+            $this->SetTextColor(90, 90, 90);
+            $this->Cell(93, 5, 'NIELIT Bhubaneswar — FORM OF APPLICATION', 0, 0, 'L');
+            $this->Cell(93, 5, 'Page ' . $this->getAliasNumPage() . ' of ' . $this->getAliasNbPages(), 0, 0, 'R');
+            $this->SetTextColor(0, 0, 0);
+        }
+    }
+}
 
 if (!function_exists('recruitmentFormPdfText')) {
     function recruitmentFormPdfText($value): string
     {
         $value = trim((string) $value);
-        if ($value === '' || $value === '—') {
+        return ($value === '' || $value === '—') ? '' : $value;
+    }
+}
+
+if (!function_exists('recruitmentFormPdfFile')) {
+    function recruitmentFormPdfFile(string $rel): string
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+        if ($rel === '' || strpos($rel, '..') !== false) {
             return '';
         }
-        return $value;
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        return (is_file($path) && @getimagesize($path)) ? $path : '';
     }
 }
 
 if (!function_exists('recruitmentFormPdfCell')) {
-    function recruitmentFormPdfCell(TCPDF $pdf, string $label, string $value, float $w, float $h = 7.2, int $ln = 1): void
+    function recruitmentFormPdfCell(TCPDF $pdf, string $label, string $value, float $w, float $h = 6.6, int $ln = 1): void
     {
-        $txt = $label . ': ' . ($value !== '' ? $value : '');
         $pdf->SetFont('helvetica', '', 8);
-        $pdf->Cell($w, $h, '  ' . $txt, 1, $ln, 'L');
+        $txt = '  ' . $label;
+        if ($value !== '') {
+            $txt .= ':  ' . $value;
+        } else {
+            $txt .= ':';
+        }
+        $pdf->Cell($w, $h, $txt, 1, $ln, 'L');
+    }
+}
+
+if (!function_exists('recruitmentFormPdfOptions')) {
+    /**
+     * @param list<string> $options
+     */
+    function recruitmentFormPdfOptions(TCPDF $pdf, string $label, array $options, string $selected, float $w, float $h = 6.6): void
+    {
+        $selected = trim($selected);
+        $bits = [];
+        foreach ($options as $opt) {
+            $mark = (strcasecmp($selected, $opt) === 0) ? '[X]' : '[ ]';
+            $bits[] = $mark . ' ' . $opt;
+        }
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell($w, $h, '  ' . $label . ':   ' . implode('    ', $bits), 1, 1, 'L');
+    }
+}
+
+if (!function_exists('recruitmentFormPdfTable')) {
+    /**
+     * @param list<string> $headers
+     * @param list<float> $widths
+     * @param list<list<string>> $rows
+     */
+    function recruitmentFormPdfTable(TCPDF $pdf, array $headers, array $widths, array $rows, float $rowH = 7.2): void
+    {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->SetFillColor(232, 240, 254);
+        foreach ($headers as $i => $h) {
+            $ln = ($i === count($headers) - 1) ? 1 : 0;
+            $pdf->Cell($widths[$i], 6.2, ' ' . $h, 1, $ln, 'C', true);
+        }
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->SetFillColor(255, 255, 255);
+        foreach ($rows as $row) {
+            foreach ($widths as $i => $w) {
+                $ln = ($i === count($widths) - 1) ? 1 : 0;
+                $pdf->Cell($w, $rowH, ' ' . ($row[$i] ?? ''), 1, $ln, 'L');
+            }
+        }
     }
 }
 
 if (!function_exists('outputRecruitmentApplicationFormPdf')) {
     /**
+     * Always two A4 pages, matching the official NIELIT FORM OF APPLICATION.
+     *
      * @param array<string,mixed>|null $app
      */
     function outputRecruitmentApplicationFormPdf(?array $app = null, string $dest = 'I'): string
     {
         $app = $app ?? [];
         $filled = trim((string) ($app['application_no'] ?? '')) !== '';
-        $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+        $w = 186.0;
+        $half = 93.0;
+        $third = 62.0;
+
+        $pdf = new RecruitmentApplicationFormPdf('P', 'mm', 'A4', true, 'UTF-8', false);
         $pdf->SetCreator('NIELIT Bhubaneswar');
         $pdf->SetAuthor('NIELIT Bhubaneswar');
         $pdf->SetTitle('FORM OF APPLICATION');
-        $pdf->setPrintHeader(false);
-        $pdf->setPrintFooter(false);
-        $pdf->SetMargins(12, 10, 12);
-        $pdf->SetAutoPageBreak(true, 12);
+        $pdf->setPrintHeader(true);
+        $pdf->setPrintFooter(true);
+        $pdf->SetMargins(12, 12, 12);
+        $pdf->SetHeaderMargin(0);
+        $pdf->SetFooterMargin(12);
+        $pdf->SetAutoPageBreak(false, 16);
         $pdf->AddPage();
-
-        $pdf->SetDrawColor(70, 70, 70);
-        $pdf->SetLineWidth(0.5);
-        $pdf->Rect(8, 8, 194, 281, 'D');
 
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         if (is_file($logoPath)) {
-            $pdf->Image($logoPath, 12, 11, 18, 0, 'PNG');
+            $pdf->Image($logoPath, 12, 13, 16, 0, 'PNG');
         }
-        $pdf->SetXY(32, 11);
-        $pdf->SetFont('helvetica', 'B', 11);
-        $pdf->Cell(130, 6, defined('INSTITUTE_NAME_EN') ? INSTITUTE_NAME_EN : 'NIELIT Bhubaneswar', 0, 1, 'C');
-        $pdf->SetX(32);
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->SetTextColor(80, 80, 80);
-        $pdf->Cell(130, 4, 'Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
+        $pdf->SetXY(30, 13);
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell(120, 5, 'National Institute of Electronics & Information Technology (NIELIT)', 0, 1, 'C');
+        $pdf->SetX(30);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell(120, 4.2, 'Bhubaneswar  |  Raipur  |  Baleshwar', 0, 1, 'C');
+        $pdf->SetX(30);
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->SetTextColor(70, 70, 70);
+        $pdf->Cell(120, 3.6, 'Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
+        $pdf->SetX(30);
+        $pdf->Cell(120, 3.4, '3rd Floor, OCAC Tower, Acharya Vihar, Bhubaneswar – 751013, Odisha', 0, 1, 'C');
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->Ln(1);
+        $pdf->Ln(1.2);
         $pdf->SetFont('helvetica', 'B', 13);
-        $pdf->Cell(0, 7, 'FORM OF APPLICATION', 0, 1, 'C');
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->SetTextColor(90, 90, 90);
-        $pdf->Cell(0, 4, $filled ? 'Filled application (for records / interview)' : 'Use this form for any advertised post — fill in CAPITAL letters', 0, 1, 'C');
+        $pdf->Cell(0, 6.5, 'FORM OF APPLICATION', 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'I', 7.5);
+        $pdf->SetTextColor(80, 80, 80);
+        $pdf->Cell(0, 3.8, 'To be filled in CAPITAL letters. Use this form for any advertised post of NIELIT Bhubaneswar.', 0, 1, 'C');
         $pdf->SetTextColor(0, 0, 0);
         $pdf->Ln(1.5);
 
-        $photoX = 162;
-        $photoY = $pdf->GetY();
-        $photoW = 32;
-        $photoH = 38;
-        $pdf->SetDrawColor(120, 120, 120);
+        $photoX = 164;
+        $photoY = 13.5;
+        $photoW = 30;
+        $photoH = 36;
+        $pdf->SetDrawColor(80, 80, 80);
         $pdf->Rect($photoX, $photoY, $photoW, $photoH);
-        $photoFile = '';
-        $rel = ltrim(str_replace('\\', '/', (string) ($app['photo_path'] ?? '')), '/');
-        if ($rel !== '' && strpos($rel, '..') === false) {
-            $candidate = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
-            if (is_file($candidate)) {
-                $photoFile = $candidate;
-            }
-        }
-        if ($photoFile !== '' && @getimagesize($photoFile)) {
-            $pdf->Image($photoFile, $photoX + 0.6, $photoY + 0.6, $photoW - 1.2, $photoH - 1.2, '', '', '', true, 150);
+        $photoFile = recruitmentFormPdfFile((string) ($app['photo_path'] ?? ''));
+        if ($photoFile !== '') {
+            $pdf->Image($photoFile, $photoX + 0.5, $photoY + 0.5, $photoW - 1, $photoH - 1, '', '', '', true, 150);
         } else {
-            $pdf->SetXY($photoX, $photoY + 14);
-            $pdf->SetFont('helvetica', '', 7);
-            $pdf->SetTextColor(120, 120, 120);
-            $pdf->MultiCell($photoW, 4, "Affix recent\npassport photo", 0, 'C');
+            $pdf->SetXY($photoX, $photoY + 12);
+            $pdf->SetFont('helvetica', '', 6.5);
+            $pdf->SetTextColor(110, 110, 110);
+            $pdf->MultiCell($photoW, 3.5, "Affix recent\npassport size\nphotograph", 0, 'C');
             $pdf->SetTextColor(0, 0, 0);
         }
 
-        $leftW = 146;
-        $pdf->SetY($photoY);
+        $pdf->SetY(40);
+        $leftW = 150.0;
         recruitmentFormPdfCell($pdf, '1. Post applied for', recruitmentFormPdfText($app['job_title'] ?? ''), $leftW);
-        recruitmentFormPdfCell($pdf, 'Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $leftW);
-        if ($filled) {
-            recruitmentFormPdfCell($pdf, 'Application no.', recruitmentFormPdfText($app['application_no'] ?? ''), $leftW);
-        }
+        recruitmentFormPdfCell($pdf, '    Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $half, 6.6, 0);
+        recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW - $half);
+
         $first = recruitmentFormPdfText($app['name_first'] ?? '');
         $middle = recruitmentFormPdfText($app['name_middle'] ?? '');
         $last = recruitmentFormPdfText($app['name_last'] ?? '');
-        $full = trim($first . ' ' . $middle . ' ' . $last);
-        if ($full === '') {
+        if ($first === '' && $middle === '' && $last === '') {
             $full = recruitmentFormPdfText($app['name'] ?? '');
+            $parts = preg_split('/\s+/', $full) ?: [];
+            $first = (string) ($parts[0] ?? '');
+            $last = (string) (count($parts) > 1 ? array_pop($parts) : '');
+            $middle = trim(implode(' ', array_slice($parts, 1)));
         }
-        recruitmentFormPdfCell($pdf, '2. Name in full (First / Middle / Last)', $full, $leftW);
-        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $leftW);
-        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $leftW);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell($w, 5.4, '  2. Name in full (in Block Letters)  —  First / Middle / Last', 1, 1, 'L');
+        recruitmentFormPdfCell($pdf, 'First', $first, $third, 6.6, 0);
+        recruitmentFormPdfCell($pdf, 'Middle', $middle, $third, 6.6, 0);
+        recruitmentFormPdfCell($pdf, 'Last', $last, $w - (2 * $third));
 
-        $pdf->SetY(max($pdf->GetY(), $photoY + $photoH + 2));
-        $w = 186;
-        $half = 93;
+        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $half, 6.6, 0);
+        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $half);
+
         $dob = recruitmentFormPdfText($app['dob'] ?? '');
         if ($dob !== '' && function_exists('recruitmentFormatDate')) {
-            $fmt = recruitmentFormatDate($dob);
+            $fmt = recruitmentFormatDate($dob, 'd-m-Y');
             if ($fmt !== '—') {
                 $dob = $fmt;
             }
         }
-        $age = '';
-        if (!empty($app['age_years']) || !empty($app['age_months']) || !empty($app['age_days'])) {
-            $age = (int) ($app['age_years'] ?? 0) . ' years  ' . (int) ($app['age_months'] ?? 0) . ' months  ' . (int) ($app['age_days'] ?? 0) . ' days';
-        }
-        recruitmentFormPdfCell($pdf, '4. (a) Date of Birth', $dob, $half, 7.2, 0);
-        recruitmentFormPdfCell($pdf, '4. (b) Age as on last date', $age, $half);
-        recruitmentFormPdfCell($pdf, '5. Gender', recruitmentFormPdfText($app['gender'] ?? ''), $half, 7.2, 0);
-        recruitmentFormPdfCell($pdf, '6. Marital status', recruitmentFormPdfText($app['marital_status'] ?? ''), $half);
-        recruitmentFormPdfCell($pdf, '7. Nationality', recruitmentFormPdfText($app['nationality'] ?? ''), $half, 7.2, 0);
-        recruitmentFormPdfCell($pdf, '8. Category', recruitmentFormPdfText($app['category'] ?? ''), $half);
+        $ageY = $filled ? (string) (int) ($app['age_years'] ?? 0) : '';
+        $ageM = $filled ? (string) (int) ($app['age_months'] ?? 0) : '';
+        $ageD = $filled ? (string) (int) ($app['age_days'] ?? 0) : '';
+        recruitmentFormPdfCell($pdf, '4. (a) Date of Birth (as per Class X / Aadhaar)', $dob, $w);
+        $pdf->SetFont('helvetica', '', 8);
+        $ageLine = '  4. (b) Age as on last date of application:    Years: ' . ($ageY !== '' ? $ageY : '______')
+            . '      Months: ' . ($ageM !== '' ? $ageM : '______')
+            . '      Days: ' . ($ageD !== '' ? $ageD : '______');
+        $pdf->Cell($w, 6.6, $ageLine, 1, 1, 'L');
+
+        recruitmentFormPdfOptions($pdf, '5. Gender', ['Male', 'Female', 'Other'], recruitmentFormPdfText($app['gender'] ?? ''), $w);
+        recruitmentFormPdfOptions($pdf, '6. Marital status', ['Unmarried', 'Married', 'Divorcee', 'Other'], recruitmentFormPdfText($app['marital_status'] ?? ''), $w);
+        recruitmentFormPdfCell($pdf, '7. Nationality', recruitmentFormPdfText($app['nationality'] ?? ''), $w);
+        recruitmentFormPdfOptions($pdf, '8. Category', ['General', 'OBC', 'SC', 'ST', 'EWS'], recruitmentFormPdfText($app['category'] ?? ''), $w);
         $pwd = recruitmentFormPdfText($app['pwd_status'] ?? '');
+        $pdf->SetFont('helvetica', '', 8);
+        $pwdYes = strcasecmp($pwd, 'Yes') === 0 ? '[X]' : '[ ]';
+        $pwdNo = ($pwd === '' || strcasecmp($pwd, 'No') === 0) && $filled ? '[X]' : (($pwd === '') ? '[ ]' : '[ ]');
+        if (!$filled) {
+            $pwdYes = '[ ]';
+            $pwdNo = '[ ]';
+        } elseif (strcasecmp($pwd, 'Yes') === 0) {
+            $pwdYes = '[X]';
+            $pwdNo = '[ ]';
+        } else {
+            $pwdYes = '[ ]';
+            $pwdNo = '[X]';
+        }
+        $pwdExtra = '';
         if (recruitmentFormPdfText($app['pwd_type'] ?? '') !== '') {
-            $pwd .= ' / ' . $app['pwd_type'];
+            $pwdExtra .= '    Type: ' . $app['pwd_type'];
+        } else {
+            $pwdExtra .= '    Type: __________';
         }
         if (recruitmentFormPdfText($app['pwd_percent'] ?? '') !== '') {
-            $pwd .= ' (' . $app['pwd_percent'] . '%)';
+            $pwdExtra .= '    % of disability: ' . $app['pwd_percent'];
+        } else {
+            $pwdExtra .= '    % of disability: ______';
         }
-        recruitmentFormPdfCell($pdf, 'Whether PwD', $pwd, $half, 7.2, 0);
-        recruitmentFormPdfCell($pdf, '9. Aadhaar number', recruitmentFormPdfText($app['aadhar'] ?? ''), $half);
-        recruitmentFormPdfCell($pdf, '10. (a) Mobile', recruitmentFormPdfText($app['mobile'] ?? ''), $half, 7.2, 0);
+        $pdf->Cell($w, 6.6, '     Whether belong to PwD:   ' . $pwdYes . ' Yes     ' . $pwdNo . ' No' . $pwdExtra, 1, 1, 'L');
+
+        recruitmentFormPdfCell($pdf, '9. Aadhaar number', recruitmentFormPdfText($app['aadhar'] ?? ''), $w);
+        recruitmentFormPdfCell($pdf, '10. (a) Mobile', recruitmentFormPdfText($app['mobile'] ?? ''), $half, 6.6, 0);
         recruitmentFormPdfCell($pdf, 'Alternate mobile', recruitmentFormPdfText($app['alt_mobile'] ?? ''), $half);
         recruitmentFormPdfCell($pdf, '10. (b) Email', recruitmentFormPdfText($app['email'] ?? ''), $w);
-        recruitmentFormPdfCell($pdf, '11. Address for correspondence', recruitmentFormPdfText($app['address'] ?? ''), $w);
-        recruitmentFormPdfCell($pdf, 'City / State / PIN', trim(recruitmentFormPdfText($app['city'] ?? '') . '  ' . recruitmentFormPdfText($app['state'] ?? '') . '  ' . recruitmentFormPdfText($app['pincode'] ?? '')), $w);
-        recruitmentFormPdfCell($pdf, '12. Permanent address', recruitmentFormPdfText($app['permanent_address'] ?? ''), $w);
+
+        $addr = recruitmentFormPdfText($app['address'] ?? '');
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell($w, 5.2, '  11. Address for correspondence', 1, 1, 'L');
+        $pdf->MultiCell($w, 8.5, $addr !== '' ? '  ' . $addr : '  ', 1, 'L');
+        recruitmentFormPdfCell($pdf, 'City', recruitmentFormPdfText($app['city'] ?? ''), 70, 6.6, 0);
+        recruitmentFormPdfCell($pdf, 'State', recruitmentFormPdfText($app['state'] ?? ''), 70, 6.6, 0);
+        recruitmentFormPdfCell($pdf, 'PIN', recruitmentFormPdfText($app['pincode'] ?? ''), 46);
+
+        $perm = recruitmentFormPdfText($app['permanent_address'] ?? '');
+        $pdf->Cell($w, 5.2, '  12. Permanent address', 1, 1, 'L');
+        $pdf->MultiCell($w, 8.5, $perm !== '' ? '  ' . $perm : '  ', 1, 'L');
         recruitmentFormPdfCell($pdf, 'Permanent PIN', recruitmentFormPdfText($app['permanent_pincode'] ?? ''), $w);
 
-        $pdf->Ln(2);
-        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Ln(1.4);
+        $pdf->SetFont('helvetica', 'B', 8.5);
         $pdf->SetFillColor(232, 240, 254);
-        $pdf->Cell($w, 6.5, '  13. Particulars of examinations passed / degrees / technical qualifications', 1, 1, 'L', true);
+        $pdf->Cell($w, 6.2, '  13. Particulars of all examinations passed / degrees / technical qualifications (from Class X)', 1, 1, 'L', true);
 
-        $edu = [];
-        if (function_exists('recruitmentDecodeJsonList')) {
-            $edu = recruitmentDecodeJsonList($app['education_json'] ?? '');
+        $edu = function_exists('recruitmentDecodeJsonList') ? recruitmentDecodeJsonList($app['education_json'] ?? '') : [];
+        $eduRows = [];
+        $needEdu = 4;
+        for ($i = 0; $i < $needEdu; $i++) {
+            $ed = $edu[$i] ?? [];
+            $eduRows[] = [
+                (string) ($ed['exam'] ?? ''),
+                (string) ($ed['board'] ?? ''),
+                (string) ($ed['year'] ?? ''),
+                (string) ($ed['percent'] ?? ''),
+                (string) ($ed['subjects'] ?? ''),
+            ];
         }
-        $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%">
-            <tr style="background-color:#f1f5f9;font-weight:bold;font-size:8px;">
-                <td width="24%">Examination / Degree</td>
-                <td width="24%">University / Board</td>
-                <td width="14%">Year</td>
-                <td width="14%">% / CGPA</td>
-                <td width="24%">Subjects</td>
-            </tr>';
-        $rows = $edu !== [] ? $edu : [['exam' => '', 'board' => '', 'year' => '', 'percent' => '', 'subjects' => '']];
-        while (count($rows) < 4) {
-            $rows[] = ['exam' => '', 'board' => '', 'year' => '', 'percent' => '', 'subjects' => ''];
-        }
-        foreach (array_slice($rows, 0, 8) as $ed) {
-            $html .= '<tr style="font-size:8px;"><td>'
-                . htmlspecialchars((string) ($ed['exam'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($ed['board'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($ed['year'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($ed['percent'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($ed['subjects'] ?? '')) . '</td></tr>';
-        }
-        $html .= '</table>';
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->writeHTML($html, true, false, false, false, '');
+        recruitmentFormPdfTable(
+            $pdf,
+            ['Examination / Degree', 'University / Board', 'Year', '% / CGPA', 'Subjects'],
+            [46, 48, 22, 24, 46],
+            $eduRows,
+            7.4
+        );
 
-        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->AddPage();
+
+        $pdf->SetFont('helvetica', 'B', 8.5);
         $pdf->SetFillColor(232, 240, 254);
-        $pdf->Cell($w, 6.5, '  14. Experience (start with the latest)    Total: ' . recruitmentFormPdfText($app['experience_years'] ?? ''), 1, 1, 'L', true);
+        $totExp = recruitmentFormPdfText($app['experience_years'] ?? '');
+        $pdf->Cell($w, 6.2, '  14. Experience (start with the latest)     Total experience: ' . ($totExp !== '' ? $totExp : '________________'), 1, 1, 'L', true);
 
         $exp = function_exists('recruitmentDecodeJsonList') ? recruitmentDecodeJsonList($app['experience_json'] ?? '') : [];
-        $html = '<table border="1" cellpadding="3" cellspacing="0" width="100%">
-            <tr style="background-color:#f1f5f9;font-weight:bold;font-size:8px;">
-                <td width="24%">Organisation</td>
-                <td width="18%">Post held</td>
-                <td width="14%">From</td>
-                <td width="14%">To</td>
-                <td width="12%">Duration</td>
-                <td width="18%">Nature / pay</td>
-            </tr>';
-        $erows = $exp !== [] ? $exp : [['org' => '', 'post' => '', 'from' => '', 'to' => '', 'duration' => '', 'nature' => '']];
-        while (count($erows) < 3) {
-            $erows[] = ['org' => '', 'post' => '', 'from' => '', 'to' => '', 'duration' => '', 'nature' => ''];
+        $expRows = [];
+        for ($i = 0; $i < 4; $i++) {
+            $er = $exp[$i] ?? [];
+            $expRows[] = [
+                (string) ($er['org'] ?? ''),
+                (string) ($er['post'] ?? ''),
+                (string) ($er['from'] ?? ''),
+                (string) ($er['to'] ?? ''),
+                (string) ($er['duration'] ?? ''),
+                (string) ($er['nature'] ?? ''),
+            ];
         }
-        foreach (array_slice($erows, 0, 6) as $er) {
-            $html .= '<tr style="font-size:8px;"><td>'
-                . htmlspecialchars((string) ($er['org'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($er['post'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($er['from'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($er['to'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($er['duration'] ?? '')) . '</td><td>'
-                . htmlspecialchars((string) ($er['nature'] ?? '')) . '</td></tr>';
+        recruitmentFormPdfTable(
+            $pdf,
+            ['Name of organisation', 'Post held', 'From', 'To', 'Duration', 'Nature of duties / pay'],
+            [42, 32, 24, 24, 22, 42],
+            $expRows,
+            7.2
+        );
+        $expNotes = recruitmentFormPdfText($app['experience_details'] ?? '');
+        if ($expNotes !== '') {
+            $pdf->SetFont('helvetica', '', 8);
+            $pdf->MultiCell($w, 4.5, '  Additional experience details: ' . $expNotes, 1, 'L');
         }
-        $html .= '</table>';
-        $pdf->writeHTML($html, true, false, false, false, '');
 
-        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Ln(1.6);
+        $pdf->SetFont('helvetica', 'B', 8.5);
         $pdf->SetFillColor(232, 240, 254);
-        $pdf->Cell($w, 6.5, '  15. Computer knowledge / any other information', 1, 1, 'L', true);
+        $pdf->Cell($w, 6.2, '  15. Knowledge of computers / any other information', 1, 1, 'L', true);
         $pdf->SetFont('helvetica', '', 8);
-        $extra = trim(recruitmentFormPdfText($app['computer_knowledge'] ?? '') . "\n" . recruitmentFormPdfText($app['additional_info'] ?? ''));
-        $pdf->MultiCell($w, 12, $extra !== '' ? $extra : ' ', 1, 'L');
+        $comp = recruitmentFormPdfText($app['computer_knowledge'] ?? '');
+        $other = recruitmentFormPdfText($app['additional_info'] ?? '');
+        $pdf->MultiCell($w, 5, '  Computer knowledge: ' . ($comp !== '' ? $comp : ''), 1, 'L');
+        $pdf->MultiCell($w, 5, '  Any other information: ' . ($other !== '' ? $other : ''), 1, 'L');
 
-        $pdf->Ln(1);
+        $pdf->Ln(1.6);
+        $pdf->SetFont('helvetica', 'B', 8.5);
+        $pdf->SetFillColor(232, 240, 254);
+        $pdf->Cell($w, 6.2, '  16. Documents attached (self-attested copies)', 1, 1, 'L', true);
+        $pdf->SetFont('helvetica', 'I', 7);
+        $pdf->Cell($w, 4.6, '  Tick Yes if the document is enclosed with this application / uploaded online.', 1, 1, 'L');
+
+        $docLines = [
+            ['i', 'Marksheet of Class X', 'marksheet_x_path'],
+            ['ii', 'Marksheet of Class XII', 'marksheet_xii_path'],
+            ['iii', 'Qualification degree / certificate, final marksheet, and CGPA-to-% formula (if CGPA is awarded)', 'degree_doc_path'],
+            ['iv', 'Self-attested experience certificates (including current place of working)', 'experience_doc_path'],
+            ['v', 'Last three-month payslip or bank statement showing salary credited', 'payslip_path'],
+            ['vi', 'Date of Birth certificate / Class X certificate as proof of age', 'dob_cert_path'],
+            ['vii', 'Aadhaar card', 'aadhaar_doc_path'],
+            ['viii', 'CV / Resume of the candidate', 'resume_path'],
+            ['', 'Recent passport size photograph', 'photo_path'],
+            ['', 'Signature of the candidate', 'signature_path'],
+            ['', 'Caste / category certificate (SC / ST / OBC / EWS) — if applicable', 'category_cert_path'],
+            ['', 'PwD certificate — if applicable', 'pwd_cert_path'],
+        ];
+        foreach ($docLines as $doc) {
+            $has = $filled && trim((string) ($app[$doc[2]] ?? '')) !== '';
+            if ($doc[2] === 'degree_doc_path' && $filled && trim((string) ($app['cgpa_formula_path'] ?? '')) !== '') {
+                $has = true;
+            }
+            $yes = $has ? '[X] Yes' : '[ ] Yes';
+            $no = $filled ? ($has ? '[ ] No' : '[X] No') : '[ ] No';
+            $prefix = $doc[0] !== '' ? $doc[0] . ') ' : '';
+            $pdf->SetFont('helvetica', '', 7.5);
+            $pdf->Cell(148, 5.8, '  ' . $prefix . $doc[1], 1, 0, 'L');
+            $pdf->Cell(38, 5.8, ' ' . $yes . '   ' . $no, 1, 1, 'L');
+        }
+
+        $pdf->Ln(2.2);
         $pdf->SetFont('helvetica', 'B', 9);
         $pdf->SetFillColor(232, 240, 254);
-        $pdf->Cell($w, 6.5, '  16. Documents attached (self-attested copies)', 1, 1, 'L', true);
-        $docs = function_exists('recruitmentOfficialDocuments') ? recruitmentOfficialDocuments() : [];
-        $bits = [];
-        foreach ($docs as $doc) {
-            if (($doc['key'] ?? '') === 'photo') {
-                continue;
-            }
-            $path = trim((string) ($app[$doc['column'] ?? ''] ?? ''));
-            $mark = $path !== '' ? '[Yes]' : '[  ]';
-            $bits[] = $mark . ' ' . ($doc['item'] !== '' ? $doc['item'] . ') ' : '') . $doc['label'];
+        $pdf->Cell($w, 6.4, '  UNDERTAKING', 1, 1, 'C', true);
+        $pdf->SetFont('helvetica', '', 7.6);
+        $pdf->MultiCell($w, 4.2, '  I hereby declare and confirm each of the following:', 1, 'L');
+        $points = [
+            '1. I have attached / uploaded the documents I have available for this application.',
+            '2. I have gone through the Terms & Conditions / instructions for this post and shall abide by the same.',
+            '3. All information furnished above is true, complete and correct to the best of my knowledge and belief.',
+            '4. I have submitted only one application for this position. I have never been debarred by any organisation for illegal activity during my education / service. I understand that false / suppressed information will cancel my candidature, and that NIELIT may accept or reject this application without assigning a reason.',
+        ];
+        foreach ($points as $pt) {
+            $h = (strpos($pt, '4.') === 0) ? 10.2 : 6.4;
+            $pdf->MultiCell($w, $h, '  ' . $pt, 1, 'L');
         }
-        $pdf->SetFont('helvetica', '', 7.5);
-        $pdf->MultiCell($w, 4, $filled ? implode("\n", $bits) : "i) Class X  ii) Class XII  iii) Degree / marksheet  iv) Experience  v) Payslip  vi) DOB proof  vii) Aadhaar  viii) CV / Resume  Photo  Signature  Caste / PwD if applicable", 1, 'L');
 
-        $pdf->Ln(2);
-        $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->Cell($w, 6, 'Undertaking', 0, 1, 'L');
-        $pdf->SetFont('helvetica', '', 7.5);
-        $pdf->MultiCell($w, 4, "I have gone through the terms and conditions / instructions for this post and shall abide by the same.\nAll information furnished above is true, complete and correct to the best of my knowledge and belief.\nI have submitted only one application for this position. I understand that false / suppressed information will cancel my candidature, and that NIELIT may accept or reject this application without assigning a reason.", 0, 'L');
         $pdf->Ln(3);
-        recruitmentFormPdfCell($pdf, 'Place', recruitmentFormPdfText($app['application_place'] ?? ''), $half, 8, 0);
-        $dateVal = $filled && !empty($app['created_at']) && function_exists('recruitmentFormatDate')
-            ? recruitmentFormatDate($app['created_at'] ?? '', 'd-m-Y')
-            : '';
-        recruitmentFormPdfCell($pdf, 'Date', $dateVal, $half, 8);
-        $pdf->Ln(2);
-        $sigRel = ltrim(str_replace('\\', '/', (string) ($app['signature_path'] ?? '')), '/');
-        $sigFile = '';
-        if ($sigRel !== '' && strpos($sigRel, '..') === false) {
-            $cand = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $sigRel);
-            if (is_file($cand)) {
-                $sigFile = $cand;
+        $place = recruitmentFormPdfText($app['application_place'] ?? '');
+        $dateVal = '';
+        if ($filled && !empty($app['created_at']) && function_exists('recruitmentFormatDate')) {
+            $dateVal = recruitmentFormatDate((string) $app['created_at'], 'd-m-Y');
+            if ($dateVal === '—') {
+                $dateVal = '';
             }
         }
+        recruitmentFormPdfCell($pdf, 'Place', $place, $half, 8.5, 0);
+        recruitmentFormPdfCell($pdf, 'Date', $dateVal, $half, 8.5);
+
+        $sigFile = recruitmentFormPdfFile((string) ($app['signature_path'] ?? ''));
+        $pdf->Ln(2);
         $pdf->SetFont('helvetica', '', 8);
-        $pdf->Cell(90, 6, 'Signature of the candidate', 0, 0, 'L');
         $sigY = $pdf->GetY();
-        if ($sigFile !== '' && @getimagesize($sigFile)) {
-            $pdf->Image($sigFile, 120, $sigY - 2, 40, 14, '', '', '', true, 150);
-            $pdf->Ln(16);
+        $pdf->Cell(100, 6, '  Signature of the candidate', 0, 0, 'L');
+        $pdf->Rect(118, $sigY, 68, 18);
+        if ($sigFile !== '') {
+            $pdf->Image($sigFile, 121, $sigY + 1.5, 62, 15, '', '', '', true, 150);
         } else {
-            $pdf->Cell(96, 12, '', 1, 1, 'L');
+            $pdf->SetXY(118, $sigY + 6);
+            $pdf->SetFont('helvetica', 'I', 7);
+            $pdf->SetTextColor(130, 130, 130);
+            $pdf->Cell(68, 6, 'Sign here', 0, 0, 'C');
+            $pdf->SetTextColor(0, 0, 0);
         }
-        $pdf->SetFont('helvetica', '', 7);
-        $pdf->SetTextColor(110, 110, 110);
-        $pdf->Cell(0, 6, 'NIELIT Bhubaneswar — FORM OF APPLICATION' . ($filled ? '  |  ' . recruitmentFormPdfText($app['application_no'] ?? '') : '  |  Blank form for any advertised post'), 0, 1, 'C');
-        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetY($sigY + 20);
+        $pdf->SetFont('helvetica', 'I', 7);
+        $pdf->Cell($w, 4, '  (Signature must match the uploaded / affixed signature)', 0, 1, 'L');
+
+        $pdf->Ln(2);
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->SetFillColor(248, 250, 252);
+        $pdf->Cell($w, 5.8, '  For office use only', 1, 1, 'L', true);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->Cell($half, 7.2, '  Application received on: ____________________', 1, 0, 'L');
+        $pdf->Cell($half, 7.2, '  Status: ____________________', 1, 1, 'L');
+        $pdf->Cell($w, 7.2, '  Remarks: __________________________________________________________________________', 1, 1, 'L');
 
         $no = recruitmentFormPdfText($app['application_no'] ?? 'blank');
         $safeNo = preg_replace('/[^A-Za-z0-9_-]+/', '_', $no) ?: 'form';
