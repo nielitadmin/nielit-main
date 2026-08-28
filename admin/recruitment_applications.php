@@ -84,7 +84,10 @@ $page_title = 'Recruitment applications';
                     <?php echo $job ? htmlspecialchars('For: ' . $job['title']) : 'All recruitment applications'; ?>
                 </p>
             </div>
+            <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment')); ?>">Job openings</a>
+            <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_interviews') . ($jobId > 0 ? ('?job_id=' . $jobId) : '')); ?>">Interviews</a>
+            </div>
         </div>
         <?php if ($notice !== ''): ?>
             <div class="alert alert-<?php echo htmlspecialchars($noticeType); ?>"><?php echo htmlspecialchars($notice); ?></div>

@@ -206,6 +206,13 @@ if (!function_exists('ensureRecruitmentTables')) {
         recruitmentEnsureApplicationExtraColumns($conn);
         ensureRecruitmentAccessTable($conn);
         ensureRecruitmentEmailQueueTable($conn);
+        $ivHelper = __DIR__ . '/recruitment_interview_helper.php';
+        if (is_file($ivHelper)) {
+            require_once $ivHelper;
+            if (function_exists('ensureRecruitmentInterviewTables')) {
+                ensureRecruitmentInterviewTables($conn);
+            }
+        }
         $ready = true;
         return true;
     }
@@ -1776,6 +1783,12 @@ if (!function_exists('recruitmentDeliverQueuedMail')) {
                 (string) ($payload['remarks'] ?? '')
             );
         }
+        if ($kind === 'interview_schedule' && function_exists('recruitmentSendInterviewScheduleEmail')) {
+            return recruitmentSendInterviewScheduleEmail($payload);
+        }
+        if ($kind === 'interview_call' && function_exists('recruitmentSendInterviewCallEmail')) {
+            return recruitmentSendInterviewCallEmail($payload);
+        }
         return false;
     }
 }
@@ -1860,6 +1873,11 @@ if (!function_exists('recruitmentProcessMailQueue')) {
         }
         return $done;
     }
+}
+
+$recruitmentInterviewHelper = __DIR__ . '/recruitment_interview_helper.php';
+if (is_file($recruitmentInterviewHelper)) {
+    require_once $recruitmentInterviewHelper;
 }
 
 

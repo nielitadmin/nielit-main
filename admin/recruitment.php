@@ -126,6 +126,7 @@ $page_title = 'Recruitment';
                 <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_applications')); ?>">Applications</a>
                 <a class="btn btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?blank=1'); ?>">Blank form PDF</a>
                 <a class="btn btn-outline-primary" target="_blank" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Public portal</a>
+                <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_interviews')); ?>">Interviews</a>
                 <?php if ($canEdit && !$showForm): ?>
                     <a class="btn btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment') . '?new=1'); ?>"><i class="fas fa-plus"></i> New job opening</a>
                 <?php endif; ?>
@@ -148,6 +149,7 @@ $page_title = 'Recruitment';
                 <li>Candidate applies online and receives a thank-you email with the application number and the filled form (PDF).</li>
                 <li>Review the application, then set status to <strong>Shortlisted</strong> — the candidate is emailed that they are shortlisted, with the form attached.</li>
                 <li>Set <strong>Selected</strong> to send a selection email, or <strong>Rejected</strong> with the basis of rejection — that reason is emailed to the candidate with the form attached.</li>
+                <li>Schedule an <strong>Interview</strong> and call shortlisted candidates one by one. The online room opens only for the person you Call.</li>
             </ol>
         </div>
 

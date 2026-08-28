@@ -378,6 +378,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-file-alt"></i> Applications
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/recruitment_interviews'); ?>" class="nav-link <?php echo in_array($current_page, ['recruitment_interviews.php', 'recruitment_interview.php'], true) ? 'active' : ''; ?>">
+                <i class="fas fa-video"></i> Interviews
+            </a>
+        </div>
         <?php endif; ?>
 
         <?php
