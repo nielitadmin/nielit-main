@@ -42,13 +42,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . app_url('admin/recruitment_applications') . '?job_id=' . (int) ($app['job_id'] ?? 0));
         exit();
     } elseif ($canEdit) {
-        $result = recruitmentUpdateApplicationStatus(
-            $conn,
-            $id,
-            (string) ($_POST['status'] ?? ''),
-            trim((string) ($_POST['admin_remarks'] ?? '')),
-            !empty($_POST['notify_email'])
-        );
+        $action = (string) ($_POST['action'] ?? 'save_status');
+        if ($action === 'save_offer_letter') {
+            $result = recruitmentSaveOfferLetter(
+                $conn,
+                $id,
+                is_array($_FILES['offer_letter'] ?? null) ? $_FILES['offer_letter'] : [],
+                !empty($_POST['notify_email'])
+            );
+        } else {
+            $file = is_array($_FILES['offer_letter'] ?? null) ? $_FILES['offer_letter'] : [];
+            $hasFile = !empty($file['tmp_name']) && (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE;
+            if ($hasFile) {
+                $up = recruitmentSaveOfferLetter($conn, $id, $file, false);
+                if (!$up['success']) {
+                    $result = $up;
+                } else {
+                    $result = recruitmentUpdateApplicationStatus(
+                        $conn,
+                        $id,
+                        (string) ($_POST['status'] ?? ''),
+                        trim((string) ($_POST['admin_remarks'] ?? '')),
+                        !empty($_POST['notify_email'])
+                    );
+                    if ($result['success'] && $up['message'] !== '') {
+                        $result['message'] = $result['message'] . ' Offer letter saved.';
+                    }
+                }
+            } else {
+                $result = recruitmentUpdateApplicationStatus(
+                    $conn,
+                    $id,
+                    (string) ($_POST['status'] ?? ''),
+                    trim((string) ($_POST['admin_remarks'] ?? '')),
+                    !empty($_POST['notify_email'])
+                );
+            }
+        }
         $notice = $result['message'];
         $noticeType = $result['success'] ? 'success' : 'danger';
         $app = recruitmentGetApplication($conn, $id) ?: $app;
@@ -78,6 +108,7 @@ function recVal(array $row, string $key): string
         .req-dl dt { color:#64748b; font-weight:500; font-size:0.85rem; }
         .req-dl dd { margin:0; }
         .req-photo { width:96px; height:96px; object-fit:cover; border-radius:12px; background:#e2e8f0; }
+        #offer-letter { scroll-margin-top: 1.5rem; height:auto; }
         @media (max-width:576px) { .req-dl { grid-template-columns:1fr; } }
     </style>
 </head>
@@ -118,6 +149,9 @@ function recVal(array $row, string $key): string
                 <?php endif; ?>
                 <?php if (!empty($app['signature_path'])): ?>
                     <a class="btn btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['signature_path'])); ?>">Signature</a>
+                <?php endif; ?>
+                <?php if (!empty($app['offer_letter_path'])): ?>
+                    <a class="btn btn-outline-success" target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['offer_letter_path'])); ?>">Offer letter</a>
                 <?php endif; ?>
                 <?php if ($isMasterAdmin): ?>
                     <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $app['application_no']); ?>? This cannot be undone.');">
@@ -290,10 +324,12 @@ function recVal(array $row, string $key): string
         </div>
 
         <?php if ($canEdit): ?>
-        <form class="req-card" method="post" id="statusForm">
+        <form class="req-card mb-3" method="post" id="statusForm" enctype="multipart/form-data">
             <h5>Recruitment process</h5>
-            <p class="text-muted small">Change the status to move this candidate through the process. Shortlist, select, and reject send an email to the candidate with the filled application form attached as a PDF. For rejection you must enter the basis — that text is included in the email.</p>
+            <p class="text-muted small">Change the status to move this candidate through the process. Shortlist, interview, select, and reject can send an email to the candidate. For <strong>Selected</strong>, upload the offer letter — it is emailed with the filled application form. For rejection you must enter the basis.</p>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="action" value="save_status">
+            <input type="hidden" name="MAX_FILE_SIZE" value="5242880">
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Status</label>
@@ -307,14 +343,44 @@ function recVal(array $row, string $key): string
                     <label class="form-label" id="remarksLabel">Remarks / basis of rejection</label>
                     <textarea class="form-control" name="admin_remarks" id="appRemarks" rows="3" placeholder="For rejection, write the reason (eligibility, documents, experience, etc.)."><?php echo htmlspecialchars((string) ($app['admin_remarks'] ?? '')); ?></textarea>
                 </div>
+                <div class="col-12" id="offerLetterBox">
+                    <label class="form-label">Offer letter (for selected candidates)</label>
+                    <?php if (!empty($app['offer_letter_path'])): ?>
+                        <p class="small mb-2">Current file:
+                            <a target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['offer_letter_path'])); ?>">View offer letter</a>
+                        </p>
+                    <?php endif; ?>
+                    <input class="form-control" type="file" name="offer_letter" id="offerLetterFile" accept=".pdf,.jpg,.jpeg,.png">
+                    <div class="form-text">PDF preferred (also JPG/PNG). Max 5 MB. This file is attached to the selection email.</div>
+                </div>
                 <div class="col-12">
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" name="notify_email" id="notifyEmail" value="1" checked>
-                        <label class="form-check-label" for="notifyEmail">Send email to the candidate with the filled application form (PDF). Thank-you is sent on apply; this sends shortlisted / selected / rejected.</label>
+                        <label class="form-check-label" for="notifyEmail">Send email to the candidate. Shortlisted / interviewed / selected / rejected. Selected emails include the offer letter if uploaded.</label>
                     </div>
                 </div>
             </div>
             <button class="btn btn-primary mt-3" type="submit">Save status</button>
+        </form>
+        <form class="req-card" method="post" id="offer-letter" enctype="multipart/form-data">
+            <h5>Upload offer letter</h5>
+            <p class="text-muted small mb-3">Use this after the candidate is <strong>Selected</strong>. The letter is stored here and emailed to <?php echo htmlspecialchars((string) ($app['email'] ?? '')); ?>.</p>
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+            <input type="hidden" name="action" value="save_offer_letter">
+            <input type="hidden" name="MAX_FILE_SIZE" value="5242880">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label">Offer letter file</label>
+                    <input class="form-control" type="file" name="offer_letter" accept=".pdf,.jpg,.jpeg,.png" required>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="notify_email" id="offerNotify" value="1" <?php echo (string) ($app['status'] ?? '') === 'selected' ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="offerNotify">Email the letter to the candidate</label>
+                    </div>
+                    <button class="btn btn-success" type="submit">Upload offer letter</button>
+                </div>
+            </div>
         </form>
         <script>
         (function () {

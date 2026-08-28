@@ -138,18 +138,21 @@ $page_title = 'Recruitment';
         <?php endif; ?>
 
         <div class="row g-3 mb-4">
-            <div class="col-md-3"><div class="req-stat"><span>Job openings</span><b><?php echo (int) $stats['jobs']; ?></b></div></div>
-            <div class="col-md-3"><div class="req-stat"><span>Currently open</span><b><?php echo (int) $stats['open']; ?></b></div></div>
-            <div class="col-md-3"><div class="req-stat"><span>Applications</span><b><?php echo (int) $stats['applications']; ?></b></div></div>
-            <div class="col-md-3"><div class="req-stat"><span>Shortlisted</span><b><?php echo (int) $stats['shortlisted']; ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Job openings</span><b><?php echo (int) $stats['jobs']; ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Currently open</span><b><?php echo (int) $stats['open']; ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Applications</span><b><?php echo (int) $stats['applications']; ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Shortlisted</span><b><?php echo (int) $stats['shortlisted']; ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Interviewed</span><b><?php echo (int) ($stats['interviewed'] ?? 0); ?></b></div></div>
+            <div class="col-md-2"><div class="req-stat"><span>Selected</span><b><?php echo (int) ($stats['selected'] ?? 0); ?></b></div></div>
         </div>
         <div class="alert alert-light border mb-4">
             <strong>Recruitment process</strong>
             <ol class="mb-0 mt-2 small">
                 <li>Candidate applies online and receives a thank-you email with the application number and the filled form (PDF).</li>
                 <li>Review the application, then set status to <strong>Shortlisted</strong> — the candidate is emailed that they are shortlisted, with the form attached.</li>
-                <li>Set <strong>Selected</strong> to send a selection email, or <strong>Rejected</strong> with the basis of rejection — that reason is emailed to the candidate with the form attached.</li>
                 <li>Schedule an <strong>Interview</strong> and call shortlisted candidates one by one. The online room opens only for the person you Call.</li>
+                <li>After the interview, mark the candidate <strong>Interviewed</strong> (the interview desk <strong>Done</strong> button also does this).</li>
+                <li>Set <strong>Selected</strong> and upload the <strong>offer letter</strong> — it is emailed to the candidate with the filled form. Or set <strong>Rejected</strong> with the basis of rejection.</li>
             </ol>
         </div>
 

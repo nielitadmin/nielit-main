@@ -255,6 +255,7 @@ if (!function_exists('recruitmentEnsureApplicationExtraColumns')) {
             'computer_knowledge' => 'TEXT NULL',
             'additional_info' => 'TEXT NULL',
             'application_place' => 'VARCHAR(120) NULL',
+            'offer_letter_path' => 'VARCHAR(255) NULL',
         ];
         $have = [];
         $r = $conn->query('SHOW COLUMNS FROM recruitment_applications');
@@ -464,6 +465,7 @@ if (!function_exists('recruitmentApplicationStatuses')) {
             'submitted' => 'Submitted',
             'under_review' => 'Under review',
             'shortlisted' => 'Shortlisted',
+            'interviewed' => 'Interviewed',
             'rejected' => 'Rejected',
             'selected' => 'Selected',
         ];
@@ -480,6 +482,7 @@ if (!function_exists('recruitmentStatusBadge')) {
             'submitted' => 'primary',
             'under_review' => 'info',
             'shortlisted' => 'warning',
+            'interviewed' => 'info',
             'rejected' => 'danger',
             'selected' => 'success',
         ];
@@ -750,6 +753,7 @@ if (!function_exists('recruitmentDeleteApplication')) {
                 recruitmentUnlinkStoredFile((string) ($app[$col] ?? ''));
             }
         }
+        recruitmentUnlinkStoredFile((string) ($app['offer_letter_path'] ?? ''));
         $stmt = $conn->prepare('DELETE FROM recruitment_applications WHERE id = ? LIMIT 1');
         if (!$stmt) {
             return ['success' => false, 'message' => 'Could not delete the application.'];
@@ -820,6 +824,131 @@ if (!function_exists('recruitmentFileUrl')) {
         }
         $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
         return $base . '/' . $rel;
+    }
+}
+
+if (!function_exists('recruitmentStoredFileAbsolutePath')) {
+    function recruitmentStoredFileAbsolutePath(string $rel): string
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+        if ($rel === '' || strpos($rel, '..') !== false || strpos($rel, 'uploads/recruitment/') !== 0) {
+            return '';
+        }
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        return is_file($path) ? $path : '';
+    }
+}
+
+if (!function_exists('recruitmentOfferLetterMailAttachment')) {
+    /**
+     * @param array<string,mixed> $app
+     * @return list<array{filename:string,content:string,mime:string}>
+     */
+    function recruitmentOfferLetterMailAttachment(array $app): array
+    {
+        $abs = recruitmentStoredFileAbsolutePath((string) ($app['offer_letter_path'] ?? ''));
+        if ($abs === '') {
+            return [];
+        }
+        $bytes = @file_get_contents($abs);
+        if (!is_string($bytes) || $bytes === '') {
+            return [];
+        }
+        $ext = strtolower((string) pathinfo($abs, PATHINFO_EXTENSION));
+        $mimes = [
+            'pdf' => 'application/pdf',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+        ];
+        $no = preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) ($app['application_no'] ?? 'offer')) ?: 'offer';
+        $safeExt = isset($mimes[$ext]) ? $ext : 'pdf';
+        return [[
+            'filename' => 'NIELIT_Offer_Letter_' . $no . '.' . $safeExt,
+            'content' => $bytes,
+            'mime' => $mimes[$safeExt] ?? 'application/pdf',
+        ]];
+    }
+}
+
+if (!function_exists('recruitmentSaveOfferLetter')) {
+    /**
+     * Store an offer letter against an application. Optionally email it with the selection notice.
+     *
+     * @param array<string,mixed> $file $_FILES row
+     * @return array{success:bool,message:string}
+     */
+    function recruitmentSaveOfferLetter($conn, int $id, array $file, bool $notify = true): array
+    {
+        $app = recruitmentGetApplication($conn, $id);
+        if (!$app) {
+            return ['success' => false, 'message' => 'Application not found.'];
+        }
+        $max = defined('MAX_FILE_SIZE') ? (int) MAX_FILE_SIZE : 5242880;
+        $up = recruitmentStoreUpload($file, 'offer_letters', ['pdf', 'jpg', 'jpeg', 'png'], $max);
+        if (!$up['ok']) {
+            $msg = trim((string) ($up['message'] ?? ''));
+            return ['success' => false, 'message' => $msg !== '' ? $msg : 'Please choose an offer letter file (PDF, JPG or PNG).'];
+        }
+        $path = (string) $up['path'];
+        $old = trim((string) ($app['offer_letter_path'] ?? ''));
+        $stmt = $conn->prepare('UPDATE recruitment_applications SET offer_letter_path = ? WHERE id = ?');
+        if (!$stmt) {
+            recruitmentUnlinkStoredFile($path);
+            return ['success' => false, 'message' => 'Could not save the offer letter.'];
+        }
+        $stmt->bind_param('si', $path, $id);
+        $ok = $stmt->execute();
+        $stmt->close();
+        if (!$ok) {
+            recruitmentUnlinkStoredFile($path);
+            return ['success' => false, 'message' => 'Could not save the offer letter.'];
+        }
+        if ($old !== '' && $old !== $path) {
+            recruitmentUnlinkStoredFile($old);
+        }
+        $app = recruitmentGetApplication($conn, $id) ?: $app;
+        $emailNote = '';
+        $status = strtolower(trim((string) ($app['status'] ?? '')));
+        if ($notify && $status === 'selected') {
+            $queued = recruitmentQueueStatusEmail($conn, $app, 'selected', (string) ($app['admin_remarks'] ?? ''));
+            $emailNote = $queued
+                ? ' The offer letter will be emailed to the candidate shortly.'
+                : ' Offer letter saved, but the email could not be queued.';
+        }
+        return ['success' => true, 'message' => 'Offer letter saved.' . $emailNote];
+    }
+}
+
+if (!function_exists('recruitmentMarkApplicationInterviewed')) {
+    /**
+     * Set status to interviewed unless already selected or rejected.
+     *
+     * @return array{success:bool,message:string}
+     */
+    function recruitmentMarkApplicationInterviewed($conn, int $id, bool $notify = false): array
+    {
+        $app = recruitmentGetApplication($conn, $id);
+        if (!$app) {
+            return ['success' => false, 'message' => 'Application not found.'];
+        }
+        $current = strtolower(trim((string) ($app['status'] ?? '')));
+        if ($current === 'selected') {
+            return ['success' => false, 'message' => 'This candidate is already selected.'];
+        }
+        if ($current === 'rejected') {
+            return ['success' => false, 'message' => 'This candidate is already rejected.'];
+        }
+        if ($current === 'interviewed') {
+            return ['success' => true, 'message' => 'Already marked interviewed.'];
+        }
+        return recruitmentUpdateApplicationStatus(
+            $conn,
+            $id,
+            'interviewed',
+            (string) ($app['admin_remarks'] ?? ''),
+            $notify
+        );
     }
 }
 
@@ -1215,13 +1344,21 @@ if (!function_exists('recruitmentUpdateApplicationStatus')) {
         if (!$ok) {
             return ['success' => false, 'message' => 'Could not update the application.'];
         }
-        $app['status'] = $status;
-        $app['admin_remarks'] = $remarks;
+        $fresh = recruitmentGetApplication($conn, $id);
+        if (is_array($fresh)) {
+            $app = $fresh;
+        } else {
+            $app['status'] = $status;
+            $app['admin_remarks'] = $remarks;
+        }
         $emailNote = '';
-        if ($notify && in_array($status, ['shortlisted', 'rejected', 'selected'], true)) {
+        if ($notify && in_array($status, ['shortlisted', 'interviewed', 'rejected', 'selected'], true)) {
             $queued = recruitmentQueueStatusEmail($conn, $app, $status, $remarks);
+            $offerNote = ($status === 'selected' && trim((string) ($app['offer_letter_path'] ?? '')) !== '')
+                ? ' and the offer letter'
+                : '';
             $emailNote = $queued
-                ? ' An email with the filled application form (PDF) will be sent to the candidate shortly.'
+                ? ' An email with the filled application form (PDF)' . $offerNote . ' will be sent to the candidate shortly.'
                 : ' Status saved, but the email could not be queued.';
         }
         return ['success' => true, 'message' => 'Application updated.' . $emailNote];
@@ -1235,7 +1372,7 @@ if (!function_exists('recruitmentStats')) {
     function recruitmentStats($conn): array
     {
         ensureRecruitmentTables($conn);
-        $stats = ['jobs' => 0, 'open' => 0, 'applications' => 0, 'shortlisted' => 0];
+        $stats = ['jobs' => 0, 'open' => 0, 'applications' => 0, 'shortlisted' => 0, 'interviewed' => 0, 'selected' => 0];
         $r = $conn->query('SELECT COUNT(*) AS c FROM recruitment_jobs');
         if ($r) {
             $stats['jobs'] = (int) ($r->fetch_assoc()['c'] ?? 0);
@@ -1254,6 +1391,14 @@ if (!function_exists('recruitmentStats')) {
         $r = $conn->query("SELECT COUNT(*) AS c FROM recruitment_applications WHERE status = 'shortlisted'");
         if ($r) {
             $stats['shortlisted'] = (int) ($r->fetch_assoc()['c'] ?? 0);
+        }
+        $r = $conn->query("SELECT COUNT(*) AS c FROM recruitment_applications WHERE status = 'interviewed'");
+        if ($r) {
+            $stats['interviewed'] = (int) ($r->fetch_assoc()['c'] ?? 0);
+        }
+        $r = $conn->query("SELECT COUNT(*) AS c FROM recruitment_applications WHERE status = 'selected'");
+        if ($r) {
+            $stats['selected'] = (int) ($r->fetch_assoc()['c'] ?? 0);
         }
         return $stats;
     }
@@ -1539,12 +1684,19 @@ if (!function_exists('recruitmentSendStatusEmail')) {
         $safeNo = htmlspecialchars($no, ENT_QUOTES, 'UTF-8');
         $safeRemarks = htmlspecialchars($remarks, ENT_QUOTES, 'UTF-8');
         $formUrl = htmlspecialchars(recruitmentApplicationFormUrl($app), ENT_QUOTES, 'UTF-8');
-        $attachments = recruitmentFormPdfMailAttachment($app);
-        $formBlock = ($attachments !== []
-                ? '<p>Your filled application form is attached to this email as a PDF.</p>'
-                : '')
-            . '<p><a href="' . $formUrl . '" style="display:inline-block;background:#1a56db;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Download / print your application form</a></p>';
-        $formText = ($attachments !== [] ? "Your filled application form is attached as a PDF.\n" : '')
+        $formPdf = recruitmentFormPdfMailAttachment($app);
+        $offerAtt = ($status === 'selected') ? recruitmentOfferLetterMailAttachment($app) : [];
+        $attachments = array_merge($formPdf, $offerAtt);
+        $formBlock = '';
+        if ($offerAtt !== []) {
+            $formBlock .= '<p>Your <strong>offer letter</strong> is attached to this email. Please download it and keep a copy.</p>';
+        }
+        if ($formPdf !== []) {
+            $formBlock .= '<p>Your filled application form is attached to this email as a PDF.</p>';
+        }
+        $formBlock .= '<p><a href="' . $formUrl . '" style="display:inline-block;background:#1a56db;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:600;">Download / print your application form</a></p>';
+        $formText = ($offerAtt !== [] ? "Your offer letter is attached to this email.\n" : '')
+            . ($formPdf !== [] ? "Your filled application form is attached as a PDF.\n" : '')
             . 'Download / print your application form: ' . recruitmentApplicationFormUrl($app) . "\n";
         if ($status === 'shortlisted') {
             $heading = 'You have been shortlisted';
@@ -1568,12 +1720,28 @@ if (!function_exists('recruitmentSendStatusEmail')) {
                 . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
                 . ($safeRemarks !== '' ? '<p>' . nl2br($safeRemarks) . '</p>' : '')
                 . $formBlock
-                . '<p>Our team will contact you with joining / further instructions.</p>'
+                . '<p>' . ($offerAtt !== []
+                    ? 'Please read the attached offer letter for joining / further instructions.'
+                    : 'Our team will contact you with joining / further instructions.') . '</p>'
                 . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
             $text = "Dear {$name},\n\nCongratulations. You have been selected for {$post}.\nApplication number: {$no}\n"
                 . ($remarks !== '' ? "{$remarks}\n" : '')
                 . $formText
                 . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+        } elseif ($status === 'interviewed') {
+            $heading = 'Interview completed';
+            $subject = 'Interview update — ' . $post . ' | NIELIT Bhubaneswar';
+            $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
+                . '<p>Thank you for attending the interview for <strong>' . $safePost . '</strong>.</p>'
+                . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
+                . ($safeRemarks !== '' ? '<p>' . nl2br($safeRemarks) . '</p>' : '')
+                . $formBlock
+                . '<p>We will write to you by email with the result (selected or not selected).</p>'
+                . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
+            $text = "Dear {$name},\n\nThank you for attending the interview for {$post}.\nApplication number: {$no}\n"
+                . ($remarks !== '' ? "{$remarks}\n" : '')
+                . $formText
+                . "We will write to you by email with the result.\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
         } else {
             $heading = 'Application update';
             $subject = 'Application update — ' . $post . ' | NIELIT Bhubaneswar';

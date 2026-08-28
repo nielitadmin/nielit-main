@@ -18,6 +18,7 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf = (string) $_SESSION['csrf_token'];
+$canEdit = recruitmentCanEdit(null, $conn);
 $isMasterAdmin = recruitmentIsMasterAdmin();
 
 $jobId = (int) ($_GET['job_id'] ?? 0);
@@ -50,6 +51,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = recruitmentDeleteApplication($conn, (int) ($_POST['id'] ?? 0));
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        header('Location: ' . $listUrl());
+        exit();
+    }
+    if ((string) ($_POST['action'] ?? '') === 'mark_interviewed') {
+        if (!recruitmentCanEdit(null, $conn)) {
+            $_SESSION['message'] = 'You can view applications but cannot change status.';
+            $_SESSION['message_type'] = 'danger';
+        } else {
+            $result = recruitmentMarkApplicationInterviewed($conn, (int) ($_POST['id'] ?? 0), false);
+            $_SESSION['message'] = $result['message'];
+            $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        }
         header('Location: ' . $listUrl());
         exit();
     }
@@ -159,10 +172,30 @@ $page_title = 'Recruitment applications';
                                 <span class="badge text-bg-<?php echo htmlspecialchars(recruitmentStatusBadge((string) $row['status'])); ?>">
                                     <?php echo htmlspecialchars(recruitmentApplicationStatuses()[$row['status']] ?? $row['status']); ?>
                                 </span>
+                                <?php if (trim((string) ($row['offer_letter_path'] ?? '')) !== ''): ?>
+                                    <div class="small mt-1">
+                                        <a target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $row['offer_letter_path'])); ?>">Offer letter</a>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id']); ?>">View details</a>
                                 <a class="btn btn-sm btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?id=' . (int) $row['id']); ?>">PDF</a>
+                                <?php if ($canEdit && in_array((string) $row['status'], ['submitted', 'under_review', 'shortlisted'], true)): ?>
+                                    <form method="post" class="d-inline">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                                        <input type="hidden" name="action" value="mark_interviewed">
+                                        <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                        <button class="btn btn-sm btn-outline-info" type="submit">Interviewed</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ($canEdit && (string) $row['status'] === 'selected'): ?>
+                                    <a class="btn btn-sm btn-outline-success" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id'] . '#offer-letter'); ?>">
+                                        <?php echo trim((string) ($row['offer_letter_path'] ?? '')) !== '' ? 'Replace offer letter' : 'Upload offer letter'; ?>
+                                    </a>
+                                <?php elseif ($canEdit && (string) $row['status'] === 'interviewed'): ?>
+                                    <a class="btn btn-sm btn-outline-success" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id'] . '#offer-letter'); ?>">Select / offer letter</a>
+                                <?php endif; ?>
                                 <?php if ($isMasterAdmin): ?>
                                     <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $row['application_no']); ?> for <?php echo htmlspecialchars((string) $row['name']); ?>? This cannot be undone.');">
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">

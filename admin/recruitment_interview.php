@@ -72,7 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ok = $result['success'];
     } elseif ($action === 'done') {
         $ok = recruitmentSetInterviewCallStatus($conn, $id, $rowId, 'completed');
-        $msg = $ok ? 'Candidate marked done. You can call the next person.' : 'Could not update status.';
+        $row = $ok ? recruitmentGetInterviewCandidateRow($conn, $rowId) : null;
+        if ($ok && $row) {
+            recruitmentMarkApplicationInterviewed($conn, (int) $row['application_id'], false);
+            $msg = 'Candidate marked done and Interviewed. You can call the next person.';
+        } else {
+            $msg = 'Could not update status.';
+        }
     } elseif ($action === 'skip') {
         $ok = recruitmentSetInterviewCallStatus($conn, $id, $rowId, 'skipped');
         $msg = $ok ? 'Candidate skipped.' : 'Could not skip.';
