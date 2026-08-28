@@ -139,55 +139,65 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->SetAutoPageBreak(false, 16);
         $pdf->AddPage();
 
+        $h = 8.2;
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
+        $headerY = 12.5;
         if (is_file($logoPath)) {
-            $pdf->Image($logoPath, 12, 13, 16, 0, 'PNG');
+            $pdf->Image($logoPath, 12, $headerY, 18, 0, 'PNG');
         }
-        $pdf->SetXY(30, 13);
+        $pdf->SetXY(32, $headerY);
         $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell(120, 5, 'National Institute of Electronics & Information Technology (NIELIT)', 0, 1, 'C');
-        $pdf->SetX(30);
+        $pdf->Cell(154, 5, 'National Institute of Electronics & Information Technology (NIELIT)', 0, 1, 'C');
+        $pdf->SetX(32);
         $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->Cell(120, 4.2, 'Bhubaneswar  |  Raipur  |  Baleshwar', 0, 1, 'C');
-        $pdf->SetX(30);
+        $pdf->Cell(154, 4.2, 'Bhubaneswar  |  Raipur  |  Baleshwar', 0, 1, 'C');
+        $pdf->SetX(32);
         $pdf->SetFont('helvetica', '', 7.5);
         $pdf->SetTextColor(70, 70, 70);
-        $pdf->Cell(120, 3.6, 'Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
-        $pdf->SetX(30);
-        $pdf->Cell(120, 3.4, '3rd Floor, OCAC Tower, Acharya Vihar, Bhubaneswar – 751013, Odisha', 0, 1, 'C');
+        $pdf->Cell(154, 3.6, 'Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
+        $pdf->SetX(32);
+        $pdf->Cell(154, 3.5, 'Office: 3rd Floor, North Side, OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha – 751013', 0, 1, 'C');
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->Ln(1.2);
-        $pdf->SetFont('helvetica', 'B', 13);
-        $pdf->Cell(0, 6.5, 'FORM OF APPLICATION', 0, 1, 'C');
+        $pdf->Ln(1.8);
+        $lineY = $pdf->GetY();
+        $pdf->SetDrawColor(40, 40, 40);
+        $pdf->SetLineWidth(0.4);
+        $pdf->Line(12, $lineY, 198, $lineY);
+        $pdf->Ln(2.4);
+
+        $photoW = 32.0;
+        $photoH = 52.0;
+        $photoX = 166.0;
+        $photoY = $pdf->GetY();
+        $leftW = 152.0;
+        $nameThird = 50.666;
+
+        $pdf->SetFont('helvetica', 'BU', 13);
+        $pdf->Cell($leftW, 7.0, 'APPLICATION FORM', 0, 1, 'C');
         $pdf->SetFont('helvetica', 'I', 7.5);
         $pdf->SetTextColor(80, 80, 80);
-        $pdf->Cell(0, 3.8, 'To be filled in CAPITAL letters. Use this form for any advertised post of NIELIT Bhubaneswar.', 0, 1, 'C');
+        $pdf->Cell($leftW, 4.0, 'To be filled in CAPITAL letters', 0, 1, 'C');
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->Ln(1.5);
+        $pdf->Ln(0.8);
 
-        $photoX = 164;
-        $photoY = 13.5;
-        $photoW = 30;
-        $photoH = 36;
         $pdf->SetDrawColor(80, 80, 80);
+        $pdf->SetLineWidth(0.25);
         $pdf->Rect($photoX, $photoY, $photoW, $photoH);
         $photoFile = recruitmentFormPdfFile((string) ($app['photo_path'] ?? ''));
         if ($photoFile !== '') {
             $pdf->Image($photoFile, $photoX + 0.5, $photoY + 0.5, $photoW - 1, $photoH - 1, '', '', '', true, 150);
         } else {
-            $pdf->SetXY($photoX, $photoY + 12);
+            $pdf->SetXY($photoX, $photoY + 14);
             $pdf->SetFont('helvetica', '', 6.5);
             $pdf->SetTextColor(110, 110, 110);
             $pdf->MultiCell($photoW, 3.5, "Affix recent\npassport size\nphotograph", 0, 'C');
             $pdf->SetTextColor(0, 0, 0);
         }
 
-        $h = 8.2;
-        $pdf->SetY(41.5);
-        $leftW = 150.0;
+        $pdf->SetY($photoY + 11.5);
         recruitmentFormPdfCell($pdf, '1. Post applied for', recruitmentFormPdfText($app['job_title'] ?? ''), $leftW, $h);
-        recruitmentFormPdfCell($pdf, '    Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $half, $h, 0);
-        recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW - $half, $h);
+        recruitmentFormPdfCell($pdf, 'Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $leftW / 2, $h, 0);
+        recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW / 2, $h);
 
         $first = recruitmentFormPdfText($app['name_first'] ?? '');
         $middle = recruitmentFormPdfText($app['name_middle'] ?? '');
@@ -199,14 +209,16 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
             $last = (string) (count($parts) > 1 ? array_pop($parts) : '');
             $middle = trim(implode(' ', array_slice($parts, 1)));
         }
-        $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell($w, 7.2, '  2. Name in full (in Block Letters)  —  First / Middle / Last', 1, 1, 'L');
-        recruitmentFormPdfCell($pdf, 'First', $first, $third, $h, 0);
-        recruitmentFormPdfCell($pdf, 'Middle', $middle, $third, $h, 0);
-        recruitmentFormPdfCell($pdf, 'Last', $last, $w - (2 * $third), $h);
+        $pdf->SetFont('helvetica', '', 8.5);
+        $pdf->Cell($leftW, 7.2, '  2. Name in full (in Block Letters)  —  First / Middle / Last', 1, 1, 'L');
+        recruitmentFormPdfCell($pdf, 'First', $first, $nameThird, $h, 0, 8.5);
+        recruitmentFormPdfCell($pdf, 'Middle', $middle, $nameThird, $h, 0, 8.5);
+        recruitmentFormPdfCell($pdf, 'Last', $last, $leftW - (2 * $nameThird), $h, 1, 8.5);
 
-        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $half, $h, 0);
-        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $half, $h);
+        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $leftW / 2, $h, 0);
+        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $leftW / 2, $h);
+
+        $pdf->SetY(max($pdf->GetY(), $photoY + $photoH + 2.0));
 
         $dob = recruitmentFormPdfText($app['dob'] ?? '');
         if ($dob !== '' && function_exists('recruitmentFormatDate')) {
@@ -264,29 +276,30 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
 
         $addr = recruitmentFormPdfText($app['address'] ?? '');
         $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell($w, 7.0, '  11. Address for correspondence', 1, 1, 'L');
-        recruitmentFormPdfBox($pdf, $addr, $w, 13.0);
+        $pdf->Cell($w, 8.0, '  11. Address for correspondence', 1, 1, 'L');
+        recruitmentFormPdfBox($pdf, $addr, $w, 12.5);
         recruitmentFormPdfCell($pdf, 'City', recruitmentFormPdfText($app['city'] ?? ''), 70, $h, 0);
         recruitmentFormPdfCell($pdf, 'State', recruitmentFormPdfText($app['state'] ?? ''), 70, $h, 0);
         recruitmentFormPdfCell($pdf, 'PIN', recruitmentFormPdfText($app['pincode'] ?? ''), 46, $h);
 
         $perm = recruitmentFormPdfText($app['permanent_address'] ?? '');
         $pdf->SetFont('helvetica', '', 9);
-        $pdf->Cell($w, 7.0, '  12. Permanent address', 1, 1, 'L');
-        recruitmentFormPdfBox($pdf, $perm, $w, 13.0);
+        $pdf->Cell($w, 8.0, '  12. Permanent address', 1, 1, 'L');
+        recruitmentFormPdfBox($pdf, $perm, $w, 12.5);
         recruitmentFormPdfCell($pdf, 'Permanent PIN', recruitmentFormPdfText($app['permanent_pincode'] ?? ''), $w, $h);
 
-        $page1Bottom = 278.8;
-        $eduHeaderH = 8.0;
-        $tableHeadH = 8.0;
-        $needEdu = 5;
-        $remain = $page1Bottom - $pdf->GetY() - 1.2 - $eduHeaderH - $tableHeadH;
+        $page1Bottom = 277.5;
+        $eduHeaderH = 8.4;
+        $tableHeadH = 8.4;
+        $needEdu = 4;
+        $gap = 1.6;
+        $remain = $page1Bottom - $pdf->GetY() - $gap - $eduHeaderH - $tableHeadH;
         $eduRowH = $remain / $needEdu;
-        if ($eduRowH < 7.2) {
-            $eduRowH = 7.2;
+        if ($eduRowH < 8.0) {
+            $eduRowH = 8.0;
         }
 
-        $pdf->Ln(1.2);
+        $pdf->Ln($gap);
         $pdf->SetFont('helvetica', 'B', 9.5);
         $pdf->SetFillColor(232, 240, 254);
         $pdf->Cell($w, $eduHeaderH, '  13. Particulars of all examinations passed / degrees / technical qualifications (from Class X)', 1, 1, 'L', true);
