@@ -14,9 +14,51 @@ recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
 recruitmentKickMailWorker();
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$csrf = (string) $_SESSION['csrf_token'];
+$isMasterAdmin = recruitmentIsMasterAdmin();
+
 $jobId = (int) ($_GET['job_id'] ?? 0);
 $status = (string) ($_GET['status'] ?? 'all');
 $q = trim((string) ($_GET['q'] ?? ''));
+
+$listUrl = static function () use ($jobId, $status, $q): string {
+    $params = [];
+    if ($jobId > 0) {
+        $params['job_id'] = (string) $jobId;
+    }
+    if ($status !== '' && $status !== 'all') {
+        $params['status'] = $status;
+    }
+    if ($q !== '') {
+        $params['q'] = $q;
+    }
+    $base = app_url('admin/recruitment_applications');
+    return $params === [] ? $base : ($base . '?' . http_build_query($params));
+};
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!hash_equals($csrf, (string) ($_POST['csrf_token'] ?? ''))) {
+        $_SESSION['message'] = 'Invalid security token. Please try again.';
+        $_SESSION['message_type'] = 'danger';
+        header('Location: ' . $listUrl());
+        exit();
+    }
+    if ((string) ($_POST['action'] ?? '') === 'delete_application') {
+        $result = recruitmentDeleteApplication($conn, (int) ($_POST['id'] ?? 0));
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        header('Location: ' . $listUrl());
+        exit();
+    }
+}
+
+$notice = (string) ($_SESSION['message'] ?? '');
+$noticeType = (string) ($_SESSION['message_type'] ?? 'success');
+unset($_SESSION['message'], $_SESSION['message_type']);
+
 $rows = recruitmentListApplications($conn, ['job_id' => $jobId, 'status' => $status, 'q' => $q]);
 $jobs = recruitmentListJobs($conn);
 $job = $jobId > 0 ? recruitmentGetJob($conn, $jobId) : null;
@@ -44,6 +86,9 @@ $page_title = 'Recruitment applications';
             </div>
             <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment')); ?>">Job openings</a>
         </div>
+        <?php if ($notice !== ''): ?>
+            <div class="alert alert-<?php echo htmlspecialchars($noticeType); ?>"><?php echo htmlspecialchars($notice); ?></div>
+        <?php endif; ?>
 
         <form class="card mb-3" method="get">
             <div class="card-body row g-3 align-items-end">
@@ -112,9 +157,17 @@ $page_title = 'Recruitment applications';
                                     <?php echo htmlspecialchars(recruitmentApplicationStatuses()[$row['status']] ?? $row['status']); ?>
                                 </span>
                             </td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id']); ?>">View details</a>
                                 <a class="btn btn-sm btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?id=' . (int) $row['id']); ?>">PDF</a>
+                                <?php if ($isMasterAdmin): ?>
+                                    <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $row['application_no']); ?> for <?php echo htmlspecialchars((string) $row['name']); ?>? This cannot be undone.');">
+                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                                        <input type="hidden" name="action" value="delete_application">
+                                        <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                    </form>
+                                <?php endif; ?>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>

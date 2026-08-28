@@ -18,6 +18,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf = (string) $_SESSION['csrf_token'];
 $canEdit = recruitmentCanEdit(null, $conn);
+$isMasterAdmin = recruitmentIsMasterAdmin();
 
 $id = (int) ($_GET['id'] ?? 0);
 $app = recruitmentGetApplication($conn, $id);
@@ -30,11 +31,17 @@ if (!$app) {
 
 $notice = '';
 $noticeType = 'success';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!hash_equals($csrf, (string) ($_POST['csrf_token'] ?? ''))) {
         $notice = 'Invalid security token.';
         $noticeType = 'danger';
-    } else {
+    } elseif ((string) ($_POST['action'] ?? '') === 'delete_application') {
+        $result = recruitmentDeleteApplication($conn, $id);
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        header('Location: ' . app_url('admin/recruitment_applications') . '?job_id=' . (int) ($app['job_id'] ?? 0));
+        exit();
+    } elseif ($canEdit) {
         $result = recruitmentUpdateApplicationStatus(
             $conn,
             $id,
@@ -111,6 +118,13 @@ function recVal(array $row, string $key): string
                 <?php endif; ?>
                 <?php if (!empty($app['signature_path'])): ?>
                     <a class="btn btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['signature_path'])); ?>">Signature</a>
+                <?php endif; ?>
+                <?php if ($isMasterAdmin): ?>
+                    <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $app['application_no']); ?>? This cannot be undone.');">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                        <input type="hidden" name="action" value="delete_application">
+                        <button class="btn btn-outline-danger" type="submit">Delete permanently</button>
+                    </form>
                 <?php endif; ?>
             </div>
         </div>

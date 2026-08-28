@@ -50,6 +50,14 @@ if (!function_exists('recruitmentCanEdit')) {
     }
 }
 
+if (!function_exists('recruitmentIsMasterAdmin')) {
+    function recruitmentIsMasterAdmin(?string $role = null): bool
+    {
+        $role = $role ?? (string) ($_SESSION['admin_role'] ?? '');
+        return $role === 'master_admin';
+    }
+}
+
 if (!function_exists('recruitmentDb')) {
     function recruitmentDb($conn = null)
     {
@@ -694,6 +702,61 @@ if (!function_exists('recruitmentDeleteJob')) {
         $ok = $stmt->execute();
         $stmt->close();
         return ['success' => $ok, 'message' => $ok ? 'Job opening deleted.' : 'Could not delete the job.'];
+    }
+}
+
+if (!function_exists('recruitmentUnlinkStoredFile')) {
+    function recruitmentUnlinkStoredFile(string $rel): void
+    {
+        $rel = ltrim(str_replace('\\', '/', $rel), '/');
+        if ($rel === '' || strpos($rel, '..') !== false || strpos($rel, 'uploads/recruitment/') !== 0) {
+            return;
+        }
+        $path = dirname(__DIR__) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+}
+
+if (!function_exists('recruitmentDeleteApplication')) {
+    /**
+     * Permanently delete one application and its uploaded files. Master Admin only.
+     *
+     * @return array{success:bool,message:string}
+     */
+    function recruitmentDeleteApplication($conn, int $id): array
+    {
+        if (!recruitmentIsMasterAdmin()) {
+            return ['success' => false, 'message' => 'Only Master Admin can permanently delete an application.'];
+        }
+        if ($id <= 0) {
+            return ['success' => false, 'message' => 'Invalid application.'];
+        }
+        $app = recruitmentGetApplication($conn, $id);
+        if (!$app) {
+            return ['success' => false, 'message' => 'Application not found.'];
+        }
+        foreach (recruitmentOfficialDocuments() as $doc) {
+            $col = (string) ($doc['column'] ?? '');
+            if ($col !== '') {
+                recruitmentUnlinkStoredFile((string) ($app[$col] ?? ''));
+            }
+        }
+        $stmt = $conn->prepare('DELETE FROM recruitment_applications WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not delete the application.'];
+        }
+        $stmt->bind_param('i', $id);
+        $ok = $stmt->execute();
+        $stmt->close();
+        $no = trim((string) ($app['application_no'] ?? ''));
+        return [
+            'success' => $ok,
+            'message' => $ok
+                ? ('Application' . ($no !== '' ? ' ' . $no : '') . ' was permanently deleted.')
+                : 'Could not delete the application.',
+        ];
     }
 }
 
