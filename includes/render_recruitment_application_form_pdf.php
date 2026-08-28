@@ -335,18 +335,17 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
 
         $page1Bottom = 270.0;
         $eduHeaderH = 8.0;
-        $tableHeadH = 7.6;
-        $needEdu = 4;
-        $gap = 1.4;
+        $tableHeadH = 7.4;
+        $eduDefaults = ['Class X / equivalent', 'Class XII / equivalent', 'Graduation', 'Post Graduation / other'];
+        $edu = function_exists('recruitmentDecodeJsonList') ? recruitmentDecodeJsonList($app['education_json'] ?? '') : [];
+        $needEdu = max(4, count($edu));
+        $gap = 1.2;
         $remain = $page1Bottom - $pdf->GetY() - $gap - $eduHeaderH - $tableHeadH;
-        while ($needEdu > 2 && $remain / $needEdu < 6.4) {
-            $needEdu--;
-        }
         $eduRowH = $remain / max(1, $needEdu);
-        if ($eduRowH > 9.5) {
-            $eduRowH = 9.5;
+        if ($eduRowH > 8.8) {
+            $eduRowH = 8.8;
         }
-        if ($eduRowH < 5.8) {
+        if ($eduRowH < 5.6) {
             $eduRowH = max(5.4, $remain / max(1, $needEdu));
         }
 
@@ -355,12 +354,15 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->SetFillColor(232, 240, 254);
         $pdf->Cell($w, $eduHeaderH, '  13. Particulars of all examinations passed / degrees / technical qualifications (from Class X)', 1, 1, 'L', true);
 
-        $edu = function_exists('recruitmentDecodeJsonList') ? recruitmentDecodeJsonList($app['education_json'] ?? '') : [];
         $eduRows = [];
         for ($i = 0; $i < $needEdu; $i++) {
             $ed = $edu[$i] ?? [];
+            $exam = trim((string) ($ed['exam'] ?? ''));
+            if ($exam === '' && isset($eduDefaults[$i])) {
+                $exam = $eduDefaults[$i];
+            }
             $eduRows[] = [
-                (string) ($ed['exam'] ?? ''),
+                $exam,
                 (string) ($ed['board'] ?? ''),
                 (string) ($ed['year'] ?? ''),
                 (string) ($ed['percent'] ?? ''),
