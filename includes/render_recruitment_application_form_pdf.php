@@ -145,14 +145,14 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pageRight = 198.0;
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $headerY = 12.5;
-        $logoH = 22.0;
-        $logoW = 22.0;
+        $logoH = 13.0;
+        $logoW = 32.0;
         if (is_file($logoPath)) {
             $imgSize = @getimagesize($logoPath);
             if ($imgSize && !empty($imgSize[1])) {
                 $logoW = $logoH * ($imgSize[0] / $imgSize[1]);
             }
-            $pdf->Image($logoPath, $pageLeft, $headerY, $logoW, $logoH, 'PNG');
+            $pdf->Image($logoPath, $pageLeft, $headerY + 3.5, $logoW, $logoH, 'PNG');
         }
         $textX = $pageLeft + $logoW + 4.0;
         $textW = $pageRight - $textX;
