@@ -333,8 +333,9 @@ if (!function_exists('attendanceSaveSessionClassesHeld')) {
 if (!function_exists('attendanceSumSessionClassesHeld')) {
     /**
      * Classes held from Create/Edit session (Fingerprint Attendance).
-     * Uses MAX per calendar month so entering 22 on more than one session in the same
-     * month does not double-count, then sums those monthly values for a longer period.
+     * Session date is only a start date — punches continue on later days — so this
+     * also matches sessions that have IN/OUT in the report period. Falls back to
+     * the same course / centre / section if the start date is in another month.
      */
     function attendanceSumSessionClassesHeld(
         $conn,
@@ -369,39 +370,73 @@ if (!function_exists('attendanceSumSessionClassesHeld')) {
         if ($start === '' || $end === '') {
             return 0;
         }
-        $sql = "SELECT COALESCE(SUM(t.mx), 0) AS held FROM (
-                    SELECT MAX(s.classes_held) AS mx
-                    FROM attendance_sessions s
-                    LEFT JOIN courses c ON c.id = s.course_id
-                    WHERE s.classes_held > 0 AND s.date >= ? AND s.date <= ?";
-        $types = 'ss';
-        $params = [$start, $end];
+
+        $filterSql = '';
+        $filterTypes = '';
+        $filterParams = [];
         if ($courseId > 0) {
-            $sql .= ' AND s.course_id = ?';
-            $types .= 'i';
-            $params[] = $courseId;
+            $filterSql .= ' AND s.course_id = ?';
+            $filterTypes .= 'i';
+            $filterParams[] = $courseId;
         }
         if ($centreId > 0) {
-            $sql .= ' AND c.centre_id = ?';
-            $types .= 'i';
-            $params[] = $centreId;
+            $filterSql .= ' AND c.centre_id = ?';
+            $filterTypes .= 'i';
+            $filterParams[] = $centreId;
         }
         if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
-            $sql .= ' AND s.batch_id = ?';
-            $types .= 'i';
-            $params[] = $batchId;
+            $filterSql .= ' AND s.batch_id = ?';
+            $filterTypes .= 'i';
+            $filterParams[] = $batchId;
         }
-        $sql .= ' GROUP BY YEAR(s.date), MONTH(s.date)
-                ) t';
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return 0;
+
+        $runHeld = static function ($conn, $sql, $types, $params): int {
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return 0;
+            }
+            if ($types !== '') {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+        };
+
+        $periodParts = ['(s.date >= ? AND s.date <= ?)'];
+        $periodTypes = 'ss';
+        $periodParams = [$start, $end];
+        $hasLogs = ($t = $conn->query("SHOW TABLES LIKE 'attendance_logs'")) && $t->num_rows > 0;
+        if ($hasLogs) {
+            $periodParts[] = 's.id IN (SELECT l.session_id FROM attendance_logs l WHERE l.session_id IS NOT NULL AND l.session_id > 0 AND DATE(l.scan_time) >= ? AND DATE(l.scan_time) <= ?)';
+            $periodTypes .= 'ss';
+            $periodParams[] = $start;
+            $periodParams[] = $end;
         }
-        $stmt->bind_param($types, ...$params);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        return attendanceNormalizeClassesHeld($row['held'] ?? 0);
+        $hasSummary = ($t = $conn->query("SHOW TABLES LIKE 'attendance_summary'")) && $t->num_rows > 0;
+        if ($hasSummary) {
+            $periodParts[] = 's.id IN (SELECT a.session_id FROM attendance_summary a WHERE a.session_id IS NOT NULL AND a.session_id > 0 AND a.date >= ? AND a.date <= ?)';
+            $periodTypes .= 'ss';
+            $periodParams[] = $start;
+            $periodParams[] = $end;
+        }
+        $periodSql = '(' . implode(' OR ', $periodParts) . ')';
+
+        $sql = "SELECT COALESCE(MAX(s.classes_held), 0) AS held
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.classes_held > 0 AND {$periodSql}{$filterSql}";
+        $held = $runHeld($conn, $sql, $periodTypes . $filterTypes, array_merge($periodParams, $filterParams));
+        if ($held > 0) {
+            return $held;
+        }
+
+        $sql = "SELECT COALESCE(MAX(s.classes_held), 0) AS held
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                WHERE s.classes_held > 0{$filterSql}";
+        return $runHeld($conn, $sql, $filterTypes, $filterParams);
     }
 }
 
