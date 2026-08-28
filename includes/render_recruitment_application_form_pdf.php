@@ -50,9 +50,9 @@ if (!function_exists('recruitmentFormPdfFile')) {
 }
 
 if (!function_exists('recruitmentFormPdfCell')) {
-    function recruitmentFormPdfCell(TCPDF $pdf, string $label, string $value, float $w, float $h = 6.6, int $ln = 1): void
+    function recruitmentFormPdfCell(TCPDF $pdf, string $label, string $value, float $w, float $h = 8.2, int $ln = 1, float $fontSize = 9): void
     {
-        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetFont('helvetica', '', $fontSize);
         $txt = '  ' . $label;
         if ($value !== '') {
             $txt .= ':  ' . $value;
@@ -63,11 +63,19 @@ if (!function_exists('recruitmentFormPdfCell')) {
     }
 }
 
+if (!function_exists('recruitmentFormPdfBox')) {
+    function recruitmentFormPdfBox(TCPDF $pdf, string $text, float $w, float $h): void
+    {
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->MultiCell($w, $h, $text !== '' ? '  ' . $text : '  ', 1, 'L', false, 1, '', '', true, 0, false, true, $h, 'T');
+    }
+}
+
 if (!function_exists('recruitmentFormPdfOptions')) {
     /**
      * @param list<string> $options
      */
-    function recruitmentFormPdfOptions(TCPDF $pdf, string $label, array $options, string $selected, float $w, float $h = 6.6): void
+    function recruitmentFormPdfOptions(TCPDF $pdf, string $label, array $options, string $selected, float $w, float $h = 8.2): void
     {
         $selected = trim($selected);
         $bits = [];
@@ -75,7 +83,7 @@ if (!function_exists('recruitmentFormPdfOptions')) {
             $mark = (strcasecmp($selected, $opt) === 0) ? '[X]' : '[ ]';
             $bits[] = $mark . ' ' . $opt;
         }
-        $pdf->SetFont('helvetica', '', 8);
+        $pdf->SetFont('helvetica', '', 9);
         $pdf->Cell($w, $h, '  ' . $label . ':   ' . implode('    ', $bits), 1, 1, 'L');
     }
 }
@@ -86,20 +94,20 @@ if (!function_exists('recruitmentFormPdfTable')) {
      * @param list<float> $widths
      * @param list<list<string>> $rows
      */
-    function recruitmentFormPdfTable(TCPDF $pdf, array $headers, array $widths, array $rows, float $rowH = 7.2): void
+    function recruitmentFormPdfTable(TCPDF $pdf, array $headers, array $widths, array $rows, float $rowH = 8.5, float $headH = 7.4, float $fontSize = 8.5): void
     {
-        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->SetFont('helvetica', 'B', $fontSize);
         $pdf->SetFillColor(232, 240, 254);
         foreach ($headers as $i => $h) {
             $ln = ($i === count($headers) - 1) ? 1 : 0;
-            $pdf->Cell($widths[$i], 6.2, ' ' . $h, 1, $ln, 'C', true);
+            $pdf->Cell($widths[$i], $headH, ' ' . $h, 1, $ln, 'C', true);
         }
-        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->SetFont('helvetica', '', $fontSize);
         $pdf->SetFillColor(255, 255, 255);
         foreach ($rows as $row) {
-            foreach ($widths as $i => $w) {
+            foreach ($widths as $i => $colW) {
                 $ln = ($i === count($widths) - 1) ? 1 : 0;
-                $pdf->Cell($w, $rowH, ' ' . ($row[$i] ?? ''), 1, $ln, 'L');
+                $pdf->Cell($colW, $rowH, ' ' . ($row[$i] ?? ''), 1, $ln, 'L');
             }
         }
     }
@@ -174,11 +182,12 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
             $pdf->SetTextColor(0, 0, 0);
         }
 
-        $pdf->SetY(40);
+        $h = 8.2;
+        $pdf->SetY(41.5);
         $leftW = 150.0;
-        recruitmentFormPdfCell($pdf, '1. Post applied for', recruitmentFormPdfText($app['job_title'] ?? ''), $leftW);
-        recruitmentFormPdfCell($pdf, '    Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $half, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW - $half);
+        recruitmentFormPdfCell($pdf, '1. Post applied for', recruitmentFormPdfText($app['job_title'] ?? ''), $leftW, $h);
+        recruitmentFormPdfCell($pdf, '    Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $half, $h, 0);
+        recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW - $half, $h);
 
         $first = recruitmentFormPdfText($app['name_first'] ?? '');
         $middle = recruitmentFormPdfText($app['name_middle'] ?? '');
@@ -190,14 +199,14 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
             $last = (string) (count($parts) > 1 ? array_pop($parts) : '');
             $middle = trim(implode(' ', array_slice($parts, 1)));
         }
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->Cell($w, 5.4, '  2. Name in full (in Block Letters)  —  First / Middle / Last', 1, 1, 'L');
-        recruitmentFormPdfCell($pdf, 'First', $first, $third, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'Middle', $middle, $third, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'Last', $last, $w - (2 * $third));
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell($w, 7.2, '  2. Name in full (in Block Letters)  —  First / Middle / Last', 1, 1, 'L');
+        recruitmentFormPdfCell($pdf, 'First', $first, $third, $h, 0);
+        recruitmentFormPdfCell($pdf, 'Middle', $middle, $third, $h, 0);
+        recruitmentFormPdfCell($pdf, 'Last', $last, $w - (2 * $third), $h);
 
-        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $half, 6.6, 0);
-        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $half);
+        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $half, $h, 0);
+        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $half, $h);
 
         $dob = recruitmentFormPdfText($app['dob'] ?? '');
         if ($dob !== '' && function_exists('recruitmentFormatDate')) {
@@ -209,21 +218,21 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $ageY = $filled ? (string) (int) ($app['age_years'] ?? 0) : '';
         $ageM = $filled ? (string) (int) ($app['age_months'] ?? 0) : '';
         $ageD = $filled ? (string) (int) ($app['age_days'] ?? 0) : '';
-        recruitmentFormPdfCell($pdf, '4. (a) Date of Birth (as per Class X / Aadhaar)', $dob, $w);
-        $pdf->SetFont('helvetica', '', 8);
+        recruitmentFormPdfCell($pdf, '4. (a) Date of Birth (as per Class X / Aadhaar)', $dob, $w, $h);
+        $pdf->SetFont('helvetica', '', 9);
         $ageLine = '  4. (b) Age as on last date of application:    Years: ' . ($ageY !== '' ? $ageY : '______')
             . '      Months: ' . ($ageM !== '' ? $ageM : '______')
             . '      Days: ' . ($ageD !== '' ? $ageD : '______');
-        $pdf->Cell($w, 6.6, $ageLine, 1, 1, 'L');
+        $pdf->Cell($w, $h, $ageLine, 1, 1, 'L');
 
-        recruitmentFormPdfOptions($pdf, '5. Gender', ['Male', 'Female', 'Other'], recruitmentFormPdfText($app['gender'] ?? ''), $w);
-        recruitmentFormPdfOptions($pdf, '6. Marital status', ['Unmarried', 'Married', 'Divorcee', 'Other'], recruitmentFormPdfText($app['marital_status'] ?? ''), $w);
-        recruitmentFormPdfCell($pdf, '7. Nationality', recruitmentFormPdfText($app['nationality'] ?? ''), $w);
-        recruitmentFormPdfOptions($pdf, '8. Category', ['General', 'OBC', 'SC', 'ST', 'EWS'], recruitmentFormPdfText($app['category'] ?? ''), $w);
+        recruitmentFormPdfOptions($pdf, '5. Gender', ['Male', 'Female', 'Other'], recruitmentFormPdfText($app['gender'] ?? ''), $w, $h);
+        recruitmentFormPdfOptions($pdf, '6. Marital status', ['Unmarried', 'Married', 'Divorcee', 'Other'], recruitmentFormPdfText($app['marital_status'] ?? ''), $w, $h);
+        recruitmentFormPdfCell($pdf, '7. Nationality', recruitmentFormPdfText($app['nationality'] ?? ''), $w, $h);
+        recruitmentFormPdfOptions($pdf, '8. Category', ['General', 'OBC', 'SC', 'ST', 'EWS'], recruitmentFormPdfText($app['category'] ?? ''), $w, $h);
         $pwd = recruitmentFormPdfText($app['pwd_status'] ?? '');
-        $pdf->SetFont('helvetica', '', 8);
-        $pwdYes = strcasecmp($pwd, 'Yes') === 0 ? '[X]' : '[ ]';
-        $pwdNo = ($pwd === '' || strcasecmp($pwd, 'No') === 0) && $filled ? '[X]' : (($pwd === '') ? '[ ]' : '[ ]');
+        $pdf->SetFont('helvetica', '', 9);
+        $pwdYes = '[ ]';
+        $pwdNo = '[ ]';
         if (!$filled) {
             $pwdYes = '[ ]';
             $pwdNo = '[ ]';
@@ -245,34 +254,45 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         } else {
             $pwdExtra .= '    % of disability: ______';
         }
-        $pdf->Cell($w, 6.6, '     Whether belong to PwD:   ' . $pwdYes . ' Yes     ' . $pwdNo . ' No' . $pwdExtra, 1, 1, 'L');
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell($w, $h, '     Whether belong to PwD:   ' . $pwdYes . ' Yes     ' . $pwdNo . ' No' . $pwdExtra, 1, 1, 'L');
 
-        recruitmentFormPdfCell($pdf, '9. Aadhaar number', recruitmentFormPdfText($app['aadhar'] ?? ''), $w);
-        recruitmentFormPdfCell($pdf, '10. (a) Mobile', recruitmentFormPdfText($app['mobile'] ?? ''), $half, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'Alternate mobile', recruitmentFormPdfText($app['alt_mobile'] ?? ''), $half);
-        recruitmentFormPdfCell($pdf, '10. (b) Email', recruitmentFormPdfText($app['email'] ?? ''), $w);
+        recruitmentFormPdfCell($pdf, '9. Aadhaar number', recruitmentFormPdfText($app['aadhar'] ?? ''), $w, $h);
+        recruitmentFormPdfCell($pdf, '10. (a) Mobile', recruitmentFormPdfText($app['mobile'] ?? ''), $half, $h, 0);
+        recruitmentFormPdfCell($pdf, 'Alternate mobile', recruitmentFormPdfText($app['alt_mobile'] ?? ''), $half, $h);
+        recruitmentFormPdfCell($pdf, '10. (b) Email', recruitmentFormPdfText($app['email'] ?? ''), $w, $h);
 
         $addr = recruitmentFormPdfText($app['address'] ?? '');
-        $pdf->SetFont('helvetica', '', 8);
-        $pdf->Cell($w, 5.2, '  11. Address for correspondence', 1, 1, 'L');
-        $pdf->MultiCell($w, 8.5, $addr !== '' ? '  ' . $addr : '  ', 1, 'L');
-        recruitmentFormPdfCell($pdf, 'City', recruitmentFormPdfText($app['city'] ?? ''), 70, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'State', recruitmentFormPdfText($app['state'] ?? ''), 70, 6.6, 0);
-        recruitmentFormPdfCell($pdf, 'PIN', recruitmentFormPdfText($app['pincode'] ?? ''), 46);
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell($w, 7.0, '  11. Address for correspondence', 1, 1, 'L');
+        recruitmentFormPdfBox($pdf, $addr, $w, 13.0);
+        recruitmentFormPdfCell($pdf, 'City', recruitmentFormPdfText($app['city'] ?? ''), 70, $h, 0);
+        recruitmentFormPdfCell($pdf, 'State', recruitmentFormPdfText($app['state'] ?? ''), 70, $h, 0);
+        recruitmentFormPdfCell($pdf, 'PIN', recruitmentFormPdfText($app['pincode'] ?? ''), 46, $h);
 
         $perm = recruitmentFormPdfText($app['permanent_address'] ?? '');
-        $pdf->Cell($w, 5.2, '  12. Permanent address', 1, 1, 'L');
-        $pdf->MultiCell($w, 8.5, $perm !== '' ? '  ' . $perm : '  ', 1, 'L');
-        recruitmentFormPdfCell($pdf, 'Permanent PIN', recruitmentFormPdfText($app['permanent_pincode'] ?? ''), $w);
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->Cell($w, 7.0, '  12. Permanent address', 1, 1, 'L');
+        recruitmentFormPdfBox($pdf, $perm, $w, 13.0);
+        recruitmentFormPdfCell($pdf, 'Permanent PIN', recruitmentFormPdfText($app['permanent_pincode'] ?? ''), $w, $h);
 
-        $pdf->Ln(1.4);
-        $pdf->SetFont('helvetica', 'B', 8.5);
+        $page1Bottom = 278.8;
+        $eduHeaderH = 8.0;
+        $tableHeadH = 8.0;
+        $needEdu = 5;
+        $remain = $page1Bottom - $pdf->GetY() - 1.2 - $eduHeaderH - $tableHeadH;
+        $eduRowH = $remain / $needEdu;
+        if ($eduRowH < 7.2) {
+            $eduRowH = 7.2;
+        }
+
+        $pdf->Ln(1.2);
+        $pdf->SetFont('helvetica', 'B', 9.5);
         $pdf->SetFillColor(232, 240, 254);
-        $pdf->Cell($w, 6.2, '  13. Particulars of all examinations passed / degrees / technical qualifications (from Class X)', 1, 1, 'L', true);
+        $pdf->Cell($w, $eduHeaderH, '  13. Particulars of all examinations passed / degrees / technical qualifications (from Class X)', 1, 1, 'L', true);
 
         $edu = function_exists('recruitmentDecodeJsonList') ? recruitmentDecodeJsonList($app['education_json'] ?? '') : [];
         $eduRows = [];
-        $needEdu = 4;
         for ($i = 0; $i < $needEdu; $i++) {
             $ed = $edu[$i] ?? [];
             $eduRows[] = [
@@ -288,7 +308,9 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
             ['Examination / Degree', 'University / Board', 'Year', '% / CGPA', 'Subjects'],
             [46, 48, 22, 24, 46],
             $eduRows,
-            7.4
+            $eduRowH,
+            $tableHeadH,
+            9
         );
 
         $pdf->AddPage();
