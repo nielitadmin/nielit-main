@@ -60,6 +60,11 @@ if (!function_exists('recruitmentFormPdfCell')) {
         } else {
             $txt .= ':';
         }
+        $size = $fontSize;
+        while ($size > 6.5 && $pdf->GetStringWidth($txt) > ($w - 2.2)) {
+            $size -= 0.4;
+            $pdf->SetFont('helvetica', '', $size);
+        }
         $pdf->Cell($w, $h, $txt, 1, $ln, 'L');
     }
 }
@@ -184,8 +189,8 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->Line($pageLeft, $headerBottom, $pageRight, $headerBottom);
         $pdf->Ln(2.6);
 
-        $photoW = 30.0;
-        $photoH = 48.0;
+        $photoW = 32.0;
+        $photoH = 42.0;
         $photoX = $pageRight - $photoW;
         $photoY = $pdf->GetY();
         $leftW = $photoX - $pageLeft - 2.0;
@@ -196,7 +201,23 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->Rect($photoX, $photoY, $photoW, $photoH);
         $photoFile = recruitmentFormPdfFile((string) ($app['photo_path'] ?? ''));
         if ($photoFile !== '') {
-            $pdf->Image($photoFile, $photoX + 0.5, $photoY + 0.5, $photoW - 1, $photoH - 1, '', '', '', true, 150);
+            $pdf->Image(
+                $photoFile,
+                $photoX + 0.6,
+                $photoY + 0.6,
+                $photoW - 1.2,
+                $photoH - 1.2,
+                '',
+                '',
+                '',
+                true,
+                150,
+                '',
+                false,
+                false,
+                0,
+                'CM'
+            );
         } else {
             $pdf->SetXY($photoX, $photoY + 12);
             $pdf->SetFont('helvetica', '', 6.5);
@@ -236,8 +257,8 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         recruitmentFormPdfCell($pdf, 'Middle', $middle, $nameThird, $h, 0, 8.5);
         recruitmentFormPdfCell($pdf, 'Last', $last, $leftW - (2 * $nameThird), $h, 1, 8.5);
 
-        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $leftW / 2, $h, 0);
-        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $leftW / 2, $h);
+        recruitmentFormPdfCell($pdf, "3. Father's / Husband's name", recruitmentFormPdfText($app['father_name'] ?? ''), $leftW, $h);
+        recruitmentFormPdfCell($pdf, "Mother's name", recruitmentFormPdfText($app['mother_name'] ?? ''), $leftW, $h);
 
         $pdf->SetY(max($pdf->GetY(), $photoY + $photoH + 2.0));
 
