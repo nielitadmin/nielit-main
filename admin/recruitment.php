@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/recruitment_helper.php';
 
-recruitmentRequireAccess();
+recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
 
 if (empty($_SESSION['csrf_token'])) {
@@ -18,7 +18,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf = (string) $_SESSION['csrf_token'];
 $adminUser = (string) ($_SESSION['admin'] ?? '');
-$canEdit = recruitmentCanEdit();
+$canEdit = recruitmentCanEdit(null, $conn);
 
 $notice = (string) ($_SESSION['message'] ?? '');
 $noticeType = (string) ($_SESSION['message_type'] ?? 'success');
@@ -140,6 +140,14 @@ $page_title = 'Recruitment';
             <div class="col-md-3"><div class="req-stat"><span>Applications</span><b><?php echo (int) $stats['applications']; ?></b></div></div>
             <div class="col-md-3"><div class="req-stat"><span>Shortlisted</span><b><?php echo (int) $stats['shortlisted']; ?></b></div></div>
         </div>
+        <div class="alert alert-light border mb-4">
+            <strong>Recruitment process</strong>
+            <ol class="mb-0 mt-2 small">
+                <li>Candidate applies online and receives a thank-you email with the application number.</li>
+                <li>Review the application, then set status to <strong>Shortlisted</strong> — the candidate is emailed that they are shortlisted for that job.</li>
+                <li>Set <strong>Selected</strong> to send a selection email, or <strong>Rejected</strong> with the basis of rejection — that reason is emailed to the candidate.</li>
+            </ol>
+        </div>
 
         <?php if ($showForm && $canEdit): ?>
             <?php $j = $job ?: []; ?>
@@ -217,6 +225,7 @@ $page_title = 'Recruitment';
                     <div class="col-md-6">
                         <label class="form-label">Advertisement (PDF / image)</label>
                         <input class="form-control" type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png">
+                        <div class="form-text">Max 5 MB.</div>
                         <?php if (!empty($j['attachment_path'])): ?>
                             <div class="form-text">Current file: <a target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $j['attachment_path'])); ?>">View</a></div>
                         <?php endif; ?>

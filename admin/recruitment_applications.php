@@ -10,7 +10,7 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/recruitment_helper.php';
 
-recruitmentRequireAccess();
+recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
 
 $jobId = (int) ($_GET['job_id'] ?? 0);

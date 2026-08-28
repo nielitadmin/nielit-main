@@ -354,13 +354,20 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             $recHelper = __DIR__ . '/../../includes/recruitment_helper.php';
             if (is_file($recHelper)) {
                 require_once $recHelper;
-                $canAccessRecruitment = function_exists('recruitmentCanAccess') && recruitmentCanAccess();
+                $canAccessRecruitment = function_exists('recruitmentCanAccess') && recruitmentCanAccess(null, $conn);
             }
         }
         ?>
         <?php if ($canAccessRecruitment): ?>
         <div class="nav-divider"></div>
         <div class="nav-section-title">Recruitment</div>
+        <?php if ($is_master_admin): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/manage_recruitment_access'); ?>" class="nav-link <?php echo ($current_page === 'manage_recruitment_access.php') ? 'active' : ''; ?>">
+                <i class="fas fa-user-shield"></i> Grant Recruitment Access
+            </a>
+        </div>
+        <?php endif; ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/recruitment'); ?>" class="nav-link <?php echo ($current_page === 'recruitment.php') ? 'active' : ''; ?>">
                 <i class="fas fa-briefcase"></i> Job Openings

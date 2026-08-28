@@ -4,35 +4,41 @@
  */
 
 if (!function_exists('recruitmentCanAccess')) {
-    function recruitmentCanAccess(?string $role = null): bool
+    function recruitmentCanAccess(?string $role = null, $conn = null): bool
     {
         $role = $role ?? (string) ($_SESSION['admin_role'] ?? '');
-        return in_array($role, [
-            'master_admin',
+        if ($role === 'master_admin') {
+            return true;
+        }
+        if (in_array($role, [
             'course_coordinator',
             'front_office_desk',
             'placement_coordinator',
             'data_entry_operator',
-        ], true);
+        ], true)) {
+            return true;
+        }
+        return recruitmentGrantedLevel($conn) !== '';
     }
 }
 
 if (!function_exists('recruitmentRequireAccess')) {
-    function recruitmentRequireAccess(): void
+    function recruitmentRequireAccess($conn = null): void
     {
         if (!isset($_SESSION['admin'])) {
             header('Location: login.php');
             exit();
         }
+        $conn = $conn ?? recruitmentDb();
         $teaching = __DIR__ . '/teaching_access.php';
         if (is_file($teaching)) {
             require_once $teaching;
-            if (function_exists('admin_redirect_faculty_from_restricted_page')) {
+            if (!recruitmentCanAccess(null, $conn) && function_exists('admin_redirect_faculty_from_restricted_page')) {
                 admin_redirect_faculty_from_restricted_page();
             }
         }
-        if (!recruitmentCanAccess()) {
-            $_SESSION['message'] = 'Access denied. Recruitment is not available for your role.';
+        if (!recruitmentCanAccess(null, $conn)) {
+            $_SESSION['message'] = 'Access denied. Recruitment is not available for your role. Ask a Master Admin to grant it.';
             $_SESSION['message_type'] = 'danger';
             $dash = function_exists('app_url') ? app_url('admin/dashboard') : 'dashboard.php';
             header('Location: ' . $dash);
@@ -42,10 +48,85 @@ if (!function_exists('recruitmentRequireAccess')) {
 }
 
 if (!function_exists('recruitmentCanEdit')) {
-    function recruitmentCanEdit(?string $role = null): bool
+    function recruitmentCanEdit(?string $role = null, $conn = null): bool
     {
         $role = $role ?? (string) ($_SESSION['admin_role'] ?? '');
-        return in_array($role, ['master_admin', 'course_coordinator', 'placement_coordinator'], true);
+        if ($role === 'master_admin') {
+            return true;
+        }
+        if (in_array($role, ['course_coordinator', 'placement_coordinator'], true)) {
+            return true;
+        }
+        return recruitmentGrantedLevel($conn) === 'edit';
+    }
+}
+
+if (!function_exists('recruitmentDb')) {
+    function recruitmentDb($conn = null)
+    {
+        if ($conn instanceof mysqli) {
+            return $conn;
+        }
+        return ($GLOBALS['conn'] ?? null) instanceof mysqli ? $GLOBALS['conn'] : null;
+    }
+}
+
+if (!function_exists('ensureRecruitmentAccessTable')) {
+    function ensureRecruitmentAccessTable($conn): bool
+    {
+        if (!($conn instanceof mysqli)) {
+            return false;
+        }
+        $sql = "CREATE TABLE IF NOT EXISTS recruitment_module_access (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            admin_id INT NOT NULL,
+            access_level VARCHAR(20) NOT NULL DEFAULT 'view',
+            granted_by VARCHAR(255) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_rec_access_admin (admin_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        if (!$conn->query($sql)) {
+            error_log('ensureRecruitmentAccessTable: ' . $conn->error);
+            return false;
+        }
+        return true;
+    }
+}
+
+if (!function_exists('recruitmentGrantedLevel')) {
+    /** @return ''|'view'|'edit' */
+    function recruitmentGrantedLevel($conn = null): string
+    {
+        $conn = recruitmentDb($conn);
+        $adminId = (int) ($_SESSION['admin_id'] ?? 0);
+        if ($adminId <= 0 && $conn instanceof mysqli) {
+            $username = trim((string) ($_SESSION['admin'] ?? ''));
+            if ($username !== '') {
+                $stmt = $conn->prepare('SELECT id FROM admin WHERE username = ? LIMIT 1');
+                if ($stmt) {
+                    $stmt->bind_param('s', $username);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    $adminId = (int) ($row['id'] ?? 0);
+                }
+            }
+        }
+        if ($adminId <= 0 || !($conn instanceof mysqli)) {
+            return '';
+        }
+        ensureRecruitmentAccessTable($conn);
+        $stmt = $conn->prepare('SELECT access_level FROM recruitment_module_access WHERE admin_id = ? LIMIT 1');
+        if (!$stmt) {
+            return '';
+        }
+        $stmt->bind_param('i', $adminId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $level = strtolower(trim((string) ($row['access_level'] ?? '')));
+        return in_array($level, ['view', 'edit'], true) ? $level : '';
     }
 }
 
@@ -126,6 +207,7 @@ if (!function_exists('ensureRecruitmentTables')) {
             return false;
         }
         recruitmentEnsureApplicationExtraColumns($conn);
+        ensureRecruitmentAccessTable($conn);
         $ready = true;
         return true;
     }
@@ -643,11 +725,15 @@ if (!function_exists('recruitmentStoreUpload')) {
         if (empty($file['tmp_name']) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
             return ['ok' => false, 'path' => '', 'message' => ''];
         }
+        if ((int) ($file['error'] ?? 0) === UPLOAD_ERR_INI_SIZE || (int) ($file['error'] ?? 0) === UPLOAD_ERR_FORM_SIZE) {
+            return ['ok' => false, 'path' => '', 'message' => 'File is larger than 5 MB. Please upload a smaller file.'];
+        }
         if ((int) ($file['error'] ?? 0) !== UPLOAD_ERR_OK) {
             return ['ok' => false, 'path' => '', 'message' => 'File upload failed.'];
         }
-        if ((int) ($file['size'] ?? 0) > $maxBytes) {
-            return ['ok' => false, 'path' => '', 'message' => 'File is larger than ' . (int) round($maxBytes / 1048576) . ' MB.'];
+        $limit = $maxBytes > 0 ? $maxBytes : 5242880;
+        if ((int) ($file['size'] ?? 0) > $limit) {
+            return ['ok' => false, 'path' => '', 'message' => 'File is larger than 5 MB. Please upload a smaller file.'];
         }
         $ext = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExt, true)) {
@@ -878,10 +964,19 @@ if (!function_exists('recruitmentSubmitApplication')) {
         } else {
             error_log('recruitmentSubmitApplication extra: ' . $conn->error);
         }
+        $emailOk = recruitmentSendThankYouEmail([
+            'name' => $name,
+            'email' => $email,
+            'application_no' => $appNo,
+            'job_title' => (string) ($job['title'] ?? ''),
+            'advt_no' => (string) ($job['advt_no'] ?? ''),
+            'last_date' => (string) ($job['last_date'] ?? ''),
+        ]);
         return [
             'success' => true,
             'message' => 'Application submitted successfully.',
             'application_no' => $appNo,
+            'email_sent' => $emailOk,
         ];
     }
 }
@@ -964,10 +1059,18 @@ if (!function_exists('recruitmentGetApplication')) {
 }
 
 if (!function_exists('recruitmentUpdateApplicationStatus')) {
-    function recruitmentUpdateApplicationStatus($conn, int $id, string $status, string $remarks): array
+    function recruitmentUpdateApplicationStatus($conn, int $id, string $status, string $remarks, bool $notify = true): array
     {
         if (!isset(recruitmentApplicationStatuses()[$status])) {
             return ['success' => false, 'message' => 'Invalid status.'];
+        }
+        $remarks = trim($remarks);
+        if ($status === 'rejected' && $remarks === '') {
+            return ['success' => false, 'message' => 'Please enter the basis of rejection. This is sent to the candidate.'];
+        }
+        $app = recruitmentGetApplication($conn, $id);
+        if (!$app) {
+            return ['success' => false, 'message' => 'Application not found.'];
         }
         $stmt = $conn->prepare('UPDATE recruitment_applications SET status = ?, admin_remarks = ? WHERE id = ?');
         if (!$stmt) {
@@ -976,7 +1079,19 @@ if (!function_exists('recruitmentUpdateApplicationStatus')) {
         $stmt->bind_param('ssi', $status, $remarks, $id);
         $ok = $stmt->execute();
         $stmt->close();
-        return ['success' => $ok, 'message' => $ok ? 'Application updated.' : 'Could not update the application.'];
+        if (!$ok) {
+            return ['success' => false, 'message' => 'Could not update the application.'];
+        }
+        $app['status'] = $status;
+        $app['admin_remarks'] = $remarks;
+        $emailNote = '';
+        if ($notify && in_array($status, ['shortlisted', 'rejected', 'selected'], true)) {
+            $sent = recruitmentSendStatusEmail($app, $status, $remarks);
+            $emailNote = $sent
+                ? ' An email was sent to the candidate.'
+                : ' Status saved, but the email could not be sent. Check SMTP settings.';
+        }
+        return ['success' => true, 'message' => 'Application updated.' . $emailNote];
     }
 }
 
@@ -1030,3 +1145,240 @@ if (!function_exists('recruitmentDisplay')) {
         return $value !== '' ? $value : $fallback;
     }
 }
+
+if (!function_exists('recruitmentMaxUploadBytes')) {
+    function recruitmentMaxUploadBytes(): int
+    {
+        return defined('MAX_FILE_SIZE') ? (int) MAX_FILE_SIZE : 5242880;
+    }
+}
+
+if (!function_exists('recruitmentGrantAccess')) {
+    /** @return array{success:bool,message:string} */
+    function recruitmentGrantAccess($conn, int $adminId, string $level, string $grantedBy): array
+    {
+        ensureRecruitmentAccessTable($conn);
+        $level = $level === 'edit' ? 'edit' : 'view';
+        if ($adminId <= 0) {
+            return ['success' => false, 'message' => 'Select a valid account.'];
+        }
+        $check = $conn->prepare('SELECT id, username, role FROM admin WHERE id = ? LIMIT 1');
+        if (!$check) {
+            return ['success' => false, 'message' => 'Database error.'];
+        }
+        $check->bind_param('i', $adminId);
+        $check->execute();
+        $row = $check->get_result()->fetch_assoc();
+        $check->close();
+        if (!$row) {
+            return ['success' => false, 'message' => 'Admin account not found.'];
+        }
+        if (($row['role'] ?? '') === 'master_admin') {
+            return ['success' => false, 'message' => 'Master Admin already has full recruitment access.'];
+        }
+        $stmt = $conn->prepare(
+            'INSERT INTO recruitment_module_access (admin_id, access_level, granted_by) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE access_level = VALUES(access_level), granted_by = VALUES(granted_by)'
+        );
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Database error.'];
+        }
+        $stmt->bind_param('iss', $adminId, $level, $grantedBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+        if (!$ok) {
+            return ['success' => false, 'message' => 'Could not grant access.'];
+        }
+        $label = $level === 'edit' ? 'manage jobs and applications' : 'view applications';
+        return ['success' => true, 'message' => 'Recruitment access granted to ' . $row['username'] . ' (' . $label . ').'];
+    }
+}
+
+if (!function_exists('recruitmentRevokeAccess')) {
+    /** @return array{success:bool,message:string} */
+    function recruitmentRevokeAccess($conn, int $adminId): array
+    {
+        ensureRecruitmentAccessTable($conn);
+        if ($adminId <= 0) {
+            return ['success' => false, 'message' => 'Invalid account.'];
+        }
+        $stmt = $conn->prepare('DELETE FROM recruitment_module_access WHERE admin_id = ?');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Database error.'];
+        }
+        $stmt->bind_param('i', $adminId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return ['success' => $ok, 'message' => $ok ? 'Recruitment access revoked.' : 'Could not revoke access.'];
+    }
+}
+
+if (!function_exists('listRecruitmentAccessCandidates')) {
+    /** @return list<array<string,mixed>> */
+    function listRecruitmentAccessCandidates($conn): array
+    {
+        ensureRecruitmentAccessTable($conn);
+        $admins = [];
+        $res = $conn->query("SELECT id, username, role, email FROM admin WHERE role <> 'master_admin' ORDER BY username ASC");
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $row['grant_level'] = '';
+                $row['granted_by'] = '';
+                $admins[(int) $row['id']] = $row;
+            }
+        }
+        $gRes = $conn->query('SELECT admin_id, access_level, granted_by FROM recruitment_module_access');
+        if ($gRes) {
+            while ($g = $gRes->fetch_assoc()) {
+                $aid = (int) $g['admin_id'];
+                if (!isset($admins[$aid])) {
+                    continue;
+                }
+                $admins[$aid]['grant_level'] = (string) ($g['access_level'] ?? '');
+                $admins[$aid]['granted_by'] = (string) ($g['granted_by'] ?? '');
+            }
+        }
+        return array_values($admins);
+    }
+}
+
+if (!function_exists('recruitmentSendMail')) {
+    function recruitmentSendMail(string $to, string $name, string $subject, string $html, string $text): bool
+    {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        $smtp = __DIR__ . '/phpmailer_smtp.php';
+        if (is_file($smtp)) {
+            require_once $smtp;
+        }
+        if (!function_exists('sendPhpMailerWithSmtpFallback')) {
+            return false;
+        }
+        $fromEmail = defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : '';
+        $fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar';
+        $result = sendPhpMailerWithSmtpFallback(static function ($mail) use ($to, $name, $subject, $html, $text, $fromEmail, $fromName) {
+            if ($fromEmail !== '') {
+                $mail->setFrom($fromEmail, $fromName);
+                $mail->addReplyTo($fromEmail, $fromName);
+            }
+            $mail->addAddress($to, $name);
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = $html;
+            $mail->AltBody = $text;
+        }, ['timeout' => 12]);
+        if (!empty($result['ok'])) {
+            return true;
+        }
+        error_log('Recruitment email failed: ' . ($result['error'] ?? 'unknown'));
+        return false;
+    }
+}
+
+if (!function_exists('recruitmentEmailWrap')) {
+    function recruitmentEmailWrap(string $heading, string $innerHtml): string
+    {
+        $year = date('Y');
+        $safeHeading = htmlspecialchars($heading, ENT_QUOTES, 'UTF-8');
+        return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>'
+            . '<body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f4f4f4;">'
+            . '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:20px;"><tr><td align="center">'
+            . '<table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:8px;overflow:hidden;">'
+            . '<tr><td style="background:#0a1628;padding:28px 24px;text-align:center;">'
+            . '<h1 style="color:#fff;margin:0;font-size:22px;">' . $safeHeading . '</h1>'
+            . '<p style="color:#e3f2fd;margin:8px 0 0;font-size:13px;">NIELIT Bhubaneswar</p>'
+            . '</td></tr><tr><td style="padding:32px 28px;color:#333;font-size:15px;line-height:1.6;">'
+            . $innerHtml
+            . '</td></tr><tr><td style="background:#f8fafc;padding:16px 28px;color:#64748b;font-size:12px;text-align:center;">'
+            . '© ' . $year . ' NIELIT Bhubaneswar. This is an automated message.'
+            . '</td></tr></table></td></tr></table></body></html>';
+    }
+}
+
+if (!function_exists('recruitmentSendThankYouEmail')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentSendThankYouEmail(array $app): bool
+    {
+        $name = trim((string) ($app['name'] ?? 'Candidate'));
+        $email = trim((string) ($app['email'] ?? ''));
+        $no = htmlspecialchars((string) ($app['application_no'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $post = htmlspecialchars((string) ($app['job_title'] ?? 'the advertised post'), ENT_QUOTES, 'UTF-8');
+        $advt = trim((string) ($app['advt_no'] ?? ''));
+        $last = function_exists('recruitmentFormatDate') ? recruitmentFormatDate((string) ($app['last_date'] ?? '')) : '';
+        $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $advtLine = $advt !== '' ? '<p>Advertisement no.: <strong>' . htmlspecialchars($advt, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
+        $lastLine = ($last !== '' && $last !== '—') ? '<p>Last date of application: <strong>' . htmlspecialchars($last, ENT_QUOTES, 'UTF-8') . '</strong></p>' : '';
+        $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
+            . '<p>Thank you for applying for <strong>' . $post . '</strong> at NIELIT Bhubaneswar.</p>'
+            . '<p>Your application has been received. Please save your application number:</p>'
+            . '<p style="background:#e8f0fe;border-left:4px solid #1a56db;padding:12px 16px;font-size:18px;font-weight:700;">' . $no . '</p>'
+            . $advtLine . $lastLine
+            . '<p>We will review your application and contact you by email if you are shortlisted, selected, or if we need more information.</p>'
+            . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
+        $text = "Dear {$name},\n\nThank you for applying for " . strip_tags($post)
+            . " at NIELIT Bhubaneswar.\nYour application number is " . strip_tags($no)
+            . ".\n\nWe will contact you by email regarding the next steps.\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+        return recruitmentSendMail(
+            $email,
+            $name,
+            'Thank you for applying — ' . strip_tags($post) . ' | NIELIT Bhubaneswar',
+            recruitmentEmailWrap('Thank you for applying', $inner),
+            $text
+        );
+    }
+}
+
+if (!function_exists('recruitmentSendStatusEmail')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentSendStatusEmail(array $app, string $status, string $remarks): bool
+    {
+        $name = trim((string) ($app['name'] ?? 'Candidate'));
+        $email = trim((string) ($app['email'] ?? ''));
+        $post = trim((string) ($app['job_title'] ?? 'the advertised post'));
+        $no = trim((string) ($app['application_no'] ?? ''));
+        $safeName = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
+        $safePost = htmlspecialchars($post, ENT_QUOTES, 'UTF-8');
+        $safeNo = htmlspecialchars($no, ENT_QUOTES, 'UTF-8');
+        $safeRemarks = htmlspecialchars($remarks, ENT_QUOTES, 'UTF-8');
+        if ($status === 'shortlisted') {
+            $heading = 'You have been shortlisted';
+            $subject = 'You have been shortlisted for ' . $post . ' | NIELIT Bhubaneswar';
+            $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
+                . '<p>You have been <strong>shortlisted</strong> for <strong>' . $safePost . '</strong>.</p>'
+                . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
+                . ($safeRemarks !== '' ? '<p>Further details:<br>' . nl2br($safeRemarks) . '</p>' : '')
+                . '<p>Please check your email regularly for interview / next-step instructions.</p>'
+                . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
+            $text = "Dear {$name},\n\nYou have been shortlisted for {$post}.\nApplication number: {$no}\n"
+                . ($remarks !== '' ? "Details: {$remarks}\n" : '')
+                . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+        } elseif ($status === 'selected') {
+            $heading = 'You have been selected';
+            $subject = 'You have been selected for ' . $post . ' | NIELIT Bhubaneswar';
+            $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
+                . '<p>Congratulations. You have been <strong>selected</strong> for <strong>' . $safePost . '</strong>.</p>'
+                . '<p>Application number: <strong>' . $safeNo . '</strong></p>'
+                . ($safeRemarks !== '' ? '<p>' . nl2br($safeRemarks) . '</p>' : '')
+                . '<p>Our team will contact you with joining / further instructions.</p>'
+                . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
+            $text = "Dear {$name},\n\nCongratulations. You have been selected for {$post}.\nApplication number: {$no}\n"
+                . ($remarks !== '' ? "{$remarks}\n" : '')
+                . "\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+        } else {
+            $heading = 'Application update';
+            $subject = 'Application update — ' . $post . ' | NIELIT Bhubaneswar';
+            $inner = '<p>Dear <strong>' . $safeName . '</strong>,</p>'
+                . '<p>Thank you for applying for <strong>' . $safePost . '</strong> (application <strong>' . $safeNo . '</strong>).</p>'
+                . '<p>We regret to inform you that your application has <strong>not been shortlisted</strong>.</p>'
+                . '<p><strong>Basis of rejection:</strong><br>' . ($safeRemarks !== '' ? nl2br($safeRemarks) : 'Not specified.') . '</p>'
+                . '<p>We appreciate your interest in NIELIT Bhubaneswar and wish you the best for the future.</p>'
+                . '<p>Regards,<br>Recruitment Cell<br>NIELIT Bhubaneswar</p>';
+            $text = "Dear {$name},\n\nYour application for {$post} ({$no}) has not been shortlisted.\n"
+                . "Basis of rejection: " . ($remarks !== '' ? $remarks : 'Not specified.')
+                . "\n\nRegards,\nRecruitment Cell, NIELIT Bhubaneswar";
+        }
+        return recruitmentSendMail($email, $name, $subject, recruitmentEmailWrap($heading, $inner), $text);
+    }
+}
+

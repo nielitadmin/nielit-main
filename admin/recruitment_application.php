@@ -10,14 +10,14 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/recruitment_helper.php';
 
-recruitmentRequireAccess();
+recruitmentRequireAccess($conn);
 ensureRecruitmentTables($conn);
 
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $csrf = (string) $_SESSION['csrf_token'];
-$canEdit = recruitmentCanEdit();
+$canEdit = recruitmentCanEdit(null, $conn);
 
 $id = (int) ($_GET['id'] ?? 0);
 $app = recruitmentGetApplication($conn, $id);
@@ -39,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canEdit) {
             $conn,
             $id,
             (string) ($_POST['status'] ?? ''),
-            trim((string) ($_POST['admin_remarks'] ?? ''))
+            trim((string) ($_POST['admin_remarks'] ?? '')),
+            !empty($_POST['notify_email'])
         );
         $notice = $result['message'];
         $noticeType = $result['success'] ? 'success' : 'danger';
@@ -274,25 +275,47 @@ function recVal(array $row, string $key): string
         </div>
 
         <?php if ($canEdit): ?>
-        <form class="req-card" method="post">
-            <h5>Manage application</h5>
+        <form class="req-card" method="post" id="statusForm">
+            <h5>Recruitment process</h5>
+            <p class="text-muted small">Change the status to move this candidate through the process. Shortlist, select, and reject send an email to the candidate. For rejection you must enter the basis — that text is included in the email.</p>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
             <div class="row g-3">
                 <div class="col-md-4">
                     <label class="form-label">Status</label>
-                    <select class="form-select" name="status">
+                    <select class="form-select" name="status" id="appStatus">
                         <?php foreach (recruitmentApplicationStatuses() as $val => $label): ?>
                             <option value="<?php echo htmlspecialchars($val); ?>" <?php echo $app['status'] === $val ? 'selected' : ''; ?>><?php echo htmlspecialchars($label); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label">Remarks</label>
-                    <textarea class="form-control" name="admin_remarks" rows="2"><?php echo htmlspecialchars((string) ($app['admin_remarks'] ?? '')); ?></textarea>
+                    <label class="form-label" id="remarksLabel">Remarks / basis of rejection</label>
+                    <textarea class="form-control" name="admin_remarks" id="appRemarks" rows="3" placeholder="For rejection, write the reason (eligibility, documents, experience, etc.)."><?php echo htmlspecialchars((string) ($app['admin_remarks'] ?? '')); ?></textarea>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="notify_email" id="notifyEmail" value="1" checked>
+                        <label class="form-check-label" for="notifyEmail">Send email to the candidate (thank-you is sent on apply; this sends shortlisted / selected / rejected)</label>
+                    </div>
                 </div>
             </div>
             <button class="btn btn-primary mt-3" type="submit">Save status</button>
         </form>
+        <script>
+        (function () {
+            var status = document.getElementById('appStatus');
+            var remarks = document.getElementById('appRemarks');
+            var form = document.getElementById('statusForm');
+            if (!form || !status || !remarks) return;
+            form.addEventListener('submit', function (ev) {
+                if (status.value === 'rejected' && remarks.value.trim() === '') {
+                    ev.preventDefault();
+                    remarks.focus();
+                    alert('Please enter the basis of rejection. This is emailed to the candidate.');
+                }
+            });
+        })();
+        </script>
         <?php endif; ?>
     </div>
 </div>
