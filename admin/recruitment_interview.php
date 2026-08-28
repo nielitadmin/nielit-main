@@ -18,6 +18,7 @@ if (empty($_SESSION['csrf_token'])) {
 }
 $csrf = (string) $_SESSION['csrf_token'];
 $canEdit = recruitmentCanEdit(null, $conn);
+$isMasterAdmin = recruitmentIsMasterAdmin();
 
 $id = (int) ($_GET['id'] ?? 0);
 $iv = recruitmentGetInterview($conn, $id);
@@ -85,6 +86,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'wait') {
         $ok = recruitmentSetInterviewCallStatus($conn, $id, $rowId, 'waiting');
         $msg = $ok ? 'Candidate moved back to waiting.' : 'Could not update.';
+    } elseif ($action === 'undo_interview') {
+        if (!$isMasterAdmin) {
+            $ok = false;
+            $msg = 'Only Master Admin can undo an interview.';
+        } else {
+            $row = recruitmentGetInterviewCandidateRow($conn, $rowId);
+            if (!$row) {
+                $ok = false;
+                $msg = 'Candidate not found on this interview.';
+            } else {
+                $result = recruitmentUndoApplicationInterview($conn, (int) $row['application_id']);
+                $ok = $result['success'];
+                $msg = $result['message'];
+            }
+        }
     } elseif ($action === 'complete_session') {
         $st = $conn->prepare("UPDATE recruitment_interviews SET status = 'completed' WHERE id = ?");
         if ($st) {
@@ -268,6 +284,17 @@ $page_title = 'Interview desk';
                                             <input type="hidden" name="action" value="wait">
                                             <input type="hidden" name="row_id" value="<?php echo (int) $c['id']; ?>">
                                             <button class="btn btn-sm btn-outline-secondary" type="submit">Back to waiting</button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <?php if ($isMasterAdmin && (
+                                        in_array((string) ($c['call_status'] ?? ''), ['completed', 'skipped', 'called'], true)
+                                        || (string) ($c['app_status'] ?? '') === 'interviewed'
+                                    )): ?>
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Undo interview for <?php echo htmlspecialchars((string) $c['name']); ?>? They will go back to Shortlisted and waiting.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                                            <input type="hidden" name="action" value="undo_interview">
+                                            <input type="hidden" name="row_id" value="<?php echo (int) $c['id']; ?>">
+                                            <button class="btn btn-sm btn-outline-warning" type="submit">Undo interview</button>
                                         </form>
                                     <?php endif; ?>
                                     <form method="post" class="d-inline" onsubmit="return confirm('Remove this candidate from the interview list?');">

@@ -66,6 +66,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . $listUrl());
         exit();
     }
+    if ((string) ($_POST['action'] ?? '') === 'undo_interview') {
+        $result = recruitmentUndoApplicationInterview($conn, (int) ($_POST['id'] ?? 0));
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        header('Location: ' . $listUrl());
+        exit();
+    }
 }
 
 $notice = (string) ($_SESSION['message'] ?? '');
@@ -160,7 +167,7 @@ $page_title = 'Recruitment applications';
                             <td><?php echo htmlspecialchars((string) $row['application_no']); ?></td>
                             <td>
                                 <strong><?php echo htmlspecialchars((string) $row['name']); ?></strong>
-                                <div class="small text-muted"><?php echo htmlspecialchars(recruitmentDisplay($row['qualification'] ?? '')); ?></div>
+                                <div class="small text-muted"><?php echo htmlspecialchars(recruitmentDisplay(recruitmentHighestEducationLabel($row))); ?></div>
                             </td>
                             <td><?php echo htmlspecialchars((string) ($row['job_title'] ?? '')); ?></td>
                             <td>
@@ -195,6 +202,14 @@ $page_title = 'Recruitment applications';
                                     </a>
                                 <?php elseif ($canEdit && (string) $row['status'] === 'interviewed'): ?>
                                     <a class="btn btn-sm btn-outline-success" href="<?php echo htmlspecialchars(app_url('admin/recruitment_application') . '?id=' . (int) $row['id'] . '#offer-letter'); ?>">Select / offer letter</a>
+                                    <?php if ($isMasterAdmin): ?>
+                                        <form method="post" class="d-inline" onsubmit="return confirm('Undo interview for <?php echo htmlspecialchars((string) $row['name']); ?>? They will go back to Shortlisted and can be called again.');">
+                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                                            <input type="hidden" name="action" value="undo_interview">
+                                            <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                            <button class="btn btn-sm btn-outline-warning" type="submit">Undo interview</button>
+                                        </form>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                                 <?php if ($isMasterAdmin): ?>
                                     <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $row['application_no']); ?> for <?php echo htmlspecialchars((string) $row['name']); ?>? This cannot be undone.');">

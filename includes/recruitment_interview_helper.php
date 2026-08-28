@@ -440,6 +440,40 @@ if (!function_exists('recruitmentSetInterviewCallStatus')) {
     }
 }
 
+if (!function_exists('recruitmentResetInterviewTurnsForApplication')) {
+    function recruitmentResetInterviewTurnsForApplication($conn, int $applicationId): bool
+    {
+        if ($applicationId <= 0 || !($conn instanceof mysqli)) {
+            return false;
+        }
+        ensureRecruitmentInterviewTables($conn);
+        $waiting = 'waiting';
+        $stmt = $conn->prepare(
+            "UPDATE recruitment_interview_candidates
+             SET call_status = ?, called_at = NULL, ended_at = NULL, joined_at = NULL
+             WHERE application_id = ?"
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('si', $waiting, $applicationId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        $reopen = $conn->prepare(
+            "UPDATE recruitment_interviews i
+             INNER JOIN recruitment_interview_candidates c ON c.interview_id = i.id
+             SET i.status = 'scheduled'
+             WHERE c.application_id = ? AND i.status = 'completed'"
+        );
+        if ($reopen) {
+            $reopen->bind_param('i', $applicationId);
+            $reopen->execute();
+            $reopen->close();
+        }
+        return $ok;
+    }
+}
+
 if (!function_exists('recruitmentGetInterviewCandidateRow')) {
     /** @return array<string,mixed>|null */
     function recruitmentGetInterviewCandidateRow($conn, int $rowId): ?array

@@ -345,15 +345,128 @@ if (!function_exists('recruitmentCollectEducation')) {
             if ($exam === '' && $board === '' && $year === '') {
                 continue;
             }
-            $rows[] = [
+            $row = [
                 'exam' => $exam,
                 'board' => $board,
                 'year' => $year,
                 'percent' => $percent,
                 'subjects' => $subj,
             ];
+            if (!recruitmentEducationRowIsFilled($row)) {
+                continue;
+            }
+            $rows[] = $row;
         }
         return $rows;
+    }
+}
+
+if (!function_exists('recruitmentEducationPlaceholderNames')) {
+    /** @return list<string> */
+    function recruitmentEducationPlaceholderNames(): array
+    {
+        return [
+            'class x / equivalent',
+            'class x',
+            'class xii / equivalent',
+            'class xii',
+            'graduation',
+            'post graduation / other',
+            'post graduation',
+        ];
+    }
+}
+
+if (!function_exists('recruitmentEducationExamIsPlaceholder')) {
+    function recruitmentEducationExamIsPlaceholder(string $exam): bool
+    {
+        $exam = strtolower(trim($exam));
+        if ($exam === '') {
+            return true;
+        }
+        return in_array($exam, recruitmentEducationPlaceholderNames(), true);
+    }
+}
+
+if (!function_exists('recruitmentEducationRowIsFilled')) {
+    /** @param array<string,mixed> $row */
+    function recruitmentEducationRowIsFilled(array $row): bool
+    {
+        $board = trim((string) ($row['board'] ?? ''));
+        $year = trim((string) ($row['year'] ?? ''));
+        $percent = trim((string) ($row['percent'] ?? ''));
+        $subjects = trim((string) ($row['subjects'] ?? ''));
+        if ($board !== '' || $year !== '' || $percent !== '' || $subjects !== '') {
+            return true;
+        }
+        return !recruitmentEducationExamIsPlaceholder((string) ($row['exam'] ?? ''));
+    }
+}
+
+if (!function_exists('recruitmentFormatEducationRowLabel')) {
+    /** @param array<string,mixed> $row */
+    function recruitmentFormatEducationRowLabel(array $row): string
+    {
+        $exam = trim((string) ($row['exam'] ?? ''));
+        $subjects = trim((string) ($row['subjects'] ?? ''));
+        $placeholder = recruitmentEducationExamIsPlaceholder($exam);
+        if ($placeholder) {
+            $level = $exam;
+            $low = strtolower($exam);
+            if ($low === 'class x / equivalent' || $low === 'class x') {
+                $level = 'Class X';
+            } elseif ($low === 'class xii / equivalent' || $low === 'class xii') {
+                $level = 'Class XII';
+            } elseif ($low === 'post graduation / other' || $low === 'post graduation') {
+                $level = 'Post Graduation';
+            } elseif ($low === 'graduation') {
+                $level = 'Graduation';
+            }
+            if ($subjects !== '') {
+                return $level !== '' ? ($level . ' in ' . $subjects) : $subjects;
+            }
+            return $level;
+        }
+        if ($subjects !== '') {
+            if (stripos($subjects, $exam) !== false) {
+                return $subjects;
+            }
+            return $exam . ' in ' . $subjects;
+        }
+        return $exam;
+    }
+}
+
+if (!function_exists('recruitmentHighestEducationLabelFromRows')) {
+    /**
+     * @param list<array<string,mixed>> $rows
+     */
+    function recruitmentHighestEducationLabelFromRows(array $rows): string
+    {
+        for ($i = count($rows) - 1; $i >= 0; $i--) {
+            $row = $rows[$i];
+            if (!is_array($row) || !recruitmentEducationRowIsFilled($row)) {
+                continue;
+            }
+            $label = recruitmentFormatEducationRowLabel($row);
+            if ($label !== '') {
+                return $label;
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('recruitmentHighestEducationLabel')) {
+    /** @param array<string,mixed> $app */
+    function recruitmentHighestEducationLabel(array $app): string
+    {
+        $rows = recruitmentDecodeJsonList($app['education_json'] ?? '');
+        $label = recruitmentHighestEducationLabelFromRows($rows);
+        if ($label !== '') {
+            return $label;
+        }
+        return trim((string) ($app['qualification'] ?? ''));
     }
 }
 
@@ -952,6 +1065,56 @@ if (!function_exists('recruitmentMarkApplicationInterviewed')) {
     }
 }
 
+if (!function_exists('recruitmentUndoApplicationInterview')) {
+    /**
+     * Master Admin only: move Interviewed back to Shortlisted and reset the interview turn.
+     *
+     * @return array{success:bool,message:string}
+     */
+    function recruitmentUndoApplicationInterview($conn, int $id): array
+    {
+        if (!recruitmentIsMasterAdmin()) {
+            return ['success' => false, 'message' => 'Only Master Admin can undo an interview.'];
+        }
+        $app = recruitmentGetApplication($conn, $id);
+        if (!$app) {
+            return ['success' => false, 'message' => 'Application not found.'];
+        }
+        $current = strtolower(trim((string) ($app['status'] ?? '')));
+        if ($current === 'selected') {
+            return ['success' => false, 'message' => 'This candidate is already selected. Change the status from Selected first if you need to undo the interview.'];
+        }
+        if ($current === 'rejected') {
+            return ['success' => false, 'message' => 'This candidate is already rejected.'];
+        }
+        $statusOk = false;
+        if ($current === 'interviewed') {
+            $result = recruitmentUpdateApplicationStatus(
+                $conn,
+                $id,
+                'shortlisted',
+                (string) ($app['admin_remarks'] ?? ''),
+                false
+            );
+            if (!$result['success']) {
+                return $result;
+            }
+            $statusOk = true;
+        } elseif ($current === 'shortlisted') {
+            $statusOk = true;
+        } else {
+            return ['success' => false, 'message' => 'Only an Interviewed candidate can have the interview undone.'];
+        }
+        if (function_exists('recruitmentResetInterviewTurnsForApplication')) {
+            recruitmentResetInterviewTurnsForApplication($conn, $id);
+        }
+        if ($current === 'shortlisted') {
+            return ['success' => true, 'message' => 'Interview turn reset. The candidate is still shortlisted and can be called again.'];
+        }
+        return ['success' => $statusOk, 'message' => 'Interview undone. The candidate is shortlisted again and can be called.'];
+    }
+}
+
 if (!function_exists('recruitmentNextApplicationNo')) {
     function recruitmentNextApplicationNo($conn): string
     {
@@ -1044,9 +1207,9 @@ if (!function_exists('recruitmentSubmitApplication')) {
         $pincode = trim((string) ($data['pincode'] ?? ''));
         $education = recruitmentCollectEducation($data['_post'] ?? $data);
         $experience = recruitmentCollectExperience($data['_post'] ?? $data);
-        $qual = trim((string) ($data['qualification'] ?? ''));
-        if ($qual === '' && $education !== []) {
-            $qual = (string) ($education[count($education) - 1]['exam'] ?? '');
+        $qual = recruitmentHighestEducationLabelFromRows($education);
+        if ($qual === '') {
+            $qual = trim((string) ($data['qualification'] ?? ''));
         }
         $expYears = trim((string) ($data['experience_years'] ?? ''));
         $expDetails = trim((string) ($data['experience_details'] ?? ''));

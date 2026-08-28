@@ -41,6 +41,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
         header('Location: ' . app_url('admin/recruitment_applications') . '?job_id=' . (int) ($app['job_id'] ?? 0));
         exit();
+    } elseif ((string) ($_POST['action'] ?? '') === 'undo_interview') {
+        $result = recruitmentUndoApplicationInterview($conn, $id);
+        $notice = $result['message'];
+        $noticeType = $result['success'] ? 'success' : 'danger';
+        $app = recruitmentGetApplication($conn, $id) ?: $app;
     } elseif ($canEdit) {
         $action = (string) ($_POST['action'] ?? 'save_status');
         if ($action === 'save_offer_letter') {
@@ -153,6 +158,13 @@ function recVal(array $row, string $key): string
                 <?php if (!empty($app['offer_letter_path'])): ?>
                     <a class="btn btn-outline-success" target="_blank" href="<?php echo htmlspecialchars(recruitmentFileUrl((string) $app['offer_letter_path'])); ?>">Offer letter</a>
                 <?php endif; ?>
+                <?php if ($isMasterAdmin && (string) ($app['status'] ?? '') === 'interviewed'): ?>
+                    <form method="post" class="d-inline" onsubmit="return confirm('Undo interview for this candidate? They will go back to Shortlisted and can be called again.');">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                        <input type="hidden" name="action" value="undo_interview">
+                        <button class="btn btn-outline-warning" type="submit">Undo interview</button>
+                    </form>
+                <?php endif; ?>
                 <?php if ($isMasterAdmin): ?>
                     <form method="post" class="d-inline" onsubmit="return confirm('Permanently delete application <?php echo htmlspecialchars((string) $app['application_no']); ?>? This cannot be undone.');">
                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
@@ -228,7 +240,7 @@ function recVal(array $row, string $key): string
                 <div class="req-card">
                     <h5>Education &amp; experience</h5>
                     <dl class="req-dl">
-                        <dt>Qualification</dt><dd><?php echo recVal($app, 'qualification'); ?></dd>
+                        <dt>Qualification</dt><dd><?php echo htmlspecialchars(recruitmentDisplay(recruitmentHighestEducationLabel($app))); ?></dd>
                         <dt>Experience</dt><dd><?php echo recVal($app, 'experience_years'); ?></dd>
                     </dl>
                     <p class="mb-0 mt-2" style="white-space:pre-wrap;"><?php echo htmlspecialchars(recruitmentDisplay($app['experience_details'] ?? '')); ?></p>
