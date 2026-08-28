@@ -3,6 +3,7 @@
  * Official-style 2-page NIELIT FORM OF APPLICATION (blank or filled).
  */
 require_once __DIR__ . '/institute_branding.php';
+require_once __DIR__ . '/tcpdf_devanagari_font.php';
 require_once __DIR__ . '/../libraries/tcpdf/tcpdf.php';
 
 if (!class_exists('RecruitmentApplicationFormPdf')) {
@@ -140,45 +141,55 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         $pdf->AddPage();
 
         $h = 8.2;
+        $pageLeft = 12.0;
+        $pageRight = 198.0;
         $logoPath = __DIR__ . '/../assets/images/bhubaneswar_logo.png';
         $headerY = 12.5;
+        $logoW = 16.0;
+        $textX = 31.0;
+        $textW = $pageRight - $textX;
+        $logoH = 0.0;
         if (is_file($logoPath)) {
-            $pdf->Image($logoPath, 12, $headerY, 18, 0, 'PNG');
+            $imgSize = @getimagesize($logoPath);
+            $logoH = ($imgSize && !empty($imgSize[0]))
+                ? $logoW * ($imgSize[1] / $imgSize[0])
+                : 14.0;
+            $pdf->Image($logoPath, $pageLeft, $headerY, $logoW, 0, 'PNG');
         }
-        $pdf->SetXY(32, $headerY);
+
+        $hindiFont = getTcpdfDevanagariFontName();
+        $pdf->SetXY($textX, $headerY);
+        if ($hindiFont) {
+            $pdf->SetFont($hindiFont, '', 9);
+            $pdf->Cell($textW, 4.4, INSTITUTE_NAME_HI, 0, 1, 'C');
+            $pdf->SetX($textX);
+        }
         $pdf->SetFont('helvetica', 'B', 10);
-        $pdf->Cell(154, 5, 'National Institute of Electronics & Information Technology (NIELIT)', 0, 1, 'C');
-        $pdf->SetX(32);
+        $pdf->Cell($textW, 5.0, 'National Institute of Electronics & Information Technology (NIELIT)', 0, 1, 'C');
+        $pdf->SetX($textX);
         $pdf->SetFont('helvetica', 'B', 9);
-        $pdf->Cell(154, 4.2, 'Bhubaneswar  |  Raipur  |  Baleshwar', 0, 1, 'C');
-        $pdf->SetX(32);
-        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($textW, 4.0, 'Bhubaneswar  |  Raipur  |  Baleshwar', 0, 1, 'C');
+        $pdf->SetX($textX);
+        $pdf->SetFont('helvetica', '', 7.4);
         $pdf->SetTextColor(70, 70, 70);
-        $pdf->Cell(154, 3.6, 'Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
-        $pdf->SetX(32);
-        $pdf->Cell(154, 3.5, 'Office: 3rd Floor, North Side, OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha – 751013', 0, 1, 'C');
+        $pdf->Cell($textW, 3.5, 'An Autonomous Scientific Society under Ministry of Electronics & Information Technology, Government of India', 0, 1, 'C');
+        $pdf->SetX($textX);
+        $pdf->Cell($textW, 3.5, 'Office: 3rd Floor, North Side, OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha – 751013', 0, 1, 'C');
         $pdf->SetTextColor(0, 0, 0);
-        $pdf->Ln(1.8);
-        $lineY = $pdf->GetY();
+
+        $headerBottom = max($pdf->GetY(), $headerY + $logoH) + 1.6;
+        $pdf->SetY($headerBottom);
         $pdf->SetDrawColor(40, 40, 40);
-        $pdf->SetLineWidth(0.4);
-        $pdf->Line(12, $lineY, 198, $lineY);
-        $pdf->Ln(2.4);
+        $pdf->SetLineWidth(0.45);
+        $pdf->Line($pageLeft, $headerBottom, $pageRight, $headerBottom);
+        $pdf->Ln(2.6);
 
-        $photoW = 32.0;
-        $photoH = 52.0;
-        $photoX = 166.0;
+        $photoW = 30.0;
+        $photoH = 48.0;
+        $photoX = $pageRight - $photoW;
         $photoY = $pdf->GetY();
-        $leftW = 152.0;
-        $nameThird = 50.666;
-
-        $pdf->SetFont('helvetica', 'BU', 13);
-        $pdf->Cell($leftW, 7.0, 'APPLICATION FORM', 0, 1, 'C');
-        $pdf->SetFont('helvetica', 'I', 7.5);
-        $pdf->SetTextColor(80, 80, 80);
-        $pdf->Cell($leftW, 4.0, 'To be filled in CAPITAL letters', 0, 1, 'C');
-        $pdf->SetTextColor(0, 0, 0);
-        $pdf->Ln(0.8);
+        $leftW = $photoX - $pageLeft - 2.0;
+        $nameThird = $leftW / 3;
 
         $pdf->SetDrawColor(80, 80, 80);
         $pdf->SetLineWidth(0.25);
@@ -187,14 +198,24 @@ if (!function_exists('outputRecruitmentApplicationFormPdf')) {
         if ($photoFile !== '') {
             $pdf->Image($photoFile, $photoX + 0.5, $photoY + 0.5, $photoW - 1, $photoH - 1, '', '', '', true, 150);
         } else {
-            $pdf->SetXY($photoX, $photoY + 14);
+            $pdf->SetXY($photoX, $photoY + 12);
             $pdf->SetFont('helvetica', '', 6.5);
             $pdf->SetTextColor(110, 110, 110);
             $pdf->MultiCell($photoW, 3.5, "Affix recent\npassport size\nphotograph", 0, 'C');
             $pdf->SetTextColor(0, 0, 0);
         }
 
-        $pdf->SetY($photoY + 11.5);
+        $pdf->SetXY($pageLeft, $photoY);
+        $pdf->SetFont('helvetica', 'BU', 13);
+        $pdf->Cell($leftW, 6.4, 'APPLICATION FORM', 0, 1, 'C');
+        $pdf->SetX($pageLeft);
+        $pdf->SetFont('helvetica', 'I', 7.5);
+        $pdf->SetTextColor(80, 80, 80);
+        $pdf->Cell($leftW, 3.6, 'To be filled in CAPITAL letters', 0, 1, 'C');
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->SetX($pageLeft);
+        $pdf->Ln(0.6);
+
         recruitmentFormPdfCell($pdf, '1. Post applied for', recruitmentFormPdfText($app['job_title'] ?? ''), $leftW, $h);
         recruitmentFormPdfCell($pdf, 'Advertisement no.', recruitmentFormPdfText($app['advt_no'] ?? ''), $leftW / 2, $h, 0);
         recruitmentFormPdfCell($pdf, 'Application no.', $filled ? recruitmentFormPdfText($app['application_no'] ?? '') : '', $leftW / 2, $h);
