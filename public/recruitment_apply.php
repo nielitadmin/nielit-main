@@ -107,7 +107,8 @@ $oldArr = static function (string $key, int $i) {
     $arr = $_POST[$key] ?? [];
     return htmlspecialchars((string) ($arr[$i] ?? ''), ENT_QUOTES, 'UTF-8');
 };
-$eduDefaults = ['Class X / equivalent', 'Class XII / equivalent', 'Graduation', 'Post Graduation / other'];
+$eduDefaults = recruitmentEducationLevelDefaults();
+$eduCatalog = recruitmentEducationCatalog();
 $eduCount = max(4, is_array($_POST['edu_exam'] ?? null) ? count($_POST['edu_exam']) : 4);
 $expCount = max(3, is_array($_POST['exp_org'] ?? null) ? count($_POST['exp_org']) : 3);
 $asOnDate = ($job && !empty($job['last_date'])) ? (string) $job['last_date'] : date('Y-m-d');
@@ -179,6 +180,9 @@ if ($error !== '') {
             border-color:var(--blue,#1a56db); box-shadow:0 0 0 .2rem rgba(26,86,219,.12);
         }
         .rec-wizard #stateStatus, .rec-wizard #cityStatus { display:block; margin-top:.25rem; }
+        .edu-extra { margin-top:.35rem; }
+        .exp-present-wrap { font-size:.75rem; margin-top:.2rem; white-space:nowrap; }
+        .edu-table select.form-select-sm { min-height:38px; padding:.35rem .5rem; }
         .rec-photo {
             width:100%; max-width:180px; margin-left:auto; border:2px dashed #94a3b8; border-radius:16px;
             padding:.85rem; background:#f8fafc; text-align:center;
@@ -513,25 +517,102 @@ if ($error !== '') {
                             <h3>Education &amp; experience</h3>
                             <p class="rec-help">Start from Class X. Add extra rows if you need more qualifications or jobs.</p>
                             <h6 class="mb-2">Examinations passed / degrees</h6>
+                            <p class="rec-help mb-2">Choose the qualification level and exam from the lists (same options as student registration). Use Other to type a custom name.</p>
                             <div class="rec-table table-responsive mb-2">
                                 <table class="table table-sm align-middle edu-table mb-0" id="eduTable">
                                     <thead class="table-light">
                                         <tr>
+                                            <th>Level</th>
                                             <th>Examination / Degree</th>
                                             <th>University / Board</th>
-                                            <th>Year of passing</th>
+                                            <th>Year</th>
                                             <th>% / CGPA</th>
-                                            <th>Subjects</th>
+                                            <th>Stream / Subjects</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    <?php for ($i = 0; $i < $eduCount; $i++): ?>
+                                    <?php
+                                    $yearMax = (int) date('Y') + 1;
+                                    $yearMin = 1990;
+                                    for ($i = 0; $i < $eduCount; $i++):
+                                        $need = $i < 3;
+                                        $req = $need ? ' required' : '';
+                                        $levelVal = (string) ($_POST['edu_exam'][$i] ?? ($eduDefaults[$i] ?? ''));
+                                        $examNameVal = (string) ($_POST['edu_exam_name'][$i] ?? '');
+                                        $examNameOtherVal = (string) ($_POST['edu_exam_name_other'][$i] ?? '');
+                                        $examOtherVal = (string) ($_POST['edu_exam_other'][$i] ?? '');
+                                        $yearVal = (string) ($_POST['edu_year'][$i] ?? '');
+                                        $subjVal = (string) ($_POST['edu_subjects'][$i] ?? '');
+                                        $subjOtherVal = (string) ($_POST['edu_subjects_other'][$i] ?? '');
+                                        if ($subjVal === 'Arts') {
+                                            $subjVal = 'Arts/Humanities';
+                                        }
+                                        $levelExams = $eduCatalog['exams'][$levelVal] ?? [];
+                                        $showExamOther = ($examNameVal === 'Other' || ($examNameVal !== '' && !in_array($examNameVal, $levelExams, true) && $examNameVal !== 'Other'));
+                                        if ($examNameVal !== '' && $examNameVal !== 'Other' && !in_array($examNameVal, $levelExams, true)) {
+                                            $examNameOtherVal = $examNameOtherVal !== '' ? $examNameOtherVal : $examNameVal;
+                                            $examNameVal = 'Other';
+                                            $showExamOther = true;
+                                        }
+                                        $showLevelOther = ($levelVal === 'Other');
+                                        $knownStreams = [];
+                                        foreach ($eduCatalog['streams'] as $streamList) {
+                                            foreach ($streamList as $st) {
+                                                $knownStreams[] = $st;
+                                            }
+                                        }
+                                        $knownStreams[] = 'Other';
+                                        $showSubjOther = ($subjVal === 'Other' || ($subjVal !== '' && !in_array($subjVal, $knownStreams, true)));
+                                        if ($subjVal !== '' && $subjVal !== 'Other' && !in_array($subjVal, $knownStreams, true)) {
+                                            $subjOtherVal = $subjOtherVal !== '' ? $subjOtherVal : $subjVal;
+                                            $subjVal = 'Other';
+                                            $showSubjOther = true;
+                                        }
+                                    ?>
                                         <tr>
-                                            <td><input class="form-control form-control-sm" name="edu_exam[]" value="<?php echo $oldArr('edu_exam', $i) !== '' ? $oldArr('edu_exam', $i) : htmlspecialchars($eduDefaults[$i] ?? ''); ?>" <?php echo $i < 3 ? 'required' : ''; ?>></td>
-                                            <td><input class="form-control form-control-sm" name="edu_board[]" value="<?php echo $oldArr('edu_board', $i); ?>" <?php echo $i < 3 ? 'required' : ''; ?>></td>
-                                            <td><input class="form-control form-control-sm" name="edu_year[]" value="<?php echo $oldArr('edu_year', $i); ?>" <?php echo $i < 3 ? 'required' : ''; ?>></td>
-                                            <td><input class="form-control form-control-sm" name="edu_percent[]" value="<?php echo $oldArr('edu_percent', $i); ?>"></td>
-                                            <td><input class="form-control form-control-sm" name="edu_subjects[]" value="<?php echo $oldArr('edu_subjects', $i); ?>"></td>
+                                            <td>
+                                                <select class="form-select form-select-sm edu-level" name="edu_exam[]"<?php echo $req; ?>>
+                                                    <option value="">Select level</option>
+                                                    <?php foreach ($eduCatalog['levels'] as $lv => $lab): ?>
+                                                        <option value="<?php echo htmlspecialchars($lv, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $levelVal === $lv ? 'selected' : ''; ?>><?php echo htmlspecialchars($lab, ENT_QUOTES, 'UTF-8'); ?></option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                                <input class="form-control form-control-sm edu-extra edu-level-other" name="edu_exam_other[]" placeholder="Specify level" value="<?php echo htmlspecialchars($examOtherVal, ENT_QUOTES, 'UTF-8'); ?>" style="<?php echo $showLevelOther ? '' : 'display:none'; ?>">
+                                            </td>
+                                            <td>
+                                                <select class="form-select form-select-sm edu-exam-name" name="edu_exam_name[]"<?php echo $req; ?>>
+                                                    <option value="">Select exam</option>
+                                                    <?php foreach ($levelExams as $en): ?>
+                                                        <option value="<?php echo htmlspecialchars($en, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $examNameVal === $en ? 'selected' : ''; ?>><?php echo htmlspecialchars($en, ENT_QUOTES, 'UTF-8'); ?></option>
+                                                    <?php endforeach; ?>
+                                                    <option value="Other" <?php echo $examNameVal === 'Other' ? 'selected' : ''; ?>>Other (specify)</option>
+                                                </select>
+                                                <input class="form-control form-control-sm edu-extra edu-exam-name-other" name="edu_exam_name_other[]" placeholder="Specify exam / degree" value="<?php echo htmlspecialchars($examNameOtherVal, ENT_QUOTES, 'UTF-8'); ?>" style="<?php echo $showExamOther ? '' : 'display:none'; ?>">
+                                            </td>
+                                            <td><input class="form-control form-control-sm" name="edu_board[]" placeholder="Board / University" value="<?php echo $oldArr('edu_board', $i); ?>"<?php echo $req; ?>></td>
+                                            <td>
+                                                <select class="form-select form-select-sm" name="edu_year[]"<?php echo $req; ?>>
+                                                    <option value="">Year</option>
+                                                    <?php for ($y = $yearMax; $y >= $yearMin; $y--): ?>
+                                                        <option value="<?php echo $y; ?>" <?php echo $yearVal === (string) $y ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                                                    <?php endfor; ?>
+                                                </select>
+                                            </td>
+                                            <td><input class="form-control form-control-sm" name="edu_percent[]" placeholder="85% / 8.5" value="<?php echo $oldArr('edu_percent', $i); ?>"></td>
+                                            <td>
+                                                <select class="form-select form-select-sm edu-stream" name="edu_subjects[]">
+                                                    <option value="">Select stream</option>
+                                                    <?php foreach ($eduCatalog['streams'] as $group => $streamList): ?>
+                                                        <?php if ($group !== ''): ?><optgroup label="<?php echo htmlspecialchars($group, ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+                                                        <?php foreach ($streamList as $st): ?>
+                                                            <option value="<?php echo htmlspecialchars($st, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $subjVal === $st ? 'selected' : ''; ?>><?php echo htmlspecialchars($st, ENT_QUOTES, 'UTF-8'); ?></option>
+                                                        <?php endforeach; ?>
+                                                        <?php if ($group !== ''): ?></optgroup><?php endif; ?>
+                                                    <?php endforeach; ?>
+                                                    <option value="Other" <?php echo $subjVal === 'Other' ? 'selected' : ''; ?>>Other</option>
+                                                </select>
+                                                <input class="form-control form-control-sm edu-extra edu-stream-other" name="edu_subjects_other[]" placeholder="Specify stream" value="<?php echo htmlspecialchars($subjOtherVal, ENT_QUOTES, 'UTF-8'); ?>" style="<?php echo $showSubjOther ? '' : 'display:none'; ?>">
+                                            </td>
                                         </tr>
                                     <?php endfor; ?>
                                     </tbody>
@@ -543,7 +624,8 @@ if ($error !== '') {
                             <div class="row mb-2">
                                 <div class="col-md-4">
                                     <label class="form-label">Total experience</label>
-                                    <input class="form-control" name="experience_years" placeholder="e.g. 2 years 3 months" value="<?php echo $old('experience_years'); ?>">
+                                    <input class="form-control" name="experience_years" id="totalExperience" placeholder="Calculated from rows" readonly value="<?php echo $old('experience_years'); ?>">
+                                    <div class="form-text">Adds up duration from each From–To period (blank To = till this month).</div>
                                 </div>
                             </div>
                             <div class="rec-table table-responsive mb-2">
@@ -564,8 +646,14 @@ if ($error !== '') {
                                             <td><input class="form-control form-control-sm" name="exp_org[]" value="<?php echo $oldArr('exp_org', $i); ?>"></td>
                                             <td><input class="form-control form-control-sm" name="exp_post[]" value="<?php echo $oldArr('exp_post', $i); ?>"></td>
                                             <td><input class="form-control form-control-sm" type="month" name="exp_from[]" value="<?php echo $oldArr('exp_from', $i); ?>"></td>
-                                            <td><input class="form-control form-control-sm" type="month" name="exp_to[]" value="<?php echo $oldArr('exp_to', $i); ?>"></td>
-                                            <td><input class="form-control form-control-sm" name="exp_duration[]" value="<?php echo $oldArr('exp_duration', $i); ?>"></td>
+                                            <td>
+                                                <input class="form-control form-control-sm exp-to" type="month" name="exp_to[]" value="<?php echo $oldArr('exp_to', $i); ?>">
+                                                <div class="form-check exp-present-wrap">
+                                                    <input class="form-check-input exp-present" type="checkbox" <?php echo $oldArr('exp_to', $i) === '' && $oldArr('exp_from', $i) !== '' ? 'checked' : ''; ?>>
+                                                    <label class="form-check-label">Present / till date</label>
+                                                </div>
+                                            </td>
+                                            <td><input class="form-control form-control-sm exp-duration" name="exp_duration[]" readonly placeholder="Auto" value="<?php echo $oldArr('exp_duration', $i); ?>"></td>
                                             <td><input class="form-control form-control-sm" name="exp_nature[]" value="<?php echo $oldArr('exp_nature', $i); ?>"></td>
                                         </tr>
                                     <?php endfor; ?>
@@ -681,6 +769,106 @@ if ($error !== '') {
         var current = <?php echo (int) $startStep; ?>;
         var total = 4;
         var form = document.getElementById('applyForm');
+        var eduCatalog = <?php echo json_encode($eduCatalog, JSON_UNESCAPED_UNICODE); ?>;
+
+        function pad2(n) {
+            return (n < 10 ? '0' : '') + n;
+        }
+        function nowYearMonth() {
+            var d = new Date();
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1);
+        }
+        function monthsInclusive(from, to) {
+            if (!from || !to || !/^\d{4}-\d{2}$/.test(from) || !/^\d{4}-\d{2}$/.test(to)) {
+                return 0;
+            }
+            var fa = from.split('-');
+            var ta = to.split('-');
+            var n = (parseInt(ta[0], 10) - parseInt(fa[0], 10)) * 12 + (parseInt(ta[1], 10) - parseInt(fa[1], 10)) + 1;
+            return n > 0 ? n : 0;
+        }
+        function formatMonths(n) {
+            if (n <= 0) return '';
+            var y = Math.floor(n / 12);
+            var m = n % 12;
+            var parts = [];
+            if (y) parts.push(y + (y === 1 ? ' year' : ' years'));
+            if (m) parts.push(m + (m === 1 ? ' month' : ' months'));
+            return parts.join(' ');
+        }
+        function calcExperience() {
+            var total = 0;
+            document.querySelectorAll('#expTable tbody tr').forEach(function (tr) {
+                var fromEl = tr.querySelector('[name="exp_from[]"]');
+                var toEl = tr.querySelector('[name="exp_to[]"]');
+                var durEl = tr.querySelector('[name="exp_duration[]"]');
+                var present = tr.querySelector('.exp-present');
+                if (!fromEl || !durEl) return;
+                if (present && present.checked && toEl) {
+                    toEl.value = nowYearMonth();
+                    toEl.disabled = true;
+                } else if (toEl) {
+                    toEl.disabled = false;
+                }
+                if (!fromEl.value) {
+                    durEl.value = '';
+                    return;
+                }
+                var toVal = toEl && toEl.value ? toEl.value : nowYearMonth();
+                if (toVal < fromEl.value) {
+                    durEl.value = '';
+                    return;
+                }
+                var n = monthsInclusive(fromEl.value, toVal);
+                durEl.value = formatMonths(n);
+                total += n;
+            });
+            var tot = document.getElementById('totalExperience');
+            if (tot) tot.value = formatMonths(total);
+        }
+        function fillExamNames(levelSelect) {
+            var row = levelSelect.closest('tr');
+            if (!row) return;
+            var nameSelect = row.querySelector('.edu-exam-name');
+            var levelOther = row.querySelector('.edu-level-other');
+            var nameOther = row.querySelector('.edu-exam-name-other');
+            var level = levelSelect.value;
+            if (levelOther) {
+                levelOther.style.display = level === 'Other' ? '' : 'none';
+                if (level !== 'Other') levelOther.value = '';
+            }
+            if (!nameSelect) return;
+            var keep = nameSelect.value;
+            nameSelect.innerHTML = '<option value="">Select exam</option>';
+            var list = (eduCatalog.exams && eduCatalog.exams[level]) ? eduCatalog.exams[level] : [];
+            list.forEach(function (name) {
+                var opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                nameSelect.appendChild(opt);
+            });
+            var other = document.createElement('option');
+            other.value = 'Other';
+            other.textContent = 'Other (specify)';
+            nameSelect.appendChild(other);
+            if (keep && Array.prototype.some.call(nameSelect.options, function (o) { return o.value === keep; })) {
+                nameSelect.value = keep;
+            } else {
+                nameSelect.value = '';
+            }
+            if (nameOther) {
+                nameOther.style.display = nameSelect.value === 'Other' ? '' : 'none';
+                if (nameSelect.value !== 'Other') nameOther.value = '';
+            }
+        }
+        function toggleNamedOther(selectEl, otherSel) {
+            var row = selectEl.closest('tr');
+            if (!row) return;
+            var other = row.querySelector(otherSel);
+            if (!other) return;
+            other.style.display = selectEl.value === 'Other' ? '' : 'none';
+            if (selectEl.value !== 'Other') other.value = '';
+        }
 
         function digitsOnly(el, maxLen) {
             if (!el) return;
@@ -756,16 +944,53 @@ if ($error !== '') {
             var tbody = document.querySelector('#' + tableId + ' tbody');
             if (!tbody || !tbody.rows.length) { return; }
             var row = tbody.rows[0].cloneNode(true);
-            row.querySelectorAll('input').forEach(function (inp) {
+            row.querySelectorAll('input, select').forEach(function (inp) {
+                if (inp.type === 'checkbox') {
+                    inp.checked = false;
+                    return;
+                }
                 inp.value = '';
                 inp.removeAttribute('required');
+                inp.disabled = false;
             });
+            row.querySelectorAll('.edu-extra').forEach(function (el) { el.style.display = 'none'; });
             tbody.appendChild(row);
+            if (tableId === 'eduTable') {
+                var level = row.querySelector('.edu-level');
+                if (level) fillExamNames(level);
+            }
+            calcExperience();
         }
         var addEdu = document.getElementById('addEduRow');
         var addExp = document.getElementById('addExpRow');
         if (addEdu) addEdu.addEventListener('click', function () { addRow('eduTable'); });
         if (addExp) addExp.addEventListener('click', function () { addRow('expTable'); });
+
+        var eduTable = document.getElementById('eduTable');
+        if (eduTable) {
+            eduTable.addEventListener('change', function (e) {
+                var t = e.target;
+                if (!t) return;
+                if (t.classList.contains('edu-level')) {
+                    fillExamNames(t);
+                } else if (t.classList.contains('edu-exam-name')) {
+                    toggleNamedOther(t, '.edu-exam-name-other');
+                } else if (t.classList.contains('edu-stream')) {
+                    toggleNamedOther(t, '.edu-stream-other');
+                }
+            });
+        }
+        var expTable = document.getElementById('expTable');
+        if (expTable) {
+            expTable.addEventListener('change', function () { calcExperience(); });
+            expTable.addEventListener('input', function (e) {
+                var t = e.target;
+                if (t && (t.name === 'exp_from[]' || t.name === 'exp_to[]' || (t.classList && t.classList.contains('exp-present')))) {
+                    calcExperience();
+                }
+            });
+        }
+        calcExperience();
 
         function togglePerm() {
             var on = document.getElementById('samePermanent');
@@ -885,6 +1110,10 @@ if ($error !== '') {
             });
         });
         form.addEventListener('submit', function (ev) {
+            document.querySelectorAll('#expTable [name="exp_to[]"]').forEach(function (el) {
+                el.disabled = false;
+            });
+            calcExperience();
             for (var i = 1; i <= total; i++) {
                 if (!validateStep(i)) {
                     ev.preventDefault();

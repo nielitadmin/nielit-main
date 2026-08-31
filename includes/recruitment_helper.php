@@ -321,6 +321,98 @@ if (!function_exists('recruitmentDefaultInstructions')) {
     }
 }
 
+if (!function_exists('recruitmentEducationCatalog')) {
+    /**
+     * Exam / stream lists aligned with student registration.
+     * @return array{levels:array<string,string>,exams:array<string,list<string>>,streams:array<string,list<string>>}
+     */
+    function recruitmentEducationCatalog(): array
+    {
+        return [
+            'levels' => [
+                'Primary' => 'Primary (5th/8th)',
+                'Matriculation' => 'Matriculation (10th)',
+                'Intermediate' => 'Intermediate (+2/12th)',
+                'ITI' => 'ITI',
+                'Diploma' => 'Diploma',
+                'Graduation' => 'Graduation',
+                'Post Graduation' => 'Post Graduation',
+                'PhD' => 'PhD/Doctorate',
+                'Other' => 'Other',
+            ],
+            'exams' => [
+                'Primary' => ['Primary School Certificate', '5th Standard', '8th Standard', 'Elementary Education'],
+                'Matriculation' => ['Secondary School Certificate (SSC)', 'High School Certificate (HSC)', 'CBSE Class 10', 'ICSE Class 10', 'State Board 10th'],
+                'Intermediate' => ['Higher Secondary Certificate', 'Intermediate Certificate', 'CBSE Class 12', 'ICSE Class 12', 'State Board 12th', 'Pre-University Course (PUC)'],
+                'ITI' => ['Industrial Training Institute', 'NCVT', 'SCVT', 'Craftsman Training Scheme (CTS)'],
+                'Diploma' => ['Diploma in Engineering', 'Polytechnic Diploma', 'Technical Diploma', 'Professional Diploma', 'Vocational Diploma'],
+                'Graduation' => ['Bachelor of Technology (B.Tech)', 'Bachelor of Engineering (B.E.)', 'Bachelor of Science (B.Sc)', 'Bachelor of Arts (B.A.)', 'Bachelor of Commerce (B.Com)', 'Bachelor of Computer Applications (BCA)', 'Bachelor of Business Administration (BBA)', 'Other Bachelor Degree'],
+                'Post Graduation' => ['Master of Technology (M.Tech)', 'Master of Engineering (M.E.)', 'Master of Science (M.Sc)', 'Master of Arts (M.A.)', 'Master of Commerce (M.Com)', 'Master of Computer Applications (MCA)', 'Master of Business Administration (MBA)', 'Other Master Degree'],
+                'PhD' => ['Doctor of Philosophy (Ph.D)', 'Doctor of Science (D.Sc)', 'Doctor of Literature (D.Litt)', 'Doctor of Engineering (D.Eng)', 'Other Doctorate Degree'],
+                'Other' => ['Certificate Course', 'Professional Certification', 'Skill Development Course', 'Other Qualification'],
+            ],
+            'streams' => [
+                '' => ['Science', 'Commerce', 'Arts/Humanities', 'General', 'Vocational'],
+                'Engineering & Technology' => [
+                    'Computer Science Engineering', 'Information Technology', 'Electronics & Communication Engineering',
+                    'Electrical and Electronics Engineering (EEE)', 'Electrical Engineering', 'Mechanical Engineering',
+                    'Civil Engineering', 'Chemical Engineering', 'Artificial Intelligence & Machine Learning',
+                    'Data Science Engineering', 'Cyber Security Engineering', 'Software Engineering',
+                ],
+                'Computer Applications' => [
+                    'Computer Applications', 'Information Systems', 'Computer Science', 'Software Development',
+                    'Web Development', 'Mobile App Development', 'Database Management',
+                ],
+                'Management & Business' => [
+                    'Management', 'Business Administration', 'Marketing', 'Finance', 'Human Resources',
+                    'Operations Management', 'Entrepreneurship',
+                ],
+                'Pure Sciences' => [
+                    'Physics', 'Chemistry', 'Mathematics', 'Biology', 'Biotechnology', 'Statistics',
+                ],
+            ],
+        ];
+    }
+}
+
+if (!function_exists('recruitmentEducationLevelDefaults')) {
+    /** @return list<string> */
+    function recruitmentEducationLevelDefaults(): array
+    {
+        return ['Matriculation', 'Intermediate', 'Graduation', 'Post Graduation'];
+    }
+}
+
+if (!function_exists('recruitmentYmMonthsInclusive')) {
+    function recruitmentYmMonthsInclusive(string $from, string $to): int
+    {
+        if (!preg_match('/^(\d{4})-(\d{2})$/', $from, $a) || !preg_match('/^(\d{4})-(\d{2})$/', $to, $b)) {
+            return 0;
+        }
+        $n = ((int) $b[1] - (int) $a[1]) * 12 + ((int) $b[2] - (int) $a[2]) + 1;
+        return $n > 0 ? $n : 0;
+    }
+}
+
+if (!function_exists('recruitmentFormatMonthsAsYears')) {
+    function recruitmentFormatMonthsAsYears(int $months): string
+    {
+        if ($months <= 0) {
+            return '';
+        }
+        $y = (int) floor($months / 12);
+        $m = $months % 12;
+        $parts = [];
+        if ($y > 0) {
+            $parts[] = $y . ($y === 1 ? ' year' : ' years');
+        }
+        if ($m > 0) {
+            $parts[] = $m . ($m === 1 ? ' month' : ' months');
+        }
+        return implode(' ', $parts);
+    }
+}
+
 if (!function_exists('recruitmentCollectEducation')) {
     /**
      * @return list<array{exam:string,board:string,year:string,percent:string,subjects:string}>
@@ -332,16 +424,39 @@ if (!function_exists('recruitmentCollectEducation')) {
         $years = $post['edu_year'] ?? [];
         $percents = $post['edu_percent'] ?? [];
         $subjects = $post['edu_subjects'] ?? [];
+        $examNames = $post['edu_exam_name'] ?? [];
+        $examNameOthers = $post['edu_exam_name_other'] ?? [];
+        $examOthers = $post['edu_exam_other'] ?? [];
+        $subjectOthers = $post['edu_subjects_other'] ?? [];
         if (!is_array($exams)) {
             return [];
         }
         $rows = [];
         foreach ($exams as $i => $exam) {
             $exam = trim((string) $exam);
+            $examOther = trim((string) ($examOthers[$i] ?? ''));
+            if (strcasecmp($exam, 'Other') === 0 && $examOther !== '') {
+                $exam = $examOther;
+            }
+            $examName = trim((string) ($examNames[$i] ?? ''));
+            $examNameOther = trim((string) ($examNameOthers[$i] ?? ''));
+            if (strcasecmp($examName, 'Other') === 0 && $examNameOther !== '') {
+                $examName = $examNameOther;
+            }
+            if ($examName !== '' && strcasecmp($examName, 'Other') !== 0) {
+                $exam = $examName;
+            }
             $board = trim((string) ($boards[$i] ?? ''));
             $year = trim((string) ($years[$i] ?? ''));
             $percent = trim((string) ($percents[$i] ?? ''));
             $subj = trim((string) ($subjects[$i] ?? ''));
+            $subjOther = trim((string) ($subjectOthers[$i] ?? ''));
+            if (strcasecmp($subj, 'Other') === 0 && $subjOther !== '') {
+                $subj = $subjOther;
+            }
+            if ($subj === 'Arts/Humanities') {
+                $subj = 'Arts';
+            }
             if ($exam === '' && $board === '' && $year === '') {
                 continue;
             }
@@ -373,6 +488,14 @@ if (!function_exists('recruitmentEducationPlaceholderNames')) {
             'graduation',
             'post graduation / other',
             'post graduation',
+            'primary',
+            'matriculation',
+            'intermediate',
+            'iti',
+            'diploma',
+            'phd',
+            'phd/doctorate',
+            'other',
         ];
     }
 }
@@ -490,6 +613,13 @@ if (!function_exists('recruitmentCollectExperience')) {
             $nature = trim((string) (($post['exp_nature'][$i] ?? '')));
             if ($org === '' && $postName === '' && $from === '') {
                 continue;
+            }
+            if ($from !== '') {
+                $toCalc = $to !== '' ? $to : date('Y-m');
+                $months = recruitmentYmMonthsInclusive($from, $toCalc);
+                if ($dur === '' && $months > 0) {
+                    $dur = recruitmentFormatMonthsAsYears($months);
+                }
             }
             $rows[] = [
                 'org' => $org,
@@ -1228,6 +1358,21 @@ if (!function_exists('recruitmentSubmitApplication')) {
             $qual = trim((string) ($data['qualification'] ?? ''));
         }
         $expYears = trim((string) ($data['experience_years'] ?? ''));
+        if ($expYears === '' && $experience !== []) {
+            $sumMonths = 0;
+            foreach ($experience as $er) {
+                $fromYm = trim((string) ($er['from'] ?? ''));
+                if ($fromYm === '') {
+                    continue;
+                }
+                $toYm = trim((string) ($er['to'] ?? ''));
+                if ($toYm === '') {
+                    $toYm = date('Y-m');
+                }
+                $sumMonths += recruitmentYmMonthsInclusive($fromYm, $toYm);
+            }
+            $expYears = recruitmentFormatMonthsAsYears($sumMonths);
+        }
         $expDetails = trim((string) ($data['experience_details'] ?? ''));
         if ($expDetails === '' && $experience !== []) {
             $bits = [];
