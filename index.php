@@ -57,7 +57,10 @@ $homepage_map = [];
     $hero_btn_2 = homepageButton($homepage_map, 'hero_btn_2', $homepage_portals);
     $hero_btn_3 = homepageButton($homepage_map, 'hero_btn_3', $homepage_portals);
     $hero_btn_4 = homepageButton($homepage_map, 'hero_btn_4', $homepage_portals);
-    $welcome_pills = homepageLinkItems($homepage_map, 'welcome_pills', [], $homepage_portals);
+    $welcome_pills = homepageEnsureSupportEnquiryPill(
+        homepageLinkItems($homepage_map, 'welcome_pills', [], $homepage_portals),
+        $homepage_map
+    );
     $jobfair_btn_primary = homepageButton($homepage_map, 'jobfair_btn_primary', $homepage_portals);
     $jobfair_btn_secondary = homepageButton($homepage_map, 'jobfair_btn_secondary', $homepage_portals);
     $mocktest_btn_primary = homepageButton($homepage_map, 'mocktest_btn_primary', $homepage_portals);
@@ -1071,6 +1074,8 @@ $homepage_map = [];
             margin-bottom: 12px; font-size: 0.85rem;
         }
         .footer-contact-item i { color: var(--gold); margin-top: 2px; flex-shrink: 0; }
+        .footer-contact-item a { display: inline; padding: 0; font-size: inherit; }
+        .footer-contact-item a:hover { padding-left: 0; }
         footer h5 {
             font-family: 'Sora', sans-serif;
             font-weight: 700;
@@ -1991,7 +1996,16 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-envelope"></i>
-                        <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_email'), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span>
+                            <a href="mailto:<?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_email'), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(homepageValue($homepage_map, 'footer_email'), ENT_QUOTES, 'UTF-8'); ?></a>
+                        </span>
+                    </div>
+                    <div class="footer-contact-item">
+                        <i class="fas fa-headset"></i>
+                        <span>
+                            Support / Enquiry:
+                            <a href="mailto:<?php echo htmlspecialchars(homepageSupportEnquiryEmail($homepage_map), ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(homepageSupportEnquiryEmail($homepage_map), ENT_QUOTES, 'UTF-8'); ?></a>
+                        </span>
                     </div>
                     <div class="footer-contact-item">
                         <i class="fas fa-clock"></i>

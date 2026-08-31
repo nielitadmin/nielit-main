@@ -370,7 +370,7 @@ if (!function_exists('getIndexHomepageSectionDefinitions')) {
                 'type' => 'text_block',
                 'order' => 43,
                 'default_title' => 'Welcome Pills',
-                'default_content' => '[{"label":"Go to Main Website","url":"__MAIN_WEBSITE__","icon":"fa-globe","link":true},{"label":"OCAC Tower, Bhubaneswar","url":"https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar","icon":"fa-map-marker-alt","link":true},{"label":"Baleshwar Extension Center","url":"https://www.google.com/maps/search/?api=1&query=NIELIT+Baleshwar+Extension+Center+Baleshwar","icon":"fa-map-marker-alt","link":true},{"label":"Mon–Fri: 09:00 AM – 5:30 PM","url":"","icon":"fa-clock","link":false},{"label":"0674-2960354","url":"","icon":"fa-phone-alt","link":false},{"label":"dir-bbsr@nielit.gov.in","url":"mailto:dir-bbsr@nielit.gov.in","icon":"fa-envelope","link":true},{"label":"NSQF Aligned Programs","url":"https://www.nielit.gov.in/content/nsqf-it","icon":"fa-shield-alt","link":true}]',
+                'default_content' => '[{"label":"Go to Main Website","url":"__MAIN_WEBSITE__","icon":"fa-globe","link":true},{"label":"OCAC Tower, Bhubaneswar","url":"https://www.google.com/maps/search/?api=1&query=OCAC+Tower+Bhubaneswar","icon":"fa-map-marker-alt","link":true},{"label":"Baleshwar Extension Center","url":"https://www.google.com/maps/search/?api=1&query=NIELIT+Baleshwar+Extension+Center+Baleshwar","icon":"fa-map-marker-alt","link":true},{"label":"Mon–Fri: 09:00 AM – 5:30 PM","url":"","icon":"fa-clock","link":false},{"label":"0674-2960354","url":"","icon":"fa-phone-alt","link":false},{"label":"dir-bbsr@nielit.gov.in","url":"mailto:dir-bbsr@nielit.gov.in","icon":"fa-envelope","link":true},{"label":"Support / Enquiry: admin@nielitbhubaneswar.in","url":"mailto:admin@nielitbhubaneswar.in","icon":"fa-headset","link":true},{"label":"NSQF Aligned Programs","url":"https://www.nielit.gov.in/content/nsqf-it","icon":"fa-shield-alt","link":true}]',
                 'json' => true,
             ],
             'jobfair_btn_primary' => [
@@ -628,6 +628,14 @@ if (!function_exists('getIndexHomepageSectionDefinitions')) {
                 'order' => 113,
                 'default_title' => 'Email',
                 'default_content' => 'dir-bbsr@nielit.gov.in',
+            ],
+            'footer_support_email' => [
+                'group' => 'Footer',
+                'label' => 'Support / Enquiry email',
+                'type' => 'text_block',
+                'order' => 113,
+                'default_title' => 'Support / Enquiry',
+                'default_content' => 'admin@nielitbhubaneswar.in',
             ],
             'footer_hours' => [
                 'group' => 'Footer',
@@ -936,6 +944,55 @@ if (!function_exists('homepageValue')) {
             : (string) ($row['section_content'] ?? '');
 
         return $value !== '' ? $value : $default;
+    }
+}
+
+if (!function_exists('homepageSupportEnquiryEmail')) {
+    function homepageSupportEnquiryEmail(array $map = []): string
+    {
+        $email = trim(homepageValue($map, 'footer_support_email'));
+        if ($email !== '') {
+            return $email;
+        }
+        return defined('SUPPORT_ENQUIRY_EMAIL') ? SUPPORT_ENQUIRY_EMAIL : 'admin@nielitbhubaneswar.in';
+    }
+}
+
+if (!function_exists('homepageEnsureSupportEnquiryPill')) {
+    function homepageEnsureSupportEnquiryPill(array $pills, array $map = []): array
+    {
+        $email = homepageSupportEnquiryEmail($map);
+        $needle = strtolower($email);
+        foreach ($pills as $pill) {
+            $hay = strtolower((string) ($pill['url'] ?? '') . ' ' . (string) ($pill['label'] ?? ''));
+            if (strpos($hay, $needle) !== false) {
+                return $pills;
+            }
+        }
+
+        $supportPill = [
+            'label' => 'Support / Enquiry: ' . $email,
+            'url' => 'mailto:' . $email,
+            'icon' => 'fa-headset',
+            'external' => false,
+            'link' => true,
+        ];
+
+        $inserted = [];
+        $placed = false;
+        foreach ($pills as $pill) {
+            $inserted[] = $pill;
+            $hay = strtolower((string) ($pill['url'] ?? '') . ' ' . (string) ($pill['label'] ?? ''));
+            if (!$placed && strpos($hay, 'dir-bbsr@nielit.gov.in') !== false) {
+                $inserted[] = $supportPill;
+                $placed = true;
+            }
+        }
+        if (!$placed) {
+            $inserted[] = $supportPill;
+        }
+
+        return $inserted;
     }
 }
 

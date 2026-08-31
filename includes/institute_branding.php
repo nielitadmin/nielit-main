@@ -27,6 +27,10 @@ if (!defined('NIELIT_BALESHWAR_EXTENSION')) {
     define('NIELIT_BALESHWAR_EXTENSION', 'NIELIT Baleshwar Extension');
 }
 
+if (!defined('SUPPORT_ENQUIRY_EMAIL')) {
+    define('SUPPORT_ENQUIRY_EMAIL', 'admin@nielitbhubaneswar.in');
+}
+
 if (!function_exists('is_nielit_baleshwar_location')) {
     function is_nielit_baleshwar_location($location): bool
     {

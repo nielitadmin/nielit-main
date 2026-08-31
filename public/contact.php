@@ -144,8 +144,12 @@ public_skeleton_render_head();
                                     </div>
                                     <div>
                                         <h5 class="mb-2">Email</h5>
-                                        <p class="text-muted mb-0">
+                                        <p class="text-muted mb-2">
                                             <a href="mailto:dir-bbsr@nielit.gov.in" class="text-decoration-none">dir-bbsr@nielit.gov.in</a>
+                                        </p>
+                                        <h5 class="mb-2">Support / Enquiry</h5>
+                                        <p class="text-muted mb-0">
+                                            <a href="mailto:<?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?>" class="text-decoration-none"><?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?></a>
                                         </p>
                                     </div>
                                 </div>
@@ -298,6 +302,7 @@ public_skeleton_render_head();
                     <ul class="list-unstyled">
                         <li class="mb-2"><i class="fas fa-phone-alt me-2 text-warning"></i> 0674-2960354</li>
                         <li class="mb-2"><i class="fas fa-envelope me-2 text-warning"></i> dir-bbsr@nielit.gov.in</li>
+                        <li class="mb-2"><i class="fas fa-headset me-2 text-warning"></i> Support / Enquiry: <a href="mailto:<?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?></a></li>
                         <li class="mb-2"><i class="fas fa-clock me-2 text-warning"></i> Mon-Fri: 09:00 AM – 5:30 PM</li>
                     </ul>
                 </div>

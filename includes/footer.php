@@ -38,9 +38,16 @@ require_once __DIR__ . '/visitor_counter.php';
                         <i class="fas fa-phone-alt" style="color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
                         <div><a href="tel:0674-2960354" class="text-decoration-none" style="color: rgba(255,255,255,0.55);">0674-2960354</a></div>
                     </div>
-                    <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 0.85rem;">
                         <i class="fas fa-envelope" style="color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
                         <div><a href="mailto:dir-bbsr@nielit.gov.in" class="text-decoration-none" style="color: rgba(255,255,255,0.55);">dir-bbsr@nielit.gov.in</a></div>
+                    </div>
+                    <div style="display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem;">
+                        <i class="fas fa-headset" style="color: #f59e0b; margin-top: 2px; flex-shrink: 0;"></i>
+                        <div>
+                            Support / Enquiry:
+                            <a href="mailto:<?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?>" class="text-decoration-none" style="color: rgba(255,255,255,0.55);"><?php echo htmlspecialchars(SUPPORT_ENQUIRY_EMAIL, ENT_QUOTES, 'UTF-8'); ?></a>
+                        </div>
                     </div>
                 </div>
             </div>
