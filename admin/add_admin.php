@@ -171,6 +171,27 @@ if (isset($_POST['verify_otp'])) {
         if ($stmt->execute()) {
             $role_display = get_role_display_name($role);
             $success_message = "New admin '" . htmlspecialchars($admin_data['username']) . "' added successfully as " . $role_display . "! Email verified.";
+            if (is_file(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                $newId = (string) $conn->insert_id;
+                $payload = [
+                    'action' => 'admin_create',
+                    'description' => 'Created admin account "' . $admin_data['username'] . '" with role ' . $role_display . '.',
+                    'entity_type' => 'admin',
+                    'entity_id' => $newId,
+                    'entity_name' => (string) $admin_data['username'],
+                    'details' => [
+                        'role' => $role,
+                        'email' => (string) ($admin_data['email'] ?? ''),
+                    ],
+                    'result' => 'success',
+                ];
+                if (function_exists('activityTryLog')) {
+                    activityTryLog($conn, $payload);
+                } elseif (function_exists('logActivity')) {
+                    logActivity($conn, $payload);
+                }
+            }
             unset($_SESSION['temp_admin_data']);
             $show_otp_form = false;
         } else {

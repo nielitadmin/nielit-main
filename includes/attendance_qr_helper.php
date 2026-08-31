@@ -9,6 +9,33 @@ $attendanceAccessHelper = __DIR__ . '/attendance_access_helper.php';
 if (is_file($attendanceAccessHelper)) {
     require_once $attendanceAccessHelper;
 }
+$activityLogger = __DIR__ . '/activity_logger.php';
+if (is_file($activityLogger)) {
+    require_once $activityLogger;
+}
+
+if (!function_exists('attendanceTryLogActivity')) {
+    /**
+     * @param array<string,mixed> $extra
+     */
+    function attendanceTryLogActivity($conn, string $action, string $description, array $extra = []): void
+    {
+        if (!function_exists('activityTryLog') && !function_exists('logActivity')) {
+            return;
+        }
+        $payload = array_merge([
+            'action' => $action,
+            'description' => $description,
+            'entity_type' => 'attendance',
+            'result' => 'success',
+        ], $extra);
+        if (function_exists('activityTryLog')) {
+            activityTryLog($conn, $payload);
+        } elseif (function_exists('logActivity')) {
+            logActivity($conn instanceof mysqli ? $conn : null, $payload);
+        }
+    }
+}
 
 /**
  * Generate unique QR code for student attendance
@@ -238,6 +265,18 @@ function createAttendanceSession($session_data, $conn) {
             if (function_exists('attendanceSaveSessionClassesHeld')) {
                 attendanceSaveSessionClassesHeld($conn, (int) $session_id, $session_data['classes_held'] ?? 0);
             }
+            if (function_exists('attendanceTryLogActivity')) {
+                attendanceTryLogActivity($conn, 'attendance_session_create', 'Created attendance session "' . $sessionName . '"' . ($courseName !== '' ? (' for ' . $courseName) : '') . '.', [
+                    'entity_id' => (string) $session_id,
+                    'entity_name' => $sessionName,
+                    'details' => [
+                        'course_id' => $courseId,
+                        'course_name' => $courseName,
+                        'batch_id' => $batchId,
+                        'date' => $sessionDate,
+                    ],
+                ]);
+            }
             return [
                 'success' => true,
                 'session_id' => $session_id,
@@ -370,6 +409,18 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
             $stmt->close();
             if (function_exists('attendanceSaveSessionClassesHeld')) {
                 attendanceSaveSessionClassesHeld($conn, $session_id, $session_data['classes_held'] ?? 0);
+            }
+            if (function_exists('attendanceTryLogActivity')) {
+                attendanceTryLogActivity($conn, 'attendance_session_update', 'Updated attendance session "' . $name . '"' . ($courseName !== '' ? (' for ' . $courseName) : '') . '.', [
+                    'entity_id' => (string) $session_id,
+                    'entity_name' => $name,
+                    'details' => [
+                        'course_id' => $courseId,
+                        'course_name' => $courseName,
+                        'batch_id' => $batchId,
+                        'date' => $date,
+                    ],
+                ]);
             }
             return ['success' => true, 'session_id' => $session_id, 'message' => 'Session updated.'];
         }
@@ -618,14 +669,47 @@ function activateAttendanceSession($session_id, $coordinator_id, $conn) {
     }
     
     $stmt->bind_param("is", $session_id, $coordinator_id);
-    
-    return $stmt->execute();
+    $ok = $stmt->execute();
+    $stmt->close();
+    if ($ok && function_exists('attendanceTryLogActivity')) {
+        $sname = '';
+        $cname = '';
+        $look = $conn->prepare('SELECT session_name, course_name FROM attendance_sessions WHERE id = ? LIMIT 1');
+        if ($look) {
+            $sid = (int) $session_id;
+            $look->bind_param('i', $sid);
+            $look->execute();
+            $row = $look->get_result()->fetch_assoc();
+            $look->close();
+            $sname = trim((string) ($row['session_name'] ?? ''));
+            $cname = trim((string) ($row['course_name'] ?? ''));
+        }
+        $label = $sname !== '' ? $sname : ('#' . (int) $session_id);
+        attendanceTryLogActivity($conn, 'attendance_session_start', 'Started attendance session "' . $label . '"' . ($cname !== '' ? (' for ' . $cname) : '') . '.', [
+            'entity_id' => (string) $session_id,
+            'entity_name' => $label,
+        ]);
+    }
+    return $ok;
 }
 
 /**
  * Deactivate attendance session
  */
 function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
+    $sname = '';
+    $cname = '';
+    $look = $conn->prepare('SELECT session_name, course_name FROM attendance_sessions WHERE id = ? LIMIT 1');
+    if ($look) {
+        $sid = (int) $session_id;
+        $look->bind_param('i', $sid);
+        $look->execute();
+        $row = $look->get_result()->fetch_assoc();
+        $look->close();
+        $sname = trim((string) ($row['session_name'] ?? ''));
+        $cname = trim((string) ($row['course_name'] ?? ''));
+    }
+
     $stmt = $conn->prepare("
         UPDATE attendance_sessions 
         SET status = 'completed', qr_scanner_active = 0, updated_at = NOW() 
@@ -638,8 +722,16 @@ function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
     }
     
     $stmt->bind_param("is", $session_id, $coordinator_id);
-    
-    return $stmt->execute();
+    $ok = $stmt->execute();
+    $stmt->close();
+    if ($ok && function_exists('attendanceTryLogActivity')) {
+        $label = $sname !== '' ? $sname : ('#' . (int) $session_id);
+        attendanceTryLogActivity($conn, 'attendance_session_end', 'Ended attendance session "' . $label . '"' . ($cname !== '' ? (' for ' . $cname) : '') . '.', [
+            'entity_id' => (string) $session_id,
+            'entity_name' => $label,
+        ]);
+    }
+    return $ok;
 }
 
 /**

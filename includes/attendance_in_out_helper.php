@@ -151,7 +151,7 @@ if (!function_exists('attendanceListCoursesForCentre')) {
         $sql .= " WHERE 1=1";
         $hasStatus = $conn->query("SHOW COLUMNS FROM courses LIKE 'status'");
         if ($hasStatus && $hasStatus->num_rows > 0) {
-            $sql .= " AND (c.status = 'active' OR c.status IS NULL OR c.status = '')";
+            $sql .= " AND (c.status IS NULL OR c.status = '' OR LOWER(TRIM(c.status)) IN ('active','enabled'))";
         }
         $params = [];
         $types = '';
@@ -847,6 +847,7 @@ if (!function_exists('attendanceListBatchesForCourse')) {
         }
         $sql = "SELECT b.id, b.batch_name, b.batch_code, b.course_id, b.status,
                        IFNULL(c.course_name, '') AS course_name,
+                       IFNULL(c.course_code, '') AS course_code,
                        IFNULL(c.centre_id, 0) AS centre_id,
                        IFNULL(ct.name, '') AS centre_name,
                        {$countSelect}
@@ -1889,6 +1890,7 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
                 if ($stmt->execute()) {
                     $id = (int) $conn->insert_id;
                     $stmt->close();
+                    attendanceLogPunchActivity($conn, $session_id, $student_id, $student_name, $scan_type, $status, $scan_method);
                     return $id;
                 }
                 $err = $stmt->error;
@@ -1899,7 +1901,47 @@ function logAttendanceScan($session_id, $student_id, $student_name, $scan_type, 
     }
     $id = (int) $conn->insert_id;
     $stmt->close();
+    attendanceLogPunchActivity($conn, $session_id, $student_id, $student_name, $scan_type, $status, $scan_method);
     return $id;
+}
+
+if (!function_exists('attendanceLogPunchActivity')) {
+    function attendanceLogPunchActivity($conn, $session_id, $student_id, $student_name, $scan_type, $status, $scan_method = 'qr'): void
+    {
+        if (strtolower(trim((string) $status)) !== 'valid') {
+            return;
+        }
+        $logger = __DIR__ . '/activity_logger.php';
+        if (is_file($logger)) {
+            require_once $logger;
+        }
+        if (!function_exists('activityTryLog') && !function_exists('logActivity')) {
+            return;
+        }
+        $kind = strtolower((string) $scan_type) === 'out' ? 'out' : 'in';
+        $method = strtolower((string) $scan_method) === 'biometric' ? 'fingerprint' : 'QR';
+        $name = trim((string) $student_name);
+        $sid = trim((string) $student_id);
+        $who = $name !== '' ? ($name . ' (' . $sid . ')') : $sid;
+        $payload = [
+            'action' => $kind === 'out' ? 'attendance_out' : 'attendance_in',
+            'description' => strtoupper($kind) . ' recorded for ' . $who . ' via ' . $method . '.',
+            'entity_type' => 'attendance',
+            'entity_id' => $sid,
+            'entity_name' => $name !== '' ? $name : $sid,
+            'details' => [
+                'session_id' => (int) $session_id,
+                'scan_method' => $method,
+                'scan_type' => $kind,
+            ],
+            'result' => 'success',
+        ];
+        if (function_exists('activityTryLog')) {
+            activityTryLog($conn, $payload);
+        } elseif (function_exists('logActivity')) {
+            logActivity($conn instanceof mysqli ? $conn : null, $payload);
+        }
+    }
 }
 
 /**

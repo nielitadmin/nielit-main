@@ -557,6 +557,24 @@ if (!function_exists('fetchActivityLogs')) {
     }
 }
 
+if (!function_exists('activityTryLog')) {
+    /**
+     * Best-effort activity log; never throws to the caller.
+     *
+     * @param array<string,mixed> $data
+     */
+    function activityTryLog($conn, array $data): void
+    {
+        try {
+            if (function_exists('logActivity')) {
+                logActivity($conn instanceof mysqli ? $conn : null, $data);
+            }
+        } catch (Throwable $e) {
+            error_log('activityTryLog: ' . $e->getMessage());
+        }
+    }
+}
+
 if (!function_exists('activityActionLabels')) {
     function activityActionLabels(): array
     {
@@ -571,6 +589,18 @@ if (!function_exists('activityActionLabels')) {
             'student_deapprove' => 'Student De-approved',
             'student_reject' => 'Student Rejected',
             'student_unreject' => 'Student Unrejected',
+            'student_delete' => 'Student Deleted',
+            'student_edit' => 'Student Updated',
+            'student_assign_course' => 'Student Assigned to Course',
+            'student_assign_course_bulk' => 'Bulk Course Assign',
+            'student_remove_course' => 'Student Removed from Course',
+            'student_scheme_update' => 'Student Scheme Updated',
+            'student_scheme_sync' => 'Student Scheme Sync',
+            'student_nielit_reg_update' => 'NIELIT Reg. No. Updated',
+            'student_inspector_delete' => 'Inspector Record Deleted',
+            'student_inspector_purge' => 'Inspector Records Purged',
+            'student_roster_copy' => 'Batch Roster Copied',
+            'student_orphan_cleanup' => 'Orphan Enrollment Cleanup',
             'batch_assign' => 'Batch Assignment',
             'course_create' => 'Course Created',
             'course_update' => 'Course Updated',
@@ -583,6 +613,15 @@ if (!function_exists('activityActionLabels')) {
             'theme_create' => 'Theme Created',
             'theme_update' => 'Theme Updated',
             'homepage_update' => 'Homepage Updated',
+            'attendance_session_create' => 'Attendance Session Created',
+            'attendance_session_update' => 'Attendance Session Updated',
+            'attendance_session_start' => 'Attendance Session Started',
+            'attendance_session_end' => 'Attendance Session Ended',
+            'attendance_in' => 'Attendance IN',
+            'attendance_out' => 'Attendance OUT',
+            'fingerprint_enrol' => 'Fingerprint Enrolled',
+            'fingerprint_delete' => 'Fingerprint Removed',
+            'admin_create' => 'Admin Created',
             'other' => 'Other',
         ];
     }

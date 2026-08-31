@@ -72,6 +72,9 @@ $entityTypes = [
     'centre' => 'Centre',
     'theme' => 'Theme',
     'homepage_content' => 'Homepage',
+    'attendance' => 'Attendance',
+    'fingerprint' => 'Fingerprint',
+    'recruitment' => 'Recruitment',
     'system' => 'System',
 ];
 if ($tableReady) {
@@ -84,7 +87,17 @@ if ($tableReady) {
             }
         }
     }
+    $actRes = $conn->query("SELECT DISTINCT action FROM activity_logs WHERE action IS NOT NULL AND action != '' ORDER BY action ASC LIMIT 200");
+    if ($actRes) {
+        while ($r = $actRes->fetch_assoc()) {
+            $ak = (string) ($r['action'] ?? '');
+            if ($ak !== '' && !isset($actionLabels[$ak])) {
+                $actionLabels[$ak] = ucwords(str_replace('_', ' ', $ak));
+            }
+        }
+    }
 }
+asort($actionLabels, SORT_NATURAL | SORT_FLAG_CASE);
 
 function activityBadgeClass($actorType)
 {
@@ -195,7 +208,7 @@ function activityDetailPreview($details)
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-stream"></i> Activity Log</h4>
-                <small>Track admin and student actions across the system</small>
+                <small>Track admin, student, attendance, and fingerprint actions across the system</small>
             </div>
         </div>
 
@@ -283,7 +296,7 @@ function activityDetailPreview($details)
                             <?php if (empty($rows)): ?>
                                 <tr>
                                     <td colspan="6" class="text-center text-muted py-5">
-                                        No activity recorded yet. Log out and log back in, or edit a course/batch — new actions will appear here.
+                                        No activity recorded yet. New admin, student, attendance, and fingerprint actions will appear here.
                                     </td>
                                 </tr>
                             <?php else: ?>

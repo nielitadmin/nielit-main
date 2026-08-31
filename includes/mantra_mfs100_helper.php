@@ -206,6 +206,38 @@ if (!function_exists('saveStudentFingerprintTemplate')) {
         $stmt->bind_param('sssssis', $studentId, $fingerCode, $cipher, $iv, $tag, $quality, $enrolledBy);
         $ok = $stmt->execute();
         $stmt->close();
+        if ($ok) {
+            $logger = __DIR__ . '/activity_logger.php';
+            if (is_file($logger)) {
+                require_once $logger;
+            }
+            if (function_exists('activityTryLog') || function_exists('logActivity')) {
+                $by = trim($enrolledBy);
+                $source = (stripos($by, 'self:') === 0) ? 'self kiosk' : 'admin';
+                $payload = [
+                    'action' => 'fingerprint_enrol',
+                    'description' => 'Fingerprint enrolled for student ' . $studentId . ' (' . $source . ').',
+                    'entity_type' => 'fingerprint',
+                    'entity_id' => $studentId,
+                    'entity_name' => $studentId,
+                    'details' => [
+                        'enrolled_by' => $by,
+                        'finger_code' => $fingerCode,
+                        'quality' => $quality,
+                    ],
+                    'result' => 'success',
+                ];
+                if ($source === 'self kiosk') {
+                    $payload['actor_type'] = 'student';
+                    $payload['actor_id'] = $studentId;
+                }
+                if (function_exists('activityTryLog')) {
+                    activityTryLog($conn, $payload);
+                } else {
+                    logActivity($conn, $payload);
+                }
+            }
+        }
         return $ok;
     }
 }
@@ -239,6 +271,25 @@ if (!function_exists('deleteStudentFingerprintTemplate')) {
         $stmt->bind_param('s', $studentId);
         $ok = $stmt->execute();
         $stmt->close();
+        if ($ok) {
+            $logger = __DIR__ . '/activity_logger.php';
+            if (is_file($logger)) {
+                require_once $logger;
+            }
+            $payload = [
+                'action' => 'fingerprint_delete',
+                'description' => 'Fingerprint removed for student ' . $studentId . '.',
+                'entity_type' => 'fingerprint',
+                'entity_id' => $studentId,
+                'entity_name' => $studentId,
+                'result' => 'success',
+            ];
+            if (function_exists('activityTryLog')) {
+                activityTryLog($conn, $payload);
+            } elseif (function_exists('logActivity')) {
+                logActivity($conn, $payload);
+            }
+        }
         return $ok;
     }
 }

@@ -201,7 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 biometricKioskJsonExit(['success' => false, 'message' => (string) ($found['message'] ?? 'Student not found.')]);
             }
             $row = $found['row'];
-            $status = (string) ($row['status'] ?? '');
+            $status = strtolower(trim((string) ($row['status'] ?? '')));
             if ($status !== '' && $status !== 'active') {
                 biometricKioskJsonExit(['success' => false, 'message' => 'This student is not active.']);
             }
@@ -492,6 +492,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                             <?php foreach ($allCourses as $course): ?>
                                 <option value="<?php echo (int) $course['id']; ?>"
                                         data-name="<?php echo htmlspecialchars((string) $course['course_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-code="<?php echo htmlspecialchars((string) ($course['course_code'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
                                         data-centre="<?php echo (int) ($course['centre_id'] ?? 0); ?>">
                                     <?php echo htmlspecialchars(attendanceFormatCourseLabel($course, true)); ?>
                                 </option>
@@ -506,12 +507,15 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                             <?php foreach ($allBatches as $batch): ?>
                                 <option value="<?php echo (int) $batch['id']; ?>"
                                         data-course="<?php echo (int) ($batch['course_id'] ?? 0); ?>"
-                                        data-centre="<?php echo (int) ($batch['centre_id'] ?? 0); ?>">
+                                        data-course-code="<?php echo htmlspecialchars((string) ($batch['course_code'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-course-name="<?php echo htmlspecialchars((string) ($batch['course_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>"
+                                        data-centre="<?php echo (int) ($batch['centre_id'] ?? 0); ?>"
+                                        data-status="<?php echo htmlspecialchars((string) ($batch['status'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                     <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch, true)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
-                        <small class="text-muted">You can create now and set the section later with Edit session. Fingerprint punches still show on the report when the student is assigned to a section.</small>
+                        <small class="text-muted" id="sessionBatchHint">You can create now and set the section later with Edit session. Fingerprint punches still show on the report when the student is assigned to a section.</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Total classes held <span class="text-muted fw-normal">(optional)</span></label>
