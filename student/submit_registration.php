@@ -584,6 +584,16 @@ foreach ($requiredMap as $field => $val) {
     }
 }
 
+if ($dob !== '') {
+    $dobOk = preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob);
+    $todayYmd = date('Y-m-d');
+    if (!$dobOk || $dob > $todayYmd) {
+        $missingFields[] = 'dob';
+        $validationErrors[] = 'Date of birth cannot be a future date.';
+        $age = 0;
+    }
+}
+
 $aadhar = normalizeAadhar($aadhar);
 if ($aadhar === '' || strlen($aadhar) !== 12) {
     $missingFields[] = 'aadhar';

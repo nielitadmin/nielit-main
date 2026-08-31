@@ -1329,6 +1329,20 @@ if (!function_exists('recruitmentSubmitApplication')) {
         }
         $mother = trim((string) ($data['mother_name'] ?? ''));
         $dob = trim((string) ($data['dob'] ?? ''));
+        if ($dob === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob)) {
+            return ['success' => false, 'message' => 'Please enter a valid date of birth.'];
+        }
+        $todayYmd = date('Y-m-d');
+        if ($dob > $todayYmd) {
+            return ['success' => false, 'message' => 'Date of birth cannot be a future date.'];
+        }
+        $asOnCheck = trim((string) ($job['last_date'] ?? ''));
+        if ($asOnCheck === '' || $asOnCheck === '0000-00-00') {
+            $asOnCheck = $todayYmd;
+        }
+        if ($dob >= $asOnCheck) {
+            return ['success' => false, 'message' => 'Date of birth must be before the last date of the advertisement.'];
+        }
         $gender = trim((string) ($data['gender'] ?? ''));
         $category = trim((string) ($data['category'] ?? ''));
         $address = trim((string) ($data['address'] ?? ''));

@@ -59,6 +59,9 @@ if ($father_name === '' && $mother_name === '') {
 if ($dob === '') {
     $errors[] = 'Date of birth is required.';
     $missing[] = 'dob';
+} elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || $dob > date('Y-m-d')) {
+    $errors[] = 'Date of birth cannot be a future date.';
+    $missing[] = 'dob';
 }
 if (!in_array($gender, ['Male', 'Female', 'Other'], true)) {
     $errors[] = 'Gender is required.';

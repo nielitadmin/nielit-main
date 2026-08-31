@@ -347,7 +347,7 @@ if (isset($_SESSION['error'])) {
                     
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Date of Birth <span class="required-mark">*</span></label>
-                        <input type="date" class="form-control" name="dob" required>
+                        <input type="date" class="form-control" name="dob" required max="<?php echo htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>">
                     </div>
                     
                     <div class="col-md-4 mb-3">

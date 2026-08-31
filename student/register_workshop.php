@@ -164,6 +164,8 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                 <div class="col-md-3">
                     <label class="form-label">Date of birth <span class="required-mark">*</span></label>
                     <input type="date" name="dob" id="workshop_dob" class="form-control" required
+                           max="<?php echo htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"
+                           min="<?php echo htmlspecialchars(date('Y-m-d', strtotime('-100 years')), ENT_QUOTES, 'UTF-8'); ?>"
                            value="<?php echo workshopFieldValue($formData, 'dob'); ?>" onchange="calculateWorkshopAge()">
                 </div>
                 <div class="col-md-2">
@@ -325,12 +327,28 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 function calculateWorkshopAge() {
     const dobInput = document.getElementById('workshop_dob');
     const ageInput = document.getElementById('workshop_age');
-    if (!dobInput || !ageInput || !dobInput.value) {
-        if (ageInput) ageInput.value = '';
+    if (!dobInput || !ageInput) {
+        return;
+    }
+    const t = new Date();
+    const mo = t.getMonth() + 1;
+    const da = t.getDate();
+    const todayYmd = t.getFullYear() + '-' + (mo < 10 ? '0' : '') + mo + '-' + (da < 10 ? '0' : '') + da;
+    dobInput.setAttribute('max', todayYmd);
+    dobInput.setCustomValidity('');
+    if (!dobInput.value) {
+        ageInput.value = '';
+        return;
+    }
+    if (dobInput.value > todayYmd) {
+        dobInput.value = '';
+        ageInput.value = '';
+        dobInput.setCustomValidity('Date of birth cannot be a future date.');
+        dobInput.reportValidity();
         return;
     }
     const dobDate = new Date(dobInput.value + 'T00:00:00');
-    const today = new Date();
+    const today = new Date(todayYmd + 'T00:00:00');
     let age = today.getFullYear() - dobDate.getFullYear();
     const monthDiff = today.getMonth() - dobDate.getMonth();
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {

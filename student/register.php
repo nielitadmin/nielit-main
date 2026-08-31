@@ -1635,7 +1635,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     
                     <div class="col-md-4 mb-3">
                         <label class="form-label">Date of Birth <span class="required-mark">*</span></label>
-                        <input type="date" class="form-control" name="dob" id="dob" required onchange="calculateAge()">
+                        <input type="date" class="form-control" name="dob" id="dob" required onchange="calculateAge()"
+                               max="<?php echo htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>"
+                               min="<?php echo htmlspecialchars(date('Y-m-d', strtotime('-100 years')), ENT_QUOTES, 'UTF-8'); ?>">
                     </div>
                     
                     <div class="col-md-2 mb-3">
@@ -3471,18 +3473,38 @@ function clearFileInput(button) {
 
 // Calculate age from DOB
 function calculateAge() {
-    const dob = document.getElementById('dob').value;
-    if (dob) {
-        const dobDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - dobDate.getFullYear();
-        const monthDiff = today.getMonth() - dobDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
-            age--;
-        }
-        document.getElementById('age').value = age;
-        updateProgress();
+    const dobEl = document.getElementById('dob');
+    const ageEl = document.getElementById('age');
+    if (!dobEl) {
+        return;
     }
+    const t = new Date();
+    const m = t.getMonth() + 1;
+    const d = t.getDate();
+    const todayYmd = t.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+    dobEl.setAttribute('max', todayYmd);
+    dobEl.setCustomValidity('');
+    if (!dobEl.value) {
+        if (ageEl) ageEl.value = '';
+        return;
+    }
+    if (dobEl.value > todayYmd) {
+        dobEl.value = '';
+        if (ageEl) ageEl.value = '';
+        dobEl.setCustomValidity('Date of birth cannot be a future date.');
+        dobEl.reportValidity();
+        if (typeof updateProgress === 'function') updateProgress();
+        return;
+    }
+    const dobDate = new Date(dobEl.value + 'T00:00:00');
+    const today = new Date(todayYmd + 'T00:00:00');
+    let age = today.getFullYear() - dobDate.getFullYear();
+    const monthDiff = today.getMonth() - dobDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+        age--;
+    }
+    if (ageEl) ageEl.value = age >= 0 ? age : '';
+    if (typeof updateProgress === 'function') updateProgress();
 }
 
 // Add education row

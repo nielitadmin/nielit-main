@@ -112,6 +112,19 @@ $eduCatalog = recruitmentEducationCatalog();
 $eduCount = max(4, is_array($_POST['edu_exam'] ?? null) ? count($_POST['edu_exam']) : 4);
 $expCount = max(3, is_array($_POST['exp_org'] ?? null) ? count($_POST['exp_org']) : 3);
 $asOnDate = ($job && !empty($job['last_date'])) ? (string) $job['last_date'] : date('Y-m-d');
+$todayYmd = date('Y-m-d');
+$maxDob = $todayYmd;
+if ($asOnDate !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $asOnDate)) {
+    $asOnExclusive = date('Y-m-d', strtotime($asOnDate . ' -1 day'));
+    if (is_string($asOnExclusive) && $asOnExclusive !== '' && $asOnExclusive < $maxDob) {
+        $maxDob = $asOnExclusive;
+    }
+}
+$minDob = date('Y-m-d', strtotime('-100 years'));
+$dobFieldValue = (string) ($_POST['dob'] ?? '');
+if ($dobFieldValue !== '' && $dobFieldValue > $maxDob) {
+    $dobFieldValue = '';
+}
 $samePermanent = !empty($_POST['same_permanent']) || $_SERVER['REQUEST_METHOD'] !== 'POST';
 $startStep = 1;
 if ($error !== '') {
@@ -406,7 +419,11 @@ if ($error !== '') {
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Date of Birth *</label>
-                                    <input class="form-control" type="date" name="dob" id="dobField" required value="<?php echo $old('dob'); ?>">
+                                    <input class="form-control" type="date" name="dob" id="dobField" required
+                                           min="<?php echo htmlspecialchars($minDob, ENT_QUOTES, 'UTF-8'); ?>"
+                                           max="<?php echo htmlspecialchars($maxDob, ENT_QUOTES, 'UTF-8'); ?>"
+                                           value="<?php echo htmlspecialchars($dobFieldValue, ENT_QUOTES, 'UTF-8'); ?>">
+                                    <div class="form-text">Cannot be a future date.</div>
                                 </div>
                                 <div class="col-md-8">
                                     <label class="form-label">Age as on last date (<?php echo htmlspecialchars(recruitmentFormatDate($asOnDate)); ?>)</label>
@@ -766,6 +783,7 @@ if ($error !== '') {
     <script>
     (function () {
         var asOn = <?php echo json_encode($asOnDate); ?>;
+        var dobMax = <?php echo json_encode($maxDob); ?>;
         var current = <?php echo (int) $startStep; ?>;
         var total = 4;
         var form = document.getElementById('applyForm');
@@ -888,15 +906,44 @@ if ($error !== '') {
         digitsOnly(document.getElementById('permanent_pincode'), 6);
 
         var dob = document.getElementById('dobField');
+        function localYmd() {
+            var t = new Date();
+            var m = t.getMonth() + 1;
+            var d = t.getDate();
+            return t.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (d < 10 ? '0' : '') + d;
+        }
+        function effectiveDobMax() {
+            var max = localYmd();
+            if (dobMax && dobMax < max) {
+                max = dobMax;
+            }
+            return max;
+        }
         function fillAge() {
             var y = document.getElementById('ageYears');
             var m = document.getElementById('ageMonths');
             var d = document.getElementById('ageDays');
+            if (dob) {
+                var max = effectiveDobMax();
+                dob.setAttribute('max', max);
+                dob.setCustomValidity('');
+                if (dob.value && dob.value > max) {
+                    dob.value = '';
+                    dob.setCustomValidity('Date of birth cannot be a future date.');
+                    if (y) { y.value = m.value = d.value = ''; }
+                    dob.reportValidity();
+                    return;
+                }
+            }
             if (!y || !dob || !dob.value || !asOn) { return; }
             var from = new Date(dob.value + 'T00:00:00');
             var to = new Date(asOn + 'T00:00:00');
-            if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) {
+            if (isNaN(from.getTime()) || isNaN(to.getTime()) || from >= to) {
                 y.value = m.value = d.value = '';
+                if (from >= to && !isNaN(from.getTime())) {
+                    dob.setCustomValidity('Date of birth must be before the last date.');
+                    dob.reportValidity();
+                }
                 return;
             }
             var years = to.getFullYear() - from.getFullYear();
@@ -909,7 +956,7 @@ if ($error !== '') {
             if (months < 0) { years -= 1; months += 12; }
             y.value = years; m.value = months; d.value = days;
         }
-        if (dob) { dob.addEventListener('change', fillAge); fillAge(); }
+        if (dob) { dob.addEventListener('change', fillAge); dob.addEventListener('input', fillAge); fillAge(); }
 
         var photo = document.getElementById('photoFile');
         var preview = document.getElementById('photoPreview');
