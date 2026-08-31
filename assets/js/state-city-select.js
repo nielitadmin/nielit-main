@@ -116,9 +116,39 @@
         }
     }
 
+    function digitsOnly(el, maxLen) {
+        if (!el) {
+            return;
+        }
+        el.setAttribute('inputmode', 'numeric');
+        el.setAttribute('maxlength', String(maxLen));
+        el.addEventListener('input', function () {
+            this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxLen);
+        });
+        el.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var text = '';
+            if (e.clipboardData) {
+                text = e.clipboardData.getData('text');
+            } else if (window.clipboardData) {
+                text = window.clipboardData.getData('text');
+            }
+            this.value = String(text || '').replace(/\D/g, '').slice(0, maxLen);
+        });
+        el.addEventListener('keypress', function (e) {
+            if (e.ctrlKey || e.metaKey || e.key === 'Backspace' || e.key === 'Tab' || e.key === 'Enter') {
+                return;
+            }
+            if (!/^[0-9]$/.test(e.key || '')) {
+                e.preventDefault();
+            }
+        });
+    }
+
     function initStateCitySelect() {
         var stateSelect = document.getElementById('state');
         var citySelect = document.getElementById('city');
+        digitsOnly(document.getElementById('pincode'), 6);
         if (!stateSelect || !citySelect) {
             return;
         }

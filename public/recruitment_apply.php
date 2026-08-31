@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/navigation_helper.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/public_theme_helper.php';
 require_once __DIR__ . '/../includes/recruitment_helper.php';
+require_once __DIR__ . '/../includes/state_city_registration.php';
 
 ensureRecruitmentTables($conn);
 if (empty($_SESSION['csrf_token'])) {
@@ -177,6 +178,7 @@ if ($error !== '') {
         .rec-wizard .form-control:focus, .rec-wizard .form-select:focus {
             border-color:var(--blue,#1a56db); box-shadow:0 0 0 .2rem rgba(26,86,219,.12);
         }
+        .rec-wizard #stateStatus, .rec-wizard #cityStatus { display:block; margin-top:.25rem; }
         .rec-photo {
             width:100%; max-width:180px; margin-left:auto; border:2px dashed #94a3b8; border-radius:16px;
             padding:.85rem; background:#f8fafc; text-align:center;
@@ -459,40 +461,35 @@ if ($error !== '') {
                                 </div>
                                 <div class="col-md-2" id="pwdPctWrap">
                                     <label class="form-label">% of disability</label>
-                                    <input class="form-control" name="pwd_percent" value="<?php echo $old('pwd_percent'); ?>">
+                                    <input class="form-control" name="pwd_percent" id="pwdPercentField" inputmode="numeric" maxlength="3" pattern="[0-9]{1,3}" value="<?php echo $old('pwd_percent'); ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Aadhaar number *</label>
-                                    <input class="form-control" name="aadhar" required maxlength="12" inputmode="numeric" value="<?php echo $old('aadhar'); ?>">
+                                    <input class="form-control" name="aadhar" id="aadharField" required maxlength="12" inputmode="numeric" pattern="[0-9]{12}" autocomplete="off" value="<?php echo $old('aadhar'); ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Mobile *</label>
-                                    <input class="form-control" name="mobile" required maxlength="10" inputmode="numeric" value="<?php echo $old('mobile'); ?>">
+                                    <input class="form-control" name="mobile" id="mobileField" required maxlength="10" inputmode="numeric" pattern="[0-9]{10}" value="<?php echo $old('mobile'); ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Alternate mobile</label>
-                                    <input class="form-control" name="alt_mobile" maxlength="10" inputmode="numeric" value="<?php echo $old('alt_mobile'); ?>">
+                                    <input class="form-control" name="alt_mobile" id="altMobileField" maxlength="10" inputmode="numeric" pattern="[0-9]{10}" value="<?php echo $old('alt_mobile'); ?>">
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label">Email *</label>
                                     <input class="form-control" type="email" name="email" required value="<?php echo $old('email'); ?>">
                                 </div>
-                                <div class="col-md-8">
+                                <div class="col-12">
                                     <label class="form-label">Address for correspondence *</label>
                                     <input class="form-control" name="address" required value="<?php echo $old('address'); ?>">
                                 </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">City</label>
-                                    <input class="form-control" name="city" value="<?php echo $old('city'); ?>">
-                                </div>
-                                <div class="col-md-2">
-                                    <label class="form-label">PIN code *</label>
-                                    <input class="form-control" name="pincode" required value="<?php echo $old('pincode'); ?>">
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">State</label>
-                                    <input class="form-control" name="state" value="<?php echo $old('state'); ?>">
-                                </div>
+                                <?php
+                                renderStateCityPincodeFields([
+                                    'state' => (string) ($_POST['state'] ?? ''),
+                                    'city' => (string) ($_POST['city'] ?? ''),
+                                    'pincode' => (string) ($_POST['pincode'] ?? ''),
+                                ], ['col_class' => 'col-md-4']);
+                                ?>
                                 <div class="col-md-8 d-flex align-items-end">
                                     <div class="form-check mb-2">
                                         <input class="form-check-input" type="checkbox" name="same_permanent" id="samePermanent" value="1" <?php echo $samePermanent ? 'checked' : ''; ?>>
@@ -505,7 +502,9 @@ if ($error !== '') {
                                 </div>
                                 <div class="col-md-4 perm-fields">
                                     <label class="form-label">Permanent PIN</label>
-                                    <input class="form-control" name="permanent_pincode" value="<?php echo $old('permanent_pincode'); ?>">
+                                    <input class="form-control" name="permanent_pincode" id="permanent_pincode"
+                                           inputmode="numeric" autocomplete="postal-code" pattern="[0-9]{6}" maxlength="6"
+                                           placeholder="6-digit PIN" value="<?php echo $old('permanent_pincode'); ?>">
                                 </div>
                             </div>
                         </div>
@@ -667,12 +666,38 @@ if ($error !== '') {
         </div>
     </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <?php
+    if (!empty($accepting)) {
+        renderStateCityPincodeScript([
+            'state' => (string) ($_POST['state'] ?? ''),
+            'city' => (string) ($_POST['city'] ?? ''),
+            'pincode' => (string) ($_POST['pincode'] ?? ''),
+        ]);
+    }
+    ?>
     <script>
     (function () {
         var asOn = <?php echo json_encode($asOnDate); ?>;
         var current = <?php echo (int) $startStep; ?>;
         var total = 4;
         var form = document.getElementById('applyForm');
+
+        function digitsOnly(el, maxLen) {
+            if (!el) return;
+            el.addEventListener('input', function () {
+                this.value = String(this.value || '').replace(/\D/g, '').slice(0, maxLen);
+            });
+            el.addEventListener('keypress', function (e) {
+                if (e.ctrlKey || e.metaKey || e.key === 'Backspace' || e.key === 'Tab' || e.key === 'Enter') return;
+                if (!/^[0-9]$/.test(e.key || '')) e.preventDefault();
+            });
+        }
+        digitsOnly(document.getElementById('aadharField'), 12);
+        digitsOnly(document.getElementById('mobileField'), 10);
+        digitsOnly(document.getElementById('altMobileField'), 10);
+        digitsOnly(document.getElementById('pwdPercentField'), 3);
+        digitsOnly(document.getElementById('pincode'), 6);
+        digitsOnly(document.getElementById('permanent_pincode'), 6);
 
         var dob = document.getElementById('dobField');
         function fillAge() {
@@ -793,6 +818,22 @@ if ($error !== '') {
             });
         }
         function validateStep(n) {
+            var city = document.getElementById('city');
+            if (city) {
+                city.setCustomValidity('');
+            }
+            if (n === 1 && city && city.disabled) {
+                var stateEl = document.getElementById('state');
+                if (stateEl && !stateEl.value) {
+                    stateEl.reportValidity();
+                    return false;
+                }
+                city.disabled = false;
+                city.setCustomValidity('Please select a city / district.');
+                city.reportValidity();
+                city.setCustomValidity('');
+                return false;
+            }
             var fields = panelFields(n);
             for (var i = 0; i < fields.length; i++) {
                 if (fields[i].type === 'file' && !checkFileSize(fields[i])) {

@@ -108,7 +108,8 @@ if (!function_exists('renderStateCityPincodeFields')) {
         <div class="<?php echo htmlspecialchars($colClass); ?>">
                     <label class="form-label">Pincode <span class="required-mark">*</span></label>
             <input type="text" class="form-control" name="pincode" id="pincode"
-                   pattern="[0-9]{6}" maxlength="6" placeholder="6-digit pincode" required
+                   inputmode="numeric" autocomplete="postal-code"
+                   pattern="[0-9]{6}" maxlength="6" placeholder="6-digit PIN" required
                    value="<?php echo $pincode; ?>">
         </div>
         <?php

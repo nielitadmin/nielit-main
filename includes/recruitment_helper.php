@@ -1204,7 +1204,23 @@ if (!function_exists('recruitmentSubmitApplication')) {
         $address = trim((string) ($data['address'] ?? ''));
         $city = trim((string) ($data['city'] ?? ''));
         $state = trim((string) ($data['state'] ?? ''));
-        $pincode = trim((string) ($data['pincode'] ?? ''));
+        $pincode = preg_replace('/\D/', '', (string) ($data['pincode'] ?? ''));
+        if ($address === '') {
+            return ['success' => false, 'message' => 'Please enter address for correspondence.'];
+        }
+        if ($state === '' || $city === '' || $city === 'manual_input') {
+            return ['success' => false, 'message' => 'Please select state and city from the list.'];
+        }
+        if (!preg_match('/^[0-9]{6}$/', (string) $pincode)) {
+            return ['success' => false, 'message' => 'PIN code must be 6 digits (numbers only).'];
+        }
+        $stateCityFile = __DIR__ . '/state_city_registration.php';
+        if (is_file($stateCityFile)) {
+            require_once $stateCityFile;
+            if (function_exists('normalizeStateName')) {
+                $state = normalizeStateName($state);
+            }
+        }
         $education = recruitmentCollectEducation($data['_post'] ?? $data);
         $experience = recruitmentCollectExperience($data['_post'] ?? $data);
         $qual = recruitmentHighestEducationLabelFromRows($education);
@@ -1256,9 +1272,12 @@ if (!function_exists('recruitmentSubmitApplication')) {
         if ($permAddr === '') {
             $permAddr = $address;
         }
-        $permPin = trim((string) ($data['permanent_pincode'] ?? ''));
+        $permPin = preg_replace('/\D/', '', (string) ($data['permanent_pincode'] ?? ''));
         if ($permPin === '') {
             $permPin = $pincode;
+        }
+        if (!preg_match('/^[0-9]{6}$/', (string) $permPin)) {
+            return ['success' => false, 'message' => 'Permanent PIN must be 6 digits (numbers only).'];
         }
         $ageY = (int) $age['years'];
         $ageM = (int) $age['months'];
