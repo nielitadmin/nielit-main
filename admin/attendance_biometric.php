@@ -308,7 +308,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Before marking attendance (SecuGen Hamster Pro 20 or Mantra MFS100/MFS110)</h5></div>
             <div class="card-body">
-                <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a> using the same reader brand. See all enrolled students on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered Candidates</a>. The kiosk auto-detects whichever service is running and matches the live finger to the stored template.</p>
+                <p class="mb-2">Each student must be enrolled once on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Fingerprint Enrolment</a> using the same reader brand, or they can enrol themselves on the <a href="<?php echo htmlspecialchars(app_url('student/self_fingerprint')); ?>" target="_blank" rel="noopener">Student Kiosk</a> (<code>student/self_fingerprint</code>). See all enrolled students on <a href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered Candidates</a>. The kiosk auto-detects whichever service is running and matches the live finger to the stored template.</p>
                 <p class="mb-1"><strong>SecuGen Hamster Pro 20</strong></p>
                 <ol class="mb-2">
                     <li>Plug the reader into a direct USB port and install the SecuGen driver.</li>
@@ -352,8 +352,13 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal" id="btnNewSession">
                             <i class="fas fa-plus"></i> Create session
                         </button>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
                         <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_enroll')); ?>">Enrol fingerprints</a>
                         <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/attendance_fingerprint_registry')); ?>">Registered candidates</a>
+                        <a class="btn btn-success" href="<?php echo htmlspecialchars(app_url('student/self_fingerprint')); ?>" target="_blank" rel="noopener">
+                            <i class="fas fa-external-link-alt"></i> Student Kiosk
+                        </a>
                         <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric_report')); ?>">Fingerprint report</a>
                     </div>
                 </form>
