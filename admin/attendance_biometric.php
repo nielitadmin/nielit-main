@@ -366,10 +366,10 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
         </div>
 
         <div class="card mb-4">
-            <div class="card-header"><h5 class="mb-0">Your sessions</h5></div>
+            <div class="card-header"><h5 class="mb-0">Attendance sessions</h5></div>
             <div class="card-body">
                 <?php if (count($active_sessions) === 0): ?>
-                    <p class="text-muted mb-0">Create a session, start it, then open the fingerprint kiosk.</p>
+                    <p class="text-muted mb-0">No scheduled or active sessions. Create a session (including those added by course coordinators), start it, then open the fingerprint kiosk.</p>
                 <?php else: ?>
                     <div class="row">
                         <?php foreach ($active_sessions as $session): ?>
@@ -380,6 +380,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                         <span class="badge bg-<?php echo $session['status'] === 'active' ? 'success' : 'warning'; ?>"><?php echo htmlspecialchars((string) $session['status']); ?></span>
                                     </div>
                                     <div class="card-body">
+                                        <p class="mb-1"><strong>Created by:</strong> <?php echo htmlspecialchars(trim((string) ($session['coordinator_name'] ?? $session['coordinator_id'] ?? '')) !== '' ? (string) ($session['coordinator_name'] ?? $session['coordinator_id']) : '—'); ?></p>
                                         <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                         <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
                                         <?php $courseShow = attendanceSessionCourseDisplay($session); ?>
@@ -750,7 +751,8 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                 opt.hidden = false;
                 return;
             }
-            const matchCentre = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            const optCentre = String(opt.getAttribute('data-centre') || '0');
+            const matchCentre = cid === '' || optCentre === cid || optCentre === '0';
             const matchCourse = courseId === '' || String(opt.getAttribute('data-course') || '0') === courseId;
             const match = matchCentre && matchCourse;
             opt.hidden = !match;

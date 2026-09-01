@@ -252,7 +252,7 @@ $active_theme = loadActiveTheme($conn);
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Your Attendance Sessions</h5>
+                    <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Attendance sessions</h5>
                 </div>
                 <div class="card-body">
                     <?php if (count($active_sessions) > 0): ?>
@@ -267,6 +267,7 @@ $active_theme = loadActiveTheme($conn);
                                             </span>
                                         </div>
                                         <div class="card-body">
+                                            <p class="mb-1"><strong>Created by:</strong> <?php echo htmlspecialchars(trim((string) ($session['coordinator_name'] ?? $session['coordinator_id'] ?? '')) !== '' ? (string) ($session['coordinator_name'] ?? $session['coordinator_id']) : '—'); ?></p>
                                             <p class="mb-1"><strong>Centre:</strong> <?php echo htmlspecialchars(trim((string) ($session['centre_name'] ?? '')) !== '' ? (string) $session['centre_name'] : '—'); ?></p>
                                             <p class="mb-1"><strong>Section:</strong> <?php echo htmlspecialchars(trim((string) ($session['batch_name'] ?? '')) !== '' ? (string) $session['batch_name'] : '—'); ?></p>
                                             <?php $courseShow = attendanceSessionCourseDisplay($session); ?>
@@ -716,7 +717,8 @@ $active_theme = loadActiveTheme($conn);
                 opt.hidden = false;
                 return;
             }
-            const matchCentre = cid === '' || String(opt.getAttribute('data-centre') || '0') === cid;
+            const optCentre = String(opt.getAttribute('data-centre') || '0');
+            const matchCentre = cid === '' || optCentre === cid || optCentre === '0';
             const matchCourse = courseId === '' || String(opt.getAttribute('data-course') || '0') === courseId;
             const match = matchCentre && matchCourse;
             opt.hidden = !match;

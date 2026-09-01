@@ -310,16 +310,19 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
             return ['success' => false, 'message' => 'Session not found.'];
         }
 
-        $check = $conn->prepare("SELECT id, status FROM attendance_sessions WHERE id = ? AND coordinator_id = ? LIMIT 1");
+        $check = $conn->prepare("SELECT id, status FROM attendance_sessions WHERE id = ? LIMIT 1");
         if (!$check) {
             return ['success' => false, 'message' => 'Database error: ' . $conn->error];
         }
-        $check->bind_param('is', $session_id, $coordinator_id);
+        $check->bind_param('i', $session_id);
         $check->execute();
         $existing = $check->get_result()->fetch_assoc();
         $check->close();
         if (!$existing) {
             return ['success' => false, 'message' => 'Session not found.'];
+        }
+        if (function_exists('attendanceAdminCanAccessSession') && !attendanceAdminCanAccessSession($conn, $session_id, $coordinator_id)) {
+            return ['success' => false, 'message' => 'You cannot edit this session.'];
         }
         $st = strtolower((string) ($existing['status'] ?? ''));
         if ($st === 'completed' || $st === 'cancelled') {
@@ -365,13 +368,13 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
             $stmt = $conn->prepare("
                 UPDATE attendance_sessions
                 SET session_name = ?, course_id = ?, batch_id = ?, course_name = ?, subject = ?, date = ?, start_time = ?, end_time = ?, updated_at = NOW()
-                WHERE id = ? AND coordinator_id = ?
+                WHERE id = ?
             ");
         } else {
             $stmt = $conn->prepare("
                 UPDATE attendance_sessions
                 SET session_name = ?, course_id = ?, course_name = ?, subject = ?, date = ?, start_time = ?, end_time = ?, updated_at = NOW()
-                WHERE id = ? AND coordinator_id = ?
+                WHERE id = ?
             ");
         }
         if (!$stmt) {
@@ -379,7 +382,7 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
         }
         if ($hasBatchCol) {
             $stmt->bind_param(
-                'siisssssis',
+                'siisssssi',
                 $name,
                 $courseId,
                 $batchId,
@@ -388,12 +391,11 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
                 $date,
                 $start,
                 $end,
-                $session_id,
-                $coordinator_id
+                $session_id
             );
         } else {
             $stmt->bind_param(
-                'sisssssis',
+                'sisssssi',
                 $name,
                 $courseId,
                 $courseName,
@@ -401,8 +403,7 @@ function updateAttendanceSession($session_id, $session_data, $conn) {
                 $date,
                 $start,
                 $end,
-                $session_id,
-                $coordinator_id
+                $session_id
             );
         }
         if ($stmt->execute()) {
@@ -619,9 +620,25 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $ba
             LEFT JOIN courses c ON c.id = s.course_id
             LEFT JOIN centres ct ON ct.id = c.centre_id
             {$batchJoin}
-            WHERE s.coordinator_id = ? AND s.status IN ('scheduled', 'active')";
-    $types = 's';
-    $params = [$coordinator_id];
+            WHERE s.status IN ('scheduled', 'active')";
+    $types = '';
+    $params = [];
+    $centreAllow = function_exists('attendanceAdminCentreIds') ? attendanceAdminCentreIds($conn) : null;
+    if ($centreAllow === null) {
+        // Master Admin: all coordinators' sessions
+    } elseif ($centreAllow === []) {
+        $sql .= " AND s.coordinator_id = ?";
+        $types .= 's';
+        $params[] = $coordinator_id;
+    } else {
+        $placeholders = implode(',', array_fill(0, count($centreAllow), '?'));
+        $sql .= " AND (s.coordinator_id = ? OR c.centre_id IN ({$placeholders}))";
+        $types .= 's' . str_repeat('i', count($centreAllow));
+        $params[] = $coordinator_id;
+        foreach ($centreAllow as $cid) {
+            $params[] = (int) $cid;
+        }
+    }
     if ($centre_id > 0) {
         $sql .= " AND c.centre_id = ?";
         $types .= 'i';
@@ -636,19 +653,11 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $ba
     $stmt = $conn->prepare($sql);
     if (!$stmt) {
         error_log("Prepare failed in getActiveAttendanceSessions: " . $conn->error);
-        $stmt = $conn->prepare("
-            SELECT * FROM attendance_sessions 
-            WHERE coordinator_id = ? AND status IN ('scheduled', 'active') 
-            ORDER BY date DESC, start_time DESC
-        ");
-        if (!$stmt) {
-            return [];
-        }
-        $stmt->bind_param("s", $coordinator_id);
-        $stmt->execute();
-        return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        return [];
     }
-    $stmt->bind_param($types, ...$params);
+    if ($types !== '') {
+        $stmt->bind_param($types, ...$params);
+    }
     $stmt->execute();
     return $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
@@ -657,10 +666,14 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $ba
  * Activate attendance session for QR scanning
  */
 function activateAttendanceSession($session_id, $coordinator_id, $conn) {
+    $session_id = (int) $session_id;
+    if (function_exists('attendanceAdminCanAccessSession') && !attendanceAdminCanAccessSession($conn, $session_id, (string) $coordinator_id)) {
+        return false;
+    }
     $stmt = $conn->prepare("
         UPDATE attendance_sessions 
         SET status = 'active', qr_scanner_active = 1, updated_at = NOW() 
-        WHERE id = ? AND coordinator_id = ?
+        WHERE id = ?
     ");
     
     if (!$stmt) {
@@ -668,7 +681,7 @@ function activateAttendanceSession($session_id, $coordinator_id, $conn) {
         return false;
     }
     
-    $stmt->bind_param("is", $session_id, $coordinator_id);
+    $stmt->bind_param("i", $session_id);
     $ok = $stmt->execute();
     $stmt->close();
     if ($ok && function_exists('attendanceTryLogActivity')) {
@@ -697,12 +710,15 @@ function activateAttendanceSession($session_id, $coordinator_id, $conn) {
  * Deactivate attendance session
  */
 function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
+    $session_id = (int) $session_id;
+    if (function_exists('attendanceAdminCanAccessSession') && !attendanceAdminCanAccessSession($conn, $session_id, (string) $coordinator_id)) {
+        return false;
+    }
     $sname = '';
     $cname = '';
     $look = $conn->prepare('SELECT session_name, course_name FROM attendance_sessions WHERE id = ? LIMIT 1');
     if ($look) {
-        $sid = (int) $session_id;
-        $look->bind_param('i', $sid);
+        $look->bind_param('i', $session_id);
         $look->execute();
         $row = $look->get_result()->fetch_assoc();
         $look->close();
@@ -713,7 +729,7 @@ function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
     $stmt = $conn->prepare("
         UPDATE attendance_sessions 
         SET status = 'completed', qr_scanner_active = 0, updated_at = NOW() 
-        WHERE id = ? AND coordinator_id = ?
+        WHERE id = ?
     ");
     
     if (!$stmt) {
@@ -721,7 +737,7 @@ function deactivateAttendanceSession($session_id, $coordinator_id, $conn) {
         return false;
     }
     
-    $stmt->bind_param("is", $session_id, $coordinator_id);
+    $stmt->bind_param("i", $session_id);
     $ok = $stmt->execute();
     $stmt->close();
     if ($ok && function_exists('attendanceTryLogActivity')) {

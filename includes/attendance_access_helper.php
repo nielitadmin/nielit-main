@@ -205,6 +205,69 @@ if (!function_exists('attendanceAdminCanUseCourse')) {
     }
 }
 
+if (!function_exists('attendanceRestrictBatchRows')) {
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return list<array<string,mixed>>
+     */
+    function attendanceRestrictBatchRows($conn, array $rows): array
+    {
+        $ids = attendanceAdminCentreIds($conn);
+        if ($ids === null) {
+            return $rows;
+        }
+        if ($ids === []) {
+            return [];
+        }
+        $allow = array_flip($ids);
+        $out = [];
+        foreach ($rows as $row) {
+            $cid = (int) ($row['centre_id'] ?? 0);
+            if ($cid === 0 || isset($allow[$cid])) {
+                $out[] = $row;
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('attendanceAdminCanAccessSession')) {
+    function attendanceAdminCanAccessSession($conn, int $sessionId, string $coordinatorId = ''): bool
+    {
+        if ($sessionId <= 0 || !($conn instanceof mysqli)) {
+            return false;
+        }
+        $ids = attendanceAdminCentreIds($conn);
+        if ($ids === null) {
+            return true;
+        }
+        $stmt = $conn->prepare(
+            'SELECT s.coordinator_id, IFNULL(c.centre_id, 0) AS centre_id
+             FROM attendance_sessions s
+             LEFT JOIN courses c ON c.id = s.course_id
+             WHERE s.id = ? LIMIT 1'
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $sessionId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return false;
+        }
+        $owner = trim((string) ($row['coordinator_id'] ?? ''));
+        if ($coordinatorId !== '' && strcasecmp($owner, trim($coordinatorId)) === 0) {
+            return true;
+        }
+        if ($ids === []) {
+            return false;
+        }
+        return in_array((int) ($row['centre_id'] ?? 0), $ids, true);
+    }
+}
+
 if (!function_exists('attendanceAppendGrantedCentreFilter')) {
     /**
      * Limit report SQL to centres the current admin is granted.

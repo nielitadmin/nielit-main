@@ -881,10 +881,14 @@ if (!function_exists('attendanceListBatchesForCourse')) {
             $stmt->execute();
             $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
-            return $rows ?: [];
+        } else {
+            $r = $conn->query($sql);
+            $rows = $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
         }
-        $r = $conn->query($sql);
-        return $r ? $r->fetch_all(MYSQLI_ASSOC) : [];
+        if (function_exists('attendanceRestrictBatchRows')) {
+            $rows = attendanceRestrictBatchRows($conn, $rows ?: []);
+        }
+        return $rows ?: [];
     }
 }
 
