@@ -593,9 +593,10 @@ function logQRScan($session_id, $student_id, $student_name, $result, $coordinato
 /**
  * Get active attendance sessions for coordinator
  */
-function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $batch_id = 0) {
+function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $batch_id = 0, $course_id = 0) {
     $centre_id = (int) $centre_id;
     $batch_id = (int) $batch_id;
+    $course_id = (int) $course_id;
     $hasBatchCol = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
     $batchSelect = $hasBatchCol
         ? ", IFNULL(b.batch_name, '') AS batch_name, IFNULL(b.batch_code, '') AS batch_code, IFNULL(s.batch_id, 0) AS session_batch_id"
@@ -645,9 +646,14 @@ function getActiveAttendanceSessions($coordinator_id, $conn, $centre_id = 0, $ba
         $params[] = $centre_id;
     }
     if ($hasBatchCol && $batch_id > 0) {
-        $sql .= " AND s.batch_id = ?";
+        $sql .= " AND (s.batch_id = ? OR s.batch_id IS NULL OR s.batch_id = 0)";
         $types .= 'i';
         $params[] = $batch_id;
+    }
+    if ($course_id > 0) {
+        $sql .= " AND s.course_id = ?";
+        $types .= 'i';
+        $params[] = $course_id;
     }
     $sql .= " ORDER BY s.date DESC, s.start_time DESC";
     $stmt = $conn->prepare($sql);

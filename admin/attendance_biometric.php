@@ -255,13 +255,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $centreId = (int) ($_GET['centre_id'] ?? 0);
 $batchId = (int) ($_GET['batch_id'] ?? 0);
-$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId, $batchId);
+$courseId = (int) ($_GET['course_id'] ?? 0);
+$active_sessions = getActiveAttendanceSessions($admin_id, $conn, $centreId, $batchId, $courseId);
 $openSessionId = (int) ($_GET['session_id'] ?? 0);
 $centres = attendanceListCentres($conn);
 $allCourses = attendanceListCoursesForCentre($conn, 0);
 $courses = $centreId > 0 ? attendanceListCoursesForCentre($conn, $centreId) : $allCourses;
 $allBatches = attendanceListBatchesForCourse($conn, 0, 0);
-$filterBatches = attendanceListBatchesForCourse($conn, 0, $centreId);
+$filterBatches = attendanceListBatchesForCourse($conn, $courseId, $centreId);
 $active_theme = loadActiveTheme($conn);
 $jsBase = (defined('APP_URL') ? rtrim(APP_URL, '/') : '');
 $jsPath = $jsBase . '/assets/js/mantra_rd.js?v=' . (@filemtime(__DIR__ . '/../assets/js/mantra_rd.js') ?: time());
@@ -326,7 +327,7 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
         <div class="card mb-4">
             <div class="card-body">
                 <form method="get" class="row g-3 align-items-end">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Centre</label>
                         <select class="form-select" name="centre_id" onchange="this.form.submit()">
                             <option value="0">All centres</option>
@@ -337,18 +338,29 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <label class="form-label">Course</label>
+                        <select class="form-select" name="course_id" onchange="this.form.submit()">
+                            <option value="0">All courses</option>
+                            <?php foreach ($courses as $course): ?>
+                                <option value="<?php echo (int) $course['id']; ?>" <?php echo (int) $course['id'] === $courseId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars(attendanceFormatCourseLabel($course)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Section</label>
                         <select class="form-select" name="batch_id" onchange="this.form.submit()">
                             <option value="0">All sections</option>
                             <?php foreach ($filterBatches as $batch): ?>
                                 <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch, true)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#createSessionModal" id="btnNewSession">
                             <i class="fas fa-plus"></i> Create session
                         </button>
@@ -394,6 +406,17 @@ $sgThreshold = defined('SECUGEN_MATCH_THRESHOLD') ? (int) SECUGEN_MATCH_THRESHOL
                                         <?php $sessionHeld = (int) ($session['classes_held'] ?? 0); ?>
                                         <p class="mb-1"><strong>Classes held:</strong> <?php echo $sessionHeld > 0 ? $sessionHeld : '—'; ?></p>
                                         <p class="mb-1"><strong>Date:</strong> <?php echo htmlspecialchars(date('d M Y', strtotime((string) $session['date']))); ?> <small class="text-muted">(punches save each calendar day)</small></p>
+                                        <?php
+                                        $sessReportQs = http_build_query([
+                                            'session_id' => (int) $session['id'],
+                                            'course_id' => (int) ($session['course_id'] ?? 0),
+                                            'centre_id' => (int) ($session['course_centre_id'] ?? 0),
+                                            'batch_id' => (int) ($session['batch_id'] ?? $session['session_batch_id'] ?? 0),
+                                        ]);
+                                        ?>
+                                        <a class="btn btn-outline-primary btn-sm w-100 mb-2" href="<?php echo htmlspecialchars(app_url('admin/attendance_biometric_report') . '?' . $sessReportQs); ?>">
+                                            <i class="fas fa-users"></i> View student records
+                                        </a>
                                         <button class="btn btn-outline-secondary btn-sm w-100 mb-2 js-edit-session" type="button"
                                                 data-id="<?php echo (int) $session['id']; ?>"
                                                 data-name="<?php echo htmlspecialchars((string) $session['session_name'], ENT_QUOTES, 'UTF-8'); ?>"

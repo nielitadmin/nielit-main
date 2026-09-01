@@ -787,7 +787,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
      *
      * @return array{days:int,start:string,end:string,rows:array<int,array<string,mixed>>}
      */
-    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0, string $methodFilter = 'fingerprint'): array
+    function getFingerprintMonthlyRecord($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0, string $methodFilter = 'fingerprint', int $sessionId = 0): array
     {
         $days = (int) date('t', mktime(0, 0, 0, $month, 1, $year));
         $start = sprintf('%04d-%02d-01', $year, $month);
@@ -923,6 +923,11 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 $types .= 'i';
                 $params[] = $batchId;
             }
+        }
+        if ($sessionId > 0) {
+            $sql .= ' AND l.session_id = ?';
+            $types .= 'i';
+            $params[] = $sessionId;
         }
         $sql .= ' ORDER BY centre_name ASC, batch_name ASC, l.student_name ASC, l.student_id ASC, l.scan_time ASC';
         $stmt = $conn->prepare($sql);

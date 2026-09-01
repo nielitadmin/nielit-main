@@ -505,13 +505,14 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
         $logOutSql = '0';
         $logAnySql = '0';
         $logDaysSql = '0';
+        $logInMonthSql = '0';
         if ($hasLogs) {
-            $logBase = "FROM attendance_logs l WHERE l.session_id = s.id AND l.status = 'valid'
-                AND DATE(l.scan_time) >= '{$start}' AND DATE(l.scan_time) <= '{$end}'{$methodSql}";
+            $logBase = "FROM attendance_logs l WHERE l.session_id = s.id AND l.status = 'valid'{$methodSql}";
             $logInSql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase} AND l.scan_type = 'in')";
             $logOutSql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase} AND l.scan_type = 'out')";
             $logAnySql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase})";
             $logDaysSql = "(SELECT COUNT(DISTINCT DATE(l.scan_time)) {$logBase})";
+            $logInMonthSql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase} AND DATE(l.scan_time) >= '{$start}' AND DATE(l.scan_time) <= '{$end}')";
         }
         $presentSql = '0';
         $partialSql = '0';
@@ -535,7 +536,10 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
             }
         }
 
-        $periodParts = ['(s.date >= ? AND s.date <= ?)'];
+        $periodParts = [
+            '(s.date >= ? AND s.date <= ?)',
+            "LOWER(TRIM(IFNULL(s.status,''))) IN ('active','scheduled')",
+        ];
         $types = 'ss';
         $params = [$start, $end];
         if ($hasLogs) {
@@ -564,9 +568,24 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
             $params[] = $centreId;
         }
         if ($batchId > 0 && function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
-            $filterSql .= ' AND s.batch_id = ?';
+            $filterSql .= ' AND (s.batch_id = ? OR s.batch_id IS NULL OR s.batch_id = 0)';
             $types .= 'i';
             $params[] = $batchId;
+        }
+        if (function_exists('attendanceAdminCentreIds')) {
+            $granted = attendanceAdminCentreIds($conn);
+            if (is_array($granted)) {
+                if ($granted === []) {
+                    $filterSql .= ' AND 1=0';
+                } else {
+                    $placeholders = implode(',', array_fill(0, count($granted), '?'));
+                    $filterSql .= " AND (c.centre_id IN ({$placeholders}) OR c.centre_id IS NULL)";
+                    foreach ($granted as $gid) {
+                        $types .= 'i';
+                        $params[] = (int) $gid;
+                    }
+                }
+            }
         }
 
         $heldSelect = '0 AS classes_held';
@@ -585,6 +604,7 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
                        {$logAnySql} AS students_attended,
                        {$logInSql} AS students_in,
                        {$logOutSql} AS students_out,
+                       {$logInMonthSql} AS students_this_month,
                        {$presentSql} AS present_count,
                        {$partialSql} AS partial_count,
                        {$logDaysSql} AS days_with_punches,
@@ -602,6 +622,54 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
             return [];
         }
         $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows ?: [];
+    }
+}
+
+if (!function_exists('attendanceListSessionStudentPunches')) {
+    /**
+     * Students who punched a session (fingerprint IN/OUT), any date.
+     *
+     * @return list<array<string,mixed>>
+     */
+    function attendanceListSessionStudentPunches($conn, int $sessionId, string $methodFilter = 'fingerprint'): array
+    {
+        if (!($conn instanceof mysqli) || $sessionId <= 0) {
+            return [];
+        }
+        $t = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
+        if (!$t || $t->num_rows === 0) {
+            return [];
+        }
+        $hasMethod = false;
+        $mc = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
+        $hasMethod = $mc && $mc->num_rows > 0;
+        $methodSql = '';
+        if ($hasMethod && $methodFilter === 'fingerprint') {
+            $methodSql = " AND LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('biometric','fingerprint')";
+        } elseif ($hasMethod && $methodFilter === 'qr') {
+            $methodSql = " AND (LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('qr','') OR l.scan_method IS NULL)";
+        }
+        $sql = "SELECT l.student_id,
+                       MAX(l.student_name) AS student_name,
+                       MIN(CASE WHEN l.scan_type = 'in' THEN l.scan_time END) AS first_in,
+                       MAX(CASE WHEN l.scan_type = 'in' THEN l.scan_time END) AS last_in,
+                       MIN(CASE WHEN l.scan_type = 'out' THEN l.scan_time END) AS first_out,
+                       MAX(CASE WHEN l.scan_type = 'out' THEN l.scan_time END) AS last_out,
+                       COUNT(DISTINCT DATE(l.scan_time)) AS punch_days
+                FROM attendance_logs l
+                WHERE l.session_id = ? AND l.status = 'valid'{$methodSql}
+                GROUP BY l.student_id
+                ORDER BY student_name ASC, l.student_id ASC";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('attendanceListSessionStudentPunches: ' . $conn->error);
+            return [];
+        }
+        $stmt->bind_param('i', $sessionId);
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();

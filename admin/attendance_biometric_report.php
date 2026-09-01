@@ -35,6 +35,7 @@ if ($month < 1 || $month > 12) {
 $courseId = (int) ($_GET['course_id'] ?? 0);
 $centreId = (int) ($_GET['centre_id'] ?? 0);
 $batchId = (int) ($_GET['batch_id'] ?? 0);
+$sessionId = (int) ($_GET['session_id'] ?? 0);
 
 ensureBiometricAttendanceTables($conn);
 ensureAttendanceInOutTables($conn);
@@ -43,9 +44,19 @@ $centreLabel = attendanceCentreName($conn, $centreId);
 $courses = attendanceListCoursesForCentre($conn, $centreId);
 $batches = attendanceListBatchesForCourse($conn, $courseId, $centreId);
 $batchLabel = attendanceBatchName($conn, $batchId);
-$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId, $batchId);
-$sessionHeld = fingerprintSumSessionClassesHeld($conn, $year, $month, $courseId, $centreId, $batchId);
 $sessionHeadcounts = fingerprintListSessionHeadcounts($conn, $year, $month, $courseId, $centreId, $batchId);
+$report = getFingerprintMonthlyRecord($conn, $year, $month, $courseId, $centreId, $batchId, 'fingerprint', $sessionId);
+$sessionHeld = fingerprintSumSessionClassesHeld($conn, $year, $month, $courseId, $centreId, $batchId);
+$sessionStudents = ($sessionId > 0 && function_exists('attendanceListSessionStudentPunches'))
+    ? attendanceListSessionStudentPunches($conn, $sessionId, 'fingerprint')
+    : [];
+$selectedSession = null;
+foreach ($sessionHeadcounts as $sessRow) {
+    if ((int) ($sessRow['id'] ?? 0) === $sessionId) {
+        $selectedSession = $sessRow;
+        break;
+    }
+}
 $classes_held = $sessionHeld;
 if ($classes_held > 0) {
     $report['rows'] = attendanceApplyClassesHeld($report['rows'], $classes_held);
@@ -172,13 +183,13 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspanExcel . '">NIELIT Bhubaneswar — Fingerprint attendance</td></tr>';
     echo '</table>';
     echo '<br><table border="1">';
-    echo '<tr><td colspan="12" style="font-size:16px;font-weight:bold;">Attendance sessions — students who punched in this month</td></tr>';
+    echo '<tr><td colspan="13" style="font-size:16px;font-weight:bold;">Attendance sessions — all active/scheduled sessions plus any with punches in this month</td></tr>';
     echo '<tr style="background:#bbf7d0;font-weight:bold;text-align:center;">';
-    echo '<td>Date</td><td>Session</td><td>Time</td><td>Course</td><td>Section</td><td>Centre</td><td>Created by</td>';
+    echo '<td>Date</td><td>Session</td><td>Time</td><td>Status</td><td>Course</td><td>Section</td><td>Centre</td><td>Created by</td>';
     echo '<td>Students IN</td><td>Students OUT</td><td>Unique students</td><td>Present records</td><td>Partial records</td>';
     echo '</tr>';
     if ($sessionHeadcounts === []) {
-        echo '<tr><td colspan="12">No attendance sessions with fingerprint punches in this month for the selected filters.</td></tr>';
+        echo '<tr><td colspan="13">No attendance sessions for the selected filters.</td></tr>';
     } else {
         foreach ($sessionHeadcounts as $sess) {
             $courseBits = trim((string) ($sess['course_code'] ?? ''));
@@ -188,6 +199,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td>' . htmlspecialchars((string) ($sess['date'] ?? '')) . '</td>';
             echo '<td>' . htmlspecialchars((string) ($sess['session_name'] ?? '')) . '</td>';
             echo '<td>' . htmlspecialchars($sessionWindowLabel($sess)) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($sess['status'] ?? '')) . '</td>';
             echo '<td>' . htmlspecialchars($courseCell) . '</td>';
             echo '<td>' . htmlspecialchars((string) (($sess['batch_name'] ?? '') !== '' ? $sess['batch_name'] : '—')) . '</td>';
             echo '<td>' . htmlspecialchars((string) (($sess['centre_name'] ?? '') !== '' ? $sess['centre_name'] : '—')) . '</td>';
@@ -197,6 +209,21 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td style="text-align:center;">' . (int) ($sess['students_attended'] ?? 0) . '</td>';
             echo '<td style="text-align:center;">' . (int) ($sess['present_count'] ?? 0) . '</td>';
             echo '<td style="text-align:center;">' . (int) ($sess['partial_count'] ?? 0) . '</td>';
+            echo '</tr>';
+        }
+    }
+    if ($sessionId > 0 && $sessionStudents !== []) {
+        echo '</table><br><table border="1">';
+        echo '<tr><td colspan="6" style="font-size:16px;font-weight:bold;">Students in selected session</td></tr>';
+        echo '<tr style="background:#bfdbfe;font-weight:bold;"><td>Student ID</td><td>Name</td><td>First IN</td><td>Last IN</td><td>Last OUT</td><td>Days punched</td></tr>';
+        foreach ($sessionStudents as $stu) {
+            echo '<tr>';
+            echo '<td>' . htmlspecialchars((string) ($stu['student_id'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($stu['student_name'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($stu['first_in'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($stu['last_in'] ?? '')) . '</td>';
+            echo '<td>' . htmlspecialchars((string) ($stu['last_out'] ?? '')) . '</td>';
+            echo '<td style="text-align:center;">' . (int) ($stu['punch_days'] ?? 0) . '</td>';
             echo '</tr>';
         }
     }
@@ -249,8 +276,23 @@ $qs = http_build_query([
     'course_id' => $courseId > 0 ? $courseId : '',
     'centre_id' => $centreId > 0 ? $centreId : '',
     'batch_id' => $batchId > 0 ? $batchId : '',
+    'session_id' => $sessionId > 0 ? $sessionId : '',
     'export' => 'excel',
 ]);
+$filterQs = static function (array $extra = []) use ($year, $month, $courseId, $centreId, $batchId, $sessionId): string {
+    $base = [
+        'year' => $year,
+        'month' => $month,
+        'course_id' => $courseId > 0 ? $courseId : 0,
+        'centre_id' => $centreId > 0 ? $centreId : 0,
+        'batch_id' => $batchId > 0 ? $batchId : 0,
+        'session_id' => $sessionId > 0 ? $sessionId : 0,
+    ];
+    foreach ($extra as $k => $v) {
+        $base[$k] = $v;
+    }
+    return http_build_query($base);
+};
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -295,7 +337,8 @@ $qs = http_build_query([
         .sess-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 0.25rem; }
         .sess-table th, .sess-table td { border: 1px solid #94a3b8; padding: 6px 8px; vertical-align: middle; }
         .sess-table thead th { background: #bbf7d0; color: #14532d; text-align: center; font-weight: 700; white-space: nowrap; }
-        .sess-table tbody tr:nth-child(even) { background: #f0fdf4; }
+        .sess-table tbody tr.is-selected { background: #dbeafe; }
+        .sess-table .sess-view { white-space: nowrap; }
         .sess-table .num { text-align: center; font-weight: 700; }
         .sess-table .sess-in { color: #0f766e; }
         .sess-table .sess-out { color: #b45309; }
@@ -454,7 +497,7 @@ $qs = http_build_query([
                             <option value="0">All sections</option>
                             <?php foreach ($batches as $batch): ?>
                                 <option value="<?php echo (int) $batch['id']; ?>" <?php echo (int) $batch['id'] === $batchId ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch)); ?>
+                                    <?php echo htmlspecialchars(attendanceFormatBatchLabel($batch, $courseId <= 0)); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -484,6 +527,27 @@ $qs = http_build_query([
                             <?php foreach ($courses as $course): ?>
                                 <option value="<?php echo (int) $course['id']; ?>" <?php echo (int) $course['id'] === $courseId ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars(attendanceFormatCourseLabel($course)); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Session</label>
+                        <select class="form-select" name="session_id" onchange="this.form.submit()">
+                            <option value="0">All sessions</option>
+                            <?php foreach ($sessionHeadcounts as $sessOpt): ?>
+                                <?php
+                                $optId = (int) ($sessOpt['id'] ?? 0);
+                                $optName = trim((string) ($sessOpt['session_name'] ?? 'Session'));
+                                $optTime = $sessionWindowLabel($sessOpt);
+                                $optStatus = trim((string) ($sessOpt['status'] ?? ''));
+                                $optLabel = $optName . ($optTime !== '—' ? (' (' . $optTime . ')') : '');
+                                if ($optStatus !== '') {
+                                    $optLabel .= ' — ' . $optStatus;
+                                }
+                                ?>
+                                <option value="<?php echo $optId; ?>" <?php echo $optId === $sessionId ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($optLabel); ?>
                                 </option>
                             <?php endforeach; ?>
                         </select>
@@ -521,7 +585,15 @@ $qs = http_build_query([
                     Mode Date: <?php echo htmlspecialchars($report['start']); ?> to <?php echo htmlspecialchars($report['end']); ?>
                 </div>
                 <h3 class="att-title">Attendance sessions</h3>
-                <p class="sess-hint">How many students punched fingerprint for each session time in <?php echo htmlspecialchars($monthLabel); ?>. Unique students = anyone with IN or OUT. Present / Partial are day records in this month.</p>
+                <p class="sess-hint">
+                    All <strong>active</strong> and scheduled sessions are listed here (not only those with punches in <?php echo htmlspecialchars($monthLabel); ?>).
+                    IN / OUT / Unique are total students who punched that session.
+                    Choose a <strong>Session</strong> above, or click <strong>View students</strong>, to see that session’s student records.
+                    <?php if ($sessionId > 0 && $selectedSession): ?>
+                        Showing students for <strong><?php echo htmlspecialchars((string) ($selectedSession['session_name'] ?? 'session')); ?></strong>
+                        · <a href="attendance_biometric_report.php?<?php echo htmlspecialchars($filterQs(['session_id' => 0])); ?>">Clear session</a>
+                    <?php endif; ?>
+                </p>
                 <div class="att-wrap mb-3">
                     <table class="sess-table">
                         <thead>
@@ -529,6 +601,7 @@ $qs = http_build_query([
                                 <th>Date</th>
                                 <th>Session</th>
                                 <th>Time</th>
+                                <th>Status</th>
                                 <th>Course</th>
                                 <th>Section</th>
                                 <th>Centre</th>
@@ -538,13 +611,14 @@ $qs = http_build_query([
                                 <th>Unique students</th>
                                 <th>Present</th>
                                 <th>Partial</th>
+                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php if ($sessionHeadcounts === []): ?>
                             <tr>
-                                <td colspan="12" class="text-center text-muted py-3">
-                                    No attendance sessions with fingerprint punches in this month for the selected filters.
+                                <td colspan="14" class="text-center text-muted py-3">
+                                    No attendance sessions for the selected filters.
                                     Create or open a session on
                                     <a href="<?php echo htmlspecialchars($sessionSetupUrl); ?>">Fingerprint Attendance</a>.
                                 </td>
@@ -553,7 +627,8 @@ $qs = http_build_query([
                             <?php foreach ($sessionHeadcounts as $sess): ?>
                                 <?php
                                 $sid = (int) ($sess['id'] ?? 0);
-                                $sessUrl = $sessionSetupUrl . ($sid > 0 ? ('?session_id=' . $sid) : '');
+                                $viewUrl = 'attendance_biometric_report.php?' . $filterQs(['session_id' => $sid]);
+                                $kioskUrl = $sessionSetupUrl . ($sid > 0 ? ('?session_id=' . $sid) : '');
                                 $courseBits = trim((string) ($sess['course_code'] ?? ''));
                                 $courseName = trim((string) ($sess['course_name'] ?? ''));
                                 $courseCell = $courseBits !== '' && $courseName !== ''
@@ -564,17 +639,19 @@ $qs = http_build_query([
                                 $batchCell = trim((string) ($sess['batch_name'] ?? ''));
                                 $centreCell = trim((string) ($sess['centre_name'] ?? ''));
                                 $createdBy = trim((string) ($sess['coordinator_name'] ?? ''));
+                                $sessStatus = trim((string) ($sess['status'] ?? ''));
                                 ?>
-                                <tr>
+                                <tr class="<?php echo $sid === $sessionId ? 'is-selected' : ''; ?>">
                                     <td><?php echo htmlspecialchars($sessDateLabel); ?></td>
                                     <td>
                                         <?php if ($sid > 0): ?>
-                                            <a href="<?php echo htmlspecialchars($sessUrl); ?>"><?php echo htmlspecialchars((string) ($sess['session_name'] ?? 'Session')); ?></a>
+                                            <a href="<?php echo htmlspecialchars($viewUrl); ?>"><?php echo htmlspecialchars((string) ($sess['session_name'] ?? 'Session')); ?></a>
                                         <?php else: ?>
                                             <?php echo htmlspecialchars((string) ($sess['session_name'] ?? 'Session')); ?>
                                         <?php endif; ?>
                                     </td>
                                     <td class="text-nowrap"><?php echo htmlspecialchars($sessionWindowLabel($sess)); ?></td>
+                                    <td><?php echo htmlspecialchars($sessStatus !== '' ? $sessStatus : '—'); ?></td>
                                     <td><?php echo htmlspecialchars($courseCell); ?></td>
                                     <td><?php echo htmlspecialchars($batchCell !== '' ? $batchCell : '—'); ?></td>
                                     <td><?php echo htmlspecialchars($centreCell !== '' ? $centreCell : '—'); ?></td>
@@ -584,12 +661,55 @@ $qs = http_build_query([
                                     <td class="num"><?php echo (int) ($sess['students_attended'] ?? 0); ?></td>
                                     <td class="num"><?php echo (int) ($sess['present_count'] ?? 0); ?></td>
                                     <td class="num"><?php echo (int) ($sess['partial_count'] ?? 0); ?></td>
+                                    <td class="sess-view">
+                                        <?php if ($sid > 0): ?>
+                                            <a href="<?php echo htmlspecialchars($viewUrl); ?>">View students</a>
+                                            <span class="text-muted">·</span>
+                                            <a href="<?php echo htmlspecialchars($kioskUrl); ?>">Kiosk</a>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
+                <?php if ($sessionId > 0): ?>
+                    <h3 class="att-title">Students in this session</h3>
+                    <p class="sess-hint">Every student who punched fingerprint for this session (any date). The monthly grid below is still <?php echo htmlspecialchars($monthLabel); ?>.</p>
+                    <div class="att-wrap mb-3">
+                        <table class="sess-table">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Name</th>
+                                    <th>First IN</th>
+                                    <th>Last IN</th>
+                                    <th>Last OUT</th>
+                                    <th>Days punched</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php if ($sessionStudents === []): ?>
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">No fingerprint punches on this session yet.</td>
+                                </tr>
+                            <?php else: ?>
+                                <?php foreach ($sessionStudents as $stu): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) ($stu['student_id'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($stu['student_name'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(function_exists('attendanceFormatClock12') ? attendanceFormatClock12($stu['first_in'] ?? '', false, false) : (string) ($stu['first_in'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(function_exists('attendanceFormatClock12') ? attendanceFormatClock12($stu['last_in'] ?? '', false, false) : (string) ($stu['last_in'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(function_exists('attendanceFormatClock12') ? attendanceFormatClock12($stu['last_out'] ?? '', false, false) : (string) ($stu['last_out'] ?? '')); ?></td>
+                                        <td class="num"><?php echo (int) ($stu['punch_days'] ?? 0); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
                 <h3 class="att-title">Attendance Record</h3>
                 <div class="att-wrap">
                     <table class="att-matrix">
