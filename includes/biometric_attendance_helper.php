@@ -1128,6 +1128,19 @@ if (!function_exists('fingerprintSumSessionClassesHeld')) {
     }
 }
 
+if (!function_exists('fingerprintListSessionHeadcounts')) {
+    /**
+     * @return list<array<string,mixed>>
+     */
+    function fingerprintListSessionHeadcounts($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0): array
+    {
+        if (function_exists('attendanceListSessionHeadcounts')) {
+            return attendanceListSessionHeadcounts($conn, $year, $month, $courseId, $centreId, $batchId, 'fingerprint');
+        }
+        return [];
+    }
+}
+
 if (!function_exists('fingerprintLatestPunchMonth')) {
     /**
      * @return array{year:int,month:int,session_year?:int,session_month?:int}|null

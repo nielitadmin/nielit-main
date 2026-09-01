@@ -466,6 +466,149 @@ if (!function_exists('attendanceSumSessionClassesHeld')) {
     }
 }
 
+if (!function_exists('attendanceListSessionHeadcounts')) {
+    /**
+     * Sessions in a month with how many students punched IN/OUT.
+     *
+     * @return list<array<string,mixed>>
+     */
+    function attendanceListSessionHeadcounts($conn, int $year, int $month, int $courseId = 0, int $centreId = 0, int $batchId = 0, string $methodFilter = 'fingerprint'): array
+    {
+        if (!($conn instanceof mysqli) || $year < 2000 || $month < 1 || $month > 12) {
+            return [];
+        }
+        $t = $conn->query("SHOW TABLES LIKE 'attendance_sessions'");
+        if (!$t || $t->num_rows === 0) {
+            return [];
+        }
+        $start = sprintf('%04d-%02d-01', $year, $month);
+        $end = date('Y-m-t', strtotime($start));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
+            return [];
+        }
+
+        $hasLogs = ($lt = $conn->query("SHOW TABLES LIKE 'attendance_logs'")) && $lt->num_rows > 0;
+        $hasSummary = ($st = $conn->query("SHOW TABLES LIKE 'attendance_summary'")) && $st->num_rows > 0;
+        $hasMethod = false;
+        if ($hasLogs) {
+            $mc = $conn->query("SHOW COLUMNS FROM attendance_logs LIKE 'scan_method'");
+            $hasMethod = $mc && $mc->num_rows > 0;
+        }
+        $methodSql = '';
+        if ($hasMethod && $methodFilter === 'fingerprint') {
+            $methodSql = " AND LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('biometric','fingerprint')";
+        } elseif ($hasMethod && $methodFilter === 'qr') {
+            $methodSql = " AND (LOWER(TRIM(IFNULL(l.scan_method,''))) IN ('qr','') OR l.scan_method IS NULL)";
+        }
+
+        $logInSql = '0';
+        $logOutSql = '0';
+        $logAnySql = '0';
+        $logDaysSql = '0';
+        if ($hasLogs) {
+            $logBase = "FROM attendance_logs l WHERE l.session_id = s.id AND l.status = 'valid'
+                AND DATE(l.scan_time) >= '{$start}' AND DATE(l.scan_time) <= '{$end}'{$methodSql}";
+            $logInSql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase} AND l.scan_type = 'in')";
+            $logOutSql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase} AND l.scan_type = 'out')";
+            $logAnySql = "(SELECT COUNT(DISTINCT l.student_id) {$logBase})";
+            $logDaysSql = "(SELECT COUNT(DISTINCT DATE(l.scan_time)) {$logBase})";
+        }
+        $presentSql = '0';
+        $partialSql = '0';
+        if ($hasSummary) {
+            $presentSql = "(SELECT COUNT(*) FROM attendance_summary a WHERE a.session_id = s.id AND a.date >= '{$start}' AND a.date <= '{$end}' AND a.status = 'present')";
+            $partialSql = "(SELECT COUNT(*) FROM attendance_summary a WHERE a.session_id = s.id AND a.date >= '{$start}' AND a.date <= '{$end}' AND a.status = 'partial')";
+        }
+        $enrolledSql = '0';
+        $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if ($bs && $bs->num_rows > 0 && function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
+            $enrolledSql = "(SELECT COUNT(*) FROM batch_students bs WHERE bs.batch_id = s.batch_id AND s.batch_id IS NOT NULL AND s.batch_id > 0)";
+        }
+
+        $batchSelect = "'' AS batch_name, 0 AS session_batch_id";
+        $batchJoin = '';
+        if (function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
+            $bt = $conn->query("SHOW TABLES LIKE 'batches'");
+            if ($bt && $bt->num_rows > 0) {
+                $batchSelect = "IFNULL(b.batch_name, '') AS batch_name, IFNULL(s.batch_id, 0) AS session_batch_id";
+                $batchJoin = ' LEFT JOIN batches b ON b.id = s.batch_id ';
+            }
+        }
+
+        $periodParts = ['(s.date >= ? AND s.date <= ?)'];
+        $types = 'ss';
+        $params = [$start, $end];
+        if ($hasLogs) {
+            $periodParts[] = "s.id IN (SELECT l.session_id FROM attendance_logs l WHERE l.session_id IS NOT NULL AND l.session_id > 0 AND l.status = 'valid' AND DATE(l.scan_time) >= ? AND DATE(l.scan_time) <= ?{$methodSql})";
+            $types .= 'ss';
+            $params[] = $start;
+            $params[] = $end;
+        }
+        if ($hasSummary) {
+            $periodParts[] = 's.id IN (SELECT a.session_id FROM attendance_summary a WHERE a.session_id IS NOT NULL AND a.session_id > 0 AND a.date >= ? AND a.date <= ?)';
+            $types .= 'ss';
+            $params[] = $start;
+            $params[] = $end;
+        }
+        $periodSql = '(' . implode(' OR ', $periodParts) . ')';
+
+        $filterSql = '';
+        if ($courseId > 0) {
+            $filterSql .= ' AND s.course_id = ?';
+            $types .= 'i';
+            $params[] = $courseId;
+        }
+        if ($centreId > 0) {
+            $filterSql .= ' AND c.centre_id = ?';
+            $types .= 'i';
+            $params[] = $centreId;
+        }
+        if ($batchId > 0 && function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
+            $filterSql .= ' AND s.batch_id = ?';
+            $types .= 'i';
+            $params[] = $batchId;
+        }
+
+        $heldSelect = '0 AS classes_held';
+        if (function_exists('attendanceSessionsHaveClassesHeldColumn') && attendanceSessionsHaveClassesHeldColumn($conn)) {
+            $heldSelect = 'IFNULL(s.classes_held, 0) AS classes_held';
+        }
+
+        $sql = "SELECT s.id, s.session_name, s.date, s.start_time, s.end_time, s.status,
+                       IFNULL(s.coordinator_name, '') AS coordinator_name,
+                       IFNULL(s.coordinator_id, '') AS coordinator_id,
+                       {$heldSelect},
+                       IFNULL(c.course_name, s.course_name) AS course_name,
+                       IFNULL(c.course_code, '') AS course_code,
+                       IFNULL(ct.name, '') AS centre_name,
+                       {$batchSelect},
+                       {$logAnySql} AS students_attended,
+                       {$logInSql} AS students_in,
+                       {$logOutSql} AS students_out,
+                       {$presentSql} AS present_count,
+                       {$partialSql} AS partial_count,
+                       {$logDaysSql} AS days_with_punches,
+                       {$enrolledSql} AS enrolled_count
+                FROM attendance_sessions s
+                LEFT JOIN courses c ON c.id = s.course_id
+                LEFT JOIN centres ct ON ct.id = c.centre_id
+                {$batchJoin}
+                WHERE {$periodSql}{$filterSql}
+                ORDER BY s.date DESC, s.start_time DESC, s.id DESC";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            error_log('attendanceListSessionHeadcounts: ' . $conn->error);
+            return [];
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows ?: [];
+    }
+}
+
 if (!function_exists('attendanceListRosterForReport')) {
     /**
      * Enrolled students for a course / centre / section, used to fill zero-attendance rows.
