@@ -180,10 +180,15 @@ $active_theme = loadActiveTheme($conn);
                                     <?php if ($item['needs_command']): ?>
                                         <select class="form-select form-select-sm d-inline-block w-auto me-1 migration-command"
                                                 data-file="<?php echo htmlspecialchars($item['filename']); ?>">
-                                            <option value="install">install</option>
-                                            <option value="verify">verify</option>
-                                            <?php if ($item['filename'] === 'install_rbac.php' || $item['filename'] === 'install_document_categories.php'): ?>
-                                                <option value="rollback">rollback</option>
+                                            <?php if ($item['filename'] === 'approve_olevel_it_nold_2026_students.php'): ?>
+                                                <option value="install">preview</option>
+                                                <option value="apply">apply</option>
+                                            <?php else: ?>
+                                                <option value="install">install</option>
+                                                <option value="verify">verify</option>
+                                                <?php if ($item['filename'] === 'install_rbac.php' || $item['filename'] === 'install_document_categories.php'): ?>
+                                                    <option value="rollback">rollback</option>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </select>
                                     <?php endif; ?>
@@ -272,6 +277,9 @@ document.querySelectorAll('.run-migration-btn').forEach(function (btn) {
         if (command === 'rollback') {
             confirmMsg += '\n\nROLLBACK may delete data. Are you sure?';
         }
+        if (command === 'apply') {
+            confirmMsg += '\n\nAPPLY will approve listed students and de-approve extras. Backup first.';
+        }
         if (!confirm(confirmMsg)) {
             return;
         }
@@ -290,7 +298,18 @@ document.querySelectorAll('.run-migration-btn').forEach(function (btn) {
                 method: 'POST',
                 body: formData
             });
-            const data = await response.json();
+            const raw = await response.text();
+            let data;
+            try {
+                data = JSON.parse(raw);
+            } catch (parseErr) {
+                const start = raw.indexOf('{');
+                const end = raw.lastIndexOf('}');
+                if (start < 0 || end <= start) {
+                    throw parseErr;
+                }
+                data = JSON.parse(raw.slice(start, end + 1));
+            }
 
             document.getElementById('outputModalTitle').textContent = file + (data.success ? ' — success' : ' — failed');
             let text = data.output || data.message || '';

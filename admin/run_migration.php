@@ -7,31 +7,54 @@ session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/migration_runner_helper.php';
 
+$migrationJsonFlags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+    $migrationJsonFlags |= JSON_INVALID_UTF8_SUBSTITUTE;
+}
+
+$migrationJsonEncode = static function ($payload) use ($migrationJsonFlags): string {
+    if (!is_array($payload)) {
+        $payload = ['success' => false, 'message' => 'Unexpected migration result.'];
+    }
+    if (isset($payload['output']) && is_string($payload['output']) && strlen($payload['output']) > 200000) {
+        $payload['output'] = substr($payload['output'], 0, 200000) . "\n\n[output truncated]";
+    }
+    $json = json_encode($payload, $migrationJsonFlags);
+    if (!is_string($json) || $json === '') {
+        return '{"success":false,"message":"Could not encode migration output."}';
+    }
+    return $json;
+};
+
+$migrationJsonExit = static function ($payload, $code = 200) use ($migrationJsonEncode): void {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    if (!headers_sent()) {
+        http_response_code((int) $code);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    echo $migrationJsonEncode($payload);
+    exit;
+};
+
 header('Content-Type: application/json; charset=utf-8');
 
 if (!isset($_SESSION['admin'])) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized.']);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => 'Unauthorized.'], 403);
 }
 
 if (($_SESSION['admin_role'] ?? '') !== 'master_admin') {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Only Master Admin can run migrations.']);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => 'Only Master Admin can run migrations.'], 403);
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
-    echo json_encode(['success' => false, 'message' => 'POST required.']);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => 'POST required.'], 405);
 }
 
 $token = $_POST['csrf_token'] ?? '';
 if ($token === '' || !hash_equals($_SESSION['csrf_token'] ?? '', $token)) {
-    http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Invalid security token. Refresh the page and try again.']);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => 'Invalid security token. Refresh the page and try again.'], 403);
 }
 
 $filename = $_POST['migration_file'] ?? '';
@@ -41,7 +64,7 @@ $runBy = (string) ($_SESSION['admin'] ?? $_SESSION['admin_username'] ?? 'master_
 $responseSent = false;
 $ajaxResult = null;
 
-register_shutdown_function(static function () use (&$responseSent, &$ajaxResult) {
+register_shutdown_function(static function () use (&$responseSent, &$ajaxResult, $migrationJsonEncode) {
     if ($responseSent) {
         return;
     }
@@ -68,7 +91,7 @@ register_shutdown_function(static function () use (&$responseSent, &$ajaxResult)
         header('Content-Type: application/json; charset=utf-8');
     }
 
-    echo json_encode($ajaxResult);
+    echo $migrationJsonEncode($ajaxResult);
 });
 
 ob_start();
@@ -83,27 +106,11 @@ try {
         'error' => $result['error'],
     ];
     $responseSent = true;
-
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-
-    echo json_encode($ajaxResult);
-    exit;
+    $migrationJsonExit($ajaxResult);
 } catch (InvalidArgumentException $e) {
     $responseSent = true;
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    http_response_code(400);
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => $e->getMessage()], 400);
 } catch (Throwable $e) {
     $responseSent = true;
-    while (ob_get_level() > 0) {
-        ob_end_clean();
-    }
-    http_response_code(500);
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
-    exit;
+    $migrationJsonExit(['success' => false, 'message' => $e->getMessage()], 500);
 }

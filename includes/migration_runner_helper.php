@@ -56,7 +56,7 @@ if (!function_exists('migration_runner_dir')) {
         if (strpos($base, 'fix_') === 0 || strpos($base, 'urgent_') === 0) {
             return 'fix';
         }
-        if (preg_match('/^(populate_|assign_|migrate_)/', $base)) {
+        if (preg_match('/^(populate_|assign_|migrate_|approve_)/', $base)) {
             return 'data';
         }
         if (preg_match('/^(check_|verify_|manual_test_)/', $base)) {
@@ -78,11 +78,15 @@ if (!function_exists('migration_runner_dir')) {
     }
 
     function migration_runner_is_sensitive($filename) {
-        return (bool) preg_match('/^(populate_|assign_test_|assign_courses_)/i', $filename);
+        return (bool) preg_match('/^(populate_|assign_test_|assign_courses_|approve_olevel_)/i', $filename);
     }
 
     function migration_runner_needs_command($filename) {
-        return in_array($filename, ['install_rbac.php', 'install_document_categories.php'], true);
+        return in_array($filename, [
+            'install_rbac.php',
+            'install_document_categories.php',
+            'approve_olevel_it_nold_2026_students.php',
+        ], true);
     }
 
     function migration_runner_extract_description($filepath) {

@@ -10,13 +10,21 @@
  * Backup the database before apply.
  */
 
-require_once __DIR__ . '/../config/config.php';
-require_once __DIR__ . '/../includes/multi_course_helper.php';
+if (!isset($conn) || !($conn instanceof mysqli)) {
+    require_once __DIR__ . '/../config/config.php';
+}
+if (!function_exists('adminApproveStudent')) {
+    require_once __DIR__ . '/../includes/multi_course_helper.php';
+}
 
-header('Content-Type: text/plain; charset=utf-8');
+$webRunner = defined('MIGRATION_WEB_RUNNER') && MIGRATION_WEB_RUNNER;
 
 $apply = false;
 if (PHP_SAPI === 'cli' && isset($argv) && in_array('apply', $argv, true)) {
+    $apply = true;
+}
+$webCommand = strtolower(trim((string) ($GLOBALS['migration_web_command'] ?? '')));
+if ($webRunner && $webCommand === 'apply') {
     $apply = true;
 }
 
@@ -124,7 +132,7 @@ $batchIds = array_values(array_unique(array_filter($batchIds)));
 
 if ($courseIds === [] && $batchIds === []) {
     echo "\nERROR: Could not find O Level 'IT' course or NOL'D-2026 batch.\n";
-    exit(1);
+    return;
 }
 
 $where = ['LOWER(IFNULL(s.status,\'\')) NOT IN (\'rejected\', \'inactive\')'];
@@ -147,7 +155,7 @@ $sql = "SELECT DISTINCT s.id, s.student_id, s.name, s.status, s.course_id, s.bat
 $res = $conn->query($sql);
 if (!$res) {
     echo 'ERROR: ' . $conn->error . "\n";
-    exit(1);
+    return;
 }
 
 $pool = [];
@@ -202,7 +210,8 @@ foreach ($missing as $label) {
 
 if (!$apply) {
     echo "\nPreview only. To apply: php migrations/approve_olevel_it_nold_2026_students.php apply\n";
-    exit(0);
+    echo "From Manage Migrations choose command \"apply\" after you have checked unmatched names.\n";
+    return;
 }
 
 $adminName = 'migration:olevel-nold-2026';
@@ -234,4 +243,6 @@ foreach ($extras as $p) {
 }
 
 echo "\nApplied. Approved: {$okApprove}. De-approved: {$okPending}. Errors: {$errors}.\n";
-exit($errors > 0 ? 1 : 0);
+if (PHP_SAPI === 'cli' && !$webRunner) {
+    exit($errors > 0 ? 1 : 0);
+}
