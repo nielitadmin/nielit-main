@@ -82,9 +82,17 @@ $printedAt = $istNow->format('d/m/Y g:i:s A') . ' IST';
 $logoUrl = app_url('assets/images/bhubaneswar_logo.png');
 $latestPunch = fingerprintLatestPunchMonth($conn);
 $yearFrom = max((int) date('Y') + 3, 2028, $year, (int) ($latestPunch['year'] ?? 0), (int) ($latestPunch['session_year'] ?? 0));
-$colspan = 6 + $extraCols + ($daysInMonth * 2);
-$colspanPrint = 4 + ($daysInMonth * 2);
-$colspanExcel = 6 + $extraCols + ($daysInMonth * 2);
+$requestedDay = (int) ($_GET['day'] ?? 0);
+$displayDayNumbers = range(1, $daysInMonth);
+if ($requestedDay >= 1 && $requestedDay <= $daysInMonth) {
+    $displayDayNumbers = [$requestedDay];
+    $report['start'] = sprintf('%04d-%02d-%02d', $year, $month, $requestedDay);
+    $report['end'] = $report['start'];
+    $monthLabel = $monthNames[$month] . ' ' . $year . ' (day ' . $requestedDay . ')';
+}
+$colspan = 6 + $extraCols + (count($displayDayNumbers) * 2);
+$colspanPrint = 4 + (count($displayDayNumbers) * 2);
+$colspanExcel = 6 + $extraCols + (count($displayDayNumbers) * 2);
 
 $dayInOutTimes = static function (array $times): array {
     $pairs = $times['pairs'] ?? [];
@@ -234,11 +242,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
     echo '<td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
     echo '<td rowspan="2">Present</td><td rowspan="2">Partial</td><td rowspan="2">Classes held</td><td rowspan="2">Attendance %</td>';
-    for ($d = 1; $d <= $daysInMonth; $d++) {
+    foreach ($displayDayNumbers as $d) {
         echo '<td colspan="2">' . $d . '</td>';
     }
     echo '</tr><tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
-    for ($d = 1; $d <= $daysInMonth; $d++) {
+    foreach ($displayDayNumbers as $d) {
         echo '<td>IN</td><td>OUT</td>';
     }
     echo '</tr>';
@@ -257,7 +265,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
             echo '<td style="text-align:center;">' . (int) ($row['partial_days'] ?? 0) . '</td>';
             echo '<td style="text-align:center;">' . ($classes_held > 0 ? (int) $classes_held : '—') . '</td>';
             echo '<td style="text-align:center;">' . ($classes_held > 0 ? htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)) : '—') . '</td>';
-            for ($d = 1; $d <= $daysInMonth; $d++) {
+            foreach ($displayDayNumbers as $d) {
                 $io = $dayInOutTimes($row['days'][$d] ?? []);
                 echo '<td style="text-align:center;white-space:pre-wrap;">' . $formatTimeList($io['in'], true) . '</td>';
                 echo '<td style="text-align:center;white-space:pre-wrap;">' . $formatTimeList($io['out'], true) . '</td>';
@@ -278,8 +286,9 @@ $qs = http_build_query([
     'batch_id' => $batchId > 0 ? $batchId : '',
     'session_id' => $sessionId > 0 ? $sessionId : '',
     'export' => 'excel',
+    'day' => $requestedDay > 0 ? $requestedDay : '',
 ]);
-$filterQs = static function (array $extra = []) use ($year, $month, $courseId, $centreId, $batchId, $sessionId): string {
+$filterQs = static function (array $extra = []) use ($year, $month, $courseId, $centreId, $batchId, $sessionId, $requestedDay): string {
     $base = [
         'year' => $year,
         'month' => $month,
@@ -287,6 +296,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
         'centre_id' => $centreId > 0 ? $centreId : 0,
         'batch_id' => $batchId > 0 ? $batchId : 0,
         'session_id' => $sessionId > 0 ? $sessionId : 0,
+        'day' => $requestedDay > 0 ? $requestedDay : 0,
     ];
     foreach ($extra as $k => $v) {
         $base[$k] = $v;
@@ -475,7 +485,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                 </a>
             </div>
         </div>
-        <p class="print-hint no-print mb-2">Print uses A4 landscape so all <?php echo (int) $daysInMonth; ?> days fit. In the printer dialog choose <strong>A4</strong> and <strong>Landscape</strong> (not Portrait).</p>
+        <p class="print-hint no-print mb-2">Print uses A4 landscape so all <?php echo (int) count($displayDayNumbers); ?> days fit. In the printer dialog choose <strong>A4</strong> and <strong>Landscape</strong> (not Portrait).</p>
 
         <div class="card mb-3 no-print">
             <div class="card-body">
@@ -752,15 +762,15 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                                 <th class="col-pct print-hide" rowspan="2">Partial</th>
                                 <th class="col-pct print-hide" rowspan="2">Held</th>
                                 <th class="col-pct print-hide" rowspan="2">Att %</th>
-                                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                <?php foreach ($displayDayNumbers as $d): ?>
                                     <th class="col-day" colspan="2"><?php echo $d; ?></th>
-                                <?php endfor; ?>
+                                <?php endforeach; ?>
                             </tr>
                             <tr>
-                                <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                <?php foreach ($displayDayNumbers as $d): ?>
                                     <th class="col-io is-in">IN</th>
                                     <th class="col-io is-out">OUT</th>
-                                <?php endfor; ?>
+                                <?php endforeach; ?>
                             </tr>
                         </thead>
                         <tbody>
@@ -812,7 +822,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                                     <td class="col-pct print-hide"><?php echo (int) ($row['partial_days'] ?? 0); ?></td>
                                     <td class="col-pct print-hide"><?php echo $classes_held > 0 ? (int) $classes_held : '—'; ?></td>
                                     <td class="col-pct print-hide"><?php echo $classes_held > 0 ? htmlspecialchars((string) ($row['attendance_percentage'] ?? 0)) : '—'; ?></td>
-                                    <?php for ($d = 1; $d <= $daysInMonth; $d++): ?>
+                                    <?php foreach ($displayDayNumbers as $d): ?>
                                         <?php $io = $dayInOutTimes($row['days'][$d] ?? []); ?>
                                         <td class="col-io is-in">
                                             <span class="t-full"><?php echo $formatTimeList($io['in'], true); ?></span>
@@ -822,7 +832,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                                             <span class="t-full"><?php echo $formatTimeList($io['out'], true); ?></span>
                                             <span class="t-short"><?php echo $formatTimeListCompact($io['out']); ?></span>
                                         </td>
-                                    <?php endfor; ?>
+                                    <?php endforeach; ?>
                                 </tr>
                             <?php endforeach; ?>
                         <?php endif; ?>
