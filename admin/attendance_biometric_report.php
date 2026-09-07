@@ -530,6 +530,15 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                             <?php endfor; ?>
                         </select>
                     </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Day (optional)</label>
+                        <select class="form-select" name="day" onchange="this.form.submit()">
+                            <option value="0" <?php echo $requestedDay <= 0 ? 'selected' : ''; ?>>All days</option>
+                            <?php for ($dd = 1; $dd <= $daysInMonth; $dd++): ?>
+                                <option value="<?php echo $dd; ?>" <?php echo $dd === $requestedDay ? 'selected' : ''; ?>><?php echo $dd; ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
                     <div class="col-md-3">
                         <label class="form-label">Course</label>
                         <select class="form-select" name="course_id" onchange="this.form.submit()">
