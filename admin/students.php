@@ -48,6 +48,35 @@ $is_front_office = ($admin_role === 'front_office_desk');
 $student_category_filter_options = ['General', 'OBC', 'SC', 'ST', 'EWS'];
 $student_status_filter_options = ['pending', 'active', 'rejected'];
 
+function normalizeStudentCategorySelection($rawCategories): array {
+    global $student_category_filter_options;
+
+    if ($rawCategories === null || $rawCategories === '' || $rawCategories === 'All') {
+        return [];
+    }
+
+    if (!is_array($rawCategories)) {
+        $rawCategories = [$rawCategories];
+    }
+
+    $normalized = [];
+    foreach ($rawCategories as $category) {
+        $category = trim((string)$category);
+        if ($category === '' || $category === 'All' || !in_array($category, $student_category_filter_options, true)) {
+            continue;
+        }
+        $normalized[] = $category;
+    }
+
+    return array_values(array_unique($normalized));
+}
+
+function renderStudentCategoryHiddenInputs(array $selected_categories): void {
+    foreach ($selected_categories as $selected_category) {
+        echo '<input type="hidden" name="filter_category[]" value="' . htmlspecialchars($selected_category, ENT_QUOTES) . '">';
+    }
+}
+
 function studentsFilterRedirectParams(array $source): array {
     $params = [];
     if (!empty($source['filter_course']) && $source['filter_course'] !== 'All') {
@@ -59,8 +88,9 @@ function studentsFilterRedirectParams(array $source): array {
     if (!empty($source['filter_scheme']) && $source['filter_scheme'] !== 'All') {
         $params['filter_scheme'] = $source['filter_scheme'];
     }
-    if (!empty($source['filter_category']) && $source['filter_category'] !== 'All') {
-        $params['filter_category'] = $source['filter_category'];
+    $category_filters = normalizeStudentCategorySelection($source['filter_category'] ?? null);
+    if ($category_filters !== []) {
+        $params['filter_category'] = $category_filters;
     }
     if (!empty($source['filter_status']) && $source['filter_status'] !== 'All') {
         $params['filter_status'] = $source['filter_status'];
@@ -633,14 +663,10 @@ if ($batches_load) {
 $selected_course  = $_GET['filter_course']  ?? 'All';
 $selected_gender  = $_GET['filter_gender']  ?? 'All';
 $selected_scheme  = $_GET['filter_scheme']  ?? 'All';
-$selected_category = $_GET['filter_category'] ?? 'All';
+$selected_categories = normalizeStudentCategorySelection($_GET['filter_category'] ?? null);
 $selected_status   = $_GET['filter_status'] ?? 'All';
 $start_date       = $_GET['start_date']     ?? '';
 $end_date         = $_GET['end_date']       ?? '';
-
-if ($selected_category !== 'All' && !in_array($selected_category, $student_category_filter_options, true)) {
-    $selected_category = 'All';
-}
 if ($selected_status !== 'All' && !in_array(strtolower($selected_status), $student_status_filter_options, true)) {
     $selected_status = 'All';
 } else {
@@ -661,7 +687,7 @@ function studentsListQueryParams(
     $selected_course,
     $selected_gender,
     $selected_scheme,
-    $selected_category,
+    array $selected_categories,
     $selected_status,
     $start_date,
     $end_date,
@@ -679,8 +705,8 @@ function studentsListQueryParams(
     if ($selected_scheme !== 'All') {
         $params['filter_scheme'] = $selected_scheme;
     }
-    if ($selected_category !== 'All') {
-        $params['filter_category'] = $selected_category;
+    if ($selected_categories !== []) {
+        $params['filter_category'] = array_values($selected_categories);
     }
     if ($selected_status !== 'All') {
         $params['filter_status'] = $selected_status;
@@ -704,7 +730,7 @@ function studentsListUrl(
     $selected_course,
     $selected_gender,
     $selected_scheme,
-    $selected_category,
+    array $selected_categories,
     $selected_status,
     $start_date,
     $end_date,
@@ -716,7 +742,7 @@ function studentsListUrl(
         $selected_course,
         $selected_gender,
         $selected_scheme,
-        $selected_category,
+        $selected_categories,
         $selected_status,
         $start_date,
         $end_date,
@@ -777,10 +803,11 @@ if ($selected_scheme !== 'All') {
     }
 }
 
-if ($selected_category !== 'All') {
-    $where_parts[]  = 's.category = ?';
-    $bind_types    .= 's';
-    $bind_values[]  = $selected_category;
+if ($selected_categories !== []) {
+    $placeholders = implode(',', array_fill(0, count($selected_categories), '?'));
+    $where_parts[] = 's.category IN (' . $placeholders . ')';
+    $bind_types   .= str_repeat('s', count($selected_categories));
+    $bind_values   = array_merge($bind_values, $selected_categories);
 }
 
 if ($selected_status !== 'All') {
@@ -864,7 +891,7 @@ $list_query_suffix = studentsListQueryParams(
     $selected_course,
     $selected_gender,
     $selected_scheme,
-    $selected_category,
+    $selected_categories,
     $selected_status,
     $start_date,
     $end_date,
@@ -907,8 +934,9 @@ if ($selected_scheme !== 'All') {
         $stats_where_parts[] = 'scheme_id = ' . (int)$selected_scheme;
     }
 }
-if ($selected_category !== 'All') {
-    $stats_where_parts[] = "category = '" . $conn->real_escape_string($selected_category) . "'";
+if ($selected_categories !== []) {
+    $escaped_categories = array_map([$conn, 'real_escape_string'], $selected_categories);
+    $stats_where_parts[] = "category IN ('" . implode("','", $escaped_categories) . "')";
 }
 if (!empty($start_date) && !empty($end_date)) {
     $stats_where_parts[]  = "created_at BETWEEN '" . $conn->real_escape_string($start_date) . "' AND '" . $conn->real_escape_string($end_date) . "'";
@@ -1629,15 +1657,15 @@ if ($other_gender_count > 0) {
 
                         <div class="form-group">
                             <label class="form-label">Filter by Category</label>
-                            <select name="filter_category" class="form-select">
-                                <option value="All" <?php if ($selected_category === 'All') echo 'selected'; ?>>All Categories</option>
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;">
                                 <?php foreach ($student_category_filter_options as $category_option): ?>
-                                    <option value="<?php echo htmlspecialchars($category_option); ?>"
-                                        <?php if ($selected_category === $category_option) echo 'selected'; ?>>
-                                        <?php echo htmlspecialchars($category_option); ?>
-                                    </option>
+                                    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid #dbe3ee;border-radius:10px;background:#fff;cursor:pointer;">
+                                        <input type="checkbox" name="filter_category[]" value="<?php echo htmlspecialchars($category_option); ?>" <?php if (in_array($category_option, $selected_categories, true)) echo 'checked'; ?>>
+                                        <span><?php echo htmlspecialchars($category_option); ?></span>
+                                    </label>
                                 <?php endforeach; ?>
-                            </select>
+                            </div>
+                            <small style="display:block;margin-top:6px;color:#64748b;">Leave all unchecked to show every category.</small>
                         </div>
 
                         <div class="form-group">
@@ -1906,15 +1934,8 @@ if ($other_gender_count > 0) {
                         </button>
                         <?php endif; ?>
                         <a href="<?php echo htmlspecialchars(relative_url('export_students_excel.php')); ?><?php
-                            $ep = [];
-                            if ($selected_course !== 'All') $ep[] = 'filter_course=' . urlencode($selected_course);
-                            if ($selected_scheme !== 'All') $ep[] = 'filter_scheme=' . urlencode($selected_scheme);
-                            if ($selected_gender !== 'All') $ep[] = 'filter_gender=' . urlencode($selected_gender);
-                            if ($selected_category !== 'All') $ep[] = 'filter_category=' . urlencode($selected_category);
-                            if ($selected_status !== 'All') $ep[] = 'filter_status=' . urlencode($selected_status);
-                            if (!empty($start_date))         $ep[] = 'start_date='    . urlencode($start_date);
-                            if (!empty($end_date))           $ep[] = 'end_date='      . urlencode($end_date);
-                            echo !empty($ep) ? '?' . implode('&', $ep) : '';
+                            $export_params = studentsListQueryParams($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, 1, 25);
+                            echo !empty($export_params) ? '?' . http_build_query($export_params) : '';
                         ?>" class="btn btn-success">
                             <i class="fas fa-file-excel"></i> Export Excel
                         </a>
@@ -2357,10 +2378,10 @@ if ($other_gender_count > 0) {
                     </div>
                     <nav class="students-pagination-nav" aria-label="Students pagination">
                         <?php if ($page > 1): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, 1, $per_page)); ?>">
                                 <i class="fas fa-angle-double-left"></i> First
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $page - 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, $page - 1, $per_page)); ?>">
                                 <i class="fas fa-angle-left"></i> Prev
                             </a>
                         <?php endif; ?>
@@ -2376,7 +2397,7 @@ if ($other_gender_count > 0) {
                             $is_active = ($p === $page);
                         ?>
                             <a class="btn btn-sm <?php echo $is_active ? 'btn-primary' : 'btn-outline-secondary'; ?>"
-                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $p, $per_page)); ?>"
+                               href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, $p, $per_page)); ?>"
                                <?php echo $is_active ? 'aria-current="page"' : ''; ?>>
                                 <?php echo $p; ?>
                             </a>
@@ -2386,10 +2407,10 @@ if ($other_gender_count > 0) {
                         <?php endif; ?>
 
                         <?php if ($page < $total_pages): ?>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $page + 1, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, $page + 1, $per_page)); ?>">
                                 Next <i class="fas fa-angle-right"></i>
                             </a>
-                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_category, $selected_status, $start_date, $end_date, $total_pages, $per_page)); ?>">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?php echo htmlspecialchars(studentsListUrl($selected_course, $selected_gender, $selected_scheme, $selected_categories, $selected_status, $start_date, $end_date, $total_pages, $per_page)); ?>">
                                 Last <i class="fas fa-angle-double-right"></i>
                             </a>
                         <?php endif; ?>
@@ -2420,7 +2441,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
-            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <?php renderStudentCategoryHiddenInputs($selected_categories); ?>
             <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
@@ -2459,7 +2480,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
-            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <?php renderStudentCategoryHiddenInputs($selected_categories); ?>
             <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
@@ -2504,7 +2525,7 @@ if ($other_gender_count > 0) {
     <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
     <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
     <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
-    <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+    <?php renderStudentCategoryHiddenInputs($selected_categories); ?>
     <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
     <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
     <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
@@ -2534,7 +2555,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme); ?>">
-            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category); ?>">
+            <?php renderStudentCategoryHiddenInputs($selected_categories); ?>
             <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status); ?>">
             <input type="hidden" name="start_date"    value="<?php echo htmlspecialchars($start_date); ?>">
             <input type="hidden" name="end_date"      value="<?php echo htmlspecialchars($end_date); ?>">
@@ -2571,7 +2592,7 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
             <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender ?? 'All'); ?>">
             <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme ?? 'All'); ?>">
-            <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category ?? 'All'); ?>">
+            <?php renderStudentCategoryHiddenInputs($selected_categories ?? []); ?>
             <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status ?? 'All'); ?>">
             <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date ?? ''); ?>">
             <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date ?? ''); ?>">
@@ -2635,7 +2656,7 @@ if ($other_gender_count > 0) {
                 <input type="hidden" name="filter_course" value="<?php echo htmlspecialchars($selected_course ?? ''); ?>">
                 <input type="hidden" name="filter_gender" value="<?php echo htmlspecialchars($selected_gender ?? 'All'); ?>">
                 <input type="hidden" name="filter_scheme" value="<?php echo htmlspecialchars($selected_scheme ?? 'All'); ?>">
-                <input type="hidden" name="filter_category" value="<?php echo htmlspecialchars($selected_category ?? 'All'); ?>">
+                <?php renderStudentCategoryHiddenInputs($selected_categories ?? []); ?>
                 <input type="hidden" name="filter_status" value="<?php echo htmlspecialchars($selected_status ?? 'All'); ?>">
                 <input type="hidden" name="start_date" value="<?php echo htmlspecialchars($start_date ?? ''); ?>">
                 <input type="hidden" name="end_date" value="<?php echo htmlspecialchars($end_date ?? ''); ?>">

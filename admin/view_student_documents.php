@@ -28,7 +28,21 @@ foreach ($return_keys as $key) {
         continue;
     }
     $value = $_GET[$key];
-    if (in_array($key, ['filter_course', 'filter_gender', 'filter_scheme', 'filter_category', 'filter_status'], true) && $value === 'All') {
+    if ($key === 'filter_category') {
+        if (is_array($value)) {
+            $value = array_values(array_filter(array_map('trim', $value), static function ($item) {
+                return $item !== '' && $item !== 'All';
+            }));
+            if ($value === []) {
+                continue;
+            }
+            $return_query[$key] = $value;
+            continue;
+        }
+        if ($value === 'All') {
+            continue;
+        }
+    } elseif (in_array($key, ['filter_course', 'filter_gender', 'filter_scheme', 'filter_status'], true) && $value === 'All') {
         continue;
     }
     $return_query[$key] = $value;
