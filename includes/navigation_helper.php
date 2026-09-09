@@ -172,6 +172,10 @@ function filterPublicNavigationMenuItems(array $menuItems): array
  */
 function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): string
 {
+    if (isRecruitmentPortalRequest()) {
+        return '<li class="nav-item"><a class="nav-link active" href="' . htmlspecialchars(recruitment_url(), ENT_QUOTES, 'UTF-8') . '">Recruitment</a></li>';
+    }
+
     $html = '';
 
     if ($conn instanceof mysqli && navigationMenuTableExists($conn)) {
@@ -192,6 +196,23 @@ function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): st
     }
 
     return $html;
+}
+
+/**
+ * Detect both the local /recruitment path and the production recruitment subdomain.
+ */
+function isRecruitmentPortalRequest(): bool
+{
+    $requestUri = strtolower((string) ($_SERVER['REQUEST_URI'] ?? ''));
+    if (preg_match('#/(?:public/)?recruitment(?:/|$|\?)#', $requestUri)) {
+        return true;
+    }
+
+    $configuredHost = parse_url((string) (defined('RECRUITMENT_URL') ? RECRUITMENT_URL : ''), PHP_URL_HOST);
+    $requestHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    return is_string($configuredHost)
+        && $configuredHost !== ''
+        && preg_replace('/:\d+$/', '', $requestHost) === strtolower($configuredHost);
 }
 
 /**
