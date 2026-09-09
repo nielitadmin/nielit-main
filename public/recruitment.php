@@ -82,7 +82,7 @@ emitPublicThemeHead($conn);
                 </div>
                 <div class="d-flex flex-wrap gap-2">
                     <a class="btn btn-outline-primary btn-sm" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true)); ?>">Download blank form (PDF)</a>
-                    <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars(app_url('public/recruitment_form')); ?>">Download a filled form</a>
+                    <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars(recruitment_url('form')); ?>">Download a filled form</a>
                 </div>
             </div>
             <?php if (empty($jobs)): ?>
@@ -105,7 +105,7 @@ emitPublicThemeHead($conn);
                                         $elig = trim((string) ($job['eligibility'] ?? ''));
                                         echo htmlspecialchars(strlen($elig) > 140 ? substr($elig, 0, 137) . '…' : $elig);
                                     ?></p>
-                                    <a class="btn btn-primary mt-2" href="<?php echo htmlspecialchars(app_url('public/recruitment_apply') . '?job=' . (int) $job['id']); ?>">
+                                    <a class="btn btn-primary mt-2" href="<?php echo htmlspecialchars(recruitment_url('apply') . '?job=' . (int) $job['id']); ?>">
                                         View &amp; apply
                                     </a>
                                     <a class="btn btn-link btn-sm px-0 mt-1" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true, (int) $job['id'])); ?>">Blank form for this post</a>

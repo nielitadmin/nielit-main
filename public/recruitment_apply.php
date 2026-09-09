@@ -284,7 +284,7 @@ if ($error !== '') {
     <section class="pb-5">
         <div class="container rec-wrap">
             <div class="d-flex flex-wrap gap-2 mb-4">
-                <a class="btn btn-outline-primary btn-sm" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">&larr; All openings</a>
+                <a class="btn btn-outline-primary btn-sm" href="<?php echo htmlspecialchars(recruitment_url()); ?>">&larr; All openings</a>
                 <?php if ($job): ?>
                     <a class="btn btn-outline-secondary btn-sm" target="_blank" href="<?php echo htmlspecialchars(recruitmentApplicationFormUrl(null, true, (int) $job['id'])); ?>">Download blank form for this post (PDF)</a>
                 <?php endif; ?>
@@ -306,7 +306,7 @@ if ($error !== '') {
                     ]);
                     ?>
                     <a class="btn btn-primary" href="<?php echo htmlspecialchars($filledFormUrl); ?>" target="_blank">Download / print application form</a>
-                    <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Back to openings</a>
+                    <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars(recruitment_url()); ?>">Back to openings</a>
                 </div>
             <?php elseif (!$job): ?>
                 <div class="alert alert-warning">This job opening was not found. Please choose an open job from the recruitment page.</div>

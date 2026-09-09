@@ -100,7 +100,7 @@ $time = $row ? substr((string) ($row['interview_time'] ?? ''), 0, 5) : '';
                         <div class="alert alert-secondary">This interview session is closed.</div>
                     <?php elseif ($canJoin): ?>
                         <div class="alert alert-success">The board is calling you now. Join immediately.</div>
-                        <a class="btn btn-success btn-lg" href="<?php echo htmlspecialchars(app_url('public/recruitment_interview') . '?t=' . rawurlencode($token) . '&go=1'); ?>">Join interview now</a>
+                        <a class="btn btn-success btn-lg" href="<?php echo htmlspecialchars(recruitment_url('interview') . '?t=' . rawurlencode($token) . '&go=1'); ?>">Join interview now</a>
                     <?php elseif ($status === 'completed'): ?>
                         <div class="alert alert-light border">Your turn is complete. Thank you.</div>
                     <?php elseif ($status === 'skipped'): ?>
@@ -121,8 +121,8 @@ $time = $row ? substr((string) ($row['interview_time'] ?? ''), 0, 5) : '';
     (function () {
         var box = document.getElementById('ivState');
         if (!box) return;
-        var url = <?php echo json_encode(app_url('public/recruitment_interview') . '?t=' . $token . '&ajax=1'); ?>;
-        var joinBase = <?php echo json_encode(app_url('public/recruitment_interview') . '?t=' . $token . '&go=1'); ?>;
+        var url = <?php echo json_encode(recruitment_url('interview') . '?t=' . $token . '&ajax=1'); ?>;
+        var joinBase = <?php echo json_encode(recruitment_url('interview') . '?t=' . $token . '&go=1'); ?>;
         function render(d) {
             if (!d || !d.ok) return;
             if (d.can_join) {

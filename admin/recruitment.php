@@ -125,7 +125,7 @@ $page_title = 'Recruitment';
             <div class="d-flex gap-2">
                 <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_applications')); ?>">Applications</a>
                 <a class="btn btn-outline-secondary" target="_blank" href="<?php echo htmlspecialchars(app_url('admin/recruitment_form') . '?blank=1'); ?>">Blank form PDF</a>
-                <a class="btn btn-outline-primary" target="_blank" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Public portal</a>
+                <a class="btn btn-outline-primary" target="_blank" href="<?php echo htmlspecialchars(recruitment_url()); ?>">Public portal</a>
                 <a class="btn btn-outline-secondary" href="<?php echo htmlspecialchars(app_url('admin/recruitment_interviews')); ?>">Interviews</a>
                 <?php if ($canEdit && !$showForm): ?>
                     <a class="btn btn-primary" href="<?php echo htmlspecialchars(app_url('admin/recruitment') . '?new=1'); ?>"><i class="fas fa-plus"></i> New job opening</a>

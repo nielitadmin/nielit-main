@@ -42,6 +42,16 @@ if (!function_exists('clean_url_path')) {
     }
 
     /**
+     * Build a URL for the standalone recruitment portal.
+     * Set RECRUITMENT_URL to the production subdomain when it is available.
+     */
+    function recruitment_url($path = '') {
+        $base = rtrim(defined('RECRUITMENT_URL') ? RECRUITMENT_URL : app_url('recruitment'), '/');
+        $path = trim(str_replace('\\', '/', (string) $path), '/');
+        return $path === '' ? $base . '/' : $base . '/' . $path;
+    }
+
+    /**
      * Asset URL with filemtime cache-buster for CSS/JS.
      */
     function asset_url($path = '') {

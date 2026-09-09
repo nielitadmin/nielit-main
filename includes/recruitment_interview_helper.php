@@ -91,9 +91,9 @@ if (!function_exists('recruitmentInterviewJoinUrl')) {
                 require_once $uh;
             }
         }
-        $base = function_exists('app_url')
-            ? app_url('public/recruitment_interview')
-            : (defined('APP_URL') ? rtrim(APP_URL, '/') . '/public/recruitment_interview.php' : '/public/recruitment_interview.php');
+        $base = function_exists('recruitment_url')
+            ? recruitment_url('interview')
+            : (defined('APP_URL') ? rtrim(APP_URL, '/') . '/recruitment/interview.php' : '/recruitment/interview.php');
         return $base . '?t=' . rawurlencode($token);
     }
 }

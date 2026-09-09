@@ -144,7 +144,7 @@ $blankUrl = recruitmentApplicationFormUrl(null, true);
                         </div>
                         <div class="col-12">
                             <button class="btn btn-outline-primary" type="submit">Download filled form</button>
-                            <a class="btn btn-link" href="<?php echo htmlspecialchars(app_url('public/recruitment')); ?>">Back to openings</a>
+                            <a class="btn btn-link" href="<?php echo htmlspecialchars(recruitment_url()); ?>">Back to openings</a>
                         </div>
                     </form>
                 </div>

@@ -1640,7 +1640,7 @@ if (!function_exists('recruitmentApplicationFormUrl')) {
                 require_once $uh;
             }
         }
-        $base = function_exists('app_url') ? app_url('public/recruitment_form') : (defined('APP_URL') ? rtrim(APP_URL, '/') . '/public/recruitment_form.php' : '/public/recruitment_form.php');
+        $base = function_exists('recruitment_url') ? recruitment_url('form') : (defined('APP_URL') ? rtrim(APP_URL, '/') . '/recruitment/form.php' : '/recruitment/form.php');
         if ($blank || $app === null) {
             $q = ['blank' => '1'];
             if ($jobId > 0) {
@@ -2154,9 +2154,9 @@ if (!function_exists('recruitmentMailWorkerUrl')) {
         if ($host !== '') {
             $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                 || ((int) ($_SERVER['SERVER_PORT'] ?? 80) === 443);
-            return ($https ? 'https' : 'http') . '://' . $host . $dir . '/recruitment_mail_worker.php';
+            return ($https ? 'https' : 'http') . '://' . $host . $dir . '/recruitment/mail_worker.php';
         }
-        return rtrim((string) (defined('APP_URL') ? APP_URL : ''), '/') . '/public/recruitment_mail_worker.php';
+        return function_exists('recruitment_url') ? recruitment_url('mail_worker') : '/recruitment/mail_worker.php';
     }
 }
 

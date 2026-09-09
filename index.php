@@ -27,11 +27,15 @@ if (navigationMenuTableExists($conn)) {
     $menu_items = getNavigationMenu($conn);
     $menu_items = filterPublicNavigationMenuItems($menu_items);
     $menu_items = ensurePublicAboutNavigationItems($menu_items);
+        $menu_items = array_values(array_filter($menu_items, static function (array $item): bool {
+            return stripos((string) ($item['label'] ?? ''), 'recruitment') === false
+                && stripos((string) ($item['url'] ?? ''), 'recruitment') === false;
+        }));
     $current_page = basename($_SERVER['PHP_SELF']);
     $navigation_menu_html = renderNavigationMenu($menu_items, $current_page);
 }
 if (empty($navigation_menu_html)) {
-    $navigation_menu_html = getFallbackNavigationMenu(basename($_SERVER['PHP_SELF'] ?? 'index.php'));
+        $navigation_menu_html = getFallbackNavigationMenu(basename($_SERVER['PHP_SELF'] ?? 'index.php'), false);
 }
 injectThemeCSS($active_theme);
 emitPublicThemeHead($conn);
@@ -50,7 +54,6 @@ $homepage_map = [];
     $homepage_map = $map ?? [];
     $hero_typing_lines = homepageTypingLines($homepage_map);
     $homepage_portals = homepagePortalUrls($homepage_map);
-    $job_fair_portal_url = $homepage_portals['jobfair'];
     $mock_test_portal_url = $homepage_portals['mocktest'];
     $nielit_main_website_url = $homepage_portals['main'];
     $hero_btn_1 = homepageButton($homepage_map, 'hero_btn_1', $homepage_portals);
@@ -61,8 +64,6 @@ $homepage_map = [];
         homepageLinkItems($homepage_map, 'welcome_pills', [], $homepage_portals),
         $homepage_map
     );
-    $jobfair_btn_primary = homepageButton($homepage_map, 'jobfair_btn_primary', $homepage_portals);
-    $jobfair_btn_secondary = homepageButton($homepage_map, 'jobfair_btn_secondary', $homepage_portals);
     $mocktest_btn_primary = homepageButton($homepage_map, 'mocktest_btn_primary', $homepage_portals);
     $mocktest_btn_secondary = homepageButton($homepage_map, 'mocktest_btn_secondary', $homepage_portals);
     $about_checklist = homepageChecklist($homepage_map, 'about_checklist', [
@@ -489,140 +490,6 @@ $homepage_map = [];
             margin-bottom: 10px;
         }
         .feat-card p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin: 0; }
-
-        /* ===== JOB FAIR PORTAL ===== */
-        .jobfair-section {
-            padding: 88px 0;
-            background: linear-gradient(135deg, var(--navy) 0%, #163a6b 52%, var(--navy-mid) 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        .jobfair-section::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background:
-                radial-gradient(circle at 12% 18%, rgba(245,158,11,0.16) 0, transparent 34%),
-                radial-gradient(circle at 88% 72%, rgba(59,130,246,0.18) 0, transparent 36%);
-            pointer-events: none;
-        }
-        .jobfair-section > .container { position: relative; z-index: 1; }
-        .jobfair-panel {
-            background: rgba(10, 22, 40, 0.72);
-            border: 1px solid rgba(255,255,255,0.12);
-            border-radius: 28px;
-            padding: 40px;
-        }
-        .jobfair-eyebrow {
-            display: inline-block;
-            background: rgba(245,158,11,0.15);
-            border: 1px solid rgba(245,158,11,0.35);
-            color: var(--gold-light);
-            font-size: 0.74rem;
-            font-weight: 700;
-            padding: 5px 14px;
-            border-radius: 20px;
-            letter-spacing: 1.1px;
-            text-transform: uppercase;
-            margin-bottom: 16px;
-            font-family: 'Sora', sans-serif;
-        }
-        .jobfair-title {
-            color: #fff;
-            font-size: clamp(1.8rem, 3.4vw, 2.7rem);
-            font-weight: 800;
-            letter-spacing: -0.8px;
-            line-height: 1.15;
-            margin-bottom: 14px;
-        }
-        .jobfair-lead {
-            color: rgba(255,255,255,0.78);
-            font-size: 1.02rem;
-            line-height: 1.75;
-            margin-bottom: 24px;
-            max-width: 640px;
-        }
-        .jobfair-alert {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            background: rgba(245,158,11,0.12);
-            border: 1px solid rgba(245,158,11,0.28);
-            color: #fde68a;
-            border-radius: 14px;
-            padding: 14px 16px;
-            margin-bottom: 24px;
-            font-size: 0.9rem;
-            line-height: 1.6;
-        }
-        .jobfair-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-            margin-bottom: 28px;
-        }
-        .jobfair-btn-primary,
-        .jobfair-btn-secondary {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 13px 22px;
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 700;
-            font-family: 'Sora', sans-serif;
-            font-size: 0.92rem;
-            transition: all 0.25s ease;
-        }
-        .jobfair-btn-primary {
-            background: var(--gold);
-            color: var(--navy);
-        }
-        .jobfair-btn-primary:hover {
-            background: var(--gold-light);
-            color: var(--navy);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 24px rgba(245,158,11,0.28);
-        }
-        .jobfair-btn-secondary {
-            background: transparent;
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.35);
-        }
-        .jobfair-btn-secondary:hover {
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-            border-color: #fff;
-        }
-        .jobfair-stats {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-        }
-        .jobfair-stat {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 18px;
-            padding: 18px 16px;
-            text-align: center;
-        }
-        .jobfair-stat strong {
-            display: block;
-            color: var(--gold);
-            font-family: 'Sora', sans-serif;
-            font-size: 1.7rem;
-            line-height: 1;
-            margin-bottom: 6px;
-        }
-        .jobfair-stat span {
-            color: rgba(255,255,255,0.72);
-            font-size: 0.8rem;
-            font-weight: 500;
-        }
-        @media (max-width: 991px) {
-            .jobfair-panel { padding: 28px 22px; }
-            .jobfair-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        }
 
         /* ===== MOCK TEST PORTAL ===== */
         .mocktest-section {
@@ -1404,13 +1271,11 @@ $homepage_map = [];
         /* Dark brand bands stay rich navy/gold — restore link colors */
         html[data-mode="night"] body.homepage-public .welcome-strip,
         html[data-mode="night"] body.homepage-public .announcements-section,
-        html[data-mode="night"] body.homepage-public .jobfair-section,
         html[data-mode="night"] body.homepage-public .hero-section {
             color: #fff !important;
         }
         html[data-mode="night"] body.homepage-public .welcome-strip .section-title,
         html[data-mode="night"] body.homepage-public .announcements-section .section-title,
-        html[data-mode="night"] body.homepage-public .jobfair-title,
         html[data-mode="night"] body.homepage-public .announce-card h6 {
             color: #fff !important;
         }
@@ -1418,12 +1283,10 @@ $homepage_map = [];
         html[data-mode="night"] body.homepage-public .stat-pill a {
             color: #fff !important;
         }
-        html[data-mode="night"] body.homepage-public .btn-hero-primary,
-        html[data-mode="night"] body.homepage-public .jobfair-btn-primary {
+        html[data-mode="night"] body.homepage-public .btn-hero-primary {
             color: var(--navy) !important;
         }
-        html[data-mode="night"] body.homepage-public .btn-hero-outline,
-        html[data-mode="night"] body.homepage-public .jobfair-btn-secondary {
+        html[data-mode="night"] body.homepage-public .btn-hero-outline {
             color: #fff !important;
         }
 
@@ -1642,47 +1505,6 @@ public_skeleton_render_head();
                             </div>
                         <?php endif; ?>
                     <?php endforeach; ?>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- ===== JOB FAIR PORTAL ===== -->
-<section class="jobfair-section perf-section" id="job-fair">
-    <div class="container">
-        <div class="jobfair-panel">
-            <div class="row align-items-center g-4">
-                <div class="col-lg-7">
-                    <span class="jobfair-eyebrow"><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_eyebrow'), ENT_QUOTES, 'UTF-8'); ?></span>
-                    <h2 class="jobfair-title"><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_title'), ENT_QUOTES, 'UTF-8'); ?></h2>
-                    <p class="jobfair-lead">
-                        <?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_lead'), ENT_QUOTES, 'UTF-8'); ?>
-                    </p>
-                    <div class="jobfair-alert">
-                        <i class="fas fa-bullhorn mt-1"></i>
-                        <div>
-                            <?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_alert'), ENT_QUOTES, 'UTF-8'); ?>
-                        </div>
-                    </div>
-                    <div class="jobfair-actions">
-                        <a href="<?php echo htmlspecialchars($jobfair_btn_primary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="jobfair-btn-primary" target="_blank" rel="noopener">
-                            <i class="fas fa-briefcase"></i> <?php echo htmlspecialchars($jobfair_btn_primary['label'], ENT_QUOTES, 'UTF-8'); ?>
-                        </a>
-                        <a href="<?php echo htmlspecialchars($jobfair_btn_secondary['url'], ENT_QUOTES, 'UTF-8'); ?>" class="jobfair-btn-secondary" target="_blank" rel="noopener">
-                            <i class="fas fa-sign-in-alt"></i> <?php echo htmlspecialchars($jobfair_btn_secondary['label'], ENT_QUOTES, 'UTF-8'); ?>
-                        </a>
-                    </div>
-                </div>
-                <div class="col-lg-5">
-                    <div class="jobfair-stats">
-                        <?php for ($jf = 1; $jf <= 4; $jf++): ?>
-                        <div class="jobfair-stat">
-                            <strong><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_stat_' . $jf, 'title'), ENT_QUOTES, 'UTF-8'); ?></strong>
-                            <span><?php echo htmlspecialchars(homepageValue($homepage_map, 'jobfair_stat_' . $jf), ENT_QUOTES, 'UTF-8'); ?></span>
-                        </div>
-                        <?php endfor; ?>
-                    </div>
                 </div>
             </div>
         </div>
