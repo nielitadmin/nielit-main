@@ -173,7 +173,15 @@ $time = $row ? substr((string) ($row['interview_time'] ?? ''), 0, 5) : '';
             </div>
         </div>
         <div class="copyright-bar text-center text-muted small">
-            <div class="container py-3">&copy; <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</div>
+            <div class="container py-3">
+                <div class="row">
+                    <div class="col-md-4 text-md-start">&copy; <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</div>
+                    <div class="col-md-4 mt-2 mt-md-0">
+                        <?php if (isset($conn) && $conn instanceof mysqli): renderVisitorCountFooter($conn); endif; ?>
+                    </div>
+                    <div class="col-md-4 mt-2 mt-md-0 text-md-end">Designed &amp; Developed by NIELIT Bhubaneswar IT Team</div>
+                </div>
+            </div>
         </div>
     </footer>
 </body>
