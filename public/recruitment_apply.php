@@ -766,6 +766,18 @@ if ($error !== '') {
         </div>
     </section>
     <footer class="footer-section pt-5">
+        <div class="container pb-4">
+            <div class="row g-3 align-items-center">
+                <div class="col-md-6">
+                    <h6 class="mb-1">NIELIT Recruitment</h6>
+                    <p class="small mb-0">Official job application service.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a class="me-3" href="<?php echo htmlspecialchars(recruitment_url()); ?>">Recruitment Home</a>
+                    <a href="<?php echo htmlspecialchars(recruitment_url('form')); ?>">Application Form</a>
+                </div>
+            </div>
+        </div>
         <div class="copyright-bar text-center text-muted small">
             <div class="container py-3">© <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</div>
         </div>
