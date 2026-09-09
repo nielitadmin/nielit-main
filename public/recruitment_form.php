@@ -104,7 +104,6 @@ $blankUrl = recruitmentApplicationFormUrl(null, true);
     </div>
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
         <div class="container">
-            <a class="navbar-brand" href="<?php echo app_url('index'); ?>">NIELIT</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"><span class="navbar-toggler-icon"></span></button>
             <div class="collapse navbar-collapse" id="mainNav">
                 <ul class="navbar-nav ms-auto"><?php echo getPublicSiteNavigationHtml($conn, 'recruitment.php'); ?></ul>
