@@ -74,7 +74,7 @@ $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
 $page_title = 'Application form - NIELIT Bhubaneswar';
 injectThemeCSS($active_theme);
-emitPublicThemeHead($conn);
+emitPublicThemeHead($conn, 'recruitment');
 $blankUrl = recruitmentApplicationFormUrl(null, true);
 ?>
 <!DOCTYPE html>

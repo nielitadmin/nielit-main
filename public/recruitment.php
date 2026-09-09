@@ -14,7 +14,7 @@ $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
 $page_title = 'Recruitment - NIELIT Bhubaneswar';
 injectThemeCSS($active_theme);
-emitPublicThemeHead($conn);
+emitPublicThemeHead($conn, 'recruitment');
 ?>
 <!DOCTYPE html>
 <html lang="en">

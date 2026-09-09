@@ -514,6 +514,13 @@ if (!function_exists('ensurePublicThemeSettingsTable')) {
             return false;
         }
 
+        $column = $conn->query("SHOW COLUMNS FROM public_theme_settings LIKE 'recruitment_style_key'");
+        if ($column && $column->num_rows === 0) {
+            if (!$conn->query("ALTER TABLE public_theme_settings ADD COLUMN recruitment_style_key VARCHAR(64) NOT NULL DEFAULT 'nielit_navy_gold' AFTER style_key")) {
+                return false;
+            }
+        }
+
         $check = $conn->query('SELECT id FROM public_theme_settings WHERE id = 1 LIMIT 1');
         if ($check && $check->num_rows === 0) {
             $default = publicThemeDefaultKey();
@@ -531,7 +538,7 @@ if (!function_exists('ensurePublicThemeSettingsTable')) {
 }
 
 if (!function_exists('getActivePublicThemeKey')) {
-    function getActivePublicThemeKey(?mysqli $conn = null): string
+    function getActivePublicThemeKey(?mysqli $conn = null, string $scope = 'default'): string
     {
         if (!$conn) {
             global $conn;
@@ -542,7 +549,8 @@ if (!function_exists('getActivePublicThemeKey')) {
         }
 
         ensurePublicThemeSettingsTable($conn);
-        $res = $conn->query('SELECT style_key FROM public_theme_settings WHERE id = 1 LIMIT 1');
+        $column = $scope === 'recruitment' ? 'recruitment_style_key' : 'style_key';
+        $res = $conn->query("SELECT {$column} AS style_key FROM public_theme_settings WHERE id = 1 LIMIT 1");
         if ($res && ($row = $res->fetch_assoc())) {
             $key = trim((string) ($row['style_key'] ?? ''));
             if ($key !== '' && isset(publicThemeStyleDefinitions()[$key])) {
@@ -554,7 +562,7 @@ if (!function_exists('getActivePublicThemeKey')) {
 }
 
 if (!function_exists('setActivePublicTheme')) {
-    function setActivePublicTheme(?mysqli $conn, string $styleKey, string $updatedBy = 'admin'): bool
+    function setActivePublicTheme(?mysqli $conn, string $styleKey, string $updatedBy = 'admin', string $scope = 'default'): bool
     {
         if (!$conn instanceof mysqli) {
             return false;
@@ -566,8 +574,9 @@ if (!function_exists('setActivePublicTheme')) {
             return false;
         }
 
-        $stmt = $conn->prepare('INSERT INTO public_theme_settings (id, style_key, updated_by) VALUES (1, ?, ?)
-            ON DUPLICATE KEY UPDATE style_key = VALUES(style_key), updated_by = VALUES(updated_by)');
+        $column = $scope === 'recruitment' ? 'recruitment_style_key' : 'style_key';
+        $stmt = $conn->prepare("INSERT INTO public_theme_settings (id, {$column}, updated_by) VALUES (1, ?, ?)
+            ON DUPLICATE KEY UPDATE {$column} = VALUES({$column}), updated_by = VALUES(updated_by)");
         if (!$stmt) {
             return false;
         }
@@ -582,10 +591,10 @@ if (!function_exists('getActivePublicThemeDefinition')) {
     /**
      * @return array<string, string>
      */
-    function getActivePublicThemeDefinition(?mysqli $conn = null): array
+    function getActivePublicThemeDefinition(?mysqli $conn = null, string $scope = 'default'): array
     {
         $defs = publicThemeStyleDefinitions();
-        $key = getActivePublicThemeKey($conn);
+        $key = getActivePublicThemeKey($conn, $scope);
         $def = $defs[$key] ?? $defs[publicThemeDefaultKey()];
         $def['key'] = $key;
         return $def;
@@ -648,7 +657,7 @@ if (!function_exists('emitPublicThemeHead')) {
     /**
      * Convenience: ensure settings + inject active public theme CSS.
      */
-    function emitPublicThemeHead(?mysqli $conn = null): void
+    function emitPublicThemeHead(?mysqli $conn = null, string $scope = 'default'): void
     {
         if (!$conn) {
             global $conn;
@@ -656,6 +665,6 @@ if (!function_exists('emitPublicThemeHead')) {
         if ($conn instanceof mysqli) {
             ensurePublicThemeSettingsTable($conn);
         }
-        injectPublicThemeCSS(getActivePublicThemeDefinition($conn instanceof mysqli ? $conn : null), $conn instanceof mysqli ? $conn : null);
+        injectPublicThemeCSS(getActivePublicThemeDefinition($conn instanceof mysqli ? $conn : null, $scope), $conn instanceof mysqli ? $conn : null);
     }
 }

@@ -47,7 +47,7 @@ $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
 $page_title = 'Interview waiting room - NIELIT Bhubaneswar';
 injectThemeCSS($active_theme);
-emitPublicThemeHead($conn);
+emitPublicThemeHead($conn, 'recruitment');
 
 $status = $row ? (string) ($row['call_status'] ?? 'waiting') : '';
 $sessionClosed = $row && in_array(strtolower((string) ($row['interview_status'] ?? '')), ['completed', 'cancelled'], true);

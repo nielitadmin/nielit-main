@@ -99,7 +99,7 @@ $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
 $page_title = ($job ? $job['title'] . ' — ' : '') . 'Apply - NIELIT Bhubaneswar';
 injectThemeCSS($active_theme);
-emitPublicThemeHead($conn);
+emitPublicThemeHead($conn, 'recruitment');
 $old = static function (string $key) {
     return htmlspecialchars((string) ($_POST[$key] ?? ''), ENT_QUOTES, 'UTF-8');
 };

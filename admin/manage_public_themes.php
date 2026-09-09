@@ -35,10 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['activate_public_theme
         $message_type = 'danger';
     } else {
         $styleKey = trim((string) ($_POST['style_key'] ?? ''));
-        if (setActivePublicTheme($conn, $styleKey, (string) ($_SESSION['admin'] ?? 'admin'))) {
+        $scope = (string) ($_POST['theme_scope'] ?? 'default') === 'recruitment' ? 'recruitment' : 'default';
+        if (setActivePublicTheme($conn, $styleKey, (string) ($_SESSION['admin'] ?? 'admin'), $scope)) {
             $presets = publicThemePresets();
             $label = $presets[$styleKey]['label'] ?? $styleKey;
-            $message = 'Public theme "' . $label . '" is now active on the website.';
+            $message = $scope === 'recruitment'
+                ? 'Recruitment theme "' . $label . '" is now active on the recruitment portal.'
+                : 'Public theme "' . $label . '" is now active on the website.';
             $message_type = 'success';
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         } else {
@@ -49,10 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['activate_public_theme
 }
 
 $activeKey = getActivePublicThemeKey($conn);
+$activeRecruitmentKey = getActivePublicThemeKey($conn, 'recruitment');
 $definitions = publicThemeStyleDefinitions();
 $presets = publicThemePresets();
 $activeLabel = $presets[$activeKey]['label'] ?? $activeKey;
 $activeDef = $definitions[$activeKey] ?? $definitions[publicThemeDefaultKey()];
+$activeRecruitmentLabel = $presets[$activeRecruitmentKey]['label'] ?? $activeRecruitmentKey;
+$activeRecruitmentDef = $definitions[$activeRecruitmentKey] ?? $definitions[publicThemeDefaultKey()];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -224,6 +230,30 @@ $activeDef = $definitions[$activeKey] ?? $definitions[publicThemeDefaultKey()];
                 </div>
             </div>
 
+            <div class="content-card" style="margin-bottom:1.25rem;">
+                <div class="card-header">
+                    <h5 class="card-title"><i class="fas fa-briefcase"></i> Active Recruitment Theme</h5>
+                </div>
+                <div class="card-body">
+                    <div class="pt-active-banner">
+                        <div>
+                            <strong style="font-size:1.05rem;"><?php echo htmlspecialchars($activeRecruitmentLabel); ?></strong>
+                            <div class="text-muted" style="font-size:0.85rem;margin-top:4px;">
+                                Key: <code><?php echo htmlspecialchars($activeRecruitmentKey); ?></code>
+                            </div>
+                            <p class="mb-0 mt-2" style="color:#64748b;max-width:520px;">
+                                This theme applies only to the recruitment portal and its application, form, and interview pages.
+                            </p>
+                        </div>
+                        <div class="pt-active-swatches" title="Primary / Secondary / Accent">
+                            <span style="background:<?php echo htmlspecialchars($activeRecruitmentDef['primary']); ?>;"></span>
+                            <span style="background:<?php echo htmlspecialchars($activeRecruitmentDef['secondary']); ?>;"></span>
+                            <span style="background:<?php echo htmlspecialchars($activeRecruitmentDef['accent']); ?>;"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="content-card">
                 <div class="card-header">
                     <h5 class="card-title"><i class="fas fa-th-large"></i> Available Public Themes (<?php echo count($definitions); ?>)</h5>
@@ -236,6 +266,7 @@ $activeDef = $definitions[$activeKey] ?? $definitions[publicThemeDefaultKey()];
                     <div class="pt-themes-grid">
                         <?php foreach ($definitions as $key => $def): ?>
                             <?php $isActive = ($key === $activeKey); ?>
+                            <?php $isRecruitmentActive = ($key === $activeRecruitmentKey); ?>
                             <div class="pt-theme-card <?php echo $isActive ? 'is-active' : ''; ?>">
                                 <div class="pt-theme-preview">
                                     <div class="pt-swatch">
@@ -267,6 +298,18 @@ $activeDef = $definitions[$activeKey] ?? $definitions[publicThemeDefaultKey()];
                                                 <input type="hidden" name="style_key" value="<?php echo htmlspecialchars($key); ?>">
                                                 <button type="submit" name="activate_public_theme" value="1" class="btn btn-primary btn-sm">
                                                     <i class="fas fa-check"></i> Activate
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                        <?php if ($isRecruitmentActive): ?>
+                                            <span class="pt-badge-active" style="margin-top:0.5rem;"><i class="fas fa-briefcase"></i> Recruitment active</span>
+                                        <?php else: ?>
+                                            <form method="post" style="margin:0.5rem 0 0;">
+                                                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                                                <input type="hidden" name="style_key" value="<?php echo htmlspecialchars($key); ?>">
+                                                <input type="hidden" name="theme_scope" value="recruitment">
+                                                <button type="submit" name="activate_public_theme" value="1" class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-briefcase"></i> Use for Recruitment
                                                 </button>
                                             </form>
                                         <?php endif; ?>
