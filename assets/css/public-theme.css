@@ -1002,6 +1002,15 @@ html[data-mode="night"] body.public-site .copyright-bar {
     border-top-color: rgba(255, 255, 255, 0.08) !important;
 }
 
+/* Keep recruitment footer metrics and credits bright against the dark bottom bar. */
+body.public-site .recruitment-footer .copyright-bar,
+body.public-site .recruitment-footer .copyright-bar .text-muted,
+body.public-site .recruitment-footer .copyright-bar .row > div,
+body.public-site .recruitment-footer .visitor-count-footer {
+    color: #ffffff !important;
+    opacity: 1 !important;
+}
+
 html[data-mode="night"] body.public-site .profile-shell,
 html[data-mode="night"] body.public-site .profile-card,
 html[data-mode="night"] body.public-site .field-card,
