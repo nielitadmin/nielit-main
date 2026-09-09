@@ -210,9 +210,14 @@ function isRecruitmentPortalRequest(): bool
 
     $configuredHost = parse_url((string) (defined('RECRUITMENT_URL') ? RECRUITMENT_URL : ''), PHP_URL_HOST);
     $requestHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $requestHost = preg_replace('/:\d+$/', '', $requestHost);
+    if (str_starts_with($requestHost, 'recruitment.')) {
+        return true;
+    }
+
     return is_string($configuredHost)
         && $configuredHost !== ''
-        && preg_replace('/:\d+$/', '', $requestHost) === strtolower($configuredHost);
+        && $requestHost === strtolower($configuredHost);
 }
 
 /**
