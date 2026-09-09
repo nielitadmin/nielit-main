@@ -146,7 +146,7 @@ $time = $row ? substr((string) ($row['interview_time'] ?? ''), 0, 5) : '';
     })();
     </script>
     <?php endif; ?>
-    <footer class="footer-section pt-5">
+    <footer class="footer-section recruitment-footer pt-5">
         <div class="container pb-4">
             <div class="row g-4">
                 <div class="col-lg-6">
