@@ -146,6 +146,36 @@ $time = $row ? substr((string) ($row['interview_time'] ?? ''), 0, 5) : '';
     })();
     </script>
     <?php endif; ?>
+    <footer class="footer-section pt-5">
+        <div class="container pb-4">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <h5>NIELIT Bhubaneswar</h5>
+                    <p class="small mb-2">National Institute of Electronics &amp; Information Technology, Bhubaneswar | Raipur | Baleshwar</p>
+                    <p class="small mb-0">An autonomous scientific society dedicated to technology education and skill development.</p>
+                </div>
+                <div class="col-lg-3">
+                    <h6>Contact</h6>
+                    <p class="small mb-1">OCAC Tower, Acharya Vihar, Bhubaneswar, Odisha</p>
+                    <p class="small mb-1">0674-2960354</p>
+                    <a class="small" href="mailto:dir-bbsr@nielit.gov.in">dir-bbsr@nielit.gov.in</a>
+                    <a class="small" href="mailto:admin@nielitbhubaneswar.in">Support / Enquiry</a>
+                    <p class="small mb-0">Mon-Fri: 09:00 AM - 5:30 PM</p>
+                </div>
+                <div class="col-lg-3">
+                    <h6>Important Links</h6>
+                    <a class="small" href="https://india.gov.in/" target="_blank" rel="noopener">National Portal</a>
+                    <a class="small" href="https://www.mygov.in/" target="_blank" rel="noopener">MyGov</a>
+                    <a class="small" href="https://rtionline.gov.in/" target="_blank" rel="noopener">RTI Online</a>
+                    <a class="small" href="http://meity.gov.in/" target="_blank" rel="noopener">MeitY</a>
+                    <a class="small" href="https://www.nielit.gov.in/" target="_blank" rel="noopener">NIELIT HQ</a>
+                </div>
+            </div>
+        </div>
+        <div class="copyright-bar text-center text-muted small">
+            <div class="container py-3">&copy; <?php echo date('Y'); ?> NIELIT Bhubaneswar. All Rights Reserved.</div>
+        </div>
+    </footer>
 </body>
 </html>
 <?php if (isset($conn) && $conn instanceof mysqli) { $conn->close(); } ?>
