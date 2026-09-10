@@ -119,6 +119,13 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-clipboard-list"></i> Requirements
             </a>
         </div>
+        <?php if ($is_master_admin): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/candidate_records'); ?>" class="nav-link <?php echo ($current_page === 'candidate_records.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chalkboard-teacher"></i> Workshop Records
+            </a>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
         
         <?php if ($is_nsqf_manager): ?>

@@ -294,3 +294,380 @@ if (!function_exists('workshopUploadAadharCard')) {
         return 'student/uploads/aadhar/' . $fn;
     }
 }
+
+if (!function_exists('workshopAdminListCourses')) {
+    /**
+     * @return list<array<string,mixed>>
+     */
+    function workshopAdminListCourses(mysqli $conn): array
+    {
+        ensureWorkshopRegistrationSchema($conn);
+        $out = [];
+        $r = $conn->query('SELECT id, course_name, course_code, training_center, registration_form, course_type, category FROM courses ORDER BY course_name ASC');
+        if (!$r) {
+            return $out;
+        }
+        while ($row = $r->fetch_assoc()) {
+            if (workshopCourseUsesShortForm($row)) {
+                $out[] = $row;
+            }
+        }
+        return $out;
+    }
+}
+
+if (!function_exists('workshopAdminCourseIds')) {
+    /**
+     * @return list<int>
+     */
+    function workshopAdminCourseIds(mysqli $conn): array
+    {
+        $ids = [];
+        foreach (workshopAdminListCourses($conn) as $c) {
+            $ids[] = (int) $c['id'];
+        }
+        return $ids;
+    }
+}
+
+if (!function_exists('workshopAdminStoreOptionalFile')) {
+    /**
+     * @return array{ok:bool,path:string,error:string}
+     */
+    function workshopAdminStoreOptionalFile(array $file, string $subdir, string $safeId, string $suffix, array $exts, int $maxBytes): array
+    {
+        $empty = ['ok' => true, 'path' => '', 'error' => ''];
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE || empty($file['tmp_name'])) {
+            return $empty;
+        }
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            return ['ok' => false, 'path' => '', 'error' => 'File upload failed.'];
+        }
+        $ext = strtolower((string) pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        if (!in_array($ext, $exts, true)) {
+            return ['ok' => false, 'path' => '', 'error' => 'Allowed types: ' . implode(', ', $exts) . '.'];
+        }
+        if ((int) ($file['size'] ?? 0) > $maxBytes) {
+            return ['ok' => false, 'path' => '', 'error' => 'File is too large.'];
+        }
+        $dir = dirname(__DIR__) . '/' . $subdir;
+        if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+            return ['ok' => false, 'path' => '', 'error' => 'Unable to create upload folder.'];
+        }
+        $fn = $safeId . '_' . time() . '_' . $suffix . '.' . $ext;
+        if (!move_uploaded_file($file['tmp_name'], $dir . $fn)) {
+            return ['ok' => false, 'path' => '', 'error' => 'Failed to save file.'];
+        }
+        return ['ok' => true, 'path' => $subdir . $fn, 'error' => ''];
+    }
+}
+
+if (!function_exists('workshopAdminCreateParticipant')) {
+    /**
+     * Office-desk workshop registration (same student record as the public short form).
+     *
+     * @return array{success:bool,message:string,student_id:string,password:string}
+     */
+    function workshopAdminCreateParticipant(mysqli $conn, array $post, array $files, string $adminUser): array
+    {
+        $fail = static function (string $msg): array {
+            return ['success' => false, 'message' => $msg, 'student_id' => '', 'password' => ''];
+        };
+
+        require_once __DIR__ . '/multi_course_helper.php';
+        require_once __DIR__ . '/student_id_helper.php';
+        require_once __DIR__ . '/email_helper.php';
+        require_once __DIR__ . '/state_city_registration.php';
+
+        ensureWorkshopRegistrationSchema($conn);
+
+        $courseId = (int) ($post['course_id'] ?? 0);
+        $name = trim((string) ($post['name'] ?? ''));
+        $classStandard = trim((string) ($post['class_standard'] ?? ''));
+        $fatherName = trim((string) ($post['father_name'] ?? ''));
+        $motherName = trim((string) ($post['mother_name'] ?? ''));
+        $dob = trim((string) ($post['dob'] ?? ''));
+        $gender = trim((string) ($post['gender'] ?? ''));
+        $mobile = workshopNormalizeMobile((string) ($post['mobile'] ?? ''));
+        $email = trim((string) ($post['email'] ?? ''));
+        $schoolName = trim((string) ($post['school_name'] ?? ''));
+        $address = trim((string) ($post['address'] ?? ''));
+        $state = function_exists('normalizeStateName') ? normalizeStateName(trim((string) ($post['state'] ?? ''))) : trim((string) ($post['state'] ?? ''));
+        $city = trim((string) ($post['city'] ?? ''));
+        $pincode = trim((string) ($post['pincode'] ?? ''));
+        $category = trim((string) ($post['category'] ?? 'General'));
+        $aadhar = function_exists('normalizeAadhar') ? normalizeAadhar((string) ($post['aadhar'] ?? '')) : preg_replace('/\D/', '', (string) ($post['aadhar'] ?? ''));
+        $approveNow = !empty($post['approve_now']);
+        $sendEmail = !empty($post['send_email']);
+        $status = $approveNow ? 'active' : 'pending';
+
+        if ($courseId < 1) {
+            return $fail('Select a workshop / awareness course.');
+        }
+        $stmt = $conn->prepare('SELECT * FROM courses WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return $fail('Could not load the course.');
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $courseRow = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$courseRow || !workshopCourseUsesShortForm($courseRow)) {
+            return $fail('That course is not a workshop / awareness program. Set Registration form to Workshop on the course.');
+        }
+        if ($name === '') {
+            return $fail('Student full name is required.');
+        }
+        if (!in_array($classStandard, workshopGetAllowedClassStandards(), true)) {
+            return $fail('Select a valid class / level.');
+        }
+        if ($fatherName === '') {
+            return $fail("Father's name is required.");
+        }
+        if ($motherName === '') {
+            return $fail("Mother's name is required.");
+        }
+        if ($dob === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || $dob > date('Y-m-d')) {
+            return $fail('Date of birth is required and cannot be in the future.');
+        }
+        if (!in_array($gender, ['Male', 'Female', 'Other'], true)) {
+            return $fail('Gender is required.');
+        }
+        if (strlen($mobile) !== 10) {
+            return $fail('Valid 10-digit parent mobile is required.');
+        }
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $fail('Valid email is required.');
+        }
+        if ($schoolName === '') {
+            return $fail('School / college name is required.');
+        }
+        if ($address === '') {
+            return $fail('Address is required.');
+        }
+        if ($state === '') {
+            return $fail('State is required.');
+        }
+        if ($city === '' || $city === 'manual_input') {
+            return $fail('City / district is required.');
+        }
+        if (!preg_match('/^\d{6}$/', $pincode)) {
+            return $fail('Valid 6-digit PIN is required.');
+        }
+        if (!in_array($category, ['General', 'OBC', 'SC', 'ST', 'EWS'], true)) {
+            return $fail('Category is required.');
+        }
+        if (strlen($aadhar) !== 12) {
+            return $fail('Aadhar number is required (12 digits).');
+        }
+        if (workshopIsMobileEnrolledInCourse($conn, $mobile, $courseId)) {
+            return $fail('This mobile number is already registered for this workshop.');
+        }
+
+        $age = (int) (new DateTime($dob))->diff(new DateTime())->y;
+        $courseName = (string) $courseRow['course_name'];
+        $trainingCenter = trim((string) ($courseRow['training_center'] ?? '')) ?: 'NIELIT BHUBANESWAR';
+        $schemeId = null;
+
+        $isReturning = false;
+        $existingAccount = null;
+        if ($aadhar !== '' && function_exists('findAccountByAadhar')) {
+            $existingAccount = findAccountByAadhar($conn, $aadhar);
+            if ($existingAccount && function_exists('isAadharEnrolledInCourseScheme')
+                && isAadharEnrolledInCourseScheme($conn, $aadhar, $courseId, $schemeId)) {
+                return $fail('This Aadhar is already registered for this program.');
+            }
+        }
+        if (!$existingAccount) {
+            $existingAccount = workshopFindAccountByMobile($conn, $mobile);
+        }
+
+        if ($existingAccount) {
+            $isReturning = true;
+            $studentId = (string) $existingAccount['student_id'];
+            if ($email === '' && !empty($existingAccount['email'])) {
+                $email = (string) $existingAccount['email'];
+            }
+        } elseif (isMultiCourseSystemInstalled($conn)) {
+            $studentId = getNextGlobalStudentID($conn);
+        } else {
+            $studentId = getNextStudentID($courseId, $conn);
+        }
+        if ($studentId === null || $studentId === '') {
+            return $fail('Could not generate a student ID.');
+        }
+
+        $safeStudentId = str_replace(['/', '\\', ' '], '-', $studentId);
+        $photo = workshopAdminStoreOptionalFile(
+            $files['passport_photo'] ?? [],
+            'student/uploads/students/',
+            $safeStudentId,
+            'workshop_photo',
+            ['jpg', 'jpeg', 'png'],
+            5 * 1024 * 1024
+        );
+        if (!$photo['ok']) {
+            return $fail($photo['error'] ?: 'Photo upload failed.');
+        }
+        if ($photo['path'] === '') {
+            return $fail('Passport photo is required.');
+        }
+        $aadharFile = workshopAdminStoreOptionalFile(
+            $files['aadhar_card'] ?? [],
+            'student/uploads/aadhar/',
+            $safeStudentId,
+            'aadhar',
+            ['jpg', 'jpeg', 'png', 'pdf'],
+            10 * 1024 * 1024
+        );
+        if (!$aadharFile['ok']) {
+            return $fail($aadharFile['error'] ?: 'Aadhar upload failed.');
+        }
+        if ($aadharFile['path'] === '') {
+            return $fail('Aadhar card upload is required.');
+        }
+
+        $plainPassword = '';
+        if ($isReturning && !empty($existingAccount['password'])) {
+            $hashedPassword = $existingAccount['password'];
+        } else {
+            $plainPassword = bin2hex(random_bytes(8));
+            $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
+        }
+
+        $educationData = json_encode([
+            'workshop' => true,
+            'class_standard' => $classStandard,
+            'school_name' => $schoolName,
+            'entered_by_admin' => $adminUser,
+        ]);
+
+        $hasSchemeCol = function_exists('hasSchemeEnrollmentColumns') && hasSchemeEnrollmentColumns($conn);
+        $hasClassCol = true;
+        $classColCheck = $conn->query("SHOW COLUMNS FROM students LIKE 'class_standard'");
+        if (!$classColCheck || $classColCheck->num_rows === 0) {
+            $hasClassCol = false;
+        }
+
+        $schemeColSql = $hasSchemeCol ? ', scheme_id' : '';
+        $schemeValSql = $hasSchemeCol ? ', ?' : '';
+        $classColSql = $hasClassCol ? ', class_standard' : '';
+        $classValSql = $hasClassCol ? ', ?' : '';
+
+        $statusSql = $approveNow ? 'active' : 'pending';
+        $sql = "INSERT INTO students (
+            course, course_id, training_center, name, father_name, mother_name,
+            dob, age, mobile, aadhar, gender, religion, marital_status,
+            category, nationality, email, position,
+            state, city, pincode, address, college_name, education_details,
+            passport_photo, aadhar_card_doc, student_id, password,
+            status{$schemeColSql}{$classColSql}, registration_date
+        ) VALUES (
+            ?,?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,?,?,?,?,?,
+            ?,?,?,?,?,?,?,
+            '{$statusSql}'{$schemeValSql}{$classValSql}, NOW()
+        )";
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return $fail('Database error: ' . $conn->error);
+        }
+
+        $religion = 'Other';
+        $maritalStatus = 'Single';
+        $nationality = 'Indian';
+        $position = 'Student';
+        $passportPath = $photo['path'];
+        $aadharPath = $aadharFile['path'];
+
+        $bindTypes = 'ssisss' . 'issssss' . 'ssss' . 'ssssss' . 'ssss';
+        $bindArgs = [
+            $courseName, $courseId, $trainingCenter, $name, $fatherName,
+            $motherName, $dob, $age, $mobile, $aadhar, $gender, $religion, $maritalStatus,
+            $category, $nationality, $email, $position,
+            $state, $city, $pincode, $address, $schoolName, $educationData,
+            $passportPath, $aadharPath, $studentId, $hashedPassword,
+        ];
+        if ($hasSchemeCol) {
+            $bindTypes .= 'i';
+            $bindArgs[] = $schemeId;
+        }
+        if ($hasClassCol) {
+            $bindTypes .= 's';
+            $bindArgs[] = $classStandard;
+        }
+
+        $stmt->bind_param($bindTypes, ...$bindArgs);
+        if (!$stmt->execute()) {
+            $err = $stmt->error;
+            $stmt->close();
+            return $fail('Could not save the workshop record: ' . $err);
+        }
+        $stmt->close();
+        $studentRecordId = (int) $conn->insert_id;
+
+        if ($studentRecordId > 0 && is_file(__DIR__ . '/nielit_registration_helper.php')) {
+            require_once __DIR__ . '/nielit_registration_helper.php';
+            if (function_exists('syncNielitRegistrationNoDefault')) {
+                syncNielitRegistrationNoDefault($conn, $studentRecordId, null);
+            }
+        }
+
+        if (isMultiCourseSystemInstalled($conn) && $studentRecordId > 0) {
+            $accountId = null;
+            if ($isReturning && !empty($existingAccount['id'])) {
+                $accountId = (int) $existingAccount['id'];
+            } else {
+                $accountAadhar = $aadhar !== ''
+                    ? $aadhar
+                    : ('NOAADHAR/' . preg_replace('/[^A-Za-z0-9\/]/', '', $studentId));
+                $accountId = createStudentAccount($conn, [
+                    'student_id' => $studentId,
+                    'aadhar' => $accountAadhar,
+                    'name' => $name,
+                    'email' => $email,
+                    'mobile' => $mobile,
+                    'password' => $hashedPassword,
+                    'dob' => $dob,
+                    'gender' => $gender,
+                ]);
+                if (!$accountId && $aadhar !== '') {
+                    $refetch = findAccountByAadhar($conn, $aadhar);
+                    $accountId = !empty($refetch['id']) ? (int) $refetch['id'] : null;
+                }
+                if (!$accountId) {
+                    $refetch = workshopFindAccountByMobile($conn, $mobile);
+                    $accountId = !empty($refetch['id']) ? (int) $refetch['id'] : null;
+                }
+            }
+            if ($accountId) {
+                linkStudentRecordToAccount($conn, $studentRecordId, $accountId);
+                createStudentEnrollment($conn, $accountId, $courseId, $studentRecordId, $status, $schemeId);
+            }
+        }
+
+        if ($sendEmail && !$isReturning && $plainPassword !== '') {
+            dispatchRegistrationEmailAsync($email, $name, $studentId, $plainPassword, $courseName, $trainingCenter);
+        }
+
+        if (is_file(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            logActivity($conn, [
+                'action' => 'workshop_record_create',
+                'description' => 'Admin entered workshop participant "' . $name . '" (' . $studentId . ') for "' . $courseName . '".',
+                'entity_type' => 'student',
+                'entity_id' => $studentId,
+                'entity_name' => $name,
+            ]);
+        }
+
+        $msg = 'Workshop record saved. Student ID: ' . $studentId . '. Status: ' . $status . '.';
+        if ($plainPassword !== '') {
+            $msg .= ' Password: ' . $plainPassword . '.';
+        } else {
+            $msg .= ' Existing student account — they can log in with their current password.';
+        }
+        return ['success' => true, 'message' => $msg, 'student_id' => $studentId, 'password' => $plainPassword];
+    }
+}
