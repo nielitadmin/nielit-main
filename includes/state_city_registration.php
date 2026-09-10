@@ -86,10 +86,13 @@ if (!function_exists('renderStateCityPincodeFields')) {
     {
         $pincode = htmlspecialchars((string) ($formData['pincode'] ?? ''), ENT_QUOTES, 'UTF-8');
         $colClass = $options['col_class'] ?? 'col-md-4';
+        $required = !array_key_exists('required', $options) || (bool) $options['required'];
+        $reqAttr = $required ? ' required' : '';
+        $reqMark = $required ? ' <span class="required-mark">*</span>' : '';
         ?>
         <div class="<?php echo htmlspecialchars($colClass); ?>">
-                    <label class="form-label">State <span class="required-mark">*</span></label>
-            <select class="form-select" name="state" id="state" required>
+                    <label class="form-label">State<?php echo $reqMark; ?></label>
+            <select class="form-select" name="state" id="state"<?php echo $reqAttr; ?>>
                 <option value="">Loading states...</option>
             </select>
             <small class="text-muted" id="stateStatus">
@@ -97,8 +100,8 @@ if (!function_exists('renderStateCityPincodeFields')) {
             </small>
         </div>
         <div class="<?php echo htmlspecialchars($colClass); ?>">
-                    <label class="form-label">City / District <span class="required-mark">*</span></label>
-            <select class="form-select" name="city" id="city" required disabled>
+                    <label class="form-label">City / District<?php echo $reqMark; ?></label>
+            <select class="form-select" name="city" id="city"<?php echo $reqAttr; ?> disabled>
                 <option value="">Select state first</option>
             </select>
             <small class="text-muted" id="cityStatus">
@@ -106,10 +109,10 @@ if (!function_exists('renderStateCityPincodeFields')) {
             </small>
         </div>
         <div class="<?php echo htmlspecialchars($colClass); ?>">
-                    <label class="form-label">Pincode <span class="required-mark">*</span></label>
+                    <label class="form-label">Pincode<?php echo $reqMark; ?></label>
             <input type="text" class="form-control" name="pincode" id="pincode"
                    inputmode="numeric" autocomplete="postal-code"
-                   pattern="[0-9]{6}" maxlength="6" placeholder="6-digit PIN" required
+                   pattern="[0-9]{6}" maxlength="6" placeholder="6-digit PIN"<?php echo $reqAttr; ?>
                    value="<?php echo $pincode; ?>">
         </div>
         <?php

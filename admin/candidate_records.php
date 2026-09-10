@@ -132,7 +132,7 @@ $formData = $_POST ?? [];
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
                 <h2 class="mb-0"><i class="fas fa-chalkboard-teacher"></i> Workshop Records</h2>
-                <p class="text-muted mb-0">Master Admin only. Every field on this form is mandatory. The public workshop Apply form is unchanged.</p>
+                <p class="text-muted mb-0">Master Admin only. Fill what you have — only workshop and name are required. The public Apply form is unchanged.</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 <a class="btn btn-outline-primary" href="<?php echo htmlspecialchars($listUrl . (strpos($listUrl, '?') === false ? '?' : '&') . 'export=csv'); ?>">
@@ -185,8 +185,8 @@ $formData = $_POST ?? [];
                         <input class="form-control" name="name" required>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Class / Level <span class="required-mark">*</span></label>
-                        <select class="form-select" name="class_standard" required>
+                        <label class="form-label">Class / Level</label>
+                        <select class="form-select" name="class_standard">
                             <option value="">Select class or level</option>
                             <?php foreach (getWorkshopClassStandardOptions() as $groupLabel => $options): ?>
                                 <optgroup label="<?php echo htmlspecialchars($groupLabel); ?>">
@@ -198,16 +198,16 @@ $formData = $_POST ?? [];
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Date of birth <span class="required-mark">*</span></label>
-                        <input class="form-control" type="date" name="dob" id="workshop_dob" required max="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
+                        <label class="form-label">Date of birth</label>
+                        <input class="form-control" type="date" name="dob" id="workshop_dob" max="<?php echo htmlspecialchars(date('Y-m-d')); ?>">
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Age <span class="required-mark">*</span></label>
-                        <input class="form-control" name="age" id="workshop_age" required readonly placeholder="Auto from DOB">
+                        <label class="form-label">Age</label>
+                        <input class="form-control" name="age" id="workshop_age" readonly placeholder="Auto from DOB">
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Gender <span class="required-mark">*</span></label>
-                        <select class="form-select" name="gender" required>
+                        <label class="form-label">Gender</label>
+                        <select class="form-select" name="gender">
                             <option value="">Select</option>
                             <?php foreach (['Male', 'Female', 'Other'] as $g): ?>
                                 <option value="<?php echo $g; ?>"><?php echo $g; ?></option>
@@ -215,8 +215,8 @@ $formData = $_POST ?? [];
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Category <span class="required-mark">*</span></label>
-                        <select class="form-select" name="category" required>
+                        <label class="form-label">Category</label>
+                        <select class="form-select" name="category">
                             <option value="">Select</option>
                             <?php foreach (['General', 'OBC', 'SC', 'ST', 'EWS'] as $cat): ?>
                                 <option value="<?php echo $cat; ?>"><?php echo $cat; ?></option>
@@ -224,41 +224,41 @@ $formData = $_POST ?? [];
                         </select>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Father's name <span class="required-mark">*</span></label>
-                        <input class="form-control" name="father_name" required>
+                        <label class="form-label">Father's name</label>
+                        <input class="form-control" name="father_name">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Mother's name <span class="required-mark">*</span></label>
-                        <input class="form-control" name="mother_name" required>
+                        <label class="form-label">Mother's name</label>
+                        <input class="form-control" name="mother_name">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Mobile (parent) <span class="required-mark">*</span></label>
-                        <input class="form-control" name="mobile" required maxlength="10" pattern="[0-9]{10}" placeholder="10-digit mobile">
+                        <label class="form-label">Mobile (parent)</label>
+                        <input class="form-control" name="mobile" maxlength="10" pattern="[0-9]{10}" placeholder="10-digit mobile">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Email <span class="required-mark">*</span></label>
-                        <input class="form-control" type="email" name="email" required>
+                        <label class="form-label">Email</label>
+                        <input class="form-control" type="email" name="email">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Aadhar number <span class="required-mark">*</span></label>
-                        <input class="form-control" name="aadhar" required maxlength="12" pattern="[0-9]{12}" placeholder="12 digits">
+                        <label class="form-label">Aadhar number</label>
+                        <input class="form-control" name="aadhar" maxlength="12" pattern="[0-9]{12}" placeholder="12 digits">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Aadhar card <span class="required-mark">*</span></label>
-                        <input class="form-control" type="file" name="aadhar_card" required accept="image/jpeg,image/png,application/pdf">
+                        <label class="form-label">Aadhar card</label>
+                        <input class="form-control" type="file" name="aadhar_card" accept="image/jpeg,image/png,application/pdf">
                     </div>
                     <div class="col-12">
-                        <label class="form-label">School / College name <span class="required-mark">*</span></label>
-                        <input class="form-control" name="school_name" required>
+                        <label class="form-label">School / College name</label>
+                        <input class="form-control" name="school_name">
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Address <span class="required-mark">*</span></label>
-                        <textarea class="form-control" name="address" rows="2" required></textarea>
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" name="address" rows="2"></textarea>
                     </div>
-                    <?php renderStateCityPincodeFields($formData); ?>
+                    <?php renderStateCityPincodeFields($formData, ['required' => false]); ?>
                     <div class="col-md-6">
-                        <label class="form-label">Passport photo <span class="required-mark">*</span></label>
-                        <input class="form-control" type="file" name="passport_photo" required accept="image/jpeg,image/png">
+                        <label class="form-label">Passport photo</label>
+                        <input class="form-control" type="file" name="passport_photo" accept="image/jpeg,image/png">
                     </div>
                     <div class="col-md-6 d-flex flex-column justify-content-end">
                         <div class="form-check mb-2">

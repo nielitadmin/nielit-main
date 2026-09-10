@@ -418,53 +418,44 @@ if (!function_exists('workshopAdminCreateParticipant')) {
         if ($name === '') {
             return $fail('Student full name is required.');
         }
-        if (!in_array($classStandard, workshopGetAllowedClassStandards(), true)) {
-            return $fail('Select a valid class / level.');
+        if ($classStandard !== '' && !in_array($classStandard, workshopGetAllowedClassStandards(), true)) {
+            return $fail('Select a valid class / level, or leave it blank.');
         }
-        if ($fatherName === '') {
-            return $fail("Father's name is required.");
+        if ($dob !== '' && (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || $dob > date('Y-m-d'))) {
+            return $fail('Date of birth cannot be a future date.');
         }
-        if ($motherName === '') {
-            return $fail("Mother's name is required.");
+        if ($gender !== '' && !in_array($gender, ['Male', 'Female', 'Other'], true)) {
+            return $fail('Select a valid gender, or leave it blank.');
         }
-        if ($dob === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $dob) || $dob > date('Y-m-d')) {
-            return $fail('Date of birth is required and cannot be in the future.');
+        if ($mobile !== '' && strlen($mobile) !== 10) {
+            return $fail('Mobile must be 10 digits if entered.');
         }
-        if (!in_array($gender, ['Male', 'Female', 'Other'], true)) {
-            return $fail('Gender is required.');
+        if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $fail('Enter a valid email, or leave it blank.');
         }
-        if (strlen($mobile) !== 10) {
-            return $fail('Valid 10-digit parent mobile is required.');
+        if ($city === 'manual_input') {
+            $city = '';
         }
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $fail('Valid email is required.');
+        if ($pincode !== '' && !preg_match('/^\d{6}$/', $pincode)) {
+            return $fail('PIN must be 6 digits if entered.');
         }
-        if ($schoolName === '') {
-            return $fail('School / college name is required.');
+        if ($category !== '' && !in_array($category, ['General', 'OBC', 'SC', 'ST', 'EWS'], true)) {
+            $category = 'General';
         }
-        if ($address === '') {
-            return $fail('Address is required.');
+        if ($category === '') {
+            $category = 'General';
         }
-        if ($state === '') {
-            return $fail('State is required.');
+        if ($aadhar !== '' && strlen($aadhar) !== 12) {
+            return $fail('Aadhar must be 12 digits if entered.');
         }
-        if ($city === '' || $city === 'manual_input') {
-            return $fail('City / district is required.');
-        }
-        if (!preg_match('/^\d{6}$/', $pincode)) {
-            return $fail('Valid 6-digit PIN is required.');
-        }
-        if (!in_array($category, ['General', 'OBC', 'SC', 'ST', 'EWS'], true)) {
-            return $fail('Category is required.');
-        }
-        if (strlen($aadhar) !== 12) {
-            return $fail('Aadhar number is required (12 digits).');
-        }
-        if (workshopIsMobileEnrolledInCourse($conn, $mobile, $courseId)) {
+        if (strlen($mobile) === 10 && workshopIsMobileEnrolledInCourse($conn, $mobile, $courseId)) {
             return $fail('This mobile number is already registered for this workshop.');
         }
 
-        $age = (int) (new DateTime($dob))->diff(new DateTime())->y;
+        $age = 0;
+        if ($dob !== '') {
+            $age = (int) (new DateTime($dob))->diff(new DateTime())->y;
+        }
         $courseName = (string) $courseRow['course_name'];
         $trainingCenter = trim((string) ($courseRow['training_center'] ?? '')) ?: 'NIELIT BHUBANESWAR';
         $schemeId = null;
@@ -509,9 +500,6 @@ if (!function_exists('workshopAdminCreateParticipant')) {
         if (!$photo['ok']) {
             return $fail($photo['error'] ?: 'Photo upload failed.');
         }
-        if ($photo['path'] === '') {
-            return $fail('Passport photo is required.');
-        }
         $aadharFile = workshopAdminStoreOptionalFile(
             $files['aadhar_card'] ?? [],
             'student/uploads/aadhar/',
@@ -522,9 +510,6 @@ if (!function_exists('workshopAdminCreateParticipant')) {
         );
         if (!$aadharFile['ok']) {
             return $fail($aadharFile['error'] ?: 'Aadhar upload failed.');
-        }
-        if ($aadharFile['path'] === '') {
-            return $fail('Aadhar card upload is required.');
         }
 
         $plainPassword = '';
@@ -647,7 +632,7 @@ if (!function_exists('workshopAdminCreateParticipant')) {
             }
         }
 
-        if ($sendEmail && !$isReturning && $plainPassword !== '') {
+        if ($sendEmail && !$isReturning && $plainPassword !== '' && $email !== '') {
             dispatchRegistrationEmailAsync($email, $name, $studentId, $plainPassword, $courseName, $trainingCenter);
         }
 
