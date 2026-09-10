@@ -232,13 +232,13 @@ if (!function_exists('workshopRecordsDeleteParticipant')) {
 
         if (is_file(__DIR__ . '/activity_logger.php')) {
             require_once __DIR__ . '/activity_logger.php';
-            if (function_exists('logActivity')) {
-                logActivity($conn, [
-                    'action' => 'workshop_record_delete',
-                    'description' => 'Deleted workshop participant "' . $name . '" (' . $studentId . ') from "' . $courseName . '".',
-                    'entity_type' => 'student',
-                    'entity_id' => $studentId,
-                    'entity_name' => $name,
+            if (function_exists('logWorkshopRecordActivity')) {
+                logWorkshopRecordActivity($conn, 'workshop_record_delete', 'Deleted workshop participant "' . $name . '" (' . $studentId . ') from "' . $courseName . '".', [
+                    'student_id' => $studentId,
+                    'candidate_name' => $name,
+                    'course_id' => $courseId,
+                    'course_name' => $courseName,
+                    'record_id' => $recordId,
                 ]);
             }
         }

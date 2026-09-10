@@ -442,6 +442,49 @@ if (!function_exists('logStudentAdminActivity')) {
     }
 }
 
+if (!function_exists('logWorkshopRecordActivity')) {
+    /**
+     * Log Master Admin workshop / awareness desk entries.
+     */
+    function logWorkshopRecordActivity(
+        ?mysqli $conn,
+        string $action,
+        string $description,
+        array $details = [],
+        string $result = 'success'
+    ): bool {
+        if (!$conn instanceof mysqli) {
+            global $conn;
+        }
+        if (!$conn instanceof mysqli) {
+            return false;
+        }
+
+        $adminName = (string) ($_SESSION['admin'] ?? ($details['admin_name'] ?? 'Admin'));
+        $adminRole = (string) ($_SESSION['admin_role'] ?? ($details['admin_role'] ?? ''));
+        unset($details['admin_name'], $details['admin_role']);
+
+        $entityId = (string) ($details['student_id'] ?? $details['record_id'] ?? '');
+        $entityName = (string) ($details['candidate_name'] ?? $details['name'] ?? '');
+
+        return logActivity($conn, [
+            'actor_type' => 'admin',
+            'actor_name' => $adminName,
+            'actor_role' => $adminRole,
+            'action' => $action,
+            'entity_type' => 'workshop_record',
+            'entity_id' => $entityId !== '' ? $entityId : null,
+            'entity_name' => $entityName !== '' ? $entityName : null,
+            'description' => $description,
+            'details' => array_merge([
+                'source' => 'workshop_records',
+                'admin_role' => $adminRole,
+            ], $details),
+            'result' => $result,
+        ]);
+    }
+}
+
 if (!function_exists('fetchActivityLogs')) {
     /**
      * @return array{rows:array,total:int}
@@ -622,6 +665,8 @@ if (!function_exists('activityActionLabels')) {
             'fingerprint_enrol' => 'Fingerprint Enrolled',
             'fingerprint_delete' => 'Fingerprint Removed',
             'admin_create' => 'Admin Created',
+            'workshop_record_create' => 'Workshop Record Added',
+            'workshop_record_delete' => 'Workshop Record Deleted',
             'other' => 'Other',
         ];
     }

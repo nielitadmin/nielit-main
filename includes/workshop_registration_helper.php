@@ -669,13 +669,17 @@ if (!function_exists('workshopAdminCreateParticipant')) {
 
         if (is_file(__DIR__ . '/activity_logger.php')) {
             require_once __DIR__ . '/activity_logger.php';
-            logActivity($conn, [
-                'action' => 'workshop_record_create',
-                'description' => 'Admin entered workshop participant "' . $name . '" (' . $studentId . ') for "' . $courseName . '".',
-                'entity_type' => 'student',
-                'entity_id' => $studentId,
-                'entity_name' => $name,
-            ]);
+            if (function_exists('logWorkshopRecordActivity')) {
+                logWorkshopRecordActivity($conn, 'workshop_record_create', 'Admin entered workshop participant "' . $name . '" (' . $studentId . ') for "' . $courseName . '".', [
+                    'student_id' => $studentId,
+                    'candidate_name' => $name,
+                    'course_id' => $courseId,
+                    'course_name' => $courseName,
+                    'status' => $status,
+                    'entered_by' => $adminUser,
+                    'record_id' => $studentRecordId,
+                ]);
+            }
         }
 
         $msg = 'Workshop record saved. Student ID: ' . $studentId . '. Status: ' . $status . '.';

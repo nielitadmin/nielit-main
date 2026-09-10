@@ -75,6 +75,7 @@ $entityTypes = [
     'attendance' => 'Attendance',
     'fingerprint' => 'Fingerprint',
     'recruitment' => 'Recruitment',
+    'workshop_record' => 'Workshop Record',
     'system' => 'System',
 ];
 if ($tableReady) {
