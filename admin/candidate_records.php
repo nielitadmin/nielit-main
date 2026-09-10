@@ -47,6 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . $listUrl);
         exit();
     }
+    if ((string) ($_POST['action'] ?? '') === 'delete') {
+        $result = workshopRecordsDeleteParticipant($conn, (int) ($_POST['id'] ?? 0));
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        header('Location: ' . $listUrl);
+        exit();
+    }
     $result = workshopAdminCreateParticipant($conn, $_POST, $_FILES, $adminUser);
     $_SESSION['message'] = $result['message'];
     $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
@@ -370,6 +377,12 @@ $formData = $_POST ?? [];
                             </td>
                             <td class="text-end text-nowrap">
                                 <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/edit_student') . '?id=' . rawurlencode((string) $row['student_id'])); ?>">Edit</a>
+                                <form method="post" class="d-inline" onsubmit="return confirm('Delete this workshop record for <?php echo htmlspecialchars(addslashes((string) $row['name'])); ?>? This cannot be undone.');">
+                                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrf); ?>">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?php echo (int) $row['id']; ?>">
+                                    <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach; endif; ?>

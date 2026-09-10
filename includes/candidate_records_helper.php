@@ -148,3 +148,101 @@ if (!function_exists('workshopRecordsList')) {
         ];
     }
 }
+
+if (!function_exists('workshopRecordsDeleteParticipant')) {
+    /**
+     * @return array{success:bool,message:string}
+     */
+    function workshopRecordsDeleteParticipant($conn, int $recordId): array
+    {
+        if ($recordId < 1 || !($conn instanceof mysqli)) {
+            return ['success' => false, 'message' => 'Invalid record.'];
+        }
+
+        $workshopIds = workshopAdminCourseIds($conn);
+        if ($workshopIds === []) {
+            return ['success' => false, 'message' => 'No workshop courses are configured.'];
+        }
+
+        $stmt = $conn->prepare('SELECT id, student_id, name, course_id, course, passport_photo, aadhar_card_doc FROM students WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not load the record.'];
+        }
+        $stmt->bind_param('i', $recordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return ['success' => false, 'message' => 'Workshop record not found.'];
+        }
+
+        $courseId = (int) ($row['course_id'] ?? 0);
+        if (!in_array($courseId, $workshopIds, true)) {
+            return ['success' => false, 'message' => 'This record is not a workshop / awareness participant.'];
+        }
+
+        $studentId = (string) ($row['student_id'] ?? '');
+        $name = (string) ($row['name'] ?? '');
+        $courseName = (string) ($row['course'] ?? 'workshop');
+
+        require_once __DIR__ . '/multi_course_helper.php';
+        if (function_exists('enrollmentRecordHasBatches') && enrollmentRecordHasBatches($conn, $recordId)) {
+            return ['success' => false, 'message' => 'Remove this candidate from the batch first, then delete the workshop record.'];
+        }
+
+        $inspector = dirname(__DIR__) . '/admin/includes/student_record_inspector.php';
+        if (is_file($inspector)) {
+            require_once $inspector;
+        }
+
+        if (function_exists('adminRemoveStudentFromCourse') && $studentId !== '') {
+            $result = adminRemoveStudentFromCourse($conn, $studentId, $courseId);
+            if (!$result['success']) {
+                return $result;
+            }
+        } elseif (function_exists('inspectorDeleteRecord')) {
+            $result = inspectorDeleteRecord($conn, 'student', $recordId);
+            if (!$result['success']) {
+                return $result;
+            }
+        } else {
+            $del = $conn->prepare('DELETE FROM students WHERE id = ? AND course_id = ?');
+            if (!$del) {
+                return ['success' => false, 'message' => 'Could not delete the record.'];
+            }
+            $del->bind_param('ii', $recordId, $courseId);
+            if (!$del->execute() || $del->affected_rows < 1) {
+                $del->close();
+                return ['success' => false, 'message' => 'Could not delete the record.'];
+            }
+            $del->close();
+        }
+
+        $root = dirname(__DIR__);
+        foreach (['passport_photo', 'aadhar_card_doc'] as $col) {
+            $rel = trim((string) ($row[$col] ?? ''));
+            if ($rel === '') {
+                continue;
+            }
+            $abs = $root . '/' . ltrim(str_replace('\\', '/', $rel), '/');
+            if (is_file($abs)) {
+                @unlink($abs);
+            }
+        }
+
+        if (is_file(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            if (function_exists('logActivity')) {
+                logActivity($conn, [
+                    'action' => 'workshop_record_delete',
+                    'description' => 'Deleted workshop participant "' . $name . '" (' . $studentId . ') from "' . $courseName . '".',
+                    'entity_type' => 'student',
+                    'entity_id' => $studentId,
+                    'entity_name' => $name,
+                ]);
+            }
+        }
+
+        return ['success' => true, 'message' => 'Workshop record deleted for ' . $name . '.'];
+    }
+}
