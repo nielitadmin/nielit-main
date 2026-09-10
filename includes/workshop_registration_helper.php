@@ -3,6 +3,41 @@
  * Short registration flow for school workshops (Class 7th / 8th).
  */
 
+$courseCategoryOptions = __DIR__ . '/course_category_options.php';
+if (is_file($courseCategoryOptions)) {
+    require_once $courseCategoryOptions;
+}
+
+if (!function_exists('workshopIsWorkshopOrAwarenessCourse')) {
+    function workshopIsWorkshopOrAwarenessCourse(array $course): bool
+    {
+        $needles = ['Workshop', 'Awareness Program'];
+        $fields = [
+            (string) ($course['category'] ?? ''),
+            (string) ($course['course_type'] ?? ''),
+            (string) ($course['nsqf_type'] ?? ''),
+        ];
+        foreach ($needles as $needle) {
+            foreach ($fields as $value) {
+                $value = trim($value);
+                if ($value === '') {
+                    continue;
+                }
+                if (function_exists('sub_category_matches') && sub_category_matches($value, $needle)) {
+                    return true;
+                }
+                if (strcasecmp($value, $needle) === 0) {
+                    return true;
+                }
+                if (stripos($value, $needle) !== false) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+}
+
 if (!function_exists('ensureWorkshopRegistrationSchema')) {
     function ensureWorkshopRegistrationSchema(mysqli $conn): void
     {
@@ -18,6 +53,8 @@ if (!function_exists('ensureWorkshopRegistrationSchema')) {
         }
         $conn->query("UPDATE courses SET registration_form = 'workshop' WHERE course_type = 'Workshop' AND registration_form = 'full'");
         $conn->query("UPDATE courses SET registration_form = 'workshop' WHERE category = 'Workshop' AND registration_form = 'full'");
+        $conn->query("UPDATE courses SET registration_form = 'workshop' WHERE category = 'Awareness Program' AND registration_form = 'full'");
+        $conn->query("UPDATE courses SET registration_form = 'workshop' WHERE course_type = 'Awareness Program' AND registration_form = 'full'");
 
         $studentCol = $conn->query("SHOW COLUMNS FROM students LIKE 'class_standard'");
         if (!$studentCol || $studentCol->num_rows === 0) {
@@ -31,17 +68,11 @@ if (!function_exists('ensureWorkshopRegistrationSchema')) {
 if (!function_exists('workshopCourseUsesShortForm')) {
     function workshopCourseUsesShortForm(array $course): bool
     {
-        $form = strtolower(trim((string)($course['registration_form'] ?? 'full')));
+        $form = strtolower(trim((string) ($course['registration_form'] ?? 'full')));
         if ($form === 'workshop') {
             return true;
         }
-        if ($form === 'full') {
-            if (function_exists('sub_category_matches')) {
-                return sub_category_matches($course['category'] ?? '', 'Workshop');
-            }
-            return strcasecmp(trim((string)($course['category'] ?? '')), 'Workshop') === 0;
-        }
-        return strtolower(trim((string)($course['course_type'] ?? ''))) === 'workshop';
+        return workshopIsWorkshopOrAwarenessCourse($course);
     }
 }
 
@@ -303,7 +334,7 @@ if (!function_exists('workshopAdminListCourses')) {
     {
         ensureWorkshopRegistrationSchema($conn);
         $out = [];
-        $r = $conn->query('SELECT id, course_name, course_code, training_center, registration_form, course_type, category FROM courses ORDER BY course_name ASC');
+        $r = $conn->query('SELECT * FROM courses ORDER BY course_name ASC');
         if (!$r) {
             return $out;
         }
