@@ -625,7 +625,41 @@ if (!function_exists('attendanceListSessionHeadcounts')) {
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
-        return $rows ?: [];
+        if ($rows === []) {
+            return [];
+        }
+
+        // When a session is tied to a section, recount IN/OUT/Unique for enrolled
+        // students only (exclude OLIT / other-batch punches on the same kiosk).
+        if (function_exists('attendanceListSessionStudentPunches')) {
+            foreach ($rows as &$sessRow) {
+                $sessBatchId = (int) ($sessRow['session_batch_id'] ?? 0);
+                if ($sessBatchId <= 0) {
+                    continue;
+                }
+                $sessId = (int) ($sessRow['id'] ?? 0);
+                if ($sessId <= 0) {
+                    continue;
+                }
+                $punches = attendanceListSessionStudentPunches($conn, $sessId, $methodFilter);
+                $inCount = 0;
+                $outCount = 0;
+                foreach ($punches as $punch) {
+                    if (trim((string) ($punch['first_in'] ?? '')) !== '' || trim((string) ($punch['last_in'] ?? '')) !== '') {
+                        $inCount++;
+                    }
+                    if (trim((string) ($punch['first_out'] ?? '')) !== '' || trim((string) ($punch['last_out'] ?? '')) !== '') {
+                        $outCount++;
+                    }
+                }
+                $sessRow['students_in'] = $inCount;
+                $sessRow['students_out'] = $outCount;
+                $sessRow['students_attended'] = count($punches);
+            }
+            unset($sessRow);
+        }
+
+        return $rows;
     }
 }
 

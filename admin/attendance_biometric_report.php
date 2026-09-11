@@ -611,7 +611,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                 <h3 class="att-title">Attendance sessions</h3>
                 <p class="sess-hint">
                     All <strong>active</strong> and scheduled sessions are listed here (not only those with punches in <?php echo htmlspecialchars($monthLabel); ?>).
-                    IN / OUT / Unique are total students who punched that session.
+                    For sessions with a section, IN / OUT / Unique count only students enrolled in that section.
                     Choose a <strong>Session</strong> above, or click <strong>View students</strong>, to see that session’s student records.
                     <?php if ($sessionId > 0 && $selectedSession): ?>
                         Showing students for <strong><?php echo htmlspecialchars((string) ($selectedSession['session_name'] ?? 'session')); ?></strong>
