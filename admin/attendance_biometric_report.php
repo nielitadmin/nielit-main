@@ -90,9 +90,10 @@ if ($requestedDay >= 1 && $requestedDay <= $daysInMonth) {
     $report['end'] = $report['start'];
     $monthLabel = $monthNames[$month] . ' ' . $year . ' (day ' . $requestedDay . ')';
 }
-$colspan = 6 + $extraCols + (count($displayDayNumbers) * 2);
-$colspanPrint = 4 + (count($displayDayNumbers) * 2);
-$colspanExcel = 6 + $extraCols + (count($displayDayNumbers) * 2);
+$colspan = 7 + $extraCols + (count($displayDayNumbers) * 2);
+$colspanPrint = 5 + (count($displayDayNumbers) * 2);
+$colspanExcel = 7 + $extraCols + (count($displayDayNumbers) * 2);
+$studentRowCount = count($report['rows']);
 
 $dayInOutTimes = static function (array $times): array {
     $pairs = $times['pairs'] ?? [];
@@ -240,7 +241,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     echo '<tr><td colspan="' . $colspanExcel . '" style="font-size:18px;font-weight:bold;text-align:center;">Attendance Record</td></tr>';
     echo '<tr></tr>';
     echo '<tr style="background:#93c5fd;font-weight:bold;text-align:center;">';
-    echo '<td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
+    echo '<td rowspan="2">Sl.</td><td rowspan="2">Centre</td><td rowspan="2">Batch</td><td rowspan="2">Student ID</td><td rowspan="2">Name</td><td rowspan="2">Course / session</td><td rowspan="2">Device ID</td>';
     echo '<td rowspan="2">Present</td><td rowspan="2">Partial</td><td rowspan="2">Classes held</td><td rowspan="2">Attendance %</td>';
     foreach ($displayDayNumbers as $d) {
         echo '<td colspan="2">' . $d . '</td>';
@@ -253,8 +254,11 @@ if (isset($_GET['export']) && $_GET['export'] === 'excel') {
     if ($report['rows'] === []) {
         echo '<tr><td colspan="' . $colspanExcel . '" style="text-align:center;">No fingerprint attendance in this month.</td></tr>';
     } else {
+        $slNo = 0;
         foreach ($report['rows'] as $row) {
+            $slNo++;
             echo '<tr>';
+            echo '<td style="text-align:center;">' . $slNo . '</td>';
             echo '<td>' . htmlspecialchars((string) ($row['centre'] ?? '—')) . '</td>';
             echo '<td>' . htmlspecialchars((string) ($row['batch'] ?? '—')) . '</td>';
             echo '<td>' . htmlspecialchars((string) $row['student_id']) . '</td>';
@@ -331,6 +335,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
         .att-matrix thead th { background: #93c5fd; color: #0f172a; text-align: center; font-weight: 700; white-space: nowrap; }
         .att-matrix tbody tr:nth-child(even) { background: #f1f5f9; }
         .att-matrix .col-centre { min-width: 140px; }
+        .att-matrix .col-sl { min-width: 42px; max-width: 48px; text-align: center; font-weight: 600; }
         .att-matrix .col-name { min-width: 160px; }
         .att-matrix .col-dept { min-width: 180px; }
         .att-matrix .col-dev { min-width: 120px; }
@@ -729,7 +734,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                         </table>
                     </div>
                 <?php endif; ?>
-                <h3 class="att-title">Attendance Record</h3>
+                <h3 class="att-title">Attendance Record <span class="text-muted fw-normal fs-6">(<?php echo (int) $studentRowCount; ?> students)</span></h3>
                 <div class="att-wrap">
                     <table class="att-matrix">
                         <thead>
@@ -761,6 +766,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                                 </th>
                             </tr>
                             <tr>
+                                <th class="col-sl" rowspan="2">Sl.</th>
                                 <th class="col-centre print-hide" rowspan="2">Centre</th>
                                 <th class="col-centre print-hide" rowspan="2">Batch</th>
                                 <th class="col-id" rowspan="2">Student ID</th>
@@ -819,8 +825,9 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                                 </td>
                             </tr>
                         <?php else: ?>
-                            <?php foreach ($report['rows'] as $row): ?>
+                            <?php $slNo = 0; foreach ($report['rows'] as $row): $slNo++; ?>
                                 <tr>
+                                    <td class="col-sl"><?php echo $slNo; ?></td>
                                     <td class="print-hide"><?php echo htmlspecialchars((string) ($row['centre'] ?? '—')); ?></td>
                                     <td class="print-hide"><?php echo htmlspecialchars((string) ($row['batch'] ?? '—')); ?></td>
                                     <td><?php echo htmlspecialchars((string) $row['student_id']); ?></td>
