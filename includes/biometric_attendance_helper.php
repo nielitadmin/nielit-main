@@ -990,18 +990,8 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 }
             }
         }
-        if ($enrollBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
-            $batchFilterSql = fingerprintStudentInBatchExistsSql($conn);
-            if ($batchFilterSql !== '') {
-                $sql .= $batchFilterSql;
-                $placeholders = substr_count($batchFilterSql, '?');
-                for ($i = 0; $i < $placeholders; $i++) {
-                    $types .= 'i';
-                    $params[] = $enrollBatchId;
-                }
-            }
-        }
-        // Course roster filter runs in PHP after fetch (batch_students links vary by site).
+        // Roster filter (course / section) runs in PHP after fetch — SQL EXISTS was
+        // too strict for sites where batch_students stores Student ID strings.
         if ($sessionId > 0) {
             $sql .= ' AND l.session_id = ?';
             $types .= 'i';
@@ -1210,14 +1200,16 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 if ($sid === '') {
                     continue;
                 }
+                $keep = false;
                 if ($rosterBatchIds !== [] && function_exists('attendanceStudentInBatchList')) {
-                    if (!attendanceStudentInBatchList($conn, $sid, $rosterBatchIds)) {
-                        continue;
-                    }
-                } elseif (!attendanceStudentMatchesEnrollment($conn, $sid, $sqlCourseId, $enrollBatchId)) {
-                    continue;
+                    $keep = attendanceStudentInBatchList($conn, $sid, $rosterBatchIds);
                 }
-                $filteredRows[] = $row;
+                if (!$keep) {
+                    $keep = attendanceStudentMatchesEnrollment($conn, $sid, $sqlCourseId, $enrollBatchId);
+                }
+                if ($keep) {
+                    $filteredRows[] = $row;
+                }
             }
             $out['rows'] = $filteredRows;
         }

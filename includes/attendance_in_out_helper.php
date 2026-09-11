@@ -1149,24 +1149,45 @@ if (!function_exists('attendanceStudentMatchesEnrollment')) {
 
             $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
             if ($bs && $bs->num_rows > 0) {
+                $sql = "SELECT 1
+                        FROM batch_students bs
+                        WHERE bs.batch_id = ?
+                          AND LOWER(TRIM(CAST(bs.student_id AS CHAR))) = LOWER(?)
+                        LIMIT 1";
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param('is', $batchId, $student_id);
+                    $stmt->execute();
+                    $found = (bool) $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($found) {
+                        return true;
+                    }
+                }
                 $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
                 if ($hasRecordCol) {
                     $sql = "SELECT 1
                             FROM batch_students bs
-                            INNER JOIN batches bb ON bb.id = bs.batch_id
                             INNER JOIN students st ON st.id = bs.student_record_id
                             WHERE bs.batch_id = ?
-                              AND st.batch_id = bs.batch_id
                               AND LOWER(TRIM(st.student_id)) = LOWER(?)
-                              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')";
+                              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+                            LIMIT 1";
                     $types = 'is';
                     $params = [$batchId, $student_id];
                     if ($courseId > 0) {
-                        $sql .= ' AND bb.course_id = ?';
-                        $types .= 'i';
-                        $params[] = $courseId;
+                        $sql = "SELECT 1
+                                FROM batch_students bs
+                                INNER JOIN batches bb ON bb.id = bs.batch_id
+                                INNER JOIN students st ON st.id = bs.student_record_id
+                                WHERE bs.batch_id = ?
+                                  AND LOWER(TRIM(st.student_id)) = LOWER(?)
+                                  AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+                                  AND bb.course_id = ?
+                                LIMIT 1";
+                        $types = 'isi';
+                        $params = [$batchId, $student_id, $courseId];
                     }
-                    $sql .= ' LIMIT 1';
                     $stmt = $conn->prepare($sql);
                     if ($stmt) {
                         $stmt->bind_param($types, ...$params);
