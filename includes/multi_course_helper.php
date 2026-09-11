@@ -730,6 +730,99 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     /**
+     * Remove stale batch_students rows for one enrollment in a course (keep one section).
+     */
+    function pruneStudentBatchLinksForCourse(mysqli $conn, int $studentRecordId, int $courseId, int $keepBatchId = 0): int {
+        if ($studentRecordId <= 0 || $courseId <= 0) {
+            return 0;
+        }
+        if (!($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) || $t->num_rows === 0) {
+            return 0;
+        }
+
+        $studentIdStr = '';
+        $sidStmt = $conn->prepare('SELECT student_id FROM students WHERE id = ? LIMIT 1');
+        if ($sidStmt) {
+            $sidStmt->bind_param('i', $studentRecordId);
+            $sidStmt->execute();
+            $sidRow = $sidStmt->get_result()->fetch_assoc();
+            $sidStmt->close();
+            $studentIdStr = trim((string) ($sidRow['student_id'] ?? ''));
+        }
+
+        $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+        $sql = 'DELETE bs FROM batch_students bs
+                INNER JOIN batches bb ON bb.id = bs.batch_id
+                WHERE bb.course_id = ?';
+        $types = 'i';
+        $params = [$courseId];
+        if ($keepBatchId > 0) {
+            $sql .= ' AND bs.batch_id <> ?';
+            $types .= 'i';
+            $params[] = $keepBatchId;
+        }
+        if ($hasRecordCol) {
+            $sql .= ' AND (bs.student_record_id = ?';
+            $types .= 'i';
+            $params[] = $studentRecordId;
+            if ($studentIdStr !== '') {
+                $sql .= ' OR LOWER(TRIM(CAST(bs.student_id AS CHAR))) = LOWER(?)';
+                $types .= 's';
+                $params[] = $studentIdStr;
+            }
+            $sql .= ')';
+        } elseif ($studentIdStr !== '') {
+            $sql .= ' AND LOWER(TRIM(CAST(bs.student_id AS CHAR))) = LOWER(?)';
+            $types .= 's';
+            $params[] = $studentIdStr;
+        } else {
+            return 0;
+        }
+
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $removed = $stmt->affected_rows;
+        $stmt->close();
+        return max(0, (int) $removed);
+    }
+
+    /**
+     * Align batch_students with each active enrollment's current students.batch_id.
+     */
+    function reconcileStudentBatchLinksForStudent(mysqli $conn, string $studentIdStr): int {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return 0;
+        }
+        $stmt = $conn->prepare("SELECT id, course_id, batch_id
+            FROM students
+            WHERE LOWER(TRIM(student_id)) = LOWER(?)
+              AND LOWER(IFNULL(status,'')) NOT IN ('inactive', 'rejected')");
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('s', $studentIdStr);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        $fixed = 0;
+        foreach ($rows as $row) {
+            $recordId = (int) ($row['id'] ?? 0);
+            $courseId = (int) ($row['course_id'] ?? 0);
+            $batchId = (int) ($row['batch_id'] ?? 0);
+            if ($recordId <= 0 || $courseId <= 0) {
+                continue;
+            }
+            $fixed += pruneStudentBatchLinksForCourse($conn, $recordId, $courseId, $batchId);
+        }
+        return $fixed;
+    }
+
+    /**
      * Remove batch links for one enrollment record before course/scheme deletion.
      */
     function clearEnrollmentRecordBatchLinks(mysqli $conn, int $recordId): void {
@@ -744,18 +837,37 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             }
         }
 
+        $studentIdStr = '';
+        $sidStmt = $conn->prepare('SELECT student_id FROM students WHERE id = ? LIMIT 1');
+        if ($sidStmt) {
+            $sidStmt->bind_param('i', $recordId);
+            $sidStmt->execute();
+            $sidRow = $sidStmt->get_result()->fetch_assoc();
+            $sidStmt->close();
+            $studentIdStr = trim((string) ($sidRow['student_id'] ?? ''));
+        }
+
         $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
         if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
-            $bs = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? OR student_id = ?');
-            if ($bs) {
-                $bs->bind_param('ii', $recordId, $recordId);
-                $bs->execute();
-                $bs->close();
+            if ($studentIdStr !== '') {
+                $bs = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ? OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?)');
+                if ($bs) {
+                    $bs->bind_param('is', $recordId, $studentIdStr);
+                    $bs->execute();
+                    $bs->close();
+                }
+            } else {
+                $bs = $conn->prepare('DELETE FROM batch_students WHERE student_record_id = ?');
+                if ($bs) {
+                    $bs->bind_param('i', $recordId);
+                    $bs->execute();
+                    $bs->close();
+                }
             }
-        } else {
-            $bs = $conn->prepare('DELETE FROM batch_students WHERE student_id = ?');
+        } elseif ($studentIdStr !== '') {
+            $bs = $conn->prepare('DELETE FROM batch_students WHERE LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?)');
             if ($bs) {
-                $bs->bind_param('i', $recordId);
+                $bs->bind_param('s', $studentIdStr);
                 $bs->execute();
                 $bs->close();
             }
@@ -2455,13 +2567,20 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             }
         }
 
+        $studentIdStr = trim((string) ($studentRow['student_id'] ?? ''));
+        if ($studentIdStr === '') {
+            return ['success' => false, 'message' => 'Student ID is missing on the enrollment record.'];
+        }
+
+        pruneStudentBatchLinksForCourse($conn, $studentRecordId, (int) $batch['course_id'], $batchId);
+
         $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
         $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
 
         if ($useRecordCol) {
-            $check = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR student_id = ?) LIMIT 1');
+            $check = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?)) LIMIT 1');
             if ($check) {
-                $check->bind_param('iii', $batchId, $studentRecordId, $studentRecordId);
+                $check->bind_param('iis', $batchId, $studentRecordId, $studentIdStr);
                 $check->execute();
                 if ($check->get_result()->num_rows > 0) {
                     $check->close();
@@ -2473,11 +2592,11 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$stmt) {
                 return ['success' => false, 'message' => $conn->error];
             }
-            $stmt->bind_param('iii', $batchId, $studentRecordId, $studentRecordId);
+            $stmt->bind_param('isi', $batchId, $studentIdStr, $studentRecordId);
         } else {
-            $check = $conn->prepare('SELECT id FROM batch_students WHERE student_id = ? AND batch_id = ? LIMIT 1');
+            $check = $conn->prepare('SELECT id FROM batch_students WHERE LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?) AND batch_id = ? LIMIT 1');
             if ($check) {
-                $check->bind_param('ii', $studentRecordId, $batchId);
+                $check->bind_param('si', $studentIdStr, $batchId);
                 $check->execute();
                 if ($check->get_result()->num_rows > 0) {
                     $check->close();
@@ -2489,7 +2608,7 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$stmt) {
                 return ['success' => false, 'message' => $conn->error];
             }
-            $stmt->bind_param('ii', $batchId, $studentRecordId);
+            $stmt->bind_param('is', $batchId, $studentIdStr);
         }
 
         if (!$stmt->execute()) {
@@ -2499,21 +2618,11 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         }
         $stmt->close();
 
-        $existingBatchId = !empty($studentRow['batch_id']) ? (int)$studentRow['batch_id'] : 0;
-        if ($existingBatchId <= 0) {
-            $upd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
-            if ($upd) {
-                $upd->bind_param('isi', $batchId, $adminName, $studentRecordId);
-                $upd->execute();
-                $upd->close();
-            }
-        } else {
-            $statusUpd = $conn->prepare("UPDATE students SET status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
-            if ($statusUpd) {
-                $statusUpd->bind_param('si', $adminName, $studentRecordId);
-                $statusUpd->execute();
-                $statusUpd->close();
-            }
+        $upd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
+        if ($upd) {
+            $upd->bind_param('isi', $batchId, $adminName, $studentRecordId);
+            $upd->execute();
+            $upd->close();
         }
 
         if (hasSchemeEnrollmentColumns($conn) && $studentScheme === null && $batchScheme !== null) {

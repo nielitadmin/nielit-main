@@ -1000,10 +1000,70 @@ if (!function_exists('attendanceStudentMatchesEnrollment')) {
         if ($student_id === '' || !($conn instanceof mysqli)) {
             return false;
         }
-        $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
+
         if ($batchId > 0) {
-            return in_array($batchId, $scope['batches'], true);
+            $sql = "SELECT 1
+                    FROM students st
+                    LEFT JOIN batches bb ON bb.id = st.batch_id
+                    WHERE st.batch_id = ?
+                      AND LOWER(TRIM(st.student_id)) = LOWER(?)
+                      AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')";
+            $types = 'is';
+            $params = [$batchId, $student_id];
+            if ($courseId > 0) {
+                $sql .= ' AND (st.course_id = ? OR bb.course_id = ?)';
+                $types .= 'ii';
+                $params[] = $courseId;
+                $params[] = $courseId;
+            }
+            $sql .= ' LIMIT 1';
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param($types, ...$params);
+                $stmt->execute();
+                $found = (bool) $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($found) {
+                    return true;
+                }
+            }
+
+            $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+            if ($bs && $bs->num_rows > 0) {
+                $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+                if ($hasRecordCol) {
+                    $sql = "SELECT 1
+                            FROM batch_students bs
+                            INNER JOIN batches bb ON bb.id = bs.batch_id
+                            INNER JOIN students st ON st.id = bs.student_record_id
+                            WHERE bs.batch_id = ?
+                              AND st.batch_id = bs.batch_id
+                              AND LOWER(TRIM(st.student_id)) = LOWER(?)
+                              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')";
+                    $types = 'is';
+                    $params = [$batchId, $student_id];
+                    if ($courseId > 0) {
+                        $sql .= ' AND bb.course_id = ?';
+                        $types .= 'i';
+                        $params[] = $courseId;
+                    }
+                    $sql .= ' LIMIT 1';
+                    $stmt = $conn->prepare($sql);
+                    if ($stmt) {
+                        $stmt->bind_param($types, ...$params);
+                        $stmt->execute();
+                        $found = (bool) $stmt->get_result()->fetch_assoc();
+                        $stmt->close();
+                        if ($found) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
         }
+
+        $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
         if ($courseId > 0) {
             return in_array($courseId, $scope['courses'], true);
         }

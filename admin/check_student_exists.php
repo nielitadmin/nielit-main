@@ -390,6 +390,16 @@ if ($searched) {
         }
     }
 
+    if (inspectorHasIdentityCriteria($searchCriteria) && function_exists('reconcileStudentBatchLinksForStudent')) {
+        $reconcileSid = trim((string) ($searchCriteria['student_id'] ?? ''));
+        if ($reconcileSid === '' && !empty($studentRows[0]['student_id'])) {
+            $reconcileSid = trim((string) $studentRows[0]['student_id']);
+        }
+        if ($reconcileSid !== '') {
+            reconcileStudentBatchLinksForStudent($conn, $reconcileSid);
+        }
+    }
+
     $collectedIds = inspectorCollectIds($studentRows, $hiddenStudentRows, $accountRows, $enrollmentRows);
     $relatedRecords = inspectorExpandRelatedRecords($conn, $collectedIds);
     foreach ($relatedRecords['students_all'] ?? [] as $row) {
