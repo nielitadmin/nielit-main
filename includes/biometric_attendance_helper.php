@@ -856,17 +856,15 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         ensureBiometricAttendanceTables($conn);
         ensureAttendanceInOutTables($conn);
 
-        $filterCourseId = $courseId;
-        $filterBatchId = $batchId;
+        $sessionCourseId = 0;
+        $sessionBatchId = 0;
         if ($sessionId > 0 && function_exists('attendanceSessionEnrollmentFilters')) {
             $sessionFilters = attendanceSessionEnrollmentFilters($conn, $sessionId);
-            if ($filterCourseId <= 0) {
-                $filterCourseId = (int) ($sessionFilters['course_id'] ?? 0);
-            }
-            if ($filterBatchId <= 0) {
-                $filterBatchId = (int) ($sessionFilters['batch_id'] ?? 0);
-            }
+            $sessionCourseId = (int) ($sessionFilters['course_id'] ?? 0);
+            $sessionBatchId = (int) ($sessionFilters['batch_id'] ?? 0);
         }
+        $sqlCourseId = $courseId > 0 ? $courseId : ($sessionId > 0 ? $sessionCourseId : 0);
+        $enrollBatchId = $batchId > 0 ? $batchId : ($sessionId > 0 ? $sessionBatchId : 0);
 
         $hasLogs = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
         $hasBio = $conn->query("SHOW TABLES LIKE 'biometric_capture_logs'");
@@ -958,10 +956,10 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
         $types = 'ssss';
         $params = [$start, $end, $start, $end];
-        if ($filterCourseId > 0) {
+        if ($sqlCourseId > 0) {
             $sql .= ' AND s.course_id = ?';
             $types .= 'i';
-            $params[] = $filterCourseId;
+            $params[] = $sqlCourseId;
         }
         if ($centreId > 0) {
             $sql .= ' AND c.centre_id = ?';
@@ -982,24 +980,25 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 }
             }
         }
-        if ($filterBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
+        $applyEnrollmentFilter = $sessionId > 0 || $batchId > 0;
+        if ($applyEnrollmentFilter && $enrollBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
             $batchFilterSql = fingerprintStudentInBatchExistsSql($conn);
             if ($batchFilterSql !== '') {
                 $sql .= $batchFilterSql;
                 $placeholders = substr_count($batchFilterSql, '?');
                 for ($i = 0; $i < $placeholders; $i++) {
                     $types .= 'i';
-                    $params[] = $filterBatchId;
+                    $params[] = $enrollBatchId;
                 }
             }
-        } elseif ($filterCourseId > 0) {
+        } elseif ($applyEnrollmentFilter && $sessionId > 0 && $enrollBatchId <= 0 && $sqlCourseId > 0) {
             $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
             if ($courseFilterSql !== '') {
                 $sql .= $courseFilterSql;
                 $placeholders = substr_count($courseFilterSql, '?');
                 for ($i = 0; $i < $placeholders; $i++) {
                     $types .= 'i';
-                    $params[] = $filterCourseId;
+                    $params[] = $sqlCourseId;
                 }
             }
         }
@@ -1117,7 +1116,9 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         unset($stu);
 
         if ($methodFilter === 'all' && function_exists('attendanceListRosterForReport')) {
-            $roster = attendanceListRosterForReport($conn, $filterCourseId, $centreId, $filterBatchId);
+            $rosterCourseId = $courseId > 0 ? $courseId : ($sessionId > 0 ? $sessionCourseId : 0);
+            $rosterBatchId = $batchId > 0 ? $batchId : ($sessionId > 0 ? $sessionBatchId : 0);
+            $roster = attendanceListRosterForReport($conn, $rosterCourseId, $centreId, $rosterBatchId);
             foreach ($roster as $stu) {
                 $sid = trim((string) ($stu['student_id'] ?? ''));
                 if ($sid === '') {
