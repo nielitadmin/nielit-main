@@ -635,10 +635,19 @@ if (!function_exists('attendanceListSessionStudentPunches')) {
      *
      * @return list<array<string,mixed>>
      */
-    function attendanceListSessionStudentPunches($conn, int $sessionId, string $methodFilter = 'fingerprint'): array
+    function attendanceListSessionStudentPunches($conn, int $sessionId, string $methodFilter = 'fingerprint', int $courseId = 0, int $batchId = 0): array
     {
         if (!($conn instanceof mysqli) || $sessionId <= 0) {
             return [];
+        }
+        if ($courseId <= 0 && $batchId <= 0 && function_exists('attendanceSessionEnrollmentFilters')) {
+            $sessionFilters = attendanceSessionEnrollmentFilters($conn, $sessionId);
+            if ($batchId <= 0) {
+                $batchId = (int) ($sessionFilters['batch_id'] ?? 0);
+            }
+            if ($courseId <= 0) {
+                $courseId = (int) ($sessionFilters['course_id'] ?? 0);
+            }
         }
         $t = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
         if (!$t || $t->num_rows === 0) {
@@ -673,7 +682,20 @@ if (!function_exists('attendanceListSessionStudentPunches')) {
         $stmt->execute();
         $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
-        return $rows ?: [];
+        if ($rows === [] || ($courseId <= 0 && $batchId <= 0) || !function_exists('attendanceStudentMatchesEnrollment')) {
+            return $rows ?: [];
+        }
+        $filtered = [];
+        foreach ($rows as $row) {
+            $sid = trim((string) ($row['student_id'] ?? ''));
+            if ($sid === '') {
+                continue;
+            }
+            if (attendanceStudentMatchesEnrollment($conn, $sid, $courseId, $batchId)) {
+                $filtered[] = $row;
+            }
+        }
+        return $filtered;
     }
 }
 
@@ -962,6 +984,66 @@ if (!function_exists('attendanceStudentCourseAndBatchIds')) {
             'courses' => array_values($courses),
             'batches' => array_values($batches),
         ];
+    }
+}
+
+if (!function_exists('attendanceStudentMatchesEnrollment')) {
+    /**
+     * True when the student is enrolled in the given course and/or section (batch).
+     */
+    function attendanceStudentMatchesEnrollment($conn, string $student_id, int $courseId = 0, int $batchId = 0): bool
+    {
+        if ($courseId <= 0 && $batchId <= 0) {
+            return true;
+        }
+        $student_id = trim($student_id);
+        if ($student_id === '' || !($conn instanceof mysqli)) {
+            return false;
+        }
+        $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
+        if ($batchId > 0) {
+            return in_array($batchId, $scope['batches'], true);
+        }
+        if ($courseId > 0) {
+            return in_array($courseId, $scope['courses'], true);
+        }
+        return true;
+    }
+}
+
+if (!function_exists('attendanceSessionEnrollmentFilters')) {
+    /**
+     * Course / section tied to an attendance session (for roster filtering).
+     *
+     * @return array{course_id:int,batch_id:int}
+     */
+    function attendanceSessionEnrollmentFilters($conn, int $sessionId): array
+    {
+        $out = ['course_id' => 0, 'batch_id' => 0];
+        if ($sessionId <= 0 || !($conn instanceof mysqli)) {
+            return $out;
+        }
+        $hasBatch = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
+        $cols = 'course_id';
+        if ($hasBatch) {
+            $cols .= ', batch_id';
+        }
+        $stmt = $conn->prepare("SELECT {$cols} FROM attendance_sessions WHERE id = ? LIMIT 1");
+        if (!$stmt) {
+            return $out;
+        }
+        $stmt->bind_param('i', $sessionId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return $out;
+        }
+        $out['course_id'] = (int) ($row['course_id'] ?? 0);
+        if ($hasBatch) {
+            $out['batch_id'] = (int) ($row['batch_id'] ?? 0);
+        }
+        return $out;
     }
 }
 

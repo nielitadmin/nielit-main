@@ -727,13 +727,65 @@ if (!function_exists('fingerprintStudentEnrolledBatchSql')) {
     }
 }
 
+if (!function_exists('fingerprintStudentInCourseExistsSql')) {
+    /**
+     * True if this punch belongs to a student enrolled in the filtered course.
+     */
+    function fingerprintStudentInCourseExistsSql($conn): string
+    {
+        $ors = [];
+        $hasStudents = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'students'")) && $t->num_rows > 0;
+        if ($hasStudents) {
+            $col = $conn->query("SHOW COLUMNS FROM students LIKE 'course_id'");
+            if ($col && $col->num_rows > 0) {
+                $ors[] = "EXISTS (SELECT 1 FROM students st3
+                    WHERE st3.course_id = ? AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id)))";
+            }
+        }
+        $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
+        if ($enr) {
+            $enrCourse = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'course_id'");
+            $enrRec = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'");
+            if ($enrCourse && $enrCourse->num_rows > 0 && $enrRec && $enrRec->num_rows > 0) {
+                $ors[] = "EXISTS (SELECT 1 FROM student_enrollments se
+                    LEFT JOIN students st2 ON st2.id = se.student_record_id
+                    WHERE se.course_id = ?
+                      AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id)))";
+            }
+        }
+        $hasBs = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
+        $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
+        if ($hasBs && $hasBatches) {
+            $hasRecordCol = false;
+            $col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+            $hasRecordCol = $col && $col->num_rows > 0;
+            $stJoin = "LEFT JOIN students st ON (st.id = bs.student_id
+                OR LOWER(TRIM(CAST(st.student_id AS CHAR))) = LOWER(TRIM(CAST(bs.student_id AS CHAR)))";
+            if ($hasRecordCol) {
+                $stJoin .= " OR st.id = bs.student_record_id";
+            }
+            $stJoin .= ')';
+            $match = "(LOWER(TRIM(IFNULL(st.student_id,''))) = LOWER(TRIM(l.student_id))
+                OR CAST(bs.student_id AS CHAR) = TRIM(l.student_id))";
+            $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
+                INNER JOIN batches bb ON bb.id = bs.batch_id
+                {$stJoin}
+                WHERE bb.course_id = ? AND {$match})";
+        }
+        if ($ors === []) {
+            return '';
+        }
+        return ' AND (' . implode(' OR ', $ors) . ')';
+    }
+}
+
 if (!function_exists('fingerprintStudentInBatchExistsSql')) {
     /**
      * True if this punch belongs to a student currently in the filtered batch.
      */
     function fingerprintStudentInBatchExistsSql($conn): string
     {
-        $ors = ['s.batch_id = ?'];
+        $ors = [];
         $hasBs = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
         $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
         $hasRecordCol = false;
@@ -777,6 +829,9 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
                     WHERE st3.batch_id = ? AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id)))";
             }
         }
+        if ($ors === []) {
+            return '';
+        }
         return ' AND (' . implode(' OR ', $ors) . ')';
     }
 }
@@ -800,6 +855,18 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         @$conn->query("SET time_zone = '+05:30'");
         ensureBiometricAttendanceTables($conn);
         ensureAttendanceInOutTables($conn);
+
+        $filterCourseId = $courseId;
+        $filterBatchId = $batchId;
+        if ($sessionId > 0 && function_exists('attendanceSessionEnrollmentFilters')) {
+            $sessionFilters = attendanceSessionEnrollmentFilters($conn, $sessionId);
+            if ($filterCourseId <= 0) {
+                $filterCourseId = (int) ($sessionFilters['course_id'] ?? 0);
+            }
+            if ($filterBatchId <= 0) {
+                $filterBatchId = (int) ($sessionFilters['batch_id'] ?? 0);
+            }
+        }
 
         $hasLogs = $conn->query("SHOW TABLES LIKE 'attendance_logs'");
         $hasBio = $conn->query("SHOW TABLES LIKE 'biometric_capture_logs'");
@@ -891,10 +958,10 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
         $types = 'ssss';
         $params = [$start, $end, $start, $end];
-        if ($courseId > 0) {
+        if ($filterCourseId > 0) {
             $sql .= ' AND s.course_id = ?';
             $types .= 'i';
-            $params[] = $courseId;
+            $params[] = $filterCourseId;
         }
         if ($centreId > 0) {
             $sql .= ' AND c.centre_id = ?';
@@ -915,13 +982,25 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 }
             }
         }
-        if ($batchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
+        if ($filterBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
             $batchFilterSql = fingerprintStudentInBatchExistsSql($conn);
-            $sql .= $batchFilterSql;
-            $placeholders = substr_count($batchFilterSql, '?');
-            for ($i = 0; $i < $placeholders; $i++) {
-                $types .= 'i';
-                $params[] = $batchId;
+            if ($batchFilterSql !== '') {
+                $sql .= $batchFilterSql;
+                $placeholders = substr_count($batchFilterSql, '?');
+                for ($i = 0; $i < $placeholders; $i++) {
+                    $types .= 'i';
+                    $params[] = $filterBatchId;
+                }
+            }
+        } elseif ($filterCourseId > 0) {
+            $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
+            if ($courseFilterSql !== '') {
+                $sql .= $courseFilterSql;
+                $placeholders = substr_count($courseFilterSql, '?');
+                for ($i = 0; $i < $placeholders; $i++) {
+                    $types .= 'i';
+                    $params[] = $filterCourseId;
+                }
             }
         }
         if ($sessionId > 0) {
@@ -1038,7 +1117,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         unset($stu);
 
         if ($methodFilter === 'all' && function_exists('attendanceListRosterForReport')) {
-            $roster = attendanceListRosterForReport($conn, $courseId, $centreId, $batchId);
+            $roster = attendanceListRosterForReport($conn, $filterCourseId, $centreId, $filterBatchId);
             foreach ($roster as $stu) {
                 $sid = trim((string) ($stu['student_id'] ?? ''));
                 if ($sid === '') {

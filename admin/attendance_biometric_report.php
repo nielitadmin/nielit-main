@@ -615,6 +615,7 @@ $filterQs = static function (array $extra = []) use ($year, $month, $courseId, $
                     Choose a <strong>Session</strong> above, or click <strong>View students</strong>, to see that session’s student records.
                     <?php if ($sessionId > 0 && $selectedSession): ?>
                         Showing students for <strong><?php echo htmlspecialchars((string) ($selectedSession['session_name'] ?? 'session')); ?></strong>
+                        (enrolled in this session’s section only — other O Level batches who punched here are hidden)
                         · <a href="attendance_biometric_report.php?<?php echo htmlspecialchars($filterQs(['session_id' => 0])); ?>">Clear session</a>
                     <?php endif; ?>
                 </p>
