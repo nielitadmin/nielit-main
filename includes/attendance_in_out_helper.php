@@ -987,6 +987,108 @@ if (!function_exists('attendanceStudentCourseAndBatchIds')) {
     }
 }
 
+if (!function_exists('attendanceCourseFilterBatchIds')) {
+    /**
+     * Section (batch) IDs tied to a course filter — from batches table and attendance sessions.
+     *
+     * @return list<int>
+     */
+    function attendanceCourseFilterBatchIds($conn, int $courseId): array
+    {
+        $ids = [];
+        if ($courseId <= 0 || !($conn instanceof mysqli)) {
+            return $ids;
+        }
+        $stmt = $conn->prepare('SELECT id FROM batches WHERE course_id = ?');
+        if ($stmt) {
+            $stmt->bind_param('i', $courseId);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $ids[] = (int) ($row['id'] ?? 0);
+            }
+            $stmt->close();
+        }
+        if (function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn)) {
+            $sessStmt = $conn->prepare(
+                'SELECT DISTINCT batch_id FROM attendance_sessions
+                 WHERE course_id = ? AND batch_id IS NOT NULL AND batch_id > 0'
+            );
+            if ($sessStmt) {
+                $sessStmt->bind_param('i', $courseId);
+                $sessStmt->execute();
+                $res = $sessStmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $ids[] = (int) ($row['batch_id'] ?? 0);
+                }
+                $sessStmt->close();
+            }
+        }
+        return array_values(array_unique(array_filter($ids)));
+    }
+}
+
+if (!function_exists('attendanceStudentInBatchList')) {
+    /**
+     * True when the student is linked to any of the given section IDs.
+     */
+    function attendanceStudentInBatchList($conn, string $student_id, array $batchIds): bool
+    {
+        $student_id = trim($student_id);
+        $batchIds = array_values(array_unique(array_filter(array_map('intval', $batchIds))));
+        if ($student_id === '' || $batchIds === [] || !($conn instanceof mysqli)) {
+            return false;
+        }
+        $placeholders = implode(',', array_fill(0, count($batchIds), '?'));
+        $types = str_repeat('i', count($batchIds)) . 's';
+        $params = array_merge($batchIds, [$student_id]);
+
+        $stmt = $conn->prepare("SELECT 1
+            FROM students st
+            WHERE LOWER(TRIM(st.student_id)) = LOWER(?)
+              AND st.batch_id IN ({$placeholders})
+              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+            LIMIT 1");
+        if ($stmt) {
+            $bindTypes = 's' . str_repeat('i', count($batchIds));
+            $bindParams = array_merge([$student_id], $batchIds);
+            $stmt->bind_param($bindTypes, ...$bindParams);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                $stmt->close();
+                return true;
+            }
+            $stmt->close();
+        }
+
+        $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+        if (!$bs || $bs->num_rows === 0) {
+            return false;
+        }
+        $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+        if (!$hasRecordCol) {
+            return false;
+        }
+        $stmt = $conn->prepare("SELECT 1
+            FROM batch_students bs
+            INNER JOIN students st ON st.id = bs.student_record_id
+            WHERE bs.batch_id IN ({$placeholders})
+              AND LOWER(TRIM(st.student_id)) = LOWER(?)
+              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+            LIMIT 1");
+        if (!$stmt) {
+            return false;
+        }
+        $bindTypes = str_repeat('i', count($batchIds)) . 's';
+        $bindParams = array_merge($batchIds, [$student_id]);
+        $stmt->bind_param($bindTypes, ...$bindParams);
+        $stmt->execute();
+        $found = (bool) $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $found;
+    }
+}
+
 if (!function_exists('attendanceStudentMatchesEnrollment')) {
     /**
      * True when the student is enrolled in the given course and/or section (batch).
@@ -1064,6 +1166,12 @@ if (!function_exists('attendanceStudentMatchesEnrollment')) {
         }
 
         if ($courseId > 0) {
+            if (function_exists('attendanceCourseFilterBatchIds') && function_exists('attendanceStudentInBatchList')) {
+                $courseBatches = attendanceCourseFilterBatchIds($conn, $courseId);
+                if ($courseBatches !== []) {
+                    return attendanceStudentInBatchList($conn, $student_id, $courseBatches);
+                }
+            }
             $sql = "SELECT 1
                     FROM students st
                     LEFT JOIN batches bb ON bb.id = st.batch_id
@@ -1080,31 +1188,6 @@ if (!function_exists('attendanceStudentMatchesEnrollment')) {
                     return true;
                 }
                 $stmt->close();
-            }
-            $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
-            if ($bs && $bs->num_rows > 0) {
-                $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
-                if ($hasRecordCol) {
-                    $sql = "SELECT 1
-                            FROM batch_students bs
-                            INNER JOIN batches bb ON bb.id = bs.batch_id
-                            INNER JOIN students st ON st.id = bs.student_record_id
-                            WHERE bb.course_id = ?
-                              AND st.batch_id = bs.batch_id
-                              AND LOWER(TRIM(st.student_id)) = LOWER(?)
-                              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
-                            LIMIT 1";
-                    $stmt = $conn->prepare($sql);
-                    if ($stmt) {
-                        $stmt->bind_param('is', $courseId, $student_id);
-                        $stmt->execute();
-                        $found = (bool) $stmt->get_result()->fetch_assoc();
-                        $stmt->close();
-                        if ($found) {
-                            return true;
-                        }
-                    }
-                }
             }
             $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
             return in_array($courseId, $scope['courses'], true);

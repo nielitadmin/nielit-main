@@ -774,7 +774,6 @@ if (!function_exists('fingerprintStudentInCourseExistsSql')) {
                     INNER JOIN batches bb ON bb.id = bs.batch_id
                     INNER JOIN students st ON st.id = bs.student_record_id
                     WHERE bb.course_id = ?
-                      AND st.batch_id = bs.batch_id
                       AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
                       AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
             }
@@ -1002,13 +1001,29 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 }
             }
         } elseif ($sqlCourseId > 0) {
-            $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
-            if ($courseFilterSql !== '') {
-                $sql .= $courseFilterSql;
-                $placeholders = substr_count($courseFilterSql, '?');
-                for ($i = 0; $i < $placeholders; $i++) {
+            $courseFilterBatchIds = function_exists('attendanceCourseFilterBatchIds')
+                ? attendanceCourseFilterBatchIds($conn, $sqlCourseId)
+                : [];
+            if ($courseFilterBatchIds !== []) {
+                $batchPlaceholders = implode(',', array_fill(0, count($courseFilterBatchIds), '?'));
+                $sql .= " AND EXISTS (SELECT 1 FROM batch_students bs
+                    INNER JOIN students st ON st.id = bs.student_record_id
+                    WHERE bs.batch_id IN ({$batchPlaceholders})
+                      AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
+                      AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
+                foreach ($courseFilterBatchIds as $bid) {
                     $types .= 'i';
-                    $params[] = $sqlCourseId;
+                    $params[] = $bid;
+                }
+            } else {
+                $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
+                if ($courseFilterSql !== '') {
+                    $sql .= $courseFilterSql;
+                    $placeholders = substr_count($courseFilterSql, '?');
+                    for ($i = 0; $i < $placeholders; $i++) {
+                        $types .= 'i';
+                        $params[] = $sqlCourseId;
+                    }
                 }
             }
         }
