@@ -1063,8 +1063,50 @@ if (!function_exists('attendanceStudentMatchesEnrollment')) {
             return false;
         }
 
-        $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
         if ($courseId > 0) {
+            $sql = "SELECT 1
+                    FROM students st
+                    LEFT JOIN batches bb ON bb.id = st.batch_id
+                    WHERE LOWER(TRIM(st.student_id)) = LOWER(?)
+                      AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+                      AND (st.course_id = ? OR bb.course_id = ?)
+                    LIMIT 1";
+            $stmt = $conn->prepare($sql);
+            if ($stmt) {
+                $stmt->bind_param('sii', $student_id, $courseId, $courseId);
+                $stmt->execute();
+                if ($stmt->get_result()->fetch_assoc()) {
+                    $stmt->close();
+                    return true;
+                }
+                $stmt->close();
+            }
+            $bs = $conn->query("SHOW TABLES LIKE 'batch_students'");
+            if ($bs && $bs->num_rows > 0) {
+                $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+                if ($hasRecordCol) {
+                    $sql = "SELECT 1
+                            FROM batch_students bs
+                            INNER JOIN batches bb ON bb.id = bs.batch_id
+                            INNER JOIN students st ON st.id = bs.student_record_id
+                            WHERE bb.course_id = ?
+                              AND st.batch_id = bs.batch_id
+                              AND LOWER(TRIM(st.student_id)) = LOWER(?)
+                              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+                            LIMIT 1";
+                    $stmt = $conn->prepare($sql);
+                    if ($stmt) {
+                        $stmt->bind_param('is', $courseId, $student_id);
+                        $stmt->execute();
+                        $found = (bool) $stmt->get_result()->fetch_assoc();
+                        $stmt->close();
+                        if ($found) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            $scope = attendanceStudentCourseAndBatchIds($conn, $student_id);
             return in_array($courseId, $scope['courses'], true);
         }
         return true;

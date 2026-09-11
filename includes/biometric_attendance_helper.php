@@ -734,12 +734,24 @@ if (!function_exists('fingerprintStudentInCourseExistsSql')) {
     function fingerprintStudentInCourseExistsSql($conn): string
     {
         $ors = [];
+        $activeOk = "LOWER(IFNULL(st3.status,'')) NOT IN ('inactive', 'rejected')";
         $hasStudents = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'students'")) && $t->num_rows > 0;
+        $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
         if ($hasStudents) {
             $col = $conn->query("SHOW COLUMNS FROM students LIKE 'course_id'");
             if ($col && $col->num_rows > 0) {
                 $ors[] = "EXISTS (SELECT 1 FROM students st3
-                    WHERE st3.course_id = ? AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id)))";
+                    WHERE st3.course_id = ?
+                      AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id))
+                      AND {$activeOk})";
+            }
+            $batchCol = $conn->query("SHOW COLUMNS FROM students LIKE 'batch_id'");
+            if ($batchCol && $batchCol->num_rows > 0 && $hasBatches) {
+                $ors[] = "EXISTS (SELECT 1 FROM students st3
+                    INNER JOIN batches bb ON bb.id = st3.batch_id
+                    WHERE bb.course_id = ?
+                      AND LOWER(TRIM(st3.student_id)) = LOWER(TRIM(l.student_id))
+                      AND {$activeOk})";
             }
         }
         $enr = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'student_enrollments'")) && $t->num_rows > 0;
@@ -748,29 +760,24 @@ if (!function_exists('fingerprintStudentInCourseExistsSql')) {
             $enrRec = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'student_record_id'");
             if ($enrCourse && $enrCourse->num_rows > 0 && $enrRec && $enrRec->num_rows > 0) {
                 $ors[] = "EXISTS (SELECT 1 FROM student_enrollments se
-                    LEFT JOIN students st2 ON st2.id = se.student_record_id
+                    INNER JOIN students st2 ON st2.id = se.student_record_id
                     WHERE se.course_id = ?
-                      AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id)))";
+                      AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id))
+                      AND LOWER(IFNULL(st2.status,'')) NOT IN ('inactive', 'rejected'))";
             }
         }
         $hasBs = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batch_students'")) && $t->num_rows > 0;
-        $hasBatches = $conn instanceof mysqli && ($t = $conn->query("SHOW TABLES LIKE 'batches'")) && $t->num_rows > 0;
         if ($hasBs && $hasBatches) {
-            $hasRecordCol = false;
-            $col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
-            $hasRecordCol = $col && $col->num_rows > 0;
-            $stJoin = "LEFT JOIN students st ON (st.id = bs.student_id
-                OR LOWER(TRIM(CAST(st.student_id AS CHAR))) = LOWER(TRIM(CAST(bs.student_id AS CHAR)))";
+            $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
             if ($hasRecordCol) {
-                $stJoin .= " OR st.id = bs.student_record_id";
+                $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
+                    INNER JOIN batches bb ON bb.id = bs.batch_id
+                    INNER JOIN students st ON st.id = bs.student_record_id
+                    WHERE bb.course_id = ?
+                      AND st.batch_id = bs.batch_id
+                      AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
+                      AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
             }
-            $stJoin .= ')';
-            $match = "(LOWER(TRIM(IFNULL(st.student_id,''))) = LOWER(TRIM(l.student_id))
-                OR CAST(bs.student_id AS CHAR) = TRIM(l.student_id))";
-            $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
-                INNER JOIN batches bb ON bb.id = bs.batch_id
-                {$stJoin}
-                WHERE bb.course_id = ? AND {$match})";
         }
         if ($ors === []) {
             return '';
@@ -984,8 +991,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                 }
             }
         }
-        $applyEnrollmentFilter = $sessionId > 0 || $batchId > 0;
-        if ($applyEnrollmentFilter && $enrollBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
+        if ($enrollBatchId > 0 && attendanceSessionsHaveBatchColumn($conn)) {
             $batchFilterSql = fingerprintStudentInBatchExistsSql($conn);
             if ($batchFilterSql !== '') {
                 $sql .= $batchFilterSql;
@@ -995,7 +1001,7 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     $params[] = $enrollBatchId;
                 }
             }
-        } elseif ($applyEnrollmentFilter && $sessionId > 0 && $enrollBatchId <= 0 && $sqlCourseId > 0) {
+        } elseif ($sqlCourseId > 0) {
             $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
             if ($courseFilterSql !== '') {
                 $sql .= $courseFilterSql;
@@ -1200,6 +1206,21 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
             $row['partial_days'] = $partial;
             $out['rows'][] = $row;
         }
+
+        if (($sqlCourseId > 0 || $enrollBatchId > 0) && function_exists('attendanceStudentMatchesEnrollment')) {
+            $filteredRows = [];
+            foreach ($out['rows'] as $row) {
+                $sid = trim((string) ($row['student_id'] ?? ''));
+                if ($sid === '') {
+                    continue;
+                }
+                if (attendanceStudentMatchesEnrollment($conn, $sid, $sqlCourseId, $enrollBatchId)) {
+                    $filteredRows[] = $row;
+                }
+            }
+            $out['rows'] = $filteredRows;
+        }
+
         return $out;
     }
 }
