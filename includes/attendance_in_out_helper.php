@@ -1065,27 +1065,44 @@ if (!function_exists('attendanceStudentInBatchList')) {
         if (!$bs || $bs->num_rows === 0) {
             return false;
         }
-        $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
-        if (!$hasRecordCol) {
-            return false;
-        }
         $stmt = $conn->prepare("SELECT 1
             FROM batch_students bs
-            INNER JOIN students st ON st.id = bs.student_record_id
             WHERE bs.batch_id IN ({$placeholders})
-              AND LOWER(TRIM(st.student_id)) = LOWER(?)
-              AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+              AND LOWER(TRIM(CAST(bs.student_id AS CHAR))) = LOWER(?)
             LIMIT 1");
-        if (!$stmt) {
-            return false;
+        if ($stmt) {
+            $bindTypes = str_repeat('i', count($batchIds)) . 's';
+            $bindParams = array_merge($batchIds, [$student_id]);
+            $stmt->bind_param($bindTypes, ...$bindParams);
+            $stmt->execute();
+            if ($stmt->get_result()->fetch_assoc()) {
+                $stmt->close();
+                return true;
+            }
+            $stmt->close();
         }
-        $bindTypes = str_repeat('i', count($batchIds)) . 's';
-        $bindParams = array_merge($batchIds, [$student_id]);
-        $stmt->bind_param($bindTypes, ...$bindParams);
-        $stmt->execute();
-        $found = (bool) $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-        return $found;
+        $hasRecordCol = ($col = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'")) && $col->num_rows > 0;
+        if ($hasRecordCol) {
+            $stmt = $conn->prepare("SELECT 1
+                FROM batch_students bs
+                INNER JOIN students st ON st.id = bs.student_record_id
+                WHERE bs.batch_id IN ({$placeholders})
+                  AND LOWER(TRIM(st.student_id)) = LOWER(?)
+                  AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected')
+                LIMIT 1");
+            if ($stmt) {
+                $bindTypes = str_repeat('i', count($batchIds)) . 's';
+                $bindParams = array_merge($batchIds, [$student_id]);
+                $stmt->bind_param($bindTypes, ...$bindParams);
+                $stmt->execute();
+                if ($stmt->get_result()->fetch_assoc()) {
+                    $stmt->close();
+                    return true;
+                }
+                $stmt->close();
+            }
+        }
+        return false;
     }
 }
 

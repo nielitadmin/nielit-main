@@ -1000,33 +1000,8 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
                     $params[] = $enrollBatchId;
                 }
             }
-        } elseif ($sqlCourseId > 0) {
-            $courseFilterBatchIds = function_exists('attendanceCourseFilterBatchIds')
-                ? attendanceCourseFilterBatchIds($conn, $sqlCourseId)
-                : [];
-            if ($courseFilterBatchIds !== []) {
-                $batchPlaceholders = implode(',', array_fill(0, count($courseFilterBatchIds), '?'));
-                $sql .= " AND EXISTS (SELECT 1 FROM batch_students bs
-                    INNER JOIN students st ON st.id = bs.student_record_id
-                    WHERE bs.batch_id IN ({$batchPlaceholders})
-                      AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
-                      AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
-                foreach ($courseFilterBatchIds as $bid) {
-                    $types .= 'i';
-                    $params[] = $bid;
-                }
-            } else {
-                $courseFilterSql = fingerprintStudentInCourseExistsSql($conn);
-                if ($courseFilterSql !== '') {
-                    $sql .= $courseFilterSql;
-                    $placeholders = substr_count($courseFilterSql, '?');
-                    for ($i = 0; $i < $placeholders; $i++) {
-                        $types .= 'i';
-                        $params[] = $sqlCourseId;
-                    }
-                }
-            }
         }
+        // Course roster filter runs in PHP after fetch (batch_students links vary by site).
         if ($sessionId > 0) {
             $sql .= ' AND l.session_id = ?';
             $types .= 'i';
@@ -1223,15 +1198,26 @@ if (!function_exists('getFingerprintMonthlyRecord')) {
         }
 
         if (($sqlCourseId > 0 || $enrollBatchId > 0) && function_exists('attendanceStudentMatchesEnrollment')) {
+            $rosterBatchIds = [];
+            if ($enrollBatchId > 0) {
+                $rosterBatchIds = [$enrollBatchId];
+            } elseif ($sqlCourseId > 0 && function_exists('attendanceCourseFilterBatchIds')) {
+                $rosterBatchIds = attendanceCourseFilterBatchIds($conn, $sqlCourseId);
+            }
             $filteredRows = [];
             foreach ($out['rows'] as $row) {
                 $sid = trim((string) ($row['student_id'] ?? ''));
                 if ($sid === '') {
                     continue;
                 }
-                if (attendanceStudentMatchesEnrollment($conn, $sid, $sqlCourseId, $enrollBatchId)) {
-                    $filteredRows[] = $row;
+                if ($rosterBatchIds !== [] && function_exists('attendanceStudentInBatchList')) {
+                    if (!attendanceStudentInBatchList($conn, $sid, $rosterBatchIds)) {
+                        continue;
+                    }
+                } elseif (!attendanceStudentMatchesEnrollment($conn, $sid, $sqlCourseId, $enrollBatchId)) {
+                    continue;
                 }
+                $filteredRows[] = $row;
             }
             $out['rows'] = $filteredRows;
         }
