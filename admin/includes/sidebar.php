@@ -89,11 +89,6 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-layer-group"></i> Batches
             </a>
         </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-clipboard-list"></i> Requirements
-            </a>
-        </div>
 
         <?php elseif ($is_front_office): ?>
         <!-- Front Office Desk - Students only -->
@@ -102,21 +97,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-users"></i> Students
             </a>
         </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-clipboard-list"></i> Requirements
-            </a>
-        </div>
 
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item">
             <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                 <i class="fas fa-users"></i> Students
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/requirements'); ?>" class="nav-link <?php echo in_array($current_page, ['requirements.php', 'requirements_candidate.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-clipboard-list"></i> Requirements
             </a>
         </div>
         <?php if ($is_master_admin): ?>
