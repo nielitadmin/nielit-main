@@ -2185,7 +2185,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             return strtoupper($selectedCentreName);
         }
 
-        return 'NIELIT BHUBANESWAR';
+        return 'ALL CENTRES';
     }
 
     /**
