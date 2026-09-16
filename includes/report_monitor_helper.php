@@ -2807,6 +2807,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                     COALESCE(b.batch_code, '') AS batch_code,
                     c.id AS course_id,
                     COALESCE(c.course_name, '') AS course_name,
+                    COALESCE(c.course_code, '') AS course_code,
                     COALESCE(cen.id, 0) AS centre_id,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
                     COUNT(DISTINCT bs.id) AS total,
@@ -2829,7 +2830,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             $values[] = $monthFilter['start'];
         }
 
-        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.id, c.course_name, centre_id, centre_name
+        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.id, c.course_name, c.course_code, centre_id, centre_name
                   HAVING total > 0
                   ORDER BY course_name ASC, b.batch_name ASC, b.id DESC';
 
@@ -2850,6 +2851,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             $notApplied = (int) ($row['exam_not_applied_count'] ?? 0);
             $courseId = (int) ($row['course_id'] ?? 0);
             $courseName = (string) ($row['course_name'] ?? '');
+            $courseCode = (string) ($row['course_code'] ?? '');
             $rowCentreId = (int) ($row['centre_id'] ?? 0);
             $centreName = (string) ($row['centre_name'] ?? '');
             $batches[] = [
@@ -2858,6 +2860,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 'batch_code' => (string) ($row['batch_code'] ?? ''),
                 'course_id' => $courseId,
                 'course_name' => $courseName,
+                'course_code' => $courseCode,
                 'centre_id' => $rowCentreId,
                 'centre_name' => $centreName,
                 'total' => $total,
@@ -2877,6 +2880,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                     $courses[$courseId] = [
                         'course_id' => $courseId,
                         'course_name' => $courseName,
+                        'course_code' => $courseCode,
                         'total' => 0,
                         'pass' => 0,
                         'failed' => 0,

@@ -338,11 +338,13 @@ foreach ($resultStatusBatchesAll as $row) {
         || (int) ($row['course_id'] ?? 0) === $resultStatusFilterCourse;
 
     $courseId = (int) ($row['course_id'] ?? 0);
+    $courseCode = (string) ($row['course_code'] ?? '');
     if ($centreMatch && $courseId > 0) {
         if (!isset($resultStatusCourseOptions[$courseId])) {
             $resultStatusCourseOptions[$courseId] = [
                 'course_id' => $courseId,
                 'course_name' => (string) ($row['course_name'] ?? ''),
+                'course_code' => $courseCode,
                 'total' => 0,
                 'pass' => 0,
             ];
@@ -369,6 +371,7 @@ foreach ($resultStatusBatchesAll as $row) {
         $resultStatusCourseView[$courseId] = [
             'course_id' => $courseId,
             'course_name' => (string) ($row['course_name'] ?? ''),
+            'course_code' => $courseCode,
             'total' => 0,
             'pass' => 0,
             'failed' => 0,
@@ -2103,10 +2106,12 @@ Q4 (Jan–Mar)
 <?php
 $resultStatusDetailsOpen = ($resultStatusFilterCentre !== '' || $resultStatusFilterCourse > 0);
 $resultStatusSelectedCourseName = '';
+$resultStatusSelectedCourseCode = '';
 if ($resultStatusFilterCourse > 0) {
     foreach ($resultStatusCourses as $courseRow) {
         if ((int) ($courseRow['course_id'] ?? 0) === $resultStatusFilterCourse) {
             $resultStatusSelectedCourseName = (string) ($courseRow['course_name'] ?? '');
+            $resultStatusSelectedCourseCode = (string) ($courseRow['course_code'] ?? '');
             break;
         }
     }
@@ -2136,6 +2141,9 @@ if ($resultStatusFilterCourse > 0) {
                     Certified for selected course:
                     <strong><?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?></strong>
                     —
+                    <?php if ($resultStatusSelectedCourseCode !== ''): ?>
+                        <span class="text-muted">[<?php echo htmlspecialchars($resultStatusSelectedCourseCode); ?>]</span>
+                    <?php endif; ?>
                     <?php echo htmlspecialchars($resultStatusSelectedCourseName); ?>
                 </div>
             <?php endif; ?>
@@ -2182,9 +2190,16 @@ if ($resultStatusFilterCourse > 0) {
                     <select class="form-select" name="rs_course" id="rs_course">
                         <option value="0">All Courses</option>
                         <?php foreach ($resultStatusCourseOptions as $courseRow): ?>
+                            <?php
+                            $courseOptionLabel = (string) ($courseRow['course_name'] ?? '');
+                            $courseOptionCode = trim((string) ($courseRow['course_code'] ?? ''));
+                            if ($courseOptionCode !== '') {
+                                $courseOptionLabel = '[' . $courseOptionCode . '] ' . $courseOptionLabel;
+                            }
+                            ?>
                             <option value="<?php echo (int) ($courseRow['course_id'] ?? 0); ?>"
                                 <?php echo $resultStatusFilterCourse === (int) ($courseRow['course_id'] ?? 0) ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars((string) ($courseRow['course_name'] ?? '')); ?>
+                                <?php echo htmlspecialchars($courseOptionLabel); ?>
                                 (<?php echo number_format((int) ($courseRow['pass'] ?? 0)); ?> certified /
                                 <?php echo number_format((int) ($courseRow['total'] ?? 0)); ?>)
                             </option>
@@ -2236,7 +2251,8 @@ if ($resultStatusFilterCourse > 0) {
                 <table class="table table-sm table-hover mb-0">
                     <thead class="table-light">
                     <tr>
-                        <th>Course-wise certified</th>
+                        <th>Course Code</th>
+                        <th>Course</th>
                         <th class="text-end">Total</th>
                         <th class="text-end text-success">Pass / Certified</th>
                         <th class="text-end">Failed</th>
@@ -2256,6 +2272,9 @@ if ($resultStatusFilterCourse > 0) {
                             . '#resultStatusCard';
                         ?>
                         <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars((string) ($courseRow['course_code'] ?? '')); ?></strong>
+                            </td>
                             <td><?php echo htmlspecialchars((string) ($courseRow['course_name'] ?? '')); ?></td>
                             <td class="text-end"><?php echo number_format((int) ($courseRow['total'] ?? 0)); ?></td>
                             <td class="text-end text-success fw-semibold"><?php echo number_format((int) ($courseRow['pass'] ?? 0)); ?></td>
@@ -2277,6 +2296,7 @@ if ($resultStatusFilterCourse > 0) {
                 <tr>
                     <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Batch</th>
+                    <th>Course Code</th>
                     <th>Course</th>
                     <th>Centre</th>
                     <th class="text-end">Total</th>
@@ -2290,7 +2310,7 @@ if ($resultStatusFilterCourse > 0) {
                 <tbody>
                 <?php if (empty($resultStatusBatches)): ?>
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">
+                        <td colspan="11" class="text-center text-muted py-4">
                             No result status records found for this filter.
                             Try another centre/course, or update students on Batch Details.
                         </td>
@@ -2303,6 +2323,7 @@ if ($resultStatusFilterCourse > 0) {
                                 <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
                                 <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
                             </td>
+                            <td><strong><?php echo htmlspecialchars((string) ($row['course_code'] ?? '')); ?></strong></td>
                             <td><?php echo htmlspecialchars($row['course_name']); ?></td>
                             <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
                             <td class="text-end"><?php echo number_format((int) $row['total']); ?></td>
