@@ -191,9 +191,16 @@ if (!function_exists('lookupBiometricKioskStudent')) {
         }
 
         if ($batchId > 0 && function_exists('attendanceStudentInBatch') && !attendanceStudentInBatch($conn, (string) $row['student_id'], $batchId)) {
+            $batchLabel = function_exists('attendanceBatchName') ? attendanceBatchName($conn, $batchId) : 'this batch';
+            $theirBatches = function_exists('attendanceStudentBatchLabels')
+                ? attendanceStudentBatchLabels($conn, (string) $row['student_id'])
+                : [];
+            $extra = $theirBatches !== []
+                ? (' They are currently in: ' . implode(', ', $theirBatches) . '.')
+                : ' They are registered in the course, but not assigned to this section yet.';
             return [
                 'ok' => false,
-                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not assigned to this batch. Assign them to the batch first.',
+                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not assigned to section "' . $batchLabel . '".' . $extra . ' Open Batch Details → Add Students to Batch (or move them to this section), then try again.',
             ];
         }
 
@@ -819,7 +826,13 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
                 INNER JOIN batches bb ON bb.id = bs.batch_id
                 INNER JOIN students st ON st.id = bs.student_record_id
                 WHERE bs.batch_id = ?
-                  AND st.batch_id = bs.batch_id
+                  AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
+                  AND {$courseOk}
+                  AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
+            $ors[] = "EXISTS (SELECT 1 FROM batch_students bs
+                INNER JOIN batches bb ON bb.id = bs.batch_id
+                INNER JOIN students st ON st.id = bs.student_id
+                WHERE bs.batch_id = ?
                   AND LOWER(TRIM(st.student_id)) = LOWER(TRIM(l.student_id))
                   AND {$courseOk}
                   AND LOWER(IFNULL(st.status,'')) NOT IN ('inactive', 'rejected'))";
@@ -833,7 +846,6 @@ if (!function_exists('fingerprintStudentInBatchExistsSql')) {
                     INNER JOIN batches bb ON bb.id = se.batch_id
                     INNER JOIN students st2 ON st2.id = se.student_record_id
                     WHERE se.batch_id = ?
-                      AND st2.batch_id = se.batch_id
                       AND {$courseOk}
                       AND LOWER(TRIM(IFNULL(st2.student_id,''))) = LOWER(TRIM(l.student_id))
                       AND LOWER(IFNULL(st2.status,'')) NOT IN ('inactive', 'rejected'))";
