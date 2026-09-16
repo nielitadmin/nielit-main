@@ -176,14 +176,32 @@ if (!function_exists('inspectorExpandRelatedRecords')) {
         if (!empty($recordIds) && inspectorTableExists($conn, 'batch_students')) {
             $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
             $useRecordCol = $hasRecordCol && $hasRecordCol->num_rows > 0;
+            $hasNielitCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'nielit_registration_no'");
+            $useNielitCol = $hasNielitCol && $hasNielitCol->num_rows > 0;
+            $hasResultCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'result_status'");
+            $useResultCol = $hasResultCol && $hasResultCol->num_rows > 0;
+            $hasStudentNielitCol = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
+            $useStudentNielitCol = $hasStudentNielitCol && $hasStudentNielitCol->num_rows > 0;
+
             $placeholders = implode(',', array_fill(0, count($recordIds), '?'));
             $types = str_repeat('i', count($recordIds));
+            $nielitSelect = $useNielitCol ? 'bs.nielit_registration_no,' : "NULL AS nielit_registration_no,";
+            $resultSelect = $useResultCol ? 'bs.result_status,' : "'exam_not_applied' AS result_status,";
+            $studentNielitSelect = $useStudentNielitCol
+                ? 's.nielit_registration_no AS student_nielit_registration_no,'
+                : 'NULL AS student_nielit_registration_no,';
 
             if ($useRecordCol) {
                 $sql = "SELECT bs.id, bs.batch_id, bs.student_id, bs.student_record_id, bs.enrollment_date,
-                               bs.fees_paid, bs.fees_status, b.batch_name, b.batch_code
+                               bs.fees_paid, bs.fees_status, {$nielitSelect} {$resultSelect}
+                               b.batch_name, b.batch_code, c.course_name, c.course_code,
+                               s.id AS student_pk, s.student_id AS student_code, s.name AS student_name,
+                               {$studentNielitSelect}
+                               COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id) AS resolved_student_record_id
                         FROM batch_students bs
                         LEFT JOIN batches b ON b.id = bs.batch_id
+                        LEFT JOIN courses c ON c.id = b.course_id
+                        LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
                         WHERE bs.student_record_id IN ({$placeholders})
                            OR bs.student_id IN ({$placeholders})
                         ORDER BY bs.id DESC";
@@ -191,9 +209,15 @@ if (!function_exists('inspectorExpandRelatedRecords')) {
                 $params = array_merge($recordIds, $recordIds);
             } else {
                 $sql = "SELECT bs.id, bs.batch_id, bs.student_id, bs.enrollment_date,
-                               bs.fees_paid, bs.fees_status, b.batch_name, b.batch_code
+                               bs.fees_paid, bs.fees_status, {$nielitSelect} {$resultSelect}
+                               b.batch_name, b.batch_code, c.course_name, c.course_code,
+                               s.id AS student_pk, s.student_id AS student_code, s.name AS student_name,
+                               {$studentNielitSelect}
+                               bs.student_id AS resolved_student_record_id
                         FROM batch_students bs
                         LEFT JOIN batches b ON b.id = bs.batch_id
+                        LEFT JOIN courses c ON c.id = b.course_id
+                        LEFT JOIN students s ON s.id = bs.student_id
                         WHERE bs.student_id IN ({$placeholders})
                         ORDER BY bs.id DESC";
                 $params = $recordIds;
@@ -804,9 +828,18 @@ if (!function_exists('inspectorRunSearch')) {
             $identityTypes .= 's';
         }
         if (($criteria['student_id'] ?? '') !== '') {
-            $identityConds[] = 's.student_id = ?';
-            $identityParams[] = $criteria['student_id'];
-            $identityTypes .= 's';
+            $sid = (string) $criteria['student_id'];
+            $hasStudentNielit = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
+            if ($hasStudentNielit && $hasStudentNielit->num_rows > 0) {
+                $identityConds[] = '(s.student_id = ? OR s.nielit_registration_no = ?)';
+                $identityParams[] = $sid;
+                $identityParams[] = $sid;
+                $identityTypes .= 'ss';
+            } else {
+                $identityConds[] = 's.student_id = ?';
+                $identityParams[] = $sid;
+                $identityTypes .= 's';
+            }
         }
         if (($criteria['name'] ?? '') !== '') {
             $nameSql = inspectorNameMatchSql('s.name', (string)$criteria['name'], $identityParams, $identityTypes);
@@ -817,7 +850,14 @@ if (!function_exists('inspectorRunSearch')) {
 
         $studentSelect = 'SELECT s.id, s.student_id, s.name, s.aadhar, s.mobile, s.email, s.dob, s.course_id,
                 c.course_name, c.course_code, s.scheme_id, sch.scheme_name, s.batch_id,
-                b.batch_name, b.batch_code, s.status, s.registration_date, s.account_id
+                b.batch_name, b.batch_code, s.status, s.registration_date, s.account_id';
+        $hasStudentNielitCol = $conn->query("SHOW COLUMNS FROM students LIKE 'nielit_registration_no'");
+        if ($hasStudentNielitCol && $hasStudentNielitCol->num_rows > 0) {
+            $studentSelect .= ', s.nielit_registration_no';
+        } else {
+            $studentSelect .= ', NULL AS nielit_registration_no';
+        }
+        $studentSelect .= '
             FROM students s
             LEFT JOIN courses c ON c.id = s.course_id
             LEFT JOIN schemes sch ON sch.id = s.scheme_id

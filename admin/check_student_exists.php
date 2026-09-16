@@ -7,6 +7,8 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/activity_logger.php';
+require_once __DIR__ . '/../includes/nielit_registration_helper.php';
+require_once __DIR__ . '/../batch_module/includes/batch_result_helper.php';
 require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
@@ -24,6 +26,13 @@ if ($adminRole !== 'master_admin') {
     header('Location: students.php');
     exit();
 }
+
+ensureNielitRegistrationNoColumns($conn);
+ensureBatchResultSchema($conn);
+$result_status_options = batch_result_status_options();
+$can_manage_result = canManageBatchResultStatus($adminRole);
+$can_view_result = canViewBatchResultStatus($adminRole);
+$batchModuleAdminUrl = rtrim(APP_URL, '/') . '/batch_module/admin';
 
 $canDelete = true;
 $canManageEnrollment = true;
@@ -558,9 +567,9 @@ $active_theme = loadActiveTheme($conn);
                        value="<?php echo htmlspecialchars($email); ?>" placeholder="name@email.com">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Student ID</label>
+                <label class="form-label">Student ID / NIELIT Portal Reg. No.</label>
                 <input type="text" name="student_id" class="form-control"
-                       value="<?php echo htmlspecialchars($studentId); ?>" placeholder="NIELIT/2026/BBSR/0001">
+                       value="<?php echo htmlspecialchars($studentId); ?>" placeholder="NIELIT/2026/BBSR/0001 or portal reg. no.">
             </div>
             <div class="col-md-4">
                 <label class="form-label">Student Name</label>
@@ -746,6 +755,7 @@ $active_theme = loadActiveTheme($conn);
                     <tr>
                         <th>Record ID</th>
                         <th>Student ID</th>
+                        <th>NIELIT Portal Reg. No.</th>
                         <th>Name</th>
                         <th>Mobile</th>
                         <th>Email</th>
@@ -763,6 +773,7 @@ $active_theme = loadActiveTheme($conn);
                     <tr>
                         <td><?php echo (int)$row['id']; ?></td>
                         <td><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
+                        <td><?php echo htmlspecialchars(resolveNielitRegistrationNo($row)); ?></td>
                         <td><?php echo htmlspecialchars($row['name']); ?></td>
                         <td><?php echo htmlspecialchars($row['mobile']); ?></td>
                         <td><?php echo htmlspecialchars($row['email']); ?></td>
@@ -1019,21 +1030,101 @@ $active_theme = loadActiveTheme($conn);
 
     <?php if (!empty($relatedRecords['batch_students'])): ?>
     <div class="page-card p-0 mb-4 overflow-hidden">
-        <div class="p-3 border-bottom"><h2 class="h5 mb-0"><i class="fas fa-users-class"></i> batch_students</h2></div>
+        <div class="p-3 border-bottom">
+            <h2 class="h5 mb-1"><i class="fas fa-users-class"></i> batch_students — NIELIT Portal Reg. No. &amp; Result Status</h2>
+            <p class="small text-muted mb-0">
+                Update NIELIT Portal Reg. No. and Result Status here (same as Batch Details).
+            </p>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 align-middle">
                 <thead>
                     <tr>
-                        <th>ID</th><th>Batch</th><th>Student record</th><th>Enrolled</th><th>Fees</th>
+                        <th>ID</th>
+                        <th>Batch</th>
+                        <th>Course</th>
+                        <th>Student</th>
+                        <th>NIELIT Portal Reg. No.</th>
+                        <?php if ($can_view_result): ?><th>Result Status</th><?php endif; ?>
+                        <th>Enrolled</th>
+                        <th>Fees</th>
                         <?php if ($canDelete): ?><th>Action</th><?php endif; ?>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($relatedRecords['batch_students'] as $row): ?>
+                    <?php foreach ($relatedRecords['batch_students'] as $row):
+                        $studentRecordId = (int) ($row['resolved_student_record_id'] ?? $row['student_record_id'] ?? $row['student_id'] ?? 0);
+                        $batchIdForRow = (int) ($row['batch_id'] ?? 0);
+                        $regValue = resolveNielitRegistrationNo([
+                            'nielit_registration_no' => $row['nielit_registration_no']
+                                ?: ($row['student_nielit_registration_no'] ?? ''),
+                            'student_id' => $row['student_code'] ?? '',
+                        ]);
+                        $rStatus = batch_result_normalize_status($row['result_status'] ?? 'exam_not_applied');
+                        $rBadge = batch_result_status_badge_class($rStatus);
+                        $inputId = 'inspector_nielit_reg_' . (int) $row['id'];
+                    ?>
                     <tr>
                         <td><?php echo (int)$row['id']; ?></td>
-                        <td><?php echo htmlspecialchars(($row['batch_name'] ?? 'Batch') . ' (' . ($row['batch_code'] ?? $row['batch_id']) . ')'); ?></td>
-                        <td>#<?php echo (int)($row['student_record_id'] ?? $row['student_id']); ?></td>
+                        <td>
+                            <?php echo htmlspecialchars(($row['batch_name'] ?? 'Batch') . ' (' . ($row['batch_code'] ?? $row['batch_id']) . ')'); ?>
+                            <?php if ($batchIdForRow > 0): ?>
+                                <br>
+                                <a class="small" href="<?php echo htmlspecialchars($batchModuleAdminUrl . '/batch_details.php?id=' . $batchIdForRow); ?>" target="_blank">
+                                    Open batch
+                                </a>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php echo htmlspecialchars($row['course_name'] ?? '—'); ?>
+                            <?php if (!empty($row['course_code'])): ?>
+                                <br><small class="text-muted"><?php echo htmlspecialchars($row['course_code']); ?></small>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <strong><?php echo htmlspecialchars($row['student_name'] ?? '—'); ?></strong>
+                            <br><small class="text-muted"><?php echo htmlspecialchars($row['student_code'] ?? ('#' . $studentRecordId)); ?></small>
+                        </td>
+                        <td style="min-width:220px;">
+                            <?php if ($studentRecordId > 0 && $batchIdForRow > 0): ?>
+                                <div class="d-flex gap-1 align-items-center">
+                                    <input type="text"
+                                           id="<?php echo htmlspecialchars($inputId); ?>"
+                                           class="form-control form-control-sm"
+                                           value="<?php echo htmlspecialchars($regValue); ?>"
+                                           placeholder="Portal Reg. No.">
+                                    <button type="button"
+                                            class="btn btn-success btn-sm"
+                                            title="Save NIELIT Portal Reg. No."
+                                            onclick="inspectorUpdateNielitReg(<?php echo (int) $studentRecordId; ?>, <?php echo (int) $batchIdForRow; ?>, '<?php echo htmlspecialchars($inputId, ENT_QUOTES); ?>', this)">
+                                        <i class="fas fa-save"></i>
+                                    </button>
+                                </div>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($regValue !== '' ? $regValue : '—'); ?>
+                            <?php endif; ?>
+                        </td>
+                        <?php if ($can_view_result): ?>
+                        <td style="min-width:180px;">
+                            <?php if ($can_manage_result && $studentRecordId > 0 && $batchIdForRow > 0): ?>
+                                <select class="form-select form-select-sm"
+                                        data-batch-id="<?php echo (int) $batchIdForRow; ?>"
+                                        data-student-record-id="<?php echo (int) $studentRecordId; ?>"
+                                        data-previous="<?php echo htmlspecialchars($rStatus); ?>"
+                                        onchange="inspectorSaveResultStatus(this)">
+                                    <?php foreach ($result_status_options as $value => $label): ?>
+                                        <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $rStatus === $value ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($label); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            <?php else: ?>
+                                <span class="badge bg-<?php echo htmlspecialchars($rBadge); ?>">
+                                    <?php echo htmlspecialchars($result_status_options[$rStatus] ?? 'Exam-not applied'); ?>
+                                </span>
+                            <?php endif; ?>
+                        </td>
+                        <?php endif; ?>
                         <td><?php echo !empty($row['enrollment_date']) ? date('d M Y', strtotime($row['enrollment_date'])) : '—'; ?></td>
                         <td><?php echo htmlspecialchars($row['fees_status'] ?? '—'); ?></td>
                         <?php if ($canDelete): ?>
@@ -1314,4 +1405,100 @@ document.addEventListener('DOMContentLoaded', function(){
         if (e.target && e.target.id === 'useTextBtn') { var val = (ocrResultBox && ocrResultBox.value) ? ocrResultBox.value.trim() : ''; if (!val){ alert('No OCR text available.'); return; } document.getElementById('ocr_text').value = val; form.submit(); }
     });
 });
+
+(function () {
+    const batchAdminBase = <?php echo json_encode($batchModuleAdminUrl, JSON_UNESCAPED_SLASHES); ?>;
+
+    function inspectorToast(message, type) {
+        let box = document.getElementById('inspector-toast');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'inspector-toast';
+            box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:3000;min-width:240px;max-width:360px;';
+            document.body.appendChild(box);
+        }
+        const tone = type === 'success' ? 'success' : (type === 'error' || type === 'danger' ? 'danger' : 'info');
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-' + tone + ' shadow mb-2 py-2 px-3';
+        alert.textContent = message;
+        box.appendChild(alert);
+        setTimeout(function () {
+            alert.remove();
+        }, 2800);
+    }
+
+    window.inspectorUpdateNielitReg = function (studentId, batchId, inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (!input) {
+            return;
+        }
+        const regNo = input.value.trim();
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        fetch(batchAdminBase + '/update_nielit_reg.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'student_id=' + encodeURIComponent(studentId)
+                + '&batch_id=' + encodeURIComponent(batchId)
+                + '&nielit_reg_no=' + encodeURIComponent(regNo)
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.success) {
+                    if (typeof data.nielit_reg_no === 'string') {
+                        input.value = data.nielit_reg_no;
+                    }
+                    btn.innerHTML = '<i class="fas fa-check"></i>';
+                    inspectorToast(data.message || 'NIELIT Portal Reg. No. saved.', 'success');
+                    setTimeout(function () {
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                    }, 1500);
+                } else {
+                    inspectorToast(data.message || 'Could not save registration number.', 'error');
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                }
+            })
+            .catch(function () {
+                inspectorToast('Failed to update registration number.', 'error');
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+            });
+    };
+
+    window.inspectorSaveResultStatus = function (selectEl) {
+        if (!selectEl) {
+            return;
+        }
+        const previous = selectEl.getAttribute('data-previous') || selectEl.value;
+        const status = selectEl.value;
+        const formData = new FormData();
+        formData.append('batch_id', selectEl.getAttribute('data-batch-id') || '');
+        formData.append('student_record_id', selectEl.getAttribute('data-student-record-id') || '');
+        formData.append('result_status', status);
+        selectEl.disabled = true;
+        fetch(batchAdminBase + '/save_batch_result_status.php', {
+            method: 'POST',
+            body: formData
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                selectEl.disabled = false;
+                if (data.success) {
+                    selectEl.setAttribute('data-previous', status);
+                    inspectorToast(data.message || 'Result status updated.', 'success');
+                } else {
+                    selectEl.value = previous;
+                    inspectorToast(data.message || 'Could not save result status.', 'error');
+                }
+            })
+            .catch(function () {
+                selectEl.disabled = false;
+                selectEl.value = previous;
+                inspectorToast('Could not save result status.', 'error');
+            });
+    };
+})();
 </script>
