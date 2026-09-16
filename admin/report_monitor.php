@@ -302,6 +302,16 @@ $admissionsByBatch = report_monitor_get_admissions_by_batch(
     $monthFilter
 );
 
+$resultStatusSummary = report_monitor_get_result_status_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter
+);
+$resultStatusTotals = $resultStatusSummary['totals'] ?? [];
+$resultStatusBatches = $resultStatusSummary['batches'] ?? [];
+$resultStatusOptions = $resultStatusSummary['options'] ?? [];
+
 /*------------------------------------------------------------
 | KPI
 -------------------------------------------------------------*/
@@ -1992,6 +2002,119 @@ Q4 (Jan–Mar)
                             <td><?php echo htmlspecialchars($row['course_name']); ?></td>
                             <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
                             <td class="text-end"><?php echo number_format($row['admissions']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- RESULT STATUS BY BATCH -->
+<div class="card table-card mb-4" id="resultStatusCard">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>
+                Result Status (<?php echo htmlspecialchars($monthScopeLabel); ?>)
+            </strong>
+            <span class="badge bg-primary ms-2">
+                <?php echo number_format((int) ($resultStatusTotals['total'] ?? 0)); ?> Students
+            </span>
+            <?php if (!empty($resultStatusBatches)): ?>
+                <span class="badge bg-secondary ms-1"><?php echo number_format(count($resultStatusBatches)); ?> batches</span>
+            <?php endif; ?>
+            <div class="small text-muted mt-1">
+                From Batch Details → Result Status
+                (<?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?> pass / certified,
+                <?php echo number_format((int) ($resultStatusTotals['failed'] ?? 0)); ?> failed,
+                <?php echo number_format((int) ($resultStatusTotals['absent'] ?? 0)); ?> absent,
+                <?php echo number_format((int) ($resultStatusTotals['exam_not_applied'] ?? 0)); ?> exam-not applied)
+            </div>
+        </div>
+        <button type="button"
+                class="btn btn-outline-secondary"
+                id="resultStatusToggle"
+                aria-expanded="false"
+                aria-controls="resultStatusBody">
+            <i class="fas fa-chevron-down me-1" id="resultStatusToggleIcon"></i>
+            <span id="resultStatusToggleLabel">Show Details</span>
+        </button>
+    </div>
+    <div class="card-body p-0 d-none" id="resultStatusBody">
+        <div class="row g-2 p-3 border-bottom">
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted">Pass / Certified</div>
+                    <div class="fs-5 fw-semibold text-success"><?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted">Failed</div>
+                    <div class="fs-5 fw-semibold text-danger"><?php echo number_format((int) ($resultStatusTotals['failed'] ?? 0)); ?></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted">Absent</div>
+                    <div class="fs-5 fw-semibold text-warning"><?php echo number_format((int) ($resultStatusTotals['absent'] ?? 0)); ?></div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="border rounded p-2 h-100">
+                    <div class="small text-muted">Exam-not applied</div>
+                    <div class="fs-5 fw-semibold text-secondary"><?php echo number_format((int) ($resultStatusTotals['exam_not_applied'] ?? 0)); ?></div>
+                </div>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
+                    <th>Batch</th>
+                    <th>Course</th>
+                    <th>Centre</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Pass / Certified</th>
+                    <th class="text-end">Failed</th>
+                    <th class="text-end">Absent</th>
+                    <th class="text-end">Exam-not applied</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($resultStatusBatches)): ?>
+                    <tr>
+                        <td colspan="10" class="text-center text-muted py-4">
+                            No result status records found for this period.
+                            Update students on Batch Details first.
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($resultStatusBatches as $resultBatchIndex => $row): ?>
+                        <tr>
+                            <td class="text-center"><?php echo (int) $resultBatchIndex + 1; ?></td>
+                            <td>
+                                <strong><?php echo htmlspecialchars($row['batch_name']); ?></strong>
+                                <br><small><?php echo htmlspecialchars($row['batch_code']); ?></small>
+                            </td>
+                            <td><?php echo htmlspecialchars($row['course_name']); ?></td>
+                            <td><?php echo htmlspecialchars($row['centre_name']); ?></td>
+                            <td class="text-end"><?php echo number_format((int) $row['total']); ?></td>
+                            <td class="text-end text-success"><?php echo number_format((int) $row['pass']); ?></td>
+                            <td class="text-end text-danger"><?php echo number_format((int) $row['failed']); ?></td>
+                            <td class="text-end text-warning"><?php echo number_format((int) $row['absent']); ?></td>
+                            <td class="text-end text-secondary"><?php echo number_format((int) $row['exam_not_applied']); ?></td>
+                            <td class="text-end">
+                                <?php if ((int) ($row['batch_id'] ?? 0) > 0): ?>
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="<?php echo APP_URL; ?>/batch_module/admin/batch_details.php?id=<?php echo (int) $row['batch_id']; ?>">
+                                        Open
+                                    </a>
+                                <?php endif; ?>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -3889,6 +4012,46 @@ ADMISSIONS BY BATCH DROPDOWN
         document.addEventListener('DOMContentLoaded', initAdmissionsByBatchToggle);
     } else {
         initAdmissionsByBatchToggle();
+    }
+})();
+
+/*==================================================
+RESULT STATUS DROPDOWN
+==================================================*/
+
+(function () {
+    function initResultStatusToggle() {
+        const btn = document.getElementById('resultStatusToggle');
+        const body = document.getElementById('resultStatusBody');
+        const icon = document.getElementById('resultStatusToggleIcon');
+        const label = document.getElementById('resultStatusToggleLabel');
+        if (!btn || !body) {
+            return;
+        }
+
+        btn.addEventListener('click', function () {
+            const open = btn.getAttribute('aria-expanded') === 'true';
+            const next = !open;
+            btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+            if (next) {
+                body.classList.remove('d-none');
+            } else {
+                body.classList.add('d-none');
+            }
+            if (icon) {
+                icon.classList.toggle('fa-chevron-down', !next);
+                icon.classList.toggle('fa-chevron-up', next);
+            }
+            if (label) {
+                label.textContent = next ? 'Hide Details' : 'Show Details';
+            }
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initResultStatusToggle);
+    } else {
+        initResultStatusToggle();
     }
 })();
 

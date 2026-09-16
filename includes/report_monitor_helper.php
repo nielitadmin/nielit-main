@@ -2736,3 +2736,135 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 }
+
+if (!function_exists('report_monitor_get_result_status_summary')) {
+    /**
+     * Exam / result status from batch_students for Report Monitor.
+     *
+     * @return array{totals:array<string,int>,batches:list<array<string,mixed>>,options:array<string,string>}
+     */
+    function report_monitor_get_result_status_summary($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []): array
+    {
+        $options = [
+            'exam_not_applied' => 'Exam-not applied',
+            'absent' => 'Absent',
+            'pass' => 'Pass / Certified',
+            'failed' => 'Failed',
+        ];
+        $emptyTotals = [
+            'total' => 0,
+            'exam_not_applied' => 0,
+            'absent' => 0,
+            'pass' => 0,
+            'failed' => 0,
+        ];
+        $out = [
+            'totals' => $emptyTotals,
+            'batches' => [],
+            'options' => $options,
+        ];
+
+        if (!report_monitor_table_exists($conn, 'batch_students') || !report_monitor_table_exists($conn, 'batches')) {
+            return $out;
+        }
+
+        $resultHelper = __DIR__ . '/../batch_module/includes/batch_result_helper.php';
+        if (is_file($resultHelper)) {
+            require_once $resultHelper;
+            if (function_exists('ensureBatchResultSchema')) {
+                ensureBatchResultSchema($conn);
+            }
+            if (function_exists('batch_result_status_options')) {
+                $options = batch_result_status_options();
+                $out['options'] = $options;
+            }
+        }
+
+        if (!report_monitor_table_has_column($conn, 'batch_students', 'result_status')) {
+            return $out;
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $activeStudent = report_monitor_student_active_sql('s');
+
+        $statusNorm = "LOWER(REPLACE(REPLACE(TRIM(IFNULL(bs.result_status,'')), ' ', '_'), '-', '_'))";
+        $statusExpr = "CASE
+            WHEN {$statusNorm} IN ('pass','certified','pass_certified') THEN 'pass'
+            WHEN {$statusNorm} = 'absent' THEN 'absent'
+            WHEN {$statusNorm} = 'failed' THEN 'failed'
+            ELSE 'exam_not_applied'
+        END";
+
+        $sql = "SELECT
+                    b.id AS batch_id,
+                    b.batch_name,
+                    COALESCE(b.batch_code, '') AS batch_code,
+                    COALESCE(c.course_name, '') AS course_name,
+                    COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
+                    COUNT(DISTINCT bs.id) AS total,
+                    COUNT(DISTINCT CASE WHEN ({$statusExpr}) = 'pass' THEN bs.id END) AS pass_count,
+                    COUNT(DISTINCT CASE WHEN ({$statusExpr}) = 'failed' THEN bs.id END) AS failed_count,
+                    COUNT(DISTINCT CASE WHEN ({$statusExpr}) = 'absent' THEN bs.id END) AS absent_count,
+                    COUNT(DISTINCT CASE WHEN ({$statusExpr}) = 'exam_not_applied' THEN bs.id END) AS exam_not_applied_count
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                INNER JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres cen ON cen.id = c.centre_id
+                LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                WHERE (s.id IS NULL OR {$activeStudent})
+                {$scopeFilter['sql']}";
+
+        if (!empty($monthFilter['active'])) {
+            $sql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+            $types .= 'ss';
+            $values[] = $monthFilter['end'];
+            $values[] = $monthFilter['start'];
+        }
+
+        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.course_name, centre_name
+                  HAVING total > 0
+                  ORDER BY b.batch_name ASC, b.id DESC';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return $out;
+        }
+
+        $totals = $emptyTotals;
+        $batches = [];
+        while ($row = $result->fetch_assoc()) {
+            $total = (int) ($row['total'] ?? 0);
+            $pass = (int) ($row['pass_count'] ?? 0);
+            $failed = (int) ($row['failed_count'] ?? 0);
+            $absent = (int) ($row['absent_count'] ?? 0);
+            $notApplied = (int) ($row['exam_not_applied_count'] ?? 0);
+            $batches[] = [
+                'batch_id' => (int) ($row['batch_id'] ?? 0),
+                'batch_name' => (string) ($row['batch_name'] ?? ''),
+                'batch_code' => (string) ($row['batch_code'] ?? ''),
+                'course_name' => (string) ($row['course_name'] ?? ''),
+                'centre_name' => (string) ($row['centre_name'] ?? ''),
+                'total' => $total,
+                'pass' => $pass,
+                'failed' => $failed,
+                'absent' => $absent,
+                'exam_not_applied' => $notApplied,
+            ];
+            $totals['total'] += $total;
+            $totals['pass'] += $pass;
+            $totals['failed'] += $failed;
+            $totals['absent'] += $absent;
+            $totals['exam_not_applied'] += $notApplied;
+        }
+
+        $out['totals'] = $totals;
+        $out['batches'] = $batches;
+        $out['options'] = $options;
+        return $out;
+    }
+}
+
