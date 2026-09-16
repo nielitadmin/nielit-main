@@ -597,7 +597,7 @@ public_skeleton_render_head();
 
         <div class="collapse navbar-collapse" id="mainNav">
             <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
-                <?php echo getPublicSiteNavigationHtml($conn, 'courses.php'); ?>
+                    <?php echo getPublicSiteNavigationHtml($conn, 'courses.php', false); ?>
             </ul>
         </div>
     </div>

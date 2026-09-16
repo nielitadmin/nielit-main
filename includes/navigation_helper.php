@@ -170,7 +170,7 @@ function filterPublicNavigationMenuItems(array $menuItems): array
  * Shared public-site navbar items (homepage + public pages).
  * Uses DB menu when available, otherwise a consistent fallback.
  */
-function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): string
+function getPublicSiteNavigationHtml($conn = null, string $currentPage = '', bool $includeRecruitment = true): string
 {
     if (isRecruitmentPortalRequest()) {
         return '<li class="nav-item"><a class="nav-link active" href="' . htmlspecialchars(recruitment_url(), ENT_QUOTES, 'UTF-8') . '">Recruitment</a></li>';
@@ -182,14 +182,20 @@ function getPublicSiteNavigationHtml($conn = null, string $currentPage = ''): st
         $menuItems = getNavigationMenu($conn);
         $menuItems = filterPublicNavigationMenuItems($menuItems);
         $menuItems = ensurePublicAboutNavigationItems($menuItems);
+        if (!$includeRecruitment) {
+            $menuItems = array_values(array_filter($menuItems, static function (array $item): bool {
+                return stripos((string) ($item['label'] ?? ''), 'recruitment') === false
+                    && stripos((string) ($item['url'] ?? ''), 'recruitment') === false;
+            }));
+        }
         $html = renderNavigationMenu($menuItems, $currentPage);
     }
 
     if (trim($html) === '') {
-        $html = getFallbackNavigationMenu($currentPage);
+        $html = getFallbackNavigationMenu($currentPage, $includeRecruitment);
     }
 
-    if (stripos($html, 'recruitment') === false && stripos($html, '>Recruitment<') === false) {
+    if ($includeRecruitment && stripos($html, 'recruitment') === false && stripos($html, '>Recruitment<') === false) {
         $recActive = (stripos($currentPage, 'recruitment') !== false) ? ' active' : '';
         $recLink = '<li class="nav-item"><a class="nav-link' . $recActive . '" href="' . htmlspecialchars(recruitment_url(), ENT_QUOTES, 'UTF-8') . '">Recruitment</a></li>';
         $html = $recLink . $html;
