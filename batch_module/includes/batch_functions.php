@@ -481,13 +481,23 @@ function getBatchStudents($batch_id, $conn) {
                     bs.placement_date, bs.placement_remarks, bs.placement_updated_at';
             }
         }
+        $resultSelect = '';
+        if (file_exists(__DIR__ . '/batch_result_helper.php')) {
+            require_once __DIR__ . '/batch_result_helper.php';
+            if (function_exists('ensureBatchResultSchema')) {
+                ensureBatchResultSchema($conn);
+            }
+            if (function_exists('batch_result_column_exists') && batch_result_column_exists($conn, 'result_status')) {
+                $resultSelect = ', bs.result_status, bs.result_updated_at';
+            }
+        }
         $sql = "SELECT DISTINCT s.*,
                 COALESCE(bs.enrollment_date, s.approved_at, s.created_at) AS enrollment_date,
                 COALESCE(bs.fees_status, 'Not Paid') AS fees_status,
                 COALESCE(bs.fees_paid, 0) AS fees_paid,
                 COALESCE(bs.attendance_percentage, 0) AS attendance_percentage,
                 {$nielitSelect},
-                bs.id AS batch_student_link_id{$certSelect}{$placementSelect}
+                bs.id AS batch_student_link_id{$certSelect}{$placementSelect}{$resultSelect}
                 FROM students s
                 LEFT JOIN batch_students bs ON bs.batch_id = ?
                     AND (bs.student_record_id = s.id OR bs.student_id = s.id)

@@ -9,6 +9,7 @@ require_once __DIR__ . '/../../includes/session_manager.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../includes/batch_certificate_helper.php';
 require_once __DIR__ . '/../includes/batch_placement_helper.php';
+require_once __DIR__ . '/../includes/batch_result_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login.php");
@@ -54,6 +55,7 @@ if (!$batch) {
 repairBatchStudentsJunction($conn, (int)$batch_id);
 ensureBatchCertificateSchema($conn);
 ensureBatchPlacementSchema($conn);
+ensureBatchResultSchema($conn);
 
 // Check if batch is locked
 $is_locked = isBatchLocked($batch_id, $conn);
@@ -85,6 +87,10 @@ $can_view_placement = canViewBatchPlacements($admin_role);
 $placement_stats = getBatchPlacementStats($conn, (int) $batch_id);
 $placement_status_options = batch_placement_status_options();
 $placement_package_types = batch_placement_package_type_options();
+$can_manage_result = canManageBatchResultStatus($admin_role);
+$can_view_result = canViewBatchResultStatus($admin_role);
+$result_status_options = batch_result_status_options();
+$result_stats = getBatchResultStats($conn, (int) $batch_id);
 
 $message = $_SESSION['batch_details_message'] ?? '';
 $message_type = $_SESSION['batch_details_message_type'] ?? 'success';
@@ -711,6 +717,48 @@ function saveBatchPlacement() {
     });
 }
 
+function saveBatchResultStatus(selectEl) {
+    if (!selectEl) return;
+    const studentRecordId = selectEl.getAttribute('data-student-record-id');
+    const previous = selectEl.getAttribute('data-previous') || selectEl.value;
+    const status = selectEl.value;
+    const formData = new FormData();
+    formData.append('batch_id', <?php echo (int) $batch_id; ?>);
+    formData.append('student_record_id', studentRecordId);
+    formData.append('result_status', status);
+    selectEl.disabled = true;
+    showToast('Saving result status...', 'info');
+    fetch('save_batch_result_status.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(async response => {
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            throw new Error(text || 'Invalid server response');
+        }
+    })
+    .then(data => {
+        selectEl.disabled = false;
+        if (data.success) {
+            selectEl.setAttribute('data-previous', status);
+            selectEl.className = 'form-control form-control-sm result-status-select badge-tone-' + (data.badge_class || 'secondary');
+            showToast(data.message || 'Result status updated.', 'success');
+        } else {
+            selectEl.value = previous;
+            showToast(data.message || 'Could not save result status.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        selectEl.disabled = false;
+        selectEl.value = previous;
+        showToast(error.message || 'Could not save result status.', 'error');
+    });
+}
+
 // Scanned Admission Order Functions
 function uploadScannedOrder(batchId, fileInput) {
     const file = fileInput.files[0];
@@ -977,6 +1025,14 @@ function downloadScannedOrder(batchId) {
 .cert-upload-wrap .btn {
     white-space: nowrap;
 }
+.result-status-select {
+    min-width: 150px;
+    font-weight: 600;
+}
+.result-status-select.badge-tone-success { border-color: #16a34a; color: #166534; }
+.result-status-select.badge-tone-danger { border-color: #dc2626; color: #991b1b; }
+.result-status-select.badge-tone-warning { border-color: #d97706; color: #92400e; }
+.result-status-select.badge-tone-secondary { border-color: #94a3b8; color: #475569; }
 .certificate-info-banner {
     margin-bottom: 16px;
 }
@@ -1391,6 +1447,20 @@ function downloadScannedOrder(batchId) {
                     </div>
                 <?php endif; ?>
 
+                <?php if ($can_view_result && !empty($students)): ?>
+                    <div class="alert alert-secondary certificate-info-banner" style="margin: 16px 16px 0;">
+                        <i class="fas fa-clipboard-check"></i>
+                        <strong>Result status:</strong>
+                        <?php echo (int) ($result_stats['pass'] ?? 0); ?> pass,
+                        <?php echo (int) ($result_stats['failed'] ?? 0); ?> failed,
+                        <?php echo (int) ($result_stats['certified'] ?? 0); ?> certified,
+                        <?php echo (int) ($result_stats['absent'] ?? 0); ?> absent,
+                        <?php echo (int) ($result_stats['exam_not_applied'] ?? 0); ?> exam-not applied.
+                        <?php if ($can_manage_result): ?>
+                            Use the <strong>Result Status</strong> column to update each student.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
                 <?php if ($can_view_placement && !empty($students)): ?>
                     <div class="alert alert-primary certificate-info-banner" style="margin: 16px 16px 0;">
                         <i class="fas fa-briefcase"></i>
@@ -1425,6 +1495,9 @@ function downloadScannedOrder(batchId) {
                                     <th>Fees Status</th>
                                     <th>Attendance</th>
                                     <th>Certificate</th>
+                                    <?php if ($can_view_result): ?>
+                                    <th>Result Status</th>
+                                    <?php endif; ?>
                                     <?php if ($can_view_placement): ?>
                                     <th>Placement</th>
                                     <?php endif; ?>
@@ -1510,6 +1583,29 @@ function downloadScannedOrder(batchId) {
                                                 <span class="text-muted small">Not uploaded</span>
                                             <?php endif; ?>
                                         </td>
+                                        <?php if ($can_view_result):
+                                            $rStatus = batch_result_normalize_status($student['result_status'] ?? 'exam_not_applied');
+                                            $rBadge = batch_result_status_badge_class($rStatus);
+                                        ?>
+                                        <td>
+                                            <?php if ($can_manage_result): ?>
+                                                <select class="form-control form-control-sm result-status-select badge-tone-<?php echo htmlspecialchars($rBadge); ?>"
+                                                        data-student-record-id="<?php echo (int) $student['id']; ?>"
+                                                        data-previous="<?php echo htmlspecialchars($rStatus); ?>"
+                                                        onchange="saveBatchResultStatus(this)">
+                                                    <?php foreach ($result_status_options as $value => $label): ?>
+                                                        <option value="<?php echo htmlspecialchars($value); ?>" <?php echo $rStatus === $value ? 'selected' : ''; ?>>
+                                                            <?php echo htmlspecialchars($label); ?>
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            <?php else: ?>
+                                                <span class="badge badge-<?php echo htmlspecialchars($rBadge); ?>">
+                                                    <?php echo htmlspecialchars($result_status_options[$rStatus] ?? 'Exam-not applied'); ?>
+                                                </span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <?php endif; ?>
                                         <?php if ($can_view_placement):
                                             $pStatus = strtolower(trim((string) ($student['placement_status'] ?? 'not_placed')));
                                             $pStatusLabel = $placement_status_options[$pStatus] ?? 'Not placed';
