@@ -1451,9 +1451,8 @@ function downloadScannedOrder(batchId) {
                     <div class="alert alert-secondary certificate-info-banner" style="margin: 16px 16px 0;">
                         <i class="fas fa-clipboard-check"></i>
                         <strong>Result status:</strong>
-                        <?php echo (int) ($result_stats['pass'] ?? 0); ?> pass,
+                        <?php echo (int) ($result_stats['pass'] ?? 0); ?> pass / certified,
                         <?php echo (int) ($result_stats['failed'] ?? 0); ?> failed,
-                        <?php echo (int) ($result_stats['certified'] ?? 0); ?> certified,
                         <?php echo (int) ($result_stats['absent'] ?? 0); ?> absent,
                         <?php echo (int) ($result_stats['exam_not_applied'] ?? 0); ?> exam-not applied.
                         <?php if ($can_manage_result): ?>

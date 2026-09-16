@@ -9,8 +9,7 @@ if (!function_exists('batch_result_status_options')) {
         return [
             'exam_not_applied' => 'Exam-not applied',
             'absent' => 'Absent',
-            'certified' => 'Certified',
-            'pass' => 'Pass',
+            'pass' => 'Pass / Certified',
             'failed' => 'Failed',
         ];
     }
@@ -79,6 +78,7 @@ if (!function_exists('batch_result_status_options')) {
         switch (strtolower(trim($status))) {
             case 'pass':
             case 'certified':
+            case 'pass_certified':
                 return 'success';
             case 'failed':
                 return 'danger';
@@ -94,6 +94,10 @@ if (!function_exists('batch_result_status_options')) {
     {
         $status = strtolower(trim((string) $value));
         $status = str_replace([' ', '-'], '_', $status);
+        // Pass and Certified are the same outcome.
+        if (in_array($status, ['certified', 'pass_certified'], true)) {
+            $status = 'pass';
+        }
         $allowed = array_keys(batch_result_status_options());
         if (!in_array($status, $allowed, true)) {
             return 'exam_not_applied';
@@ -183,7 +187,6 @@ if (!function_exists('batch_result_status_options')) {
             'total' => 0,
             'exam_not_applied' => 0,
             'absent' => 0,
-            'certified' => 0,
             'pass' => 0,
             'failed' => 0,
         ];
