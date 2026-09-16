@@ -308,9 +308,97 @@ $resultStatusSummary = report_monitor_get_result_status_summary(
     $centreId,
     $monthFilter
 );
-$resultStatusTotals = $resultStatusSummary['totals'] ?? [];
-$resultStatusBatches = $resultStatusSummary['batches'] ?? [];
+$resultStatusTotalsAll = $resultStatusSummary['totals'] ?? [];
+$resultStatusBatchesAll = $resultStatusSummary['batches'] ?? [];
+$resultStatusCourses = $resultStatusSummary['courses'] ?? [];
+$resultStatusCentres = $resultStatusSummary['centres'] ?? [];
 $resultStatusOptions = $resultStatusSummary['options'] ?? [];
+$resultStatusFilterCentre = isset($_GET['rs_centre']) ? trim((string) $_GET['rs_centre']) : '';
+$resultStatusFilterCourse = isset($_GET['rs_course']) ? (int) $_GET['rs_course'] : 0;
+
+$resultStatusBatches = [];
+$resultStatusTotals = [
+    'total' => 0,
+    'exam_not_applied' => 0,
+    'absent' => 0,
+    'pass' => 0,
+    'failed' => 0,
+];
+$resultStatusCourseView = [];
+$resultStatusCourseOptions = [];
+
+foreach ($resultStatusBatchesAll as $row) {
+    $centreMatch = $resultStatusFilterCentre === ''
+        || strcasecmp((string) ($row['centre_name'] ?? ''), $resultStatusFilterCentre) === 0
+        || (
+            ctype_digit($resultStatusFilterCentre)
+            && (int) ($row['centre_id'] ?? 0) === (int) $resultStatusFilterCentre
+        );
+    $courseMatch = $resultStatusFilterCourse <= 0
+        || (int) ($row['course_id'] ?? 0) === $resultStatusFilterCourse;
+
+    $courseId = (int) ($row['course_id'] ?? 0);
+    if ($centreMatch && $courseId > 0) {
+        if (!isset($resultStatusCourseOptions[$courseId])) {
+            $resultStatusCourseOptions[$courseId] = [
+                'course_id' => $courseId,
+                'course_name' => (string) ($row['course_name'] ?? ''),
+                'total' => 0,
+                'pass' => 0,
+            ];
+        }
+        $resultStatusCourseOptions[$courseId]['total'] += (int) ($row['total'] ?? 0);
+        $resultStatusCourseOptions[$courseId]['pass'] += (int) ($row['pass'] ?? 0);
+    }
+
+    if (!$centreMatch || !$courseMatch) {
+        continue;
+    }
+
+    $resultStatusBatches[] = $row;
+    $resultStatusTotals['total'] += (int) ($row['total'] ?? 0);
+    $resultStatusTotals['pass'] += (int) ($row['pass'] ?? 0);
+    $resultStatusTotals['failed'] += (int) ($row['failed'] ?? 0);
+    $resultStatusTotals['absent'] += (int) ($row['absent'] ?? 0);
+    $resultStatusTotals['exam_not_applied'] += (int) ($row['exam_not_applied'] ?? 0);
+
+    if ($courseId <= 0) {
+        continue;
+    }
+    if (!isset($resultStatusCourseView[$courseId])) {
+        $resultStatusCourseView[$courseId] = [
+            'course_id' => $courseId,
+            'course_name' => (string) ($row['course_name'] ?? ''),
+            'total' => 0,
+            'pass' => 0,
+            'failed' => 0,
+            'absent' => 0,
+            'exam_not_applied' => 0,
+        ];
+    }
+    $resultStatusCourseView[$courseId]['total'] += (int) ($row['total'] ?? 0);
+    $resultStatusCourseView[$courseId]['pass'] += (int) ($row['pass'] ?? 0);
+    $resultStatusCourseView[$courseId]['failed'] += (int) ($row['failed'] ?? 0);
+    $resultStatusCourseView[$courseId]['absent'] += (int) ($row['absent'] ?? 0);
+    $resultStatusCourseView[$courseId]['exam_not_applied'] += (int) ($row['exam_not_applied'] ?? 0);
+}
+
+uasort($resultStatusCourseView, static function ($a, $b) {
+    return strcasecmp((string) $a['course_name'], (string) $b['course_name']);
+});
+$resultStatusCourseView = array_values($resultStatusCourseView);
+
+uasort($resultStatusCourseOptions, static function ($a, $b) {
+    return strcasecmp((string) $a['course_name'], (string) $b['course_name']);
+});
+$resultStatusCourseOptions = array_values($resultStatusCourseOptions);
+if (empty($resultStatusCourseOptions)) {
+    $resultStatusCourseOptions = $resultStatusCourses;
+}
+
+if ($resultStatusFilterCentre === '' && $resultStatusFilterCourse <= 0) {
+    $resultStatusTotals = $resultStatusTotalsAll;
+}
 
 /*------------------------------------------------------------
 | KPI
@@ -2012,62 +2100,177 @@ Q4 (Jan–Mar)
 </div>
 
 <!-- RESULT STATUS BY BATCH -->
+<?php
+$resultStatusDetailsOpen = ($resultStatusFilterCentre !== '' || $resultStatusFilterCourse > 0);
+$resultStatusSelectedCourseName = '';
+if ($resultStatusFilterCourse > 0) {
+    foreach ($resultStatusCourses as $courseRow) {
+        if ((int) ($courseRow['course_id'] ?? 0) === $resultStatusFilterCourse) {
+            $resultStatusSelectedCourseName = (string) ($courseRow['course_name'] ?? '');
+            break;
+        }
+    }
+}
+?>
 <div class="card table-card mb-4" id="resultStatusCard">
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <strong>
                 Result Status (<?php echo htmlspecialchars($monthScopeLabel); ?>)
             </strong>
-            <span class="badge bg-primary ms-2">
+            <span class="badge bg-primary ms-2" id="resultStatusStudentsBadge">
                 <?php echo number_format((int) ($resultStatusTotals['total'] ?? 0)); ?> Students
             </span>
             <?php if (!empty($resultStatusBatches)): ?>
-                <span class="badge bg-secondary ms-1"><?php echo number_format(count($resultStatusBatches)); ?> batches</span>
+                <span class="badge bg-secondary ms-1" id="resultStatusBatchesBadge"><?php echo number_format(count($resultStatusBatches)); ?> batches</span>
             <?php endif; ?>
-            <div class="small text-muted mt-1">
+            <div class="small text-muted mt-1" id="resultStatusSummaryLine">
                 From Batch Details → Result Status
                 (<?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?> pass / certified,
                 <?php echo number_format((int) ($resultStatusTotals['failed'] ?? 0)); ?> failed,
                 <?php echo number_format((int) ($resultStatusTotals['absent'] ?? 0)); ?> absent,
                 <?php echo number_format((int) ($resultStatusTotals['exam_not_applied'] ?? 0)); ?> exam-not applied)
             </div>
+            <?php if ($resultStatusSelectedCourseName !== ''): ?>
+                <div class="small text-success mt-1">
+                    Certified for selected course:
+                    <strong><?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?></strong>
+                    —
+                    <?php echo htmlspecialchars($resultStatusSelectedCourseName); ?>
+                </div>
+            <?php endif; ?>
         </div>
         <button type="button"
                 class="btn btn-outline-secondary"
                 id="resultStatusToggle"
-                aria-expanded="false"
+                aria-expanded="<?php echo $resultStatusDetailsOpen ? 'true' : 'false'; ?>"
                 aria-controls="resultStatusBody">
-            <i class="fas fa-chevron-down me-1" id="resultStatusToggleIcon"></i>
-            <span id="resultStatusToggleLabel">Show Details</span>
+            <i class="fas fa-chevron-<?php echo $resultStatusDetailsOpen ? 'up' : 'down'; ?> me-1" id="resultStatusToggleIcon"></i>
+            <span id="resultStatusToggleLabel"><?php echo $resultStatusDetailsOpen ? 'Hide Details' : 'Show Details'; ?></span>
         </button>
     </div>
-    <div class="card-body p-0 d-none" id="resultStatusBody">
+    <div class="card-body p-0 <?php echo $resultStatusDetailsOpen ? '' : 'd-none'; ?>" id="resultStatusBody">
+        <form method="get" class="p-3 border-bottom bg-light" id="resultStatusFilterForm">
+            <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
+            <input type="hidden" name="year" value="<?php echo (int) $selectedYear; ?>">
+            <input type="hidden" name="quarter" value="<?php echo htmlspecialchars((string) $selectedQuarter); ?>">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label mb-1" for="rs_centre">Centre</label>
+                    <select class="form-select" name="rs_centre" id="rs_centre">
+                        <option value="">All Centres</option>
+                        <?php foreach ($resultStatusCentres as $centreRow): ?>
+                            <?php
+                            $centreOptionValue = (int) ($centreRow['centre_id'] ?? 0) > 0
+                                ? (string) (int) $centreRow['centre_id']
+                                : (string) ($centreRow['centre_name'] ?? '');
+                            $centreSelected = $resultStatusFilterCentre !== ''
+                                && (
+                                    $resultStatusFilterCentre === $centreOptionValue
+                                    || strcasecmp($resultStatusFilterCentre, (string) ($centreRow['centre_name'] ?? '')) === 0
+                                );
+                            ?>
+                            <option value="<?php echo htmlspecialchars($centreOptionValue); ?>"
+                                <?php echo $centreSelected ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars((string) ($centreRow['centre_name'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label mb-1" for="rs_course">Course</label>
+                    <select class="form-select" name="rs_course" id="rs_course">
+                        <option value="0">All Courses</option>
+                        <?php foreach ($resultStatusCourseOptions as $courseRow): ?>
+                            <option value="<?php echo (int) ($courseRow['course_id'] ?? 0); ?>"
+                                <?php echo $resultStatusFilterCourse === (int) ($courseRow['course_id'] ?? 0) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars((string) ($courseRow['course_name'] ?? '')); ?>
+                                (<?php echo number_format((int) ($courseRow['pass'] ?? 0)); ?> certified /
+                                <?php echo number_format((int) ($courseRow['total'] ?? 0)); ?>)
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary flex-grow-1">
+                        Apply
+                    </button>
+                    <a class="btn btn-outline-secondary"
+                       href="?centre_id=<?php echo (int) $centreId; ?>&amp;year=<?php echo (int) $selectedYear; ?>&amp;quarter=<?php echo urlencode((string) $selectedQuarter); ?>#resultStatusCard">
+                        Clear
+                    </a>
+                </div>
+            </div>
+            <div class="small text-muted mt-2">
+                Filter this section by centre or course to see Pass / Certified counts for that selection.
+            </div>
+        </form>
         <div class="row g-2 p-3 border-bottom">
             <div class="col-6 col-md-3">
                 <div class="border rounded p-2 h-100">
                     <div class="small text-muted">Pass / Certified</div>
-                    <div class="fs-5 fw-semibold text-success"><?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?></div>
+                    <div class="fs-5 fw-semibold text-success" id="resultStatusPassTotal"><?php echo number_format((int) ($resultStatusTotals['pass'] ?? 0)); ?></div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-2 h-100">
                     <div class="small text-muted">Failed</div>
-                    <div class="fs-5 fw-semibold text-danger"><?php echo number_format((int) ($resultStatusTotals['failed'] ?? 0)); ?></div>
+                    <div class="fs-5 fw-semibold text-danger" id="resultStatusFailedTotal"><?php echo number_format((int) ($resultStatusTotals['failed'] ?? 0)); ?></div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-2 h-100">
                     <div class="small text-muted">Absent</div>
-                    <div class="fs-5 fw-semibold text-warning"><?php echo number_format((int) ($resultStatusTotals['absent'] ?? 0)); ?></div>
+                    <div class="fs-5 fw-semibold text-warning" id="resultStatusAbsentTotal"><?php echo number_format((int) ($resultStatusTotals['absent'] ?? 0)); ?></div>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="border rounded p-2 h-100">
                     <div class="small text-muted">Exam-not applied</div>
-                    <div class="fs-5 fw-semibold text-secondary"><?php echo number_format((int) ($resultStatusTotals['exam_not_applied'] ?? 0)); ?></div>
+                    <div class="fs-5 fw-semibold text-secondary" id="resultStatusNotAppliedTotal"><?php echo number_format((int) ($resultStatusTotals['exam_not_applied'] ?? 0)); ?></div>
                 </div>
             </div>
         </div>
+        <?php if (!empty($resultStatusCourseView) && $resultStatusFilterCourse <= 0): ?>
+            <div class="table-responsive border-bottom">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Course-wise certified</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end text-success">Pass / Certified</th>
+                        <th class="text-end">Failed</th>
+                        <th class="text-end">Absent</th>
+                        <th class="text-end">Exam-not applied</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($resultStatusCourseView as $courseRow): ?>
+                        <?php
+                        $courseFilterUrl = '?centre_id=' . (int) $centreId
+                            . '&year=' . (int) $selectedYear
+                            . '&quarter=' . urlencode((string) $selectedQuarter)
+                            . '&rs_course=' . (int) ($courseRow['course_id'] ?? 0)
+                            . ($resultStatusFilterCentre !== '' ? '&rs_centre=' . urlencode($resultStatusFilterCentre) : '')
+                            . '#resultStatusCard';
+                        ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars((string) ($courseRow['course_name'] ?? '')); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($courseRow['total'] ?? 0)); ?></td>
+                            <td class="text-end text-success fw-semibold"><?php echo number_format((int) ($courseRow['pass'] ?? 0)); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($courseRow['failed'] ?? 0)); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($courseRow['absent'] ?? 0)); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($courseRow['exam_not_applied'] ?? 0)); ?></td>
+                            <td class="text-end">
+                                <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($courseFilterUrl); ?>">View</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
         <div class="table-responsive">
             <table class="table table-hover table-bordered mb-0">
                 <thead class="table-light">
@@ -2088,8 +2291,8 @@ Q4 (Jan–Mar)
                 <?php if (empty($resultStatusBatches)): ?>
                     <tr>
                         <td colspan="10" class="text-center text-muted py-4">
-                            No result status records found for this period.
-                            Update students on Batch Details first.
+                            No result status records found for this filter.
+                            Try another centre/course, or update students on Batch Details.
                         </td>
                     </tr>
                 <?php else: ?>
@@ -4048,10 +4251,37 @@ RESULT STATUS DROPDOWN
         });
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initResultStatusToggle);
-    } else {
+    function initResultStatusFilters() {
+        const form = document.getElementById('resultStatusFilterForm');
+        if (!form) {
+            return;
+        }
+        ['rs_centre', 'rs_course'].forEach(function (id) {
+            const el = document.getElementById(id);
+            if (!el) {
+                return;
+            }
+            el.addEventListener('change', function () {
+                form.submit();
+            });
+        });
+        if (window.location.hash === '#resultStatusCard') {
+            const card = document.getElementById('resultStatusCard');
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    }
+
+    function bootResultStatusUi() {
         initResultStatusToggle();
+        initResultStatusFilters();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootResultStatusUi);
+    } else {
+        bootResultStatusUi();
     }
 })();
 

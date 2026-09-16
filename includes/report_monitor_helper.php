@@ -2761,6 +2761,8 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         $out = [
             'totals' => $emptyTotals,
             'batches' => [],
+            'courses' => [],
+            'centres' => [],
             'options' => $options,
         ];
 
@@ -2803,7 +2805,9 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                     b.id AS batch_id,
                     b.batch_name,
                     COALESCE(b.batch_code, '') AS batch_code,
+                    c.id AS course_id,
                     COALESCE(c.course_name, '') AS course_name,
+                    COALESCE(cen.id, 0) AS centre_id,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
                     COUNT(DISTINCT bs.id) AS total,
                     COUNT(DISTINCT CASE WHEN ({$statusExpr}) = 'pass' THEN bs.id END) AS pass_count,
@@ -2825,9 +2829,9 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             $values[] = $monthFilter['start'];
         }
 
-        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.course_name, centre_name
+        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.id, c.course_name, centre_id, centre_name
                   HAVING total > 0
-                  ORDER BY b.batch_name ASC, b.id DESC';
+                  ORDER BY course_name ASC, b.batch_name ASC, b.id DESC';
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
         if (!$result) {
@@ -2836,18 +2840,26 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
 
         $totals = $emptyTotals;
         $batches = [];
+        $courses = [];
+        $centres = [];
         while ($row = $result->fetch_assoc()) {
             $total = (int) ($row['total'] ?? 0);
             $pass = (int) ($row['pass_count'] ?? 0);
             $failed = (int) ($row['failed_count'] ?? 0);
             $absent = (int) ($row['absent_count'] ?? 0);
             $notApplied = (int) ($row['exam_not_applied_count'] ?? 0);
+            $courseId = (int) ($row['course_id'] ?? 0);
+            $courseName = (string) ($row['course_name'] ?? '');
+            $rowCentreId = (int) ($row['centre_id'] ?? 0);
+            $centreName = (string) ($row['centre_name'] ?? '');
             $batches[] = [
                 'batch_id' => (int) ($row['batch_id'] ?? 0),
                 'batch_name' => (string) ($row['batch_name'] ?? ''),
                 'batch_code' => (string) ($row['batch_code'] ?? ''),
-                'course_name' => (string) ($row['course_name'] ?? ''),
-                'centre_name' => (string) ($row['centre_name'] ?? ''),
+                'course_id' => $courseId,
+                'course_name' => $courseName,
+                'centre_id' => $rowCentreId,
+                'centre_name' => $centreName,
                 'total' => $total,
                 'pass' => $pass,
                 'failed' => $failed,
@@ -2859,10 +2871,46 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             $totals['failed'] += $failed;
             $totals['absent'] += $absent;
             $totals['exam_not_applied'] += $notApplied;
+
+            if ($courseId > 0 && $courseName !== '') {
+                if (!isset($courses[$courseId])) {
+                    $courses[$courseId] = [
+                        'course_id' => $courseId,
+                        'course_name' => $courseName,
+                        'total' => 0,
+                        'pass' => 0,
+                        'failed' => 0,
+                        'absent' => 0,
+                        'exam_not_applied' => 0,
+                    ];
+                }
+                $courses[$courseId]['total'] += $total;
+                $courses[$courseId]['pass'] += $pass;
+                $courses[$courseId]['failed'] += $failed;
+                $courses[$courseId]['absent'] += $absent;
+                $courses[$courseId]['exam_not_applied'] += $notApplied;
+            }
+
+            $centreKey = $rowCentreId > 0 ? ('id:' . $rowCentreId) : ('name:' . strtolower($centreName));
+            if ($centreName !== '' && !isset($centres[$centreKey])) {
+                $centres[$centreKey] = [
+                    'centre_id' => $rowCentreId,
+                    'centre_name' => $centreName,
+                ];
+            }
         }
+
+        uasort($courses, static function ($a, $b) {
+            return strcasecmp((string) $a['course_name'], (string) $b['course_name']);
+        });
+        uasort($centres, static function ($a, $b) {
+            return strcasecmp((string) $a['centre_name'], (string) $b['centre_name']);
+        });
 
         $out['totals'] = $totals;
         $out['batches'] = $batches;
+        $out['courses'] = array_values($courses);
+        $out['centres'] = array_values($centres);
         $out['options'] = $options;
         return $out;
     }
