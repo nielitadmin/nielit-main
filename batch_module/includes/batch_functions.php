@@ -571,25 +571,42 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
     }
 
     $course_id = (int)$batch['course_id'];
+    $batch_id = (int)$batch_id;
     $batch_scheme_id = !empty($batch['scheme_id']) ? (int)$batch['scheme_id'] : null;
 
     $helper = __DIR__ . '/../../includes/multi_course_helper.php';
     $hasScheme = false;
+    $hasMulti = false;
     if (file_exists($helper)) {
         require_once $helper;
         $hasScheme = function_exists('hasSchemeEnrollmentColumns') && hasSchemeEnrollmentColumns($conn);
+        $hasMulti = function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn);
+    }
+
+    $courseMatch = 's.course_id = ?';
+    if ($hasMulti) {
+        $courseMatch = '(s.course_id = ? OR EXISTS (
+            SELECT 1 FROM student_enrollments se
+            WHERE se.course_id = ?
+              AND (se.student_record_id = s.id OR LOWER(TRIM(IFNULL(se.student_id,\'\'))) = LOWER(TRIM(IFNULL(s.student_id,\'\'))))
+              AND LOWER(IFNULL(se.status,\'\')) NOT IN (\'inactive\',\'rejected\')
+        ))';
     }
 
     $sql = "SELECT s.id, s.student_id, s.name, s.email, s.mobile, s.status, c.course_name, s.scheme_id
             FROM students s
             LEFT JOIN courses c ON c.id = s.course_id
-            WHERE s.course_id = ?
+            WHERE {$courseMatch}
             AND LOWER(s.status) NOT IN ('rejected', 'inactive')
             AND (s.batch_id IS NULL OR s.batch_id != ?)
             AND NOT EXISTS (
                 SELECT 1 FROM batch_students bs
                 WHERE bs.batch_id = ?
-                AND (bs.student_record_id = s.id OR bs.student_id = s.id)
+                AND (
+                    bs.student_record_id = s.id
+                    OR bs.student_id = s.id
+                    OR LOWER(TRIM(CAST(bs.student_id AS CHAR))) = LOWER(TRIM(CAST(s.student_id AS CHAR)))
+                )
             )";
 
     if ($hasScheme && $batch_scheme_id !== null) {
@@ -604,7 +621,11 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
     if (!$stmt) {
         return [];
     }
-    if ($hasScheme && $batch_scheme_id !== null) {
+    if ($hasMulti && $hasScheme && $batch_scheme_id !== null) {
+        $stmt->bind_param('iiiii', $course_id, $course_id, $batch_id, $batch_id, $batch_scheme_id);
+    } elseif ($hasMulti) {
+        $stmt->bind_param('iiii', $course_id, $course_id, $batch_id, $batch_id);
+    } elseif ($hasScheme && $batch_scheme_id !== null) {
         $stmt->bind_param('iiii', $course_id, $batch_id, $batch_id, $batch_scheme_id);
     } else {
         $stmt->bind_param('iii', $course_id, $batch_id, $batch_id);

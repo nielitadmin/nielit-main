@@ -2532,7 +2532,26 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$studentRow) {
                 return ['success' => false, 'message' => 'Student enrollment record not found.'];
             }
-            if ((int)$studentRow['course_id'] !== (int)$batch['course_id']) {
+            $studentCourseId = (int) ($studentRow['course_id'] ?? 0);
+            $batchCourseId = (int) ($batch['course_id'] ?? 0);
+            $courseOk = ($studentCourseId === $batchCourseId);
+            $loginIdForCourseCheck = trim((string) ($studentRow['student_id'] ?? ''));
+            if (!$courseOk && isMultiCourseSystemInstalled($conn) && $loginIdForCourseCheck !== '') {
+                $enrCheck = $conn->prepare(
+                    "SELECT id FROM student_enrollments
+                     WHERE course_id = ?
+                       AND (student_record_id = ? OR LOWER(TRIM(IFNULL(student_id,''))) = LOWER(?))
+                       AND LOWER(IFNULL(status,'')) NOT IN ('inactive','rejected')
+                     LIMIT 1"
+                );
+                if ($enrCheck) {
+                    $enrCheck->bind_param('iis', $batchCourseId, $studentRecordId, $loginIdForCourseCheck);
+                    $enrCheck->execute();
+                    $courseOk = $enrCheck->get_result()->num_rows > 0;
+                    $enrCheck->close();
+                }
+            }
+            if (!$courseOk) {
                 return ['success' => false, 'message' => 'Batch course does not match student enrollment.'];
             }
             $studentScheme = normalizeEnrollmentSchemeId($studentRow['scheme_id'] ?? null);
@@ -2577,13 +2596,42 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
         $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
 
+        // Legacy schema stores students.id (INT) in batch_students.student_id — not the login string.
+        // Inserting NIELIT/... into an INT column becomes 0 and breaks unique keys / joins.
+        $studentIdColType = '';
+        $typeRes = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_id'");
+        if ($typeRes && ($typeRow = $typeRes->fetch_assoc())) {
+            $studentIdColType = strtolower((string) ($typeRow['Type'] ?? ''));
+        }
+        $studentIdIsNumeric = (strpos($studentIdColType, 'int') !== false)
+            || (strpos($studentIdColType, 'decimal') !== false)
+            || (strpos($studentIdColType, 'float') !== false)
+            || (strpos($studentIdColType, 'double') !== false);
+        $batchStudentKey = $studentIdIsNumeric ? (string) $studentRecordId : $studentIdStr;
+
         if ($useRecordCol) {
-            $check = $conn->prepare('SELECT id FROM batch_students WHERE batch_id = ? AND (student_record_id = ? OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?)) LIMIT 1');
+            $check = $conn->prepare(
+                'SELECT id FROM batch_students
+                 WHERE batch_id = ?
+                   AND (
+                        student_record_id = ?
+                        OR student_id = ?
+                        OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?)
+                   )
+                 LIMIT 1'
+            );
             if ($check) {
-                $check->bind_param('iis', $batchId, $studentRecordId, $studentIdStr);
+                $check->bind_param('iiis', $batchId, $studentRecordId, $studentRecordId, $studentIdStr);
                 $check->execute();
                 if ($check->get_result()->num_rows > 0) {
                     $check->close();
+                    // Ensure primary students.batch_id points here even if junction already existed.
+                    $fixUpd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active' WHERE id = ?");
+                    if ($fixUpd) {
+                        $fixUpd->bind_param('ii', $batchId, $studentRecordId);
+                        $fixUpd->execute();
+                        $fixUpd->close();
+                    }
                     return ['success' => true, 'message' => 'Student is already in this batch.'];
                 }
                 $check->close();
@@ -2592,14 +2640,29 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$stmt) {
                 return ['success' => false, 'message' => $conn->error];
             }
-            $stmt->bind_param('isi', $batchId, $studentIdStr, $studentRecordId);
+            if ($studentIdIsNumeric) {
+                $stmt->bind_param('iii', $batchId, $studentRecordId, $studentRecordId);
+            } else {
+                $stmt->bind_param('isi', $batchId, $batchStudentKey, $studentRecordId);
+            }
         } else {
-            $check = $conn->prepare('SELECT id FROM batch_students WHERE LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?) AND batch_id = ? LIMIT 1');
+            $check = $conn->prepare(
+                'SELECT id FROM batch_students
+                 WHERE batch_id = ?
+                   AND (student_id = ? OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?))
+                 LIMIT 1'
+            );
             if ($check) {
-                $check->bind_param('si', $studentIdStr, $batchId);
+                $check->bind_param('iis', $batchId, $studentRecordId, $studentIdStr);
                 $check->execute();
                 if ($check->get_result()->num_rows > 0) {
                     $check->close();
+                    $fixUpd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active' WHERE id = ?");
+                    if ($fixUpd) {
+                        $fixUpd->bind_param('ii', $batchId, $studentRecordId);
+                        $fixUpd->execute();
+                        $fixUpd->close();
+                    }
                     return ['success' => true, 'message' => 'Student is already in this batch.'];
                 }
                 $check->close();
@@ -2608,12 +2671,39 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             if (!$stmt) {
                 return ['success' => false, 'message' => $conn->error];
             }
-            $stmt->bind_param('is', $batchId, $studentIdStr);
+            if ($studentIdIsNumeric) {
+                $stmt->bind_param('ii', $batchId, $studentRecordId);
+            } else {
+                $stmt->bind_param('is', $batchId, $batchStudentKey);
+            }
         }
 
         if (!$stmt->execute()) {
             $err = $stmt->error;
             $stmt->close();
+            // Recover if a concurrent/legacy row already exists.
+            if (stripos($err, 'duplicate') !== false) {
+                $fixUpd = $conn->prepare("UPDATE students SET batch_id = ?, status = 'active', approved_by = ?, approved_at = NOW() WHERE id = ?");
+                if ($fixUpd) {
+                    $fixUpd->bind_param('isi', $batchId, $adminName, $studentRecordId);
+                    $fixUpd->execute();
+                    $fixUpd->close();
+                }
+                if ($useRecordCol) {
+                    $fixLink = $conn->prepare(
+                        'UPDATE batch_students
+                         SET student_record_id = ?
+                         WHERE batch_id = ?
+                           AND (student_id = ? OR student_record_id = ? OR LOWER(TRIM(CAST(student_id AS CHAR))) = LOWER(?))'
+                    );
+                    if ($fixLink) {
+                        $fixLink->bind_param('iiiis', $studentRecordId, $batchId, $studentRecordId, $studentRecordId, $studentIdStr);
+                        $fixLink->execute();
+                        $fixLink->close();
+                    }
+                }
+                return ['success' => true, 'message' => 'Student linked to this batch.'];
+            }
             return ['success' => false, 'message' => $err];
         }
         $stmt->close();

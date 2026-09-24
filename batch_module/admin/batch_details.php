@@ -98,20 +98,27 @@ unset($_SESSION['batch_details_message'], $_SESSION['batch_details_message_type'
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_students_to_batch']) && !$is_locked) {
     $record_ids = $_POST['student_record_ids'] ?? [];
-    if (empty($record_ids)) {
-        $message = 'Please select at least one student to add.';
-        $message_type = 'warning';
-    } else {
-    $result = addStudentsToBatch($record_ids, $batch_id, $_SESSION['admin'] ?? 'Admin', $conn);
-    $message = $result['message'];
-    $message_type = $result['success'] ? 'success' : 'danger';
-    $students = getBatchStudents($batch_id, $conn);
-    $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
-    $stats = getBatchStats($batch_id, $conn);
+    if (!is_array($record_ids)) {
+        $record_ids = [$record_ids];
     }
+    $record_ids = array_values(array_filter(array_map('intval', $record_ids), static function ($id) {
+        return $id > 0;
+    }));
+    if (empty($record_ids)) {
+        $_SESSION['batch_details_message'] = 'Please select at least one student (tick the checkbox), then click Add Selected to Batch.';
+        $_SESSION['batch_details_message_type'] = 'warning';
+    } else {
+        $result = addStudentsToBatch($record_ids, $batch_id, $_SESSION['admin'] ?? 'Admin', $conn);
+        $_SESSION['batch_details_message'] = $result['message'];
+        $_SESSION['batch_details_message_type'] = $result['success'] ? 'success' : 'danger';
+    }
+    header('Location: batch_details.php?id=' . (int) $batch_id . '#add-students');
+    exit();
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_students_to_batch']) && $is_locked) {
-    $message = 'Cannot add students: Batch is locked.';
-    $message_type = 'danger';
+    $_SESSION['batch_details_message'] = 'Cannot add students: Batch is locked.';
+    $_SESSION['batch_details_message_type'] = 'danger';
+    header('Location: batch_details.php?id=' . (int) $batch_id);
+    exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_students_to_batch']) && !$is_locked) {
@@ -1073,9 +1080,15 @@ function downloadScannedOrder(batchId) {
         <div class="admin-main">
             <!-- Messages -->
             <?php if (!empty($message)): ?>
+                <div class="alert alert-<?php echo htmlspecialchars($message_type === 'danger' ? 'danger' : ($message_type === 'warning' ? 'warning' : 'success')); ?>" style="margin-bottom:16px;">
+                    <i class="fas fa-<?php echo $message_type === 'success' ? 'check-circle' : 'info-circle'; ?>"></i>
+                    <?php echo htmlspecialchars($message); ?>
+                </div>
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        showToast('<?php echo addslashes($message); ?>', '<?php echo $message_type === 'success' ? 'success' : 'error'; ?>');
+                        if (typeof showToast === 'function') {
+                            showToast(<?php echo json_encode($message, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>, <?php echo json_encode($message_type === 'success' ? 'success' : 'error'); ?>);
+                        }
                     });
                 </script>
             <?php endif; ?>
@@ -1356,7 +1369,7 @@ function downloadScannedOrder(batchId) {
 
             <!-- Add Students to Batch -->
             <?php if (!$is_locked && !$is_placement_coordinator && !empty($eligible_students)): ?>
-            <div class="content-card">
+            <div class="content-card" id="add-students">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-user-plus"></i> Add Students to Batch
@@ -1365,8 +1378,9 @@ function downloadScannedOrder(batchId) {
                 </div>
                 <p style="color:#64748b;font-size:14px;margin-bottom:16px;">
                     Select students registered for <strong><?php echo htmlspecialchars($batch['course_name']); ?></strong> who are not yet in this batch.
+                    <strong>Tick the checkbox</strong> for each student, then click Add Selected to Batch.
                 </p>
-                <form method="POST" action="">
+                <form method="POST" action="batch_details.php?id=<?php echo (int) $batch_id; ?>#add-students" id="add-students-form">
                     <div class="table-responsive">
                         <table class="modern-table">
                             <thead>
@@ -1776,8 +1790,7 @@ function closeMoveModal() {
 
 document.addEventListener('DOMContentLoaded', function () {
     const selectAll = document.getElementById('select-all-eligible');
-    if (!selectAll) return;
-
+    const addForm = document.getElementById('add-students-form');
     const checkboxes = document.querySelectorAll('.eligible-student-checkbox');
     const countEl = document.getElementById('eligible-selected-count');
     const countNum = document.getElementById('eligible-count-number');
@@ -1788,12 +1801,24 @@ document.addEventListener('DOMContentLoaded', function () {
         if (countNum) countNum.textContent = n;
     }
 
-    selectAll.addEventListener('change', function () {
-        checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
-        updateEligibleCount();
-    });
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            checkboxes.forEach(cb => { cb.checked = selectAll.checked; });
+            updateEligibleCount();
+        });
+    }
 
     checkboxes.forEach(cb => cb.addEventListener('change', updateEligibleCount));
+
+    if (addForm) {
+        addForm.addEventListener('submit', function (e) {
+            const n = document.querySelectorAll('.eligible-student-checkbox:checked').length;
+            if (n === 0) {
+                e.preventDefault();
+                alert('Please tick at least one student checkbox, then click Add Selected to Batch.');
+            }
+        });
+    }
 
     const selectAllEnrolled = document.getElementById('select-all-enrolled');
     const enrolledCheckboxes = document.querySelectorAll('.enrolled-student-checkbox');
