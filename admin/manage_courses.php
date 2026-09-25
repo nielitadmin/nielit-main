@@ -15,8 +15,10 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
+require_once __DIR__ . '/../includes/course_required_documents_helper.php';
 
 ensureWorkshopRegistrationSchema($conn);
+ensureCourseRequiredDocumentsColumn($conn);
 
 function findDuplicateCourseCode($conn, $course_code, $exclude_id = null) {
     $course_code = strtoupper(trim($course_code));
@@ -103,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
+            saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
             
             // Auto-assign course to course coordinator who created it
             if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator' && isset($_SESSION['admin_id'])) {
@@ -226,6 +229,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
         
         if ($stmt->execute()) {
+            saveCourseRequiredDocuments($conn, (int) $id, parseCourseRequiredDocumentsFromPost($_POST));
+
             // Regenerate QR code if registration link exists
             if (!empty($registration_link)) {
                 require_once '../includes/qr_helper.php';
@@ -835,6 +840,13 @@ if (!empty($params)) {
                                     <label class="form-check-label" for="add_link_published">
                                         <span id="add_publish_status">Unpublished</span>
                                     </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <?php echo renderCourseRequiredDocumentsCheckboxes(null, 'required_documents[]', 'add_req_doc'); ?>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -988,6 +1000,10 @@ if (!empty($params)) {
 
                         <div class="alert alert-warning">
                             <i class="fas fa-lightbulb"></i> <strong>Note:</strong> If you change the link, QR code will be regenerated automatically.
+                        </div>
+
+                        <div class="mb-3" id="edit_required_docs_wrap">
+                            <?php echo renderCourseRequiredDocumentsCheckboxes(null, 'required_documents[]', 'edit_req_doc'); ?>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -1298,10 +1314,27 @@ if (!empty($params)) {
             document.getElementById('edit_link_published').checked = isPublished;
             document.getElementById('edit_publish_status').textContent = isPublished ? 'Published' : 'Unpublished';
             document.getElementById('edit_publish_status').className = isPublished ? 'text-success fw-bold' : '';
+
+            var reqKeys = [];
+            try {
+                if (typeof course.required_documents === 'string' && course.required_documents) {
+                    reqKeys = JSON.parse(course.required_documents);
+                } else if (Array.isArray(course.required_documents)) {
+                    reqKeys = course.required_documents;
+                }
+            } catch (e) {
+                reqKeys = [];
+            }
+            if (!reqKeys || !reqKeys.length) {
+                reqKeys = <?php echo json_encode(courseRequiredDocumentsDefaultKeys()); ?>;
+            }
+            courseRequiredDocsApplyKeys(document.getElementById('edit_required_docs_wrap'), reqKeys);
             
             new bootstrap.Modal(document.getElementById('editCourseModal')).show();
         }
     </script>
+
+    <?php echo courseRequiredDocumentsAdminScript(); ?>
 
     <script>
     /**

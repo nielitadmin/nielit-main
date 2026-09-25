@@ -14,6 +14,8 @@ require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+ensureCourseRequiredDocumentsColumn($conn);
 
 // Function to generate short token
 function generateShortToken($length = 8) {
@@ -392,6 +394,8 @@ if (isset($_POST['update_course'])) {
     }
 
     if ($stmt->execute()) {
+        saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
+
         // Handle scheme associations (only if table exists)
         $delete_schemes_sql = "DELETE FROM course_schemes WHERE course_id = ?";
         $stmt_delete = $conn->prepare($delete_schemes_sql);
@@ -961,6 +965,13 @@ $active_theme = loadActiveTheme($conn);
                         </div>
                     </div>
                     <?php endif; ?>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <?php
+                        $edit_required_docs = getCourseRequiredDocumentKeys($conn, $course);
+                        echo renderCourseRequiredDocumentsCheckboxes($edit_required_docs, 'required_documents[]', 'edit_req_doc');
+                        ?>
+                    </div>
                     
                     <div style="background: #e3f2fd; padding: 12px; border-radius: 6px; margin-top: 12px;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -2018,6 +2029,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 })();
 </script>
+
+<?php echo courseRequiredDocumentsAdminScript(); ?>
 
 </body>
 </html>

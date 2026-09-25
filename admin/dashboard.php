@@ -13,6 +13,8 @@ require_once __DIR__ . '/../includes/session_manager.php';
 require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/support_ticket_helper.php';
+require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+ensureCourseRequiredDocumentsColumn($conn);
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login.php");
@@ -308,6 +310,7 @@ if (isset($_POST['add_course'])) {
 
     if ($stmt->execute()) {
         $course_id = $conn->insert_id;
+        saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
         
         // Auto-assign course to course coordinator who created it
         if (isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator' && isset($_SESSION['admin_id'])) {
@@ -2769,6 +2772,10 @@ $dashboard_payload = [
                             <div class="warning-box-text">QR code will be generated automatically when you save the course with a registration link.</div>
                         </div>
                     </div>
+
+                    <div class="form-group" style="margin-top: 16px;">
+                        <?php echo renderCourseRequiredDocumentsCheckboxes(null, 'required_documents[]', 'dash_req_doc'); ?>
+                    </div>
                 </div>
             </div>
             
@@ -2785,6 +2792,8 @@ $dashboard_payload = [
     </div>
 </div>
 <?php endif; ?>
+
+<?php echo courseRequiredDocumentsAdminScript(); ?>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>

@@ -8,6 +8,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/email_helper.php';
+require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+ensureCourseRequiredDocumentsColumn($conn);
 
 // ============================================================
 // HELPERS
@@ -501,7 +503,13 @@ if ($paymentColCheck && $paymentColCheck->num_rows > 0) {
     $paymentColSql = 'payment_details_required';
 }
 
-$s = $conn->prepare("SELECT course_name, course_code, registration_token, {$paymentColSql}, $feeColumn FROM courses WHERE id = ?");
+$requiredDocsColSql = 'NULL AS required_documents';
+$requiredDocsColCheck = $conn->query("SHOW COLUMNS FROM courses LIKE 'required_documents'");
+if ($requiredDocsColCheck && $requiredDocsColCheck->num_rows > 0) {
+    $requiredDocsColSql = 'required_documents';
+}
+
+$s = $conn->prepare("SELECT course_name, course_code, registration_token, {$paymentColSql}, {$requiredDocsColSql}, $feeColumn FROM courses WHERE id = ?");
 if (!$s) {
     setCoursesPageNotice('Unable to load course details. Please try again from the courses page.');
     header('Location: ' . APP_URL . '/public/courses.php');
@@ -623,15 +631,24 @@ if ($paymentRequired) {
     }
 }
 
-foreach (['passport_photo' => 'Passport photo', 'signature' => 'Signature'] as $fileField => $fileLabel) {
-    $fileErr = registrationFileUploadError($fileField);
-    if ($fileErr !== '') {
-        $missingFields[] = $fileField;
-        $validationErrors[] = $fileLabel . ' is required' . ($fileErr !== 'missing' ? ' (' . $fileErr . ')' : '') . '.';
-    }
-}
-
-foreach (['aadhar_card' => 'Aadhar card document', 'tenth_marksheet' => '10th certificate / marksheet'] as $fileField => $fileLabel) {
+$courseRequiredDocs = getCourseRequiredDocumentKeys($conn, $cRow);
+$docFieldLabels = [
+    'passport_photo' => 'Passport photo',
+    'signature' => 'Signature',
+    'left_thumb_impression' => 'Left thumb impression',
+    'aadhar_card' => 'Aadhar card document',
+    'tenth_marksheet' => '10th certificate / marksheet',
+    'twelfth_certificate' => '12th certificate / diploma',
+    'twelfth_marksheet' => '12th marksheet / diploma',
+    'graduation_certificate' => 'Graduation certificate',
+    'caste_certificate' => 'Caste certificate',
+    'other_documents' => 'Other supporting documents',
+    'bank_passbook' => 'Bank passbook',
+    'income_certificate' => 'Latest income certificate',
+    'aadhaar_bank_seeding_proof' => 'Aadhaar bank seeding proof',
+];
+foreach ($courseRequiredDocs as $fileField) {
+    $fileLabel = $docFieldLabels[$fileField] ?? ucwords(str_replace('_', ' ', $fileField));
     $fileErr = registrationFileUploadError($fileField);
     if ($fileErr !== '') {
         $missingFields[] = $fileField;
@@ -648,6 +665,9 @@ if ($isDgeProject) {
         'income_certificate' => 'Latest income certificate',
         'aadhaar_bank_seeding_proof' => 'Aadhaar bank seeding proof',
     ] as $fileField => $fileLabel) {
+        if (in_array($fileField, $courseRequiredDocs, true)) {
+            continue; // already validated above
+        }
         $fileErr = registrationFileUploadError($fileField);
         if ($fileErr !== '') {
             $missingFields[] = $fileField;
@@ -733,49 +753,51 @@ $payment_receipt_path = '';
 $left_thumb_impression_path = null;
 
 // ----------------------------------------------------------
-// 7. Upload passport photo (mandatory)
+// 7. Upload passport photo
 // ----------------------------------------------------------
-if (!isset($_FILES['passport_photo']) || $_FILES['passport_photo']['error'] !== UPLOAD_ERR_OK) {
+if (isset($_FILES['passport_photo']) && $_FILES['passport_photo']['error'] === UPLOAD_ERR_OK) {
+    $v = validateUploadedDocument($_FILES['passport_photo'], 'passport');
+    if (!$v['valid']) {
+        registrationRedirectWithErrors($redirectBack, ['Passport photo invalid: ' . $v['message']], ['passport_photo']);
+    }
+    $ext = strtolower(pathinfo($_FILES['passport_photo']['name'], PATHINFO_EXTENSION));
+    $fn  = $safe_student_id . '_' . time() . '_passport.' . $ext;
+    if (!move_uploaded_file($_FILES['passport_photo']['tmp_name'], $uploadDir . $fn)) {
+        registrationRedirectWithErrors($redirectBack, ['Failed to save passport photo. Check folder permissions.'], ['passport_photo']);
+    }
+    $passport_photo_path = 'student/uploads/students/' . $fn;
+} elseif (in_array('passport_photo', $courseRequiredDocs, true)) {
     registrationRedirectWithErrors(
         $redirectBack,
         ['Passport photo is required. Upload error code: ' . ($_FILES['passport_photo']['error'] ?? 'missing')],
         ['passport_photo']
     );
 }
-$v = validateUploadedDocument($_FILES['passport_photo'], 'passport');
-if (!$v['valid']) {
-    registrationRedirectWithErrors($redirectBack, ['Passport photo invalid: ' . $v['message']], ['passport_photo']);
-}
-$ext = strtolower(pathinfo($_FILES['passport_photo']['name'], PATHINFO_EXTENSION));
-$fn  = $safe_student_id . '_' . time() . '_passport.' . $ext;
-if (!move_uploaded_file($_FILES['passport_photo']['tmp_name'], $uploadDir . $fn)) {
-    registrationRedirectWithErrors($redirectBack, ['Failed to save passport photo. Check folder permissions.'], ['passport_photo']);
-}
-$passport_photo_path = 'student/uploads/students/' . $fn;
 
 // ----------------------------------------------------------
-// 8. Upload signature (mandatory)
+// 8. Upload signature
 // ----------------------------------------------------------
-if (!isset($_FILES['signature']) || $_FILES['signature']['error'] !== UPLOAD_ERR_OK) {
+if (isset($_FILES['signature']) && $_FILES['signature']['error'] === UPLOAD_ERR_OK) {
+    $v = validateSignatureUpload($_FILES['signature']);
+    if (!$v['valid']) {
+        registrationRedirectWithErrors($redirectBack, ['Signature invalid: ' . $v['message']], ['signature']);
+    }
+    $ext = strtolower(pathinfo($_FILES['signature']['name'], PATHINFO_EXTENSION));
+    $fn  = $safe_student_id . '_' . (time()+1) . '_signature.' . $ext;
+    if (!move_uploaded_file($_FILES['signature']['tmp_name'], $uploadDir . $fn)) {
+        registrationRedirectWithErrors($redirectBack, ['Failed to save signature. Check folder permissions.'], ['signature']);
+    }
+    $signature_path = 'student/uploads/students/' . $fn;
+} elseif (in_array('signature', $courseRequiredDocs, true)) {
     registrationRedirectWithErrors(
         $redirectBack,
         ['Signature is required. Upload error code: ' . ($_FILES['signature']['error'] ?? 'missing')],
         ['signature']
     );
 }
-$v = validateSignatureUpload($_FILES['signature']);
-if (!$v['valid']) {
-    registrationRedirectWithErrors($redirectBack, ['Signature invalid: ' . $v['message']], ['signature']);
-}
-$ext = strtolower(pathinfo($_FILES['signature']['name'], PATHINFO_EXTENSION));
-$fn  = $safe_student_id . '_' . (time()+1) . '_signature.' . $ext;
-if (!move_uploaded_file($_FILES['signature']['tmp_name'], $uploadDir . $fn)) {
-    registrationRedirectWithErrors($redirectBack, ['Failed to save signature. Check folder permissions.'], ['signature']);
-}
-$signature_path = 'student/uploads/students/' . $fn;
 
 // ----------------------------------------------------------
-// 9A. Upload left hand thumb impression (optional)
+// 9A. Upload left hand thumb impression
 // ----------------------------------------------------------
 if (isset($_FILES['left_thumb_impression']) && $_FILES['left_thumb_impression']['error'] === UPLOAD_ERR_OK) {
     $r = handleThumbImpressionUpload($_FILES['left_thumb_impression'], $student_id);
@@ -784,6 +806,12 @@ if (isset($_FILES['left_thumb_impression']) && $_FILES['left_thumb_impression'][
     } else {
         registrationRedirectWithErrors($redirectBack, ['Thumb impression invalid: ' . $r['error']], ['left_thumb_impression']);
     }
+} elseif (in_array('left_thumb_impression', $courseRequiredDocs, true)) {
+    registrationRedirectWithErrors(
+        $redirectBack,
+        ['Left thumb impression is required.'],
+        ['left_thumb_impression']
+    );
 }
 
 // ----------------------------------------------------------
@@ -807,7 +835,7 @@ foreach ($docCats as $field => $cat) {
         $r = handleCategorizedUpload($_FILES[$field], $cat, $student_id);
         if ($r['success']) $uploadedDocs[$field] = $r['path'];
         else               $uploadErrors[$field] = $r['error'];
-    } elseif (in_array($field, ['aadhar_card', 'tenth_marksheet'], true)) {
+    } elseif (in_array($field, $courseRequiredDocs, true)) {
         $code = $_FILES[$field]['error'] ?? 4;
         if ($code !== UPLOAD_ERR_OK) {
             $uploadErrors[$field] = "Required document missing (error code: $code)";

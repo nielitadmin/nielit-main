@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
+require_once __DIR__ . '/../includes/course_required_documents_helper.php';
 
 // Require registration_token parameter for secure registration links
 $registration_token = normalizeRegistrationToken((string) ($_GET['token'] ?? ''));
@@ -25,6 +26,7 @@ if ($registration_token === '' && $legacy_course_code === '') {
     exit();
 }
 
+ensureCourseRequiredDocumentsColumn($conn);
 $course_details = loadCourseByRegistrationParam($conn, $registration_token, $legacy_course_code);
 if (!$course_details) {
     setCoursesPageNotice('This registration link is invalid or expired. Please use Apply Now from the Courses Offered page.');
@@ -64,6 +66,7 @@ if (
 
 $selected_course = $course_details['course_name'];
 $course_schemes = getSchemesForCourse($conn, (int)$course_details['id']);
+$required_documents = getCourseRequiredDocumentKeys($conn, $course_details);
 $dge_scheme_ids = [];
 foreach ($course_schemes as $sch) {
     if (schemeRowIsDgeProject($sch)) {
@@ -2106,28 +2109,33 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
                 
                 <!-- Mandatory Documents: Identity Proof -->
-                <div class="document-category mandatory">
+                <div class="document-category <?php echo courseDocumentIsRequired($required_documents, 'aadhar_card') ? 'mandatory' : 'optional'; ?>">
                     <h4 class="category-title">
                         <i class="fas fa-id-card"></i> Identity Proof
+                        <?php if (courseDocumentIsRequired($required_documents, 'aadhar_card')): ?>
                         <span class="required-badge">Required</span>
+                        <?php else: ?>
+                        <span class="optional-badge">Optional</span>
+                        <?php endif; ?>
                     </h4>
                     
                     <div class="form-group">
                         <label class="form-label">
-                            Aadhar Card <span class="required-mark">*</span>
+                            Aadhar Card <?php echo courseDocumentRequiredMarkHtml($required_documents, 'aadhar_card'); ?>
                         </label>
                         <input type="file" 
                                name="aadhar_card" 
                                id="aadhar_card"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               required
+                               <?php echo courseDocumentRequiredAttr($required_documents, 'aadhar_card'); ?>
                                data-category="aadhar"
                                data-require-aadhar-card="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
                             Aadhar card scan or photo (JPG, PNG, or PDF — max 5MB for images, 10MB for PDF). Must show Aadhaar / UIDAI text — marksheet or certificate is not accepted.
+                            <?php echo courseDocumentIsRequired($required_documents, 'aadhar_card') ? ' <strong>Required.</strong>' : ' Optional for this course.'; ?>
                         </small>
                     </div>
                 </div>
@@ -2140,58 +2148,68 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     <div class="form-group mb-4">
                         <label class="form-label">
-                            10th Certificate / Marksheet <span class="required-mark">*</span>
+                            10th Certificate / Marksheet <?php echo courseDocumentRequiredMarkHtml($required_documents, 'tenth_marksheet'); ?>
                         </label>
                         <input type="file" 
                                name="tenth_marksheet" 
                                id="tenth_marksheet"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
-                               required
+                               <?php echo courseDocumentRequiredAttr($required_documents, 'tenth_marksheet'); ?>
                                data-category="tenth"
                                data-require-marksheet="tenth">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
-                            Upload <strong>10th certificate</strong> or <strong>10th marksheet</strong> (JPG/PNG/PDF, max 5MB). <strong>Required.</strong>
+                            Upload <strong>10th certificate</strong> or <strong>10th marksheet</strong> (JPG/PNG/PDF, max 5MB).
+                            <?php echo courseDocumentIsRequired($required_documents, 'tenth_marksheet') ? ' <strong>Required.</strong>' : ' Optional for this course.'; ?>
                         </small>
                     </div>
 
                     <p class="text-muted mb-2" style="font-size: 0.9rem;">
-                        <i class="fas fa-info-circle"></i> 12th documents below are <strong>optional</strong>.
+                        <i class="fas fa-info-circle"></i> 12th documents:
+                        <?php
+                        $twelfth_req = courseDocumentIsRequired($required_documents, 'twelfth_certificate')
+                            || courseDocumentIsRequired($required_documents, 'twelfth_marksheet');
+                        echo $twelfth_req ? '<strong>as required below</strong>.' : '<strong>optional</strong> unless marked for this course.';
+                        ?>
                     </p>
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">12th Certificate / Diploma</label>
+                                <label class="form-label">12th Certificate / Diploma <?php echo courseDocumentRequiredMarkHtml($required_documents, 'twelfth_certificate'); ?></label>
                                 <input type="file" 
                                        name="twelfth_certificate" 
                                        id="twelfth_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       <?php echo courseDocumentRequiredAttr($required_documents, 'twelfth_certificate'); ?>
                                        data-category="twelfth_certificate"
                                        data-require-marksheet="twelfth">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Upload <strong>12th certificate</strong> or <strong>diploma certificate</strong> (JPG/PNG/PDF). Optional.
+                                    Upload <strong>12th certificate</strong> or <strong>diploma certificate</strong> (JPG/PNG/PDF).
+                                    <?php echo courseDocumentIsRequired($required_documents, 'twelfth_certificate') ? ' <strong>Required.</strong>' : ' Optional.'; ?>
                                 </small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">12th Marksheet / Diploma</label>
+                                <label class="form-label">12th Marksheet / Diploma <?php echo courseDocumentRequiredMarkHtml($required_documents, 'twelfth_marksheet'); ?></label>
                                 <input type="file" 
                                        name="twelfth_marksheet" 
                                        id="twelfth_marksheet"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       <?php echo courseDocumentRequiredAttr($required_documents, 'twelfth_marksheet'); ?>
                                        data-category="twelfth"
                                        data-require-marksheet="twelfth">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
-                                    Upload <strong>12th marksheet</strong> or <strong>diploma marksheet</strong> (JPG/PNG/PDF). Optional.
+                                    Upload <strong>12th marksheet</strong> or <strong>diploma marksheet</strong> (JPG/PNG/PDF).
+                                    <?php echo courseDocumentIsRequired($required_documents, 'twelfth_marksheet') ? ' <strong>Required.</strong>' : ' Optional.'; ?>
                                 </small>
                             </div>
                         </div>
@@ -2202,62 +2220,73 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="document-category optional">
                     <h4 class="category-title">
                         <i class="fas fa-folder-plus"></i> Additional Documents
-                        <span class="optional-badge">Optional</span>
+                        <span class="optional-badge">As required</span>
                     </h4>
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">Caste Certificate</label>
+                                <label class="form-label">Caste Certificate <?php echo courseDocumentRequiredMarkHtml($required_documents, 'caste_certificate'); ?></label>
                                 <input type="file" 
                                        name="caste_certificate" 
                                        id="caste_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       <?php echo courseDocumentRequiredAttr($required_documents, 'caste_certificate'); ?>
                                        data-category="caste"
                                        data-require-certificate="caste">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
                                     Caste certificate (JPG/PNG/PDF). Auto-verified in photos and PDFs — wrong documents are rejected.
+                                    <?php echo courseDocumentIsRequired($required_documents, 'caste_certificate') ? ' <strong>Required.</strong>' : ''; ?>
                                 </small>
                             </div>
                         </div>
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">Graduation Certificate</label>
+                                <label class="form-label">Graduation Certificate <?php echo courseDocumentRequiredMarkHtml($required_documents, 'graduation_certificate'); ?></label>
                                 <input type="file" 
                                        name="graduation_certificate" 
                                        id="graduation_certificate"
                                        class="form-control" 
                                        accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                       <?php echo courseDocumentRequiredAttr($required_documents, 'graduation_certificate'); ?>
                                        data-category="graduation"
                                        data-require-certificate="graduation">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
                                     Graduation/degree certificate (JPG/PNG/PDF). Auto-verified in photos and PDFs.
+                                    <?php echo courseDocumentIsRequired($required_documents, 'graduation_certificate') ? ' <strong>Required.</strong>' : ''; ?>
                                 </small>
                             </div>
                         </div>
                     </div>
 
-                    <?php if ($has_dge_scheme_option): ?>
-                    <div id="dgeProjectDocumentsBlock" class="mt-3" style="display:none;">
+                    <?php
+                    $course_requires_dge_docs = courseDocumentIsRequired($required_documents, 'bank_passbook')
+                        || courseDocumentIsRequired($required_documents, 'income_certificate')
+                        || courseDocumentIsRequired($required_documents, 'aadhaar_bank_seeding_proof');
+                    if ($has_dge_scheme_option || $course_requires_dge_docs):
+                    ?>
+                    <div id="dgeProjectDocumentsBlock" class="mt-3" style="<?php echo $course_requires_dge_docs ? '' : 'display:none;'; ?>">
                         <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.9rem;">
                             <i class="fas fa-info-circle"></i>
-                            <strong>DGE project registration:</strong> upload bank passbook, latest income certificate, and Aadhaar bank seeding proof.
+                            <strong><?php echo $course_requires_dge_docs ? 'Course required documents:' : 'DGE project registration:'; ?></strong>
+                            upload bank passbook, latest income certificate, and Aadhaar bank seeding proof when marked required.
                         </div>
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label class="form-label">Bank Passbook <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                                    <label class="form-label">Bank Passbook <span class="dge-required-mark required-mark" style="<?php echo courseDocumentIsRequired($required_documents, 'bank_passbook') ? '' : 'display:none;'; ?>">*</span></label>
                                     <input type="file"
                                            name="bank_passbook"
                                            id="bank_passbook"
                                            class="form-control"
                                            accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                           <?php echo courseDocumentRequiredAttr($required_documents, 'bank_passbook'); ?>
                                            data-category="bank_passbook">
                                     <div class="doc-check-status" aria-live="polite"></div>
                                     <small class="text-muted">
@@ -2268,12 +2297,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-                                    <label class="form-label">Income Certificate <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                                    <label class="form-label">Income Certificate <span class="dge-required-mark required-mark" style="<?php echo courseDocumentIsRequired($required_documents, 'income_certificate') ? '' : 'display:none;'; ?>">*</span></label>
                                     <input type="file"
                                            name="income_certificate"
                                            id="income_certificate"
                                            class="form-control"
                                            accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                           <?php echo courseDocumentRequiredAttr($required_documents, 'income_certificate'); ?>
                                            data-category="income_certificate">
                                     <div class="doc-check-status" aria-live="polite"></div>
                                     <small class="text-muted">
@@ -2284,12 +2314,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Aadhaar Bank Seeding Proof <span class="dge-required-mark required-mark" style="display:none;">*</span></label>
+                            <label class="form-label">Aadhaar Bank Seeding Proof <span class="dge-required-mark required-mark" style="<?php echo courseDocumentIsRequired($required_documents, 'aadhaar_bank_seeding_proof') ? '' : 'display:none;'; ?>">*</span></label>
                             <input type="file"
                                    name="aadhaar_bank_seeding_proof"
                                    id="aadhaar_bank_seeding_proof"
                                    class="form-control"
                                    accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                                   <?php echo courseDocumentRequiredAttr($required_documents, 'aadhaar_bank_seeding_proof'); ?>
                                    data-category="aadhaar_bank_seeding">
                             <div class="doc-check-status" aria-live="polite"></div>
                             <small class="text-muted">
@@ -2301,32 +2332,38 @@ document.addEventListener('DOMContentLoaded', function () {
                     <?php endif; ?>
                     
                     <div class="form-group">
-                        <label class="form-label">Other Supporting Documents</label>
+                        <label class="form-label">Other Supporting Documents <?php echo courseDocumentRequiredMarkHtml($required_documents, 'other_documents'); ?></label>
                         <input type="file" 
                                name="other_documents" 
                                id="other_documents"
                                class="form-control" 
                                accept=".jpg,.jpeg,.png,.pdf"
+                               <?php echo courseDocumentRequiredAttr($required_documents, 'other_documents'); ?>
                                data-category="other">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i> 
                             Any additional supporting documents
+                            <?php echo courseDocumentIsRequired($required_documents, 'other_documents') ? ' <strong>Required.</strong>' : ''; ?>
                         </small>
                     </div>
                 </div>
                 
                 <!-- Other Required Documents -->
-                <div class="document-category mandatory">
+                <div class="document-category <?php echo (courseDocumentIsRequired($required_documents, 'passport_photo') || courseDocumentIsRequired($required_documents, 'signature')) ? 'mandatory' : 'optional'; ?>">
                     <h4 class="category-title">
                         <i class="fas fa-images"></i> Photo & Signature
+                        <?php if (courseDocumentIsRequired($required_documents, 'passport_photo') || courseDocumentIsRequired($required_documents, 'signature')): ?>
                         <span class="required-badge">Required</span>
+                        <?php else: ?>
+                        <span class="optional-badge">Optional</span>
+                        <?php endif; ?>
                     </h4>
                     
                     <div class="row">
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">Passport Photo <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" required data-max-mb="5" data-require-face="1">
+                                <label class="form-label">Passport Photo <?php echo courseDocumentRequiredMarkHtml($required_documents, 'passport_photo'); ?></label>
+                                <input type="file" class="form-control" name="passport_photo" id="passport_photo" accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" <?php echo courseDocumentRequiredAttr($required_documents, 'passport_photo'); ?> data-max-mb="5" data-require-face="1">
                                 <div class="face-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
@@ -2341,8 +2378,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label class="form-label">Signature <span class="required-mark">*</span></label>
-                                <input type="file" class="form-control" name="signature" id="signature" accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf" required data-max-mb="2" data-require-signature="1">
+                                <label class="form-label">Signature <?php echo courseDocumentRequiredMarkHtml($required_documents, 'signature'); ?></label>
+                                <input type="file" class="form-control" name="signature" id="signature" accept="image/jpeg,image/png,image/jpg,image/webp,application/pdf,.jpg,.jpeg,.png,.webp,.pdf" <?php echo courseDocumentRequiredAttr($required_documents, 'signature'); ?> data-max-mb="2" data-require-signature="1">
                                 <div class="doc-check-status" aria-live="polite"></div>
                                 <small class="text-muted">
                                     <i class="fas fa-info-circle"></i> 
@@ -2357,17 +2394,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                 </div>
 
-                <!-- Left Hand Thumb Impression (Optional) -->
-                <div class="document-category optional">
+                <!-- Left Hand Thumb Impression -->
+                <div class="document-category <?php echo courseDocumentIsRequired($required_documents, 'left_thumb_impression') ? 'mandatory' : 'optional'; ?>">
                     <h4 class="category-title">
                         <i class="fas fa-fingerprint"></i> Left Hand Thumb Impression
+                        <?php if (courseDocumentIsRequired($required_documents, 'left_thumb_impression')): ?>
+                        <span class="required-badge">Required</span>
+                        <?php else: ?>
                         <span class="required-badge" style="background: #3b82f6;">Optional</span>
+                        <?php endif; ?>
                     </h4>
 
                     <div class="form-group">
-                        <label class="form-label">Thumb Impression</label>
+                        <label class="form-label">Thumb Impression <?php echo courseDocumentRequiredMarkHtml($required_documents, 'left_thumb_impression'); ?></label>
                         <input type="file" class="form-control" name="left_thumb_impression" id="left_thumb_impression"
-                               accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" data-max-mb="2" data-require-thumb="1">
+                               accept="image/jpeg,image/png,image/jpg,application/pdf,.jpg,.jpeg,.png,.pdf" <?php echo courseDocumentRequiredAttr($required_documents, 'left_thumb_impression'); ?> data-max-mb="2" data-require-thumb="1">
                         <div class="doc-check-status" aria-live="polite"></div>
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
@@ -4322,7 +4363,7 @@ registrationFormEl.addEventListener('submit', function(e) {
         }
     }
 
-    const requiredFiles = ['passport_photo', 'signature', 'aadhar_card', 'tenth_marksheet'];
+    const requiredFiles = <?php echo json_encode(array_values($required_documents), JSON_UNESCAPED_UNICODE); ?>;
     for (let i = 0; i < requiredFiles.length; i++) {
         const fileName = requiredFiles[i];
         const input = form.querySelector('[name="' + fileName + '"]');
@@ -4338,7 +4379,9 @@ registrationFormEl.addEventListener('submit', function(e) {
         }
     }
 
-    const optionalFileFields = ['left_thumb_impression', 'twelfth_certificate', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'];
+    const optionalFileFields = ['left_thumb_impression', 'twelfth_certificate', 'twelfth_marksheet', 'caste_certificate', 'graduation_certificate', 'other_documents', 'payment_receipt', 'bank_passbook', 'income_certificate', 'aadhaar_bank_seeding_proof'].filter(function (name) {
+        return requiredFiles.indexOf(name) === -1;
+    });
     for (let i = 0; i < optionalFileFields.length; i++) {
         const fileName = optionalFileFields[i];
         const input = form.querySelector('[name="' + fileName + '"]');
