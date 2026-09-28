@@ -176,9 +176,9 @@ html[data-festival] .biometric-kiosk .btn-primary {
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse 60% 40% at 10% 0%, color-mix(in srgb, var(--festival-accent, #f59e0b) 22%, transparent), transparent 70%),
-        radial-gradient(ellipse 50% 35% at 90% 10%, color-mix(in srgb, var(--festival-secondary, #2563eb) 18%, transparent), transparent 65%);
-    opacity: 0.55;
+        radial-gradient(ellipse 55% 30% at 8% 0%, color-mix(in srgb, var(--festival-accent, #f59e0b) 12%, transparent), transparent 70%),
+        radial-gradient(ellipse 45% 28% at 92% 8%, color-mix(in srgb, var(--festival-secondary, #2563eb) 10%, transparent), transparent 65%);
+    opacity: 0.28;
     animation: festival-wash-pulse 8s ease-in-out infinite;
 }
 
@@ -265,38 +265,45 @@ html[data-festival] .biometric-kiosk .btn-primary {
     opacity: 0.45;
 }
 
-/* Corner GIF-style bouncing badges */
+/* Corner badges — subtle, small, away from content */
 .festival-fx-corners {
     position: absolute;
     inset: 0;
+    pointer-events: none;
 }
 
 .festival-fx-corner {
     position: absolute;
-    width: 54px;
-    height: 54px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--festival-primary, #0a1628) 78%, transparent);
-    border: 2px solid color-mix(in srgb, var(--festival-accent, #f59e0b) 70%, #fff);
-    box-shadow: 0 8px 24px var(--festival-shadow, rgba(15, 23, 42, 0.2));
-    animation: festival-corner-bob 2.8s ease-in-out infinite;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1);
+    animation: festival-corner-bob 3.2s ease-in-out infinite;
     z-index: 2;
+    opacity: 0.85;
 }
 
-.festival-fx-corner-tl { top: 72px; left: 12px; }
-.festival-fx-corner-tr { top: 72px; right: 12px; animation-direction: reverse; }
-.festival-fx-corner-bl { bottom: 72px; left: 12px; animation-delay: 0.6s; }
-.festival-fx-corner-br { bottom: 88px; right: 12px; animation-delay: 1s; animation-direction: reverse; }
+.festival-fx-corner-tl { top: auto; bottom: 96px; left: 10px; }
+.festival-fx-corner-tr { top: auto; bottom: 96px; right: 10px; animation-direction: reverse; }
+.festival-fx-corner-bl,
+.festival-fx-corner-br { display: none; }
 
 .festival-fx-gif {
-    font-size: 1.55rem;
+    font-size: 1.05rem;
     line-height: 1;
     display: inline-block;
-    animation: festival-gif-spin 4.5s linear infinite;
-    filter: drop-shadow(0 0 6px var(--festival-accent, #fbbf24));
+    animation: none;
+    filter: none;
+}
+
+/* Homepage: hide corner badges — they fight the layout */
+body.homepage-public .festival-fx-corners {
+    display: none;
 }
 
 @keyframes festival-corner-bob {
@@ -310,7 +317,7 @@ html[data-festival] .biometric-kiosk .btn-primary {
     100% { transform: rotate(-8deg) scale(1); }
 }
 
-/* Hero / panel festive glow ring */
+/* Keep festival layers from fighting hero / panels */
 html[data-festival] .hero-section,
 html[data-festival] .mocktest-panel,
 html[data-festival] .welcome-section,
@@ -319,28 +326,33 @@ html[data-festival] .about-section {
     z-index: 1;
 }
 
-html[data-festival] .mocktest-panel::after,
+/* No animated border rings on hero (reads as clutter over banner photos) */
 html[data-festival] .hero-section::after {
-    content: "";
-    position: absolute;
-    inset: -2px;
-    border-radius: inherit;
-    pointer-events: none;
-    z-index: 0;
-    background: linear-gradient(120deg, var(--festival-accent), transparent 40%, var(--festival-secondary), transparent 80%, var(--festival-accent));
-    opacity: 0.35;
-    animation: festival-border-shine 5s linear infinite;
-    mask:
-        linear-gradient(#fff 0 0) content-box,
-        linear-gradient(#fff 0 0);
-    mask-composite: exclude;
-    padding: 2px;
+    content: none !important;
+    display: none !important;
 }
 
-@keyframes festival-border-shine {
-    0% { filter: hue-rotate(0deg); opacity: 0.25; }
-    50% { opacity: 0.5; }
-    100% { filter: hue-rotate(25deg); opacity: 0.25; }
+/* Solid cards so sketch never shows through text */
+html[data-festival] .feat-card,
+html[data-festival] .info-card,
+html[data-festival] .course-card,
+html[data-festival] .news-card,
+html[data-festival] .announce-card,
+html[data-festival] .mocktest-panel {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    isolation: isolate;
+    position: relative;
+    z-index: 2;
+}
+
+html[data-mode="night"][data-festival] .feat-card,
+html[data-mode="night"][data-festival] .info-card,
+html[data-mode="night"][data-festival] .course-card,
+html[data-mode="night"][data-festival] .news-card,
+html[data-mode="night"][data-festival] .announce-card,
+html[data-mode="night"][data-festival] .mocktest-panel {
+    background-color: #0f172a !important;
 }
 
 /* Night mode: keep effects visible but softer */
@@ -351,7 +363,21 @@ html[data-mode="night"] .festival-fx-corner {
     background: rgba(15, 23, 42, 0.75);
 }
 
-/* ========== Realistic festival banners ========== */
+/* ========== Sparse sketch watermarks (section-only; fixed layer disabled) ========== */
+.festival-sketch-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0 !important;
+    background: none !important;
+}
+.festival-sketch-bg::before,
+.festival-sketch-bg::after {
+    content: none !important;
+    display: none !important;
+}
+/* ========== Cleaner festival banners ========== */
 .festival-banner {
     position: relative;
     z-index: 48;
@@ -359,24 +385,25 @@ html[data-mode="night"] .festival-fx-corner {
     overflow: hidden;
     color: #fff;
     background: linear-gradient(135deg, var(--festival-primary, #0a1628), var(--festival-secondary, #1a56db));
-    box-shadow: 0 8px 24px var(--festival-shadow, rgba(15, 23, 42, 0.18));
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.12);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .festival-banner-toran {
     display: flex;
     justify-content: center;
-    gap: 6px;
-    padding: 6px 8px 0;
-    background: rgba(0, 0, 0, 0.12);
+    gap: 5px;
+    padding: 4px 8px 0;
+    background: rgba(0, 0, 0, 0.1);
 }
 
 .festival-toran-bead {
-    width: 14px;
-    height: 18px;
-    border-radius: 50% 50% 45% 45%;
+    width: 10px;
+    height: 12px;
+    border-radius: 50% 50% 40% 40%;
     display: inline-block;
-    animation: festival-bead-sway 2.4s ease-in-out infinite;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: festival-bead-sway 2.6s ease-in-out infinite;
+    box-shadow: none;
 }
 
 .festival-toran-bead-1 { background: #ff9933; }
@@ -387,52 +414,52 @@ html[data-mode="night"] .festival-fx-corner {
 
 @keyframes festival-bead-sway {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(4px); }
+    50% { transform: translateY(3px); }
 }
 
 .festival-banner-inner {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 14px;
-    padding: 14px 18px 10px;
+    gap: 12px;
+    padding: 10px 16px;
     text-align: center;
     flex-wrap: wrap;
 }
 
 .festival-banner-emoji {
-    font-size: 1.75rem;
+    font-size: 1.35rem;
     line-height: 1;
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
-    animation: festival-gif-spin 4s ease-in-out infinite;
+    filter: none;
+    animation: none;
 }
 
 .festival-banner-copy {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: min(100%, 280px);
+    min-width: min(100%, 260px);
 }
 
 .festival-banner-title {
-    font-size: clamp(1.15rem, 2.4vw, 1.55rem);
-    font-weight: 800;
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 750;
     letter-spacing: 0.01em;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    text-shadow: none;
 }
 
 .festival-banner-tagline {
-    font-size: 0.88rem;
-    opacity: 0.92;
+    font-size: 0.82rem;
+    opacity: 0.9;
     font-weight: 500;
 }
 
 .festival-banner-flag {
-    width: 36px;
-    height: 24px;
-    border-radius: 3px;
+    width: 28px;
+    height: 18px;
+    border-radius: 2px;
     background: linear-gradient(180deg, #ff9933 0 33%, #fff 33% 66%, #138808 66% 100%);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     display: none;
 }
 
@@ -441,21 +468,12 @@ html[data-mode="night"] .festival-fx-corner {
 }
 
 .festival-banner-hang {
-    display: flex;
-    justify-content: center;
-    gap: 18px;
-    padding: 0 12px 8px;
+    display: none;
 }
 
 .festival-banner-hang span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--festival-accent, #fbbf24);
-    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
-    animation: festival-bead-sway 1.8s ease-in-out infinite;
+    display: none;
 }
-
 /* Banner style variants */
 .festival-banner--tricolor {
     background: linear-gradient(90deg, #ff9933 0%, #1e3a5f 35%, #1e3a5f 65%, #138808 100%);
@@ -504,12 +522,23 @@ html[data-mode="night"] .festival-fx-corner {
 .festival-banner--christmas .festival-toran-bead-3 { background: #fbbf24; }
 
 .festival-banner--gandhi {
-    background: linear-gradient(90deg, #ff9933, #f8fafc 40%, #f8fafc 60%, #138808);
+    background: #f8fafc;
     color: #0f172a;
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg, #ff9933 0%, #ffffff 40%, #ffffff 60%, #138808 100%) 1;
+    box-shadow: none;
 }
-.festival-banner--gandhi .festival-banner-title { text-shadow: none; }
-.festival-banner--gandhi .festival-banner-tagline { opacity: 0.8; color: #1e293b; }
-.festival-banner--gandhi .festival-banner-flag { display: block; }
+.festival-banner--gandhi .festival-banner-title { text-shadow: none; color: #0f172a; }
+.festival-banner--gandhi .festival-banner-tagline { opacity: 0.78; color: #334155; }
+.festival-banner--gandhi .festival-banner-toran {
+    background: transparent;
+    padding-top: 6px;
+}
+.festival-banner--gandhi .festival-toran-bead-1,
+.festival-banner--gandhi .festival-toran-bead-4 { background: #ff9933; }
+.festival-banner--gandhi .festival-toran-bead-2 { background: #ffffff; border: 1px solid rgba(0,0,0,.08); }
+.festival-banner--gandhi .festival-toran-bead-3,
+.festival-banner--gandhi .festival-toran-bead-5 { background: #138808; }
 
 .festival-banner--peacock {
     background: linear-gradient(135deg, #1e3a8a, #2563eb 50%, #facc15);

@@ -20,12 +20,12 @@ body.public-page-loaded .public-skeleton-loader {
     pointer-events: none;
 }
 
-body.public-page-loading > :not(.public-skeleton-loader) {
+body.public-page-loading > :not(.public-skeleton-loader):not(.festival-sketch-bg):not(.festival-fx-layer):not(.festival-ribbon):not(.festival-banner) {
     opacity: 0;
     visibility: hidden;
 }
 
-body.public-page-loaded > :not(.public-skeleton-loader) {
+body.public-page-loaded > :not(.public-skeleton-loader):not(.festival-sketch-bg):not(.festival-fx-layer):not(.festival-ribbon):not(.festival-banner) {
     opacity: 1;
     visibility: visible;
     transition: opacity 0.55s ease;

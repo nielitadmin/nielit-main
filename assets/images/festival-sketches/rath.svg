@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 200" fill="none">
+  <!-- Decorative temple chariot (rath) watermark -->
+  <path d="M40 120 H180" stroke="#1e293b" stroke-width="3"/>
+  <path d="M55 120 V70 H165 V120" stroke="#1e293b" stroke-width="2.5"/>
+  <path d="M70 70 V45 H150 V70" stroke="#1e293b" stroke-width="2.2"/>
+  <path d="M85 45 L110 18 L135 45" stroke="#1e293b" stroke-width="2.2" fill="none"/>
+  <circle cx="75" cy="145" r="22" stroke="#1e293b" stroke-width="2.5"/>
+  <circle cx="145" cy="145" r="22" stroke="#1e293b" stroke-width="2.5"/>
+  <circle cx="75" cy="145" r="6" fill="#1e293b"/>
+  <circle cx="145" cy="145" r="6" fill="#1e293b"/>
+  <path d="M95 85 H125 M95 100 H125" stroke="#1e293b" stroke-width="2"/>
+  <path d="M40 85 H55 M165 85 H180" stroke="#1e293b" stroke-width="2"/>
+</svg>

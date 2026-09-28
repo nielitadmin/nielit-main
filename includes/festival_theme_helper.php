@@ -840,6 +840,58 @@ if (!function_exists('resolveActiveFestivalTheme')) {
     }
 }
 
+if (!function_exists('festivalThemeSketchKey')) {
+    /**
+     * Map pack → sketch SVG filename (without .svg).
+     *
+     * @param array<string,mixed> $pack
+     */
+    function festivalThemeSketchKey(array $pack): string
+    {
+        $key = (string) ($pack['key'] ?? '');
+        $motif = (string) ($pack['motif'] ?? '');
+        $map = [
+            'gandhi_jayanti' => 'gandhi',
+            'republic_day' => 'ashoka',
+            'independence_day' => 'ashoka',
+            'holi' => 'holi',
+            'ram_navami' => 'lotus',
+            'mahavir_jayanti' => 'lotus',
+            'buddha_purnima' => 'lotus',
+            'sankranti_ambedkar' => 'ashoka',
+            'good_friday' => 'cross',
+            'bakrid' => 'crescent',
+            'muharram' => 'crescent',
+            'milad_un_nabi' => 'crescent',
+            'rath_yatra' => 'rath',
+            'janmashtami' => 'peacock',
+            'dussehra_mahanavami' => 'diya',
+            'dussehra' => 'diya',
+            'guru_nanak' => 'khanda',
+            'christmas' => 'christmas',
+            'new_year' => 'sparkles',
+        ];
+        if (isset($map[$key])) {
+            return $map[$key];
+        }
+        $motifMap = [
+            'charkha' => 'gandhi',
+            'tricolor' => 'ashoka',
+            'petals' => 'holi',
+            'lotus' => 'lotus',
+            'cross' => 'cross',
+            'crescent' => 'crescent',
+            'rath' => 'rath',
+            'peacock' => 'peacock',
+            'diya' => 'diya',
+            'khanda' => 'khanda',
+            'lights' => 'christmas',
+            'sparkles' => 'sparkles',
+        ];
+        return $motifMap[$motif] ?? 'sparkles';
+    }
+}
+
 if (!function_exists('festivalThemeBannerMeta')) {
     /**
      * Realistic banner copy + style per festival pack.
@@ -941,6 +993,9 @@ if (!function_exists('injectFestivalThemeCSS')) {
         $bannerEmoji = $h($banner['emoji']);
 
         $appUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+        $sketchKey = festivalThemeSketchKey($pack);
+        $sketchUrl = $appUrl . '/assets/images/festival-sketches/' . $sketchKey . '.svg';
+        $sketchUrlCss = $h($sketchUrl);
         $cssFile = __DIR__ . '/../assets/css/festival-theme.css';
         $jsFile = __DIR__ . '/../assets/js/festival-effects.js';
         $ver = @filemtime($cssFile) ?: time();
@@ -970,35 +1025,113 @@ if (!function_exists('injectFestivalThemeCSS')) {
         echo "  --festival-badge-bg: {$badgeBg};\n";
         echo "  --festival-greeting: '{$greeting}';\n";
         echo "  --festival-key: '{$key}';\n";
+        echo "  --festival-sketch-url: url('{$sketchUrlCss}');\n";
         echo "}\n";
         echo "html { --festival-active: 1; }\n";
+        // In-section sketch via ::before (overrides homepage display:none on section-white-pattern).
+        $sectionList = implode(",\n", [
+            'html[data-festival] .mocktest-section',
+            'html[data-festival] .welcome-section',
+            'html[data-festival] .welcome-strip',
+            'html[data-festival] .about-section',
+            'html[data-festival] .features-section',
+            'html[data-festival] .info-section',
+            'html[data-festival] .gallery-section',
+            'html[data-festival] .event-gallery',
+            'html[data-festival] .news-section',
+            'html[data-festival] .contact-section',
+            'html[data-festival] .courses-section',
+            'html[data-festival] .dynamic-course',
+            'html[data-festival] .section-white-pattern',
+            'html[data-festival] section.perf-section',
+            'html[data-festival] .kiosk-page',
+            'html[data-festival] .admin-content',
+        ]);
+        echo "{$sectionList} {\n";
+        echo "  position: relative !important;\n";
+        echo "  overflow: hidden !important;\n";
+        echo "}\n";
+        echo "{$sectionList} > * {\n";
+        echo "  position: relative;\n";
+        echo "  z-index: 1;\n";
+        echo "}\n";
+        // Sparse watermarks: one large mark per section (no dense tile overlap)
+        $beforeList = preg_replace('/html\[data-festival\] ([^{,\n]+)/', 'html[data-festival] $1::before', $sectionList);
+        echo "{$beforeList} {\n";
+        echo "  content: \"\" !important;\n";
+        echo "  display: block !important;\n";
+        echo "  position: absolute !important;\n";
+        echo "  inset: 0 !important;\n";
+        echo "  z-index: 0 !important;\n";
+        echo "  pointer-events: none !important;\n";
+        echo "  opacity: 0.05 !important;\n";
+        echo "  background-image: url('{$sketchUrlCss}') !important;\n";
+        echo "  background-repeat: no-repeat !important;\n";
+        echo "  background-size: min(36vw, 240px) !important;\n";
+        echo "  background-position: right 2% top 18% !important;\n";
+        echo "  filter: grayscale(1);\n";
+        echo "}\n";
+        echo "html[data-festival] .hero-section::before {\n";
+        echo "  content: none !important;\n";
+        echo "  display: none !important;\n";
+        echo "}\n";
+        echo "html[data-festival] .mocktest-panel {\n";
+        echo "  position: relative !important;\n";
+        echo "  overflow: hidden !important;\n";
+        echo "  background-color: #fff !important;\n";
+        echo "}\n";
+        echo "html[data-festival] .mocktest-panel::after {\n";
+        echo "  content: \"\" !important;\n";
+        echo "  display: block !important;\n";
+        echo "  position: absolute !important;\n";
+        echo "  right: 3%; bottom: 8%;\n";
+        echo "  width: min(28%, 200px);\n";
+        echo "  height: min(55%, 240px);\n";
+        echo "  z-index: 0 !important;\n";
+        echo "  pointer-events: none !important;\n";
+        echo "  opacity: 0.07 !important;\n";
+        echo "  background: url('{$sketchUrlCss}') center / contain no-repeat !important;\n";
+        echo "  filter: grayscale(1);\n";
+        echo "}\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .features-section::before,\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .section-white-pattern::before,\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .mocktest-section::before {\n";
+        echo "  opacity: 0.055 !important;\n";
+        echo "  background-size: min(32vw, 220px) !important;\n";
+        echo "  background-position: right 3% top 10% !important;\n";
+        echo "}\n";
+        echo "html[data-mode=\"night\"][data-festival] .mocktest-section::before,\n";
+        echo "html[data-mode=\"night\"][data-festival] .features-section::before,\n";
+        echo "html[data-mode=\"night\"][data-festival] .section-white-pattern::before,\n";
+        echo "html[data-mode=\"night\"][data-festival] section.perf-section::before {\n";
+        echo "  opacity: 0.08 !important;\n";
+        echo "  filter: grayscale(1) invert(0.9);\n";
+        echo "}\n";
+        echo "html[data-festival] .hero-overlay {\n";
+        echo "  background: linear-gradient(135deg, rgba(10,22,40,0.9) 0%, rgba(10,22,40,0.55) 55%, rgba(10,22,40,0.4) 100%) !important;\n";
+        echo "}\n";
+        echo "html[data-festival] .hero-carousel .carousel-item img {\n";
+        echo "  opacity: 0.38 !important;\n";
+        echo "}\n";
         echo "</style>\n";
+        // Banner replaces ribbon — skip ribbon to avoid double strip
         echo '<script>(function(){'
             . 'var d=document.documentElement;'
             . 'd.setAttribute("data-festival","' . $key . '");'
             . 'd.setAttribute("data-festival-motif","' . $motif . '");'
             . 'd.setAttribute("data-festival-pattern","' . $pattern . '");'
             . 'd.setAttribute("data-festival-stripe","' . $stripe . '");'
-            . 'd.setAttribute("data-festival-ribbon","' . $ribbon . '");'
+            . 'd.setAttribute("data-festival-ribbon","0");'
             . 'd.setAttribute("data-festival-label","' . $label . '");'
             . 'd.setAttribute("data-festival-banner","1");'
             . 'd.setAttribute("data-festival-banner-style","' . $bannerStyle . '");'
             . 'd.setAttribute("data-festival-banner-title","' . $bannerTitle . '");'
             . 'd.setAttribute("data-festival-banner-tagline","' . $bannerTagline . '");'
             . 'd.setAttribute("data-festival-banner-emoji","' . $bannerEmoji . '");'
+            . 'd.setAttribute("data-festival-sketch","' . $h($sketchKey) . '");'
+            . 'd.setAttribute("data-festival-asset-base","' . $h($appUrl . '/assets/images/festival-sketches') . '");'
             . ($effect !== '' ? 'd.setAttribute("data-festival-effect","' . $effect . '");' : '')
-            . 'function insertRibbon(){'
-            . 'if("' . $ribbon . '"!=="1")return;'
-            . 'if(document.querySelector(".festival-ribbon"))return;'
-            . 'if(!document.body)return;'
-            . 'var el=document.createElement("div");'
-            . 'el.className="festival-ribbon";el.setAttribute("role","status");'
-            . 'el.innerHTML=\'<span class="festival-ribbon-stripe" aria-hidden="true"></span>'
-            . '<span class="festival-ribbon-text"><i class="fas fa-star"></i> ' . $greeting . '</span>'
-            . '<span class="festival-ribbon-stripe" aria-hidden="true"></span>\';'
-            . 'document.body.insertBefore(el,document.body.firstChild);'
-            . '}'
-            . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",insertRibbon);}else{insertRibbon();}'
+            // Ribbon skipped when banner is active (banner replaces the top strip).
             . '})();</script>' . "\n";
         echo '<script src="' . $h($appUrl) . '/assets/js/festival-effects.js?v=' . (int) $jsVer . '" defer></script>' . "\n";
     }
@@ -1020,16 +1153,7 @@ if (!function_exists('festivalThemeRibbonHtml')) {
         if (!$conn) {
             global $conn;
         }
-        $pack = resolveActiveFestivalTheme($conn instanceof mysqli ? $conn : null);
-        if (!$pack || empty($pack['ribbon'])) {
-            return '';
-        }
-        $greeting = htmlspecialchars((string) ($pack['greeting'] ?? $pack['label'] ?? 'Festival'), ENT_QUOTES, 'UTF-8');
-        $label = htmlspecialchars((string) ($pack['label'] ?? ''), ENT_QUOTES, 'UTF-8');
-        return '<div class="festival-ribbon" role="status" aria-label="' . $label . '">'
-            . '<span class="festival-ribbon-stripe" aria-hidden="true"></span>'
-            . '<span class="festival-ribbon-text"><i class="fas fa-star"></i> ' . $greeting . '</span>'
-            . '<span class="festival-ribbon-stripe" aria-hidden="true"></span>'
-            . '</div>';
+        // Festival banner (JS) already shows the greeting — skip ribbon strip.
+        return '';
     }
 }

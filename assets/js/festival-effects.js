@@ -67,29 +67,46 @@
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', title);
 
+    // Slim banner: light toran + one emoji + copy (no hang dots / twin flags clutter)
     banner.innerHTML =
-      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(28, style) + '</div>' +
+      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(14, style) + '</div>' +
       '<div class="festival-banner-inner">' +
-        '<div class="festival-banner-flag" aria-hidden="true"></div>' +
         '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
         '<div class="festival-banner-copy">' +
           '<strong class="festival-banner-title">' + title + '</strong>' +
           (tagline ? '<span class="festival-banner-tagline">' + tagline + '</span>' : '') +
         '</div>' +
-        '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
-        '<div class="festival-banner-flag festival-banner-flag-flip" aria-hidden="true"></div>' +
-      '</div>' +
-      '<div class="festival-banner-hang" aria-hidden="true">' +
-        '<span></span><span></span><span></span><span></span><span></span><span></span><span></span>' +
       '</div>';
 
-    // Place after ribbon if present, else at top of body
+    // Prefer banner over ribbon — avoid double header strip
     var ribbon = document.querySelector('.festival-ribbon');
     if (ribbon && ribbon.parentNode) {
-      ribbon.parentNode.insertBefore(banner, ribbon.nextSibling);
+      ribbon.parentNode.replaceChild(banner, ribbon);
     } else {
       document.body.insertBefore(banner, document.body.firstChild);
     }
+  }
+
+  function createSketchBackground() {
+    // Fixed watermark above section backgrounds (z-index 40 in CSS).
+    if (document.getElementById('festival-sketch-bg')) return;
+    var root = document.documentElement;
+    var sketch = root.getAttribute('data-festival-sketch') || 'sparkles';
+    var base = root.getAttribute('data-festival-asset-base') || '';
+    if (!base) return;
+
+    var url = base.replace(/\/$/, '') + '/' + sketch + '.svg';
+    var cssUrl = 'url("' + url + '")';
+    root.style.setProperty('--festival-sketch-url', cssUrl);
+
+    var bg = document.createElement('div');
+    bg.id = 'festival-sketch-bg';
+    bg.className = 'festival-sketch-bg festival-sketch-' + sketch;
+    bg.setAttribute('aria-hidden', 'true');
+    bg.style.setProperty('--festival-sketch-url', cssUrl);
+    bg.style.backgroundImage = cssUrl;
+    document.body.appendChild(bg);
+    document.body.classList.add('has-festival-sketch');
   }
 
   function createLayer() {
@@ -103,49 +120,40 @@
     root.setAttribute('data-festival-effect', effect);
 
     createBanner();
+    createSketchBackground();
 
     var layer = document.createElement('div');
     layer.id = 'festival-fx-layer';
     layer.className = 'festival-fx-layer festival-fx-' + effect;
     layer.setAttribute('aria-hidden', 'true');
 
-    var count = window.matchMedia('(max-width: 768px)').matches ? 16 : 32;
+    // Fewer particles — avoid busy overlays on content
+    var count = window.matchMedia('(max-width: 768px)').matches ? 4 : 7;
     var emoji = motifEmoji(motif);
 
     for (var i = 0; i < count; i++) {
       var p = document.createElement('span');
       p.className = 'festival-fx-particle';
-      p.style.left = (Math.random() * 100).toFixed(2) + '%';
+      p.style.left = (8 + Math.random() * 84).toFixed(2) + '%';
       p.style.animationDelay = (Math.random() * 8).toFixed(2) + 's';
-      p.style.animationDuration = (6 + Math.random() * 8).toFixed(2) + 's';
-      p.style.setProperty('--fx-drift', ((Math.random() * 80) - 40).toFixed(1) + 'px');
-      p.style.setProperty('--fx-scale', (0.55 + Math.random() * 0.9).toFixed(2));
+      p.style.animationDuration = (8 + Math.random() * 10).toFixed(2) + 's';
+      p.style.setProperty('--fx-drift', ((Math.random() * 40) - 20).toFixed(1) + 'px');
+      p.style.setProperty('--fx-scale', (0.45 + Math.random() * 0.5).toFixed(2));
       p.style.setProperty('--fx-rot', (Math.random() * 360).toFixed(0) + 'deg');
+      p.style.opacity = '0.35';
       if (effect === 'tricolor') {
         var colors = ['#ff9933', '#ffffff', '#138808'];
         p.style.background = colors[i % 3];
         if (i % 3 === 1) p.style.border = '1px solid rgba(0,0,0,.08)';
-      } else if (effect === 'lanterns' || effect === 'saffron' || i % 5 === 0) {
-        p.textContent = emoji;
-        p.classList.add('festival-fx-emoji');
+      } else if (effect === 'lanterns' || effect === 'saffron') {
+        if (i % 3 === 0) {
+          p.textContent = emoji;
+          p.classList.add('festival-fx-emoji');
+        }
       }
       layer.appendChild(p);
     }
-
-    var corners = document.createElement('div');
-    corners.className = 'festival-fx-corners';
-    ['tl', 'tr'].forEach(function (pos, idx) {
-      var badge = document.createElement('div');
-      badge.className = 'festival-fx-corner festival-fx-corner-' + pos;
-      badge.innerHTML = '<span class="festival-fx-gif">' + emoji + '</span>';
-      badge.style.animationDelay = (idx * 0.4).toFixed(1) + 's';
-      corners.appendChild(badge);
-    });
-    layer.appendChild(corners);
-
-    var wash = document.createElement('div');
-    wash.className = 'festival-fx-wash';
-    layer.appendChild(wash);
+    // Corner badges skipped on public homepage (CSS); keep none here for cleanliness.
 
     document.body.appendChild(layer);
     document.body.classList.add('has-festival-fx');

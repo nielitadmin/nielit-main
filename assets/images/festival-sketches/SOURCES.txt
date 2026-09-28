@@ -1,0 +1,37 @@
+Festival sketch assets (mirrored locally for reliability).
+Downloaded from Wikimedia Commons. Check each file page for full license terms.
+
+gandhi.svg
+  Source: https://commons.wikimedia.org/wiki/File:Drawing_of_Mahatma_Gandhi.svg
+  License: CC BY 4.0 — attribution: संजीव कुमार / Wikimedia Commons
+
+ashoka.svg
+  Source: https://commons.wikimedia.org/wiki/File:Ashoka_Chakra.svg
+  Note: Official insignia; decorative festival use only. Indian law restricts improper commercial use.
+
+cross.svg
+  Source: https://commons.wikimedia.org/wiki/File:Christian_cross.svg
+
+crescent.svg
+  Source: https://commons.wikimedia.org/wiki/File:Star_and_Crescent.svg
+
+khanda.svg
+  Source: https://commons.wikimedia.org/wiki/File:Khanda.svg
+
+christmas.svg
+  Source: https://commons.wikimedia.org/wiki/File:Simple_1_colour_pine.svg
+
+lotus.svg
+  Source: https://commons.wikimedia.org/wiki/File:Lotus-buddha.svg
+
+diya.svg
+  Source: https://commons.wikimedia.org/wiki/File:Oil_lamp.svg
+
+peacock.svg
+  Source: https://commons.wikimedia.org/wiki/File:Heraldic_peacock.svg
+
+sparkles.svg
+  Source: https://commons.wikimedia.org/wiki/File:Four_points_star.svg
+
+holi.svg, rath.svg
+  Local decorative line sketches (site-authored).
