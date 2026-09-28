@@ -63,24 +63,42 @@
     var emoji = root.getAttribute('data-festival-banner-emoji') || '✨';
 
     var photo = root.getAttribute('data-festival-banner-photo') || '';
+    var sketch = root.getAttribute('data-festival-sketch') || 'sparkles';
+    var sketchBase = root.getAttribute('data-festival-asset-base') || '';
+    var sketchUrl = sketchBase ? (sketchBase.replace(/\/$/, '') + '/' + sketch + '.svg') : '';
+
     var banner = document.createElement('section');
-    banner.className = 'festival-banner festival-banner--' + style + (photo ? ' festival-banner--photo' : '');
+    banner.className = 'festival-banner festival-banner--' + style + ' festival-banner--sided' + (photo ? ' festival-banner--photo' : '');
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', title);
     if (photo) {
       banner.style.setProperty('--festival-banner-photo', 'url("' + photo + '")');
     }
+    if (sketchUrl) {
+      banner.style.setProperty('--festival-banner-sketch', 'url("' + sketchUrl + '")');
+    }
 
-    // Slim banner: light toran + one emoji + copy; photo packs get a richer media strip
+    // Three-part banner: left art | greeting | right mirrored art
+    var leftArt = photo
+      ? '<span class="festival-banner-portrait" style="background-image:url(\'' + photo.replace(/'/g, '%27') + '\')"></span>'
+      : (sketchUrl ? '<span class="festival-banner-sketch" aria-hidden="true"></span>' : '');
+    var rightArt = sketchUrl
+      ? '<span class="festival-banner-sketch festival-banner-sketch-mirror" aria-hidden="true"></span>'
+      : (photo ? '<span class="festival-banner-portrait festival-banner-portrait-soft" style="background-image:url(\'' + photo.replace(/'/g, '%27') + '\')"></span>' : '');
+
     banner.innerHTML =
-      (photo ? '<div class="festival-banner-media" aria-hidden="true"></div>' : '') +
-      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(14, style) + '</div>' +
+      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(16, style) + '</div>' +
       '<div class="festival-banner-inner">' +
-        '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
-        '<div class="festival-banner-copy">' +
-          '<strong class="festival-banner-title">' + title + '</strong>' +
-          (tagline ? '<span class="festival-banner-tagline">' + tagline + '</span>' : '') +
+        '<div class="festival-banner-side festival-banner-side-left" aria-hidden="true">' + leftArt + '</div>' +
+        '<div class="festival-banner-center">' +
+          '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
+          '<div class="festival-banner-copy">' +
+            '<strong class="festival-banner-title">' + title + '</strong>' +
+            (tagline ? '<span class="festival-banner-tagline">' + tagline + '</span>' : '') +
+          '</div>' +
+          '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
         '</div>' +
+        '<div class="festival-banner-side festival-banner-side-right" aria-hidden="true">' + rightArt + '</div>' +
       '</div>';
 
     // Prefer banner over ribbon — avoid double header strip

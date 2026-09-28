@@ -389,40 +389,129 @@ html[data-mode="night"] .festival-fx-corner {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Photo banners — festival image under soft overlay */
+/* Photo + sided banners — art fills left/right, text stays centered */
 .festival-banner--photo {
-    min-height: 110px;
+    min-height: 120px;
     background-color: #0b1220;
+    /* Soft wash — avoid ugly face-crop as full background */
     background-image:
-        linear-gradient(90deg, rgba(8, 15, 30, 0.72), rgba(8, 15, 30, 0.38) 55%, rgba(8, 15, 30, 0.62)),
-        var(--festival-banner-photo);
+        linear-gradient(105deg, rgba(15, 23, 42, 0.94), rgba(30, 64, 175, 0.55) 48%, rgba(20, 83, 45, 0.88)),
+        radial-gradient(ellipse 55% 120% at 50% 50%, rgba(255, 255, 255, 0.08), transparent 70%);
     background-size: cover;
-    background-position: center 22%;
-}
-.festival-banner--photo .festival-banner-media {
-    display: none;
-}
-.festival-banner--photo .festival-banner-inner {
-    padding: 16px 18px 14px;
+    background-position: center;
 }
 .festival-banner--photo .festival-banner-title,
 .festival-banner--photo .festival-banner-tagline {
     color: #fff;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
 }
 .festival-banner--photo .festival-banner-title {
-    font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+    font-size: clamp(1.15rem, 2.3vw, 1.45rem);
 }
 .festival-banner--photo .festival-banner-toran {
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(0, 0, 0, 0.18);
 }
 .festival-banner--photo.festival-banner--gandhi {
     background-image:
-        linear-gradient(90deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.28) 48%, rgba(20, 83, 45, 0.62)),
-        var(--festival-banner-photo);
+        linear-gradient(105deg, #1e3a5f 0%, #0f172a 42%, #14532d 100%);
     border-image: none;
     border-bottom: 3px solid #ff9933;
-    min-height: 120px;
+    min-height: 132px;
+}
+
+.festival-banner--sided .festival-banner-inner {
+    display: grid;
+    grid-template-columns: minmax(88px, 1fr) minmax(220px, 2.2fr) minmax(88px, 1fr);
+    align-items: center;
+    gap: 8px 12px;
+    padding: 10px 16px 14px;
+    text-align: center;
+}
+
+.festival-banner-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 84px;
+    pointer-events: none;
+}
+
+.festival-banner-side-left { justify-content: flex-start; padding-left: 8px; }
+.festival-banner-side-right { justify-content: flex-end; padding-right: 8px; }
+
+.festival-banner-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    z-index: 1;
+}
+
+.festival-banner-portrait {
+    width: clamp(72px, 12vw, 110px);
+    height: clamp(72px, 12vw, 110px);
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center 18%;
+    border: 3px solid rgba(255, 255, 255, 0.85);
+    box-shadow:
+        0 0 0 3px rgba(255, 153, 51, 0.55),
+        0 0 0 6px rgba(19, 136, 8, 0.35),
+        0 8px 20px rgba(0, 0, 0, 0.35);
+}
+
+.festival-banner-portrait-soft {
+    opacity: 0.88;
+    filter: grayscale(0.15);
+}
+
+.festival-banner-sketch {
+    width: clamp(70px, 11vw, 108px);
+    height: clamp(90px, 14vw, 130px);
+    background-image: var(--festival-banner-sketch);
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    filter: brightness(0) invert(1);
+    opacity: 0.88;
+}
+
+.festival-banner-sketch-mirror {
+    transform: scaleX(-1);
+}
+
+.festival-banner--gandhi .festival-banner-sketch {
+    opacity: 0.95;
+    background-color: transparent;
+    filter: brightness(0) invert(1) contrast(1.08);
+}
+
+@media (max-width: 700px) {
+    .festival-banner--sided .festival-banner-inner {
+        grid-template-columns: 64px 1fr 64px;
+        gap: 4px;
+        padding: 8px 10px 12px;
+    }
+    .festival-banner-portrait {
+        width: 56px;
+        height: 56px;
+        border-width: 2px;
+        box-shadow:
+            0 0 0 2px rgba(255, 153, 51, 0.5),
+            0 0 0 4px rgba(19, 136, 8, 0.3),
+            0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .festival-banner-sketch {
+        width: 52px;
+        height: 68px;
+    }
+    .festival-banner-center .festival-banner-emoji:last-child {
+        display: none;
+    }
+    .festival-banner-tagline {
+        font-size: 0.74rem;
+    }
 }
 
 .festival-banner-toran {
@@ -461,6 +550,10 @@ html[data-mode="night"] .festival-fx-corner {
     padding: 10px 16px;
     text-align: center;
     flex-wrap: wrap;
+}
+
+.festival-banner--sided .festival-banner-inner {
+    flex-wrap: nowrap;
 }
 
 .festival-banner-emoji {

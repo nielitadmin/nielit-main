@@ -1163,22 +1163,20 @@ if (!function_exists('injectFestivalThemeCSS')) {
         }
         $bannerPhotoCss = $bannerPhoto !== '' ? $h($bannerPhoto) : '';
         if ($bannerPhotoCss !== '') {
-            echo "html[data-festival] .festival-banner,\n";
+            // Keep band elegant: solid festival wash (portrait goes in side circles, not cropped full-bleed)
             echo "html[data-festival] .festival-banner.festival-banner--photo {\n";
-            echo "  min-height: 118px;\n";
-            echo "  background-image: linear-gradient(90deg, rgba(8,15,30,0.7), rgba(8,15,30,0.35) 55%, rgba(8,15,30,0.6)), url('{$bannerPhotoCss}') !important;\n";
-            echo "  background-size: cover !important;\n";
-            echo "  background-position: center 22% !important;\n";
+            echo "  min-height: 128px;\n";
             echo "  color: #fff !important;\n";
+            echo "  background-image: linear-gradient(105deg, rgba(15,23,42,0.96), rgba(30,64,175,0.55) 50%, rgba(20,83,45,0.9)) !important;\n";
             echo "}\n";
             echo "html[data-festival] .festival-banner .festival-banner-title,\n";
             echo "html[data-festival] .festival-banner .festival-banner-tagline {\n";
             echo "  color: #fff !important;\n";
-            echo "  text-shadow: 0 1px 10px rgba(0,0,0,0.5);\n";
+            echo "  text-shadow: 0 1px 10px rgba(0,0,0,0.45);\n";
             echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner {\n";
-            echo "  min-height: 128px;\n";
-            echo "  background-image: linear-gradient(90deg, rgba(15,23,42,0.68), rgba(15,23,42,0.25) 48%, rgba(20,83,45,0.58)), url('{$bannerPhotoCss}') !important;\n";
+            echo "  min-height: 136px;\n";
+            echo "  background-image: linear-gradient(105deg, #1e3a5f 0%, #0f172a 45%, #14532d 100%) !important;\n";
             echo "  border-bottom: 3px solid #ff9933 !important;\n";
             echo "}\n";
         }
