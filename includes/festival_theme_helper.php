@@ -1055,23 +1055,39 @@ if (!function_exists('injectFestivalThemeCSS')) {
         echo "  position: relative;\n";
         echo "  z-index: 1;\n";
         echo "}\n";
-        // Sparse watermarks: one large mark per section (no dense tile overlap)
+        // Balanced watermarks: right sketch (::before) + left mirrored sketch (::after)
         $beforeList = preg_replace('/html\[data-festival\] ([^{,\n]+)/', 'html[data-festival] $1::before', $sectionList);
+        $afterList = preg_replace('/html\[data-festival\] ([^{,\n]+)/', 'html[data-festival] $1::after', $sectionList);
         echo "{$beforeList} {\n";
         echo "  content: \"\" !important;\n";
         echo "  display: block !important;\n";
         echo "  position: absolute !important;\n";
-        echo "  inset: 0 !important;\n";
+        echo "  right: 0.5%; top: 50%;\n";
+        echo "  width: min(32vw, 220px);\n";
+        echo "  height: min(70%, 340px);\n";
+        echo "  transform: translateY(-50%);\n";
         echo "  z-index: 0 !important;\n";
         echo "  pointer-events: none !important;\n";
-        echo "  opacity: 0.05 !important;\n";
-        echo "  background-image: url('{$sketchUrlCss}') !important;\n";
-        echo "  background-repeat: no-repeat !important;\n";
-        echo "  background-size: min(36vw, 240px) !important;\n";
-        echo "  background-position: right 2% top 18% !important;\n";
+        echo "  opacity: 0.07 !important;\n";
+        echo "  background: url('{$sketchUrlCss}') center / contain no-repeat !important;\n";
         echo "  filter: grayscale(1);\n";
         echo "}\n";
-        echo "html[data-festival] .hero-section::before {\n";
+        echo "{$afterList} {\n";
+        echo "  content: \"\" !important;\n";
+        echo "  display: block !important;\n";
+        echo "  position: absolute !important;\n";
+        echo "  left: 0.5%; top: 50%;\n";
+        echo "  width: min(32vw, 220px);\n";
+        echo "  height: min(70%, 340px);\n";
+        echo "  transform: translateY(-50%) scaleX(-1);\n";
+        echo "  z-index: 0 !important;\n";
+        echo "  pointer-events: none !important;\n";
+        echo "  opacity: 0.065 !important;\n";
+        echo "  background: url('{$sketchUrlCss}') center / contain no-repeat !important;\n";
+        echo "  filter: grayscale(1);\n";
+        echo "}\n";
+        echo "html[data-festival] .hero-section::before,\n";
+        echo "html[data-festival] .hero-section::after {\n";
         echo "  content: none !important;\n";
         echo "  display: none !important;\n";
         echo "}\n";
@@ -1080,31 +1096,52 @@ if (!function_exists('injectFestivalThemeCSS')) {
         echo "  overflow: hidden !important;\n";
         echo "  background-color: #fff !important;\n";
         echo "}\n";
+        echo "html[data-festival] .mocktest-panel::before,\n";
         echo "html[data-festival] .mocktest-panel::after {\n";
-        echo "  content: \"\" !important;\n";
-        echo "  display: block !important;\n";
-        echo "  position: absolute !important;\n";
-        echo "  right: 3%; bottom: 8%;\n";
-        echo "  width: min(28%, 200px);\n";
-        echo "  height: min(55%, 240px);\n";
-        echo "  z-index: 0 !important;\n";
-        echo "  pointer-events: none !important;\n";
-        echo "  opacity: 0.07 !important;\n";
-        echo "  background: url('{$sketchUrlCss}') center / contain no-repeat !important;\n";
-        echo "  filter: grayscale(1);\n";
+        echo "  content: none !important;\n";
+        echo "  display: none !important;\n";
+        echo "}\n";
+        // Keep sketches in the page gutters (outside Bootstrap container) so both sides show
+        echo "@media (min-width: 1100px) {\n";
+        echo "  html[data-festival] .mocktest-section .container,\n";
+        echo "  html[data-festival] .features-section .container,\n";
+        echo "  html[data-festival] .section-white-pattern .container {\n";
+        echo "    max-width: 980px;\n";
+        echo "  }\n";
+        echo "  html[data-festival] .mocktest-section::before,\n";
+        echo "  html[data-festival] .features-section::before,\n";
+        echo "  html[data-festival] .section-white-pattern::before {\n";
+        echo "    right: max(10px, calc((100vw - 980px) / 2 - 150px));\n";
+        echo "    width: min(18vw, 150px);\n";
+        echo "    height: min(78%, 380px);\n";
+        echo "    opacity: 0.1 !important;\n";
+        echo "  }\n";
+        echo "  html[data-festival] .mocktest-section::after,\n";
+        echo "  html[data-festival] .features-section::after,\n";
+        echo "  html[data-festival] .section-white-pattern::after {\n";
+        echo "    left: max(10px, calc((100vw - 980px) / 2 - 150px));\n";
+        echo "    width: min(18vw, 150px);\n";
+        echo "    height: min(78%, 380px);\n";
+        echo "    opacity: 0.095 !important;\n";
+        echo "  }\n";
         echo "}\n";
         echo "html[data-festival=\"gandhi_jayanti\"] .features-section::before,\n";
         echo "html[data-festival=\"gandhi_jayanti\"] .section-white-pattern::before,\n";
-        echo "html[data-festival=\"gandhi_jayanti\"] .mocktest-section::before {\n";
-        echo "  opacity: 0.055 !important;\n";
-        echo "  background-size: min(32vw, 220px) !important;\n";
-        echo "  background-position: right 3% top 10% !important;\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .mocktest-section::before,\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .features-section::after,\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .section-white-pattern::after,\n";
+        echo "html[data-festival=\"gandhi_jayanti\"] .mocktest-section::after {\n";
+        echo "  opacity: 0.1 !important;\n";
         echo "}\n";
         echo "html[data-mode=\"night\"][data-festival] .mocktest-section::before,\n";
         echo "html[data-mode=\"night\"][data-festival] .features-section::before,\n";
         echo "html[data-mode=\"night\"][data-festival] .section-white-pattern::before,\n";
-        echo "html[data-mode=\"night\"][data-festival] section.perf-section::before {\n";
-        echo "  opacity: 0.08 !important;\n";
+        echo "html[data-mode=\"night\"][data-festival] section.perf-section::before,\n";
+        echo "html[data-mode=\"night\"][data-festival] .mocktest-section::after,\n";
+        echo "html[data-mode=\"night\"][data-festival] .features-section::after,\n";
+        echo "html[data-mode=\"night\"][data-festival] .section-white-pattern::after,\n";
+        echo "html[data-mode=\"night\"][data-festival] section.perf-section::after {\n";
+        echo "  opacity: 0.1 !important;\n";
         echo "  filter: grayscale(1) invert(0.9);\n";
         echo "}\n";
         echo "html[data-festival] .hero-overlay {\n";
@@ -1113,6 +1150,38 @@ if (!function_exists('injectFestivalThemeCSS')) {
         echo "html[data-festival] .hero-carousel .carousel-item img {\n";
         echo "  opacity: 0.38 !important;\n";
         echo "}\n";
+
+        // Photo banner background when a local festival banner image exists
+        $bannerDir = __DIR__ . '/../assets/images/festival-banners';
+        $bannerPhoto = '';
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $candidate = $bannerDir . '/' . $pack['key'] . '.' . $ext;
+            if (is_file($candidate)) {
+                $bannerPhoto = $appUrl . '/assets/images/festival-banners/' . $pack['key'] . '.' . $ext;
+                break;
+            }
+        }
+        $bannerPhotoCss = $bannerPhoto !== '' ? $h($bannerPhoto) : '';
+        if ($bannerPhotoCss !== '') {
+            echo "html[data-festival] .festival-banner,\n";
+            echo "html[data-festival] .festival-banner.festival-banner--photo {\n";
+            echo "  min-height: 118px;\n";
+            echo "  background-image: linear-gradient(90deg, rgba(8,15,30,0.7), rgba(8,15,30,0.35) 55%, rgba(8,15,30,0.6)), url('{$bannerPhotoCss}') !important;\n";
+            echo "  background-size: cover !important;\n";
+            echo "  background-position: center 22% !important;\n";
+            echo "  color: #fff !important;\n";
+            echo "}\n";
+            echo "html[data-festival] .festival-banner .festival-banner-title,\n";
+            echo "html[data-festival] .festival-banner .festival-banner-tagline {\n";
+            echo "  color: #fff !important;\n";
+            echo "  text-shadow: 0 1px 10px rgba(0,0,0,0.5);\n";
+            echo "}\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner {\n";
+            echo "  min-height: 128px;\n";
+            echo "  background-image: linear-gradient(90deg, rgba(15,23,42,0.68), rgba(15,23,42,0.25) 48%, rgba(20,83,45,0.58)), url('{$bannerPhotoCss}') !important;\n";
+            echo "  border-bottom: 3px solid #ff9933 !important;\n";
+            echo "}\n";
+        }
         echo "</style>\n";
         // Banner replaces ribbon — skip ribbon to avoid double strip
         echo '<script>(function(){'
@@ -1128,6 +1197,7 @@ if (!function_exists('injectFestivalThemeCSS')) {
             . 'd.setAttribute("data-festival-banner-title","' . $bannerTitle . '");'
             . 'd.setAttribute("data-festival-banner-tagline","' . $bannerTagline . '");'
             . 'd.setAttribute("data-festival-banner-emoji","' . $bannerEmoji . '");'
+            . ($bannerPhotoCss !== '' ? 'd.setAttribute("data-festival-banner-photo","' . $bannerPhotoCss . '");' : '')
             . 'd.setAttribute("data-festival-sketch","' . $h($sketchKey) . '");'
             . 'd.setAttribute("data-festival-asset-base","' . $h($appUrl . '/assets/images/festival-sketches') . '");'
             . ($effect !== '' ? 'd.setAttribute("data-festival-effect","' . $effect . '");' : '')

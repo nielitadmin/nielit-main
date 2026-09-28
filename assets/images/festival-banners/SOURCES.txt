@@ -1,0 +1,3 @@
+﻿Festival banner photos mirrored from Wikimedia Commons for NIELIT festival themes.
+Files are named by festival pack key (e.g. gandhi_jayanti.jpg).
+See each Commons file page for license details (many are Public Domain / CC BY / CC BY-SA).

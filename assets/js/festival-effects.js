@@ -62,13 +62,18 @@
     var tagline = root.getAttribute('data-festival-banner-tagline') || '';
     var emoji = root.getAttribute('data-festival-banner-emoji') || '✨';
 
+    var photo = root.getAttribute('data-festival-banner-photo') || '';
     var banner = document.createElement('section');
-    banner.className = 'festival-banner festival-banner--' + style;
+    banner.className = 'festival-banner festival-banner--' + style + (photo ? ' festival-banner--photo' : '');
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', title);
+    if (photo) {
+      banner.style.setProperty('--festival-banner-photo', 'url("' + photo + '")');
+    }
 
-    // Slim banner: light toran + one emoji + copy (no hang dots / twin flags clutter)
+    // Slim banner: light toran + one emoji + copy; photo packs get a richer media strip
     banner.innerHTML =
+      (photo ? '<div class="festival-banner-media" aria-hidden="true"></div>' : '') +
       '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(14, style) + '</div>' +
       '<div class="festival-banner-inner">' +
         '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +

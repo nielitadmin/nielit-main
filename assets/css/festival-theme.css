@@ -389,6 +389,42 @@ html[data-mode="night"] .festival-fx-corner {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Photo banners — festival image under soft overlay */
+.festival-banner--photo {
+    min-height: 110px;
+    background-color: #0b1220;
+    background-image:
+        linear-gradient(90deg, rgba(8, 15, 30, 0.72), rgba(8, 15, 30, 0.38) 55%, rgba(8, 15, 30, 0.62)),
+        var(--festival-banner-photo);
+    background-size: cover;
+    background-position: center 22%;
+}
+.festival-banner--photo .festival-banner-media {
+    display: none;
+}
+.festival-banner--photo .festival-banner-inner {
+    padding: 16px 18px 14px;
+}
+.festival-banner--photo .festival-banner-title,
+.festival-banner--photo .festival-banner-tagline {
+    color: #fff;
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
+}
+.festival-banner--photo .festival-banner-title {
+    font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+}
+.festival-banner--photo .festival-banner-toran {
+    background: rgba(0, 0, 0, 0.2);
+}
+.festival-banner--photo.festival-banner--gandhi {
+    background-image:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.28) 48%, rgba(20, 83, 45, 0.62)),
+        var(--festival-banner-photo);
+    border-image: none;
+    border-bottom: 3px solid #ff9933;
+    min-height: 120px;
+}
+
 .festival-banner-toran {
     display: flex;
     justify-content: center;
