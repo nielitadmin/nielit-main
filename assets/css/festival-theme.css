@@ -1,6 +1,6 @@
 /**
- * Festival theme detail styles — activated when html[data-festival] is set.
- * Colors come from --festival-* / --primary-color vars injected per pack.
+ * Festival theme detail styles + animated background / GIF-style effects.
+ * Activated when html[data-festival] is set.
  */
 
 html[data-festival] body {
@@ -17,7 +17,7 @@ html[data-festival][data-festival-pattern="waves"] body::before {
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    opacity: 0.045;
+    opacity: 0.05;
     background-image:
         radial-gradient(circle at 20% 20%, var(--festival-accent, #f59e0b) 0 2px, transparent 3px),
         radial-gradient(circle at 80% 30%, var(--festival-secondary, #2563eb) 0 2px, transparent 3px),
@@ -62,6 +62,12 @@ html[data-festival][data-festival-ribbon="1"] .festival-ribbon {
 .festival-ribbon-text i {
     color: var(--festival-accent, #fbbf24);
     margin-right: 4px;
+    animation: festival-ribbon-twinkle 1.6s ease-in-out infinite;
+}
+
+@keyframes festival-ribbon-twinkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(1.15); }
 }
 
 .festival-ribbon-stripe {
@@ -106,6 +112,8 @@ html[data-festival] .kiosk-card,
 html[data-festival] .biometric-panel {
     border-radius: var(--festival-card-radius, 14px) !important;
     box-shadow: 0 10px 28px var(--festival-shadow, rgba(15, 23, 42, 0.1));
+    position: relative;
+    z-index: 1;
 }
 
 html[data-festival] .btn-primary,
@@ -142,7 +150,6 @@ html[data-festival] .admin-topbar {
     box-shadow: 0 2px 0 var(--festival-accent, #f59e0b);
 }
 
-/* Biometric / kiosk friendliness */
 html[data-festival] .kiosk-shell,
 html[data-festival] .biometric-kiosk,
 html[data-festival] #kioskRoot {
@@ -156,21 +163,372 @@ html[data-festival] .biometric-kiosk .btn-primary {
     border-radius: var(--festival-btn-radius, 10px) !important;
 }
 
-/* Motif corner ornament (subtle) */
-html[data-festival][data-festival-motif]:not([data-festival-motif=""]) body::after {
-    content: "";
+/* ========== Animated FX layer ========== */
+.festival-fx-layer {
     position: fixed;
-    right: 12px;
-    bottom: 12px;
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
+    inset: 0;
     pointer-events: none;
-    z-index: 40;
-    opacity: 0.12;
+    z-index: 45;
+    overflow: hidden;
+}
+
+.festival-fx-wash {
+    position: absolute;
+    inset: 0;
     background:
-        radial-gradient(circle at 50% 50%, var(--festival-accent) 0 28%, transparent 30%),
-        radial-gradient(circle at 50% 50%, var(--festival-secondary) 0 55%, transparent 57%);
+        radial-gradient(ellipse 60% 40% at 10% 0%, color-mix(in srgb, var(--festival-accent, #f59e0b) 22%, transparent), transparent 70%),
+        radial-gradient(ellipse 50% 35% at 90% 10%, color-mix(in srgb, var(--festival-secondary, #2563eb) 18%, transparent), transparent 65%);
+    opacity: 0.55;
+    animation: festival-wash-pulse 8s ease-in-out infinite;
+}
+
+@keyframes festival-wash-pulse {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 0.65; }
+}
+
+.festival-fx-particle {
+    position: absolute;
+    top: -12vh;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--festival-accent, #f59e0b);
+    opacity: 0.75;
+    transform: scale(var(--fx-scale, 1)) rotate(var(--fx-rot, 0deg));
+    animation-name: festival-fall;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
+}
+
+.festival-fx-particle.festival-fx-emoji {
+    width: auto;
+    height: auto;
+    background: transparent !important;
+    font-size: calc(14px * var(--fx-scale, 1));
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+@keyframes festival-fall {
+    0% {
+        transform: translate3d(0, -10vh, 0) scale(var(--fx-scale, 1)) rotate(0deg);
+        opacity: 0;
+    }
+    8% { opacity: 0.85; }
+    100% {
+        transform: translate3d(var(--fx-drift, 20px), 110vh, 0) scale(var(--fx-scale, 1)) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Effect variants */
+.festival-fx-petals .festival-fx-particle:not(.festival-fx-emoji) {
+    width: 12px;
+    height: 8px;
+    border-radius: 60% 40% 60% 40%;
+    background: linear-gradient(135deg, #f472b6, #facc15, #c084fc);
+}
+
+.festival-fx-sparkles .festival-fx-particle:not(.festival-fx-emoji) {
+    width: 5px;
+    height: 5px;
+    box-shadow: 0 0 8px var(--festival-accent, #fbbf24);
+    background: var(--festival-accent, #fbbf24);
+}
+
+.festival-fx-tricolor .festival-fx-particle:not(.festival-fx-emoji) {
+    width: 10px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+.festival-fx-lanterns .festival-fx-particle:not(.festival-fx-emoji) {
+    width: 10px;
+    height: 14px;
+    border-radius: 40% 40% 20% 20%;
+    background: linear-gradient(180deg, #fbbf24, #059669);
+}
+
+.festival-fx-saffron .festival-fx-particle:not(.festival-fx-emoji) {
+    background: linear-gradient(135deg, #ff9933, #ea580c);
+    width: 9px;
+    height: 9px;
+}
+
+.festival-fx-softglow .festival-fx-particle:not(.festival-fx-emoji) {
+    width: 6px;
+    height: 6px;
+    background: var(--festival-secondary, #6d28d9);
+    box-shadow: 0 0 12px var(--festival-secondary, #6d28d9);
+    opacity: 0.45;
+}
+
+/* Corner GIF-style bouncing badges */
+.festival-fx-corners {
+    position: absolute;
+    inset: 0;
+}
+
+.festival-fx-corner {
+    position: absolute;
+    width: 54px;
+    height: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--festival-primary, #0a1628) 78%, transparent);
+    border: 2px solid color-mix(in srgb, var(--festival-accent, #f59e0b) 70%, #fff);
+    box-shadow: 0 8px 24px var(--festival-shadow, rgba(15, 23, 42, 0.2));
+    animation: festival-corner-bob 2.8s ease-in-out infinite;
+    z-index: 2;
+}
+
+.festival-fx-corner-tl { top: 72px; left: 12px; }
+.festival-fx-corner-tr { top: 72px; right: 12px; animation-direction: reverse; }
+.festival-fx-corner-bl { bottom: 72px; left: 12px; animation-delay: 0.6s; }
+.festival-fx-corner-br { bottom: 88px; right: 12px; animation-delay: 1s; animation-direction: reverse; }
+
+.festival-fx-gif {
+    font-size: 1.55rem;
+    line-height: 1;
+    display: inline-block;
+    animation: festival-gif-spin 4.5s linear infinite;
+    filter: drop-shadow(0 0 6px var(--festival-accent, #fbbf24));
+}
+
+@keyframes festival-corner-bob {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-10px) scale(1.06); }
+}
+
+@keyframes festival-gif-spin {
+    0% { transform: rotate(-8deg) scale(1); }
+    50% { transform: rotate(8deg) scale(1.12); }
+    100% { transform: rotate(-8deg) scale(1); }
+}
+
+/* Hero / panel festive glow ring */
+html[data-festival] .hero-section,
+html[data-festival] .mocktest-panel,
+html[data-festival] .welcome-section,
+html[data-festival] .about-section {
+    position: relative;
+    z-index: 1;
+}
+
+html[data-festival] .mocktest-panel::after,
+html[data-festival] .hero-section::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(120deg, var(--festival-accent), transparent 40%, var(--festival-secondary), transparent 80%, var(--festival-accent));
+    opacity: 0.35;
+    animation: festival-border-shine 5s linear infinite;
+    mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    padding: 2px;
+}
+
+@keyframes festival-border-shine {
+    0% { filter: hue-rotate(0deg); opacity: 0.25; }
+    50% { opacity: 0.5; }
+    100% { filter: hue-rotate(25deg); opacity: 0.25; }
+}
+
+/* Night mode: keep effects visible but softer */
+html[data-mode="night"] .festival-fx-wash {
+    opacity: 0.28;
+}
+html[data-mode="night"] .festival-fx-corner {
+    background: rgba(15, 23, 42, 0.75);
+}
+
+/* ========== Realistic festival banners ========== */
+.festival-banner {
+    position: relative;
+    z-index: 48;
+    margin: 0;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(135deg, var(--festival-primary, #0a1628), var(--festival-secondary, #1a56db));
+    box-shadow: 0 8px 24px var(--festival-shadow, rgba(15, 23, 42, 0.18));
+}
+
+.festival-banner-toran {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px 0;
+    background: rgba(0, 0, 0, 0.12);
+}
+
+.festival-toran-bead {
+    width: 14px;
+    height: 18px;
+    border-radius: 50% 50% 45% 45%;
+    display: inline-block;
+    animation: festival-bead-sway 2.4s ease-in-out infinite;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.festival-toran-bead-1 { background: #ff9933; }
+.festival-toran-bead-2 { background: #fbbf24; }
+.festival-toran-bead-3 { background: #ef4444; }
+.festival-toran-bead-4 { background: #22c55e; }
+.festival-toran-bead-5 { background: #f472b6; }
+
+@keyframes festival-bead-sway {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+}
+
+.festival-banner-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 14px 18px 10px;
+    text-align: center;
+    flex-wrap: wrap;
+}
+
+.festival-banner-emoji {
+    font-size: 1.75rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+    animation: festival-gif-spin 4s ease-in-out infinite;
+}
+
+.festival-banner-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: min(100%, 280px);
+}
+
+.festival-banner-title {
+    font-size: clamp(1.15rem, 2.4vw, 1.55rem);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.festival-banner-tagline {
+    font-size: 0.88rem;
+    opacity: 0.92;
+    font-weight: 500;
+}
+
+.festival-banner-flag {
+    width: 36px;
+    height: 24px;
+    border-radius: 3px;
+    background: linear-gradient(180deg, #ff9933 0 33%, #fff 33% 66%, #138808 66% 100%);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    display: none;
+}
+
+.festival-banner-flag-flip {
+    transform: scaleX(-1);
+}
+
+.festival-banner-hang {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    padding: 0 12px 8px;
+}
+
+.festival-banner-hang span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--festival-accent, #fbbf24);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.15);
+    animation: festival-bead-sway 1.8s ease-in-out infinite;
+}
+
+/* Banner style variants */
+.festival-banner--tricolor {
+    background: linear-gradient(90deg, #ff9933 0%, #1e3a5f 35%, #1e3a5f 65%, #138808 100%);
+}
+.festival-banner--tricolor .festival-banner-flag { display: block; }
+.festival-banner--tricolor .festival-toran-bead-1 { background: #ff9933; }
+.festival-banner--tricolor .festival-toran-bead-2 { background: #ffffff; border: 1px solid rgba(0,0,0,.08); }
+.festival-banner--tricolor .festival-toran-bead-3 { background: #138808; }
+.festival-banner--tricolor .festival-toran-bead-4 { background: #ff9933; }
+.festival-banner--tricolor .festival-toran-bead-5 { background: #138808; }
+
+.festival-banner--holi {
+    background: linear-gradient(120deg, #db2777, #7c3aed, #2563eb, #16a34a, #facc15);
+}
+.festival-banner--holi .festival-toran-bead-1 { background: #f472b6; }
+.festival-banner--holi .festival-toran-bead-2 { background: #a78bfa; }
+.festival-banner--holi .festival-toran-bead-3 { background: #38bdf8; }
+.festival-banner--holi .festival-toran-bead-4 { background: #4ade80; }
+.festival-banner--holi .festival-toran-bead-5 { background: #facc15; }
+
+.festival-banner--diya,
+.festival-banner--saffron,
+.festival-banner--rath {
+    background: linear-gradient(135deg, #7c2d12, #c2410c 45%, #f59e0b);
+}
+.festival-banner--diya .festival-banner-hang span,
+.festival-banner--saffron .festival-banner-hang span {
+    background: #fde68a;
+    box-shadow: 0 0 10px #fbbf24;
+}
+
+.festival-banner--eid {
+    background: linear-gradient(135deg, #064e3b, #059669 55%, #065f46);
+}
+.festival-banner--eid .festival-toran-bead-1,
+.festival-banner--eid .festival-toran-bead-3,
+.festival-banner--eid .festival-toran-bead-5 { background: #fbbf24; }
+.festival-banner--eid .festival-toran-bead-2,
+.festival-banner--eid .festival-toran-bead-4 { background: #34d399; }
+
+.festival-banner--christmas {
+    background: linear-gradient(135deg, #14532d, #166534 40%, #b91c1c);
+}
+.festival-banner--christmas .festival-toran-bead-1 { background: #ef4444; }
+.festival-banner--christmas .festival-toran-bead-2 { background: #22c55e; }
+.festival-banner--christmas .festival-toran-bead-3 { background: #fbbf24; }
+
+.festival-banner--gandhi {
+    background: linear-gradient(90deg, #ff9933, #f8fafc 40%, #f8fafc 60%, #138808);
+    color: #0f172a;
+}
+.festival-banner--gandhi .festival-banner-title { text-shadow: none; }
+.festival-banner--gandhi .festival-banner-tagline { opacity: 0.8; color: #1e293b; }
+.festival-banner--gandhi .festival-banner-flag { display: block; }
+
+.festival-banner--peacock {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb 50%, #facc15);
+}
+
+.festival-banner--odisha {
+    background: linear-gradient(135deg, #1e3a8a, #9a3412 55%, #f59e0b);
+}
+
+.festival-banner--solemn {
+    background: linear-gradient(135deg, #3b0764, #6d28d9);
+}
+
+.festival-banner--sparkle {
+    background: linear-gradient(135deg, #0f172a, #2563eb 60%, #fbbf24);
+}
+
+html[data-mode="night"] .festival-banner--gandhi {
+    color: #0f172a;
 }
 
 @media (max-width: 768px) {
@@ -180,5 +538,56 @@ html[data-festival][data-festival-motif]:not([data-festival-motif=""]) body::aft
     }
     .festival-ribbon-stripe {
         flex-basis: 24px;
+    }
+    .festival-fx-corner-tl,
+    .festival-fx-corner-tr {
+        top: auto;
+        bottom: 16px;
+        width: 40px;
+        height: 40px;
+    }
+    .festival-fx-corner-bl,
+    .festival-fx-corner-br {
+        display: none;
+    }
+    .festival-fx-gif {
+        font-size: 1.15rem;
+    }
+    .festival-banner-inner {
+        padding: 12px 12px 8px;
+        gap: 8px;
+    }
+    .festival-banner-emoji {
+        font-size: 1.35rem;
+    }
+    .festival-banner-tagline {
+        font-size: 0.78rem;
+    }
+    .festival-banner-toran {
+        gap: 4px;
+    }
+    .festival-toran-bead {
+        width: 10px;
+        height: 13px;
+    }
+    .festival-banner-flag {
+        width: 28px;
+        height: 18px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .festival-fx-layer,
+    .festival-fx-particle,
+    .festival-fx-corner,
+    .festival-fx-gif,
+    .festival-ribbon-text i,
+    .festival-toran-bead,
+    .festival-banner-emoji,
+    .festival-banner-hang span {
+        animation: none !important;
+    }
+    .festival-fx-layer {
+        display: none;
     }
 }

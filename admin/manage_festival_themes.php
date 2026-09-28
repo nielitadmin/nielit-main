@@ -103,7 +103,7 @@ $activePack = resolveActiveFestivalTheme($conn);
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
             <div>
                 <h2 class="mb-1"><i class="fas fa-gift"></i> Festival Themes</h2>
-                <p class="text-muted mb-0">Different packs for each festival — colors, ribbon, motif, and small UI details across public pages, registration, and biometric kiosks.</p>
+                <p class="text-muted mb-0">Different packs for each festival — colors, realistic banners, ribbon, FX particles, and detail styles across public pages, registration, and biometric kiosks.</p>
             </div>
             <a href="<?php echo htmlspecialchars(app_url('admin/manage_public_themes')); ?>" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-globe"></i> Public Themes
@@ -182,8 +182,8 @@ $activePack = resolveActiveFestivalTheme($conn);
                         <div class="text-muted small mb-2"><?php echo htmlspecialchars((string) ($pack['description'] ?? '')); ?></div>
                         <div class="small text-muted">
                             Ribbon · <?php echo !empty($pack['ribbon']) ? 'Yes' : 'No'; ?>
-                            · Pattern: <?php echo htmlspecialchars((string) ($pack['pattern'] ?? 'none')); ?>
-                            · Radius: <?php echo htmlspecialchars((string) ($pack['card_radius'] ?? '')); ?>
+                            · FX: <?php echo htmlspecialchars((string) ($pack['effect'] ?? $pack['motif'] ?? 'sparkles')); ?>
+                            · Motif: <?php echo htmlspecialchars((string) ($pack['motif'] ?? '')); ?>
                         </div>
                     </div>
                 </div>

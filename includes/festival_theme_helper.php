@@ -30,6 +30,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Happy New Year',
                 'motif' => 'sparkles',
                 'pattern' => 'sparkles',
+                'effect' => 'sparkles',
                 'ribbon' => true,
                 'card_radius' => '16px',
                 'button_radius' => '999px',
@@ -54,6 +55,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Happy Republic Day',
                 'motif' => 'tricolor',
                 'pattern' => 'tricolor_band',
+                'effect' => 'tricolor',
                 'ribbon' => true,
                 'card_radius' => '14px',
                 'button_radius' => '10px',
@@ -78,6 +80,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Happy Holi',
                 'motif' => 'petals',
                 'pattern' => 'petals',
+                'effect' => 'petals',
                 'ribbon' => true,
                 'card_radius' => '18px',
                 'button_radius' => '999px',
@@ -222,6 +225,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Eid Mubarak',
                 'motif' => 'crescent',
                 'pattern' => 'dots',
+                'effect' => 'lanterns',
                 'ribbon' => true,
                 'card_radius' => '14px',
                 'button_radius' => '10px',
@@ -270,6 +274,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Jai Jagannath — Rath Yatra',
                 'motif' => 'rath',
                 'pattern' => 'waves',
+                'effect' => 'saffron',
                 'ribbon' => true,
                 'card_radius' => '14px',
                 'button_radius' => '10px',
@@ -318,6 +323,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Happy Independence Day',
                 'motif' => 'tricolor',
                 'pattern' => 'tricolor_band',
+                'effect' => 'tricolor',
                 'ribbon' => true,
                 'card_radius' => '14px',
                 'button_radius' => '10px',
@@ -366,6 +372,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Gandhi Jayanti',
                 'motif' => 'charkha',
                 'pattern' => 'none',
+                'effect' => 'softglow',
                 'ribbon' => true,
                 'card_radius' => '12px',
                 'button_radius' => '8px',
@@ -414,6 +421,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Happy Dussehra',
                 'motif' => 'diya',
                 'pattern' => 'petals',
+                'effect' => 'petals',
                 'ribbon' => true,
                 'card_radius' => '14px',
                 'button_radius' => '10px',
@@ -462,6 +470,7 @@ if (!function_exists('festivalThemePackDefinitions')) {
                 'greeting' => 'Merry Christmas',
                 'motif' => 'lights',
                 'pattern' => 'sparkles',
+                'effect' => 'sparkles',
                 'ribbon' => true,
                 'card_radius' => '16px',
                 'button_radius' => '12px',
@@ -831,6 +840,61 @@ if (!function_exists('resolveActiveFestivalTheme')) {
     }
 }
 
+if (!function_exists('festivalThemeBannerMeta')) {
+    /**
+     * Realistic banner copy + style per festival pack.
+     *
+     * @param array<string,mixed> $pack
+     * @return array{style:string,title:string,tagline:string,emoji:string}
+     */
+    function festivalThemeBannerMeta(array $pack): array
+    {
+        $key = (string) ($pack['key'] ?? '');
+        $greeting = (string) ($pack['greeting'] ?? $pack['label'] ?? 'Festival');
+        $motif = (string) ($pack['motif'] ?? 'sparkles');
+
+        $defaults = [
+            'new_year' => ['style' => 'sparkle', 'tagline' => 'Welcome a bright new year of learning at NIELIT Bhubaneswar', 'emoji' => '✨🎉'],
+            'republic_day' => ['style' => 'tricolor', 'tagline' => 'Saluting the Constitution · Pride of India · Skill for the Nation', 'emoji' => '🇮🇳'],
+            'holi' => ['style' => 'holi', 'tagline' => 'Festival of colours — celebrate joy, unity and creativity', 'emoji' => '🎨🌸'],
+            'ram_navami' => ['style' => 'saffron', 'tagline' => 'Wishing peace, devotion and auspicious beginnings', 'emoji' => '🪷'],
+            'mahavir_jayanti' => ['style' => 'saffron', 'tagline' => 'Walking the path of non-violence and compassion', 'emoji' => '🪷'],
+            'good_friday' => ['style' => 'solemn', 'tagline' => 'A day of reflection, faith and hope', 'emoji' => '✝️'],
+            'sankranti_ambedkar' => ['style' => 'odisha', 'tagline' => 'Mahabishuba Sankranti & Ambedkar Jayanti greetings', 'emoji' => '🪔📜'],
+            'buddha_purnima' => ['style' => 'saffron', 'tagline' => 'May wisdom and peace light every path', 'emoji' => '🪷'],
+            'bakrid' => ['style' => 'eid', 'tagline' => 'Eid Mubarak — peace, generosity and togetherness', 'emoji' => '🌙'],
+            'muharram' => ['style' => 'eid', 'tagline' => 'Observing Muharram with respect and reflection', 'emoji' => '🌙'],
+            'rath_yatra' => ['style' => 'rath', 'tagline' => 'Jai Jagannath — Odisha’s sacred chariot festival', 'emoji' => '🛕'],
+            'milad_un_nabi' => ['style' => 'eid', 'tagline' => 'Milad-un-Nabi Mubarak — blessings of peace', 'emoji' => '🌙'],
+            'independence_day' => ['style' => 'tricolor', 'tagline' => 'Celebrating freedom · Building skilled India', 'emoji' => '🇮🇳'],
+            'janmashtami' => ['style' => 'peacock', 'tagline' => 'Happy Krishna Janmashtami — joy and devotion', 'emoji' => '🦚'],
+            'gandhi_jayanti' => ['style' => 'gandhi', 'tagline' => 'Remembering the Father of the Nation · Truth & Non-violence', 'emoji' => '🕊️'],
+            'dussehra_mahanavami' => ['style' => 'diya', 'tagline' => 'Victory of good over evil — Mahanavami greetings', 'emoji' => '🪔'],
+            'dussehra' => ['style' => 'diya', 'tagline' => 'Happy Vijayadashami — strength, courage and success', 'emoji' => '🪔🏹'],
+            'guru_nanak' => ['style' => 'saffron', 'tagline' => 'Happy Gurpurab — Ik Onkar · Peace and equality', 'emoji' => '☬'],
+            'christmas' => ['style' => 'christmas', 'tagline' => 'Merry Christmas — peace, joy and goodwill', 'emoji' => '🎄⭐'],
+        ];
+
+        $row = $defaults[$key] ?? [
+            'style' => 'sparkle',
+            'tagline' => 'Warm festive greetings from NIELIT Bhubaneswar',
+            'emoji' => '✨',
+        ];
+
+        // Motif fallback for style
+        if (($row['style'] ?? '') === 'sparkle' && $motif === 'tricolor') {
+            $row['style'] = 'tricolor';
+        }
+
+        return [
+            'style' => (string) ($pack['banner_style'] ?? $row['style']),
+            'title' => (string) ($pack['banner_title'] ?? $greeting),
+            'tagline' => (string) ($pack['banner_tagline'] ?? $row['tagline']),
+            'emoji' => (string) ($pack['banner_emoji'] ?? $row['emoji']),
+        ];
+    }
+}
+
 if (!function_exists('injectFestivalThemeCSS')) {
     /**
      * Inject festival CSS variables + detail styles when a pack is active.
@@ -862,6 +926,7 @@ if (!function_exists('injectFestivalThemeCSS')) {
         $greeting = $h($pack['greeting'] ?? $pack['label'] ?? 'Festival');
         $motif = $h($pack['motif'] ?? 'sparkles');
         $pattern = $h($pack['pattern'] ?? 'none');
+        $effect = $h($pack['effect'] ?? '');
         $cardRadius = $h($pack['card_radius'] ?? '14px');
         $btnRadius = $h($pack['button_radius'] ?? '10px');
         $shadow = $h($pack['shadow_tint'] ?? 'rgba(15,23,42,0.12)');
@@ -869,10 +934,17 @@ if (!function_exists('injectFestivalThemeCSS')) {
         $stripe = $h($pack['topbar_stripe'] ?? 'gold_blue');
         $ribbon = !empty($pack['ribbon']) ? '1' : '0';
         $label = $h($pack['label'] ?? $key);
+        $banner = festivalThemeBannerMeta($pack);
+        $bannerStyle = $h($banner['style']);
+        $bannerTitle = $h($banner['title']);
+        $bannerTagline = $h($banner['tagline']);
+        $bannerEmoji = $h($banner['emoji']);
 
         $appUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         $cssFile = __DIR__ . '/../assets/css/festival-theme.css';
+        $jsFile = __DIR__ . '/../assets/js/festival-effects.js';
         $ver = @filemtime($cssFile) ?: time();
+        $jsVer = @filemtime($jsFile) ?: time();
 
         echo '<link rel="stylesheet" href="' . $h($appUrl) . '/assets/css/festival-theme.css?v=' . (int) $ver . '">' . "\n";
         echo "<style id=\"festival-theme-vars\">\n";
@@ -909,6 +981,12 @@ if (!function_exists('injectFestivalThemeCSS')) {
             . 'd.setAttribute("data-festival-stripe","' . $stripe . '");'
             . 'd.setAttribute("data-festival-ribbon","' . $ribbon . '");'
             . 'd.setAttribute("data-festival-label","' . $label . '");'
+            . 'd.setAttribute("data-festival-banner","1");'
+            . 'd.setAttribute("data-festival-banner-style","' . $bannerStyle . '");'
+            . 'd.setAttribute("data-festival-banner-title","' . $bannerTitle . '");'
+            . 'd.setAttribute("data-festival-banner-tagline","' . $bannerTagline . '");'
+            . 'd.setAttribute("data-festival-banner-emoji","' . $bannerEmoji . '");'
+            . ($effect !== '' ? 'd.setAttribute("data-festival-effect","' . $effect . '");' : '')
             . 'function insertRibbon(){'
             . 'if("' . $ribbon . '"!=="1")return;'
             . 'if(document.querySelector(".festival-ribbon"))return;'
@@ -922,6 +1000,7 @@ if (!function_exists('injectFestivalThemeCSS')) {
             . '}'
             . 'if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",insertRibbon);}else{insertRibbon();}'
             . '})();</script>' . "\n";
+        echo '<script src="' . $h($appUrl) . '/assets/js/festival-effects.js?v=' . (int) $jsVer . '" defer></script>' . "\n";
     }
 }
 
