@@ -1324,8 +1324,13 @@ $has_dge_scheme_option = !empty($dge_scheme_ids);
             animation: checkmark 0.5s ease-out;
         }
     </style>
+    <?php
+    require_once __DIR__ . '/../includes/festival_theme_helper.php';
+    emitFestivalThemeHead($conn);
+    ?>
 </head>
 <body>
+<?php echo festivalThemeRibbonHtml($conn); ?>
 
 <!-- TOP BAR WITH LOGOS - MATCHING INDEX.PHP -->
 <div class="top-bar">

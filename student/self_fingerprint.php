@@ -261,8 +261,13 @@ $bgSlides = studentKioskBackgroundSlides();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="<?php echo htmlspecialchars($jsBase . $cssKiosk); ?>">
     <link rel="icon" href="<?php echo htmlspecialchars(app_url('assets/images/favicon.ico')); ?>" type="image/x-icon">
+    <?php
+    require_once __DIR__ . '/../includes/festival_theme_helper.php';
+    emitFestivalThemeHead($conn);
+    ?>
 </head>
 <body class="kiosk-page">
+<?php echo festivalThemeRibbonHtml($conn); ?>
 <div class="kiosk-bg" aria-hidden="true">
     <?php if (!empty($bgSlides)): ?>
         <?php foreach ($bgSlides as $i => $slide): ?>

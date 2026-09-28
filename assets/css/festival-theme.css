@@ -1,0 +1,184 @@
+/**
+ * Festival theme detail styles — activated when html[data-festival] is set.
+ * Colors come from --festival-* / --primary-color vars injected per pack.
+ */
+
+html[data-festival] body {
+    background-color: var(--festival-cream, var(--cream, #fafaf8));
+}
+
+/* Soft page pattern */
+html[data-festival][data-festival-pattern="sparkles"] body::before,
+html[data-festival][data-festival-pattern="petals"] body::before,
+html[data-festival][data-festival-pattern="dots"] body::before,
+html[data-festival][data-festival-pattern="waves"] body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.045;
+    background-image:
+        radial-gradient(circle at 20% 20%, var(--festival-accent, #f59e0b) 0 2px, transparent 3px),
+        radial-gradient(circle at 80% 30%, var(--festival-secondary, #2563eb) 0 2px, transparent 3px),
+        radial-gradient(circle at 40% 70%, var(--festival-primary, #0a1628) 0 1.5px, transparent 2.5px),
+        radial-gradient(circle at 70% 80%, var(--festival-accent, #f59e0b) 0 2px, transparent 3px);
+    background-size: 120px 120px, 160px 160px, 90px 90px, 140px 140px;
+}
+
+html[data-festival][data-festival-pattern="tricolor_band"] body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    z-index: 9998;
+    pointer-events: none;
+    background: linear-gradient(90deg, #ff9933 0 33.33%, #ffffff 33.33% 66.66%, #138808 66.66% 100%);
+}
+
+/* Greeting ribbon */
+.festival-ribbon {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: linear-gradient(90deg, var(--festival-primary), var(--festival-secondary));
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.92rem;
+    letter-spacing: 0.02em;
+    position: relative;
+    z-index: 50;
+    box-shadow: 0 4px 16px var(--festival-shadow, rgba(0, 0, 0, 0.12));
+}
+
+html[data-festival][data-festival-ribbon="1"] .festival-ribbon {
+    display: flex;
+}
+
+.festival-ribbon-text i {
+    color: var(--festival-accent, #fbbf24);
+    margin-right: 4px;
+}
+
+.festival-ribbon-stripe {
+    flex: 0 0 48px;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--festival-accent, #fbbf24);
+    opacity: 0.85;
+}
+
+/* Topbar stripe variants */
+html[data-festival][data-festival-stripe="tricolor"] .top-bar,
+html[data-festival][data-festival-stripe="tricolor"] .gov-topbar {
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg, #ff9933, #ffffff, #138808) 1;
+}
+
+html[data-festival][data-festival-stripe="saffron"] .top-bar,
+html[data-festival][data-festival-stripe="saffron_red"] .top-bar {
+    border-bottom: 3px solid var(--festival-accent, #f59e0b);
+}
+
+html[data-festival][data-festival-stripe="christmas"] .top-bar {
+    border-bottom: 3px solid var(--festival-secondary, #b91c1c);
+}
+
+html[data-festival][data-festival-stripe="holi"] .top-bar {
+    border-bottom: 3px solid transparent;
+    border-image: linear-gradient(90deg, #db2777, #facc15, #6b21a8, #22c55e) 1;
+}
+
+html[data-festival][data-festival-stripe="green_gold"] .top-bar {
+    border-bottom: 3px solid var(--festival-accent, #fbbf24);
+}
+
+/* Small detail overrides */
+html[data-festival] .card,
+html[data-festival] .mocktest-panel,
+html[data-festival] .feature-card,
+html[data-festival] .course-card,
+html[data-festival] .kiosk-card,
+html[data-festival] .biometric-panel {
+    border-radius: var(--festival-card-radius, 14px) !important;
+    box-shadow: 0 10px 28px var(--festival-shadow, rgba(15, 23, 42, 0.1));
+}
+
+html[data-festival] .btn-primary,
+html[data-festival] .mocktest-btn-primary,
+html[data-festival] .btn-theme-primary,
+html[data-festival] .btn-nav.btn-next,
+html[data-festival] button.primary {
+    border-radius: var(--festival-btn-radius, 10px) !important;
+    background: linear-gradient(135deg, var(--festival-primary), var(--festival-secondary)) !important;
+    border-color: transparent !important;
+    box-shadow: 0 6px 16px var(--festival-shadow, rgba(15, 23, 42, 0.15));
+}
+
+html[data-festival] .btn-primary:hover,
+html[data-festival] .mocktest-btn-primary:hover {
+    filter: brightness(1.05);
+}
+
+html[data-festival] .badge,
+html[data-festival] .required-badge,
+html[data-festival] .mocktest-eyebrow {
+    background: var(--festival-badge-bg, #e2e8f0) !important;
+    color: var(--festival-primary, #0a1628) !important;
+    border-radius: 999px;
+}
+
+html[data-festival] a:not(.btn):not(.nav-link):hover {
+    color: var(--festival-accent, #f59e0b);
+}
+
+html[data-festival] .navbar,
+html[data-festival] .main-header,
+html[data-festival] .admin-topbar {
+    box-shadow: 0 2px 0 var(--festival-accent, #f59e0b);
+}
+
+/* Biometric / kiosk friendliness */
+html[data-festival] .kiosk-shell,
+html[data-festival] .biometric-kiosk,
+html[data-festival] #kioskRoot {
+    --primary-color: var(--festival-primary);
+    --secondary-color: var(--festival-secondary);
+    --accent-color: var(--festival-accent);
+}
+
+html[data-festival] .kiosk-shell .btn-success,
+html[data-festival] .biometric-kiosk .btn-primary {
+    border-radius: var(--festival-btn-radius, 10px) !important;
+}
+
+/* Motif corner ornament (subtle) */
+html[data-festival][data-festival-motif]:not([data-festival-motif=""]) body::after {
+    content: "";
+    position: fixed;
+    right: 12px;
+    bottom: 12px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 40;
+    opacity: 0.12;
+    background:
+        radial-gradient(circle at 50% 50%, var(--festival-accent) 0 28%, transparent 30%),
+        radial-gradient(circle at 50% 50%, var(--festival-secondary) 0 55%, transparent 57%);
+}
+
+@media (max-width: 768px) {
+    .festival-ribbon {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+    }
+    .festival-ribbon-stripe {
+        flex-basis: 24px;
+    }
+}

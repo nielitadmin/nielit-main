@@ -1332,6 +1332,17 @@ public_skeleton_render_head();
 ?>
 </head>
 <body class="public-page-loading homepage-public public-site">
+<?php
+if (!function_exists('festivalThemeRibbonHtml')) {
+    $festHelper = __DIR__ . '/includes/festival_theme_helper.php';
+    if (is_file($festHelper)) {
+        require_once $festHelper;
+    }
+}
+if (function_exists('festivalThemeRibbonHtml')) {
+    echo festivalThemeRibbonHtml($conn);
+}
+?>
 <?php public_skeleton_render_loader('home'); ?>
 
 <!-- ===== TOP BAR ===== -->

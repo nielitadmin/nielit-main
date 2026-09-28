@@ -30,6 +30,16 @@ if (!function_exists('adminEmitHeadAssets')) {
             injectThemeCSS($activeTheme);
         }
 
+        // Festival packs also tint admin / biometric kiosk UI when in season.
+        $festHelper = __DIR__ . '/festival_theme_helper.php';
+        if (is_file($festHelper)) {
+            require_once $festHelper;
+            if (function_exists('emitFestivalThemeHead')) {
+                global $conn;
+                emitFestivalThemeHead($conn instanceof mysqli ? $conn : null);
+            }
+        }
+
         $appUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
         $themeCss = __DIR__ . '/../assets/css/admin-theme.css';
         $themeVer = @filemtime($themeCss) ?: time();

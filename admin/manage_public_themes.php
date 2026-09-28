@@ -195,6 +195,9 @@ $activeRecruitmentDef = $definitions[$activeRecruitmentKey] ?? $definitions[publ
                 <a href="<?php echo app_url('admin/manage_themes'); ?>" class="btn btn-secondary btn-sm">
                     <i class="fas fa-palette"></i> App Themes
                 </a>
+                <a href="<?php echo app_url('admin/manage_festival_themes'); ?>" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-gift"></i> Festival Themes
+                </a>
             </div>
         </div>
 
