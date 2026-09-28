@@ -587,7 +587,7 @@ if (!function_exists('getIndexHomepageSectionDefinitions')) {
                 'type' => 'text_block',
                 'order' => 101,
                 'default_title' => 'Mock Test URL',
-                'default_content' => 'https://mocktest.nielitbhubaneswar.in/',
+                'default_content' => 'https://test.nielitbhubaneswar.in/',
             ],
             'portal_main_website_url' => [
                 'group' => 'Portal URLs',
@@ -750,6 +750,14 @@ if (!function_exists('homepagePortalUrls')) {
         if ($mocktest === '' && function_exists('getMockTestPortalUrl')) {
             $mocktest = getMockTestPortalUrl();
         }
+        // Legacy subdomain renamed: mocktest.* → test.*
+        if ($mocktest !== '' && stripos($mocktest, 'mocktest.nielitbhubaneswar.in') !== false) {
+            $mocktest = preg_replace(
+                '#https?://mocktest\.nielitbhubaneswar\.in/?#i',
+                'https://test.nielitbhubaneswar.in/',
+                $mocktest
+            );
+        }
         $main = homepageValue($map, 'portal_main_website_url', 'content', 'https://www.nielit.gov.in/NielitMain/BBS');
 
         return [
@@ -890,6 +898,13 @@ if (!function_exists('seedIndexHomepageSections')) {
         }
 
         $stmt->close();
+
+        // One-time rename: mocktest.nielitbhubaneswar.in → test.nielitbhubaneswar.in
+        $conn->query(
+            "UPDATE homepage_content
+             SET section_content = REPLACE(section_content, 'mocktest.nielitbhubaneswar.in', 'test.nielitbhubaneswar.in')
+             WHERE section_content LIKE '%mocktest.nielitbhubaneswar.in%'"
+        );
     }
 }
 
