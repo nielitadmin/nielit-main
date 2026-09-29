@@ -302,7 +302,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
 
-        <!-- Student Attendance (separate section) -->
+        <!-- Student Attendance Dropdown -->
         <?php
         $canAccessAttendance = $is_master_admin;
         if (!$canAccessAttendance && isset($conn) && $conn instanceof mysqli) {
@@ -315,47 +315,40 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         ?>
         <?php if ($canAccessAttendance): ?>
         <div class="nav-divider"></div>
-        <div class="nav-section-title">Student Attendance</div>
-        <?php if ($is_master_admin): ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_attendance_access'); ?>" class="nav-link <?php echo ($current_page === 'manage_attendance_access.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-shield"></i> Grant Attendance Access
-            </a>
-        </div>
-        <?php endif; ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_scanner'); ?>" class="nav-link <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
-                <i class="fas fa-qrcode"></i> QR Attendance Scanner
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_biometric'); ?>" class="nav-link <?php echo ($current_page === 'attendance_biometric.php') ? 'active' : ''; ?>">
-                <i class="fas fa-fingerprint"></i> Fingerprint Attendance
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_fingerprint_enroll'); ?>" class="nav-link <?php echo ($current_page === 'attendance_fingerprint_enroll.php') ? 'active' : ''; ?>">
-                <i class="fas fa-id-badge"></i> Fingerprint Enrolment
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_fingerprint_registry'); ?>" class="nav-link <?php echo ($current_page === 'attendance_fingerprint_registry.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-check"></i> Registered Candidates
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_biometric_report'); ?>" class="nav-link <?php echo ($current_page === 'attendance_biometric_report.php') ? 'active' : ''; ?>">
-                <i class="fas fa-th"></i> Fingerprint Report
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="nav-link <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chart-bar"></i> Attendance Reports
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['attendance_scanner.php','attendance_biometric.php','attendance_fingerprint_enroll.php','attendance_fingerprint_registry.php','attendance_biometric_report.php','attendance_reports.php','manage_attendance_access.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-user-clock"></i> Student Attendance
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <?php if ($is_master_admin): ?>
+                <a href="<?php echo app_url('admin/manage_attendance_access'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_attendance_access.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-shield"></i> Grant Attendance Access
+                </a>
+                <?php endif; ?>
+                <a href="<?php echo app_url('admin/attendance_scanner'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_scanner.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-qrcode"></i> QR Attendance Scanner
+                </a>
+                <a href="<?php echo app_url('admin/attendance_biometric'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_biometric.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-fingerprint"></i> Fingerprint Attendance
+                </a>
+                <a href="<?php echo app_url('admin/attendance_fingerprint_enroll'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_fingerprint_enroll.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-id-badge"></i> Fingerprint Enrolment
+                </a>
+                <a href="<?php echo app_url('admin/attendance_fingerprint_registry'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_fingerprint_registry.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-check"></i> Registered Candidates
+                </a>
+                <a href="<?php echo app_url('admin/attendance_biometric_report'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_biometric_report.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-th"></i> Fingerprint Report
+                </a>
+                <a href="<?php echo app_url('admin/attendance_reports'); ?>" class="dropdown-item <?php echo ($current_page === 'attendance_reports.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chart-bar"></i> Attendance Reports
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
-        <!-- Recruitment (separate section) -->
+        <!-- Recruitment Dropdown -->
         <?php
         $canAccessRecruitment = false;
         if (isset($conn) && $conn instanceof mysqli) {
@@ -368,32 +361,31 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         ?>
         <?php if ($canAccessRecruitment): ?>
         <div class="nav-divider"></div>
-        <div class="nav-section-title">Recruitment</div>
-        <?php if ($is_master_admin): ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_recruitment_access'); ?>" class="nav-link <?php echo ($current_page === 'manage_recruitment_access.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-shield"></i> Grant Recruitment Access
-            </a>
-        </div>
-        <?php endif; ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/recruitment'); ?>" class="nav-link <?php echo ($current_page === 'recruitment.php') ? 'active' : ''; ?>">
-                <i class="fas fa-briefcase"></i> Job Openings
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/recruitment_applications'); ?>" class="nav-link <?php echo in_array($current_page, ['recruitment_applications.php', 'recruitment_application.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-file-alt"></i> Applications
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/recruitment_interviews'); ?>" class="nav-link <?php echo in_array($current_page, ['recruitment_interviews.php', 'recruitment_interview.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-video"></i> Interviews
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['recruitment.php','recruitment_applications.php','recruitment_application.php','recruitment_interviews.php','recruitment_interview.php','manage_recruitment_access.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-briefcase"></i> Recruitment
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <?php if ($is_master_admin): ?>
+                <a href="<?php echo app_url('admin/manage_recruitment_access'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_recruitment_access.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-shield"></i> Grant Recruitment Access
+                </a>
+                <?php endif; ?>
+                <a href="<?php echo app_url('admin/recruitment'); ?>" class="dropdown-item <?php echo ($current_page === 'recruitment.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-briefcase"></i> Job Openings
+                </a>
+                <a href="<?php echo app_url('admin/recruitment_applications'); ?>" class="dropdown-item <?php echo in_array($current_page, ['recruitment_applications.php', 'recruitment_application.php'], true) ? 'active' : ''; ?>">
+                    <i class="fas fa-file-alt"></i> Applications
+                </a>
+                <a href="<?php echo app_url('admin/recruitment_interviews'); ?>" class="dropdown-item <?php echo in_array($current_page, ['recruitment_interviews.php', 'recruitment_interview.php'], true) ? 'active' : ''; ?>">
+                    <i class="fas fa-video"></i> Interviews
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
-        <!-- Library (separate section) -->
+        <!-- Library Dropdown -->
         <?php
         $canAccessLibrary = false;
         if (isset($conn) && $conn instanceof mysqli) {
@@ -416,78 +408,94 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         ?>
         <?php if ($canAccessLibrary): ?>
         <div class="nav-divider"></div>
-        <div class="nav-section-title">Library</div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/library'); ?>" class="nav-link <?php echo ($current_page === 'library.php') ? 'active' : ''; ?>">
-                <i class="fas fa-book"></i> Library Home
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/library_stock'); ?>" class="nav-link <?php echo ($current_page === 'library_stock.php') ? 'active' : ''; ?>">
-                <i class="fas fa-boxes-stacked"></i> Stock Register
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/library_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'library_student_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-graduate"></i> Student Issue / Return
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/library_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'library_staff_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['library.php','library_stock.php','library_student_issues.php','library_staff_issues.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-book"></i> Library
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/library'); ?>" class="dropdown-item <?php echo ($current_page === 'library.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-book"></i> Library Home
+                </a>
+                <a href="<?php echo app_url('admin/library_stock'); ?>" class="dropdown-item <?php echo ($current_page === 'library_stock.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-boxes-stacked"></i> Stock Register
+                </a>
+                <a href="<?php echo app_url('admin/library_student_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'library_student_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-graduate"></i> Student Issue / Return
+                </a>
+                <a href="<?php echo app_url('admin/library_staff_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'library_staff_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
-        <!-- Lab Instruments (separate section) -->
+        <!-- Lab Instruments Dropdown -->
         <?php if ($canAccessLabInstruments): ?>
         <div class="nav-divider"></div>
-        <div class="nav-section-title">Lab Instruments</div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/lab_instruments'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments.php') ? 'active' : ''; ?>">
-                <i class="fas fa-microchip"></i> Instruments Home
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/lab_instruments_stock'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_stock.php') ? 'active' : ''; ?>">
-                <i class="fas fa-toolbox"></i> Stock Register
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/lab_instruments_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_student_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-graduate"></i> Student Issue / Return
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/lab_instruments_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'lab_instruments_staff_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['lab_instruments.php','lab_instruments_stock.php','lab_instruments_student_issues.php','lab_instruments_staff_issues.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-microchip"></i> Lab Instruments
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/lab_instruments'); ?>" class="dropdown-item <?php echo ($current_page === 'lab_instruments.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-microchip"></i> Instruments Home
+                </a>
+                <a href="<?php echo app_url('admin/lab_instruments_stock'); ?>" class="dropdown-item <?php echo ($current_page === 'lab_instruments_stock.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-toolbox"></i> Stock Register
+                </a>
+                <a href="<?php echo app_url('admin/lab_instruments_student_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'lab_instruments_student_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-graduate"></i> Student Issue / Return
+                </a>
+                <a href="<?php echo app_url('admin/lab_instruments_staff_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'lab_instruments_staff_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
-        <!-- IT / Computer Lab (separate section) -->
+        <!-- IT / Computer Lab Dropdown -->
         <?php if ($canAccessItLab): ?>
         <div class="nav-divider"></div>
-        <div class="nav-section-title">IT / Computer Lab</div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/it_lab'); ?>" class="nav-link <?php echo ($current_page === 'it_lab.php') ? 'active' : ''; ?>">
-                <i class="fas fa-desktop"></i> IT Lab Home
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['it_lab.php','it_lab_systems.php','it_lab_student_issues.php','it_lab_staff_issues.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-desktop"></i> IT / Computer Lab
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/it_lab'); ?>" class="dropdown-item <?php echo ($current_page === 'it_lab.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-desktop"></i> IT Lab Home
+                </a>
+                <a href="<?php echo app_url('admin/it_lab_systems'); ?>" class="dropdown-item <?php echo ($current_page === 'it_lab_systems.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-keyboard"></i> Systems &amp; parts
+                </a>
+                <a href="<?php echo app_url('admin/it_lab_student_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'it_lab_student_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-graduate"></i> Student Issue / Return
+                </a>
+                <a href="<?php echo app_url('admin/it_lab_staff_issues'); ?>" class="dropdown-item <?php echo ($current_page === 'it_lab_staff_issues.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
+                </a>
+            </div>
         </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/it_lab_systems'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_systems.php') ? 'active' : ''; ?>">
-                <i class="fas fa-keyboard"></i> Systems &amp; parts
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/it_lab_student_issues'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_student_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-graduate"></i> Student Issue / Return
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/it_lab_staff_issues'); ?>" class="nav-link <?php echo ($current_page === 'it_lab_staff_issues.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Staff Issue / Return
-            </a>
+        <?php endif; ?>
+
+        <!-- Teaching Dropdown -->
+        <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <div class="nav-divider"></div>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_class_timetable.php','manage_lesson_plans.php','edit_lesson_plan.php','lesson_plan_daily.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-chalkboard"></i> Teaching
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/manage_class_timetable'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_class_timetable.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-calendar-alt"></i> Class Timetable
+                </a>
+                <a href="<?php echo app_url('admin/manage_lesson_plans'); ?>" class="dropdown-item <?php echo in_array($current_page, ['manage_lesson_plans.php', 'edit_lesson_plan.php', 'lesson_plan_daily.php'], true) ? 'active' : ''; ?>">
+                    <i class="fas fa-book-open"></i> Course Action Plans
+                </a>
+            </div>
         </div>
         <?php endif; ?>
 
