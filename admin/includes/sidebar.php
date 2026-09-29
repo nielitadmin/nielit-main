@@ -42,6 +42,53 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
 
 <style id="admin-sidebar-critical">
 <?php echo sidebarThemeEmitCriticalCss(); ?>
+/* Dropdown styles */
+.nav-item.has-dropdown .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.nav-item.has-dropdown .nav-link .dropdown-icon {
+    transition: transform 0.3s ease;
+    font-size: 0.75rem;
+}
+.nav-item.has-dropdown .nav-link.active .dropdown-icon,
+.nav-item.has-dropdown .nav-link:hover .dropdown-icon {
+    transform: rotate(180deg);
+}
+.nav-item.has-dropdown .dropdown-menu {
+    display: none;
+    overflow: hidden;
+    animation: dropdownFade 0.3s ease-in-out;
+}
+.nav-item.has-dropdown .dropdown-menu.show {
+    display: block;
+}
+.nav-item.has-dropdown .dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 0.6rem 1rem 0.6rem 2.5rem;
+    font-size: 0.85rem;
+    color: #8a94a6;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.nav-item.has-dropdown .dropdown-item:hover,
+.nav-item.has-dropdown .dropdown-item.active {
+    background-color: rgba(6, 182, 212, 0.1);
+    color: #0ea5e9;
+    border-left: 3px solid #0ea5e9;
+}
+@keyframes dropdownFade {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 500px;
+    }
+}
 </style>
 
 <button type="button" class="sidebar-toggle-btn" aria-label="Toggle navigation" onclick="toggleAdminSidebar()">
@@ -99,18 +146,22 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
 
         <?php elseif (!$is_nsqf_manager): ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/students'); ?>" class="nav-link <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo ($current_page === 'students.php' || $current_page === 'candidate_records.php') ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-users"></i> Students
-            </a>
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/students'); ?>" class="dropdown-item <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-friends"></i> All Students
+                </a>
+                <?php if ($is_master_admin): ?>
+                <a href="<?php echo app_url('admin/candidate_records'); ?>" class="dropdown-item <?php echo ($current_page === 'candidate_records.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-teacher"></i> Workshop Records
+                </a>
+                <?php endif; ?>
+            </div>
         </div>
-        <?php if ($is_master_admin): ?>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/candidate_records'); ?>" class="nav-link <?php echo ($current_page === 'candidate_records.php') ? 'active' : ''; ?>">
-                <i class="fas fa-chalkboard-teacher"></i> Workshop Records
-            </a>
-        </div>
-        <?php endif; ?>
         <?php endif; ?>
         
         <?php if ($is_nsqf_manager): ?>
@@ -171,73 +222,52 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         
         <!-- System Settings (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
-        <div class="nav-divider"></div>
-        <div class="nav-section-title">System Settings</div>
-        
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_centres'); ?>" class="nav-link <?php echo ($current_page === 'manage_centres.php') ? 'active' : ''; ?>">
-                <i class="fas fa-building"></i> Training Centres
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>" title="Themes">
-                <i class="fas fa-palette"></i> Themes
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_public_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_public_themes.php') ? 'active' : ''; ?>" title="Public Themes">
-                <i class="fas fa-globe"></i> Public Themes
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_festival_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_festival_themes.php') ? 'active' : ''; ?>" title="Festival Themes">
-                <i class="fas fa-gift"></i> Festival Themes
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="nav-link <?php echo ($current_page === 'manage_sidebar_themes.php') ? 'active' : ''; ?>" title="Sidebar Themes">
-                <i class="fas fa-columns"></i> Sidebar Themes
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_maintenance'); ?>" class="nav-link <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
-                <i class="fas fa-tools"></i> Maintenance Mode
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_migrations'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_migrations.php', 'run_migration.php'], true) ? 'active' : ''; ?>">
-                <i class="fas fa-database"></i> DB Migrations
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_student_kiosk'); ?>" class="nav-link <?php echo ($current_page === 'manage_student_kiosk.php') ? 'active' : ''; ?>">
-                <i class="fas fa-fingerprint"></i> Student Fingerprint Kiosk
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_activity'); ?>" class="nav-link <?php echo ($current_page === 'manage_activity.php') ? 'active' : ''; ?>">
-                <i class="fas fa-stream"></i> Activity Log
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/visitor_stats'); ?>" class="nav-link <?php echo ($current_page === 'visitor_stats.php') ? 'active' : ''; ?>">
-                <i class="fas fa-eye"></i> Visitor Statistics
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="nav-link <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
-                <i class="fas fa-user-check"></i> Student Record Inspector
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_homepage'); ?>" class="nav-link <?php echo ($current_page === 'manage_homepage.php') ? 'active' : ''; ?>">
-                <i class="fas fa-home"></i> Homepage Content
-            </a>
-        </div>
-        <div class="nav-item">
-            <a href="<?php echo app_url('admin/manage_news'); ?>" class="nav-link <?php echo ($current_page === 'manage_news.php') ? 'active' : ''; ?>">
-                <i class="fas fa-newspaper"></i> News & Updates
-            </a>
+        <div class="nav-item has-dropdown">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_centres.php', 'manage_themes.php', 'manage_public_themes.php', 'manage_festival_themes.php', 'manage_sidebar_themes.php', 'manage_maintenance.php', 'manage_migrations.php', 'manage_student_kiosk.php', 'manage_activity.php', 'visitor_stats.php', 'check_student_exists.php', 'manage_homepage.php', 'manage_news.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+                <i class="fas fa-cog"></i> System Settings
+                <i class="fas fa-chevron-down dropdown-icon"></i>
+            </button>
+            <div class="dropdown-menu">
+                <a href="<?php echo app_url('admin/manage_centres'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_centres.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-building"></i> Training Centres
+                </a>
+                <a href="<?php echo app_url('admin/manage_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>" title="Themes">
+                    <i class="fas fa-palette"></i> Themes
+                </a>
+                <a href="<?php echo app_url('admin/manage_public_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_public_themes.php') ? 'active' : ''; ?>" title="Public Themes">
+                    <i class="fas fa-globe"></i> Public Themes
+                </a>
+                <a href="<?php echo app_url('admin/manage_festival_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_festival_themes.php') ? 'active' : ''; ?>" title="Festival Themes">
+                    <i class="fas fa-gift"></i> Festival Themes
+                </a>
+                <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_sidebar_themes.php') ? 'active' : ''; ?>" title="Sidebar Themes">
+                    <i class="fas fa-columns"></i> Sidebar Themes
+                </a>
+                <a href="<?php echo app_url('admin/manage_maintenance'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-tools"></i> Maintenance Mode
+                </a>
+                <a href="<?php echo app_url('admin/manage_migrations'); ?>" class="dropdown-item <?php echo in_array($current_page, ['manage_migrations.php', 'run_migration.php'], true) ? 'active' : ''; ?>">
+                    <i class="fas fa-database"></i> DB Migrations
+                </a>
+                <a href="<?php echo app_url('admin/manage_student_kiosk'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_student_kiosk.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-fingerprint"></i> Student Fingerprint Kiosk
+                </a>
+                <a href="<?php echo app_url('admin/manage_activity'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_activity.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-stream"></i> Activity Log
+                </a>
+                <a href="<?php echo app_url('admin/visitor_stats'); ?>" class="dropdown-item <?php echo ($current_page === 'visitor_stats.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-eye"></i> Visitor Statistics
+                </a>
+                <a href="<?php echo app_url('admin/check_student_exists'); ?>" class="dropdown-item <?php echo ($current_page === 'check_student_exists.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-user-check"></i> Student Record Inspector
+                </a>
+                <a href="<?php echo app_url('admin/manage_homepage'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_homepage.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-home"></i> Homepage Content
+                </a>
+                <a href="<?php echo app_url('admin/manage_news'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_news.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-newspaper"></i> News & Updates
+                </a>
+            </div>
         </div>
         <?php endif; ?>
         
@@ -537,6 +567,36 @@ function toggleAdminSidebar() {
 function closeAdminSidebar() {
     document.body.classList.remove('sidebar-open');
 }
+
+// Dropdown toggle function
+function toggleDropdown(button) {
+    var dropdownMenu = button.nextElementSibling;
+    if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
+        dropdownMenu.classList.toggle('show');
+    }
+    
+    // Close other open dropdowns in the sidebar
+    var sidebar = document.getElementById('adminSidebar');
+    if (sidebar) {
+        var otherDropdowns = sidebar.querySelectorAll('.dropdown-menu.show');
+        otherDropdowns.forEach(function(item) {
+            if (item !== dropdownMenu) {
+                item.classList.remove('show');
+            }
+        });
+    }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(event) {
+    var sidebar = document.getElementById('adminSidebar');
+    if (sidebar && !sidebar.contains(event.target)) {
+        var dropdownMenus = sidebar.querySelectorAll('.dropdown-menu.show');
+        dropdownMenus.forEach(function(item) {
+            item.classList.remove('show');
+        });
+    }
+});
 
 (function initSidebarClock() {
     var timeEl = document.getElementById('sidebarClockTime');
