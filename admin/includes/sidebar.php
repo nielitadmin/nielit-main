@@ -281,10 +281,10 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
         
-        <!-- Admin & Management Dropdown (Master Admin Only) - only 3 items -->
+        <!-- Admin & Management Dropdown (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
         <div class="nav-item has-dropdown">
-            <button type="button" class="nav-link <?php echo in_array($current_page, ['add_admin.php', 'manage_admins.php', 'manage_course_assignments.php', 'report_monitor.php', 'view_otp_logs.php', 'manage_api_keys.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['add_admin.php', 'manage_admins.php', 'manage_course_assignments.php', 'view_otp_logs.php', 'manage_api_keys.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-users-cog"></i> Admin & Management
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </button>
@@ -297,9 +297,6 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 </a>
                 <a href="<?php echo app_url('admin/manage_course_assignments'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
                     <i class="fas fa-user-tie"></i> Course Assignments
-                </a>
-                <a href="<?php echo app_url('admin/report_monitor'); ?>" class="dropdown-item <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
-                    <i class="fas fa-chart-line"></i> Report Monitor
                 </a>
                 <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="dropdown-item <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
                     <i class="fas fa-list-alt"></i> OTP Logs
@@ -544,6 +541,13 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <div class="nav-divider"></div>
         
         <!-- Common Links -->
+        <?php if ($is_master_admin): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/report_monitor'); ?>" class="nav-link <?php echo ($current_page === 'report_monitor.php') ? 'active' : ''; ?>">
+                <i class="fas fa-chart-line"></i> Report Monitor
+            </a>
+        </div>
+        <?php endif; ?>
         <div class="nav-item">
             <a href="<?php echo app_url(); ?>" class="nav-link" target="_blank" rel="noopener noreferrer">
                 <i class="fas fa-globe"></i> View Website
