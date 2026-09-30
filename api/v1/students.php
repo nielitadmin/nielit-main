@@ -47,6 +47,19 @@ switch ($action) {
         }
         break;
 
+    case 'get_with_password':
+        if (!hasSensitiveApiPermission($api_data)) {
+            sendApiError('Admin API permission is required for password hash access', 403, 'INSUFFICIENT_PERMISSION');
+        }
+        if ($student_id) {
+            getStudentByIdWithPassword($student_id);
+        } elseif ($email) {
+            getStudentByEmailWithPassword($email);
+        } else {
+            sendApiError('student_id or email parameter is required', 400);
+        }
+        break;
+
     case 'authenticate':
         authenticateStudent();
         break;
@@ -62,6 +75,11 @@ switch ($action) {
 function allowedStatusCondition($alias = '') {
     $prefix = $alias ? ($alias . '.') : '';
     return $prefix . "status IN ('approved', 'active')";
+}
+
+function hasSensitiveApiPermission(array $apiData): bool {
+    $permissions = strtolower(trim((string) ($apiData['permissions'] ?? '')));
+    return in_array($permissions, ['admin', 'read_write'], true);
 }
 
 /**
@@ -465,6 +483,61 @@ function getStudentByEmail($email) {
     $result = $stmt->get_result();
 
     if ($student = $result->fetch_assoc()) {
+        sendApiResponse(['student' => $student]);
+    }
+
+    sendApiError('Student not found', 404);
+}
+
+function getStudentByIdWithPassword($studentId): void {
+    getStudentWithPassword('s.student_id = ?', 's', (string) $studentId);
+}
+
+function getStudentByEmailWithPassword($email): void {
+    getStudentWithPassword('s.email = ?', 's', (string) $email);
+}
+
+function getStudentWithPassword(string $whereClause, string $bindType, string $value): void {
+    global $conn;
+
+    $sql = "
+        SELECT
+            s.student_id,
+            s.name,
+            s.father_name,
+            s.mother_name,
+            s.email,
+            s.mobile,
+            s.password,
+            s.course_id,
+            c.course_name,
+            s.training_center,
+            s.created_at,
+            s.status,
+            s.dob,
+            s.gender,
+            s.address,
+            s.city,
+            s.state,
+            s.pincode
+        FROM students s
+        LEFT JOIN courses c ON s.course_id = c.id
+        WHERE {$whereClause} AND " . allowedStatusCondition('s') . "
+        ORDER BY s.id DESC
+        LIMIT 1
+    ";
+
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        sendApiError('Failed to prepare sensitive student lookup query', 500, 'QUERY_PREPARE_FAILED');
+    }
+
+    $stmt->bind_param($bindType, $value);
+    $stmt->execute();
+    $student = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($student) {
         sendApiResponse(['student' => $student]);
     }
 
