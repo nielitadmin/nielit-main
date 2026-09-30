@@ -565,16 +565,21 @@ function searchStudents() {
 
     $sql = "
         SELECT
+            s.id AS student_record_id,
             s.student_id,
             s.name,
             s.email,
             s.mobile,
             s.course_id,
             c.course_name,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
             s.training_center,
             s.status
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE (
             s.name LIKE ? OR
             s.email LIKE ? OR
@@ -589,12 +594,16 @@ function searchStudents() {
     if (!$stmt) {
         $fallback_sql = "
             SELECT
+                id AS student_record_id,
                 student_id,
                 name,
                 email,
                 mobile,
                 course_id,
                 NULL AS course_name,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
                 training_center,
                 status
             FROM students
