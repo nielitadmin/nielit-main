@@ -43,6 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Get all API keys
 $api_keys = getAllApiKeys();
+$api_key_edit_data = [];
+foreach ($api_keys as $api_key) {
+    $api_key_edit_data[(int) $api_key['id']] = [
+        'name' => (string) ($api_key['name'] ?? ''),
+        'description' => (string) ($api_key['description'] ?? ''),
+        'permissions' => (string) ($api_key['permissions'] ?? 'read'),
+        'rate_limit' => (int) ($api_key['rate_limit'] ?? API_RATE_LIMIT),
+    ];
+}
 
 function createApiKey() {
     global $conn, $admin_id;
@@ -395,6 +404,51 @@ $active_theme = loadActiveTheme($conn);
     </div>
 
     <!-- Bootstrap JS -->
+    <div class="modal fade" id="editApiKeyModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit API Key</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="api_key_id" id="editApiKeyId">
+
+                        <div class="mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" name="name" id="editApiKeyName" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" name="description" id="editApiKeyDescription" rows="3"></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Permissions</label>
+                            <select class="form-select" name="permissions" id="editApiKeyPermissions">
+                                <option value="read">Read Only</option>
+                                <option value="read_write">Read &amp; Write</option>
+                                <option value="admin">Admin Access</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Rate Limit (requests per hour)</label>
+                            <input type="number" class="form-control" name="rate_limit" id="editApiKeyRateLimit" min="1" max="10000" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
@@ -430,9 +484,20 @@ $active_theme = loadActiveTheme($conn);
             }
         }
         
+        const apiKeyEditData = <?php echo json_encode($api_key_edit_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+
         function editApiKey(id) {
-            // Implementation for edit functionality
-            alert('Edit functionality coming soon!');
+            const key = apiKeyEditData[String(id)];
+            if (!key) {
+                return;
+            }
+
+            document.getElementById('editApiKeyId').value = id;
+            document.getElementById('editApiKeyName').value = key.name;
+            document.getElementById('editApiKeyDescription').value = key.description;
+            document.getElementById('editApiKeyPermissions').value = key.permissions;
+            document.getElementById('editApiKeyRateLimit').value = key.rate_limit;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('editApiKeyModal')).show();
         }
     </script>
 </body>
