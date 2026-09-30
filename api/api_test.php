@@ -40,16 +40,27 @@
                 </div>
                 <div>
                     <label for="studentId">Student ID</label>
-                    <input id="studentId" name="studentId" value="NIELIT/2026/BBSR/0185" required>
+                    <input id="studentId" name="studentId" value="NIELIT/2026/BBSR/0185" placeholder="Optional ID search">
+                </div>
+                <div>
+                    <label for="studentName">Student Name</label>
+                    <input id="studentName" name="studentName" placeholder="Optional name search">
                 </div>
                 <div>
                     <label for="limit">Limit</label>
                     <input id="limit" name="limit" type="number" value="20" min="1" max="100">
                 </div>
+                <div>
+                    <label for="photo">Capture Photo</label>
+                    <input id="photo" name="photo" type="file" accept="image/*" capture="user">
+                </div>
+                <div class="full">
+                    <img id="photoPreview" alt="Captured photo preview" hidden style="max-width: 180px; max-height: 180px; border-radius: 8px; border: 1px solid #c8d2e1;">
+                </div>
             </div>
             <button id="testButton" type="submit">Test Student API</button>
         </form>
-        <div class="warning">Use a read-only API key for normal profile and enrollment testing. Do not paste an admin key into a shared computer.</div>
+        <div class="warning">Use a read-only API key for normal profile and enrollment testing. The photo preview stays in this browser and is not uploaded or stored.</div>
         <pre id="result">Response will appear here.</pre>
     </section>
 </main>
@@ -57,6 +68,19 @@
 const form = document.getElementById('apiTestForm');
 const button = document.getElementById('testButton');
 const result = document.getElementById('result');
+const photoInput = document.getElementById('photo');
+const photoPreview = document.getElementById('photoPreview');
+
+photoInput.addEventListener('change', () => {
+    const file = photoInput.files[0];
+    if (!file) {
+        photoPreview.hidden = true;
+        photoPreview.removeAttribute('src');
+        return;
+    }
+    photoPreview.src = URL.createObjectURL(file);
+    photoPreview.hidden = false;
+});
 
 form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -65,8 +89,15 @@ form.addEventListener('submit', async (event) => {
 
     const key = document.getElementById('apiKey').value.trim();
     const studentId = document.getElementById('studentId').value.trim();
+    const studentName = document.getElementById('studentName').value.trim();
     const limit = document.getElementById('limit').value || '20';
-    const query = new URLSearchParams({ action: 'search', q: studentId, limit });
+    const searchQuery = studentId || studentName;
+    if (!searchQuery) {
+        result.textContent = JSON.stringify({ error: 'Enter a student ID or name.' }, null, 2);
+        button.disabled = false;
+        return;
+    }
+    const query = new URLSearchParams({ action: 'search', q: searchQuery, limit });
 
     try {
         const response = await fetch('v1/students.php?' + query.toString(), {
@@ -74,7 +105,12 @@ form.addEventListener('submit', async (event) => {
             headers: { 'X-API-Key': key, 'Accept': 'application/json' }
         });
         const body = await response.json();
-        result.textContent = JSON.stringify({ http_status: response.status, response: body }, null, 2);
+        result.textContent = JSON.stringify({
+            http_status: response.status,
+            search_query: searchQuery,
+            captured_photo: photoInput.files.length > 0,
+            response: body
+        }, null, 2);
     } catch (error) {
         result.textContent = JSON.stringify({ error: error.message }, null, 2);
     } finally {
