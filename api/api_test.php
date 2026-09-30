@@ -119,18 +119,19 @@ form.addEventListener('submit', async (event) => {
         const body = await response.json();
 
         // Show student photo card if results found
-        const students = body.students || body.student ? [body.student] : [];
-        const list = body.students ?? (body.student ? [body.student] : []);
+        const list = body.students ?? body.data?.students ?? (body.student ? [body.student] : []);
         if (list.length > 0) {
             const s = list[0];
             const photoUrl = s.photo_url || null;
             const imgEl = document.getElementById('studentPhoto');
             if (photoUrl) {
                 imgEl.src = photoUrl;
-                imgEl.onerror = () => { imgEl.src = ''; imgEl.style.background = '#dce3ee'; imgEl.alt = 'No photo'; };
+                imgEl.style.background = '#dce3ee';
+                imgEl.onerror = () => { imgEl.removeAttribute('src'); imgEl.alt = 'No photo'; imgEl.style.background = '#dce3ee'; };
             } else {
                 imgEl.removeAttribute('src');
                 imgEl.alt = 'No photo';
+                imgEl.style.background = '#dce3ee';
             }
             document.getElementById('studentName2').textContent = s.name || '—';
             document.getElementById('studentId2').textContent = 'ID: ' + (s.student_id || '—');
@@ -138,7 +139,8 @@ form.addEventListener('submit', async (event) => {
             document.getElementById('studentDetails').textContent = [
                 s.gender ? s.gender : null,
                 s.dob ? 'DOB: ' + s.dob : null,
-                s.mobile ? '📞 ' + s.mobile : null
+                s.mobile ? '📞 ' + s.mobile : null,
+                photoUrl ? null : '⚠️ No photo on file'
             ].filter(Boolean).join('  ·  ');
             document.getElementById('studentCardWrap').style.display = 'block';
         }
