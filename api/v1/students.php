@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/api_config.php';
+require_once __DIR__ . '/../../includes/multi_course_helper.php';
 
 // Authenticate the request
 $api_data = authenticateApiRequest();
@@ -561,6 +562,16 @@ function searchStudents() {
         sendApiError('Search query must be at least 2 characters', 400);
     }
 
+    $enrollmentRecords = searchMultiCourseEnrollments($conn, trim($query), $limit);
+    if ($enrollmentRecords !== null) {
+        sendApiResponse([
+            'students' => $enrollmentRecords,
+            'query' => $query,
+            'count' => count($enrollmentRecords),
+            'source' => 'student_enrollments',
+        ]);
+    }
+
     $search_term = "%$query%";
 
     $sql = "
@@ -636,6 +647,61 @@ function searchStudents() {
         'query' => $query,
         'count' => count($students)
     ]);
+}
+
+/**
+ * Return the same multi-course enrollment records used by the student portal
+ * when the caller searches for an exact student ID.
+ */
+function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limit): ?array
+{
+    if (!function_exists('isMultiCourseSystemInstalled')
+        || !isMultiCourseSystemInstalled($conn)
+        || !preg_match('/^NIELIT\/[^\/]+\/[^\/]+\/\d+$/i', $studentId)) {
+        return null;
+    }
+
+    $enrollments = getEnrollmentsForStudentId($conn, $studentId);
+    if ($enrollments === []) {
+        return null;
+    }
+
+    $profile = [];
+    $profileStmt = $conn->prepare(
+        'SELECT name, email, mobile, training_center
+         FROM students
+         WHERE student_id = ?
+         ORDER BY id DESC
+         LIMIT 1'
+    );
+    if ($profileStmt) {
+        $profileStmt->bind_param('s', $studentId);
+        $profileStmt->execute();
+        $profile = $profileStmt->get_result()->fetch_assoc() ?: [];
+        $profileStmt->close();
+    }
+
+    $records = [];
+    foreach (array_slice($enrollments, 0, $limit) as $enrollment) {
+        $records[] = [
+            'enrollment_id' => (int) ($enrollment['id'] ?? 0),
+            'student_record_id' => (int) ($enrollment['student_record_id'] ?? 0),
+            'student_id' => $studentId,
+            'name' => (string) ($profile['name'] ?? ''),
+            'email' => (string) ($profile['email'] ?? ''),
+            'mobile' => (string) ($profile['mobile'] ?? ''),
+            'course_id' => (int) ($enrollment['course_id'] ?? 0),
+            'course_code' => (string) ($enrollment['course_code'] ?? ''),
+            'course_name' => (string) ($enrollment['course_name'] ?? ''),
+            'batch_id' => !empty($enrollment['batch_id']) ? (int) $enrollment['batch_id'] : null,
+            'batch_code' => (string) ($enrollment['batch_code'] ?? ''),
+            'batch_name' => (string) ($enrollment['batch_name'] ?? ''),
+            'training_center' => (string) ($profile['training_center'] ?? ''),
+            'status' => (string) ($enrollment['status'] ?? 'active'),
+        ];
+    }
+
+    return $records;
 }
 
 /**
