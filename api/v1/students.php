@@ -90,10 +90,27 @@ function hasSensitiveApiPermission(array $apiData): bool {
     return in_array($permissions, ['admin', 'read_write'], true);
 }
 
+function studentPhotoUrl($photoPath): ?string {
+    $photoPath = trim((string) $photoPath);
+    if ($photoPath === '') {
+        return null;
+    }
+    if (preg_match('#^https?://#i', $photoPath)) {
+        return $photoPath;
+    }
+
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    $baseUrl = $host !== '' ? $scheme . '://' . $host : (defined('APP_URL') ? APP_URL : '');
+    $encodedPath = implode('/', array_map('rawurlencode', explode('/', ltrim(str_replace('\\', '/', $photoPath), '/'))));
+    return rtrim($baseUrl, '/') . '/' . $encodedPath;
+}
+
 function addEnrollmentRecordsToStudent(array $student): array {
     global $conn;
 
     $studentId = trim((string) ($student['student_id'] ?? ''));
+    $student['photo_url'] = studentPhotoUrl($student['passport_photo'] ?? '');
     if ($studentId === '') {
         $student['enrollments'] = [];
         $student['enrollment_count'] = 0;
@@ -122,6 +139,7 @@ function getStudentsList($limit, $offset) {
             s.name,
             s.email,
             s.mobile,
+            s.passport_photo,
             s.course_id,
             c.course_name,
             s.training_center,
@@ -143,6 +161,7 @@ function getStudentsList($limit, $offset) {
                 name,
                 email,
                 mobile,
+                passport_photo,
                 course_id,
                 NULL AS course_name,
                 training_center,
@@ -381,6 +400,7 @@ function getStudentById($student_id) {
             s.mother_name,
             s.email,
             s.mobile,
+            s.passport_photo,
             s.course_id,
             c.course_name,
             s.training_center,
@@ -408,6 +428,7 @@ function getStudentById($student_id) {
                 mother_name,
                 email,
                 mobile,
+                passport_photo,
                 course_id,
                 NULL AS course_name,
                 training_center,
@@ -455,6 +476,7 @@ function getStudentByEmail($email) {
             s.mother_name,
             s.email,
             s.mobile,
+            s.passport_photo,
             s.course_id,
             c.course_name,
             s.training_center,
@@ -482,6 +504,7 @@ function getStudentByEmail($email) {
                 mother_name,
                 email,
                 mobile,
+                passport_photo,
                 course_id,
                 NULL AS course_name,
                 training_center,
@@ -677,6 +700,7 @@ function searchStudents() {
             s.name,
             s.email,
             s.mobile,
+            s.passport_photo,
             s.course_id,
             c.course_name,
             s.batch_id,
@@ -706,6 +730,7 @@ function searchStudents() {
                 name,
                 email,
                 mobile,
+                passport_photo,
                 course_id,
                 NULL AS course_name,
                 batch_id,
@@ -735,6 +760,8 @@ function searchStudents() {
 
     $students = [];
     while ($row = $result->fetch_assoc()) {
+        $row['photo_url'] = studentPhotoUrl($row['passport_photo'] ?? '');
+        unset($row['passport_photo']);
         $students[] = $row;
     }
 
@@ -764,7 +791,7 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
 
     $profile = [];
     $profileStmt = $conn->prepare(
-        'SELECT name, father_name, mother_name, email, mobile, training_center,
+        'SELECT name, father_name, mother_name, email, mobile, passport_photo, training_center,
             created_at, dob, gender, address, city, state, pincode
          FROM students
          WHERE student_id = ?
@@ -784,6 +811,7 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
             'enrollment_id' => (int) ($enrollment['id'] ?? 0),
             'student_record_id' => (int) ($enrollment['student_record_id'] ?? 0),
             'student_id' => $studentId,
+            'photo_url' => studentPhotoUrl($profile['passport_photo'] ?? ''),
             'name' => (string) ($profile['name'] ?? ''),
             'father_name' => (string) ($profile['father_name'] ?? ''),
             'mother_name' => (string) ($profile['mother_name'] ?? ''),
