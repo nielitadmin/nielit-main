@@ -90,6 +90,22 @@ function hasSensitiveApiPermission(array $apiData): bool {
     return in_array($permissions, ['admin', 'read_write'], true);
 }
 
+function addEnrollmentRecordsToStudent(array $student): array {
+    global $conn;
+
+    $studentId = trim((string) ($student['student_id'] ?? ''));
+    if ($studentId === '') {
+        $student['enrollments'] = [];
+        $student['enrollment_count'] = 0;
+        return $student;
+    }
+
+    $enrollments = searchMultiCourseEnrollments($conn, $studentId, 100);
+    $student['enrollments'] = $enrollments ?? [];
+    $student['enrollment_count'] = count($student['enrollments']);
+    return $student;
+}
+
 /**
  * Get list of students with pagination
  */
@@ -418,6 +434,7 @@ function getStudentById($student_id) {
     $result = $stmt->get_result();
 
     if ($student = $result->fetch_assoc()) {
+        $student = addEnrollmentRecordsToStudent($student);
         sendApiResponse(['student' => $student]);
     }
 
@@ -491,6 +508,7 @@ function getStudentByEmail($email) {
     $result = $stmt->get_result();
 
     if ($student = $result->fetch_assoc()) {
+        $student = addEnrollmentRecordsToStudent($student);
         sendApiResponse(['student' => $student]);
     }
 
@@ -546,6 +564,7 @@ function getStudentWithPassword(string $whereClause, string $bindType, string $v
     $stmt->close();
 
     if ($student) {
+        $student = addEnrollmentRecordsToStudent($student);
         sendApiResponse(['student' => $student]);
     }
 
