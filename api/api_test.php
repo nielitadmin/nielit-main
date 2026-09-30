@@ -57,6 +57,17 @@
                 <div class="full">
                     <img id="photoPreview" alt="Captured photo preview" hidden style="max-width: 180px; max-height: 180px; border-radius: 8px; border: 1px solid #c8d2e1;">
                 </div>
+                <div class="full" id="studentCardWrap" style="display:none;">
+                    <div id="studentCard" style="display:flex;align-items:center;gap:18px;padding:16px;background:#f0f5ff;border:1px solid #c8d2e1;border-radius:10px;">
+                        <img id="studentPhoto" alt="Student Photo" style="width:90px;height:110px;object-fit:cover;border-radius:8px;border:2px solid #1459c7;background:#dce3ee;">
+                        <div>
+                            <div id="studentName2" style="font-size:18px;font-weight:700;"></div>
+                            <div id="studentId2" style="color:#65728a;font-size:13px;margin-top:3px;"></div>
+                            <div id="studentCourse" style="color:#1459c7;font-size:13px;margin-top:3px;"></div>
+                            <div id="studentDetails" style="color:#444;font-size:12px;margin-top:4px;"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
             <button id="testButton" type="submit">Test Student API</button>
         </form>
@@ -86,6 +97,7 @@ form.addEventListener('submit', async (event) => {
     event.preventDefault();
     button.disabled = true;
     result.textContent = 'Testing...';
+    document.getElementById('studentCardWrap').style.display = 'none';
 
     const key = document.getElementById('apiKey').value.trim();
     const studentId = document.getElementById('studentId').value.trim();
@@ -105,6 +117,32 @@ form.addEventListener('submit', async (event) => {
             headers: { 'X-API-Key': key, 'Accept': 'application/json' }
         });
         const body = await response.json();
+
+        // Show student photo card if results found
+        const students = body.students || body.student ? [body.student] : [];
+        const list = body.students ?? (body.student ? [body.student] : []);
+        if (list.length > 0) {
+            const s = list[0];
+            const photoUrl = s.photo_url || null;
+            const imgEl = document.getElementById('studentPhoto');
+            if (photoUrl) {
+                imgEl.src = photoUrl;
+                imgEl.onerror = () => { imgEl.src = ''; imgEl.style.background = '#dce3ee'; imgEl.alt = 'No photo'; };
+            } else {
+                imgEl.removeAttribute('src');
+                imgEl.alt = 'No photo';
+            }
+            document.getElementById('studentName2').textContent = s.name || '—';
+            document.getElementById('studentId2').textContent = 'ID: ' + (s.student_id || '—');
+            document.getElementById('studentCourse').textContent = s.course_name || s.course_code || '';
+            document.getElementById('studentDetails').textContent = [
+                s.gender ? s.gender : null,
+                s.dob ? 'DOB: ' + s.dob : null,
+                s.mobile ? '📞 ' + s.mobile : null
+            ].filter(Boolean).join('  ·  ');
+            document.getElementById('studentCardWrap').style.display = 'block';
+        }
+
         result.textContent = JSON.stringify({
             http_status: response.status,
             search_query: searchQuery,
