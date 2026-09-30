@@ -39,9 +39,17 @@ switch ($action) {
 
     case 'get':
         if ($student_id) {
-            getStudentById($student_id);
+            if (hasSensitiveApiPermission($api_data)) {
+                getStudentByIdWithPassword($student_id);
+            } else {
+                getStudentById($student_id);
+            }
         } elseif ($email) {
-            getStudentByEmail($email);
+            if (hasSensitiveApiPermission($api_data)) {
+                getStudentByEmailWithPassword($email);
+            } else {
+                getStudentByEmail($email);
+            }
         } else {
             sendApiError('student_id or email parameter is required', 400);
         }
