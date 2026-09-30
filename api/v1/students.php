@@ -668,7 +668,8 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
 
     $profile = [];
     $profileStmt = $conn->prepare(
-        'SELECT name, email, mobile, training_center
+        'SELECT name, father_name, mother_name, email, mobile, training_center,
+            created_at, dob, gender, address, city, state, pincode
          FROM students
          WHERE student_id = ?
          ORDER BY id DESC
@@ -688,6 +689,8 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
             'student_record_id' => (int) ($enrollment['student_record_id'] ?? 0),
             'student_id' => $studentId,
             'name' => (string) ($profile['name'] ?? ''),
+            'father_name' => (string) ($profile['father_name'] ?? ''),
+            'mother_name' => (string) ($profile['mother_name'] ?? ''),
             'email' => (string) ($profile['email'] ?? ''),
             'mobile' => (string) ($profile['mobile'] ?? ''),
             'course_id' => (int) ($enrollment['course_id'] ?? 0),
@@ -697,6 +700,13 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
             'batch_code' => (string) ($enrollment['batch_code'] ?? ''),
             'batch_name' => (string) ($enrollment['batch_name'] ?? ''),
             'training_center' => (string) ($profile['training_center'] ?? ''),
+            'created_at' => $profile['created_at'] ?? null,
+            'dob' => $profile['dob'] ?? null,
+            'gender' => (string) ($profile['gender'] ?? ''),
+            'address' => (string) ($profile['address'] ?? ''),
+            'city' => (string) ($profile['city'] ?? ''),
+            'state' => (string) ($profile['state'] ?? ''),
+            'pincode' => (string) ($profile['pincode'] ?? ''),
             'status' => (string) ($enrollment['status'] ?? 'active'),
         ];
     }
