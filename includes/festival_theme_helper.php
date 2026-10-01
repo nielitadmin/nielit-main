@@ -998,10 +998,11 @@ if (!function_exists('injectFestivalThemeCSS')) {
         $sketchUrlCss = $h($sketchUrl);
         $cssFile = __DIR__ . '/../assets/css/festival-theme.css';
         $jsFile = __DIR__ . '/../assets/js/festival-effects.js';
-        $ver = @filemtime($cssFile) ?: time();
-        $jsVer = @filemtime($jsFile) ?: time();
+        $build = 3;
+        $ver = ((int) (@filemtime($cssFile) ?: time())) . '.' . $build;
+        $jsVer = ((int) (@filemtime($jsFile) ?: time())) . '.' . $build;
 
-        echo '<link rel="stylesheet" href="' . $h($appUrl) . '/assets/css/festival-theme.css?v=' . (int) $ver . '">' . "\n";
+        echo '<link rel="stylesheet" href="' . $h($appUrl) . '/assets/css/festival-theme.css?v=' . $h($ver) . '">' . "\n";
         echo "<style id=\"festival-theme-vars\">\n";
         echo ":root {\n";
         echo "  --primary-color: {$primary};\n";
@@ -1162,18 +1163,8 @@ if (!function_exists('injectFestivalThemeCSS')) {
             }
         }
         $bannerPhotoCss = $bannerPhoto !== '' ? $h($bannerPhoto) : '';
-        if ($bannerPhotoCss !== '') {
-            // Keep band elegant: solid festival wash (portrait goes in side circles, not cropped full-bleed)
-            echo "html[data-festival] .festival-banner.festival-banner--photo {\n";
-            echo "  min-height: 0;\n";
-            echo "  color: #fff !important;\n";
-            echo "  background-image: linear-gradient(105deg, rgba(15,23,42,0.96), rgba(30,64,175,0.55) 50%, rgba(20,83,45,0.9)) !important;\n";
-            echo "}\n";
-            echo "html[data-festival] .festival-banner .festival-banner-title,\n";
-            echo "html[data-festival] .festival-banner .festival-banner-tagline {\n";
-            echo "  color: #fff !important;\n";
-            echo "  text-shadow: 0 1px 8px rgba(0,0,0,0.4);\n";
-            echo "}\n";
+        $isSolemnBanner = ($bannerStyle === 'gandhi' || $key === 'gandhi_jayanti');
+        if ($isSolemnBanner) {
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner,\n";
             echo ".festival-banner--solemn {\n";
             echo "  --fest-art-size: 34px;\n";
@@ -1185,10 +1176,19 @@ if (!function_exists('injectFestivalThemeCSS')) {
             echo "  overflow: hidden !important;\n";
             echo "  background-image: linear-gradient(105deg, #1e3a5f 0%, #0f172a 45%, #14532d 100%) !important;\n";
             echo "  border-bottom: 2px solid #ff9933 !important;\n";
+            echo "  color: #fff !important;\n";
             echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-toran,\n";
             echo ".festival-banner--solemn .festival-banner-toran {\n";
             echo "  display: none !important;\n";
+            echo "}\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-inner,\n";
+            echo ".festival-banner--solemn .festival-banner-inner {\n";
+            echo "  grid-template-columns: var(--fest-art-size) minmax(0, 1fr) var(--fest-art-size) !important;\n";
+            echo "  height: 100% !important;\n";
+            echo "  padding: 7px 12px !important;\n";
+            echo "  gap: 8px !important;\n";
+            echo "  align-items: center !important;\n";
             echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-portrait,\n";
             echo ".festival-banner--solemn .festival-banner-portrait {\n";
@@ -1200,6 +1200,35 @@ if (!function_exists('injectFestivalThemeCSS')) {
             echo "  width: var(--fest-art-size) !important;\n";
             echo "  height: var(--fest-art-size) !important;\n";
             echo "  max-height: var(--fest-art-size) !important;\n";
+            echo "  background-size: contain !important;\n";
+            echo "}\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-title,\n";
+            echo ".festival-banner--solemn .festival-banner-title {\n";
+            echo "  font-size: 0.92rem !important;\n";
+            echo "  line-height: 1.15 !important;\n";
+            echo "  color: #fff !important;\n";
+            echo "}\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-tagline,\n";
+            echo ".festival-banner--solemn .festival-banner-tagline {\n";
+            echo "  font-size: 0.68rem !important;\n";
+            echo "  line-height: 1.2 !important;\n";
+            echo "  color: rgba(255,255,255,0.88) !important;\n";
+            echo "}\n";
+            echo "body.homepage-public .festival-fx-layer,\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-fx-layer {\n";
+            echo "  display: none !important;\n";
+            echo "}\n";
+        } elseif ($bannerPhotoCss !== '') {
+            // Keep band elegant: solid festival wash (portrait goes in side circles, not cropped full-bleed)
+            echo "html[data-festival] .festival-banner.festival-banner--photo {\n";
+            echo "  min-height: 0;\n";
+            echo "  color: #fff !important;\n";
+            echo "  background-image: linear-gradient(105deg, rgba(15,23,42,0.96), rgba(30,64,175,0.55) 50%, rgba(20,83,45,0.9)) !important;\n";
+            echo "}\n";
+            echo "html[data-festival] .festival-banner .festival-banner-title,\n";
+            echo "html[data-festival] .festival-banner .festival-banner-tagline {\n";
+            echo "  color: #fff !important;\n";
+            echo "  text-shadow: 0 1px 8px rgba(0,0,0,0.4);\n";
             echo "}\n";
         }
         echo "</style>\n";
@@ -1220,10 +1249,13 @@ if (!function_exists('injectFestivalThemeCSS')) {
             . ($bannerPhotoCss !== '' ? 'd.setAttribute("data-festival-banner-photo","' . $bannerPhotoCss . '");' : '')
             . 'd.setAttribute("data-festival-sketch","' . $h($sketchKey) . '");'
             . 'd.setAttribute("data-festival-asset-base","' . $h($appUrl . '/assets/images/festival-sketches') . '");'
-            . ($effect !== '' ? 'd.setAttribute("data-festival-effect","' . $effect . '");' : '')
+            . 'd.setAttribute("data-festival-effect","' . ($effect !== '' ? $effect : 'none') . '");'
             // Ribbon skipped when banner is active (banner replaces the top strip).
             . '})();</script>' . "\n";
-        echo '<script src="' . $h($appUrl) . '/assets/js/festival-effects.js?v=' . (int) $jsVer . '" defer></script>' . "\n";
+        if ($isSolemnBanner) {
+            echo '<script>(function(){function tidy(){var b=document.querySelector(".festival-banner");if(!b)return;b.classList.add("festival-banner--solemn");var t=b.querySelector(".festival-banner-toran");if(t)t.remove();b.querySelectorAll(".festival-banner-emoji").forEach(function(e){e.remove();});var fx=document.getElementById("festival-fx-layer");if(fx)fx.remove();}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",tidy);else tidy();setTimeout(tidy,50);setTimeout(tidy,300);})();</script>' . "\n";
+        }
+        echo '<script src="' . $h($appUrl) . '/assets/js/festival-effects.js?v=' . $h($jsVer) . '" defer></script>' . "\n";
     }
 }
 
@@ -1237,13 +1269,98 @@ if (!function_exists('emitFestivalThemeHead')) {
     }
 }
 
-if (!function_exists('festivalThemeRibbonHtml')) {
-    function festivalThemeRibbonHtml($conn = null): string
+if (!function_exists('festivalThemeBannerPhotoUrl')) {
+    function festivalThemeBannerPhotoUrl(array $pack): string
+    {
+        $appUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+        $key = (string) ($pack['key'] ?? '');
+        if ($key === '') {
+            return '';
+        }
+        $bannerDir = __DIR__ . '/../assets/images/festival-banners';
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $candidate = $bannerDir . '/' . $key . '.' . $ext;
+            if (is_file($candidate)) {
+                return $appUrl . '/assets/images/festival-banners/' . $key . '.' . $ext;
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('festivalThemeIsSolemnBanner')) {
+    function festivalThemeIsSolemnBanner(array $pack, array $banner): bool
+    {
+        $key = (string) ($pack['key'] ?? '');
+        $style = (string) ($banner['style'] ?? '');
+        return $style === 'gandhi' || $key === 'gandhi_jayanti';
+    }
+}
+
+if (!function_exists('festivalThemeBannerHtml')) {
+    /**
+     * Server-rendered compact banner (Gandhi Jayanti) so layout is correct
+     * even when cached festival-effects.js has not updated on production.
+     */
+    function festivalThemeBannerHtml($conn = null): string
     {
         if (!$conn) {
             global $conn;
         }
-        // Festival banner (JS) already shows the greeting — skip ribbon strip.
-        return '';
+        $pack = resolveActiveFestivalTheme($conn instanceof mysqli ? $conn : null);
+        if (!$pack || empty($pack['key'])) {
+            return '';
+        }
+
+        $banner = festivalThemeBannerMeta($pack);
+        if (!festivalThemeIsSolemnBanner($pack, $banner)) {
+            return '';
+        }
+
+        $h = static function ($v): string {
+            return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+        };
+
+        $appUrl = defined('APP_URL') ? rtrim(APP_URL, '/') : '';
+        $photo = festivalThemeBannerPhotoUrl($pack);
+        $sketchKey = festivalThemeSketchKey($pack);
+        $sketchUrl = $appUrl . '/assets/images/festival-sketches/' . $sketchKey . '.svg';
+        $title = $banner['title'];
+        $tagline = $banner['tagline'];
+        $style = $banner['style'];
+
+        $portraitStyle = $photo !== ''
+            ? ' style="background-image:url(\'' . $h($photo) . '\')"'
+            : '';
+
+        $classes = 'festival-banner festival-banner--' . $h($style)
+            . ' festival-banner--sided festival-banner--solemn'
+            . ($photo !== '' ? ' festival-banner--photo' : '');
+
+        $leftArt = $photo !== ''
+            ? '<span class="festival-banner-portrait"' . $portraitStyle . ' aria-hidden="true"></span>'
+            : '<span class="festival-banner-sketch" style="--festival-banner-sketch:url(\'' . $h($sketchUrl) . '\')" aria-hidden="true"></span>';
+
+        $rightArt = '<span class="festival-banner-sketch festival-banner-sketch-mirror" style="--festival-banner-sketch:url(\'' . $h($sketchUrl) . '\')" aria-hidden="true"></span>';
+
+        return '<section class="' . $classes . '" role="region" aria-label="' . $h($title) . '">'
+            . '<div class="festival-banner-inner">'
+            . '<div class="festival-banner-side festival-banner-side-left" aria-hidden="true">' . $leftArt . '</div>'
+            . '<div class="festival-banner-center">'
+            . '<div class="festival-banner-copy">'
+            . '<strong class="festival-banner-title">' . $h($title) . '</strong>'
+            . ($tagline !== '' ? '<span class="festival-banner-tagline">' . $h($tagline) . '</span>' : '')
+            . '</div>'
+            . '</div>'
+            . '<div class="festival-banner-side festival-banner-side-right" aria-hidden="true">' . $rightArt . '</div>'
+            . '</div>'
+            . '</section>';
+    }
+}
+
+if (!function_exists('festivalThemeRibbonHtml')) {
+    function festivalThemeRibbonHtml($conn = null): string
+    {
+        return festivalThemeBannerHtml($conn);
     }
 }
