@@ -51,6 +51,10 @@
     return html;
   }
 
+  function isSolemnBanner(style, festKey) {
+    return style === 'gandhi' || festKey === 'gandhi_jayanti';
+  }
+
   function createBanner() {
     var root = document.documentElement;
     if (root.getAttribute('data-festival-banner') !== '1') return;
@@ -58,6 +62,8 @@
     if (!document.body) return;
 
     var style = root.getAttribute('data-festival-banner-style') || 'sparkle';
+    var festKey = root.getAttribute('data-festival') || '';
+    var solemn = isSolemnBanner(style, festKey);
     var title = root.getAttribute('data-festival-banner-title') || root.getAttribute('data-festival-label') || 'Festival';
     var tagline = root.getAttribute('data-festival-banner-tagline') || '';
     var emoji = root.getAttribute('data-festival-banner-emoji') || '✨';
@@ -68,7 +74,7 @@
     var sketchUrl = sketchBase ? (sketchBase.replace(/\/$/, '') + '/' + sketch + '.svg') : '';
 
     var banner = document.createElement('section');
-    banner.className = 'festival-banner festival-banner--' + style + ' festival-banner--sided' + (photo ? ' festival-banner--photo' : '');
+    banner.className = 'festival-banner festival-banner--' + style + ' festival-banner--sided' + (photo ? ' festival-banner--photo' : '') + (solemn ? ' festival-banner--solemn' : '');
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', title);
     if (photo) {
@@ -86,17 +92,24 @@
       ? '<span class="festival-banner-sketch festival-banner-sketch-mirror" aria-hidden="true"></span>'
       : (photo ? '<span class="festival-banner-portrait festival-banner-portrait-soft" style="background-image:url(\'' + photo.replace(/'/g, '%27') + '\')"></span>' : '');
 
+    var toranHtml = solemn
+      ? ''
+      : '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(12, style) + '</div>';
+    var emojiHtml = solemn
+      ? ''
+      : '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>';
+
     banner.innerHTML =
-      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(12, style) + '</div>' +
+      toranHtml +
       '<div class="festival-banner-inner">' +
         '<div class="festival-banner-side festival-banner-side-left" aria-hidden="true">' + leftArt + '</div>' +
         '<div class="festival-banner-center">' +
-          '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
+          emojiHtml +
           '<div class="festival-banner-copy">' +
             '<strong class="festival-banner-title">' + title + '</strong>' +
             (tagline ? '<span class="festival-banner-tagline">' + tagline + '</span>' : '') +
           '</div>' +
-          '<span class="festival-banner-emoji" aria-hidden="true">' + emoji + '</span>' +
+          (solemn ? '' : emojiHtml) +
         '</div>' +
         '<div class="festival-banner-side festival-banner-side-right" aria-hidden="true">' + rightArt + '</div>' +
       '</div>';
@@ -132,6 +145,17 @@
     document.body.classList.add('has-festival-sketch');
   }
 
+  function shouldSkipParticles(root) {
+    var effect = (root.getAttribute('data-festival-effect') || '').toLowerCase();
+    var festKey = root.getAttribute('data-festival') || '';
+    var style = root.getAttribute('data-festival-banner-style') || '';
+    var isHomepage = document.body && document.body.classList.contains('homepage-public');
+    if (isHomepage) return true;
+    if (!effect || effect === 'none') return true;
+    if (isSolemnBanner(style, festKey)) return true;
+    return false;
+  }
+
   function createLayer() {
     if (document.getElementById('festival-fx-layer')) return;
     var root = document.documentElement;
@@ -140,10 +164,17 @@
     var motif = root.getAttribute('data-festival-motif') || 'sparkles';
     var pattern = root.getAttribute('data-festival-pattern') || 'none';
     var effect = root.getAttribute('data-festival-effect') || effectForMotif(motif, pattern);
+    if (shouldSkipParticles(root)) {
+      effect = 'none';
+    }
     root.setAttribute('data-festival-effect', effect);
 
     createBanner();
     createSketchBackground();
+
+    if (effect === 'none') {
+      return;
+    }
 
     var layer = document.createElement('div');
     layer.id = 'festival-fx-layer';

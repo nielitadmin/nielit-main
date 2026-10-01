@@ -738,5 +738,14 @@ if (!function_exists('emitPublicThemeHead')) {
             ensurePublicThemeSettingsTable($conn);
         }
         injectPublicThemeCSS(getActivePublicThemeDefinition($conn instanceof mysqli ? $conn : null, $scope), $conn instanceof mysqli ? $conn : null);
+
+        // Festival pack overlays public colors + detail styles when in season.
+        $festHelper = __DIR__ . '/festival_theme_helper.php';
+        if (is_file($festHelper)) {
+            require_once $festHelper;
+            if (function_exists('emitFestivalThemeHead')) {
+                emitFestivalThemeHead($conn instanceof mysqli ? $conn : null);
+            }
+        }
     }
 }
