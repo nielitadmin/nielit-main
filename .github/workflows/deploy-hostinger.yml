@@ -32,6 +32,8 @@ jobs:
             set -e
             cd "${{ secrets.HOSTINGER_DEPLOY_PATH }}"
             git fetch origin
+            # Hostinger git pull fails when untracked files would be overwritten (e.g. digitalcertificate/admin/students.php)
+            git clean -fd
             git reset --hard origin/main
             echo "Deployed commit:"
             git log -1 --oneline

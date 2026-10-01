@@ -18,6 +18,9 @@ fi
 echo "==> Fetching origin..."
 git fetch origin
 
+echo "==> Removing untracked files that block checkout (keeps .gitignore paths)..."
+git clean -fd
+
 echo "==> Resetting to origin/main (fixes divergent branches)..."
 git reset --hard origin/main
 
