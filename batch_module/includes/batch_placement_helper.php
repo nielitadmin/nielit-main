@@ -200,6 +200,7 @@ if (!function_exists('batch_placement_status_options')) {
             return ['success' => false, 'message' => $validation['message']];
         }
 
+        $updatedBySql = $admin_id > 0 ? 'placement_updated_by = ?' : 'placement_updated_by = NULL';
         $sql = "UPDATE batch_students SET
             placement_status = ?,
             placement_company = ?,
@@ -210,7 +211,7 @@ if (!function_exists('batch_placement_status_options')) {
             placement_date = ?,
             placement_remarks = ?,
             placement_updated_at = NOW(),
-            placement_updated_by = ?
+            {$updatedBySql}
             WHERE id = ?";
 
         $stmt = $conn->prepare($sql);
@@ -228,19 +229,34 @@ if (!function_exists('batch_placement_status_options')) {
         $amount = $data['placement_package_amount'];
         $amountParam = $amount === null ? null : (string) $amount;
 
-        $stmt->bind_param(
-            'ssssssssii',
-            $status,
-            $company,
-            $role,
-            $amountParam,
-            $packageType,
-            $location,
-            $placementDate,
-            $remarks,
-            $admin_id,
-            $batchStudentId
-        );
+        if ($admin_id > 0) {
+            $stmt->bind_param(
+                'ssssssssii',
+                $status,
+                $company,
+                $role,
+                $amountParam,
+                $packageType,
+                $location,
+                $placementDate,
+                $remarks,
+                $admin_id,
+                $batchStudentId
+            );
+        } else {
+            $stmt->bind_param(
+                'ssssssssi',
+                $status,
+                $company,
+                $role,
+                $amountParam,
+                $packageType,
+                $location,
+                $placementDate,
+                $remarks,
+                $batchStudentId
+            );
+        }
 
         $ok = $stmt->execute();
         $error = $stmt->error;
@@ -318,40 +334,130 @@ if (!function_exists('batch_placement_status_options')) {
     }
 
     function getStudentPortalPlacements($conn, $student_id) {
+        $rows = getStudentPlacementEnrollments($conn, $student_id);
+        return array_values(array_filter($rows, static function ($row) {
+            $status = strtolower(trim((string) ($row['placement_status'] ?? 'not_placed')));
+            return $status !== '' && $status !== 'not_placed';
+        }));
+    }
+
+    /**
+     * All batch enrollments a student may view or self-update in the portal.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function getStudentPlacementEnrollments($conn, $student_id) {
         ensureBatchPlacementSchema($conn);
         $student_id = trim((string) $student_id);
         if ($student_id === '' || !batch_placement_column_exists($conn, 'placement_status')) {
             return [];
         }
 
-        $sql = "SELECT bs.placement_status, bs.placement_company, bs.placement_role,
+        $rows = [];
+        $seen = [];
+
+        $sql = "SELECT bs.id AS batch_student_id, bs.batch_id, s.id AS student_record_id,
+                       COALESCE(bs.placement_status, 'not_placed') AS placement_status,
+                       bs.placement_company, bs.placement_role,
                        bs.placement_package_amount, bs.placement_package_type,
                        bs.placement_location, bs.placement_date, bs.placement_remarks,
                        bs.placement_updated_at,
-                       b.batch_name, b.batch_code, b.id AS batch_id,
+                       b.batch_name, b.batch_code,
                        COALESCE(c.course_name, b.batch_name, 'Course') AS course_name
                 FROM batch_students bs
                 INNER JOIN students s ON (bs.student_record_id = s.id OR bs.student_id = s.id)
                 LEFT JOIN batches b ON b.id = bs.batch_id
                 LEFT JOIN courses c ON c.id = b.course_id
                 WHERE s.student_id = ?
-                AND bs.placement_status IS NOT NULL
-                AND bs.placement_status != ''
-                AND bs.placement_status != 'not_placed'
-                ORDER BY COALESCE(bs.placement_date, bs.placement_updated_at) DESC, bs.id DESC";
+                AND LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive', 'cancelled')
+                ORDER BY COALESCE(b.batch_name, c.course_name), s.id, bs.id";
 
         $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return [];
+        if ($stmt) {
+            $stmt->bind_param('s', $student_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            while ($row = $result->fetch_assoc()) {
+                $key = (int) ($row['batch_id'] ?? 0) . ':' . (int) ($row['student_record_id'] ?? 0);
+                if ($key === '0:0' || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $rows[] = $row;
+            }
+            $stmt->close();
         }
-        $stmt->bind_param('s', $student_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $rows = [];
-        while ($row = $result->fetch_assoc()) {
-            $rows[] = $row;
+
+        $sqlDirect = "SELECT s.id AS student_record_id, s.batch_id,
+                             b.batch_name, b.batch_code,
+                             COALESCE(c.course_name, b.batch_name, 'Course') AS course_name
+                      FROM students s
+                      INNER JOIN batches b ON b.id = s.batch_id
+                      LEFT JOIN courses c ON c.id = b.course_id
+                      WHERE s.student_id = ?
+                      AND s.batch_id > 0
+                      AND LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive', 'cancelled')";
+
+        $stmt2 = $conn->prepare($sqlDirect);
+        if ($stmt2) {
+            $stmt2->bind_param('s', $student_id);
+            $stmt2->execute();
+            $result2 = $stmt2->get_result();
+            while ($row = $result2->fetch_assoc()) {
+                $batchId = (int) ($row['batch_id'] ?? 0);
+                $recordId = (int) ($row['student_record_id'] ?? 0);
+                $key = $batchId . ':' . $recordId;
+                if ($batchId <= 0 || $recordId <= 0 || isset($seen[$key])) {
+                    continue;
+                }
+                $seen[$key] = true;
+                $placementRow = batch_placement_get_batch_student_row($conn, $batchId, $recordId);
+                $rows[] = [
+                    'batch_student_id' => (int) ($placementRow['batch_student_id'] ?? 0),
+                    'batch_id' => $batchId,
+                    'student_record_id' => $recordId,
+                    'placement_status' => $placementRow['placement_status'] ?? 'not_placed',
+                    'placement_company' => $placementRow['placement_company'] ?? null,
+                    'placement_role' => $placementRow['placement_role'] ?? null,
+                    'placement_package_amount' => $placementRow['placement_package_amount'] ?? null,
+                    'placement_package_type' => $placementRow['placement_package_type'] ?? 'annual',
+                    'placement_location' => $placementRow['placement_location'] ?? null,
+                    'placement_date' => $placementRow['placement_date'] ?? null,
+                    'placement_remarks' => $placementRow['placement_remarks'] ?? null,
+                    'placement_updated_at' => $placementRow['placement_updated_at'] ?? null,
+                    'batch_name' => $row['batch_name'] ?? '',
+                    'batch_code' => $row['batch_code'] ?? '',
+                    'course_name' => $row['course_name'] ?? 'Course',
+                ];
+            }
+            $stmt2->close();
         }
-        $stmt->close();
+
         return $rows;
+    }
+
+    function saveStudentSelfPlacement($conn, $student_login_id, $batch_id, $student_record_id, array $input) {
+        $student_login_id = trim((string) $student_login_id);
+        $batch_id = (int) $batch_id;
+        $student_record_id = (int) $student_record_id;
+
+        if ($student_login_id === '' || $batch_id <= 0 || $student_record_id <= 0) {
+            return ['success' => false, 'message' => 'Invalid placement request.'];
+        }
+
+        $stmt = $conn->prepare('SELECT id FROM students WHERE id = ? AND student_id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Database error.'];
+        }
+        $stmt->bind_param('is', $student_record_id, $student_login_id);
+        $stmt->execute();
+        $owned = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$owned) {
+            return ['success' => false, 'message' => 'You can only update your own placement details.'];
+        }
+
+        return saveBatchStudentPlacement($conn, $batch_id, $student_record_id, $input, 0);
     }
 }
