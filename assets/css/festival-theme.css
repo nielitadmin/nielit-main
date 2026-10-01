@@ -332,12 +332,12 @@ html[data-festival] .hero-section::after {
     display: none !important;
 }
 
-/* Solid cards so sketch never shows through text */
+/* Solid cards so sketch never shows through text.
+   Announce cards stay glass on the navy band (white fill + white text = invisible). */
 html[data-festival] .feat-card,
 html[data-festival] .info-card,
 html[data-festival] .course-card,
 html[data-festival] .news-card,
-html[data-festival] .announce-card,
 html[data-festival] .mocktest-panel {
     background-color: #ffffff !important;
     background-image: none !important;
@@ -346,13 +346,45 @@ html[data-festival] .mocktest-panel {
     z-index: 2;
 }
 
+html[data-festival] .announce-card {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    background-image: none !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+    isolation: isolate;
+    position: relative;
+    z-index: 2;
+    color: #fff !important;
+}
+
+html[data-festival] .announce-card h6,
+html[data-festival] .announce-card p,
+html[data-festival] .announce-card .date-tag {
+    color: inherit !important;
+}
+
+html[data-festival] .announce-card h6 {
+    color: #ffffff !important;
+}
+
+html[data-festival] .announce-card p {
+    color: rgba(255, 255, 255, 0.78) !important;
+}
+
+html[data-festival] .announce-card .date-tag {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
 html[data-mode="night"][data-festival] .feat-card,
 html[data-mode="night"][data-festival] .info-card,
 html[data-mode="night"][data-festival] .course-card,
 html[data-mode="night"][data-festival] .news-card,
-html[data-mode="night"][data-festival] .announce-card,
 html[data-mode="night"][data-festival] .mocktest-panel {
     background-color: #0f172a !important;
+}
+
+html[data-mode="night"][data-festival] .announce-card {
+    background-color: rgba(15, 23, 42, 0.72) !important;
+    border-color: rgba(148, 163, 184, 0.22) !important;
 }
 
 /* Night mode: keep effects visible but softer */
@@ -389,9 +421,9 @@ html[data-mode="night"] .festival-fx-corner {
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Photo + sided banners — art fills left/right, text stays centered */
+/* Photo + sided banners — compact height, art on left/right */
 .festival-banner--photo {
-    min-height: 120px;
+    min-height: 0;
     background-color: #0b1220;
     /* Soft wash — avoid ugly face-crop as full background */
     background-image:
@@ -403,28 +435,61 @@ html[data-mode="night"] .festival-fx-corner {
 .festival-banner--photo .festival-banner-title,
 .festival-banner--photo .festival-banner-tagline {
     color: #fff;
-    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+    text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
 }
 .festival-banner--photo .festival-banner-title {
-    font-size: clamp(1.15rem, 2.3vw, 1.45rem);
+    font-size: clamp(0.98rem, 1.8vw, 1.2rem);
+    line-height: 1.2;
+}
+.festival-banner--photo .festival-banner-tagline {
+    font-size: 0.78rem;
+    line-height: 1.25;
 }
 .festival-banner--photo .festival-banner-toran {
-    background: rgba(0, 0, 0, 0.18);
+    background: rgba(0, 0, 0, 0.16);
 }
 .festival-banner--photo.festival-banner--gandhi {
     background-image:
         linear-gradient(105deg, #1e3a5f 0%, #0f172a 42%, #14532d 100%);
     border-image: none;
-    border-bottom: 3px solid #ff9933;
-    min-height: 132px;
+    border-bottom: 2px solid #ff9933;
+    min-height: 0;
+    max-height: 72px;
+    overflow: hidden;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner {
+    max-height: 72px !important;
+    overflow: hidden !important;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner-portrait {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner-sketch {
+    width: 36px !important;
+    height: 48px !important;
+    min-height: unset !important;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner-inner {
+    padding: 6px 12px !important;
+    min-height: unset !important;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner-toran {
+    display: none !important;
 }
 
 .festival-banner--sided .festival-banner-inner {
     display: grid;
-    grid-template-columns: minmax(88px, 1fr) minmax(220px, 2.2fr) minmax(88px, 1fr);
+    grid-template-columns: minmax(56px, 0.9fr) minmax(200px, 2.4fr) minmax(56px, 0.9fr);
     align-items: center;
-    gap: 8px 12px;
-    padding: 10px 16px 14px;
+    gap: 4px 10px;
+    padding: 4px 12px 6px;
     text-align: center;
 }
 
@@ -432,33 +497,33 @@ html[data-mode="night"] .festival-fx-corner {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 84px;
+    min-height: 52px;
     pointer-events: none;
 }
 
-.festival-banner-side-left { justify-content: flex-start; padding-left: 8px; }
-.festival-banner-side-right { justify-content: flex-end; padding-right: 8px; }
+.festival-banner-side-left { justify-content: flex-start; padding-left: 6px; }
+.festival-banner-side-right { justify-content: flex-end; padding-right: 6px; }
 
 .festival-banner-center {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     z-index: 1;
 }
 
 .festival-banner-portrait {
-    width: clamp(72px, 12vw, 110px);
-    height: clamp(72px, 12vw, 110px);
+    width: clamp(48px, 7.5vw, 64px);
+    height: clamp(48px, 7.5vw, 64px);
     border-radius: 50%;
     background-size: cover;
     background-position: center 18%;
-    border: 3px solid rgba(255, 255, 255, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.85);
     box-shadow:
-        0 0 0 3px rgba(255, 153, 51, 0.55),
-        0 0 0 6px rgba(19, 136, 8, 0.35),
-        0 8px 20px rgba(0, 0, 0, 0.35);
+        0 0 0 2px rgba(255, 153, 51, 0.55),
+        0 0 0 4px rgba(19, 136, 8, 0.35),
+        0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .festival-banner-portrait-soft {
@@ -467,8 +532,8 @@ html[data-mode="night"] .festival-fx-corner {
 }
 
 .festival-banner-sketch {
-    width: clamp(70px, 11vw, 108px);
-    height: clamp(90px, 14vw, 130px);
+    width: clamp(42px, 7vw, 58px);
+    height: clamp(52px, 8.5vw, 72px);
     background-image: var(--festival-banner-sketch);
     background-repeat: no-repeat;
     background-position: center;
@@ -487,44 +552,48 @@ html[data-mode="night"] .festival-fx-corner {
     filter: brightness(0) invert(1) contrast(1.08);
 }
 
+.festival-banner--sided .festival-banner-emoji {
+    font-size: 1.05rem;
+}
+
 @media (max-width: 700px) {
     .festival-banner--sided .festival-banner-inner {
-        grid-template-columns: 64px 1fr 64px;
-        gap: 4px;
-        padding: 8px 10px 12px;
+        grid-template-columns: 48px 1fr 48px;
+        gap: 2px 4px;
+        padding: 3px 8px 5px;
     }
     .festival-banner-portrait {
-        width: 56px;
-        height: 56px;
+        width: 42px;
+        height: 42px;
         border-width: 2px;
         box-shadow:
-            0 0 0 2px rgba(255, 153, 51, 0.5),
-            0 0 0 4px rgba(19, 136, 8, 0.3),
-            0 4px 12px rgba(0, 0, 0, 0.3);
+            0 0 0 1px rgba(255, 153, 51, 0.5),
+            0 0 0 3px rgba(19, 136, 8, 0.3),
+            0 2px 8px rgba(0, 0, 0, 0.28);
     }
     .festival-banner-sketch {
-        width: 52px;
-        height: 68px;
+        width: 38px;
+        height: 50px;
     }
     .festival-banner-center .festival-banner-emoji:last-child {
         display: none;
     }
     .festival-banner-tagline {
-        font-size: 0.74rem;
+        font-size: 0.7rem;
     }
 }
 
 .festival-banner-toran {
     display: flex;
     justify-content: center;
-    gap: 5px;
-    padding: 4px 8px 0;
+    gap: 4px;
+    padding: 2px 8px 0;
     background: rgba(0, 0, 0, 0.1);
 }
 
 .festival-toran-bead {
-    width: 10px;
-    height: 12px;
+    width: 7px;
+    height: 9px;
     border-radius: 50% 50% 40% 40%;
     display: inline-block;
     animation: festival-bead-sway 2.6s ease-in-out infinite;
