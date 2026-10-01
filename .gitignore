@@ -72,6 +72,9 @@ hostinger-deploy.log
 !/uploads/support_tickets/.gitkeep
 !/uploads/support_tickets/.htaccess
 
+# Digital certificate module (hosted separately — do not deploy via main repo)
+/digitalcertificate/
+
 # External/Legacy Projects (not part of main codebase)
 /hrms/
 /startup/
