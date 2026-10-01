@@ -1176,17 +1176,24 @@ if (!function_exists('injectFestivalThemeCSS')) {
             echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner {\n";
             echo "  min-height: 0 !important;\n";
-            echo "  padding: 8px 0 !important;\n";
+            echo "  max-height: 54px !important;\n";
+            echo "  padding: 0 !important;\n";
+            echo "  overflow: hidden !important;\n";
             echo "  background-image: linear-gradient(105deg, #1e3a5f 0%, #0f172a 45%, #14532d 100%) !important;\n";
             echo "  border-bottom: 2px solid #ff9933 !important;\n";
             echo "}\n";
+            echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-toran {\n";
+            echo "  display: none !important;\n";
+            echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-title {\n";
-            echo "  font-size: 1rem !important;\n";
+            echo "  font-size: 0.92rem !important;\n";
+            echo "  line-height: 1.15 !important;\n";
             echo "  margin-bottom: 0 !important;\n";
             echo "}\n";
             echo "html[data-festival=\"gandhi_jayanti\"] .festival-banner-tagline {\n";
-            echo "  font-size: 0.75rem !important;\n";
-            echo "  margin-top: 2px !important;\n";
+            echo "  font-size: 0.68rem !important;\n";
+            echo "  line-height: 1.2 !important;\n";
+            echo "  margin-top: 1px !important;\n";
             echo "}\n";
         }
         echo "</style>\n";

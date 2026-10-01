@@ -454,42 +454,55 @@ html[data-mode="night"] .festival-fx-corner {
     border-image: none;
     border-bottom: 2px solid #ff9933;
     min-height: 0;
-    max-height: 72px;
+    max-height: 54px;
     overflow: hidden;
 }
 
+.festival-banner--photo.festival-banner--gandhi .festival-banner-toran {
+    display: none !important;
+}
+
 html[data-festival="gandhi_jayanti"] .festival-banner {
-    max-height: 72px !important;
+    max-height: 54px !important;
+    padding: 0 !important;
     overflow: hidden !important;
 }
 
 html[data-festival="gandhi_jayanti"] .festival-banner-portrait {
-    width: 48px !important;
-    height: 48px !important;
-    min-width: 48px !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
 }
 
 html[data-festival="gandhi_jayanti"] .festival-banner-sketch {
-    width: 36px !important;
-    height: 48px !important;
+    width: 32px !important;
+    height: 40px !important;
     min-height: unset !important;
 }
 
 html[data-festival="gandhi_jayanti"] .festival-banner-inner {
-    padding: 6px 12px !important;
+    padding: 4px 10px !important;
     min-height: unset !important;
+}
+
+html[data-festival="gandhi_jayanti"] .festival-banner-side {
+    min-height: 0 !important;
 }
 
 html[data-festival="gandhi_jayanti"] .festival-banner-toran {
     display: none !important;
 }
 
+html[data-festival="gandhi_jayanti"] .festival-banner-center .festival-banner-emoji {
+    display: none !important;
+}
+
 .festival-banner--sided .festival-banner-inner {
     display: grid;
-    grid-template-columns: minmax(56px, 0.9fr) minmax(200px, 2.4fr) minmax(56px, 0.9fr);
+    grid-template-columns: minmax(44px, 0.75fr) minmax(200px, 2.6fr) minmax(44px, 0.75fr);
     align-items: center;
-    gap: 4px 10px;
-    padding: 4px 12px 6px;
+    gap: 2px 8px;
+    padding: 4px 10px;
     text-align: center;
 }
 
@@ -497,7 +510,7 @@ html[data-festival="gandhi_jayanti"] .festival-banner-toran {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 52px;
+    min-height: 0;
     pointer-events: none;
 }
 
@@ -558,13 +571,13 @@ html[data-festival="gandhi_jayanti"] .festival-banner-toran {
 
 @media (max-width: 700px) {
     .festival-banner--sided .festival-banner-inner {
-        grid-template-columns: 48px 1fr 48px;
+        grid-template-columns: 40px 1fr 40px;
         gap: 2px 4px;
-        padding: 3px 8px 5px;
+        padding: 3px 8px;
     }
     .festival-banner-portrait {
-        width: 42px;
-        height: 42px;
+        width: 36px;
+        height: 36px;
         border-width: 2px;
         box-shadow:
             0 0 0 1px rgba(255, 153, 51, 0.5),
@@ -572,14 +585,26 @@ html[data-festival="gandhi_jayanti"] .festival-banner-toran {
             0 2px 8px rgba(0, 0, 0, 0.28);
     }
     .festival-banner-sketch {
-        width: 38px;
-        height: 50px;
+        width: 30px;
+        height: 38px;
     }
     .festival-banner-center .festival-banner-emoji:last-child {
         display: none;
     }
     .festival-banner-tagline {
         font-size: 0.7rem;
+    }
+    html[data-festival="gandhi_jayanti"] .festival-banner {
+        max-height: 50px !important;
+    }
+    html[data-festival="gandhi_jayanti"] .festival-banner-portrait {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+    }
+    html[data-festival="gandhi_jayanti"] .festival-banner-sketch {
+        width: 28px !important;
+        height: 36px !important;
     }
 }
 

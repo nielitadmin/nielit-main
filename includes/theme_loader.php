@@ -472,26 +472,46 @@ function injectThemeCSS($theme) {
             box-shadow: none !important;
         }
 
+        /* Compact icon-only mode toggle — avoid covering sticky bars / toasts */
         .theme-mode-toggle {
             position: fixed;
-            right: 18px;
-            bottom: 18px;
-            z-index: 99999;
+            right: 16px;
+            bottom: 16px;
+            z-index: 1040; /* below Bootstrap modals (1055+), above page content */
+            width: 44px;
+            height: 44px;
+            padding: 0;
             border: none;
-            border-radius: 9999px;
-            padding: 12px 16px;
+            border-radius: 50%;
             font-weight: 700;
-            box-shadow: 0 12px 30px rgba(10, 22, 40, 0.25);
+            box-shadow: 0 8px 22px rgba(10, 22, 40, 0.22);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+            justify-content: center;
+            gap: 0;
+            line-height: 1;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease, bottom 0.2s ease;
+        }
+
+        .theme-mode-toggle span {
+            display: none !important;
+        }
+
+        .theme-mode-toggle i {
+            font-size: 1.05rem;
+            margin: 0;
+            line-height: 1;
         }
 
         .theme-mode-toggle:hover {
             transform: translateY(-2px);
-            box-shadow: 0 16px 34px rgba(10, 22, 40, 0.3);
+            box-shadow: 0 12px 26px rgba(10, 22, 40, 0.28);
+        }
+
+        .theme-mode-toggle:focus-visible {
+            outline: 2px solid var(--accent-color, #f59e0b);
+            outline-offset: 3px;
         }
 
         .theme-mode-toggle.day {
@@ -503,6 +523,45 @@ function injectThemeCSS($theme) {
             background: #13243c;
             color: #e5eefb;
             border: 1px solid rgba(245, 158, 11, 0.45);
+        }
+
+        /* Lift above sticky action/footer bars so they stay clickable */
+        body:has(.sticky-actions) .theme-mode-toggle,
+        body:has(.sticky-submit) .theme-mode-toggle,
+        body:has(.sticky-footer) .theme-mode-toggle,
+        .admin-wrapper:has(.sticky-actions) .theme-mode-toggle {
+            bottom: 86px;
+        }
+
+        /* Keep inspector toasts / bottom-right alerts clear of the icon */
+        #inspector-toast,
+        .inspector-toast,
+        .nielit-toast-stack {
+            right: 16px !important;
+            bottom: 72px !important;
+            z-index: 1035 !important;
+            max-width: min(360px, calc(100vw - 88px)) !important;
+        }
+
+        @media (max-width: 768px) {
+            .theme-mode-toggle {
+                right: 12px;
+                bottom: 12px;
+                width: 42px;
+                height: 42px;
+            }
+            body:has(.sticky-actions) .theme-mode-toggle,
+            body:has(.sticky-submit) .theme-mode-toggle,
+            body:has(.sticky-footer) .theme-mode-toggle,
+            .admin-wrapper:has(.sticky-actions) .theme-mode-toggle {
+                bottom: 96px;
+            }
+            #inspector-toast,
+            .inspector-toast,
+            .nielit-toast-stack {
+                bottom: 66px !important;
+                right: 12px !important;
+            }
         }
 </style>
 <script>
@@ -516,12 +575,13 @@ function injectThemeCSS($theme) {
 
     function updateToggle(button) {
         var currentMode = document.documentElement.getAttribute('data-mode') === 'night' ? 'night' : 'day';
+        var nextLabel = currentMode === 'night' ? 'Switch to Day Mode' : 'Switch to Night Mode';
         button.className = 'theme-mode-toggle ' + currentMode;
-        if (currentMode === 'night') {
-            button.innerHTML = '<i class="fas fa-sun"></i><span>Day Mode</span>';
-        } else {
-            button.innerHTML = '<i class="fas fa-moon"></i><span>Night Mode</span>';
-        }
+        button.innerHTML = currentMode === 'night'
+            ? '<i class="fas fa-sun" aria-hidden="true"></i>'
+            : '<i class="fas fa-moon" aria-hidden="true"></i>';
+        button.setAttribute('aria-label', nextLabel);
+        button.setAttribute('title', nextLabel);
     }
 
     document.addEventListener('DOMContentLoaded', function() {

@@ -1414,7 +1414,7 @@ document.addEventListener('DOMContentLoaded', function(){
         if (!box) {
             box = document.createElement('div');
             box.id = 'inspector-toast';
-            box.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:3000;min-width:240px;max-width:360px;';
+            box.style.cssText = 'position:fixed;right:16px;bottom:72px;z-index:1035;min-width:220px;max-width:min(360px, calc(100vw - 88px));';
             document.body.appendChild(box);
         }
         const tone = type === 'success' ? 'success' : (type === 'error' || type === 'danger' ? 'danger' : 'info');

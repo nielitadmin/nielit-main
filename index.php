@@ -708,9 +708,10 @@ $homepage_map = [];
             background: rgba(255,255,255,0.06);
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 20px;
-            padding: 28px 24px;
+            padding: 22px 20px;
             height: 100%;
             transition: all 0.3s;
+            color: #fff;
         }
         .announce-card:hover {
             background: rgba(255,255,255,0.1);
@@ -1275,9 +1276,28 @@ $homepage_map = [];
             color: #fff !important;
         }
         html[data-mode="night"] body.homepage-public .welcome-strip .section-title,
-        html[data-mode="night"] body.homepage-public .announcements-section .section-title,
+        html[data-mode="night"] body.homepage-public .announcements-section .section-title {
+            color: #fff !important;
+        }
+        /* Announce cards stay glass on navy — never force light surfaces with white text */
+        html[data-mode="night"] body.homepage-public .announce-card {
+            background: rgba(255, 255, 255, 0.07) !important;
+            border-color: rgba(255, 255, 255, 0.12) !important;
+            color: #fff !important;
+            box-shadow: none !important;
+        }
         html[data-mode="night"] body.homepage-public .announce-card h6 {
             color: #fff !important;
+        }
+        html[data-mode="night"] body.homepage-public .announce-card p {
+            color: rgba(255, 255, 255, 0.72) !important;
+        }
+        html[data-mode="night"] body.homepage-public .announce-card .date-tag {
+            color: rgba(255, 255, 255, 0.45) !important;
+        }
+        html[data-mode="night"] body.homepage-public .announce-card .announce-type.type-info {
+            background: rgba(59, 130, 246, 0.22) !important;
+            color: #93c5fd !important;
         }
         html[data-mode="night"] body.homepage-public .stat-pill,
         html[data-mode="night"] body.homepage-public .stat-pill a {

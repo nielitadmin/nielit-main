@@ -87,7 +87,7 @@
       : (photo ? '<span class="festival-banner-portrait festival-banner-portrait-soft" style="background-image:url(\'' + photo.replace(/'/g, '%27') + '\')"></span>' : '');
 
     banner.innerHTML =
-      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(16, style) + '</div>' +
+      '<div class="festival-banner-toran" aria-hidden="true">' + toranBeads(12, style) + '</div>' +
       '<div class="festival-banner-inner">' +
         '<div class="festival-banner-side festival-banner-side-left" aria-hidden="true">' + leftArt + '</div>' +
         '<div class="festival-banner-center">' +

@@ -152,7 +152,7 @@ function staffFieldValue(array $staff, string $key, string $col): string
             bottom: 0;
             background: rgba(255,255,255,0.98);
             border-top: 1px solid #e2e8f0;
-            padding: 1rem 11rem 1rem 1rem;
+            padding: 1rem 4.5rem 1rem 1rem;
             margin-top: 1rem;
             z-index: 20;
             box-shadow: 0 -6px 18px rgba(15, 23, 42, 0.06);
