@@ -91,6 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'custom_domain' => $_POST['custom_domain'] ?? '',
             'video_mode' => $_POST['video_mode'] ?? 'open',
             'jwt_enabled' => isset($_POST['jwt_enabled']) ? 1 : 0,
+            'jwt_app_id' => $_POST['jwt_app_id'] ?? '',
+            'jwt_app_secret' => $_POST['jwt_app_secret'] ?? '',
         ], (string) ($_SESSION['admin'] ?? 'admin'));
         $_SESSION['message'] = $result['message'];
         $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
@@ -257,7 +259,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         </div>
                         <div class="form-group" id="jwtToggleWrap" style="padding-bottom:8px;">
                             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
-                                <input type="checkbox" name="jwt_enabled" value="1"
+                                <input type="checkbox" name="jwt_enabled" id="jwt_enabled" value="1"
                                     <?php echo !empty($videoSettings['jwt_enabled']) ? 'checked' : ''; ?>>
                                 Enable JWT (secure rooms)
                             </label>
@@ -269,11 +271,32 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         </div>
                     </div>
 
+                    <div id="jwtFieldsWrap" class="form-row mt-2" style="display:none;gap:16px;flex-wrap:wrap;">
+                        <div class="form-group" style="min-width:200px;">
+                            <label for="jwt_app_id">JWT App ID</label>
+                            <input type="text" class="form-control" id="jwt_app_id" name="jwt_app_id"
+                                   value="<?php echo htmlspecialchars($videoSettings['jwt_app_id'] ?? 'nielit_portal'); ?>"
+                                   placeholder="nielit_portal">
+                            <div class="oc-help">Must match <code>JWT_APP_ID</code> in Jitsi server <code>.env</code></div>
+                        </div>
+                        <div class="form-group" style="flex:1;min-width:280px;">
+                            <label for="jwt_app_secret">JWT App Secret</label>
+                            <input type="password" class="form-control" id="jwt_app_secret" name="jwt_app_secret"
+                                   value=""
+                                   placeholder="<?php echo !empty($jitsiStatus['jwt_secret_configured']) ? 'Saved — leave blank to keep current secret' : 'Paste JWT_APP_SECRET from Jitsi server .env'; ?>"
+                                   autocomplete="new-password">
+                            <div class="oc-help">Same value as <code>JWT_APP_SECRET</code> in <code>/opt/jitsi-meet/.env</code></div>
+                        </div>
+                    </div>
+
                     <?php if (!empty($videoSettings['jwt_enabled']) && empty($jitsiStatus['jwt_secret_configured'])): ?>
                         <div class="alert alert-warning mt-2 mb-0" style="font-size:.9rem;">
-                            JWT is enabled here but the secret is not set. Add
-                            <code>ONLINE_CLASS_JITSI_JWT_APP_SECRET</code> in
-                            <code>includes/online_class_config.local.php</code> (same value as Jitsi server <code>.env</code>).
+                            JWT is enabled but the secret is not saved yet. Paste your
+                            <code>JWT_APP_SECRET</code> from the Jitsi server <code>.env</code> above and click Save.
+                        </div>
+                    <?php elseif (!empty($videoSettings['jwt_enabled']) && !empty($jitsiStatus['jwt_secret_configured'])): ?>
+                        <div class="alert alert-success mt-2 mb-0" style="font-size:.9rem;">
+                            <i class="fas fa-check-circle"></i> JWT is configured and active.
                         </div>
                     <?php endif; ?>
                 </form>
@@ -539,6 +562,8 @@ function syncVideoSettingsUi() {
     var value = provider ? provider.value : 'official';
     var customWrap = document.getElementById('customDomainWrap');
     var jwtWrap = document.getElementById('jwtToggleWrap');
+    var jwtFieldsWrap = document.getElementById('jwtFieldsWrap');
+    var jwtEnabledInput = document.getElementById('jwt_enabled');
     var modeSelect = document.getElementById('oc_video_mode');
 
     document.querySelectorAll('.oc-provider-option').forEach(function (el) {
@@ -551,6 +576,10 @@ function syncVideoSettingsUi() {
     }
     if (jwtWrap) {
         jwtWrap.style.display = (value === 'official' || value === 'disabled') ? 'none' : 'block';
+    }
+    if (jwtFieldsWrap) {
+        var jwtOn = jwtEnabledInput && jwtEnabledInput.checked;
+        jwtFieldsWrap.style.display = (jwtOn && value !== 'official' && value !== 'disabled') ? 'flex' : 'none';
     }
     if (modeSelect) {
         if (value === 'official' || value === 'disabled') {
@@ -565,6 +594,10 @@ function syncVideoSettingsUi() {
 document.querySelectorAll('input[name="video_provider"]').forEach(function (radio) {
     radio.addEventListener('change', syncVideoSettingsUi);
 });
+var jwtEnabledEl = document.getElementById('jwt_enabled');
+if (jwtEnabledEl) {
+    jwtEnabledEl.addEventListener('change', syncVideoSettingsUi);
+}
 syncVideoSettingsUi();
 
 function toDatetimeLocal(mysqlDt) {

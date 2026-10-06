@@ -155,6 +155,8 @@ if (!function_exists('ensureOnlineClassVideoSettingsTable')) {
             custom_domain VARCHAR(255) NULL,
             video_mode VARCHAR(10) NOT NULL DEFAULT 'open',
             jwt_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            jwt_app_id VARCHAR(100) NULL,
+            jwt_app_secret VARCHAR(255) NULL,
             updated_by VARCHAR(255) NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
@@ -162,6 +164,15 @@ if (!function_exists('ensureOnlineClassVideoSettingsTable')) {
         if (!$conn->query($sql)) {
             error_log('ensureOnlineClassVideoSettingsTable failed: ' . $conn->error);
             return false;
+        }
+
+        $jwtIdCol = @$conn->query("SHOW COLUMNS FROM online_class_video_settings LIKE 'jwt_app_id'");
+        if (!$jwtIdCol || $jwtIdCol->num_rows === 0) {
+            @$conn->query('ALTER TABLE online_class_video_settings ADD COLUMN jwt_app_id VARCHAR(100) NULL AFTER jwt_enabled');
+        }
+        $jwtSecretCol = @$conn->query("SHOW COLUMNS FROM online_class_video_settings LIKE 'jwt_app_secret'");
+        if (!$jwtSecretCol || $jwtSecretCol->num_rows === 0) {
+            @$conn->query('ALTER TABLE online_class_video_settings ADD COLUMN jwt_app_secret VARCHAR(255) NULL AFTER jwt_app_id');
         }
 
         $check = $conn->query('SELECT id FROM online_class_video_settings WHERE id = 1 LIMIT 1');
@@ -243,11 +254,13 @@ if (!function_exists('onlineClassGetVideoSettings')) {
             'custom_domain' => (string) ($defaults['custom_domain'] ?? ''),
             'video_mode' => $defaults['video_mode'],
             'jwt_enabled' => (int) $defaults['jwt_enabled'],
+            'jwt_app_id' => '',
+            'jwt_app_secret' => '',
         ];
 
         $db = $conn ?: onlineClassGetDbConn();
         if ($db && ensureOnlineClassVideoSettingsTable($db)) {
-            $result = $db->query('SELECT provider, custom_domain, video_mode, jwt_enabled, updated_by, updated_at
+            $result = $db->query('SELECT provider, custom_domain, video_mode, jwt_enabled, jwt_app_id, jwt_app_secret, updated_by, updated_at
                                    FROM online_class_video_settings WHERE id = 1 LIMIT 1');
             if ($result && ($row = $result->fetch_assoc())) {
                 $provider = trim((string) ($row['provider'] ?? ''));
@@ -258,6 +271,8 @@ if (!function_exists('onlineClassGetVideoSettings')) {
                 $mode = strtolower(trim((string) ($row['video_mode'] ?? 'open')));
                 $settings['video_mode'] = in_array($mode, ['open', 'embed'], true) ? $mode : 'open';
                 $settings['jwt_enabled'] = (int) ($row['jwt_enabled'] ?? 0);
+                $settings['jwt_app_id'] = trim((string) ($row['jwt_app_id'] ?? ''));
+                $settings['jwt_app_secret'] = trim((string) ($row['jwt_app_secret'] ?? ''));
                 $settings['updated_by'] = (string) ($row['updated_by'] ?? '');
                 $settings['updated_at'] = (string) ($row['updated_at'] ?? '');
             }
@@ -324,25 +339,52 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
         }
 
         $jwtEnabled = !empty($data['jwt_enabled']) ? 1 : 0;
-        if ($provider === 'official') {
+        if ($provider === 'official' || $provider === 'disabled') {
             $jwtEnabled = 0;
         }
 
+        $jwtAppId = trim((string) ($data['jwt_app_id'] ?? ''));
+        if ($jwtAppId === '') {
+            $jwtAppId = 'nielit_portal';
+        }
+
+        $existing = onlineClassGetVideoSettings($conn, true);
+        $jwtSecret = trim((string) ($data['jwt_app_secret'] ?? ''));
+        if ($jwtSecret === '') {
+            $jwtSecret = (string) ($existing['jwt_app_secret'] ?? '');
+        }
+
+        onlineClassLoadVideoConfig();
+        if ($jwtSecret === '' && defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')) {
+            $jwtSecret = trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET);
+        }
+
+        if ($jwtEnabled && $jwtSecret === '') {
+            return ['success' => false, 'message' => 'JWT is enabled — enter the JWT App Secret (same value as JWT_APP_SECRET in your Jitsi server .env).'];
+        }
+
+        if (!$jwtEnabled) {
+            $jwtAppId = (string) ($existing['jwt_app_id'] ?? $jwtAppId);
+            $jwtSecret = (string) ($existing['jwt_app_secret'] ?? $jwtSecret);
+        }
+
         $stmt = $conn->prepare(
-            'INSERT INTO online_class_video_settings (id, provider, custom_domain, video_mode, jwt_enabled, updated_by)
-             VALUES (1, ?, ?, ?, ?, ?)
+            'INSERT INTO online_class_video_settings (id, provider, custom_domain, video_mode, jwt_enabled, jwt_app_id, jwt_app_secret, updated_by)
+             VALUES (1, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 provider = VALUES(provider),
                 custom_domain = VALUES(custom_domain),
                 video_mode = VALUES(video_mode),
                 jwt_enabled = VALUES(jwt_enabled),
+                jwt_app_id = VALUES(jwt_app_id),
+                jwt_app_secret = VALUES(jwt_app_secret),
                 updated_by = VALUES(updated_by)'
         );
         if (!$stmt) {
             return ['success' => false, 'message' => 'Could not save video settings.'];
         }
 
-        $stmt->bind_param('sssis', $provider, $customDomain, $videoMode, $jwtEnabled, $updatedBy);
+        $stmt->bind_param('sssisss', $provider, $customDomain, $videoMode, $jwtEnabled, $jwtAppId, $jwtSecret, $updatedBy);
         $ok = $stmt->execute();
         $stmt->close();
 
@@ -410,6 +452,52 @@ if (!function_exists('onlineClassVideoMode')) {
     }
 }
 
+if (!function_exists('onlineClassGetJwtAppId')) {
+    function onlineClassGetJwtAppId(): string
+    {
+        $settings = onlineClassGetVideoSettings();
+        $appId = trim((string) ($settings['jwt_app_id'] ?? ''));
+        if ($appId !== '') {
+            return $appId;
+        }
+
+        onlineClassLoadVideoConfig();
+        if (defined('ONLINE_CLASS_JITSI_JWT_APP_ID')) {
+            $appId = trim((string) ONLINE_CLASS_JITSI_JWT_APP_ID);
+            if ($appId !== '') {
+                return $appId;
+            }
+        }
+
+        return 'nielit_portal';
+    }
+}
+
+if (!function_exists('onlineClassGetJwtAppSecret')) {
+    function onlineClassGetJwtAppSecret(): string
+    {
+        $settings = onlineClassGetVideoSettings();
+        $secret = trim((string) ($settings['jwt_app_secret'] ?? ''));
+        if ($secret !== '') {
+            return $secret;
+        }
+
+        onlineClassLoadVideoConfig();
+        if (defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')) {
+            return trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET);
+        }
+
+        return '';
+    }
+}
+
+if (!function_exists('onlineClassJitsiJwtSecretConfigured')) {
+    function onlineClassJitsiJwtSecretConfigured(): bool
+    {
+        return onlineClassGetJwtAppSecret() !== '';
+    }
+}
+
 if (!function_exists('onlineClassJitsiJwtEnabled')) {
     function onlineClassJitsiJwtEnabled(): bool
     {
@@ -418,11 +506,7 @@ if (!function_exists('onlineClassJitsiJwtEnabled')) {
             return false;
         }
 
-        onlineClassLoadVideoConfig();
-        $secret = defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')
-            ? trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET)
-            : '';
-        return $secret !== '';
+        return onlineClassJitsiJwtSecretConfigured();
     }
 }
 
@@ -444,10 +528,8 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
             return '';
         }
 
-        $secret = trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET);
-        $appId = defined('ONLINE_CLASS_JITSI_JWT_APP_ID')
-            ? trim((string) ONLINE_CLASS_JITSI_JWT_APP_ID)
-            : 'nielit_portal';
+        $secret = onlineClassGetJwtAppSecret();
+        $appId = onlineClassGetJwtAppId();
         if ($secret === '' || $appId === '') {
             return '';
         }
@@ -528,9 +610,7 @@ if (!function_exists('onlineClassJitsiStatus')) {
         $jwtRequested = !empty($settings['jwt_enabled']);
         $jwtActive = onlineClassJitsiJwtEnabled();
 
-        onlineClassLoadVideoConfig();
-        $jwtSecretConfigured = defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')
-            && trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET) !== '';
+        $jwtSecretConfigured = onlineClassJitsiJwtSecretConfigured();
 
         return [
             'provider' => $provider,
@@ -545,9 +625,7 @@ if (!function_exists('onlineClassJitsiStatus')) {
             'jwt_requested' => $jwtRequested,
             'jwt_enabled' => $jwtActive,
             'jwt_secret_configured' => $jwtSecretConfigured,
-            'jwt_app_id' => defined('ONLINE_CLASS_JITSI_JWT_APP_ID')
-                ? (string) ONLINE_CLASS_JITSI_JWT_APP_ID
-                : '',
+            'jwt_app_id' => onlineClassGetJwtAppId(),
             'updated_by' => (string) ($settings['updated_by'] ?? ''),
             'updated_at' => (string) ($settings['updated_at'] ?? ''),
         ];
