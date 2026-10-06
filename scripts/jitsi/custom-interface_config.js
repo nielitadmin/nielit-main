@@ -16,6 +16,7 @@ interfaceConfig.TOOLBAR_BUTTONS = [
     'hangup',
     'chat',
     'recording',
+    'localrecording',
     'livestreaming',
     'raisehand',
     'participants-pane',

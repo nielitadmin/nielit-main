@@ -555,6 +555,7 @@ if (!function_exists('onlineClassJitsiToolbarButtons')) {
             'hangup',
             'chat',
             'recording',
+            'localrecording',
             'livestreaming',
             'raisehand',
             'participants-pane',
@@ -604,13 +605,22 @@ if (!function_exists('onlineClassJitsiConfigOverwrite')) {
 
         if ($isModerator) {
             $config['disableRecording'] = false;
-            $config['fileRecordingsEnabled'] = true;
             $config['liveStreamingEnabled'] = true;
-            // Local recording works without Jibri (cloud recording needs Jibri on the server)
+            // Cloud recording needs Jibri; local recording works in embed without Jibri
+            $config['fileRecordingsEnabled'] = false;
             $config['localRecording'] = [
                 'disable' => false,
+                'disableSelfRecording' => false,
                 'notifyAllParticipants' => true,
             ];
+            $config['recordings'] = [
+                'recordAudioAndVideo' => true,
+                'suggestRecording' => true,
+            ];
+            // Newer Jitsi reads toolbar from config.toolbarButtons (not only interface_config)
+            $config['toolbarButtons'] = onlineClassJitsiToolbarButtons(true);
+        } else {
+            $config['toolbarButtons'] = onlineClassJitsiToolbarButtons(false);
         }
 
         return $config;
@@ -644,6 +654,9 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
             'name' => $displayName !== '' ? $displayName : 'Participant',
             'moderator' => $isModerator,
         ];
+        if ($isModerator) {
+            $user['affiliation'] = 'owner';
+        }
         if ($userId !== '') {
             $user['id'] = $userId;
         }
@@ -664,15 +677,19 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
         if ($isModerator) {
             $payload['context']['features'] = [
                 'recording' => true,
+                'local-recording' => true,
                 'livestreaming' => true,
                 'transcription' => true,
+                'screen-sharing' => true,
                 'outbound-call' => false,
             ];
         } else {
             $payload['context']['features'] = [
                 'recording' => false,
+                'local-recording' => false,
                 'livestreaming' => false,
                 'transcription' => false,
+                'screen-sharing' => true,
                 'outbound-call' => false,
             ];
         }
@@ -789,9 +806,10 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
 
         if ($isModerator) {
             $parts[] = 'config.disableRecording=false';
-            $parts[] = 'config.fileRecordingsEnabled=true';
+            $parts[] = 'config.fileRecordingsEnabled=false';
             $parts[] = 'config.liveStreamingEnabled=true';
             $parts[] = 'config.localRecording.disable=false';
+            $parts[] = 'config.localRecording.disableSelfRecording=false';
         }
 
         return $url . '#' . implode('&', $parts);

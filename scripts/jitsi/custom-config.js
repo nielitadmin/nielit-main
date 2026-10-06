@@ -17,9 +17,14 @@ config.defaultLanguage = 'en';
 
 // Recording / livestream (requires Jibri on the Jitsi server for cloud recording)
 config.disableRecording = false;
-config.fileRecordingsEnabled = true;
+config.fileRecordingsEnabled = false;
 config.liveStreamingEnabled = true;
 config.localRecording = {
     disable: false,
+    disableSelfRecording: false,
     notifyAllParticipants: true
+};
+config.recordings = {
+    recordAudioAndVideo: true,
+    suggestRecording: true
 };

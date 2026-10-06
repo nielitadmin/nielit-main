@@ -168,14 +168,22 @@ Token is passed in the URL **hash**: `#jwt=...` (not only query string).
 
 ---
 
-## 7. Recording
+## 7. Recording (embedded portal)
 
 | Type | Requirement |
 |------|-------------|
-| **Local recording** | Works after `custom-config.js` — saves to host PC |
-| **Cloud recording** | Needs **Jibri** package + extra Prosody/Jicofo config |
+| **Local recording** | Enabled via portal JWT `local-recording: true` + `custom-config.js` — saves to host PC |
+| **Cloud recording** | Needs **Jibri** package on the server |
 
-Without Jibri, only **local recording** appears in the ⋮ menu for moderators.
+Without Jibri, moderators see **Start local recording** in the ⋮ menu (not cloud recording).
+
+Copy updated web configs to the server:
+
+```bash
+sudo cp custom-config.js /usr/share/jitsi-meet-cfg/web/custom-config.js
+sudo cp custom-interface_config.js /usr/share/jitsi-meet-cfg/web/custom-interface_config.js
+sudo systemctl restart nginx
+```
 
 ---
 
