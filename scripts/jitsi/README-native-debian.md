@@ -34,11 +34,41 @@ Custom overrides (recommended):
 /usr/share/jitsi-meet-cfg/web/custom-interface_config.js
 ```
 
-Copy from this repo:
+### Install web configs (run ON the Jitsi VM — not on Hostinger)
+
+The files live in the **git repo**, not in your home folder (`~`). Use **one** of these:
+
+**Option A — one command (recommended):**
 
 ```bash
-sudo cp custom-config.js /usr/share/jitsi-meet-cfg/web/custom-config.js
-sudo cp custom-interface_config.js /usr/share/jitsi-meet-cfg/web/custom-interface_config.js
+curl -fsSL https://raw.githubusercontent.com/nielitadmin/nielit-main/main/scripts/jitsi/install-native-web-config.sh | sudo bash
+```
+
+**Option B — copy from your Windows PC (XAMPP project):**
+
+```powershell
+scp c:\xampp\htdocs\public_html\scripts\jitsi\custom-config.js saswatsahu2001@meet:/tmp/
+scp c:\xampp\htdocs\public_html\scripts\jitsi\custom-interface_config.js saswatsahu2001@meet:/tmp/
+```
+
+Then on the Jitsi server:
+
+```bash
+sudo mkdir -p /usr/share/jitsi-meet-cfg/web
+sudo cp /tmp/custom-config.js /usr/share/jitsi-meet-cfg/web/
+sudo cp /tmp/custom-interface_config.js /usr/share/jitsi-meet-cfg/web/
+sudo systemctl restart nginx
+```
+
+**Option C — download from GitHub on the server:**
+
+```bash
+sudo mkdir -p /usr/share/jitsi-meet-cfg/web
+sudo curl -fsSL -o /usr/share/jitsi-meet-cfg/web/custom-config.js \
+  https://raw.githubusercontent.com/nielitadmin/nielit-main/main/scripts/jitsi/custom-config.js
+sudo curl -fsSL -o /usr/share/jitsi-meet-cfg/web/custom-interface_config.js \
+  https://raw.githubusercontent.com/nielitadmin/nielit-main/main/scripts/jitsi/custom-interface_config.js
+sudo systemctl restart nginx
 ```
 
 ---
@@ -177,12 +207,10 @@ Token is passed in the URL **hash**: `#jwt=...` (not only query string).
 
 Without Jibri, moderators see **Start local recording** in the ⋮ menu (not cloud recording).
 
-Copy updated web configs to the server:
+Re-run the install script on the Jitsi VM after portal updates:
 
 ```bash
-sudo cp custom-config.js /usr/share/jitsi-meet-cfg/web/custom-config.js
-sudo cp custom-interface_config.js /usr/share/jitsi-meet-cfg/web/custom-interface_config.js
-sudo systemctl restart nginx
+curl -fsSL https://raw.githubusercontent.com/nielitadmin/nielit-main/main/scripts/jitsi/install-native-web-config.sh | sudo bash
 ```
 
 ---

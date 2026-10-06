@@ -264,6 +264,7 @@ docker compose pull && docker compose up -d   # upgrade
 | `install-jitsi-docker.sh` | One-command Linux installer |
 | `custom-config.js` | Webinar defaults (muted join, lobby) |
 | `custom-interface_config.js` | NIELIT branding / toolbar |
+| `install-native-web-config.sh` | **Run on Jitsi VM** — installs custom-config.js (one command) |
 | `README-native-debian.md` | **Native apt install** — Prosody JWT + systemd |
 | `jitsi-jwt-prosody.cfg.lua.example` | Prosody VirtualHost snippet (native) |
 | `jitsi-jwt.env.example` | JWT settings for Docker `.env` only |
