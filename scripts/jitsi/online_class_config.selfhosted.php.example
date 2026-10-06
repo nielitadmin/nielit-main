@@ -1,0 +1,6 @@
+<?php
+/**
+ * Copy these lines into includes/online_class_config.php after Jitsi is live on Linux.
+ */
+define('ONLINE_CLASS_JITSI_DOMAIN', 'meet.nielitbhubaneswar.in');
+define('ONLINE_CLASS_VIDEO_MODE', 'open'); // or 'embed' for iframe inside join_class.php

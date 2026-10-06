@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Git Reporting Tools</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            background: white;
+            border-radius: 15px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 30px;
+            color: white;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .card-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+        }
+        
+        .card p {
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        
+        .features {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .features h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #555;
+        }
+        
+        .feature-item::before {
+            content: "✅";
+            font-size: 1.2em;
+        }
+        
+        .docs-section {
+            text-align: center;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .docs-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .docs-links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .doc-link {
+            background: white;
+            color: #667eea;
+            padding: 10px 20px;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            border: 2px solid #667eea;
+        }
+        
+        .doc-link:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .card-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Git Reporting Tools</h1>
+        <p class="subtitle">Professional monthly reports for your Git activity</p>
+        
+        <div class="card-grid">
+            <a href="view_reports.php" class="card">
+                <div class="card-icon">🌐</div>
+                <h2>Web Interface</h2>
+                <p>Interactive report viewer with month/year filters. Perfect for quick browsing and office presentations.</p>
+            </a>
+            
+            <a href="#cli" class="card" onclick="alert('Use command line:\n\nC:\\xampp\\php\\php.exe generate_monthly_report.php 9 2026\n\nOr double-click: generate_report.bat'); return false;">
+                <div class="card-icon">💻</div>
+                <h2>Command Line</h2>
+                <p>Generate reports via terminal. Great for automation, scripts, and batch processing.</p>
+            </a>
+        </div>
+        
+        <div class="features">
+            <h3>✨ Features</h3>
+            <div class="feature-list">
+                <div class="feature-item">Month/Year Filters</div>
+                <div class="feature-item">Commit Statistics</div>
+                <div class="feature-item">Code Diffs</div>
+                <div class="feature-item">Print to PDF</div>
+                <div class="feature-item">Professional Design</div>
+                <div class="feature-item">Easy Sharing</div>
+            </div>
+        </div>
+        
+        <div class="docs-section">
+            <h3>📚 Documentation</h3>
+            <div class="docs-links">
+                <a href="WEB_INTERFACE_GUIDE.md" class="doc-link">Web Guide</a>
+                <a href="QUICK_START.md" class="doc-link">Quick Start</a>
+                <a href="README_MONTHLY_REPORT.md" class="doc-link">Full Docs</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
