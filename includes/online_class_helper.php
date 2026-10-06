@@ -535,13 +535,14 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
         }
 
         $now = time();
+        // sub must match the Jitsi VirtualHost domain; room '*' allows any class room
         $payload = [
             'iss' => $appId,
             'aud' => 'jitsi',
-            'sub' => onlineClassJitsiDomain(),
-            'room' => trim($roomName),
+            'sub' => strtolower(onlineClassJitsiDomain()),
+            'room' => '*',
             'exp' => $now + 7200,
-            'nbf' => $now - 10,
+            'nbf' => $now - 30,
             'context' => [
                 'user' => [
                     'name' => $displayName !== '' ? $displayName : 'Participant',
@@ -550,8 +551,9 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
             ],
         ];
 
-        $header = onlineClassJitsiBase64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
-        $body = onlineClassJitsiBase64UrlEncode(json_encode($payload));
+        $jsonFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
+        $header = onlineClassJitsiBase64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'], $jsonFlags));
+        $body = onlineClassJitsiBase64UrlEncode(json_encode($payload, $jsonFlags));
         $signature = onlineClassJitsiBase64UrlEncode(hash_hmac('sha256', $header . '.' . $body, $secret, true));
 
         return $header . '.' . $body . '.' . $signature;
@@ -647,12 +649,12 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
         $url = 'https://' . $domain . '/' . rawurlencode($roomName);
 
         $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator);
-        if ($jwt !== '') {
-            $url .= '?jwt=' . rawurlencode($jwt);
-        }
 
         $parts = [];
-        if ($displayName !== '' && $jwt === '') {
+        if ($jwt !== '') {
+            // Jitsi reads JWT from the URL hash (preferred); query-string jwt is unreliable on newer clients
+            $parts[] = 'jwt=' . $jwt;
+        } elseif ($displayName !== '') {
             $parts[] = 'userInfo.displayName="' . str_replace(['"', '#'], '', $displayName) . '"';
         }
         $parts[] = 'config.startWithAudioMuted=true';

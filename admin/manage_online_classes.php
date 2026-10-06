@@ -297,6 +297,15 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <?php elseif (!empty($videoSettings['jwt_enabled']) && !empty($jitsiStatus['jwt_secret_configured'])): ?>
                         <div class="alert alert-success mt-2 mb-0" style="font-size:.9rem;">
                             <i class="fas fa-check-circle"></i> JWT is configured and active.
+                            App ID: <code><?php echo htmlspecialchars($jitsiStatus['jwt_app_id']); ?></code>
+                            · Domain: <code><?php echo htmlspecialchars($jitsiStatus['domain']); ?></code>
+                        </div>
+                        <div class="alert alert-info mt-2 mb-0" style="font-size:.85rem;">
+                            If students see <strong>Authentication failed</strong>, verify on the Jitsi server
+                            <code>/opt/jitsi-meet/.env</code>: <code>JWT_APP_ID</code> and <code>JWT_APP_SECRET</code>
+                            must exactly match the values saved here, then run
+                            <code>docker compose down &amp;&amp; docker compose up -d</code>.
+                            Or uncheck <strong>Enable JWT</strong> and set <code>ENABLE_AUTH=0</code> on Jitsi until secrets match.
                         </div>
                     <?php endif; ?>
                 </form>
