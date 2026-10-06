@@ -124,6 +124,84 @@ if (!function_exists('get_course_main_categories')) {
         )));
     }
 
+    /**
+     * All DB category values that should match a selected course category
+     * (canonical keys, display labels, and legacy stored values).
+     */
+    function get_equivalent_template_categories($category) {
+        $category = trim((string) $category);
+        if ($category === '' || $category === 'NSQF') {
+            return [];
+        }
+
+        $values = [$category];
+
+        foreach (get_course_main_categories() as $key => $label) {
+            if ($category === $key || $category === $label) {
+                $values[] = $key;
+                $values[] = $label;
+            }
+        }
+
+        $legacy_groups = [
+            'Degree / Diploma / PG' => [
+                'Degree / Diploma / PG',
+            ],
+            'Skill Based (Long Term) >500 hrs' => [
+                'Long Term NSQF',
+                'Skill Based (Long Term) Courses (> 500 hrs)',
+            ],
+            'Skill Based (Short Term) 90-500 hrs' => [
+                'Short Term NSQF',
+                'Skill Based (Short Term) Courses (90-500 hrs)',
+                'Skill Based (Short Term) Courses >90 hrs to <=500 hrs',
+            ],
+            'Short Term / Digital Competency <=90 hrs' => [
+                'Short Term NSQF',
+                'Short Term / Digital Competency Courses (<= 90 hrs)',
+            ],
+            'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' => [
+                'NIELIT HQ Digital Literacy Courses (CCC/ECC/BCC/ACC)',
+            ],
+        ];
+
+        $canonical = null;
+        foreach ($legacy_groups as $canonical_key => $legacy_values) {
+            $group_values = array_merge([$canonical_key], $legacy_values);
+            if (in_array($category, $group_values, true)) {
+                $canonical = $canonical_key;
+                break;
+            }
+        }
+
+        if ($canonical === null) {
+            foreach (get_course_main_categories() as $key => $label) {
+                if ($category === $key || $category === $label) {
+                    $canonical = $key;
+                    break;
+                }
+            }
+        }
+
+        if ($canonical !== null) {
+            $values[] = $canonical;
+            if (isset($legacy_groups[$canonical])) {
+                $values = array_merge($values, $legacy_groups[$canonical]);
+            }
+            if (isset(get_course_main_categories()[$canonical])) {
+                $values[] = get_course_main_categories()[$canonical];
+            }
+        }
+
+        foreach (get_legacy_course_categories() as $legacy) {
+            if ($legacy === $category) {
+                $values[] = $legacy;
+            }
+        }
+
+        return array_values(array_unique($values));
+    }
+
     function render_course_category_options($selected = '', $placeholder = '--Select Category--') {
         $html = '<option value="">' . htmlspecialchars($placeholder) . '</option>';
         foreach (get_course_main_categories() as $value => $label) {

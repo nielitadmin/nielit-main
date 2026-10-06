@@ -24,88 +24,64 @@ header('Pragma: no-cache');
 
 $category = trim($_GET['category'] ?? '');
 
-/**
- * Map a requested category to all equivalent DB values (current + legacy labels).
- */
-function nsqf_template_category_values($category) {
-    $aliases = [
-        'Degree / Diploma / PG' => ['Degree / Diploma / PG'],
-        'Skill Based (Long Term) >500 hrs' => [
-            'Skill Based (Long Term) >500 hrs',
-            'Long Term NSQF',
-            'Skill Based (Long Term) Courses (> 500 hrs)',
-        ],
-        'Skill Based (Short Term) 90-500 hrs' => [
-            'Skill Based (Short Term) 90-500 hrs',
-            'Skill Based (Short Term) Courses (90-500 hrs)',
-        ],
-        'Short Term / Digital Competency <=90 hrs' => [
-            'Short Term / Digital Competency <=90 hrs',
-            'Short Term / Digital Competency Courses (<= 90 hrs)',
-            'Short Term NSQF',
-        ],
-        'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)' => [
-            'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)',
-            'NIELIT HQ Digital Literacy Courses (CCC/ECC/BCC/ACC)',
-        ],
-        'Long Term NSQF' => [
-            'Long Term NSQF',
-            'Skill Based (Long Term) >500 hrs',
-            'Skill Based (Long Term) Courses (> 500 hrs)',
-        ],
-        'Short Term NSQF' => [
-            'Short Term NSQF',
-            'Skill Based (Short Term) 90-500 hrs',
-            'Skill Based (Short Term) Courses (90-500 hrs)',
-            'Short Term / Digital Competency <=90 hrs',
-            'Short Term / Digital Competency Courses (<= 90 hrs)',
-        ],
-        'NSQF' => [],
-    ];
-
-    if ($category === '' || $category === 'NSQF') {
-        return [];
+function nsqf_templates_table_has_column($conn, $column) {
+    static $cache = [];
+    if (!isset($cache[$column])) {
+        $safe_column = $conn->real_escape_string($column);
+        $result = $conn->query("SHOW COLUMNS FROM nsqf_course_templates LIKE '{$safe_column}'");
+        $cache[$column] = $result && $result->num_rows > 0;
     }
-
-    if (isset($aliases[$category])) {
-        return $aliases[$category];
-    }
-
-    return [$category];
+    return $cache[$column];
 }
 
-try {
-    // Return all active NSQF templates unless explicitly marked Non-NSQF
-    $base_sql = "SELECT id, course_name, eligibility, category, nsqf_type
-                 FROM nsqf_course_templates
-                 WHERE is_active = 1
-                 AND (
-                     nsqf_type IS NULL
-                     OR TRIM(nsqf_type) = ''
-                     OR LOWER(TRIM(nsqf_type)) = 'nsqf course'
-                 )";
+function nsqf_template_category_values($category) {
+    if (function_exists('get_equivalent_template_categories')) {
+        return get_equivalent_template_categories($category);
+    }
 
-    $category_values = nsqf_template_category_values($category);
+    return ($category === '' || $category === 'NSQF') ? [] : [$category];
+}
+
+function fetch_nsqf_templates($conn, array $category_values = []) {
+    $conditions = [];
+
+    if (nsqf_templates_table_has_column($conn, 'is_active')) {
+        $conditions[] = '(is_active = 1 OR is_active IS NULL)';
+    }
+
+    if (nsqf_templates_table_has_column($conn, 'nsqf_type')) {
+        $conditions[] = "(
+            nsqf_type IS NULL
+            OR TRIM(nsqf_type) = ''
+            OR LOWER(TRIM(nsqf_type)) IN ('nsqf course', 'nsqf')
+        )";
+    }
+
+    $sql = 'SELECT id, course_name, eligibility, category, nsqf_type FROM nsqf_course_templates';
+    if (!empty($conditions)) {
+        $sql .= ' WHERE ' . implode(' AND ', $conditions);
+    }
+
+    $params = [];
+    $types = '';
 
     if (!empty($category_values)) {
         $placeholders = implode(',', array_fill(0, count($category_values), '?'));
-        $sql = $base_sql . " AND category IN ($placeholders) ORDER BY course_name ASC";
-        $stmt = $conn->prepare($sql);
-        if ($stmt === false) {
-            throw new Exception('Could not prepare statement: ' . $conn->error);
-        }
+        $sql .= empty($conditions) ? ' WHERE ' : ' AND ';
+        $sql .= "category IN ($placeholders)";
+        $params = $category_values;
         $types = str_repeat('s', count($category_values));
-        $stmt->bind_param($types, ...$category_values);
-    } else {
-        $sql = $base_sql . " ORDER BY course_name ASC";
-        $stmt = $conn->prepare($sql);
-        if ($stmt === false) {
-            include_once __DIR__ . '/../migrations/install_nsqf_templates.php';
-            $stmt = $conn->prepare($sql);
-            if ($stmt === false) {
-                throw new Exception('Could not prepare statement: ' . $conn->error);
-            }
-        }
+    }
+
+    $sql .= ' ORDER BY course_name ASC';
+
+    $stmt = $conn->prepare($sql);
+    if ($stmt === false) {
+        throw new Exception('Could not prepare statement: ' . $conn->error);
+    }
+
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
     }
 
     $stmt->execute();
@@ -121,18 +97,33 @@ try {
         ];
     }
 
+    $stmt->close();
+    return $templates;
+}
+
+try {
+    $category_values = nsqf_template_category_values($category);
+    $templates = fetch_nsqf_templates($conn, $category_values);
+    $used_fallback = false;
+
+    // If category filter excluded everything, return all active NSQF templates
+    if (empty($templates) && !empty($category_values)) {
+        $templates = fetch_nsqf_templates($conn, []);
+        $used_fallback = !empty($templates);
+    }
+
     echo json_encode([
         'success' => true,
         'category' => $category,
         'templates' => $templates,
         'count' => count($templates),
-        'api_version' => '2026-06-05-v2',
+        'used_fallback' => $used_fallback,
+        'api_version' => '2026-10-06-v3',
     ]);
-
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Error fetching templates: ' . $e->getMessage()
+        'message' => 'Error fetching templates: ' . $e->getMessage(),
     ]);
 }
 

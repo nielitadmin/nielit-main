@@ -2954,7 +2954,10 @@ function handleNsqfTypeChangeDash(nsqfType) {
         }
         if (categorySelect) {
             categorySelect.required = true;
-            categorySelect.value = '';
+            // Only clear when switching away from a special sub-category value
+            if (specialSubcategories.includes(categorySelect.value)) {
+                categorySelect.value = '';
+            }
         }
     }
     
@@ -3055,21 +3058,19 @@ function populateTemplateDropdownDash(templates) {
         templateSelect.appendChild(option);
     });
     
-    // Add change event to populate eligibility
-    templateSelect.addEventListener('change', function() {
+    templateSelect.onchange = function() {
         const selectedOption = this.options[this.selectedIndex];
         const eligibilityField = document.getElementById('add_eligibility_dash');
         const courseNameInput = document.getElementById('add_course_name_dash');
-        
+
         if (selectedOption.dataset.eligibility && eligibilityField) {
             eligibilityField.value = selectedOption.dataset.eligibility;
         }
-        
-        // Set the actual course name for form submission
+
         if (courseNameInput) {
             courseNameInput.value = selectedOption.textContent;
         }
-    });
+    };
 }
 
 function initDashboardCharts() {
