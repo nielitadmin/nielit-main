@@ -108,8 +108,8 @@ if (!function_exists('onlineClassVideoProviderOptions')) {
                 'domain' => 'meet.jit.si',
             ],
             'nielit_gcp' => [
-                'label' => 'NIELIT GCP (' . onlineClassNielitJitsiDomain() . ')',
-                'description' => 'Self-hosted Jitsi on Google Cloud — recommended for production.',
+                'label' => 'NIELIT Server (' . onlineClassNielitJitsiDomain() . ')',
+                'description' => 'Self-hosted Jitsi server — recommended for production.',
                 'domain' => onlineClassNielitJitsiDomain(),
             ],
             'custom' => [
