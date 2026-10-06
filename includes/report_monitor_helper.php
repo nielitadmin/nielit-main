@@ -140,7 +140,97 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return 'uncategorized';
     }
 
-    function report_monitor_resolve_category_group($rawCategory) {
+    function report_monitor_parse_duration_hours($duration) {
+        $duration = trim((string) $duration);
+        if ($duration === '') {
+            return null;
+        }
+
+        $normalized = str_replace(',', '', $duration);
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|hr)\b/i', $normalized, $matches)) {
+            return (float) $matches[1];
+        }
+        if (preg_match('/^(\d+(?:\.\d+)?)\s*h$/i', $normalized, $matches)) {
+            return (float) $matches[1];
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:months?|mos?)\b/i', $normalized, $matches)) {
+            return (float) $matches[1] * 120;
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:weeks?|wks?)\b/i', $normalized, $matches)) {
+            return (float) $matches[1] * 40;
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:days?)\b/i', $normalized, $matches)) {
+            return (float) $matches[1] * 8;
+        }
+        if (preg_match('/(\d+(?:\.\d+)?)\s*(?:years?|yrs?)\b/i', $normalized, $matches)) {
+            return (float) $matches[1] * 12 * 120;
+        }
+        if (preg_match('/^(\d+(?:\.\d+)?)$/', $normalized, $matches)) {
+            return (float) $matches[1];
+        }
+
+        return null;
+    }
+
+    function report_monitor_get_lesson_plan_hours($conn, $courseId) {
+        $courseId = (int) $courseId;
+        if ($courseId <= 0 || !report_monitor_table_exists($conn, 'lesson_plans')) {
+            return null;
+        }
+
+        $stmt = $conn->prepare(
+            'SELECT total_hours
+             FROM lesson_plans
+             WHERE course_id = ?
+               AND total_hours IS NOT NULL
+               AND total_hours > 0
+             ORDER BY id DESC
+             LIMIT 1'
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row || !isset($row['total_hours'])) {
+            return null;
+        }
+
+        return (float) $row['total_hours'];
+    }
+
+    function report_monitor_get_course_training_hours($conn, $courseId, $duration) {
+        $hours = report_monitor_parse_duration_hours($duration);
+        if ($hours !== null) {
+            return $hours;
+        }
+
+        if ($conn instanceof mysqli) {
+            return report_monitor_get_lesson_plan_hours($conn, $courseId);
+        }
+
+        return null;
+    }
+
+    function report_monitor_skill_group_from_hours($hours) {
+        $hours = (float) $hours;
+        if ($hours <= 0) {
+            return null;
+        }
+        if ($hours > 500) {
+            return 'long_term_skill';
+        }
+        if ($hours > 90) {
+            return 'short_term_skill';
+        }
+
+        return 'digital_competency';
+    }
+
+    function report_monitor_resolve_category_group_base($rawCategory) {
         $raw = trim((string) $rawCategory);
         if ($raw === '') {
             return 'uncategorized';
@@ -149,7 +239,52 @@ if (!function_exists('get_report_monitor_category_groups')) {
         if (isset($map[$raw])) {
             return $map[$raw];
         }
+
         return report_monitor_guess_group_key($raw);
+    }
+
+    function report_monitor_remap_internship_by_hours($groupKey, $duration, $conn = null, $courseId = 0) {
+        if ($groupKey !== 'internship_bootcamp') {
+            return $groupKey;
+        }
+
+        $hours = null;
+        if ($conn instanceof mysqli && (int) $courseId > 0) {
+            $hours = report_monitor_get_course_training_hours($conn, (int) $courseId, $duration);
+        } else {
+            $hours = report_monitor_parse_duration_hours($duration);
+        }
+
+        if ($hours === null) {
+            return 'short_term_skill';
+        }
+
+        $skillGroup = report_monitor_skill_group_from_hours($hours);
+
+        return $skillGroup ?? 'short_term_skill';
+    }
+
+    /**
+     * Resolve a course into a report category group.
+     * Internship / bootcamp courses are counted in skill buckets using duration hours.
+     */
+    function report_monitor_resolve_category_group($rawCategory, $duration = null, $conn = null, $courseId = 0) {
+        $baseGroup = report_monitor_resolve_category_group_base($rawCategory);
+
+        return report_monitor_remap_internship_by_hours($baseGroup, $duration, $conn, $courseId);
+    }
+
+    /** Hide internship/bootcamp row from category summary tables (merged into skill buckets). */
+    function report_monitor_filter_category_summary_rows(array $rows) {
+        return array_values(array_filter($rows, static function (array $row) {
+            return ($row['key'] ?? '') !== 'internship_bootcamp';
+        }));
+    }
+
+    function report_monitor_filter_category_course_summary(array $grouped) {
+        unset($grouped['internship_bootcamp']);
+
+        return $grouped;
     }
 
     function report_monitor_category_label($groupKey) {
@@ -423,89 +558,185 @@ if (!function_exists('get_report_monitor_category_groups')) {
     }
 
     function report_monitor_get_centre_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
-        $rows = [];
+        $map = [];
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $activeCondition = report_monitor_student_active_sql('s');
         $batchStartExpr = report_monitor_batch_start_sql('b');
         $batchEndExpr = report_monitor_batch_end_sql('b');
+        $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
+        $enrollmentExpr = report_monitor_enrollment_timestamp_sql($conn, 'bs', 's');
+        $centreSelect = "COALESCE(cen.id, 0) AS centre_id,
+                         COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
+                         COALESCE(cen.code, '') AS centre_code";
+        $centreGroup = 'centre_id, centre_name, centre_code';
 
-        if (!empty($monthFilter['active'])) {
-            $monthStart = $monthFilter['start'];
-            $monthEnd = $monthFilter['end'];
-            $monthNext = $monthFilter['next_start'];
-
-            $sql = "SELECT
-                        COALESCE(cen.id, 0) AS centre_id,
-                        COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
-                        COALESCE(cen.code, '') AS centre_code,
-                        COUNT(DISTINCT CASE
-                            WHEN (s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?)
-                              OR (b.id IS NOT NULL AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?)
-                            THEN c.id END) AS course_count,
-                        COUNT(DISTINCT CASE
-                            WHEN b.id IS NOT NULL
-                            AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?
-                            AND LOWER(COALESCE(b.status, 'active')) = 'active'
-                            THEN b.id END) AS batch_count,
-                        COUNT(DISTINCT CASE
-                            WHEN s.id IS NOT NULL AND s.created_at >= ? AND s.created_at < ?
-                            THEN s.id END) AS applications,
-                        SUM(CASE
-                            WHEN s.id IS NOT NULL
-                            AND s.created_at >= ?
-                            AND s.created_at < ?
-                            AND {$batchCondition}
-                            THEN 1 ELSE 0 END) AS batch_enrolled
-                    FROM courses c
-                    LEFT JOIN centres cen ON cen.id = c.centre_id
-                    LEFT JOIN batches b ON b.course_id = c.id
-                    LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
-                    WHERE 1=1{$scopeFilter['sql']}
-                    GROUP BY centre_id, centre_name, centre_code
-                    HAVING course_count > 0 OR batch_count > 0 OR applications > 0 OR batch_enrolled > 0
-                    ORDER BY applications DESC, centre_name ASC";
-            $types = str_repeat('s', 10) . $scopeFilter['types'];
-            $values = array_merge(
-                [$monthStart, $monthNext, $monthEnd, $monthStart, $monthEnd, $monthStart, $monthStart, $monthNext, $monthStart, $monthNext],
-                $scopeFilter['values']
-            );
-
-            $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
-        } else {
-            $sql = "SELECT
-                        COALESCE(cen.id, 0) AS centre_id,
-                        COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
-                        COALESCE(cen.code, '') AS centre_code,
-                        COUNT(DISTINCT c.id) AS course_count,
-                        COUNT(DISTINCT b.id) AS batch_count,
-                        COUNT(DISTINCT s.id) AS applications,
-                        SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS batch_enrolled
-                    FROM courses c
-                    LEFT JOIN centres cen ON cen.id = c.centre_id
-                    LEFT JOIN batches b ON b.course_id = c.id
-                    LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
-                    WHERE 1=1{$scopeFilter['sql']}
-                    GROUP BY centre_id, centre_name, centre_code
-                    ORDER BY applications DESC, centre_name ASC";
-
-            $result = report_monitor_bind_and_execute($conn, $sql, $scopeFilter['types'], $scopeFilter['values']);
-        }
-
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $rows[] = [
-                    'centre_id' => (int) $row['centre_id'],
-                    'centre_name' => $row['centre_name'],
-                    'centre_code' => $row['centre_code'],
-                    'course_count' => (int) $row['course_count'],
-                    'batch_count' => (int) $row['batch_count'],
-                    'applications' => (int) $row['applications'],
-                    'batch_enrolled' => (int) $row['batch_enrolled'],
-                    'unassigned' => max(0, (int) $row['applications'] - (int) $row['batch_enrolled']),
+        $mergeMetric = static function (array &$map, array $row, string $field) {
+            $id = (int) ($row['centre_id'] ?? 0);
+            if (!isset($map[$id])) {
+                $map[$id] = [
+                    'centre_id' => $id,
+                    'centre_name' => (string) ($row['centre_name'] ?? 'Unassigned Centre'),
+                    'centre_code' => (string) ($row['centre_code'] ?? ''),
+                    'course_count' => 0,
+                    'batch_count' => 0,
+                    'applications' => 0,
+                    'batch_enrolled' => 0,
+                    'unassigned' => 0,
                 ];
             }
+            $map[$id][$field] = (int) ($row['total'] ?? 0);
+        };
+
+        $applySql = "SELECT {$centreSelect}, COUNT(DISTINCT s.id) AS total
+                     FROM students s
+                     INNER JOIN courses c ON c.id = s.course_id
+                     LEFT JOIN centres cen ON cen.id = c.centre_id
+                     WHERE {$activeCondition}{$scopeFilter['sql']}";
+        $applyTypes = $scopeFilter['types'];
+        $applyValues = $scopeFilter['values'];
+        if (!empty($monthFilter['active'])) {
+            $applySql .= ' AND s.created_at >= ? AND s.created_at < ?';
+            $applyTypes .= 'ss';
+            $applyValues[] = $monthFilter['start'];
+            $applyValues[] = $monthFilter['next_start'];
         }
+        $applySql .= " GROUP BY {$centreGroup}";
+        $applyResult = report_monitor_bind_and_execute($conn, $applySql, $applyTypes, $applyValues);
+        if ($applyResult) {
+            while ($row = $applyResult->fetch_assoc()) {
+                $mergeMetric($map, $row, 'applications');
+            }
+        }
+
+        if ($hasBatchStudents) {
+            $admSql = "SELECT {$centreSelect},
+                              COUNT(DISTINCT COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id, s.id)) AS total
+                       FROM students s
+                       LEFT JOIN batch_students bs ON bs.student_record_id = s.id OR bs.student_id = s.id
+                       INNER JOIN courses c ON c.id = s.course_id
+                       LEFT JOIN centres cen ON cen.id = c.centre_id
+                       LEFT JOIN batches b ON b.id = COALESCE(NULLIF(bs.batch_id, 0), s.batch_id)
+                       WHERE {$activeCondition}
+                       AND COALESCE(NULLIF(bs.batch_id, 0), s.batch_id) IS NOT NULL{$scopeFilter['sql']}";
+            $admTypes = $scopeFilter['types'];
+            $admValues = $scopeFilter['values'];
+            if (!empty($monthFilter['active'])) {
+                $admSql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+                $admSql .= " AND {$enrollmentExpr} >= ? AND {$enrollmentExpr} < ?";
+                $admTypes .= 'ssss';
+                $admValues = array_merge($admValues, [
+                    $monthFilter['end'],
+                    $monthFilter['start'],
+                    $monthFilter['start'],
+                    $monthFilter['next_start'],
+                ]);
+            }
+            $admSql .= " GROUP BY {$centreGroup}";
+            $admResult = report_monitor_bind_and_execute($conn, $admSql, $admTypes, $admValues);
+        } else {
+            $admSql = "SELECT {$centreSelect}, COUNT(DISTINCT s.id) AS total
+                       FROM students s
+                       INNER JOIN courses c ON c.id = s.course_id
+                       LEFT JOIN centres cen ON cen.id = c.centre_id
+                       WHERE {$activeCondition} AND {$batchCondition}{$scopeFilter['sql']}";
+            $admTypes = $scopeFilter['types'];
+            $admValues = $scopeFilter['values'];
+            if (!empty($monthFilter['active'])) {
+                $admSql .= ' AND s.created_at >= ? AND s.created_at < ?';
+                $admTypes .= 'ss';
+                $admValues[] = $monthFilter['start'];
+                $admValues[] = $monthFilter['next_start'];
+            }
+            $admSql .= " GROUP BY {$centreGroup}";
+            $admResult = report_monitor_bind_and_execute($conn, $admSql, $admTypes, $admValues);
+        }
+        if ($admResult) {
+            while ($row = $admResult->fetch_assoc()) {
+                $mergeMetric($map, $row, 'batch_enrolled');
+            }
+        }
+
+        if (report_monitor_table_exists($conn, 'batches')) {
+            $batchSql = "SELECT {$centreSelect}, COUNT(DISTINCT b.id) AS total
+                         FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
+                         LEFT JOIN centres cen ON cen.id = c.centre_id
+                         WHERE 1=1{$scopeFilter['sql']}";
+            $batchTypes = $scopeFilter['types'];
+            $batchValues = $scopeFilter['values'];
+            report_monitor_append_batch_period_overlap($batchSql, $batchTypes, $batchValues, 'b', $monthFilter);
+            $batchSql .= " GROUP BY {$centreGroup}";
+            $batchResult = report_monitor_bind_and_execute($conn, $batchSql, $batchTypes, $batchValues);
+            if ($batchResult) {
+                while ($row = $batchResult->fetch_assoc()) {
+                    $mergeMetric($map, $row, 'batch_count');
+                }
+            }
+        }
+
+        if (!empty($monthFilter['active'])) {
+            $courseSql = "SELECT centre_id, centre_name, centre_code, COUNT(DISTINCT course_id) AS total
+                          FROM (
+                              SELECT {$centreSelect}, c.id AS course_id
+                              FROM students s
+                              INNER JOIN courses c ON c.id = s.course_id
+                              LEFT JOIN centres cen ON cen.id = c.centre_id
+                              WHERE {$activeCondition}
+                              AND s.created_at >= ? AND s.created_at < ?{$scopeFilter['sql']}
+                              UNION
+                              SELECT {$centreSelect}, c.id AS course_id
+                              FROM batches b
+                              INNER JOIN courses c ON c.id = b.course_id
+                              LEFT JOIN centres cen ON cen.id = c.centre_id
+                              WHERE {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?{$scopeFilter['sql']}
+                          ) centre_courses
+                          GROUP BY centre_id, centre_name, centre_code";
+            $courseTypes = 'ss' . $scopeFilter['types'] . 'ss' . $scopeFilter['types'];
+            $courseValues = array_merge(
+                [$monthFilter['start'], $monthFilter['next_start']],
+                $scopeFilter['values'],
+                [$monthFilter['end'], $monthFilter['start']],
+                $scopeFilter['values']
+            );
+            $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $courseTypes, $courseValues);
+        } else {
+            $courseSql = "SELECT {$centreSelect}, COUNT(DISTINCT c.id) AS total
+                          FROM courses c
+                          LEFT JOIN centres cen ON cen.id = c.centre_id
+                          WHERE 1=1{$scopeFilter['sql']}
+                          GROUP BY {$centreGroup}";
+            $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $scopeFilter['types'], $scopeFilter['values']);
+        }
+        if ($courseResult) {
+            while ($row = $courseResult->fetch_assoc()) {
+                $mergeMetric($map, $row, 'course_count');
+            }
+        }
+
+        $rows = array_values($map);
+        foreach ($rows as &$row) {
+            $row['unassigned'] = max(0, (int) $row['applications'] - (int) $row['batch_enrolled']);
+        }
+        unset($row);
+
+        if (!empty($monthFilter['active'])) {
+            $rows = array_values(array_filter($rows, static function (array $row) {
+                return ($row['course_count'] ?? 0) > 0
+                    || ($row['batch_count'] ?? 0) > 0
+                    || ($row['applications'] ?? 0) > 0
+                    || ($row['batch_enrolled'] ?? 0) > 0;
+            }));
+        }
+
+        usort($rows, static function (array $a, array $b) {
+            $cmp = ($b['applications'] ?? 0) <=> ($a['applications'] ?? 0);
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return strcmp((string) ($a['centre_name'] ?? ''), (string) ($b['centre_name'] ?? ''));
+        });
+
         return $rows;
     }
 
@@ -542,7 +773,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $monthStart = $monthFilter['start'];
             $monthNext = $monthFilter['next_start'];
 
-            $courseSql = "SELECT {$categoryExpr} AS raw_category, COUNT(DISTINCT c.id) AS total
+            $courseSql = "SELECT c.id AS course_id,
+                                 {$categoryExpr} AS raw_category,
+                                 c.duration,
+                                 COUNT(DISTINCT c.id) AS total
                           FROM courses c
                           LEFT JOIN students s ON s.course_id = c.id AND {$activeCondition}
                               AND s.created_at >= ? AND s.created_at < ?
@@ -550,13 +784,15 @@ if (!function_exists('get_report_monitor_category_groups')) {
                               AND {$batchMonthExpr} >= ? AND {$batchMonthExpr} < ?
                           WHERE 1=1{$scopeFilter['sql']}
                           AND (s.id IS NOT NULL OR b.id IS NOT NULL)
-                          GROUP BY raw_category";
+                          GROUP BY c.id, raw_category, c.duration";
             $courseTypes = 'ssss' . $scopeFilter['types'];
             $courseValues = array_merge([$monthStart, $monthNext, $monthStart, $monthNext], $scopeFilter['values']);
             $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $courseTypes, $courseValues);
 
             // Monthly view: keep Applied/Approved/Pending/In Batches on the same registration cohort.
-            $studentSql = "SELECT {$categoryExpr} AS raw_category,
+            $studentSql = "SELECT c.id AS course_id,
+                                  {$categoryExpr} AS raw_category,
+                                  c.duration,
                                   COUNT(DISTINCT s.id) AS applications,
                                   SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'pending' THEN 1 ELSE 0 END) AS pending,
                                   SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'active' THEN 1 ELSE 0 END) AS approved,
@@ -565,18 +801,24 @@ if (!function_exists('get_report_monitor_category_groups')) {
                            INNER JOIN courses c ON c.id = s.course_id
                            WHERE {$activeCondition}{$scopeFilter['sql']}
                            AND s.created_at >= ? AND s.created_at < ?
-                           GROUP BY raw_category";
+                           GROUP BY c.id, raw_category, c.duration";
             $studentTypes = $scopeFilter['types'] . 'ss';
             $studentValues = array_merge($scopeFilter['values'], [$monthStart, $monthNext]);
             $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $studentTypes, $studentValues);
             $enrollResult = false;
         } else {
-            $courseSql = "SELECT {$categoryExpr} AS raw_category, COUNT(*) AS total
-                          FROM courses c WHERE 1=1{$scopeFilter['sql']}
-                          GROUP BY raw_category";
+            $courseSql = "SELECT c.id AS course_id,
+                                 {$categoryExpr} AS raw_category,
+                                 c.duration,
+                                 COUNT(DISTINCT c.id) AS total
+                          FROM courses c
+                          WHERE 1=1{$scopeFilter['sql']}
+                          GROUP BY c.id, raw_category, c.duration";
             $courseResult = report_monitor_bind_and_execute($conn, $courseSql, $scopeFilter['types'], $scopeFilter['values']);
 
-            $studentSql = "SELECT {$categoryExpr} AS raw_category,
+            $studentSql = "SELECT c.id AS course_id,
+                                  {$categoryExpr} AS raw_category,
+                                  c.duration,
                                   COUNT(DISTINCT s.id) AS applications,
                                   SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'pending' THEN 1 ELSE 0 END) AS pending,
                                   SUM(CASE WHEN LOWER(COALESCE(s.status, '')) = 'active' THEN 1 ELSE 0 END) AS approved,
@@ -584,14 +826,19 @@ if (!function_exists('get_report_monitor_category_groups')) {
                            FROM students s
                            INNER JOIN courses c ON c.id = s.course_id
                            WHERE {$activeCondition}{$scopeFilter['sql']}
-                           GROUP BY raw_category";
+                           GROUP BY c.id, raw_category, c.duration";
             $studentResult = report_monitor_bind_and_execute($conn, $studentSql, $scopeFilter['types'], $scopeFilter['values']);
             $enrollResult = false;
         }
 
         if ($courseResult) {
             while ($row = $courseResult->fetch_assoc()) {
-                $key = report_monitor_resolve_category_group($row['raw_category']);
+                $key = report_monitor_resolve_category_group(
+                    $row['raw_category'],
+                    $row['duration'] ?? null,
+                    $conn,
+                    (int) ($row['course_id'] ?? 0)
+                );
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
                         'key' => $key,
@@ -609,7 +856,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         if ($studentResult) {
             while ($row = $studentResult->fetch_assoc()) {
-                $key = report_monitor_resolve_category_group($row['raw_category']);
+                $key = report_monitor_resolve_category_group(
+                    $row['raw_category'],
+                    $row['duration'] ?? null,
+                    $conn,
+                    (int) ($row['course_id'] ?? 0)
+                );
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
                         'key' => $key,
@@ -632,7 +884,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         if ($enrollResult) {
             while ($row = $enrollResult->fetch_assoc()) {
-                $key = report_monitor_resolve_category_group($row['raw_category']);
+                $key = report_monitor_resolve_category_group(
+                    $row['raw_category'],
+                    $row['duration'] ?? null,
+                    $conn,
+                    (int) ($row['course_id'] ?? 0)
+                );
                 if (!isset($groups[$key])) {
                     $groups[$key] = [
                         'key' => $key,
@@ -652,7 +909,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
         usort($rows, static function ($a, $b) {
             return $b['applications'] <=> $a['applications'];
         });
-        return $rows;
+
+        return report_monitor_filter_category_summary_rows($rows);
     }
 
     /** Faculty names for a batch: linked faculty, else batch coordinator text. */
@@ -931,14 +1189,16 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
         $sql = "SELECT {$quarterCase} AS quarter_key,
+                       c.id AS course_id,
                        {$categoryExpr} AS raw_category,
+                       c.duration,
                        SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
                 FROM students s
                 INNER JOIN courses c ON c.id = s.course_id
                 WHERE {$activeCondition}
                   AND s.created_at >= ? AND s.created_at < ?
                   {$scopeFilter['sql']}
-                GROUP BY quarter_key, raw_category";
+                GROUP BY quarter_key, c.id, raw_category, c.duration";
 
         $types = 'ss' . $scopeFilter['types'];
         $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
@@ -949,7 +1209,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
                     continue;
                 }
-                $categoryKey = report_monitor_resolve_category_group($row['raw_category']);
+                $categoryKey = report_monitor_resolve_category_group(
+                    $row['raw_category'],
+                    $row['duration'] ?? null,
+                    $conn,
+                    (int) ($row['course_id'] ?? 0)
+                );
                 if (!isset($rows[$categoryKey])) {
                     $categoryKey = 'uncategorized';
                 }
@@ -959,7 +1224,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
-        return array_values($rows);
+        return report_monitor_filter_category_summary_rows(array_values($rows));
     }
 
     function report_monitor_format_display_date(?string $date): string {
@@ -1093,6 +1358,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $sql = "SELECT c.id AS course_id,
                        c.course_name,
                        c.course_code,
+                       c.duration,
                        COALESCE(NULLIF(TRIM(ce.name), ''), 'Unassigned Centre') AS centre_name,
                        {$categoryExpr} AS raw_category,
                        CASE
@@ -1109,7 +1375,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 WHERE {$activeCondition}
                   AND s.created_at >= ? AND s.created_at < ?
                   {$scopeFilter['sql']}
-                GROUP BY c.id, c.course_name, c.course_code, centre_name, raw_category, quarter_key";
+                GROUP BY c.id, c.course_name, c.course_code, c.duration, centre_name, raw_category, quarter_key";
 
         $types = str_repeat('s', 10) . $scopeFilter['types'];
         $values = array_merge([
@@ -1127,8 +1393,14 @@ if (!function_exists('get_report_monitor_category_groups')) {
 
         $grouped = [];
         while ($row = $result->fetch_assoc()) {
-            $categoryKey = report_monitor_resolve_category_group($row['raw_category']);
+            $rawCategoryGroup = report_monitor_resolve_category_group_base($row['raw_category']);
             $courseId = (int) $row['course_id'];
+            $categoryKey = report_monitor_resolve_category_group(
+                $row['raw_category'],
+                $row['duration'] ?? null,
+                $conn,
+                $courseId
+            );
 
             if (!isset($grouped[$categoryKey])) {
                 $grouped[$categoryKey] = [];
@@ -1139,6 +1411,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     'course_name' => $row['course_name'],
                     'course_code' => $row['course_code'] ?? '',
                     'centre_name' => $row['centre_name'],
+                    'duration' => $row['duration'] ?? '',
+                    'raw_category_group' => $rawCategoryGroup,
+                    'report_category_group' => $categoryKey,
                     'Q1' => 0,
                     'Q2' => 0,
                     'Q3' => 0,
@@ -1179,12 +1454,27 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
-        return $grouped;
+        return report_monitor_filter_category_course_summary($grouped);
     }
 
     function report_monitor_get_internship_course_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
         $grouped = report_monitor_get_category_course_quarter_summary($conn, $courseIds, $centreId, $fyStartYear);
-        return $grouped['internship_bootcamp'] ?? [];
+        $courses = [];
+        foreach ($grouped as $categoryCourses) {
+            foreach ($categoryCourses as $courseRow) {
+                if (($courseRow['raw_category_group'] ?? '') !== 'internship_bootcamp') {
+                    continue;
+                }
+                $courses[] = $courseRow;
+            }
+        }
+
+        usort($courses, static function ($a, $b) {
+            $compare = ($b['total'] ?? 0) <=> ($a['total'] ?? 0);
+            return $compare !== 0 ? $compare : strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+        });
+
+        return $courses;
     }
 
     /** Course-wise monthly registered / admission / batch counts for an FY period. */
@@ -1689,6 +1979,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     b.created_at,
                     c.id AS course_id,
                     c.course_name,
+                    c.duration AS course_duration,
                     {$categoryExpr} AS course_category,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
                     {$facultySelect},
@@ -1720,7 +2011,14 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 'batch_coordinator' => $row['batch_coordinator'] ?? '—',
                 'faculty_names' => trim((string) ($row['faculty_names'] ?? '')) ?: '—',
                 'course_name' => $row['course_name'],
-                'course_category' => report_monitor_category_label(report_monitor_resolve_category_group($row['course_category'])),
+                'course_category' => report_monitor_category_label(
+                    report_monitor_resolve_category_group(
+                        $row['course_category'],
+                        $row['course_duration'] ?? null,
+                        $conn,
+                        (int) ($row['course_id'] ?? 0)
+                    )
+                ),
                 'centre_name' => $row['centre_name'],
                 'start_date' => $row['start_date'],
                 'end_date' => $row['end_date'],
@@ -1787,6 +2085,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     c.id AS course_id,
                     c.course_name,
                     c.course_code,
+                    c.duration AS course_duration,
                     {$categoryExpr} AS course_category,
                     {$schemeSelect} AS scheme_name,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name
@@ -1821,7 +2120,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $endRaw = $row['batch_end'] ?? null;
             $startTs = $startRaw ? strtotime((string) $startRaw) : false;
             $monthKey = $startTs ? date('Y-m', $startTs) : 'unknown';
-            $categoryKey = report_monitor_resolve_category_group($row['course_category']);
+            $categoryKey = report_monitor_resolve_category_group(
+                $row['course_category'],
+                $row['course_duration'] ?? null,
+                $conn,
+                (int) ($row['course_id'] ?? 0)
+            );
 
             $rows[] = [
                 'id' => (int) $row['id'],
@@ -2031,7 +2335,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     b.start_date,
                     b.end_date,
                     b.status AS batch_status,
+                    c.id AS course_id,
                     c.course_name,
+                    c.duration,
                     {$categoryExpr} AS raw_category,
                     COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
                     {$enrolledSelect} AS enrolled
@@ -2072,7 +2378,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 ];
             }
 
-            $categoryKey = report_monitor_resolve_category_group($row['raw_category']);
+            $categoryKey = report_monitor_resolve_category_group(
+                $row['raw_category'],
+                $row['duration'] ?? null,
+                $conn,
+                (int) ($row['course_id'] ?? 0)
+            );
             $categoryLabel = report_monitor_category_label($categoryKey);
             $enrolled = (int) ($row['enrolled'] ?? 0);
 

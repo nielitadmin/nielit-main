@@ -189,7 +189,7 @@ $centreStats = report_monitor_merge_all_active_centres(
         $conn,
         $scopedCourseIds,
         $centreId,
-        $monthFilter
+        $fyMonthFilter
     )
 );
 
@@ -222,6 +222,10 @@ if ($reportPublicShareToken === '' && !$isPublicReportView) {
 $reportPublicShareUrl = $reportPublicShareToken !== ''
     ? report_monitor_build_public_url($reportPublicShareToken, $selectedYear, $selectedQuarter, $centreId)
     : '';
+
+$reportMonitorShareQuery = ($isPublicReportView && $shareToken !== '')
+    ? ['share_token' => $shareToken]
+    : [];
 
 $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $conn,
@@ -469,12 +473,7 @@ foreach ($categoryStats as $row) {
 
 }
 
-foreach ($centreStats as $row) {
-
-    $kpiBatches +=
-        (int)$row['batch_count'];
-
-}
+$kpiBatches = (int) ($overallStats['total_batches'] ?? 0);
 
 $kpiCompleted = $overallStats['completed_batches'] ?? 0;
 /*------------------------------------------------------------
@@ -1330,6 +1329,8 @@ Q4 (Jan–Mar)
 
                 </strong>
 
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?></small>
+
             </div>
 
             <div class="card-body">
@@ -1551,7 +1552,7 @@ Q4 (Jan–Mar)
 
 <!-- CATEGORY QUARTERLY ADMISSIONS SUMMARY -->
 
-<?php if (!empty($targetsFlashMessage)): ?>
+<?php if (!$isPublicReportView && !empty($targetsFlashMessage)): ?>
 <div class="alert alert-<?php echo htmlspecialchars($targetsFlashType); ?> alert-dismissible fade show" role="alert">
     <?php echo htmlspecialchars($targetsFlashMessage); ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -1562,6 +1563,7 @@ Q4 (Jan–Mar)
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <strong>Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
+            <div class="text-muted small">Internship / bootcamp courses are merged into skill categories by duration hours (no separate internship row).</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button"
@@ -1572,6 +1574,7 @@ Q4 (Jan–Mar)
                 <i class="fas fa-chevron-down me-1" id="categoryDetailsToggleIcon"></i>
                 <span id="categoryDetailsToggleLabel">Show Details</span>
             </button>
+            <?php if (!$isPublicReportView): ?>
             <a class="btn btn-outline-success"
                href="<?php echo htmlspecialchars(APP_URL . '/admin/export_category_quarterly_excel.php?' . http_build_query([
                    'year' => $selectedYear,
@@ -1582,9 +1585,10 @@ Q4 (Jan–Mar)
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal">
                 <i class="fas fa-bullseye me-1"></i> Set Targets
             </button>
+            <?php endif; ?>
         </div>
     </div>
-    <?php if ($categoryQuarterGrandTarget <= 0): ?>
+    <?php if (!$isPublicReportView && $categoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
         <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
             <i class="fas fa-info-circle mt-1"></i>
@@ -1655,6 +1659,8 @@ Q4 (Jan–Mar)
                         <td class="text-end">
                             <?php if (($categoryRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($categoryRow['target']); ?>
+                            <?php elseif ($isPublicReportView): ?>
+                                —
                             <?php else: ?>
                                 <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#categoryTargetsModal" title="Set target for this category">Not set</button>
                             <?php endif; ?>
@@ -1734,12 +1740,14 @@ Q4 (Jan–Mar)
                 <i class="fas fa-chevron-down me-1" id="socialCategoryDetailsToggleIcon"></i>
                 <span id="socialCategoryDetailsToggleLabel">Show Details</span>
             </button>
+            <?php if (!$isPublicReportView): ?>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal">
                 <i class="fas fa-bullseye me-1"></i> Set Targets
             </button>
+            <?php endif; ?>
         </div>
     </div>
-    <?php if ($socialCategoryQuarterGrandTarget <= 0): ?>
+    <?php if (!$isPublicReportView && $socialCategoryQuarterGrandTarget <= 0): ?>
     <div class="card-body border-bottom py-3">
         <div class="alert alert-warning mb-0 d-flex align-items-start gap-2">
             <i class="fas fa-info-circle mt-1"></i>
@@ -1810,6 +1818,8 @@ Q4 (Jan–Mar)
                         <td class="text-end">
                             <?php if (($socialRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($socialRow['target']); ?>
+                            <?php elseif ($isPublicReportView): ?>
+                                —
                             <?php else: ?>
                                 <button type="button" class="btn btn-link btn-sm p-0 text-muted" data-bs-toggle="modal" data-bs-target="#socialCategoryTargetsModal" title="Set target">Not set</button>
                             <?php endif; ?>
@@ -1924,7 +1934,7 @@ Q4 (Jan–Mar)
     <div class="card-header d-flex justify-content-between align-items-center">
         <div>
             <strong>Internship / Bootcamp Course Admissions</strong>
-            <div class="text-muted">Internship course-level admissions details for FY <?php echo htmlspecialchars($selectedYear); ?></div>
+            <div class="text-muted">Course-level admissions for FY <?php echo htmlspecialchars($selectedYear); ?>. Admissions are also included in skill categories when duration hours are set.</div>
         </div>
         <span class="badge bg-primary"><?php echo number_format(array_sum(array_column($internshipCourseSummary, 'total'))); ?> Admissions</span>
     </div>
@@ -1937,6 +1947,8 @@ Q4 (Jan–Mar)
                     <th>Course</th>
                     <th>Code</th>
                     <th>Centre</th>
+                    <th>Duration</th>
+                    <th>Counted In</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
                     <th class="text-end">Q3</th>
@@ -1951,6 +1963,8 @@ Q4 (Jan–Mar)
                         <td><?php echo htmlspecialchars($courseRow['course_name']); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['course_code']); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['centre_name']); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['duration'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars(report_monitor_category_label($courseRow['report_category_group'] ?? 'internship_bootcamp')); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q3']); ?></td>
@@ -1976,6 +1990,8 @@ Q4 (Jan–Mar)
             Centre Wise Report
 
         </strong>
+
+        <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?></small>
 
     </div>
 
@@ -2290,6 +2306,9 @@ if ($resultStatusFilterCourse > 0) {
     </div>
     <div class="card-body p-0 <?php echo $resultStatusDetailsOpen ? '' : 'd-none'; ?>" id="resultStatusBody">
         <form method="get" class="p-3 border-bottom bg-light" id="resultStatusFilterForm">
+            <?php if ($isPublicReportView && $shareToken !== ''): ?>
+            <input type="hidden" name="share_token" value="<?php echo htmlspecialchars($shareToken); ?>">
+            <?php endif; ?>
             <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
             <input type="hidden" name="year" value="<?php echo (int) $selectedYear; ?>">
             <input type="hidden" name="quarter" value="<?php echo htmlspecialchars((string) $selectedQuarter); ?>">
@@ -2342,7 +2361,11 @@ if ($resultStatusFilterCourse > 0) {
                         Apply
                     </button>
                     <a class="btn btn-outline-secondary"
-                       href="?centre_id=<?php echo (int) $centreId; ?>&amp;year=<?php echo (int) $selectedYear; ?>&amp;quarter=<?php echo urlencode((string) $selectedQuarter); ?>#resultStatusCard">
+                       href="?<?php echo htmlspecialchars(http_build_query(array_merge($reportMonitorShareQuery, [
+                           'centre_id' => $centreId,
+                           'year' => $selectedYear,
+                           'quarter' => $selectedQuarter,
+                       ]))); ?>#resultStatusCard">
                         Clear
                     </a>
                 </div>
@@ -2804,6 +2827,7 @@ if ($resultStatusFilterCourse > 0) {
 
 </div>
 
+<?php if (!$isPublicReportView): ?>
 <div class="modal fade" id="categoryTargetsModal" tabindex="-1" aria-labelledby="categoryTargetsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
@@ -2872,7 +2896,9 @@ if ($resultStatusFilterCourse > 0) {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
+<?php if (!$isPublicReportView): ?>
 <div class="modal fade" id="socialCategoryTargetsModal" tabindex="-1" aria-labelledby="socialCategoryTargetsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
@@ -2926,6 +2952,7 @@ if ($resultStatusFilterCourse > 0) {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- PART 2 COMPLETED -->
 
@@ -3096,27 +3123,71 @@ if (certifiedCanvas) {
         certifiedCanvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
     } else {
         new Chart(certifiedCanvas, {
-            type: 'bar',
+            type: 'line',
             data: {
                 labels: certifiedRows.map(function (x) { return x.centre_name; }),
                 datasets: [
                     {
                         label: 'Certified',
                         data: certifiedRows.map(function (x) { return x.certified; }),
-                        backgroundColor: '#16a34a'
+                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(22, 163, 74, 0.12)',
+                        pointBackgroundColor: '#16a34a',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.35
                     },
                     {
                         label: 'Placed',
                         data: certifiedRows.map(function (x) { return x.placed; }),
-                        backgroundColor: '#2563eb'
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                        pointBackgroundColor: '#2563eb',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 7,
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.35
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } },
-                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: { position: 'bottom' },
+                    tooltip: {
+                        callbacks: {
+                            title: function (items) {
+                                return items.length ? items[0].label : '';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: false
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
             }
         });
     }
@@ -4687,6 +4758,7 @@ SOCIAL CATEGORY DETAIL DROPDOWN
     }
 })();
 
+<?php if (!$isPublicReportView): ?>
 /*==================================================
 CATEGORY TARGETS SAVE (AJAX)
 ==================================================*/
@@ -4807,6 +4879,7 @@ if (regenerateShareBtn && shareUrlInput) {
         }
     });
 }
+<?php endif; ?>
 
 </script>
 
