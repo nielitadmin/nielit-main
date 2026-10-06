@@ -253,9 +253,10 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                     Full-page (open)
                                 </option>
                                 <option value="embed" <?php echo ($videoSettings['video_mode'] ?? '') === 'embed' ? 'selected' : ''; ?>>
-                                    Embedded in portal
+                                    Embedded in portal (students)
                                 </option>
                             </select>
+                            <div class="oc-help">Embedded: students stay on this site. <strong>Hosts/admins open full-page automatically</strong> (recording does not work inside iframe).</div>
                         </div>
                         <div class="form-group" id="jwtToggleWrap" style="padding-bottom:8px;">
                             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
@@ -275,8 +276,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                         <div class="form-group" style="min-width:200px;">
                             <label for="jwt_app_id">JWT App ID</label>
                             <input type="text" class="form-control" id="jwt_app_id" name="jwt_app_id"
-                                   value="<?php echo htmlspecialchars($videoSettings['jwt_app_id'] ?? 'nielit_portal'); ?>"
-                                   placeholder="nielit_portal">
+                                   value="<?php echo htmlspecialchars($videoSettings['jwt_app_id'] ?? 'nielit_meet'); ?>"
+                                   placeholder="nielit_meet">
                             <div class="oc-help">Must match <code>JWT_APP_ID</code> in Jitsi server <code>.env</code></div>
                         </div>
                         <div class="form-group" style="flex:1;min-width:280px;">

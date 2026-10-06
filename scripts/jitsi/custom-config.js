@@ -4,7 +4,7 @@
 config.startWithAudioMuted = true;
 config.startWithVideoMuted = true;
 config.prejoinPageEnabled = true;
-config.enableLobby = true;
+config.enableLobby = false;
 config.enableGuestDomain = false;
 
 // Reduce load for large listen-only audiences
@@ -28,3 +28,7 @@ config.recordings = {
     recordAudioAndVideo: true,
     suggestRecording: true
 };
+
+// JWT only — tokens from admin panel / Google sign-in (no password dialog)
+config.enableUserRolesBasedOnToken = true;
+config.hideLoginButton = true;

@@ -21,6 +21,7 @@ if (!function_exists('getGoogleOAuthJavaScriptOrigins')) {
         return [
             'https://nielitbhubaneswar.in',
             'https://www.nielitbhubaneswar.in',
+            'https://meet.nielitbhubaneswar.in',
             'http://localhost',
             'http://127.0.0.1',
         ];

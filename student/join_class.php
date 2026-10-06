@@ -71,7 +71,13 @@ $jitsiEmbedOptions = onlineClassJitsiEmbedOptions($roomName, $displayName, $isMo
 $leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php';
 $jwtBlocked = $videoEnabled && $jwtRequired && !$jwtReady;
 
-// Full-page open mode: leave our lobby and join the video room (no iframe = no 5-min cut)
+// Hosts always join full-page: recording & moderator tools do not work inside iframe embed (Jitsi limitation).
+if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $isModerator && $externalRoomUrl !== '') {
+    header('Location: ' . $externalRoomUrl);
+    exit;
+}
+
+// Students in "open" mode: full-page room (no iframe).
 if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open' && $externalRoomUrl !== '') {
     header('Location: ' . $externalRoomUrl);
     exit;
@@ -123,6 +129,11 @@ if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open
         </div>
         <div class="d-flex gap-2 align-items-center">
             <span class="small"><?php echo htmlspecialchars($displayName); ?> (<?php echo htmlspecialchars($roleLabel); ?>)</span>
+            <?php if ($isModerator && $externalRoomUrl !== ''): ?>
+            <a class="btn btn-sm btn-warning" href="<?php echo htmlspecialchars($externalRoomUrl); ?>" target="_blank" rel="noopener noreferrer" title="Recording and full host controls need the full classroom page">
+                <i class="fas fa-external-link-alt"></i> Full classroom
+            </a>
+            <?php endif; ?>
             <a class="btn btn-sm btn-outline-light" href="<?php echo htmlspecialchars($leaveUrl); ?>">Leave</a>
         </div>
     </div>

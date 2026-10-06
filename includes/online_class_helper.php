@@ -348,7 +348,7 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
 
         $jwtAppId = trim((string) ($data['jwt_app_id'] ?? ''));
         if ($jwtAppId === '') {
-            $jwtAppId = 'nielit_portal';
+            $jwtAppId = 'nielit_meet';
         }
 
         $existing = onlineClassGetVideoSettings($conn, true);
@@ -472,7 +472,7 @@ if (!function_exists('onlineClassGetJwtAppId')) {
             }
         }
 
-        return 'nielit_portal';
+        return 'nielit_meet';
     }
 }
 
@@ -550,15 +550,20 @@ if (!function_exists('onlineClassJitsiToolbarButtons')) {
             'microphone',
             'camera',
             'desktop',
+            'recording',
+            'localrecording',
+            'livestreaming',
+            'shareaudio',
+            'whiteboard',
+            'polls',
             'fullscreen',
             'fodeviceselection',
             'hangup',
             'chat',
-            'recording',
-            'localrecording',
-            'livestreaming',
             'raisehand',
             'participants-pane',
+            'mute-everyone',
+            'mute-video-everyone',
             'tileview',
             'security',
             'invite',
@@ -595,33 +600,32 @@ if (!function_exists('onlineClassJitsiConfigOverwrite')) {
     {
         $config = [
             'startWithAudioMuted' => true,
-            'prejoinPageEnabled' => true,
+            'prejoinPageEnabled' => false,
             'disableDeepLinking' => true,
             'enableLobby' => false,
             'enableGuestDomain' => false,
             'guestDialOutEnabled' => false,
             'guestDialOutUrl' => '',
-        ];
-
-        if ($isModerator) {
-            $config['disableRecording'] = false;
-            $config['liveStreamingEnabled'] = true;
-            // Cloud recording needs Jibri; local recording works in embed without Jibri
-            $config['fileRecordingsEnabled'] = false;
-            $config['localRecording'] = [
+            'enableUserRolesBasedOnToken' => true,
+            'disableRecording' => false,
+            'liveStreamingEnabled' => true,
+            // Cloud recording needs Jibri on the server; local recording works in the browser
+            'fileRecordingsEnabled' => false,
+            'recordingService' => [
+                'enabled' => false,
+            ],
+            'localRecording' => [
                 'disable' => false,
                 'disableSelfRecording' => false,
                 'notifyAllParticipants' => true,
-            ];
-            $config['recordings'] = [
+            ],
+            'recordings' => [
                 'recordAudioAndVideo' => true,
                 'suggestRecording' => true,
-            ];
-            // Newer Jitsi reads toolbar from config.toolbarButtons (not only interface_config)
-            $config['toolbarButtons'] = onlineClassJitsiToolbarButtons(true);
-        } else {
-            $config['toolbarButtons'] = onlineClassJitsiToolbarButtons(false);
-        }
+                'showPrejoinWarning' => false,
+            ],
+            'toolbarButtons' => onlineClassJitsiToolbarButtons($isModerator),
+        ];
 
         return $config;
     }
@@ -656,17 +660,18 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
         ];
         if ($isModerator) {
             $user['affiliation'] = 'owner';
+            $user['lobby_bypass'] = true;
         }
         if ($userId !== '') {
             $user['id'] = $userId;
         }
 
-        // Room-specific token: only valid for this class (blocks reuse on other rooms)
+        // Hosts: room * (any room). Students: room-specific token.
         $payload = [
             'iss' => $appId,
             'aud' => 'jitsi',
             'sub' => strtolower(onlineClassJitsiDomain()),
-            'room' => $roomName,
+            'room' => $isModerator ? '*' : $roomName,
             'exp' => $now + 3600,
             'nbf' => $now - 30,
             'context' => [
@@ -724,6 +729,15 @@ if (!function_exists('onlineClassJitsiEmbedOptions')) {
             'interfaceConfigOverwrite' => [
                 'TOOLBAR_BUTTONS' => onlineClassJitsiToolbarButtons($isModerator),
                 'SHOW_JITSI_WATERMARK' => false,
+                'SETTINGS_SECTIONS' => [
+                    'devices',
+                    'language',
+                    'moderator',
+                    'profile',
+                    'calendar',
+                    'sounds',
+                    'more',
+                ],
             ],
         ];
 
@@ -794,25 +808,34 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
 
         $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator, $userId);
 
-        $parts = [];
+        $query = [];
+        $hashParts = [];
         if ($jwt !== '') {
-            // Jitsi reads JWT from the URL hash (preferred); query-string jwt is unreliable on newer clients
-            $parts[] = 'jwt=' . $jwt;
+            // Jitsi Meet 2.x reads JWT from ?jwt= (hash #jwt= is no longer applied).
+            $query[] = 'jwt=' . rawurlencode($jwt);
         } elseif ($displayName !== '') {
-            $parts[] = 'userInfo.displayName="' . str_replace(['"', '#'], '', $displayName) . '"';
+            $hashParts[] = 'userInfo.displayName="' . str_replace(['"', '#'], '', $displayName) . '"';
         }
-        $parts[] = 'config.startWithAudioMuted=true';
-        $parts[] = 'config.disableDeepLinking=true';
+        $hashParts[] = 'config.startWithAudioMuted=true';
+        $hashParts[] = 'config.disableDeepLinking=true';
 
         if ($isModerator) {
-            $parts[] = 'config.disableRecording=false';
-            $parts[] = 'config.fileRecordingsEnabled=false';
-            $parts[] = 'config.liveStreamingEnabled=true';
-            $parts[] = 'config.localRecording.disable=false';
-            $parts[] = 'config.localRecording.disableSelfRecording=false';
+            $hashParts[] = 'config.disableRecording=false';
+            $hashParts[] = 'config.fileRecordingsEnabled=false';
+            $hashParts[] = 'config.liveStreamingEnabled=true';
+            $hashParts[] = 'config.localRecording.disable=false';
+            $hashParts[] = 'config.localRecording.disableSelfRecording=false';
         }
 
-        return $url . '#' . implode('&', $parts);
+        $joinUrl = $url;
+        if ($query !== []) {
+            $joinUrl .= '?' . implode('&', $query);
+        }
+        if ($hashParts !== []) {
+            $joinUrl .= '#' . implode('&', $hashParts);
+        }
+
+        return $joinUrl;
     }
 }
 

@@ -38,7 +38,7 @@ if (!defined('ONLINE_CLASS_JITSI_JWT_ENABLED')) {
 }
 
 if (!defined('ONLINE_CLASS_JITSI_JWT_APP_ID')) {
-    define('ONLINE_CLASS_JITSI_JWT_APP_ID', 'nielit_portal');
+    define('ONLINE_CLASS_JITSI_JWT_APP_ID', 'nielit_meet');
 }
 
 if (!defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')) {
