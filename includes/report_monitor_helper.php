@@ -3395,6 +3395,151 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return array_values($rows);
     }
 
+    /** Monthly certified / placed counts for one scope (all centres or a single centre). */
+    function report_monitor_get_certified_placed_monthly_counts(
+        $conn,
+        array $courseIds = [],
+        $centreId = 0,
+        array $monthFilter = [],
+        array $graphMonths = []
+    ) {
+        $axis = report_monitor_build_graph_month_axis($graphMonths);
+        $monthKeys = $axis['month_keys'];
+        $labels = $axis['labels'];
+        $certifiedMap = array_fill_keys($monthKeys, 0);
+        $placedMap = array_fill_keys($monthKeys, 0);
+
+        if (
+            empty($monthFilter['active'])
+            || empty($monthKeys)
+            || !report_monitor_table_exists($conn, 'batch_students')
+            || !report_monitor_table_exists($conn, 'batches')
+        ) {
+            return [
+                'labels' => $labels,
+                'certified' => array_values($certifiedMap),
+                'placed' => array_values($placedMap),
+                'combined' => array_fill(0, count($labels), 0),
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeStudent = report_monitor_student_active_sql('s');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $hasResult = report_monitor_table_has_column($conn, 'batch_students', 'result_status');
+        $hasPlacement = report_monitor_table_has_column($conn, 'batch_students', 'placement_status');
+        $statusNorm = "LOWER(REPLACE(REPLACE(TRIM(IFNULL(bs.result_status,'')), ' ', '_'), '-', '_'))";
+        $certifiedExpr = $hasResult
+            ? "COUNT(DISTINCT CASE WHEN {$statusNorm} IN ('pass','certified','pass_certified') THEN bs.id END)"
+            : '0';
+        $placedExpr = $hasPlacement
+            ? "COUNT(DISTINCT CASE WHEN LOWER(TRIM(COALESCE(bs.placement_status, ''))) = 'placed' THEN bs.id END)"
+            : '0';
+
+        $sql = "SELECT DATE_FORMAT({$batchStartExpr}, '%Y-%m') AS month_key,
+                       {$certifiedExpr} AS certified,
+                       {$placedExpr} AS placed
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                INNER JOIN courses c ON c.id = b.course_id
+                LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                WHERE (s.id IS NULL OR {$activeStudent}){$scopeFilter['sql']}
+                AND {$batchStartExpr} >= ? AND {$batchStartExpr} < ?";
+        $types = $scopeFilter['types'] . 'ss';
+        $values = array_merge($scopeFilter['values'], [$monthFilter['start'], $monthFilter['next_start']]);
+        $sql .= ' GROUP BY month_key';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $monthKey = (string) ($row['month_key'] ?? '');
+                if (!isset($certifiedMap[$monthKey])) {
+                    continue;
+                }
+                $certifiedMap[$monthKey] = (int) ($row['certified'] ?? 0);
+                $placedMap[$monthKey] = (int) ($row['placed'] ?? 0);
+            }
+        }
+
+        $certified = [];
+        $placed = [];
+        $combined = [];
+        foreach ($monthKeys as $monthKey) {
+            $certCount = (int) ($certifiedMap[$monthKey] ?? 0);
+            $placedCount = (int) ($placedMap[$monthKey] ?? 0);
+            $certified[] = $certCount;
+            $placed[] = $placedCount;
+            $combined[] = $certCount + $placedCount;
+        }
+
+        return [
+            'labels' => $labels,
+            'certified' => $certified,
+            'placed' => $placed,
+            'combined' => $combined,
+        ];
+    }
+
+    /** Certified / placed trend: total line + one line per centre (monthly). */
+    function report_monitor_get_certified_placed_monthly_by_centre(
+        $conn,
+        array $courseIds = [],
+        $centreId = 0,
+        array $monthFilter = [],
+        array $graphMonths = []
+    ) {
+        $total = report_monitor_get_certified_placed_monthly_counts(
+            $conn,
+            $courseIds,
+            $centreId,
+            $monthFilter,
+            $graphMonths
+        );
+
+        $series = [[
+            'key' => 'total',
+            'label' => 'Total (All Centres)',
+            'certified' => $total['certified'],
+            'placed' => $total['placed'],
+            'combined' => $total['combined'],
+            'is_total' => true,
+        ]];
+
+        if ($centreId > 0) {
+            return [
+                'labels' => $total['labels'],
+                'series' => $series,
+            ];
+        }
+
+        foreach (report_monitor_get_centres_list($conn) as $cen) {
+            $cid = (int) ($cen['id'] ?? 0);
+            if ($cid <= 0) {
+                continue;
+            }
+            $centreData = report_monitor_get_certified_placed_monthly_counts(
+                $conn,
+                $courseIds,
+                $cid,
+                $monthFilter,
+                $graphMonths
+            );
+            $series[] = [
+                'key' => 'centre_' . $cid,
+                'label' => (string) ($cen['name'] ?? ('Centre ' . $cid)),
+                'certified' => $centreData['certified'],
+                'placed' => $centreData['placed'],
+                'combined' => $centreData['combined'],
+                'is_total' => false,
+            ];
+        }
+
+        return [
+            'labels' => $total['labels'],
+            'series' => $series,
+        ];
+    }
+
     /** Certified (exam pass) and placed counts per centre for charts/tables. */
     function report_monitor_get_certified_placed_centre_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
         $merged = report_monitor_merge_all_active_centres($conn, report_monitor_get_centre_stats($conn, $courseIds, $centreId, $monthFilter));
