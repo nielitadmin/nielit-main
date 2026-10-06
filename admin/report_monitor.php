@@ -1529,24 +1529,51 @@ Q4 (Jan–Mar)
     <div class="col-lg-8 mb-4">
         <div class="card chart-card">
             <div class="card-header">
-                <strong>Certified / Placed Trend</strong>
+                <strong>Certified Trend</strong>
                 <small class="text-muted ms-2">
-                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Certified + Placed (monthly)
+                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Total + per centre (line)
                 </small>
             </div>
             <div class="card-body">
-                <canvas id="certifiedPlacedMonthlyChart" height="120"></canvas>
+                <canvas id="certifiedMonthlyLineChart" height="120"></canvas>
             </div>
         </div>
     </div>
     <div class="col-lg-4 mb-4">
         <div class="card chart-card">
             <div class="card-header">
-                <strong>Certified / Placed (Centre Wise)</strong>
-                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?></small>
+                <strong>Certified (Centre Wise)</strong>
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · bar</small>
             </div>
             <div class="card-body">
-                <canvas id="certifiedPlacedCentreChart" height="120"></canvas>
+                <canvas id="certifiedCentreBarChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card chart-card">
+            <div class="card-header">
+                <strong>Placed Trend</strong>
+                <small class="text-muted ms-2">
+                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Total + per centre (line)
+                </small>
+            </div>
+            <div class="card-body">
+                <canvas id="placedMonthlyLineChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <div class="card chart-card">
+            <div class="card-header">
+                <strong>Placed (Centre Wise)</strong>
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · bar</small>
+            </div>
+            <div class="card-body">
+                <canvas id="placedCentreBarChart" height="120"></canvas>
             </div>
         </div>
     </div>
@@ -3358,149 +3385,136 @@ beginAtZero:true
 }
 
 /*==================================================
-CERTIFIED / PLACED — MONTHLY TREND (BAR)
+CERTIFIED / PLACED — HELPERS
 ==================================================*/
 
-const certifiedMonthlyCanvas = document.getElementById('certifiedPlacedMonthlyChart');
-if (certifiedMonthlyCanvas) {
-    const cpTrendData = reportPayload.certifiedPlacedMonthlyByCentre || { labels: [], series: [] };
-    const cpTotalSeries = (cpTrendData.series || []).find(function (series) {
-        return series.key === 'total' || series.is_total === true;
-    }) || { certified: [], placed: [] };
-    const certifiedMonthly = cpTotalSeries.certified || [];
-    const placedMonthly = cpTotalSeries.placed || [];
-    const cpMonthlyHasData = certifiedMonthly.some(function (value) { return value > 0; })
-        || placedMonthly.some(function (value) { return value > 0; });
+const cpTrendPalette = ['#0f172a', '#16a34a', '#2563eb', '#ea580c', '#a855f7', '#0891b2', '#db2777', '#65a30d'];
+const cpTrendData = reportPayload.certifiedPlacedMonthlyByCentre || { labels: [], series: [] };
+const cpCentreStats = reportPayload.certifiedPlacedCentreStats || [];
 
-    if (!cpMonthlyHasData) {
-        certifiedMonthlyCanvas.parentElement.innerHTML =
-            '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
-    } else {
-        new Chart(certifiedMonthlyCanvas, {
-            type: 'bar',
-            data: {
-                labels: cpTrendData.labels || [],
-                datasets: [
-                    {
-                        label: 'Certified',
-                        data: certifiedMonthly,
-                        backgroundColor: '#16a34a',
-                        borderRadius: 4,
-                        maxBarThickness: 42
-                    },
-                    {
-                        label: 'Placed',
-                        data: placedMonthly,
-                        backgroundColor: '#2563eb',
-                        borderRadius: 4,
-                        maxBarThickness: 42
-                    }
-                ]
-            },
-            options: reportMonitorChartOptions({
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' },
-                    tooltip: {
-                        callbacks: {
-                            footer: function (items) {
-                                const total = items.reduce(function (sum, item) {
-                                    return sum + (Number(item.parsed.y) || 0);
-                                }, 0);
-                                return 'Total: ' + total;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 0,
-                            autoSkip: true
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { precision: 0 },
-                        title: {
-                            display: !reportMonitorIsMobile(),
-                            text: 'Students'
-                        }
-                    }
-                }
-            })
-        });
-    }
-}
-
-/*==================================================
-CERTIFIED / PLACED — CENTRE WISE (BAR)
-==================================================*/
-
-const certifiedCentreCanvas = document.getElementById('certifiedPlacedCentreChart');
-if (certifiedCentreCanvas) {
-    const cpCentreStats = reportPayload.certifiedPlacedCentreStats || [];
-    const cpCentreHasData = cpCentreStats.some(function (row) {
-        return (row.certified || 0) > 0 || (row.placed || 0) > 0;
+function cpTrendHasMetric(metricKey) {
+    return (cpTrendData.series || []).some(function (series) {
+        return (series[metricKey] || []).some(function (value) { return value > 0; });
     });
-
-    if (!cpCentreStats.length || !cpCentreHasData) {
-        certifiedCentreCanvas.parentElement.innerHTML =
-            '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
-    } else {
-        new Chart(certifiedCentreCanvas, {
-            type: 'bar',
-            data: {
-                labels: cpCentreStats.map(function (row) {
-                    return row.centre_name;
-                }),
-                datasets: [
-                    {
-                        label: 'Certified',
-                        data: cpCentreStats.map(function (row) {
-                            return row.certified || 0;
-                        }),
-                        backgroundColor: '#16a34a',
-                        borderRadius: 4,
-                        maxBarThickness: 48
-                    },
-                    {
-                        label: 'Placed',
-                        data: cpCentreStats.map(function (row) {
-                            return row.placed || 0;
-                        }),
-                        backgroundColor: '#2563eb',
-                        borderRadius: 4,
-                        maxBarThickness: 48
-                    }
-                ]
-            },
-            options: reportMonitorChartOptions({
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { position: 'bottom' }
-                },
-                scales: {
-                    x: {
-                        ticks: {
-                            maxRotation: 45,
-                            minRotation: 0,
-                            autoSkip: true
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: { precision: 0 }
-                    }
-                }
-            })
-        });
-    }
 }
+
+function cpCentreHasMetric(metricKey) {
+    return cpCentreStats.some(function (row) { return (row[metricKey] || 0) > 0; });
+}
+
+function cpBuildTrendLineDatasets(metricKey, labelSuffix) {
+    return (cpTrendData.series || []).map(function (series, index) {
+        const isTotal = series.is_total === true || series.key === 'total';
+        const color = cpTrendPalette[index % cpTrendPalette.length];
+        return {
+            label: series.label + ' · ' + labelSuffix,
+            data: series[metricKey] || [],
+            borderColor: color,
+            backgroundColor: color + '22',
+            fill: isTotal,
+            borderWidth: isTotal ? 3 : 2,
+            tension: 0.35,
+            pointRadius: isTotal ? 4 : 3,
+            pointHoverRadius: isTotal ? 6 : 4
+        };
+    });
+}
+
+function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return;
+    }
+    if (!cpTrendHasMetric(metricKey)) {
+        canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
+        return;
+    }
+    new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: cpTrendData.labels || [],
+            datasets: cpBuildTrendLineDatasets(metricKey, labelSuffix)
+        },
+        options: reportMonitorChartOptions({
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, boxWidth: 10 }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        })
+    });
+}
+
+function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        return;
+    }
+    if (!cpCentreStats.length) {
+        canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
+        return;
+    }
+    new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: cpCentreStats.map(function (row) { return row.centre_name; }),
+            datasets: [{
+                label: label,
+                data: cpCentreStats.map(function (row) { return row[metricKey] || 0; }),
+                backgroundColor: color,
+                borderRadius: 4,
+                maxBarThickness: 52,
+                minBarLength: 2
+            }]
+        },
+        options: reportMonitorChartOptions({
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 0, autoSkip: false }
+                },
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        })
+    });
+}
+
+cpRenderTrendLineChart(
+    'certifiedMonthlyLineChart',
+    'certified',
+    'Certified',
+    'No certified data for the selected period.'
+);
+cpRenderCentreBarChart(
+    'certifiedCentreBarChart',
+    'certified',
+    'Certified',
+    '#16a34a',
+    'No centres found.'
+);
+cpRenderTrendLineChart(
+    'placedMonthlyLineChart',
+    'placed',
+    'Placed',
+    'No placed data for the selected period.'
+);
+cpRenderCentreBarChart(
+    'placedCentreBarChart',
+    'placed',
+    'Placed',
+    '#2563eb',
+    'No centres found.'
+);
 
 /*==================================================
 COURSE WISE GRAPH
