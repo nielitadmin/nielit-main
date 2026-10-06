@@ -546,8 +546,12 @@ $pageTitle="Report Monitor";
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     >
+    <?php if ($isPublicReportView): ?>
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <?php endif; ?>
 
     <title>
 
@@ -931,11 +935,164 @@ $pageTitle="Report Monitor";
 
 
         <?php if ($isPublicReportView): ?>
-        .admin-content,
-        .admin-main {
+        body.public-report-view {
+            overflow-x: hidden;
+            -webkit-text-size-adjust: 100%;
+        }
+        body.public-report-view .admin-wrapper,
+        body.public-report-view .admin-content,
+        body.public-report-view .admin-main {
             margin-left: 0 !important;
+            padding-left: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-width: 0 !important;
+        }
+        body.public-report-view .public-report-shell {
+            padding-left: max(0.75rem, env(safe-area-inset-left));
+            padding-right: max(0.75rem, env(safe-area-inset-right));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+        }
+        body.public-report-view .public-report-banner {
+            background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: #fff;
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        body.public-report-view .public-report-banner strong {
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 0.15rem;
+        }
+        body.public-report-view .report-page-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+            gap: 0.5rem;
+        }
+        body.public-report-view .report-page-header h2 {
+            font-size: 1.35rem;
+            line-height: 1.3;
+        }
+        body.public-report-view .report-page-header p {
+            font-size: 0.85rem;
+        }
+        body.public-report-view .report-filter-card .form-select,
+        body.public-report-view .report-filter-card label {
+            font-size: 0.95rem;
+        }
+        body.public-report-view .report-filter-card .form-select {
+            min-height: 44px;
+        }
+        body.public-report-view .report-filter-card .row > [class*="col-"] {
+            margin-bottom: 0.75rem;
+        }
+        body.public-report-view .kpi-row > [class*="col-"] {
+            margin-bottom: 0.75rem;
+        }
+        body.public-report-view .kpi-value {
+            font-size: 1.65rem;
+        }
+        body.public-report-view .kpi-card .card-body {
+            padding: 0.85rem 1rem;
+        }
+        body.public-report-view .kpi-card small {
+            font-size: 0.72rem;
+            line-height: 1.3;
+        }
+        body.public-report-view .chart-card .card-header,
+        body.public-report-view .table-card .card-header {
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            padding: 0.75rem 0.85rem;
+        }
+        body.public-report-view .chart-card .card-header strong,
+        body.public-report-view .table-card .card-header strong {
+            font-size: 0.95rem;
+            line-height: 1.35;
+        }
+        body.public-report-view .chart-card .card-header small,
+        body.public-report-view .table-card .card-header small {
+            display: block;
+            width: 100%;
+            margin-left: 0 !important;
+            font-size: 0.78rem;
+            line-height: 1.35;
+        }
+        body.public-report-view .chart-card .card-body {
+            min-height: 260px;
+            padding: 0.65rem 0.5rem 0.85rem;
+        }
+        body.public-report-view .table-responsive {
+            -webkit-overflow-scrolling: touch;
+            max-width: 100%;
+        }
+        body.public-report-view .table {
+            font-size: 0.78rem;
+        }
+        body.public-report-view .table th,
+        body.public-report-view .table td {
+            padding: 0.45rem 0.4rem;
+            vertical-align: middle;
+        }
+        body.public-report-view .btn {
+            min-height: 40px;
+        }
+        body.public-report-view .btn-sm {
+            min-height: 34px;
+        }
+        body.public-report-view #courseFyGanttWrap {
+            padding: 8px;
+        }
+        body.public-report-view .course-fy-graph-box {
+            height: 300px;
+            min-height: 300px;
+        }
+        @media (max-width: 767.98px) {
+            body.public-report-view .public-report-shell {
+                padding-top: max(0.5rem, env(safe-area-inset-top));
+            }
+            body.public-report-view .kpi-row {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.65rem;
+                margin-left: 0;
+                margin-right: 0;
+            }
+            body.public-report-view .kpi-row > [class*="col-"] {
+                width: 100%;
+                max-width: 100%;
+                padding: 0;
+                margin-bottom: 0 !important;
+            }
+            body.public-report-view .chart-card .card-body {
+                min-height: 220px;
+            }
+            body.public-report-view .report-page-header h2 {
+                font-size: 1.2rem;
+            }
+            body.public-report-view .card-header .d-flex.gap-2 {
+                width: 100%;
+            }
+            body.public-report-view .card-header .btn {
+                flex: 1 1 auto;
+                font-size: 0.8rem;
+            }
+            body.public-report-view .monthly-progress-table {
+                font-size: 11px;
+            }
+            body.public-report-view .monthly-progress-table .course-col {
+                min-width: 140px;
+            }
+        }
+        @media (max-width: 399.98px) {
+            body.public-report-view .kpi-row {
+                grid-template-columns: 1fr;
+            }
+            body.public-report-view .kpi-value {
+                font-size: 1.45rem;
+            }
         }
         <?php endif; ?>
 
@@ -953,7 +1110,7 @@ $pageTitle="Report Monitor";
 
 </head>
 
-<body class="admin-body <?php echo $isPublicReportView ? '' : htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<body class="admin-body <?php echo $isPublicReportView ? 'public-report-view' : htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
 
@@ -963,9 +1120,16 @@ $pageTitle="Report Monitor";
 
 <div class="admin-main">
 
-<div class="container-fluid py-3">
+<div class="container-fluid py-3 public-report-shell">
 
-<div class="d-flex justify-content-between align-items-center mb-4">
+<?php if ($isPublicReportView): ?>
+<div class="public-report-banner">
+    <strong><i class="fas fa-chart-line me-1"></i> NIELIT Report Monitor</strong>
+    <span>Read-only public view · <?php echo htmlspecialchars($reportScopeTitleLabel); ?> · <?php echo htmlspecialchars($monthScopeLabel); ?></span>
+</div>
+<?php endif; ?>
+
+<div class="d-flex justify-content-between align-items-center mb-4 report-page-header">
 
 <div>
 
@@ -1001,7 +1165,7 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 
 <!-- FILTERS -->
 
-<div class="card report-card mb-4">
+<div class="card report-card report-filter-card mb-4">
 
 <div class="card-body">
 
@@ -1163,9 +1327,9 @@ Q4 (Jan–Mar)
 </div>
 <!-- KPI CARDS -->
 
-<div class="row mb-4">
+<div class="row mb-4 kpi-row">
 
-    <div class="col-md-4 mb-3">
+    <div class="col-6 col-md-4 mb-3">
 
         <div class="card kpi-card bg-register">
 
@@ -1195,7 +1359,7 @@ Q4 (Jan–Mar)
 
     </div>
 
-    <div class="col-md-4 mb-3">
+    <div class="col-6 col-md-4 mb-3">
 
         <div class="card kpi-card bg-admission">
 
@@ -1225,7 +1389,7 @@ Q4 (Jan–Mar)
 
     </div>
 
-    <div class="col-md-3 mb-3">
+    <div class="col-6 col-md-3 mb-3">
 
         <div class="card kpi-card bg-batch">
 
@@ -1255,7 +1419,7 @@ Q4 (Jan–Mar)
 
     </div>
 
-    <div class="col-md-3 mb-3">
+    <div class="col-6 col-md-3 mb-3">
 
         <div class="card kpi-card bg-secondary">
 
@@ -2980,6 +3144,55 @@ const reportPayload = <?php echo json_encode(
     JSON_UNESCAPED_SLASHES
 ); ?>;
 
+const isPublicReportView = <?php echo $isPublicReportView ? 'true' : 'false'; ?>;
+
+function reportMonitorIsMobile() {
+    return window.matchMedia('(max-width: 767.98px)').matches;
+}
+
+function reportMonitorChartOptions(options) {
+    if (!isPublicReportView || !reportMonitorIsMobile()) {
+        return options;
+    }
+
+    const merged = Object.assign({}, options);
+    merged.maintainAspectRatio = false;
+    merged.responsive = true;
+    merged.plugins = Object.assign({}, merged.plugins || {});
+    merged.plugins.legend = Object.assign({
+        position: 'bottom',
+        labels: {
+            boxWidth: 10,
+            padding: 10,
+            font: { size: 10 },
+            usePointStyle: true
+        }
+    }, merged.plugins.legend || {});
+    merged.scales = Object.assign({}, merged.scales || {});
+    if (merged.scales.x) {
+        merged.scales.x.ticks = Object.assign({
+            maxRotation: 45,
+            minRotation: 0,
+            autoSkip: true,
+            maxTicksLimit: 8,
+            font: { size: 10 }
+        }, merged.scales.x.ticks || {});
+    }
+    if (merged.scales.y) {
+        merged.scales.y.ticks = Object.assign({
+            font: { size: 10 },
+            precision: 0
+        }, merged.scales.y.ticks || {});
+    }
+    return merged;
+}
+
+if (isPublicReportView && reportMonitorIsMobile() && typeof Chart !== 'undefined') {
+    Chart.defaults.font.size = 11;
+    Chart.defaults.plugins.legend.labels.boxWidth = 10;
+    Chart.defaults.plugins.legend.labels.padding = 8;
+}
+
 document.addEventListener(
 
 'DOMContentLoaded',
@@ -3018,7 +3231,7 @@ data:{
 labels: trendData.labels || reportPayload.batchMonthly.labels,
 datasets: trendDatasets
 },
-options:{
+options: reportMonitorChartOptions({
 responsive:true,
 maintainAspectRatio:false,
 plugins:{
@@ -3027,7 +3240,7 @@ legend:{ position:'bottom' }
 scales:{
 y:{ beginAtZero:true }
 }
-}
+})
 });
 
 }
@@ -3090,9 +3303,10 @@ backgroundColor:'#f59e0b'
 
 },
 
-options:{
+options: reportMonitorChartOptions({
 
 responsive:true,
+maintainAspectRatio:false,
 
 plugins:{
 
@@ -3106,6 +3320,14 @@ position:'bottom'
 
 scales:{
 
+x: {
+ticks: {
+maxRotation: 45,
+minRotation: 0,
+autoSkip: true
+}
+},
+
 y:{
 
 beginAtZero:true
@@ -3114,7 +3336,7 @@ beginAtZero:true
 
 }
 
-}
+})
 
 }
 
@@ -3179,7 +3401,7 @@ if (certifiedCanvas) {
                 labels: cpTrendData.labels || [],
                 datasets: cpDatasets
             },
-            options: {
+            options: reportMonitorChartOptions({
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {
@@ -3213,7 +3435,7 @@ if (certifiedCanvas) {
                     x: {
                         grid: { display: false },
                         title: {
-                            display: true,
+                            display: !reportMonitorIsMobile(),
                             text: 'Month'
                         }
                     },
@@ -3221,12 +3443,12 @@ if (certifiedCanvas) {
                         beginAtZero: true,
                         ticks: { precision: 0 },
                         title: {
-                            display: true,
+                            display: !reportMonitorIsMobile(),
                             text: 'Certified + Placed'
                         }
                     }
                 }
-            }
+            })
         });
     }
 }
@@ -3311,7 +3533,7 @@ backgroundColor:'#f59e0b'
 
 },
 
-options:{
+options: reportMonitorChartOptions({
 
 responsive:true,
 
@@ -3349,7 +3571,7 @@ x:{
 
 ticks:{
 
-autoSkip:false,
+autoSkip: isPublicReportView && reportMonitorIsMobile(),
 
 maxRotation:45,
 
@@ -3373,7 +3595,7 @@ precision:0
 
 }
 
-}
+})
 
 }
 
