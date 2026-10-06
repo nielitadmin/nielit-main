@@ -517,6 +517,78 @@ if (!function_exists('onlineClassJitsiBase64UrlEncode')) {
     }
 }
 
+if (!function_exists('onlineClassJitsiToolbarButtons')) {
+    /**
+     * Toolbar buttons for embedded Jitsi — hosts get recording & room controls.
+     *
+     * @return list<string>
+     */
+    function onlineClassJitsiToolbarButtons(bool $isModerator = false): array
+    {
+        $base = [
+            'microphone',
+            'camera',
+            'desktop',
+            'fullscreen',
+            'fodeviceselection',
+            'hangup',
+            'chat',
+            'raisehand',
+            'tileview',
+            'videoquality',
+            'settings',
+        ];
+
+        if (!$isModerator) {
+            return $base;
+        }
+
+        return [
+            'microphone',
+            'camera',
+            'desktop',
+            'fullscreen',
+            'fodeviceselection',
+            'hangup',
+            'chat',
+            'recording',
+            'livestreaming',
+            'raisehand',
+            'participants-pane',
+            'tileview',
+            'security',
+            'invite',
+            'videoquality',
+            'stats',
+            'shortcuts',
+            'profile',
+            'settings',
+        ];
+    }
+}
+
+if (!function_exists('onlineClassJitsiConfigOverwrite')) {
+    /**
+     * @return array<string,mixed>
+     */
+    function onlineClassJitsiConfigOverwrite(bool $isModerator = false): array
+    {
+        $config = [
+            'startWithAudioMuted' => true,
+            'prejoinPageEnabled' => true,
+            'disableDeepLinking' => true,
+        ];
+
+        if ($isModerator) {
+            $config['disableRecording'] = false;
+            $config['fileRecordingsEnabled'] = true;
+            $config['liveStreamingEnabled'] = true;
+        }
+
+        return $config;
+    }
+}
+
 if (!function_exists('onlineClassGenerateJitsiJwt')) {
     /**
      * HS256 JWT for self-hosted Jitsi (moderator = admin/host).
@@ -551,6 +623,15 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
             ],
         ];
 
+        if ($isModerator) {
+            $payload['context']['features'] = [
+                'recording' => true,
+                'livestreaming' => true,
+                'transcription' => true,
+                'outbound-call' => false,
+            ];
+        }
+
         $jsonFlags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
         $header = onlineClassJitsiBase64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256'], $jsonFlags));
         $body = onlineClassJitsiBase64UrlEncode(json_encode($payload, $jsonFlags));
@@ -573,17 +654,10 @@ if (!function_exists('onlineClassJitsiEmbedOptions')) {
             'width' => '100%',
             'height' => '100%',
             'userInfo' => ['displayName' => $displayName !== '' ? $displayName : 'Participant'],
-            'configOverwrite' => [
-                'startWithAudioMuted' => true,
-                'prejoinPageEnabled' => true,
-                'disableDeepLinking' => true,
-            ],
+            'configOverwrite' => onlineClassJitsiConfigOverwrite($isModerator),
             'interfaceConfigOverwrite' => [
-                'TOOLBAR_BUTTONS' => [
-                    'microphone', 'camera', 'desktop', 'fullscreen',
-                    'fodeviceselection', 'hangup', 'chat', 'raisehand',
-                    'tileview', 'settings', 'videoquality',
-                ],
+                'TOOLBAR_BUTTONS' => onlineClassJitsiToolbarButtons($isModerator),
+                'SHOW_JITSI_WATERMARK' => false,
             ],
         ];
 
@@ -659,6 +733,12 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
         }
         $parts[] = 'config.startWithAudioMuted=true';
         $parts[] = 'config.disableDeepLinking=true';
+
+        if ($isModerator) {
+            $parts[] = 'config.disableRecording=false';
+            $parts[] = 'config.fileRecordingsEnabled=true';
+            $parts[] = 'config.liveStreamingEnabled=true';
+        }
 
         return $url . '#' . implode('&', $parts);
     }

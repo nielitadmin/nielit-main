@@ -13,3 +13,8 @@ config.disableSimulcast = false;
 
 // Branding (optional — change title in interface_config.js too)
 config.defaultLanguage = 'en';
+
+// Recording / livestream (requires Jibri on the Jitsi server for cloud recording)
+config.disableRecording = false;
+config.fileRecordingsEnabled = true;
+config.liveStreamingEnabled = true;
