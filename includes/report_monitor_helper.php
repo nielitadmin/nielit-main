@@ -2918,5 +2918,344 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         $out['options'] = $options;
         return $out;
     }
+
+    /**
+     * Ensure every active centre appears in centre-wise stats (e.g. Raipur with zero activity).
+     */
+    function report_monitor_merge_all_active_centres($conn, array $centreStats): array {
+        if (!report_monitor_table_exists($conn, 'centres')) {
+            return $centreStats;
+        }
+
+        $byId = [];
+        $extras = [];
+        foreach ($centreStats as $row) {
+            $id = (int) ($row['centre_id'] ?? 0);
+            if ($id > 0) {
+                $byId[$id] = $row;
+            } else {
+                $extras[] = $row;
+            }
+        }
+
+        $merged = [];
+        $result = $conn->query('SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC');
+        if ($result) {
+            while ($cen = $result->fetch_assoc()) {
+                $id = (int) ($cen['id'] ?? 0);
+                if ($id <= 0) {
+                    continue;
+                }
+                if (isset($byId[$id])) {
+                    $merged[] = $byId[$id];
+                    continue;
+                }
+                $merged[] = [
+                    'centre_id' => $id,
+                    'centre_name' => (string) ($cen['name'] ?? ''),
+                    'centre_code' => (string) ($cen['code'] ?? ''),
+                    'course_count' => 0,
+                    'batch_count' => 0,
+                    'applications' => 0,
+                    'batch_enrolled' => 0,
+                    'unassigned' => 0,
+                ];
+            }
+        }
+
+        foreach ($extras as $row) {
+            $merged[] = $row;
+        }
+
+        return $merged;
+    }
+
+    /** Monthly admissions/batches: total + one series per centre (no Applied). */
+    function report_monitor_get_period_monthly_by_centre($conn, array $courseIds = [], $centreId = 0, array $monthFilter = [], array $graphMonths = []) {
+        $axis = report_monitor_build_graph_month_axis($graphMonths);
+        $labels = $axis['labels'];
+        $total = report_monitor_get_period_monthly($conn, $courseIds, $centreId, $monthFilter, $graphMonths);
+
+        $series = [[
+            'key' => 'total',
+            'label' => 'Total (All Centres)',
+            'admissions' => $total['batch_enrollments'],
+            'batches' => $total['batches_created'],
+        ]];
+
+        if ($centreId > 0) {
+            return ['labels' => $labels, 'series' => $series];
+        }
+
+        foreach (report_monitor_get_centres_list($conn) as $cen) {
+            $cid = (int) ($cen['id'] ?? 0);
+            if ($cid <= 0) {
+                continue;
+            }
+            $centreData = report_monitor_get_period_monthly($conn, $courseIds, $cid, $monthFilter, $graphMonths);
+            $series[] = [
+                'key' => 'centre_' . $cid,
+                'label' => (string) ($cen['name'] ?? ('Centre ' . $cid)),
+                'admissions' => $centreData['batch_enrollments'],
+                'batches' => $centreData['batches_created'],
+            ];
+        }
+
+        return ['labels' => $labels, 'series' => $series];
+    }
+
+    function report_monitor_normalize_gender_key($rawGender): string {
+        $g = strtolower(trim((string) $rawGender));
+        if ($g === 'm' || $g === 'male') {
+            return 'male';
+        }
+        if ($g === 'f' || $g === 'female') {
+            return 'female';
+        }
+        return 'other';
+    }
+
+    /** Male / Female admissions by FY quarter (batch-enrolled students). */
+    function report_monitor_get_gender_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $rows = [
+            'male' => ['key' => 'male', 'label' => 'Male', 'Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0, 'total' => 0],
+            'female' => ['key' => 'female', 'label' => 'Female', 'Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0, 'total' => 0],
+            'other' => ['key' => 'other', 'label' => 'Other', 'Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0, 'total' => 0],
+        ];
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       s.gender AS raw_gender,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_gender";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = (string) ($row['quarter_key'] ?? '');
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $count = (int) ($row['total'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+                $genderKey = report_monitor_normalize_gender_key($row['raw_gender'] ?? '');
+                if (!isset($rows[$genderKey])) {
+                    $genderKey = 'other';
+                }
+                $rows[$genderKey][$quarter] += $count;
+                $rows[$genderKey]['total'] += $count;
+            }
+        }
+
+        return array_values($rows);
+    }
+
+    /** Certified (exam pass) and placed counts per centre for charts/tables. */
+    function report_monitor_get_certified_placed_centre_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
+        $merged = report_monitor_merge_all_active_centres($conn, report_monitor_get_centre_stats($conn, $courseIds, $centreId, $monthFilter));
+        $stats = [];
+        foreach ($merged as $row) {
+            $stats[(int) ($row['centre_id'] ?? 0)] = [
+                'centre_id' => (int) ($row['centre_id'] ?? 0),
+                'centre_name' => (string) ($row['centre_name'] ?? ''),
+                'certified' => 0,
+                'placed' => 0,
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeStudent = report_monitor_student_active_sql('s');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $hasResult = report_monitor_table_has_column($conn, 'batch_students', 'result_status');
+        $hasPlacement = report_monitor_table_has_column($conn, 'batch_students', 'placement_status');
+
+        if ($hasResult) {
+            $statusNorm = "LOWER(REPLACE(REPLACE(TRIM(IFNULL(bs.result_status,'')), ' ', '_'), '-', '_'))";
+            $sql = "SELECT COALESCE(cen.id, 0) AS centre_id,
+                           COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
+                           COUNT(DISTINCT CASE WHEN {$statusNorm} IN ('pass','certified','pass_certified') THEN bs.id END) AS certified_count
+                    FROM batch_students bs
+                    INNER JOIN batches b ON b.id = bs.batch_id
+                    INNER JOIN courses c ON c.id = b.course_id
+                    LEFT JOIN centres cen ON cen.id = c.centre_id
+                    LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                    WHERE (s.id IS NULL OR {$activeStudent}){$scopeFilter['sql']}";
+            $types = $scopeFilter['types'];
+            $values = $scopeFilter['values'];
+            if (!empty($monthFilter['active'])) {
+                $sql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+                $types .= 'ss';
+                $values[] = $monthFilter['end'];
+                $values[] = $monthFilter['start'];
+            }
+            $sql .= ' GROUP BY centre_id, centre_name';
+            $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $cid = (int) ($row['centre_id'] ?? 0);
+                    if (!isset($stats[$cid])) {
+                        $stats[$cid] = [
+                            'centre_id' => $cid,
+                            'centre_name' => (string) ($row['centre_name'] ?? ''),
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $stats[$cid]['certified'] = (int) ($row['certified_count'] ?? 0);
+                }
+            }
+        }
+
+        if ($hasPlacement) {
+            $sql = "SELECT COALESCE(cen.id, 0) AS centre_id,
+                           COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned Centre') AS centre_name,
+                           COUNT(DISTINCT CASE WHEN LOWER(TRIM(COALESCE(bs.placement_status, ''))) = 'placed' THEN bs.id END) AS placed_count
+                    FROM batch_students bs
+                    INNER JOIN batches b ON b.id = bs.batch_id
+                    INNER JOIN courses c ON c.id = b.course_id
+                    LEFT JOIN centres cen ON cen.id = c.centre_id
+                    LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                    WHERE (s.id IS NULL OR {$activeStudent}){$scopeFilter['sql']}";
+            $types = $scopeFilter['types'];
+            $values = $scopeFilter['values'];
+            if (!empty($monthFilter['active'])) {
+                $sql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+                $types .= 'ss';
+                $values[] = $monthFilter['end'];
+                $values[] = $monthFilter['start'];
+            }
+            $sql .= ' GROUP BY centre_id, centre_name';
+            $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $cid = (int) ($row['centre_id'] ?? 0);
+                    if (!isset($stats[$cid])) {
+                        $stats[$cid] = [
+                            'centre_id' => $cid,
+                            'centre_name' => (string) ($row['centre_name'] ?? ''),
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $stats[$cid]['placed'] = (int) ($row['placed_count'] ?? 0);
+                }
+            }
+        }
+
+        $rows = array_values($stats);
+        usort($rows, static function ($a, $b) {
+            return strcasecmp((string) $a['centre_name'], (string) $b['centre_name']);
+        });
+        return $rows;
+    }
+
+    function report_monitor_ensure_public_share_schema($conn): void {
+        static $ready = false;
+        if ($ready) {
+            return;
+        }
+        $sql = "CREATE TABLE IF NOT EXISTS report_monitor_public_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            token VARCHAR(64) NOT NULL,
+            is_active TINYINT(1) NOT NULL DEFAULT 1,
+            created_by VARCHAR(120) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_rm_public_token (token)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        @$conn->query($sql);
+        $ready = true;
+    }
+
+    function report_monitor_get_active_public_token($conn): string {
+        report_monitor_ensure_public_share_schema($conn);
+        $res = $conn->query('SELECT token FROM report_monitor_public_links WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
+        if ($res && ($row = $res->fetch_assoc())) {
+            return trim((string) ($row['token'] ?? ''));
+        }
+        return '';
+    }
+
+    function report_monitor_regenerate_public_token($conn, string $createdBy = 'admin'): string {
+        report_monitor_ensure_public_share_schema($conn);
+        $token = bin2hex(random_bytes(24));
+        @$conn->query('UPDATE report_monitor_public_links SET is_active = 0');
+        $stmt = $conn->prepare('INSERT INTO report_monitor_public_links (token, is_active, created_by) VALUES (?, 1, ?)');
+        if ($stmt) {
+            $stmt->bind_param('ss', $token, $createdBy);
+            $stmt->execute();
+            $stmt->close();
+        }
+        return $token;
+    }
+
+    function report_monitor_validate_public_token($conn, string $token): bool {
+        $token = strtolower(trim($token));
+        if ($token === '' || !preg_match('/^[a-f0-9]{32,64}$/', $token)) {
+            return false;
+        }
+        report_monitor_ensure_public_share_schema($conn);
+        $stmt = $conn->prepare('SELECT id FROM report_monitor_public_links WHERE token = ? AND is_active = 1 LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('s', $token);
+        $stmt->execute();
+        $ok = (bool) $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return $ok;
+    }
+
+    function report_monitor_build_public_url(string $token, int $year = 0, string $quarter = 'FY', int $centreId = 0): string {
+        if (!function_exists('app_url')) {
+            require_once __DIR__ . '/url_helper.php';
+        }
+        $params = ['share_token' => $token];
+        if ($year > 0) {
+            $params['year'] = $year;
+        }
+        if ($quarter !== '') {
+            $params['quarter'] = $quarter;
+        }
+        if ($centreId > 0) {
+            $params['centre_id'] = $centreId;
+        }
+        return app_url('admin/report_monitor') . '?' . http_build_query($params);
+    }
 }
 

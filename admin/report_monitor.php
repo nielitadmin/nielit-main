@@ -16,10 +16,21 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/report_monitor_helper.php';
 
+$shareToken = trim((string) ($_GET['share_token'] ?? ''));
+$isPublicReportView = false;
+if ($shareToken !== '') {
+    $isPublicReportView = report_monitor_validate_public_token($conn, $shareToken);
+    if (!$isPublicReportView) {
+        http_response_code(403);
+        echo 'This report link is invalid or has expired.';
+        exit;
+    }
+}
+
 /*------------------------------------------------------------
 | Login Check
 -------------------------------------------------------------*/
-if (!isset($_SESSION['admin'])) {
+if (!$isPublicReportView && !isset($_SESSION['admin'])) {
     header("Location: login.php");
     exit;
 }
@@ -29,7 +40,7 @@ if (!isset($_SESSION['admin'])) {
 -------------------------------------------------------------*/
 $adminRole = $_SESSION['admin_role'] ?? '';
 
-if ($adminRole !== 'master_admin') {
+if (!$isPublicReportView && $adminRole !== 'master_admin') {
     $_SESSION['message'] = "Access Denied";
     $_SESSION['message_type'] = "danger";
 
@@ -172,12 +183,45 @@ $overallStats = report_monitor_get_overall_stats(
     $monthFilter
 );
 
-$centreStats = report_monitor_get_centre_stats(
+$centreStats = report_monitor_merge_all_active_centres(
+    $conn,
+    report_monitor_get_centre_stats(
+        $conn,
+        $scopedCourseIds,
+        $centreId,
+        $monthFilter
+    )
+);
+
+$batchMonthlyByCentre = report_monitor_get_period_monthly_by_centre(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter,
+    $quarterRange['graph_months'] ?? []
+);
+
+$genderQuarterSummary = report_monitor_get_gender_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+
+$certifiedPlacedCentreStats = report_monitor_get_certified_placed_centre_stats(
     $conn,
     $scopedCourseIds,
     $centreId,
     $monthFilter
 );
+
+$reportPublicShareToken = report_monitor_get_active_public_token($conn);
+if ($reportPublicShareToken === '' && !$isPublicReportView) {
+    $reportPublicShareToken = report_monitor_regenerate_public_token($conn, (string) ($_SESSION['admin'] ?? 'admin'));
+}
+$reportPublicShareUrl = $reportPublicShareToken !== ''
+    ? report_monitor_build_public_url($reportPublicShareToken, $selectedYear, $selectedQuarter, $centreId)
+    : '';
 
 $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $conn,
@@ -463,7 +507,11 @@ $reportPayload=[
 
     'batchMonthly'=>$batchMonthly,
 
+    'batchMonthlyByCentre'=>$batchMonthlyByCentre,
+
     'centreStats'=>$centreStats,
+
+    'certifiedPlacedCentreStats'=>$certifiedPlacedCentreStats,
 
     'categoryStats'=>$categoryStats,
 
@@ -873,6 +921,15 @@ $pageTitle="Report Monitor";
         }
 
 
+        <?php if ($isPublicReportView): ?>
+        .admin-content,
+        .admin-main {
+            margin-left: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        <?php endif; ?>
+
         .table-card{
 
             border:none;
@@ -887,11 +944,11 @@ $pageTitle="Report Monitor";
 
 </head>
 
-<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<body class="admin-body <?php echo $isPublicReportView ? '' : htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <div class="admin-wrapper">
 
-<?php include __DIR__.'/includes/sidebar.php'; ?>
+<?php if (!$isPublicReportView): include __DIR__.'/includes/sidebar.php'; endif; ?>
 
 <main class="admin-content">
 
@@ -917,7 +974,19 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 
 </p>
 
+<?php if ($isPublicReportView): ?>
+<p class="text-muted mb-0 small"><i class="fas fa-link"></i> Public read-only report view</p>
+<?php endif; ?>
+
 </div>
+
+<?php if (!$isPublicReportView && $reportPublicShareUrl !== ''): ?>
+<div class="d-flex flex-wrap gap-2 align-items-center">
+    <input type="text" class="form-control form-control-sm" id="reportPublicShareUrl" readonly value="<?php echo htmlspecialchars($reportPublicShareUrl); ?>" style="min-width:280px;max-width:520px;">
+    <button type="button" class="btn btn-outline-primary btn-sm" id="copyReportShareUrlBtn"><i class="fas fa-copy"></i> Copy Public Link</button>
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="regenerateReportShareUrlBtn"><i class="fas fa-sync"></i> New Link</button>
+</div>
+<?php endif; ?>
 
 </div>
 
@@ -928,6 +997,9 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 <div class="card-body">
 
 <form method="GET">
+<?php if ($isPublicReportView && $shareToken !== ''): ?>
+<input type="hidden" name="share_token" value="<?php echo htmlspecialchars($shareToken); ?>">
+<?php endif; ?>
 
 <div class="row">
 
@@ -1224,7 +1296,7 @@ Q4 (Jan–Mar)
 
                 <small class="text-muted ms-2">
 
-                    <?php echo htmlspecialchars($monthScopeLabel); ?>
+                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Total + per centre (Admissions)
 
                 </small>
 
@@ -1276,6 +1348,20 @@ Q4 (Jan–Mar)
 
     </div>
 
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-12">
+        <div class="card chart-card">
+            <div class="card-header">
+                <strong>Certified / Placed (Centre Wise)</strong>
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?></small>
+            </div>
+            <div class="card-body">
+                <canvas id="certifiedPlacedCentreChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- CATEGORY / COURSE GRAPH -->
@@ -1781,6 +1867,51 @@ Q4 (Jan–Mar)
                     <th class="text-end fw-bold">
                         <?php echo $socialCategoryQuarterGrandAchievement !== null ? number_format($socialCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>
                     </th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card table-card mb-4" id="genderQuarterCard">
+    <div class="card-header">
+        <strong>Gender Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
+        <small class="text-muted ms-2">Male / Female / Other (batch-enrolled admissions)</small>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Gender</th>
+                    <th class="text-end">Q1</th>
+                    <th class="text-end">Q2</th>
+                    <th class="text-end">Q3</th>
+                    <th class="text-end">Q4</th>
+                    <th class="text-end">Total</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($genderQuarterSummary as $genderRow): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars($genderRow['label']); ?></td>
+                    <td class="text-end"><?php echo number_format($genderRow['Q1']); ?></td>
+                    <td class="text-end"><?php echo number_format($genderRow['Q2']); ?></td>
+                    <td class="text-end"><?php echo number_format($genderRow['Q3']); ?></td>
+                    <td class="text-end"><?php echo number_format($genderRow['Q4']); ?></td>
+                    <td class="text-end fw-bold"><?php echo number_format($genderRow['total']); ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot class="table-light">
+                <tr>
+                    <th>Grand Total</th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q1'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q2'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q3'))); ?></th>
+                    <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q4'))); ?></th>
+                    <th class="text-end fw-bold"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'total'))); ?></th>
                 </tr>
                 </tfoot>
             </table>
@@ -2829,102 +2960,37 @@ document.getElementById(
 
 if(batchCanvas){
 
+const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
+const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
+const trendDatasets = (trendData.series || []).map(function(series, index){
+    const color = trendPalette[index % trendPalette.length];
+    return {
+        label: series.label + ' · Admissions',
+        data: series.admissions || [],
+        borderColor: color,
+        backgroundColor: color + '22',
+        fill: index === 0,
+        borderWidth: index === 0 ? 3 : 2,
+        tension: .35
+    };
+});
+
 new Chart(batchCanvas,{
-
 type:'line',
-
 data:{
-
-labels:
-reportPayload.batchMonthly.labels,
-
-datasets:[
-
-{
-
-label:'Applied',
-
-data:
-reportPayload.batchMonthly.applications,
-
-borderColor:'#2563eb',
-
-backgroundColor:'rgba(37,99,235,.12)',
-
-fill:true,
-
-borderWidth:3,
-
-tension:.35
-
+labels: trendData.labels || reportPayload.batchMonthly.labels,
+datasets: trendDatasets
 },
-
-{
-
-label:'Admissions',
-
-data:
-reportPayload.batchMonthly.batch_enrollments,
-
-borderColor:'#16a34a',
-
-backgroundColor:'rgba(22,163,74,.12)',
-
-fill:true,
-
-borderWidth:3,
-
-tension:.35
-
-},
-
-{
-
-label:'Batches',
-
-data:
-reportPayload.batchMonthly.batches_created,
-
-borderColor:'#f59e0b',
-
-backgroundColor:'rgba(245,158,11,.12)',
-
-fill:true,
-
-borderWidth:3,
-
-tension:.35
-
-}
-
-]
-
-},
-
 options:{
-
 responsive:true,
-
 maintainAspectRatio:false,
-
 plugins:{
-
-legend:{
-position:'bottom'
-}
-
+legend:{ position:'bottom' }
 },
-
 scales:{
-
-y:{
-beginAtZero:true
+y:{ beginAtZero:true }
 }
-
 }
-
-}
-
 });
 
 }
@@ -2959,19 +3025,6 @@ datasets:[
 
 {
 
-label:'Applied',
-
-data:
-reportPayload.centreStats.map(
-x=>x.applications
-),
-
-backgroundColor:'#2563eb'
-
-},
-
-{
-
 label:'Admissions',
 
 data:
@@ -2980,6 +3033,19 @@ x=>x.batch_enrolled
 ),
 
 backgroundColor:'#16a34a'
+
+},
+
+{
+
+label:'Batches',
+
+data:
+reportPayload.centreStats.map(
+x=>x.batch_count
+),
+
+backgroundColor:'#f59e0b'
 
 }
 
@@ -3018,6 +3084,44 @@ beginAtZero:true
 );
 
 }
+
+/*==================================================
+CERTIFIED / PLACED BY CENTRE
+==================================================*/
+
+const certifiedCanvas = document.getElementById('certifiedPlacedCentreChart');
+if (certifiedCanvas) {
+    const certifiedRows = reportPayload.certifiedPlacedCentreStats || [];
+    if (!certifiedRows.length) {
+        certifiedCanvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
+    } else {
+        new Chart(certifiedCanvas, {
+            type: 'bar',
+            data: {
+                labels: certifiedRows.map(function (x) { return x.centre_name; }),
+                datasets: [
+                    {
+                        label: 'Certified',
+                        data: certifiedRows.map(function (x) { return x.certified; }),
+                        backgroundColor: '#16a34a'
+                    },
+                    {
+                        label: 'Placed',
+                        data: certifiedRows.map(function (x) { return x.placed; }),
+                        backgroundColor: '#2563eb'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+        });
+    }
+}
+
 /*==================================================
 COURSE WISE GRAPH
 ==================================================*/
@@ -3054,19 +3158,6 @@ x=>x.course_code
 ),
 
 datasets:[
-
-{
-
-label:'Applied',
-
-data:
-reportPayload.courseStats.map(
-x=>x.applications
-),
-
-backgroundColor:'#2563eb'
-
-},
 
 {
 
@@ -4670,6 +4761,52 @@ function bindCategoryTargetsForm(formId, errorBoxId, modalId) {
 
 bindCategoryTargetsForm('categoryTargetsForm', 'categoryTargetsError', 'categoryTargetsModal');
 bindCategoryTargetsForm('socialCategoryTargetsForm', 'socialCategoryTargetsError', 'socialCategoryTargetsModal');
+
+const copyShareBtn = document.getElementById('copyReportShareUrlBtn');
+const shareUrlInput = document.getElementById('reportPublicShareUrl');
+if (copyShareBtn && shareUrlInput) {
+    copyShareBtn.addEventListener('click', function () {
+        shareUrlInput.select();
+        shareUrlInput.setSelectionRange(0, 99999);
+        const text = shareUrlInput.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                copyShareBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                setTimeout(function () { copyShareBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Public Link'; }, 1500);
+            });
+        } else {
+            document.execCommand('copy');
+        }
+    });
+}
+
+const regenerateShareBtn = document.getElementById('regenerateReportShareUrlBtn');
+if (regenerateShareBtn && shareUrlInput) {
+    regenerateShareBtn.addEventListener('click', async function () {
+        regenerateShareBtn.disabled = true;
+        const params = new URLSearchParams(window.location.search);
+        const body = new URLSearchParams();
+        body.set('year', params.get('year') || '');
+        body.set('quarter', params.get('quarter') || 'FY');
+        body.set('centre_id', params.get('centre_id') || '0');
+        try {
+            const response = await fetch(<?php echo json_encode(APP_URL . '/admin/ajax_report_monitor_share.php', JSON_UNESCAPED_SLASHES); ?>, {
+                method: 'POST',
+                body: body,
+                credentials: 'same-origin'
+            });
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.message || 'Could not create link');
+            }
+            shareUrlInput.value = data.url;
+        } catch (err) {
+            alert(err.message || 'Could not regenerate public link.');
+        } finally {
+            regenerateShareBtn.disabled = false;
+        }
+    });
+}
 
 </script>
 
