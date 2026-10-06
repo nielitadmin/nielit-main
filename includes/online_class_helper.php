@@ -341,6 +341,9 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
         $jwtEnabled = !empty($data['jwt_enabled']) ? 1 : 0;
         if ($provider === 'official' || $provider === 'disabled') {
             $jwtEnabled = 0;
+        } elseif (in_array($provider, ['nielit_gcp', 'custom'], true)) {
+            // Self-hosted: JWT required to block public room access
+            $jwtEnabled = 1;
         }
 
         $jwtAppId = trim((string) ($data['jwt_app_id'] ?? ''));
@@ -567,6 +570,22 @@ if (!function_exists('onlineClassJitsiToolbarButtons')) {
     }
 }
 
+if (!function_exists('onlineClassIsSelfHostedJitsi')) {
+    function onlineClassIsSelfHostedJitsi(): bool
+    {
+        $domain = strtolower(onlineClassJitsiDomain());
+        return $domain !== '' && !in_array($domain, ['meet.jit.si', '8x8.vc'], true);
+    }
+}
+
+if (!function_exists('onlineClassRequiresJitsiJwt')) {
+    /** Self-hosted rooms must use JWT so only portal-authenticated users can connect. */
+    function onlineClassRequiresJitsiJwt(): bool
+    {
+        return onlineClassIsSelfHostedJitsi();
+    }
+}
+
 if (!function_exists('onlineClassJitsiConfigOverwrite')) {
     /**
      * @return array<string,mixed>
@@ -577,12 +596,21 @@ if (!function_exists('onlineClassJitsiConfigOverwrite')) {
             'startWithAudioMuted' => true,
             'prejoinPageEnabled' => true,
             'disableDeepLinking' => true,
+            'enableLobby' => false,
+            'enableGuestDomain' => false,
+            'guestDialOutEnabled' => false,
+            'guestDialOutUrl' => '',
         ];
 
         if ($isModerator) {
             $config['disableRecording'] = false;
             $config['fileRecordingsEnabled'] = true;
             $config['liveStreamingEnabled'] = true;
+            // Local recording works without Jibri (cloud recording needs Jibri on the server)
+            $config['localRecording'] = [
+                'disable' => false,
+                'notifyAllParticipants' => true,
+            ];
         }
 
         return $config;
@@ -594,8 +622,12 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
      * HS256 JWT for self-hosted Jitsi (moderator = admin/host).
      * Secret must match JWT_APP_SECRET on the Jitsi server.
      */
-    function onlineClassGenerateJitsiJwt(string $roomName, string $displayName = '', bool $isModerator = false): string
-    {
+    function onlineClassGenerateJitsiJwt(
+        string $roomName,
+        string $displayName = '',
+        bool $isModerator = false,
+        string $userId = ''
+    ): string {
         if (!onlineClassJitsiJwtEnabled()) {
             return '';
         }
@@ -606,20 +638,26 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
             return '';
         }
 
+        $roomName = trim($roomName);
         $now = time();
-        // sub must match the Jitsi VirtualHost domain; room '*' allows any class room
+        $user = [
+            'name' => $displayName !== '' ? $displayName : 'Participant',
+            'moderator' => $isModerator,
+        ];
+        if ($userId !== '') {
+            $user['id'] = $userId;
+        }
+
+        // Room-specific token: only valid for this class (blocks reuse on other rooms)
         $payload = [
             'iss' => $appId,
             'aud' => 'jitsi',
             'sub' => strtolower(onlineClassJitsiDomain()),
-            'room' => '*',
-            'exp' => $now + 7200,
+            'room' => $roomName,
+            'exp' => $now + 3600,
             'nbf' => $now - 30,
             'context' => [
-                'user' => [
-                    'name' => $displayName !== '' ? $displayName : 'Participant',
-                    'moderator' => $isModerator,
-                ],
+                'user' => $user,
             ],
         ];
 
@@ -628,6 +666,13 @@ if (!function_exists('onlineClassGenerateJitsiJwt')) {
                 'recording' => true,
                 'livestreaming' => true,
                 'transcription' => true,
+                'outbound-call' => false,
+            ];
+        } else {
+            $payload['context']['features'] = [
+                'recording' => false,
+                'livestreaming' => false,
+                'transcription' => false,
                 'outbound-call' => false,
             ];
         }
@@ -647,8 +692,12 @@ if (!function_exists('onlineClassJitsiEmbedOptions')) {
      *
      * @return array<string,mixed>
      */
-    function onlineClassJitsiEmbedOptions(string $roomName, string $displayName = '', bool $isModerator = false): array
-    {
+    function onlineClassJitsiEmbedOptions(
+        string $roomName,
+        string $displayName = '',
+        bool $isModerator = false,
+        string $userId = ''
+    ): array {
         $options = [
             'roomName' => trim($roomName),
             'width' => '100%',
@@ -661,7 +710,7 @@ if (!function_exists('onlineClassJitsiEmbedOptions')) {
             ],
         ];
 
-        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator);
+        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator, $userId);
         if ($jwt !== '') {
             $options['jwt'] = $jwt;
         }
@@ -712,8 +761,12 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
     /**
      * Full-page Jitsi room URL (free when using meet.jit.si without iframe embed).
      */
-    function onlineClassExternalRoomUrl(string $roomName, string $displayName = '', bool $isModerator = false): string
-    {
+    function onlineClassExternalRoomUrl(
+        string $roomName,
+        string $displayName = '',
+        bool $isModerator = false,
+        string $userId = ''
+    ): string {
         $domain = onlineClassJitsiDomain();
         if ($domain === '') {
             return '';
@@ -722,7 +775,7 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
         $roomName = trim($roomName);
         $url = 'https://' . $domain . '/' . rawurlencode($roomName);
 
-        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator);
+        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator, $userId);
 
         $parts = [];
         if ($jwt !== '') {
@@ -738,6 +791,7 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
             $parts[] = 'config.disableRecording=false';
             $parts[] = 'config.fileRecordingsEnabled=true';
             $parts[] = 'config.liveStreamingEnabled=true';
+            $parts[] = 'config.localRecording.disable=false';
         }
 
         return $url . '#' . implode('&', $parts);

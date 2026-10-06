@@ -5,6 +5,7 @@ config.startWithAudioMuted = true;
 config.startWithVideoMuted = true;
 config.prejoinPageEnabled = true;
 config.enableLobby = true;
+config.enableGuestDomain = false;
 
 // Reduce load for large listen-only audiences
 config.channelLastN = 20;
@@ -18,3 +19,7 @@ config.defaultLanguage = 'en';
 config.disableRecording = false;
 config.fileRecordingsEnabled = true;
 config.liveStreamingEnabled = true;
+config.localRecording = {
+    disable: false,
+    notifyAllParticipants: true
+};

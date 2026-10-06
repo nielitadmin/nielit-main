@@ -61,12 +61,18 @@ $videoEnabled = onlineClassVideoEnabled();
 $videoMode = onlineClassVideoMode();
 $jitsiDomain = onlineClassJitsiDomain();
 $isModerator = $isAdmin;
-$externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName, $isModerator);
-$jitsiEmbedOptions = onlineClassJitsiEmbedOptions($roomName, $displayName, $isModerator);
+$jitsiUserId = $isAdmin
+    ? 'admin:' . (string) ($_SESSION['admin_id'] ?? $_SESSION['admin'] ?? 'host')
+    : 'student:' . (string) ($_SESSION['student_id'] ?? 'unknown');
+$jwtRequired = onlineClassRequiresJitsiJwt();
+$jwtReady = onlineClassJitsiJwtEnabled();
+$externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName, $isModerator, $jitsiUserId);
+$jitsiEmbedOptions = onlineClassJitsiEmbedOptions($roomName, $displayName, $isModerator, $jitsiUserId);
 $leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php';
+$jwtBlocked = $videoEnabled && $jwtRequired && !$jwtReady;
 
 // Full-page open mode: leave our lobby and join the video room (no iframe = no 5-min cut)
-if ($enter && $canEnter && $videoEnabled && $videoMode === 'open' && $externalRoomUrl !== '') {
+if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open' && $externalRoomUrl !== '') {
     header('Location: ' . $externalRoomUrl);
     exit;
 }
@@ -145,6 +151,18 @@ if ($enter && $canEnter && $videoEnabled && $videoMode === 'open' && $externalRo
                         Live video is temporarily disabled by the administrator. Check back later or contact your coordinator.
                     </div>
                     <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
+                <?php elseif ($jwtBlocked): ?>
+                    <div class="alert alert-danger mb-3">
+                        <i class="fas fa-lock"></i>
+                        This classroom requires secure login (JWT) on the video server, but it is not configured yet.
+                        <?php if ($isAdmin): ?>
+                            Open <strong>Admin → Online Classes → Video Server Controls</strong>, enable JWT, and save the same
+                            <code>JWT_APP_SECRET</code> as on your Jitsi server.
+                        <?php else: ?>
+                            Please contact your coordinator — the class cannot open until video security is configured.
+                        <?php endif; ?>
+                    </div>
+                    <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
                 <?php else: ?>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <a class="btn btn-enter btn-lg" href="?t=<?php echo rawurlencode($token); ?>&enter=1">
@@ -160,7 +178,7 @@ if ($enter && $canEnter && $videoEnabled && $videoMode === 'open' && $externalRo
                 <?php endif; ?>
             </div>
         </div>
-    <?php elseif ($videoEnabled && $videoMode === 'embed'): ?>
+    <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed'): ?>
         <div class="oc-classroom">
             <div id="jitsi-container"></div>
         </div>
