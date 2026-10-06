@@ -301,11 +301,13 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             · Domain: <code><?php echo htmlspecialchars($jitsiStatus['domain']); ?></code>
                         </div>
                         <div class="alert alert-info mt-2 mb-0" style="font-size:.85rem;">
-                            If students see <strong>Authentication failed</strong>, verify on the Jitsi server
-                            <code>/opt/jitsi-meet/.env</code>: <code>JWT_APP_ID</code> and <code>JWT_APP_SECRET</code>
-                            must exactly match the values saved here, then run
-                            <code>docker compose down &amp;&amp; docker compose up -d</code>.
-                            Or uncheck <strong>Enable JWT</strong> and set <code>ENABLE_AUTH=0</code> on Jitsi until secrets match.
+                            If students see <strong>Authentication failed</strong>, JWT secrets must match on both sides:
+                            <strong>Native install:</strong> edit
+                            <code>/etc/prosody/conf.avail/meet.nielitbhubaneswar.in.cfg.lua</code>
+                            (<code>app_id</code> + <code>app_secret</code>), then
+                            <code>sudo systemctl restart prosody jicofo jitsi-videobridge2 nginx</code>.
+                            <strong>Docker:</strong> edit <code>/opt/jitsi-meet/.env</code> and restart compose.
+                            See <code>scripts/jitsi/README-native-debian.md</code> in the repo.
                         </div>
                     <?php endif; ?>
                 </form>

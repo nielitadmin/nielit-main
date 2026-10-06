@@ -4,6 +4,13 @@ Self-host Jitsi on a **Linux VM** (Google Cloud, AWS, or any VPS) for 100–450 
 
 > Do **not** install on shared Hostinger web hosting. Use a dedicated VM (Ubuntu 22.04/24.04 or Debian 12).
 
+### Which guide do I use?
+
+| Your server | Guide |
+|-------------|--------|
+| **Native apt install** — `systemctl`, Prosody, `/etc/prosody/conf.avail/` | **[README-native-debian.md](./README-native-debian.md)** ← most NIELIT servers |
+| **Docker** — `/opt/jitsi-meet/.env`, `docker compose` | Sections below in this file |
+
 ---
 
 ## 1. Server requirements
@@ -183,11 +190,15 @@ Students should always use the **site join link** — it checks login and batch 
 
 ---
 
-## 7. JWT API (optional, recommended)
+## 7. JWT API (required for NIELIT Server)
 
 Secures rooms so only your portal can create valid join tokens.
 
-### On the Jitsi VM
+### Native Debian/Ubuntu (systemd + Prosody)
+
+See **[README-native-debian.md](./README-native-debian.md)** — edit `/etc/prosody/conf.avail/meet.nielitbhubaneswar.in.cfg.lua` and use `jitsi-jwt-prosody.cfg.lua.example`.
+
+### Docker install only
 
 Add to `/opt/jitsi-meet/.env` (see `jitsi-jwt.env.example`):
 
@@ -240,7 +251,7 @@ docker compose pull && docker compose up -d   # upgrade
 | No video / one-way audio | Set `JVB_ADVERTISE_IPS` to VPS public IP; open UDP 10000 |
 | Certificate error | DNS must point to server before first start; check `docker compose logs web` |
 | Still uses meet.jit.si | Create `includes/online_class_config.local.php` and redeploy |
-| JWT / authentication failed | Secret must match on portal and Jitsi `.env`; restart Jitsi after change |
+| JWT / authentication failed | **Native:** Prosody `app_id`/`app_secret` must match portal; restart `prosody jicofo jitsi-videobridge2 nginx`. **Docker:** match `.env` secrets |
 | Room drops at 5 min | You are on public meet.jit.si embed — use self-hosted + `open` mode |
 | 75 user limit | You are still on meet.jit.si — switch to self-hosted |
 
@@ -253,7 +264,9 @@ docker compose pull && docker compose up -d   # upgrade
 | `install-jitsi-docker.sh` | One-command Linux installer |
 | `custom-config.js` | Webinar defaults (muted join, lobby) |
 | `custom-interface_config.js` | NIELIT branding / toolbar |
-| `jitsi-jwt.env.example` | JWT settings for Jitsi server `.env` |
+| `README-native-debian.md` | **Native apt install** — Prosody JWT + systemd |
+| `jitsi-jwt-prosody.cfg.lua.example` | Prosody VirtualHost snippet (native) |
+| `jitsi-jwt.env.example` | JWT settings for Docker `.env` only |
 | `online_class_config.selfhosted.php.example` | Portal config snippet |
 
 Official docs: https://jitsi.github.io/handbook/docs/devops-guide/devops-guide-docker

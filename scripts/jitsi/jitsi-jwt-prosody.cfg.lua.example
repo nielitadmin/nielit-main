@@ -1,0 +1,26 @@
+-- Native Debian/Ubuntu Prosody snippet for NIELIT Online Classes JWT
+-- File: /etc/prosody/conf.avail/meet.nielitbhubaneswar.in.cfg.lua
+-- Merge into your existing VirtualHost block, then:
+--   sudo systemctl restart prosody jicofo jitsi-videobridge2 nginx
+
+VirtualHost "meet.nielitbhubaneswar.in"
+    authentication = "token"
+    app_id = "nielit_portal"
+    app_secret = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+    allow_empty_token = false
+    enable_domain_verification = false
+
+    modules_enabled = {
+        "bosh";
+        "websocket";
+        "smacks";
+        "ping";
+        "speakerstats";
+        "conference_duration";
+        "room_metadata";
+        "muc_lobby_rooms";
+        "muc_breakout_rooms";
+        "av_moderation";
+        "token_verification";
+        "token_moderation";
+    }
