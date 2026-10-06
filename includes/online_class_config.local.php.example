@@ -1,0 +1,20 @@
+<?php
+/**
+ * Copy to: includes/online_class_config.local.php
+ * (This file is NOT committed to git — keep JWT secret here.)
+ *
+ * Use after your Jitsi server is live on Google Cloud.
+ */
+
+// Your GCP Jitsi domain (DNS A record → GCP static IP)
+define('ONLINE_CLASS_JITSI_DOMAIN', 'meet.nielitbhubaneswar.in');
+
+// open  = full-page Jitsi room (recommended for large classes)
+// embed = video inside student/join_class.php (works only on your own server)
+define('ONLINE_CLASS_VIDEO_MODE', 'open');
+
+// JWT auth (optional but recommended for production)
+// Must match JWT_APP_ID / JWT_APP_SECRET in /opt/jitsi-meet/.env on the GCP VM
+define('ONLINE_CLASS_JITSI_JWT_ENABLED', true);
+define('ONLINE_CLASS_JITSI_JWT_APP_ID', 'nielit_portal');
+define('ONLINE_CLASS_JITSI_JWT_APP_SECRET', 'CHANGE_ME_TO_A_LONG_RANDOM_SECRET');

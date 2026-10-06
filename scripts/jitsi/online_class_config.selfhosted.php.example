@@ -1,6 +1,11 @@
 <?php
 /**
- * Copy these lines into includes/online_class_config.php after Jitsi is live on Linux.
+ * Copy to: includes/online_class_config.local.php
+ * (Do not commit the real file — it contains your JWT secret.)
  */
 define('ONLINE_CLASS_JITSI_DOMAIN', 'meet.nielitbhubaneswar.in');
-define('ONLINE_CLASS_VIDEO_MODE', 'open'); // or 'embed' for iframe inside join_class.php
+define('ONLINE_CLASS_VIDEO_MODE', 'open'); // or 'embed'
+
+define('ONLINE_CLASS_JITSI_JWT_ENABLED', true);
+define('ONLINE_CLASS_JITSI_JWT_APP_ID', 'nielit_portal');
+define('ONLINE_CLASS_JITSI_JWT_APP_SECRET', 'CHANGE_ME_TO_A_LONG_RANDOM_SECRET');

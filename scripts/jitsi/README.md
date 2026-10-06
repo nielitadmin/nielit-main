@@ -1,8 +1,8 @@
-# Jitsi Meet on Linux (NIELIT Online Classes)
+# Jitsi Meet on Linux / Google Cloud (NIELIT Online Classes)
 
-Self-host Jitsi on a **Linux VPS** for 100–450 students in **webinar mode** (1 teacher on video, students listen).
+Self-host Jitsi on a **Linux VM** (Google Cloud, AWS, or any VPS) for 100–450 students in **webinar mode** (1 teacher on video, students listen).
 
-> Do **not** install on shared Hostinger web hosting. Use a VPS (Ubuntu 22.04/24.04 or Debian 12).
+> Do **not** install on shared Hostinger web hosting. Use a dedicated VM (Ubuntu 22.04/24.04 or Debian 12).
 
 ---
 
@@ -121,6 +121,24 @@ sudo docker compose up -d
 
 ## 5. Firewall
 
+### Google Cloud (recommended)
+
+In **VPC network → Firewall**, create rules for the VM:
+
+| Rule | Protocol | Ports | Source |
+|------|----------|-------|--------|
+| jitsi-http | TCP | 80 | 0.0.0.0/0 |
+| jitsi-https | TCP | 443 | 0.0.0.0/0 |
+| jitsi-media | UDP | 10000 | 0.0.0.0/0 |
+
+Also reserve a **static external IP** and point DNS:
+
+```
+meet.nielitbhubaneswar.in  →  GCP_STATIC_IP
+```
+
+### Ubuntu VM (ufw)
+
 ```bash
 sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
@@ -132,9 +150,15 @@ sudo ufw status
 
 ---
 
-## 6. Connect NIELIT portal (Hostinger)
+## 6. Connect NIELIT portal
 
-Edit `includes/online_class_config.php` on the main website:
+On the **main website** (Hostinger), copy the local config:
+
+```bash
+cp includes/online_class_config.local.php.example includes/online_class_config.local.php
+```
+
+Edit `includes/online_class_config.local.php`:
 
 ```php
 define('ONLINE_CLASS_JITSI_DOMAIN', 'meet.nielitbhubaneswar.in');
@@ -148,9 +172,54 @@ Deploy to production, then test:
 2. Student → Join Class → Enter Classroom  
 3. Should open `https://meet.nielitbhubaneswar.in/NIELITBBSR...`
 
+### Link types
+
+| Link | Who uses it | Example |
+|------|-------------|---------|
+| **Site join link** | Students (secure) | `https://nielitbhubaneswar.in/student/join_class?t=abc123...` |
+| **Jitsi room URL** | Admin reference / direct | `https://meet.nielitbhubaneswar.in/NIELITBBSR...` |
+
+Students should always use the **site join link** — it checks login and batch access before opening Jitsi.
+
 ---
 
-## 7. Useful commands
+## 7. JWT API (optional, recommended)
+
+Secures rooms so only your portal can create valid join tokens.
+
+### On the Jitsi VM
+
+Add to `/opt/jitsi-meet/.env` (see `jitsi-jwt.env.example`):
+
+```env
+ENABLE_AUTH=1
+JWT_APP_ID=nielit_portal
+JWT_APP_SECRET=YOUR_LONG_RANDOM_SECRET
+JWT_ACCEPTED_ISSUERS=nielit_portal
+JWT_ACCEPTED_AUDIENCES=jitsi
+```
+
+Restart:
+
+```bash
+cd /opt/jitsi-meet && docker compose down && docker compose up -d
+```
+
+### On the portal
+
+In `includes/online_class_config.local.php`:
+
+```php
+define('ONLINE_CLASS_JITSI_JWT_ENABLED', true);
+define('ONLINE_CLASS_JITSI_JWT_APP_ID', 'nielit_portal');
+define('ONLINE_CLASS_JITSI_JWT_APP_SECRET', 'YOUR_LONG_RANDOM_SECRET'); // same as Jitsi .env
+```
+
+The portal signs JWT tokens automatically when students/admins join. Admins join as **moderator**.
+
+---
+
+## 8. Useful commands
 
 ```bash
 cd /opt/jitsi-meet
@@ -164,25 +233,27 @@ docker compose pull && docker compose up -d   # upgrade
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
 | No video / one-way audio | Set `JVB_ADVERTISE_IPS` to VPS public IP; open UDP 10000 |
 | Certificate error | DNS must point to server before first start; check `docker compose logs web` |
-| Still uses meet.jit.si | Update `online_class_config.php` on Hostinger and redeploy |
+| Still uses meet.jit.si | Create `includes/online_class_config.local.php` and redeploy |
+| JWT / authentication failed | Secret must match on portal and Jitsi `.env`; restart Jitsi after change |
 | Room drops at 5 min | You are on public meet.jit.si embed — use self-hosted + `open` mode |
 | 75 user limit | You are still on meet.jit.si — switch to self-hosted |
 
 ---
 
-## 9. Files in this folder
+## 10. Files in this folder
 
 | File | Purpose |
 |------|---------|
 | `install-jitsi-docker.sh` | One-command Linux installer |
 | `custom-config.js` | Webinar defaults (muted join, lobby) |
 | `custom-interface_config.js` | NIELIT branding / toolbar |
+| `jitsi-jwt.env.example` | JWT settings for Jitsi server `.env` |
 | `online_class_config.selfhosted.php.example` | Portal config snippet |
 
 Official docs: https://jitsi.github.io/handbook/docs/devops-guide/devops-guide-docker

@@ -88,14 +88,307 @@ if (!function_exists('onlineClassLoadVideoConfig')) {
     }
 }
 
+if (!function_exists('onlineClassNielitJitsiDomain')) {
+    function onlineClassNielitJitsiDomain(): string
+    {
+        return 'meet.nielitbhubaneswar.in';
+    }
+}
+
+if (!function_exists('onlineClassVideoProviderOptions')) {
+    /**
+     * @return array<string,array{label:string,description:string,domain:?string}>
+     */
+    function onlineClassVideoProviderOptions(): array
+    {
+        return [
+            'official' => [
+                'label' => 'Jitsi Official (meet.jit.si)',
+                'description' => 'Free public server. Use full-page mode only (no embed).',
+                'domain' => 'meet.jit.si',
+            ],
+            'nielit_gcp' => [
+                'label' => 'NIELIT GCP (' . onlineClassNielitJitsiDomain() . ')',
+                'description' => 'Self-hosted Jitsi on Google Cloud — recommended for production.',
+                'domain' => onlineClassNielitJitsiDomain(),
+            ],
+            'custom' => [
+                'label' => 'Custom Jitsi server',
+                'description' => 'Any other self-hosted Jitsi domain you control.',
+                'domain' => null,
+            ],
+            'disabled' => [
+                'label' => 'Video disabled',
+                'description' => 'Keep class scheduling; block live video until re-enabled.',
+                'domain' => null,
+            ],
+        ];
+    }
+}
+
+if (!function_exists('onlineClassGetDbConn')) {
+    function onlineClassGetDbConn()
+    {
+        return (isset($GLOBALS['conn']) && $GLOBALS['conn']) ? $GLOBALS['conn'] : null;
+    }
+}
+
+if (!function_exists('onlineClassInvalidateVideoSettingsCache')) {
+    function onlineClassInvalidateVideoSettingsCache(): void
+    {
+        // Force reload on next read
+        onlineClassGetVideoSettings(null, true);
+    }
+}
+
+if (!function_exists('ensureOnlineClassVideoSettingsTable')) {
+    function ensureOnlineClassVideoSettingsTable($conn): bool
+    {
+        static $ready = false;
+        if ($ready) {
+            return true;
+        }
+
+        $sql = "CREATE TABLE IF NOT EXISTS online_class_video_settings (
+            id INT PRIMARY KEY,
+            provider VARCHAR(30) NOT NULL DEFAULT 'official',
+            custom_domain VARCHAR(255) NULL,
+            video_mode VARCHAR(10) NOT NULL DEFAULT 'open',
+            jwt_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            updated_by VARCHAR(255) NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+
+        if (!$conn->query($sql)) {
+            error_log('ensureOnlineClassVideoSettingsTable failed: ' . $conn->error);
+            return false;
+        }
+
+        $check = $conn->query('SELECT id FROM online_class_video_settings WHERE id = 1 LIMIT 1');
+        if ($check && $check->num_rows === 0) {
+            $defaults = onlineClassInferDefaultVideoSettings();
+            $stmt = $conn->prepare(
+                'INSERT INTO online_class_video_settings (id, provider, custom_domain, video_mode, jwt_enabled)
+                 VALUES (1, ?, ?, ?, ?)'
+            );
+            if ($stmt) {
+                $stmt->bind_param(
+                    'sssi',
+                    $defaults['provider'],
+                    $defaults['custom_domain'],
+                    $defaults['video_mode'],
+                    $defaults['jwt_enabled']
+                );
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+
+        $ready = true;
+        return true;
+    }
+}
+
+if (!function_exists('onlineClassInferDefaultVideoSettings')) {
+    /**
+     * @return array{provider:string,custom_domain:?string,video_mode:string,jwt_enabled:int}
+     */
+    function onlineClassInferDefaultVideoSettings(): array
+    {
+        onlineClassLoadVideoConfig();
+
+        $provider = 'official';
+        $customDomain = null;
+        $configuredDomain = defined('ONLINE_CLASS_JITSI_DOMAIN')
+            ? strtolower(trim((string) ONLINE_CLASS_JITSI_DOMAIN))
+            : 'meet.jit.si';
+        $configuredDomain = preg_replace('#^https?://#i', '', $configuredDomain) ?? '';
+        $configuredDomain = rtrim($configuredDomain, '/');
+
+        if ($configuredDomain === strtolower(onlineClassNielitJitsiDomain())) {
+            $provider = 'nielit_gcp';
+        } elseif ($configuredDomain !== '' && $configuredDomain !== 'meet.jit.si' && $configuredDomain !== '8x8.vc') {
+            $provider = 'custom';
+            $customDomain = $configuredDomain;
+        }
+
+        $videoMode = defined('ONLINE_CLASS_VIDEO_MODE')
+            ? strtolower(trim((string) ONLINE_CLASS_VIDEO_MODE))
+            : 'open';
+        $jwtEnabled = (defined('ONLINE_CLASS_JITSI_JWT_ENABLED') && ONLINE_CLASS_JITSI_JWT_ENABLED) ? 1 : 0;
+
+        return [
+            'provider' => $provider,
+            'custom_domain' => $customDomain,
+            'video_mode' => in_array($videoMode, ['open', 'embed'], true) ? $videoMode : 'open',
+            'jwt_enabled' => $jwtEnabled,
+        ];
+    }
+}
+
+if (!function_exists('onlineClassGetVideoSettings')) {
+    /**
+     * @return array{provider:string,custom_domain:string,video_mode:string,jwt_enabled:int,updated_by?:string,updated_at?:string}
+     */
+    function onlineClassGetVideoSettings($conn = null, bool $forceReload = false): array
+    {
+        static $cache = null;
+        if ($cache !== null && !$forceReload) {
+            return $cache;
+        }
+
+        $defaults = onlineClassInferDefaultVideoSettings();
+        $settings = [
+            'provider' => $defaults['provider'],
+            'custom_domain' => (string) ($defaults['custom_domain'] ?? ''),
+            'video_mode' => $defaults['video_mode'],
+            'jwt_enabled' => (int) $defaults['jwt_enabled'],
+        ];
+
+        $db = $conn ?: onlineClassGetDbConn();
+        if ($db && ensureOnlineClassVideoSettingsTable($db)) {
+            $result = $db->query('SELECT provider, custom_domain, video_mode, jwt_enabled, updated_by, updated_at
+                                   FROM online_class_video_settings WHERE id = 1 LIMIT 1');
+            if ($result && ($row = $result->fetch_assoc())) {
+                $provider = trim((string) ($row['provider'] ?? ''));
+                if (isset(onlineClassVideoProviderOptions()[$provider])) {
+                    $settings['provider'] = $provider;
+                }
+                $settings['custom_domain'] = trim((string) ($row['custom_domain'] ?? ''));
+                $mode = strtolower(trim((string) ($row['video_mode'] ?? 'open')));
+                $settings['video_mode'] = in_array($mode, ['open', 'embed'], true) ? $mode : 'open';
+                $settings['jwt_enabled'] = (int) ($row['jwt_enabled'] ?? 0);
+                $settings['updated_by'] = (string) ($row['updated_by'] ?? '');
+                $settings['updated_at'] = (string) ($row['updated_at'] ?? '');
+            }
+        }
+
+        $cache = $settings;
+        return $cache;
+    }
+}
+
+if (!function_exists('onlineClassResolveProviderDomain')) {
+    function onlineClassResolveProviderDomain(string $provider, string $customDomain = ''): string
+    {
+        $options = onlineClassVideoProviderOptions();
+        if (!isset($options[$provider])) {
+            $provider = 'official';
+        }
+
+        if ($provider === 'disabled') {
+            return '';
+        }
+
+        if ($provider === 'custom') {
+            $customDomain = trim($customDomain);
+            $customDomain = preg_replace('#^https?://#i', '', $customDomain) ?? '';
+            return rtrim($customDomain, '/');
+        }
+
+        return (string) ($options[$provider]['domain'] ?? 'meet.jit.si');
+    }
+}
+
+if (!function_exists('saveOnlineClassVideoSettings')) {
+    /**
+     * @param array<string,mixed> $data
+     * @return array{success:bool,message:string}
+     */
+    function saveOnlineClassVideoSettings($conn, array $data, string $updatedBy = 'admin'): array
+    {
+        if (!ensureOnlineClassVideoSettingsTable($conn)) {
+            return ['success' => false, 'message' => 'Could not prepare video settings table.'];
+        }
+
+        $provider = trim((string) ($data['provider'] ?? 'official'));
+        if (!isset(onlineClassVideoProviderOptions()[$provider])) {
+            return ['success' => false, 'message' => 'Invalid video provider selected.'];
+        }
+
+        $customDomain = trim((string) ($data['custom_domain'] ?? ''));
+        $customDomain = preg_replace('#^https?://#i', '', $customDomain) ?? '';
+        $customDomain = rtrim($customDomain, '/');
+
+        if ($provider === 'custom' && $customDomain === '') {
+            return ['success' => false, 'message' => 'Enter a custom Jitsi domain or choose another provider.'];
+        }
+
+        $videoMode = strtolower(trim((string) ($data['video_mode'] ?? 'open')));
+        if (!in_array($videoMode, ['open', 'embed'], true)) {
+            $videoMode = 'open';
+        }
+
+        if ($provider === 'official' && $videoMode === 'embed') {
+            return ['success' => false, 'message' => 'Jitsi Official only supports full-page (open) mode.'];
+        }
+
+        $jwtEnabled = !empty($data['jwt_enabled']) ? 1 : 0;
+        if ($provider === 'official') {
+            $jwtEnabled = 0;
+        }
+
+        $stmt = $conn->prepare(
+            'INSERT INTO online_class_video_settings (id, provider, custom_domain, video_mode, jwt_enabled, updated_by)
+             VALUES (1, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                provider = VALUES(provider),
+                custom_domain = VALUES(custom_domain),
+                video_mode = VALUES(video_mode),
+                jwt_enabled = VALUES(jwt_enabled),
+                updated_by = VALUES(updated_by)'
+        );
+        if (!$stmt) {
+            return ['success' => false, 'message' => 'Could not save video settings.'];
+        }
+
+        $stmt->bind_param('sssis', $provider, $customDomain, $videoMode, $jwtEnabled, $updatedBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        if (!$ok) {
+            return ['success' => false, 'message' => 'Could not save video settings.'];
+        }
+
+        onlineClassInvalidateVideoSettingsCache();
+
+        return ['success' => true, 'message' => 'Video server settings saved.'];
+    }
+}
+
+if (!function_exists('onlineClassVideoEnabled')) {
+    function onlineClassVideoEnabled(): bool
+    {
+        $settings = onlineClassGetVideoSettings();
+        return ($settings['provider'] ?? 'official') !== 'disabled'
+            && onlineClassJitsiDomain() !== '';
+    }
+}
+
 if (!function_exists('onlineClassJitsiDomain')) {
     function onlineClassJitsiDomain(): string
     {
+        $settings = onlineClassGetVideoSettings();
+        $provider = (string) ($settings['provider'] ?? 'official');
+
+        if ($provider === 'disabled') {
+            return '';
+        }
+
+        $domain = onlineClassResolveProviderDomain(
+            $provider,
+            (string) ($settings['custom_domain'] ?? '')
+        );
+
+        if ($domain !== '') {
+            return $domain;
+        }
+
         onlineClassLoadVideoConfig();
-        $domain = defined('ONLINE_CLASS_JITSI_DOMAIN') ? trim((string) ONLINE_CLASS_JITSI_DOMAIN) : 'meet.jit.si';
-        $domain = preg_replace('#^https?://#i', '', $domain) ?? '';
-        $domain = rtrim($domain, '/');
-        return $domain !== '' ? $domain : 'meet.jit.si';
+        $fallback = defined('ONLINE_CLASS_JITSI_DOMAIN') ? trim((string) ONLINE_CLASS_JITSI_DOMAIN) : 'meet.jit.si';
+        $fallback = preg_replace('#^https?://#i', '', $fallback) ?? '';
+        $fallback = rtrim($fallback, '/');
+        return $fallback !== '' ? $fallback : 'meet.jit.si';
     }
 }
 
@@ -105,12 +398,11 @@ if (!function_exists('onlineClassVideoMode')) {
      */
     function onlineClassVideoMode(): string
     {
-        onlineClassLoadVideoConfig();
-        $mode = defined('ONLINE_CLASS_VIDEO_MODE') ? strtolower(trim((string) ONLINE_CLASS_VIDEO_MODE)) : 'open';
+        $settings = onlineClassGetVideoSettings();
+        $mode = strtolower(trim((string) ($settings['video_mode'] ?? 'open')));
         $domain = strtolower(onlineClassJitsiDomain());
 
-        // Never embed public meet.jit.si — they force a 5-minute disconnect.
-        if ($domain === 'meet.jit.si' || $domain === '8x8.vc') {
+        if ($domain === '' || $domain === 'meet.jit.si' || $domain === '8x8.vc') {
             return 'open';
         }
 
@@ -118,18 +410,171 @@ if (!function_exists('onlineClassVideoMode')) {
     }
 }
 
+if (!function_exists('onlineClassJitsiJwtEnabled')) {
+    function onlineClassJitsiJwtEnabled(): bool
+    {
+        $settings = onlineClassGetVideoSettings();
+        if (empty($settings['jwt_enabled'])) {
+            return false;
+        }
+
+        onlineClassLoadVideoConfig();
+        $secret = defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')
+            ? trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET)
+            : '';
+        return $secret !== '';
+    }
+}
+
+if (!function_exists('onlineClassJitsiBase64UrlEncode')) {
+    function onlineClassJitsiBase64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
+}
+
+if (!function_exists('onlineClassGenerateJitsiJwt')) {
+    /**
+     * HS256 JWT for self-hosted Jitsi (moderator = admin/host).
+     * Secret must match JWT_APP_SECRET on the Jitsi server.
+     */
+    function onlineClassGenerateJitsiJwt(string $roomName, string $displayName = '', bool $isModerator = false): string
+    {
+        if (!onlineClassJitsiJwtEnabled()) {
+            return '';
+        }
+
+        $secret = trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET);
+        $appId = defined('ONLINE_CLASS_JITSI_JWT_APP_ID')
+            ? trim((string) ONLINE_CLASS_JITSI_JWT_APP_ID)
+            : 'nielit_portal';
+        if ($secret === '' || $appId === '') {
+            return '';
+        }
+
+        $now = time();
+        $payload = [
+            'iss' => $appId,
+            'aud' => 'jitsi',
+            'sub' => onlineClassJitsiDomain(),
+            'room' => trim($roomName),
+            'exp' => $now + 7200,
+            'nbf' => $now - 10,
+            'context' => [
+                'user' => [
+                    'name' => $displayName !== '' ? $displayName : 'Participant',
+                    'moderator' => $isModerator,
+                ],
+            ],
+        ];
+
+        $header = onlineClassJitsiBase64UrlEncode(json_encode(['typ' => 'JWT', 'alg' => 'HS256']));
+        $body = onlineClassJitsiBase64UrlEncode(json_encode($payload));
+        $signature = onlineClassJitsiBase64UrlEncode(hash_hmac('sha256', $header . '.' . $body, $secret, true));
+
+        return $header . '.' . $body . '.' . $signature;
+    }
+}
+
+if (!function_exists('onlineClassJitsiEmbedOptions')) {
+    /**
+     * Options array for JitsiMeetExternalAPI in join_class.php.
+     *
+     * @return array<string,mixed>
+     */
+    function onlineClassJitsiEmbedOptions(string $roomName, string $displayName = '', bool $isModerator = false): array
+    {
+        $options = [
+            'roomName' => trim($roomName),
+            'width' => '100%',
+            'height' => '100%',
+            'userInfo' => ['displayName' => $displayName !== '' ? $displayName : 'Participant'],
+            'configOverwrite' => [
+                'startWithAudioMuted' => true,
+                'prejoinPageEnabled' => true,
+                'disableDeepLinking' => true,
+            ],
+            'interfaceConfigOverwrite' => [
+                'TOOLBAR_BUTTONS' => [
+                    'microphone', 'camera', 'desktop', 'fullscreen',
+                    'fodeviceselection', 'hangup', 'chat', 'raisehand',
+                    'tileview', 'settings', 'videoquality',
+                ],
+            ],
+        ];
+
+        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator);
+        if ($jwt !== '') {
+            $options['jwt'] = $jwt;
+        }
+
+        return $options;
+    }
+}
+
+if (!function_exists('onlineClassJitsiStatus')) {
+    /**
+     * Current video backend status for admin display.
+     *
+     * @return array<string,mixed>
+     */
+    function onlineClassJitsiStatus(): array
+    {
+        $settings = onlineClassGetVideoSettings();
+        $provider = (string) ($settings['provider'] ?? 'official');
+        $options = onlineClassVideoProviderOptions();
+        $domain = onlineClassJitsiDomain();
+        $isPublic = in_array(strtolower($domain), ['meet.jit.si', '8x8.vc'], true);
+        $jwtRequested = !empty($settings['jwt_enabled']);
+        $jwtActive = onlineClassJitsiJwtEnabled();
+
+        onlineClassLoadVideoConfig();
+        $jwtSecretConfigured = defined('ONLINE_CLASS_JITSI_JWT_APP_SECRET')
+            && trim((string) ONLINE_CLASS_JITSI_JWT_APP_SECRET) !== '';
+
+        return [
+            'provider' => $provider,
+            'provider_label' => $options[$provider]['label'] ?? $provider,
+            'provider_description' => $options[$provider]['description'] ?? '',
+            'custom_domain' => (string) ($settings['custom_domain'] ?? ''),
+            'video_enabled' => onlineClassVideoEnabled(),
+            'domain' => $domain,
+            'base_url' => $domain !== '' ? 'https://' . $domain : '',
+            'video_mode' => onlineClassVideoMode(),
+            'is_self_hosted' => $domain !== '' && !$isPublic,
+            'jwt_requested' => $jwtRequested,
+            'jwt_enabled' => $jwtActive,
+            'jwt_secret_configured' => $jwtSecretConfigured,
+            'jwt_app_id' => defined('ONLINE_CLASS_JITSI_JWT_APP_ID')
+                ? (string) ONLINE_CLASS_JITSI_JWT_APP_ID
+                : '',
+            'updated_by' => (string) ($settings['updated_by'] ?? ''),
+            'updated_at' => (string) ($settings['updated_at'] ?? ''),
+        ];
+    }
+}
+
 if (!function_exists('onlineClassExternalRoomUrl')) {
     /**
      * Full-page Jitsi room URL (free when using meet.jit.si without iframe embed).
      */
-    function onlineClassExternalRoomUrl(string $roomName, string $displayName = ''): string
+    function onlineClassExternalRoomUrl(string $roomName, string $displayName = '', bool $isModerator = false): string
     {
         $domain = onlineClassJitsiDomain();
+        if ($domain === '') {
+            return '';
+        }
+
         $roomName = trim($roomName);
         $url = 'https://' . $domain . '/' . rawurlencode($roomName);
 
+        $jwt = onlineClassGenerateJitsiJwt($roomName, $displayName, $isModerator);
+        if ($jwt !== '') {
+            $url .= '?jwt=' . rawurlencode($jwt);
+        }
+
         $parts = [];
-        if ($displayName !== '') {
+        if ($displayName !== '' && $jwt === '') {
             $parts[] = 'userInfo.displayName="' . str_replace(['"', '#'], '', $displayName) . '"';
         }
         $parts[] = 'config.startWithAudioMuted=true';
@@ -162,6 +607,7 @@ if (!function_exists('onlineClassEnrichRow')) {
         if ($token !== '') {
             $row['join_url'] = onlineClassSiteJoinUrl($token);
             $row['room_name'] = onlineClassRoomName($token);
+            $row['jitsi_room_url'] = onlineClassExternalRoomUrl($row['room_name']);
             // Keep meeting_url aligned with site join link
             $row['meeting_url'] = $row['join_url'];
         } else {

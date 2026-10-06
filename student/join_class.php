@@ -57,13 +57,16 @@ $when = !empty($class['scheduled_at']) ? date('d M Y, h:i A', strtotime($class['
 $status = $class['display_status'] ?? onlineClassComputeStatus($class);
 $enter = isset($_GET['enter']) && $_GET['enter'] === '1';
 $canEnter = !empty($gate['allowed']);
+$videoEnabled = onlineClassVideoEnabled();
 $videoMode = onlineClassVideoMode();
 $jitsiDomain = onlineClassJitsiDomain();
-$externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName);
+$isModerator = $isAdmin;
+$externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName, $isModerator);
+$jitsiEmbedOptions = onlineClassJitsiEmbedOptions($roomName, $displayName, $isModerator);
 $leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php';
 
-// Full-page open mode: leave our lobby and join the free room (no iframe = no 5-min cut)
-if ($enter && $canEnter && $videoMode === 'open') {
+// Full-page open mode: leave our lobby and join the video room (no iframe = no 5-min cut)
+if ($enter && $canEnter && $videoEnabled && $videoMode === 'open' && $externalRoomUrl !== '') {
     header('Location: ' . $externalRoomUrl);
     exit;
 }
@@ -136,6 +139,12 @@ if ($enter && $canEnter && $videoMode === 'open') {
                         <?php echo htmlspecialchars($gate['reason'] ?? 'Classroom is closed.'); ?>
                     </div>
                     <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
+                <?php elseif (!$videoEnabled): ?>
+                    <div class="alert alert-warning mb-3">
+                        <i class="fas fa-video-slash"></i>
+                        Live video is temporarily disabled by the administrator. Check back later or contact your coordinator.
+                    </div>
+                    <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
                 <?php else: ?>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <a class="btn btn-enter btn-lg" href="?t=<?php echo rawurlencode($token); ?>&enter=1">
@@ -151,7 +160,7 @@ if ($enter && $canEnter && $videoMode === 'open') {
                 <?php endif; ?>
             </div>
         </div>
-    <?php elseif ($videoMode === 'embed'): ?>
+    <?php elseif ($videoEnabled && $videoMode === 'embed'): ?>
         <div class="oc-classroom">
             <div id="jitsi-container"></div>
         </div>
@@ -159,25 +168,8 @@ if ($enter && $canEnter && $videoMode === 'open') {
         <script>
         (function () {
             var domain = <?php echo json_encode($jitsiDomain); ?>;
-            var options = {
-                roomName: <?php echo json_encode($roomName); ?>,
-                parentNode: document.querySelector('#jitsi-container'),
-                width: '100%',
-                height: '100%',
-                userInfo: { displayName: <?php echo json_encode($displayName); ?> },
-                configOverwrite: {
-                    startWithAudioMuted: true,
-                    prejoinPageEnabled: true,
-                    disableDeepLinking: true
-                },
-                interfaceConfigOverwrite: {
-                    TOOLBAR_BUTTONS: [
-                        'microphone', 'camera', 'desktop', 'fullscreen',
-                        'fodeviceselection', 'hangup', 'chat', 'raisehand',
-                        'tileview', 'settings', 'videoquality'
-                    ]
-                }
-            };
+            var options = <?php echo json_encode($jitsiEmbedOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+            options.parentNode = document.querySelector('#jitsi-container');
             var api = new JitsiMeetExternalAPI(domain, options);
             api.addListener('readyToClose', function () {
                 window.location.href = <?php echo json_encode($leaveUrl); ?>;

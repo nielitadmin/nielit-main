@@ -33,6 +33,7 @@ if (empty($_SESSION['csrf_token'])) {
 
 $active_theme = loadActiveTheme($conn);
 ensureOnlineClassesTable($conn);
+ensureOnlineClassVideoSettingsTable($conn);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = (string) ($_POST['csrf_token'] ?? '');
@@ -83,6 +84,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: manage_online_classes.php');
         exit();
     }
+
+    if ($action === 'save_video_settings') {
+        $result = saveOnlineClassVideoSettings($conn, [
+            'provider' => $_POST['video_provider'] ?? 'official',
+            'custom_domain' => $_POST['custom_domain'] ?? '',
+            'video_mode' => $_POST['video_mode'] ?? 'open',
+            'jwt_enabled' => isset($_POST['jwt_enabled']) ? 1 : 0,
+        ], (string) ($_SESSION['admin'] ?? 'admin'));
+        $_SESSION['message'] = $result['message'];
+        $_SESSION['message_type'] = $result['success'] ? 'success' : 'danger';
+        if ($result['success']) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        header('Location: manage_online_classes.php');
+        exit();
+    }
 }
 
 $filterBatch = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
@@ -99,6 +116,9 @@ if ($batchRes) {
 }
 
 $classes = listOnlineClassesAdmin($conn, $filterBatch > 0 ? $filterBatch : null, 'all');
+$jitsiStatus = onlineClassJitsiStatus();
+$videoSettings = onlineClassGetVideoSettings($conn);
+$videoProviderOptions = onlineClassVideoProviderOptions();
 
 $message = $_SESSION['message'] ?? '';
 $message_type = $_SESSION['message_type'] ?? 'success';
@@ -134,6 +154,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
         #onlineClassesTable td { white-space: nowrap; }
         #onlineClassesTable td.oc-wrap { white-space: normal; min-width: 140px; }
         #onlineClassesTable td.oc-link-cell { white-space: normal; min-width: 180px; }
+        .oc-settings-card { border: 1px solid #e2e8f0; border-radius: 14px; background: #fff; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 8px 24px rgba(15,23,42,.05); }
+        .oc-provider-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+        .oc-provider-option {
+            border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; cursor: pointer;
+            transition: border-color .15s, box-shadow .15s; background: #f8fafc;
+        }
+        .oc-provider-option.is-selected { border-color: #2563eb; background: #eff6ff; box-shadow: 0 0 0 1px #2563eb; }
+        .oc-provider-option input { margin-right: 8px; }
+        .oc-provider-option strong { display: block; margin-bottom: 4px; color: #0f172a; }
+        .oc-provider-option span { font-size: .82rem; color: #64748b; line-height: 1.35; }
+        .oc-settings-meta { font-size: .85rem; color: #64748b; }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -166,6 +197,87 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
                 </div>
             <?php endif; ?>
+
+            <div class="oc-settings-card">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+                    <div>
+                        <h5 style="margin:0 0 4px;"><i class="fas fa-sliders-h"></i> Video Server Controls</h5>
+                        <div class="oc-settings-meta">
+                            Active: <strong><?php echo htmlspecialchars($jitsiStatus['provider_label']); ?></strong>
+                            <?php if ($jitsiStatus['video_enabled'] && $jitsiStatus['base_url'] !== ''): ?>
+                                · <code><?php echo htmlspecialchars($jitsiStatus['base_url']); ?></code>
+                            <?php endif; ?>
+                            · Mode: <strong><?php echo htmlspecialchars($jitsiStatus['video_mode']); ?></strong>
+                            · JWT: <strong><?php echo $jitsiStatus['jwt_enabled'] ? 'On' : 'Off'; ?></strong>
+                            <?php if (!empty($jitsiStatus['updated_at'])): ?>
+                                · Updated <?php echo htmlspecialchars(date('d M Y, h:i A', strtotime($jitsiStatus['updated_at']))); ?>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php if ($jitsiStatus['video_enabled'] && $jitsiStatus['base_url'] !== ''): ?>
+                        <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($jitsiStatus['base_url']); ?>" target="_blank" rel="noopener">
+                            <i class="fas fa-external-link-alt"></i> Open Jitsi
+                        </a>
+                    <?php endif; ?>
+                </div>
+
+                <form method="post" id="videoSettingsForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                    <input type="hidden" name="action" value="save_video_settings">
+
+                    <label class="font-weight-bold mb-2 d-block">Choose video backend</label>
+                    <div class="oc-provider-grid mb-3">
+                        <?php foreach ($videoProviderOptions as $key => $opt): ?>
+                            <label class="oc-provider-option <?php echo ($videoSettings['provider'] ?? '') === $key ? 'is-selected' : ''; ?>">
+                                <input type="radio" name="video_provider" value="<?php echo htmlspecialchars($key); ?>"
+                                    <?php echo ($videoSettings['provider'] ?? 'official') === $key ? 'checked' : ''; ?>>
+                                <strong><?php echo htmlspecialchars($opt['label']); ?></strong>
+                                <span><?php echo htmlspecialchars($opt['description']); ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
+                        <div class="form-group" id="customDomainWrap" style="flex:1;min-width:240px;display:none;">
+                            <label for="oc_custom_domain">Custom Jitsi domain</label>
+                            <input type="text" class="form-control" id="oc_custom_domain" name="custom_domain"
+                                   value="<?php echo htmlspecialchars($videoSettings['custom_domain'] ?? ''); ?>"
+                                   placeholder="meet.example.com">
+                        </div>
+                        <div class="form-group" style="min-width:180px;">
+                            <label for="oc_video_mode">Join style</label>
+                            <select class="form-control" id="oc_video_mode" name="video_mode">
+                                <option value="open" <?php echo ($videoSettings['video_mode'] ?? 'open') === 'open' ? 'selected' : ''; ?>>
+                                    Full-page (open)
+                                </option>
+                                <option value="embed" <?php echo ($videoSettings['video_mode'] ?? '') === 'embed' ? 'selected' : ''; ?>>
+                                    Embedded in portal
+                                </option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="jwtToggleWrap" style="padding-bottom:8px;">
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+                                <input type="checkbox" name="jwt_enabled" value="1"
+                                    <?php echo !empty($videoSettings['jwt_enabled']) ? 'checked' : ''; ?>>
+                                Enable JWT (secure rooms)
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Video Settings
+                            </button>
+                        </div>
+                    </div>
+
+                    <?php if (!empty($videoSettings['jwt_enabled']) && empty($jitsiStatus['jwt_secret_configured'])): ?>
+                        <div class="alert alert-warning mt-2 mb-0" style="font-size:.9rem;">
+                            JWT is enabled here but the secret is not set. Add
+                            <code>ONLINE_CLASS_JITSI_JWT_APP_SECRET</code> in
+                            <code>includes/online_class_config.local.php</code> (same value as Jitsi server <code>.env</code>).
+                        </div>
+                    <?php endif; ?>
+                </form>
+            </div>
 
             <div class="content-card">
                 <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -228,6 +340,7 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                         ? date('d M Y, h:i A', strtotime($oc['scheduled_at']))
                                         : '—';
                                     $joinUrl = (string) ($oc['join_url'] ?? $oc['meeting_url'] ?? '');
+                                    $jitsiUrl = (string) ($oc['jitsi_room_url'] ?? '');
                                     ?>
                                     <tr>
                                         <td class="oc-wrap">
@@ -268,6 +381,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                                                 <span class="oc-muted oc-link-truncate" title="<?php echo htmlspecialchars($joinUrl); ?>">
                                                     <?php echo htmlspecialchars($joinUrl); ?>
                                                 </span>
+                                                <?php if ($jitsiUrl !== ''): ?>
+                                                    <div class="oc-muted oc-link-truncate mt-1" title="<?php echo htmlspecialchars($jitsiUrl); ?>">
+                                                        Jitsi: <?php echo htmlspecialchars($jitsiUrl); ?>
+                                                    </div>
+                                                <?php endif; ?>
                                             <?php else: ?>
                                                 <span class="oc-muted">—</span>
                                             <?php endif; ?>
@@ -416,6 +534,39 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 </div>
 
 <script>
+function syncVideoSettingsUi() {
+    var provider = document.querySelector('input[name="video_provider"]:checked');
+    var value = provider ? provider.value : 'official';
+    var customWrap = document.getElementById('customDomainWrap');
+    var jwtWrap = document.getElementById('jwtToggleWrap');
+    var modeSelect = document.getElementById('oc_video_mode');
+
+    document.querySelectorAll('.oc-provider-option').forEach(function (el) {
+        var input = el.querySelector('input[type="radio"]');
+        el.classList.toggle('is-selected', input && input.checked);
+    });
+
+    if (customWrap) {
+        customWrap.style.display = value === 'custom' ? 'block' : 'none';
+    }
+    if (jwtWrap) {
+        jwtWrap.style.display = (value === 'official' || value === 'disabled') ? 'none' : 'block';
+    }
+    if (modeSelect) {
+        if (value === 'official' || value === 'disabled') {
+            modeSelect.value = 'open';
+            modeSelect.disabled = true;
+        } else {
+            modeSelect.disabled = false;
+        }
+    }
+}
+
+document.querySelectorAll('input[name="video_provider"]').forEach(function (radio) {
+    radio.addEventListener('change', syncVideoSettingsUi);
+});
+syncVideoSettingsUi();
+
 function toDatetimeLocal(mysqlDt) {
     if (!mysqlDt) return '';
     // "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DDTHH:MM"

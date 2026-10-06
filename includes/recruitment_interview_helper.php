@@ -110,7 +110,11 @@ if (!function_exists('recruitmentInterviewRoomUrl')) {
         if ($key === '') {
             $key = 'NIELIT-REC-' . (int) ($interview['id'] ?? 0);
         }
-        return 'https://meet.jit.si/' . rawurlencode($key);
+        if (!function_exists('onlineClassJitsiDomain')) {
+            require_once __DIR__ . '/online_class_helper.php';
+        }
+        $domain = onlineClassJitsiDomain();
+        return 'https://' . $domain . '/' . rawurlencode($key);
     }
 }
 
