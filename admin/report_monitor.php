@@ -1526,14 +1526,27 @@ Q4 (Jan–Mar)
 </div>
 
 <div class="row mb-4">
-    <div class="col-lg-12">
+    <div class="col-lg-8 mb-4">
+        <div class="card chart-card">
+            <div class="card-header">
+                <strong>Certified / Placed Trend</strong>
+                <small class="text-muted ms-2">
+                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Certified + Placed (monthly)
+                </small>
+            </div>
+            <div class="card-body">
+                <canvas id="certifiedPlacedMonthlyChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
         <div class="card chart-card">
             <div class="card-header">
                 <strong>Certified / Placed (Centre Wise)</strong>
-                <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?></small>
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?></small>
             </div>
-            <div class="card-body" style="min-height:320px;">
-                <canvas id="certifiedPlacedCentreChart" height="280"></canvas>
+            <div class="card-body">
+                <canvas id="certifiedPlacedCentreChart" height="120"></canvas>
             </div>
         </div>
     </div>
@@ -3345,88 +3358,57 @@ beginAtZero:true
 }
 
 /*==================================================
-CERTIFIED / PLACED BY CENTRE
+CERTIFIED / PLACED — MONTHLY TREND (BAR)
 ==================================================*/
 
-const certifiedCanvas = document.getElementById('certifiedPlacedCentreChart');
-if (certifiedCanvas) {
+const certifiedMonthlyCanvas = document.getElementById('certifiedPlacedMonthlyChart');
+if (certifiedMonthlyCanvas) {
     const cpTrendData = reportPayload.certifiedPlacedMonthlyByCentre || { labels: [], series: [] };
-    const cpSeries = cpTrendData.series || [];
-    const cpHasData = cpSeries.some(function (series) {
-        return (series.combined || []).some(function (value) { return value > 0; })
-            || (series.certified || []).some(function (value) { return value > 0; })
-            || (series.placed || []).some(function (value) { return value > 0; });
-    });
+    const cpTotalSeries = (cpTrendData.series || []).find(function (series) {
+        return series.key === 'total' || series.is_total === true;
+    }) || { certified: [], placed: [] };
+    const certifiedMonthly = cpTotalSeries.certified || [];
+    const placedMonthly = cpTotalSeries.placed || [];
+    const cpMonthlyHasData = certifiedMonthly.some(function (value) { return value > 0; })
+        || placedMonthly.some(function (value) { return value > 0; });
 
-    if (!cpSeries.length || !cpHasData) {
-        certifiedCanvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
+    if (!cpMonthlyHasData) {
+        certifiedMonthlyCanvas.parentElement.innerHTML =
+            '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
     } else {
-        const cpPalette = ['#16a34a', '#2563eb', '#ea580c', '#a855f7', '#0891b2', '#db2777', '#65a30d', '#7c3aed'];
-        const cpDatasets = [];
-
-        cpSeries.forEach(function (series, index) {
-            const isTotal = series.key === 'total' || series.is_total === true;
-            const color = isTotal ? '#0f172a' : cpPalette[(index - 1 + cpPalette.length) % cpPalette.length];
-            const certifiedData = series.certified || [];
-            const placedData = series.placed || [];
-            const combinedData = (series.combined || []).length
-                ? series.combined
-                : certifiedData.map(function (value, idx) {
-                    return value + (placedData[idx] || 0);
-                });
-
-            cpDatasets.push({
-                label: series.label,
-                data: combinedData,
-                borderColor: color,
-                backgroundColor: color + '22',
-                pointBackgroundColor: color,
-                pointBorderColor: '#ffffff',
-                pointBorderWidth: isTotal ? 2 : 1,
-                pointRadius: isTotal ? 5 : 4,
-                pointHoverRadius: isTotal ? 7 : 5,
-                borderWidth: isTotal ? 4 : 2,
-                fill: false,
-                tension: 0.35,
-                order: isTotal ? 0 : index + 1,
-                certifiedData: certifiedData,
-                placedData: placedData,
-                isTotalLine: isTotal
-            });
-        });
-
-        new Chart(certifiedCanvas, {
-            type: 'line',
+        new Chart(certifiedMonthlyCanvas, {
+            type: 'bar',
             data: {
                 labels: cpTrendData.labels || [],
-                datasets: cpDatasets
+                datasets: [
+                    {
+                        label: 'Certified',
+                        data: certifiedMonthly,
+                        backgroundColor: '#16a34a',
+                        borderRadius: 4,
+                        maxBarThickness: 42
+                    },
+                    {
+                        label: 'Placed',
+                        data: placedMonthly,
+                        backgroundColor: '#2563eb',
+                        borderRadius: 4,
+                        maxBarThickness: 42
+                    }
+                ]
             },
             options: reportMonitorChartOptions({
                 responsive: true,
                 maintainAspectRatio: false,
-                interaction: {
-                    mode: 'index',
-                    intersect: false
-                },
                 plugins: {
-                    legend: {
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            boxWidth: 10
-                        }
-                    },
+                    legend: { position: 'bottom' },
                     tooltip: {
                         callbacks: {
-                            afterLabel: function (context) {
-                                const ds = context.dataset || {};
-                                const idx = context.dataIndex;
-                                const certified = (ds.certifiedData || [])[idx] || 0;
-                                const placed = (ds.placedData || [])[idx] || 0;
-                                return [
-                                    'Certified: ' + certified,
-                                    'Placed: ' + placed
-                                ];
+                            footer: function (items) {
+                                const total = items.reduce(function (sum, item) {
+                                    return sum + (Number(item.parsed.y) || 0);
+                                }, 0);
+                                return 'Total: ' + total;
                             }
                         }
                     }
@@ -3434,9 +3416,10 @@ if (certifiedCanvas) {
                 scales: {
                     x: {
                         grid: { display: false },
-                        title: {
-                            display: !reportMonitorIsMobile(),
-                            text: 'Month'
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: true
                         }
                     },
                     y: {
@@ -3444,8 +3427,74 @@ if (certifiedCanvas) {
                         ticks: { precision: 0 },
                         title: {
                             display: !reportMonitorIsMobile(),
-                            text: 'Certified + Placed'
+                            text: 'Students'
                         }
+                    }
+                }
+            })
+        });
+    }
+}
+
+/*==================================================
+CERTIFIED / PLACED — CENTRE WISE (BAR)
+==================================================*/
+
+const certifiedCentreCanvas = document.getElementById('certifiedPlacedCentreChart');
+if (certifiedCentreCanvas) {
+    const cpCentreStats = reportPayload.certifiedPlacedCentreStats || [];
+    const cpCentreHasData = cpCentreStats.some(function (row) {
+        return (row.certified || 0) > 0 || (row.placed || 0) > 0;
+    });
+
+    if (!cpCentreStats.length || !cpCentreHasData) {
+        certifiedCentreCanvas.parentElement.innerHTML =
+            '<p class="text-center text-muted py-5 mb-0">No certified/placed data for the selected period.</p>';
+    } else {
+        new Chart(certifiedCentreCanvas, {
+            type: 'bar',
+            data: {
+                labels: cpCentreStats.map(function (row) {
+                    return row.centre_name;
+                }),
+                datasets: [
+                    {
+                        label: 'Certified',
+                        data: cpCentreStats.map(function (row) {
+                            return row.certified || 0;
+                        }),
+                        backgroundColor: '#16a34a',
+                        borderRadius: 4,
+                        maxBarThickness: 48
+                    },
+                    {
+                        label: 'Placed',
+                        data: cpCentreStats.map(function (row) {
+                            return row.placed || 0;
+                        }),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 4,
+                        maxBarThickness: 48
+                    }
+                ]
+            },
+            options: reportMonitorChartOptions({
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom' }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 0,
+                            autoSkip: true
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
                     }
                 }
             })
