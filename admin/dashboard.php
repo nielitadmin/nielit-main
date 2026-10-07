@@ -292,18 +292,20 @@ if (isset($_POST['add_course'])) {
     }
 
     require_once __DIR__ . '/../includes/course_public_display.php';
+    require_once __DIR__ . '/../includes/course_category_options.php';
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
     ensureCourseProjectLevelColumn($conn);
+    ensure_course_sub_category_column($conn);
 
     $insert_sql = "INSERT INTO courses (
-        course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category,
+        course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category, course_sub_category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
         training_center, is_nsqf, link_published, course_description, project_level_label, registration_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("ssssssssssssssiisss", 
-        $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category,
+    $stmt->bind_param("sssssssssssssssiisss", 
+        $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category, $nsqf_type,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
         $training_center, $is_nsqf, $link_published, $course_description, $project_level_label, $registration_token
     );
@@ -2935,31 +2937,16 @@ function handleNsqfTypeChangeDash(nsqfType) {
     const categoryFieldGroup = document.getElementById('add_category_group_dash');
     const categorySelect = document.getElementById('add_category_dash');
     const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
+
+    if (categoryFieldGroup) {
+        categoryFieldGroup.style.display = 'block';
+    }
+    if (categorySelect) {
+        categorySelect.required = true;
+    }
     
     const isCourseCoordinator = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'course_coordinator'); ?>;
     const isNSQFManager = <?php echo json_encode(isset($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'nsqf_course_manager'); ?>;
-    
-    // Handle category field visibility for special subcategories
-    if (specialSubcategories.includes(nsqfType)) {
-        if (categoryFieldGroup) {
-            categoryFieldGroup.style.display = 'none';
-        }
-        if (categorySelect) {
-            categorySelect.required = false;
-            categorySelect.value = nsqfType;
-        }
-    } else {
-        if (categoryFieldGroup) {
-            categoryFieldGroup.style.display = 'block';
-        }
-        if (categorySelect) {
-            categorySelect.required = true;
-            // Only clear when switching away from a special sub-category value
-            if (specialSubcategories.includes(categorySelect.value)) {
-                categorySelect.value = '';
-            }
-        }
-    }
     
     if (nsqfType === 'NSQF Course') {
         // Show template dropdown for Course Coordinators and Master Admins
@@ -3003,24 +2990,26 @@ function handleNsqfTypeChangeDash(nsqfType) {
         
         if (eligibilityField) {
             eligibilityField.readOnly = false;
-            eligibilityField.placeholder = 'Enter eligibility criteria';
+            if (nsqfType === 'Internship Program') {
+                eligibilityField.placeholder = 'e.g., Currently enrolled in relevant course';
+            } else if (nsqfType === 'Boot Camps') {
+                eligibilityField.placeholder = 'e.g., Basic computer knowledge or as per boot camp theme';
+            } else if (nsqfType === 'Awareness Program') {
+                eligibilityField.placeholder = 'e.g., Open to all';
+            } else if (nsqfType === 'FDP Program') {
+                eligibilityField.placeholder = 'e.g., Faculty members from recognized institutions';
+            } else if (nsqfType === 'Workshop') {
+                eligibilityField.placeholder = 'e.g., Basic knowledge of the subject';
+            } else if (nsqfType === 'Govt/Corporate Training') {
+                eligibilityField.placeholder = 'e.g., As per organization requirements';
+            } else {
+                eligibilityField.placeholder = 'Enter eligibility criteria';
+            }
         }
     }
 }
 
-// Prepare form submission by setting category correctly
 function prepareFormSubmissionDash() {
-    const nsqfTypeSelect = document.getElementById('add_nsqf_type_dash');
-    const categorySelect = document.getElementById('add_category_dash');
-    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
-    
-    if (nsqfTypeSelect && categorySelect) {
-        const selectedValue = nsqfTypeSelect.value;
-        if (specialSubcategories.includes(selectedValue)) {
-            categorySelect.value = selectedValue;
-        }
-    }
-    
     return true;
 }
 

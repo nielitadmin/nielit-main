@@ -100,8 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $registration_link = '';
         }
-        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("issssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
+        require_once __DIR__ . '/../includes/course_category_options.php';
+        ensure_course_sub_category_column($conn);
+
+        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, course_sub_category, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("isssssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
@@ -225,8 +228,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $registration_form = ($_POST['registration_form'] ?? 'full') === 'workshop' ? 'workshop' : 'full';
         // Use provided link or keep existing
         $registration_link = !empty($custom_link) ? $custom_link : '';
-        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, registration_form=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
-        $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
+        require_once __DIR__ . '/../includes/course_category_options.php';
+        ensure_course_sub_category_column($conn);
+
+        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, course_sub_category=?, registration_form=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
+        $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
         
         if ($stmt->execute()) {
             saveCourseRequiredDocuments($conn, (int) $id, parseCourseRequiredDocumentsFromPost($_POST));
@@ -532,7 +538,7 @@ if (!empty($params)) {
                                     <option value="Internship Program" <?= $filter_type === 'Internship Program' ? 'selected' : '' ?>>Internship Program</option>
                                     <option value="Regular" <?= $filter_type === 'Regular' ? 'selected' : '' ?>>Regular</option>
                                     <option value="Internship" <?= $filter_type === 'Internship' ? 'selected' : '' ?>>Internship</option>
-                                    <option value="Bootcamp" <?= $filter_type === 'Bootcamp' ? 'selected' : '' ?>>Bootcamp</option>
+                                    <option value="Boot Camps" <?= $filter_type === 'Boot Camps' ? 'selected' : '' ?>>Boot Camps</option>
                                     <option value="Workshop" <?= $filter_type === 'Workshop' ? 'selected' : '' ?>>Workshop</option>
                                 </select>
                             </div>
@@ -1290,7 +1296,13 @@ if (!empty($params)) {
             document.getElementById('edit_course_type').value = course.course_type;
             const editNsqfTypeSelect = document.getElementById('edit_nsqf_type');
             if (editNsqfTypeSelect) {
-                editNsqfTypeSelect.value = (course.is_nsqf == 1 || course.is_nsqf === '1') ? 'NSQF Course' : '<?php echo addslashes(get_default_non_nsqf_sub_category()); ?>';
+                if (course.course_sub_category) {
+                    editNsqfTypeSelect.value = course.course_sub_category;
+                } else if (course.is_nsqf == 1 || course.is_nsqf === '1') {
+                    editNsqfTypeSelect.value = 'NSQF Course';
+                } else {
+                    editNsqfTypeSelect.value = '<?php echo addslashes(get_default_non_nsqf_sub_category()); ?>';
+                }
                 handleNsqfTypeChange('edit', editNsqfTypeSelect.value);
             }
             document.getElementById('edit_training_center').value = course.training_center;
@@ -1608,6 +1620,9 @@ if (!empty($params)) {
                     case 'Internship Program':
                         eligibilityField.placeholder = 'e.g., Currently enrolled in relevant course';
                         break;
+                    case 'Boot Camps':
+                        eligibilityField.placeholder = 'e.g., Basic computer knowledge or as per boot camp theme';
+                        break;
                     case 'Awareness Program':
                         eligibilityField.placeholder = 'e.g., Open to all';
                         break;
@@ -1693,6 +1708,9 @@ if (!empty($params)) {
                 switch(subCategory) {
                     case 'Internship Program':
                         eligibilityField.placeholder = 'e.g., Currently enrolled in relevant course';
+                        break;
+                    case 'Boot Camps':
+                        eligibilityField.placeholder = 'e.g., Basic computer knowledge or as per boot camp theme';
                         break;
                     case 'Awareness Program':
                         eligibilityField.placeholder = 'e.g., Open to all';

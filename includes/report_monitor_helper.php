@@ -50,6 +50,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     'Internship Program',
                     'Internship',
                     'Bootcamp',
+                    'Boot Camps',
+                    'Boot Camp',
                     'Awareness Program',
                     'Workshop',
                     'FDP Program',

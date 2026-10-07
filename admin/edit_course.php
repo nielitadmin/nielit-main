@@ -186,11 +186,7 @@ if (isset($_POST['update_course'])) {
     $nsqf_type          = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
     $is_nsqf            = is_nsqf_course_sub_category($nsqf_type) ? 1 : 0;
     
-    // Handle special sub-categories that should be stored as categories
-    if (is_special_subcategory($nsqf_type)) {
-        $category = normalize_course_sub_category($nsqf_type);
-        $is_nsqf = 0; // These programs are typically non-NSQF
-    }
+    ensure_course_sub_category_column($conn);
     $payment_details_required = $_POST['payment_details_required'] ?? 'optional';
     if (sub_category_matches($nsqf_type, 'Workshop') || sub_category_matches($nsqf_type, 'Awareness Program')) {
         $registration_form = (($_POST['registration_form'] ?? 'workshop') === 'workshop') ? 'workshop' : 'full';
@@ -275,7 +271,8 @@ if (isset($_POST['update_course'])) {
             eligibility = ?, 
             duration = ?, 
             training_fees = ?, 
-            category = ?, 
+            category = ?,
+            course_sub_category = ?,
             start_date = ?, 
             end_date = ?, 
             enrollment_closing_date = ?,
@@ -297,7 +294,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("ssssssssssssssssiisssissi",
+            $stmt->bind_param("sssssssssssssssssiisssissi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -305,7 +302,8 @@ if (isset($_POST['update_course'])) {
                 $duration,                 // 5  s
                 $training_fees,            // 6  s
                 $category,                 // 7  s
-                $start_date,               // 8  s
+                $nsqf_type,                // 8  s
+                $start_date,               // 9  s
                 $end_date,                 // 9  s
                 $enrollment_closing_date,  // 10 s
                 $description_url,          // 11 s
@@ -340,7 +338,8 @@ if (isset($_POST['update_course'])) {
             eligibility = ?, 
             duration = ?, 
             training_fees = ?, 
-            category = ?, 
+            category = ?,
+            course_sub_category = ?,
             start_date = ?, 
             end_date = ?, 
             enrollment_closing_date = ?,
@@ -361,7 +360,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("ssssssssssssssssiississi",
+            $stmt->bind_param("sssssssssssssssssiississi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
@@ -369,7 +368,8 @@ if (isset($_POST['update_course'])) {
                 $duration,             // 5  s
                 $training_fees,        // 6  s
                 $category,             // 7  s
-                $start_date,           // 8  s
+                $nsqf_type,            // 8  s
+                $start_date,           // 9  s
                 $end_date,             // 9  s
                 $enrollment_closing_date, // 10 s
                 $description_url,      // 11 s
@@ -491,15 +491,8 @@ if (isset($_POST['update_course'])) {
     }
 }
 
-$selected_main_category = in_array($course['category'] ?? '', array_keys(get_course_main_categories()), true)
-    ? $course['category']
-    : '';
-$selected_sub_category = get_default_non_nsqf_sub_category();
-if (!empty($course['is_nsqf']) && (int)$course['is_nsqf'] === 1) {
-    $selected_sub_category = 'NSQF Course';
-} elseif (is_special_subcategory($course['category'] ?? '')) {
-    $selected_sub_category = normalize_course_sub_category($course['category']);
-}
+$selected_main_category = resolve_course_main_category_from_row($course);
+$selected_sub_category = resolve_course_sub_category_from_row($course);
 $registration_form_display = (($course['registration_form'] ?? 'full') === 'workshop') ? 'workshop' : 'full';
 if ($registration_form_display === 'full' && (sub_category_matches($selected_sub_category, 'Workshop') || sub_category_matches($selected_sub_category, 'Awareness Program'))) {
     $registration_form_display = 'workshop';
@@ -1548,6 +1541,9 @@ function handleCategoryChange(currentCategory) {
         } else if (selectedNsqfType === 'Govt/Corporate Training') {
             courseNameInput.placeholder    = 'Enter training program name';
             eligibilityField.placeholder   = 'Enter eligibility criteria for training';
+        } else if (selectedNsqfType === 'Boot Camps') {
+            courseNameInput.placeholder    = 'Enter boot camp name';
+            eligibilityField.placeholder   = 'e.g., Basic computer knowledge or as per boot camp theme';
         }
     } else {
         templateGroup.style.display    = 'none';
@@ -1599,23 +1595,16 @@ function handleTemplateSelection() {
     }
 }
 
-// Handle special subcategories and category field visibility
+// Handle sub-category changes while keeping main category visible.
 function handleSubcategoryChange() {
     const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
     const categoryFieldGroup = document.getElementById('category_field_group');
     const categorySelect = document.getElementById('edit_category');
-    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
-    
-    const selectedValue = nsqfTypeSelect.value;
-    
-    if (specialSubcategories.includes(selectedValue)) {
-        // Hide category field and set it to match the subcategory
-        categoryFieldGroup.style.display = 'none';
-        categorySelect.required = false;
-        categorySelect.value = selectedValue;
-    } else {
-        // Show category field
+
+    if (categoryFieldGroup) {
         categoryFieldGroup.style.display = 'block';
+    }
+    if (categorySelect) {
         categorySelect.required = true;
     }
 
@@ -1667,18 +1656,7 @@ function updateRegistrationFormForSubcategory(forceWorkshopDefault) {
     }
 }
 
-// Add form submission handler to ensure category is set correctly
 function prepareFormSubmission() {
-    const nsqfTypeSelect = document.getElementById('edit_nsqf_type');
-    const categorySelect = document.getElementById('edit_category');
-    const specialSubcategories = <?php echo json_encode(get_special_subcategories()); ?>;
-    
-    const selectedValue = nsqfTypeSelect.value;
-    
-    if (specialSubcategories.includes(selectedValue)) {
-        categorySelect.value = selectedValue;
-    }
-    
     return true;
 }
 

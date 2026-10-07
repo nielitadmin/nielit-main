@@ -20,6 +20,9 @@ if (!function_exists('get_course_main_categories')) {
             'NON-NSQF Course' => 'Non-NSQF Course',
             'NON-NSQF' => 'Non-NSQF',
             'GOVT/CORPORATE Training' => 'Govt/Corporate Training',
+            'Bootcamp' => 'Boot Camps',
+            'Boot Camp' => 'Boot Camps',
+            'Bootcamp Program' => 'Boot Camps',
         ];
     }
 
@@ -76,6 +79,7 @@ if (!function_exists('get_course_main_categories')) {
             'NSQF Course' => 'NSQF Course',
             'Non-NSQF Course' => 'Non-NSQF Course',
             'Internship Program' => 'Internship Program',
+            'Boot Camps' => 'Boot Camps',
             'Awareness Program' => 'Awareness Program',
             'FDP Program' => 'FDP Program',
             'Workshop' => 'Workshop',
@@ -91,15 +95,64 @@ if (!function_exists('get_course_main_categories')) {
         ];
     }
 
-    /** Sub-categories that map to category (hide main category field) */
+    /** Sub-categories that are program types (not main skill categories). */
     function get_special_subcategories() {
         return [
             'Internship Program',
+            'Boot Camps',
             'Awareness Program',
             'FDP Program',
             'Workshop',
             'Govt/Corporate Training',
         ];
+    }
+
+    function ensure_course_sub_category_column($conn): void {
+        if (!($conn instanceof mysqli)) {
+            return;
+        }
+        @$conn->query(
+            "ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_sub_category VARCHAR(80) NULL DEFAULT NULL AFTER category"
+        );
+    }
+
+    function resolve_course_main_category_from_row(array $course): string {
+        foreach (['category', 'course_type'] as $field) {
+            $value = trim((string) ($course[$field] ?? ''));
+            if ($value !== '' && in_array($value, array_keys(get_course_main_categories()), true)) {
+                return $value;
+            }
+        }
+
+        $legacyCategory = trim((string) ($course['category'] ?? ''));
+        if ($legacyCategory !== '' && !is_special_subcategory($legacyCategory)) {
+            return $legacyCategory;
+        }
+
+        return '';
+    }
+
+    function resolve_course_sub_category_from_row(array $course): string {
+        $stored = trim((string) ($course['course_sub_category'] ?? ''));
+        if ($stored !== '') {
+            return normalize_course_sub_category($stored);
+        }
+
+        if (!empty($course['is_nsqf']) && (int) $course['is_nsqf'] === 1) {
+            return 'NSQF Course';
+        }
+
+        $legacyCategory = trim((string) ($course['category'] ?? ''));
+        if ($legacyCategory !== '' && is_special_subcategory($legacyCategory)) {
+            return normalize_course_sub_category($legacyCategory);
+        }
+
+        $legacyType = trim((string) ($course['course_type'] ?? ''));
+        if ($legacyType !== '' && is_special_subcategory($legacyType)) {
+            return normalize_course_sub_category($legacyType);
+        }
+
+        return get_default_non_nsqf_sub_category();
     }
 
     /** Legacy labels still stored in older DB rows */
