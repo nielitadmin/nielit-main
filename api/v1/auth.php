@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/api_config.php';
+require_once __DIR__ . '/../includes/student_fields.php';
 
 // Authenticate the API request
 $api_data = authenticateApiRequest();
@@ -55,11 +56,18 @@ function handleLogin() {
                 s.password,
                 s.course_id,
                 c.course_name,
+                c.duration AS course_duration,
+                s.batch_id,
+                b.batch_code,
+                b.batch_name,
+                b.start_date AS batch_start_date,
+                b.end_date AS batch_end_date,
                 s.training_center,
                 s.status,
                 s.created_at
             FROM students s
             LEFT JOIN courses c ON s.course_id = c.id
+            LEFT JOIN batches b ON s.batch_id = b.id
             WHERE (s.student_id = ? OR s.email = ?) AND s.status IN ('approved', 'active')
             LIMIT 1
         ");
@@ -74,6 +82,12 @@ function handleLogin() {
                     password,
                     course_id,
                     NULL AS course_name,
+                    NULL AS course_duration,
+                    batch_id,
+                    NULL AS batch_code,
+                    NULL AS batch_name,
+                    NULL AS batch_start_date,
+                    NULL AS batch_end_date,
                     training_center,
                     status,
                     created_at
@@ -96,6 +110,7 @@ function handleLogin() {
         if (password_verify($password, $student['password'])) {
             // Authentication successful
             unset($student['password']); // Remove password from response
+            $student = apiAppendCourseBatchFields($student);
             
             // Generate session token
             $token = generateSecureToken($student['student_id']);

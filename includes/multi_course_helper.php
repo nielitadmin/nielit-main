@@ -2468,8 +2468,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         $enrollments = [];
 
         if (isMultiCourseSystemInstalled($conn)) {
-            $sql = "SELECT se.*, c.course_name, c.course_code, c.duration,
-                           b.batch_name, b.batch_code, bs.batch_id,
+            $sql = "SELECT se.*, c.course_name, c.course_code, c.duration AS course_duration,
+                           b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
+                           bs.batch_id,
                            sch.scheme_name, sch.scheme_code
                     FROM student_enrollments se
                     INNER JOIN student_accounts sa ON sa.id = se.account_id
@@ -2495,7 +2496,8 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             }
         }
 
-        $sql = "SELECT s.*, c.course_name, c.course_code, c.duration, b.batch_name, b.batch_code
+        $sql = "SELECT s.*, c.course_name, c.course_code, c.duration AS course_duration,
+                       b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date
                 FROM students s
                 LEFT JOIN courses c ON c.id = s.course_id
                 LEFT JOIN batches b ON b.id = s.batch_id

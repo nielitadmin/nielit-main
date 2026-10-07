@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/api_config.php';
+require_once __DIR__ . '/../includes/student_fields.php';
 require_once __DIR__ . '/../../includes/multi_course_helper.php';
 
 // Authenticate the request
@@ -111,14 +112,20 @@ function addEnrollmentRecordsToStudent(array $student): array {
 
     $studentId = trim((string) ($student['student_id'] ?? ''));
     $student['photo_url'] = studentPhotoUrl($student['passport_photo'] ?? '');
+    $student = apiAppendCourseBatchFields($student);
     if ($studentId === '') {
         $student['enrollments'] = [];
         $student['enrollment_count'] = 0;
         return $student;
     }
 
-    $enrollments = searchMultiCourseEnrollments($conn, $studentId, 100);
-    $student['enrollments'] = $enrollments ?? [];
+    if (function_exists('getEnrollmentsForStudentId')) {
+        $enrollments = getEnrollmentsForStudentId($conn, $studentId);
+        $student['enrollments'] = array_map('apiFormatEnrollmentRecord', $enrollments);
+    } else {
+        $enrollments = searchMultiCourseEnrollments($conn, $studentId, 100);
+        $student['enrollments'] = is_array($enrollments) ? $enrollments : [];
+    }
     $student['enrollment_count'] = count($student['enrollments']);
     return $student;
 }
@@ -142,11 +149,18 @@ function getStudentsList($limit, $offset) {
             s.passport_photo,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE " . allowedStatusCondition('s') . "
         ORDER BY s.created_at DESC
         LIMIT ? OFFSET ?
@@ -164,6 +178,12 @@ function getStudentsList($limit, $offset) {
                 passport_photo,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 created_at,
                 status
@@ -185,17 +205,7 @@ function getStudentsList($limit, $offset) {
 
     $students = [];
     while ($row = $result->fetch_assoc()) {
-        $students[] = [
-            'student_id' => $row['student_id'],
-            'name' => $row['name'],
-            'email' => $row['email'],
-            'mobile' => $row['mobile'],
-            'course_id' => $row['course_id'],
-            'course_name' => $row['course_name'],
-            'training_center' => $row['training_center'],
-            'created_at' => $row['created_at'],
-            'status' => $row['status']
-        ];
+        $students[] = apiMapStudentListRow($row);
     }
 
     sendApiResponse([
@@ -229,11 +239,18 @@ function getStudentsListWithPasswords($limit, $offset) {
             s.password,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE " . allowedStatusCondition('s') . "
         ORDER BY s.created_at DESC
         LIMIT ? OFFSET ?
@@ -251,6 +268,12 @@ function getStudentsListWithPasswords($limit, $offset) {
                 password,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 created_at,
                 status
@@ -272,18 +295,7 @@ function getStudentsListWithPasswords($limit, $offset) {
 
     $students = [];
     while ($row = $result->fetch_assoc()) {
-        $students[] = [
-            'student_id' => $row['student_id'],
-            'name' => $row['name'],
-            'email' => $row['email'],
-            'mobile' => $row['mobile'],
-            'password' => $row['password'],
-            'course_id' => $row['course_id'],
-            'course_name' => $row['course_name'],
-            'training_center' => $row['training_center'],
-            'created_at' => $row['created_at'],
-            'status' => $row['status']
-        ];
+        $students[] = apiMapStudentListRow($row, true);
     }
 
     sendApiResponse([
@@ -319,6 +331,12 @@ function exportAllStudentsWithPasswords() {
             s.password,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status,
@@ -330,6 +348,7 @@ function exportAllStudentsWithPasswords() {
             s.pincode
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE " . allowedStatusCondition('s') . "
         ORDER BY s.created_at DESC
     ";
@@ -348,6 +367,12 @@ function exportAllStudentsWithPasswords() {
                 password,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 created_at,
                 status,
@@ -373,7 +398,7 @@ function exportAllStudentsWithPasswords() {
 
     $students = [];
     while ($row = $result->fetch_assoc()) {
-        $students[] = $row;
+        $students[] = apiAppendCourseBatchFields($row);
     }
 
     sendApiResponse([
@@ -403,6 +428,12 @@ function getStudentById($student_id) {
             s.passport_photo,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status,
@@ -414,6 +445,7 @@ function getStudentById($student_id) {
             s.pincode
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE s.student_id = ? AND " . allowedStatusCondition('s') . "
     ";
 
@@ -431,6 +463,12 @@ function getStudentById($student_id) {
                 passport_photo,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 created_at,
                 status,
@@ -479,6 +517,12 @@ function getStudentByEmail($email) {
             s.passport_photo,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status,
@@ -490,6 +534,7 @@ function getStudentByEmail($email) {
             s.pincode
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE s.email = ? AND " . allowedStatusCondition('s') . "
     ";
 
@@ -507,6 +552,12 @@ function getStudentByEmail($email) {
                 passport_photo,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 created_at,
                 status,
@@ -560,6 +611,12 @@ function getStudentWithPassword(string $whereClause, string $bindType, string $v
             s.password,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.created_at,
             s.status,
@@ -571,6 +628,7 @@ function getStudentWithPassword(string $whereClause, string $bindType, string $v
             s.pincode
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE {$whereClause} AND " . allowedStatusCondition('s') . "
         ORDER BY s.id DESC
         LIMIT 1
@@ -616,10 +674,17 @@ function authenticateStudent() {
             s.password,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
+            s.batch_id,
+            b.batch_code,
+            b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.status
         FROM students s
         LEFT JOIN courses c ON s.course_id = c.id
+        LEFT JOIN batches b ON s.batch_id = b.id
         WHERE (s.student_id = ? OR s.email = ?) AND " . allowedStatusCondition('s') . "
         LIMIT 1
     ";
@@ -635,6 +700,12 @@ function authenticateStudent() {
                 password,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
+                batch_id,
+                NULL AS batch_code,
+                NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 status
             FROM students
@@ -655,6 +726,7 @@ function authenticateStudent() {
     if ($student = $result->fetch_assoc()) {
         if (password_verify($password, $student['password'])) {
             unset($student['password']);
+            $student = apiAppendCourseBatchFields($student);
             sendApiResponse([
                 'authenticated' => true,
                 'student' => $student,
@@ -703,9 +775,12 @@ function searchStudents() {
             s.passport_photo,
             s.course_id,
             c.course_name,
+            c.duration AS course_duration,
             s.batch_id,
             b.batch_code,
             b.batch_name,
+            b.start_date AS batch_start_date,
+            b.end_date AS batch_end_date,
             s.training_center,
             s.status
         FROM students s
@@ -733,9 +808,12 @@ function searchStudents() {
                 passport_photo,
                 course_id,
                 NULL AS course_name,
+                NULL AS course_duration,
                 batch_id,
                 NULL AS batch_code,
                 NULL AS batch_name,
+                NULL AS batch_start_date,
+                NULL AS batch_end_date,
                 training_center,
                 status
             FROM students
@@ -762,7 +840,7 @@ function searchStudents() {
     while ($row = $result->fetch_assoc()) {
         $row['photo_url'] = studentPhotoUrl($row['passport_photo'] ?? '');
         unset($row['passport_photo']);
-        $students[] = $row;
+        $students[] = apiAppendCourseBatchFields($row);
     }
 
     sendApiResponse([
@@ -807,32 +885,22 @@ function searchMultiCourseEnrollments(mysqli $conn, string $studentId, int $limi
 
     $records = [];
     foreach (array_slice($enrollments, 0, $limit) as $enrollment) {
-        $records[] = [
-            'enrollment_id' => (int) ($enrollment['id'] ?? 0),
-            'student_record_id' => (int) ($enrollment['student_record_id'] ?? 0),
-            'student_id' => $studentId,
-            'photo_url' => studentPhotoUrl($profile['passport_photo'] ?? ''),
-            'name' => (string) ($profile['name'] ?? ''),
-            'father_name' => (string) ($profile['father_name'] ?? ''),
-            'mother_name' => (string) ($profile['mother_name'] ?? ''),
-            'email' => (string) ($profile['email'] ?? ''),
-            'mobile' => (string) ($profile['mobile'] ?? ''),
-            'course_id' => (int) ($enrollment['course_id'] ?? 0),
-            'course_code' => (string) ($enrollment['course_code'] ?? ''),
-            'course_name' => (string) ($enrollment['course_name'] ?? ''),
-            'batch_id' => !empty($enrollment['batch_id']) ? (int) $enrollment['batch_id'] : null,
-            'batch_code' => (string) ($enrollment['batch_code'] ?? ''),
-            'batch_name' => (string) ($enrollment['batch_name'] ?? ''),
-            'training_center' => (string) ($profile['training_center'] ?? ''),
-            'created_at' => $profile['created_at'] ?? null,
-            'dob' => $profile['dob'] ?? null,
-            'gender' => (string) ($profile['gender'] ?? ''),
-            'address' => (string) ($profile['address'] ?? ''),
-            'city' => (string) ($profile['city'] ?? ''),
-            'state' => (string) ($profile['state'] ?? ''),
-            'pincode' => (string) ($profile['pincode'] ?? ''),
-            'status' => (string) ($enrollment['status'] ?? 'active'),
-        ];
+        $record = apiFormatEnrollmentRecord($enrollment);
+        $record['photo_url'] = studentPhotoUrl($profile['passport_photo'] ?? '');
+        $record['name'] = (string) ($profile['name'] ?? '');
+        $record['father_name'] = (string) ($profile['father_name'] ?? '');
+        $record['mother_name'] = (string) ($profile['mother_name'] ?? '');
+        $record['email'] = (string) ($profile['email'] ?? '');
+        $record['mobile'] = (string) ($profile['mobile'] ?? '');
+        $record['training_center'] = (string) ($profile['training_center'] ?? '');
+        $record['created_at'] = $profile['created_at'] ?? null;
+        $record['dob'] = $profile['dob'] ?? null;
+        $record['gender'] = (string) ($profile['gender'] ?? '');
+        $record['address'] = (string) ($profile['address'] ?? '');
+        $record['city'] = (string) ($profile['city'] ?? '');
+        $record['state'] = (string) ($profile['state'] ?? '');
+        $record['pincode'] = (string) ($profile['pincode'] ?? '');
+        $records[] = $record;
     }
 
     return $records;
