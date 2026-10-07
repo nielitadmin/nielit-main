@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ensure_course_sub_category_column($conn);
 
         $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, course_sub_category, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("isssssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
+        $stmt->bind_param("issssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
