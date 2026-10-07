@@ -208,6 +208,13 @@ $genderQuarterSummary = report_monitor_get_gender_quarter_summary(
     $selectedYear
 );
 
+$genderSocialCategoryQuarterSummary = report_monitor_get_gender_social_category_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+
 $certifiedPlacedCentreStats = report_monitor_get_certified_placed_centre_stats(
     $conn,
     $scopedCourseIds,
@@ -2099,16 +2106,27 @@ Q4 (Jan–Mar)
 </div>
 
 <div class="card table-card mb-4" id="genderQuarterCard">
-    <div class="card-header">
-        <strong>Gender Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
-        <small class="text-muted ms-2">Male / Female / Other (batch-enrolled admissions)</small>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <strong>Gender Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
+            <small class="text-muted ms-2">Male / Female / Other with General, OBC, SC, ST, EWS, PWD breakdown</small>
+        </div>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary"
+                id="genderSocialDetailsToggle"
+                aria-expanded="false"
+                aria-controls="genderQuarterTable">
+            <i class="fas fa-chevron-down me-1" id="genderSocialDetailsToggleIcon"></i>
+            <span id="genderSocialDetailsToggleLabel">Show Social Category Details</span>
+        </button>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-bordered table-hover mb-0">
+            <table class="table table-bordered table-hover mb-0" id="genderQuarterTable">
                 <thead class="table-light">
                 <tr>
-                    <th>Gender</th>
+                    <th class="text-center" style="width:70px;">Sl No.</th>
+                    <th>Gender / Social Category</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
                     <th class="text-end">Q3</th>
@@ -2117,20 +2135,51 @@ Q4 (Jan–Mar)
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($genderQuarterSummary as $genderRow): ?>
-                <tr>
-                    <td><?php echo htmlspecialchars($genderRow['label']); ?></td>
-                    <td class="text-end"><?php echo number_format($genderRow['Q1']); ?></td>
-                    <td class="text-end"><?php echo number_format($genderRow['Q2']); ?></td>
-                    <td class="text-end"><?php echo number_format($genderRow['Q3']); ?></td>
-                    <td class="text-end"><?php echo number_format($genderRow['Q4']); ?></td>
-                    <td class="text-end fw-bold"><?php echo number_format($genderRow['total']); ?></td>
-                </tr>
+                <?php foreach ($genderSocialCategoryQuarterSummary as $genderRow): ?>
+                    <?php
+                    $genderKey = (string) ($genderRow['key'] ?? '');
+                    $genderSafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $genderKey);
+                    $genderCategories = is_array($genderRow['categories'] ?? null) ? $genderRow['categories'] : [];
+                    ?>
+                    <tr class="table-light gender-summary-row">
+                        <td class="text-center">—</td>
+                        <td class="fw-semibold">
+                            <?php if ($genderCategories !== []): ?>
+                                <button type="button"
+                                        class="btn btn-sm btn-link p-0 me-1 gender-social-row-toggle text-decoration-none"
+                                        data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>"
+                                        aria-expanded="false"
+                                        title="Show social category breakdown">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
+                            <?php echo htmlspecialchars($genderRow['label']); ?>
+                        </td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($genderRow['Q1'] ?? 0)); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($genderRow['Q2'] ?? 0)); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($genderRow['Q3'] ?? 0)); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($genderRow['Q4'] ?? 0)); ?></td>
+                        <td class="text-end fw-bold"><?php echo number_format((int) ($genderRow['total'] ?? 0)); ?></td>
+                    </tr>
+                    <?php foreach ($genderCategories as $catIndex => $categoryRow): ?>
+                    <tr class="gender-social-detail-row d-none" data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>">
+                        <td class="text-center text-muted"><?php echo (int) $catIndex + 1; ?></td>
+                        <td class="ps-4">
+                            <span class="text-muted me-1">↳</span>
+                            <?php echo htmlspecialchars($categoryRow['label']); ?>
+                        </td>
+                        <td class="text-end"><?php echo number_format((int) ($categoryRow['Q1'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($categoryRow['Q2'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($categoryRow['Q3'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($categoryRow['Q4'] ?? 0)); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($categoryRow['total'] ?? 0)); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
                 <?php endforeach; ?>
                 </tbody>
                 <tfoot class="table-light">
                 <tr>
-                    <th>Grand Total</th>
+                    <th colspan="2">Grand Total</th>
                     <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q1'))); ?></th>
                     <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q2'))); ?></th>
                     <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q3'))); ?></th>
@@ -5078,6 +5127,96 @@ SOCIAL CATEGORY DETAIL DROPDOWN
         document.addEventListener('DOMContentLoaded', initSocialCategoryDetailsToggle);
     } else {
         initSocialCategoryDetailsToggle();
+    }
+})();
+
+/*==================================================
+GENDER SOCIAL CATEGORY DETAIL DROPDOWN
+==================================================*/
+
+(function () {
+    function setGenderSocialDetailsExpanded(expanded) {
+        const detailRows = document.querySelectorAll('.gender-social-detail-row');
+        const rowToggles = document.querySelectorAll('.gender-social-row-toggle');
+        const masterBtn = document.getElementById('genderSocialDetailsToggle');
+        const masterIcon = document.getElementById('genderSocialDetailsToggleIcon');
+        const masterLabel = document.getElementById('genderSocialDetailsToggleLabel');
+
+        detailRows.forEach(function (row) {
+            row.classList.toggle('d-none', !expanded);
+        });
+
+        rowToggles.forEach(function (btn) {
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-right', !expanded);
+                icon.classList.toggle('fa-chevron-down', expanded);
+            }
+        });
+
+        if (masterBtn) {
+            masterBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (masterIcon) {
+            masterIcon.classList.toggle('fa-chevron-down', !expanded);
+            masterIcon.classList.toggle('fa-chevron-up', expanded);
+        }
+        if (masterLabel) {
+            masterLabel.textContent = expanded ? 'Hide Social Category Details' : 'Show Social Category Details';
+        }
+    }
+
+    function initGenderSocialDetailsToggle() {
+        const masterBtn = document.getElementById('genderSocialDetailsToggle');
+        if (!masterBtn) {
+            return;
+        }
+
+        masterBtn.addEventListener('click', function () {
+            const expanded = masterBtn.getAttribute('aria-expanded') === 'true';
+            setGenderSocialDetailsExpanded(!expanded);
+        });
+
+        document.querySelectorAll('.gender-social-row-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const group = btn.getAttribute('data-gender-group') || '';
+                const rows = document.querySelectorAll('.gender-social-detail-row[data-gender-group="' + group + '"]');
+                if (!rows.length) {
+                    return;
+                }
+                const open = btn.getAttribute('aria-expanded') === 'true';
+                const next = !open;
+                rows.forEach(function (row) {
+                    row.classList.toggle('d-none', !next);
+                });
+                btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-right', !next);
+                    icon.classList.toggle('fa-chevron-down', next);
+                }
+
+                const allOpen = document.querySelectorAll('.gender-social-detail-row.d-none').length === 0
+                    && document.querySelectorAll('.gender-social-detail-row').length > 0;
+                masterBtn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+                const masterIcon = document.getElementById('genderSocialDetailsToggleIcon');
+                const masterLabel = document.getElementById('genderSocialDetailsToggleLabel');
+                if (masterIcon) {
+                    masterIcon.classList.toggle('fa-chevron-down', !allOpen);
+                    masterIcon.classList.toggle('fa-chevron-up', allOpen);
+                }
+                if (masterLabel) {
+                    masterLabel.textContent = allOpen ? 'Hide Social Category Details' : 'Show Social Category Details';
+                }
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGenderSocialDetailsToggle);
+    } else {
+        initGenderSocialDetailsToggle();
     }
 })();
 

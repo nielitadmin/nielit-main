@@ -3395,6 +3395,124 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return array_values($rows);
     }
 
+    /**
+     * Social category (General/OBC/SC/ST/EWS/PWD) counts per gender and FY quarter.
+     *
+     * @return array<int,array{key:string,label:string,Q1:int,Q2:int,Q3:int,Q4:int,total:int,categories:array<int,array{key:string,label:string,Q1:int,Q2:int,Q3:int,Q4:int,total:int}>}>
+     */
+    function report_monitor_get_gender_social_category_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        $genderRows = report_monitor_get_gender_quarter_summary($conn, $courseIds, $centreId, $fyStartYear);
+        if ($genderRows === [] || !report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $genderMap = [];
+        foreach ($genderRows as $genderRow) {
+            $genderKey = (string) ($genderRow['key'] ?? '');
+            if ($genderKey === '') {
+                continue;
+            }
+            $categories = [];
+            foreach (report_monitor_get_social_category_groups() as $catKey => $group) {
+                $categories[$catKey] = [
+                    'key' => $catKey,
+                    'label' => $group['label'],
+                    'Q1' => 0,
+                    'Q2' => 0,
+                    'Q3' => 0,
+                    'Q4' => 0,
+                    'total' => 0,
+                ];
+            }
+            $genderMap[$genderKey] = [
+                'key' => $genderKey,
+                'label' => (string) ($genderRow['label'] ?? ucfirst($genderKey)),
+                'Q1' => (int) ($genderRow['Q1'] ?? 0),
+                'Q2' => (int) ($genderRow['Q2'] ?? 0),
+                'Q3' => (int) ($genderRow['Q3'] ?? 0),
+                'Q4' => (int) ($genderRow['Q4'] ?? 0),
+                'total' => (int) ($genderRow['total'] ?? 0),
+                'categories' => $categories,
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       s.gender AS raw_gender,
+                       s.category AS raw_category,
+                       s.pwd_status AS pwd_status,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_gender, raw_category, pwd_status";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = (string) ($row['quarter_key'] ?? '');
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $count = (int) ($row['total'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $genderKey = report_monitor_normalize_gender_key($row['raw_gender'] ?? '');
+                if (!isset($genderMap[$genderKey])) {
+                    $genderKey = 'other';
+                }
+                if (!isset($genderMap[$genderKey])) {
+                    continue;
+                }
+
+                $socialKey = report_monitor_resolve_social_category_key($row['raw_category'] ?? '');
+                if (isset($genderMap[$genderKey]['categories'][$socialKey])) {
+                    $genderMap[$genderKey]['categories'][$socialKey][$quarter] += $count;
+                    $genderMap[$genderKey]['categories'][$socialKey]['total'] += $count;
+                }
+
+                if (report_monitor_is_pwd_status($row['pwd_status'] ?? '')) {
+                    $genderMap[$genderKey]['categories']['pwd'][$quarter] += $count;
+                    $genderMap[$genderKey]['categories']['pwd']['total'] += $count;
+                }
+            }
+        }
+
+        foreach ($genderMap as &$genderRow) {
+            $genderRow['categories'] = array_values($genderRow['categories']);
+        }
+        unset($genderRow);
+
+        return array_values($genderMap);
+    }
+
     /** Monthly certified / placed counts for one scope (all centres or a single centre). */
     function report_monitor_get_certified_placed_monthly_counts(
         $conn,
