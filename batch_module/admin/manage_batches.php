@@ -29,6 +29,7 @@ admin_redirect_faculty_from_restricted_page();
 
 $admin_role = $_SESSION['admin_role'] ?? '';
 $is_placement_coordinator = ($admin_role === 'placement_coordinator');
+$can_see_all_batches = in_array($admin_role, ['master_admin', 'placement_coordinator'], true);
 
 $message = '';
 $message_type = 'success';
@@ -36,6 +37,10 @@ $message_type = 'success';
 // Handle batch actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
+        if ($is_placement_coordinator) {
+            $message = 'Placement coordinators can view batches and record placements, but cannot create or edit batches.';
+            $message_type = 'danger';
+        } else {
         switch ($_POST['action']) {
             case 'create_batch':
                 // Get course code for batch code generation
@@ -119,14 +124,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 break;
         }
+        }
     }
 }
 
 // Handle delete action
 if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
+    if ($is_placement_coordinator) {
+        $message = 'Placement coordinators cannot delete batches.';
+        $message_type = 'danger';
+    } else {
     $result = deleteBatch($_GET['delete'], $conn);
     $message = $result['message'];
     $message_type = $result['success'] ? 'success' : 'danger';
+    }
 }
 
 // Handle lock/unlock actions (Master Admin only)
@@ -185,8 +196,8 @@ if (!$current_admin_id && isset($_SESSION['admin'])) {
     }
 }
 
-// Get courses for dropdown - filtered by assignment for non-master-admins
-if ($is_master_admin) {
+// Get courses for dropdown - filtered by assignment for coordinators only
+if ($can_see_all_batches) {
     // Master admin sees all courses
     $courses_sql = "SELECT id, course_name, course_code, course_description FROM courses ORDER BY course_name";
     $courses_result = $conn->query($courses_sql);
@@ -216,8 +227,8 @@ while ($row = $courses_result->fetch_assoc()) {
 // (role and admin ID already resolved above)
 
 // Build batch query with role-based filtering
-if ($is_master_admin) {
-    // Master admin sees all batches
+if ($can_see_all_batches) {
+    // Master admin and placement coordinator see all batches
     $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                     (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                     CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
@@ -242,7 +253,7 @@ if ($is_master_admin) {
 
 // If the query fails (is_locked column doesn't exist), try without it
 if (!$batches_result) {
-    if ($is_master_admin) {
+    if ($can_see_all_batches) {
         $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
                         (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
                         0 as is_locked
@@ -314,14 +325,18 @@ $active_theme = loadActiveTheme($conn);
         <div class="admin-topbar">
             <div class="topbar-left">
                 <h4><i class="fas fa-layer-group"></i> 
-                    <?php if ($is_master_admin): ?>
+                    <?php if ($is_placement_coordinator): ?>
+                        Batches
+                    <?php elseif ($is_master_admin): ?>
                         Batch Management
                     <?php else: ?>
                         My Batches
                     <?php endif; ?>
                 </h4>
                 <small>
-                    <?php if ($is_master_admin): ?>
+                    <?php if ($is_placement_coordinator): ?>
+                        View all batches and record student placements
+                    <?php elseif ($is_master_admin): ?>
                         Create and manage all course batches
                     <?php else: ?>
                         Create and manage your course batches
@@ -460,7 +475,7 @@ $active_theme = loadActiveTheme($conn);
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-list"></i> 
-                        <?php if ($is_master_admin): ?>
+                        <?php if ($can_see_all_batches): ?>
                             All Batches
                         <?php else: ?>
                             My Batches
@@ -595,6 +610,7 @@ $active_theme = loadActiveTheme($conn);
                                                     </form>
                                                 <?php endif; ?>
                                                 
+                                                <?php if (!$is_placement_coordinator): ?>
                                                 <a href="edit_batch.php?id=<?php echo $batch['id']; ?>" class="btn btn-info btn-sm" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
@@ -607,6 +623,7 @@ $active_theme = loadActiveTheme($conn);
                                                    data-url="?delete=<?php echo $batch['id']; ?>">
                                                     <i class="fas fa-trash"></i>
                                                 </a>
+                                                <?php endif; ?>
                                             <?php endif; ?>
                                         </td>
                                     </tr>
@@ -617,7 +634,9 @@ $active_theme = loadActiveTheme($conn);
                 <?php else: ?>
                     <div style="text-align: center; padding: 40px; color: #64748b;">
                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
-                        <?php if ($is_master_admin): ?>
+                        <?php if ($is_placement_coordinator): ?>
+                            <p style="margin: 0; font-size: 16px;">No batches found yet.</p>
+                        <?php elseif ($is_master_admin): ?>
                             <p style="margin: 0; font-size: 16px;">No batches found. Create your first batch above.</p>
                         <?php else: ?>
                             <p style="margin: 0; font-size: 16px;">You haven't created any batches yet. Create your first batch above.</p>
