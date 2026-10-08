@@ -36,7 +36,7 @@ include 'includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-briefcase"></i> My Placement</h2>
-            <p class="text-muted mb-0">View and update your placement status for each batch enrollment. The placement cell may verify details you submit.</p>
+            <p class="text-muted mb-0">Each of your courses has its own placement record. After you submit, a placement officer must verify it before the official status is updated.</p>
         </div>
     </div>
 
@@ -45,8 +45,17 @@ include 'includes/header.php';
     <?php if (count($enrollments) > 0): ?>
         <div class="row">
             <?php foreach ($enrollments as $index => $placement):
-                $status = strtolower(trim((string) ($placement['placement_status'] ?? 'not_placed')));
+                $verification = strtolower(trim((string) ($placement['placement_verification_status'] ?? 'none')));
+                $officialStatus = strtolower(trim((string) ($placement['official_placement_status'] ?? 'not_placed')));
+                $status = $verification === 'pending'
+                    ? strtolower(trim((string) ($placement['placement_status'] ?? 'not_placed')))
+                    : $officialStatus;
                 $statusLabel = $statusOptions[$status] ?? ucfirst(str_replace('_', ' ', $status));
+                if ($verification === 'pending') {
+                    $statusLabel = 'Awaiting verification';
+                } elseif ($verification === 'rejected') {
+                    $statusLabel = 'Rejected — resubmit';
+                }
                 $package = batch_placement_format_package(
                     $placement['placement_package_amount'] ?? null,
                     $placement['placement_package_type'] ?? 'annual'
@@ -61,12 +70,18 @@ include 'includes/header.php';
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
                             <h5 class="card-title mb-0"><?php echo htmlspecialchars($placement['course_name'] ?? 'Course'); ?></h5>
-                            <span class="badge bg-<?php echo batch_placement_status_badge_class($status); ?>">
+                            <span class="badge bg-<?php echo $verification === 'pending' ? 'warning' : ($verification === 'rejected' ? 'danger' : batch_placement_status_badge_class($officialStatus)); ?>">
                                 <?php echo htmlspecialchars($statusLabel); ?>
                             </span>
                         </div>
                         <?php if (!empty($placement['batch_name'])): ?>
-                            <p class="text-muted small mb-3">Batch: <?php echo htmlspecialchars($placement['batch_name']); ?></p>
+                            <p class="text-muted small mb-2">Batch: <?php echo htmlspecialchars($placement['batch_name']); ?>
+                                <?php if (!empty($placement['batch_code'])): ?>
+                                    (<?php echo htmlspecialchars($placement['batch_code']); ?>)
+                                <?php endif; ?>
+                            </p>
+                        <?php else: ?>
+                            <p class="text-muted small mb-2">Batch: Not assigned</p>
                         <?php endif; ?>
 
                         <div class="placement-view" id="view-<?php echo (int) $index; ?>">
@@ -88,7 +103,20 @@ include 'includes/header.php';
                             <?php elseif ($status === 'higher_studies'): ?>
                                 <p class="text-muted mb-0">Marked as pursuing higher studies.</p>
                             <?php else: ?>
-                                <p class="text-muted mb-0">Not placed yet. Update your status when you have placement news.</p>
+                                <p class="text-muted mb-0">Not placed yet. Submit details when you have placement news. A placement officer will verify before it is updated.</p>
+                            <?php endif; ?>
+                            <?php if ($verification === 'pending'): ?>
+                                <p class="small text-warning mt-2 mb-0"><i class="fas fa-clock"></i> Submitted — waiting for placement officer verification.</p>
+                            <?php elseif ($verification === 'rejected'): ?>
+                                <p class="small text-danger mt-2 mb-0">
+                                    <i class="fas fa-times-circle"></i> Rejected.
+                                    <?php if (!empty($placement['placement_rejection_note'])): ?>
+                                        <?php echo htmlspecialchars((string) $placement['placement_rejection_note']); ?>
+                                    <?php endif; ?>
+                                    Please update and submit again.
+                                </p>
+                            <?php elseif ($verification === 'approved'): ?>
+                                <p class="small text-success mt-2 mb-0"><i class="fas fa-check-circle"></i> Verified by placement officer.</p>
                             <?php endif; ?>
                             <?php if (!empty($placement['placement_date'])): ?>
                                 <p class="small text-muted mt-2 mb-0">
@@ -162,7 +190,7 @@ include 'includes/header.php';
                                 </div>
                                 <div class="d-flex gap-2 flex-wrap">
                                     <button type="submit" class="btn btn-primary">
-                                        <i class="fas fa-save"></i> Save
+                                        <i class="fas fa-paper-plane"></i> Submit for verification
                                     </button>
                                     <button type="button" class="btn btn-secondary cancel-placement-form" data-target="<?php echo htmlspecialchars($formId); ?>">Cancel</button>
                                 </div>
@@ -177,8 +205,8 @@ include 'includes/header.php';
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="fas fa-briefcase fa-4x text-muted mb-3"></i>
-                <h4 class="text-muted">No Batch Enrollment Found</h4>
-                <p class="text-muted mb-4">Placement updates are available once you are assigned to a batch.</p>
+                <h4 class="text-muted">No Course Enrollment Found</h4>
+                <p class="text-muted mb-4">Placement updates appear for each of your registered courses.</p>
                 <a href="dashboard.php" class="btn btn-primary"><i class="fas fa-home"></i> Back to Dashboard</a>
             </div>
         </div>

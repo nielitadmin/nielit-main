@@ -42,7 +42,7 @@ if (isset($_SESSION['admin_role'])) {
         exit();
     }
     if ($_SESSION['admin_role'] === 'placement_coordinator') {
-        header('Location: ' . APP_URL . '/batch_module/admin/manage_batches.php');
+        header('Location: ' . APP_URL . '/admin/verify_placements.php');
         exit();
     }
     if ($_SESSION['admin_role'] === 'faculty') {

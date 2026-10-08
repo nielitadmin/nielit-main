@@ -112,13 +112,14 @@ if (isset($_GET['delete_id'])) {
     exit();
 }
 
-// Fetch all schemes
+require_once __DIR__ . '/../includes/scheme_students_helper.php';
+
+// Student totals come from batch roster (batch_students + students.batch_id), same as Manage Batches.
 $schemes_query = "SELECT s.*, 
-                        (SELECT COUNT(*) FROM course_schemes WHERE scheme_id = s.id) as course_count,
+                        (SELECT COUNT(*) FROM course_schemes WHERE scheme_id = s.id) as linked_course_count,
+                        (SELECT COUNT(DISTINCT NULLIF(b.course_id, 0)) FROM batches b WHERE b.scheme_id = s.id) as course_count,
                         (SELECT COUNT(*) FROM batches WHERE scheme_id = s.id) as batch_count,
-                        (SELECT COUNT(*) FROM students st 
-                            INNER JOIN batches b ON st.batch_id = b.id 
-                          WHERE b.scheme_id = s.id) as registered_student_count
+                        " . getSchemeStudentCountSubquery($conn) . " as registered_student_count
                   FROM schemes s 
                   ORDER BY s.created_at DESC";
 $schemes_result = $conn->query($schemes_query);
@@ -187,6 +188,7 @@ $active_theme = loadActiveTheme($conn);
                                 <th>Sponsor</th>
                                 <th>Duration</th>
                                 <th>Target</th>
+                                <th>Courses</th>
                                 <th>Batches</th>
                                 <th>Students</th>
                                 <th>Incharge</th>
@@ -246,10 +248,22 @@ $active_theme = loadActiveTheme($conn);
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <span class="badge badge-info"><?php echo number_format((int)($scheme['batch_count'] ?? 0)); ?></span>
+                                        <a href="scheme_students.php?id=<?php echo (int)$scheme['id']; ?>&view=courses"
+                                           title="View by course">
+                                            <span class="badge badge-info"><?php echo number_format((int)($scheme['course_count'] ?? 0)); ?></span>
+                                        </a>
                                     </td>
                                     <td>
-                                        <span class="badge badge-success"><?php echo number_format((int)($scheme['registered_student_count'] ?? 0)); ?></span>
+                                        <a href="scheme_students.php?id=<?php echo (int)$scheme['id']; ?>&view=batches"
+                                           title="View by batch">
+                                            <span class="badge badge-info"><?php echo number_format((int)($scheme['batch_count'] ?? 0)); ?></span>
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <a href="scheme_students.php?id=<?php echo (int)$scheme['id']; ?>&view=students"
+                                           title="View students from batch records">
+                                            <span class="badge badge-success"><?php echo number_format((int)($scheme['registered_student_count'] ?? 0)); ?></span>
+                                        </a>
                                     </td>
                                     <td>
                                         <span class="cell-clip-sm" style="text-transform: uppercase;"
@@ -282,6 +296,9 @@ $active_theme = loadActiveTheme($conn);
                                         <?php endif; ?>
                                     </td>
                                     <td>
+                                        <a href="scheme_students.php?id=<?php echo (int)$scheme['id']; ?>&view=batches" class="btn btn-primary btn-sm" title="View students by batch / course">
+                                            <i class="fas fa-users"></i>
+                                        </a>
                                         <a href="edit_scheme.php?id=<?php echo $scheme['id']; ?>" class="btn btn-warning btn-sm" title="Edit Scheme">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -290,7 +307,7 @@ $active_theme = loadActiveTheme($conn);
                                            title="Delete Scheme"
                                            data-scheme-id="<?php echo $scheme['id']; ?>"
                                            data-scheme-name="<?php echo htmlspecialchars($scheme['scheme_name']); ?>"
-                                           data-course-count="<?php echo $scheme['course_count']; ?>">
+                                           data-course-count="<?php echo (int)($scheme['linked_course_count'] ?? 0); ?>">
                                             <i class="fas fa-trash"></i>
                                         </a>
                                     </td>
@@ -298,7 +315,7 @@ $active_theme = loadActiveTheme($conn);
                             <?php endwhile;
                             else: ?>
                                 <tr>
-                                    <td colspan="12" style="text-align: center; padding: 40px;">
+                                    <td colspan="13" style="text-align: center; padding: 40px;">
                                         <i class="fas fa-inbox" style="font-size: 48px; color: #cbd5e0; margin-bottom: 16px;"></i>
                                         <p style="color: #64748b;">No schemes found. Click "Add New Scheme" to create one.</p>
                                     </td>

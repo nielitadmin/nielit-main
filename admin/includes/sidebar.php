@@ -141,7 +141,12 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         
         <?php if ($is_faculty): ?>
         <?php elseif ($is_placement_coordinator): ?>
-        <!-- Placement Coordinator - Batches only (no course dashboard) -->
+        <!-- Placement Coordinator - Batches + student placement verification -->
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/verify_placements'); ?>" class="nav-link <?php echo ($current_page === 'verify_placements.php') ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-check"></i> Verify Placements
+            </a>
+        </div>
         <div class="nav-item">
             <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_batches.php', 'batch_details.php'], true) ? 'active' : ''; ?>">
                 <i class="fas fa-layer-group"></i> Batches
@@ -198,6 +203,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
             </a>
         </div>
         <div class="nav-item">
+            <a href="<?php echo app_url('admin/verify_placements'); ?>" class="nav-link <?php echo ($current_page === 'verify_placements.php') ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-check"></i> Verify Placements
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url('admin/manage_online_classes'); ?>" class="nav-link <?php echo ($current_page === 'manage_online_classes.php') ? 'active' : ''; ?>">
                 <i class="fas fa-video"></i> Online Classes
             </a>
@@ -207,7 +217,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <?php if ($is_master_admin): ?>
         <!-- Schemes/Projects - Master Admin Only -->
         <div class="nav-item">
-            <a href="<?php echo app_url('schemes_module/admin/manage_schemes'); ?>" class="nav-link <?php echo ($current_page === 'manage_schemes.php') ? 'active' : ''; ?>">
+            <a href="<?php echo app_url('schemes_module/admin/manage_schemes'); ?>" class="nav-link <?php echo in_array($current_page, ['manage_schemes.php', 'edit_scheme.php', 'scheme_students.php'], true) ? 'active' : ''; ?>">
                 <i class="fas fa-project-diagram"></i> Schemes/Projects
             </a>
         </div>
