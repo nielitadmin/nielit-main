@@ -429,6 +429,9 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
         if ($provider === 'official' && $videoMode === 'embed') {
             return ['success' => false, 'message' => 'Jitsi Official only supports full-page (open) mode.'];
         }
+        if ($provider === 'freeconferencecall') {
+            $videoMode = 'open';
+        }
 
         $jwtEnabled = !empty($data['jwt_enabled']) ? 1 : 0;
         if ($provider === 'official' || $provider === 'disabled' || $provider === 'freeconferencecall') {
@@ -544,7 +547,8 @@ if (!function_exists('onlineClassVideoMode')) {
         $settings = onlineClassGetVideoSettings();
         $mode = strtolower(trim((string) ($settings['video_mode'] ?? 'open')));
         if (onlineClassIsFccProvider()) {
-            return $mode === 'embed' ? 'embed' : 'open';
+            // FCC blocks iframe embedding (X-Frame-Options) — always open full-page.
+            return 'open';
         }
         $domain = strtolower(onlineClassJitsiDomain());
 

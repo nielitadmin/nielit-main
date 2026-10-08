@@ -61,7 +61,6 @@ $videoEnabled = onlineClassVideoEnabled();
 $videoMode = onlineClassVideoMode();
 $jitsiDomain = onlineClassJitsiDomain();
 $isFcc = onlineClassIsFccProvider();
-$fccWallUrl = $isFcc ? onlineClassFccWallUrl() : '';
 $isModerator = $isAdmin;
 $jitsiUserId = $isAdmin
     ? 'admin:' . (string) ($_SESSION['admin_id'] ?? $_SESSION['admin'] ?? 'host')
@@ -74,13 +73,9 @@ $leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.
 $jwtBlocked = !$isFcc && $videoEnabled && $jwtRequired && !$jwtReady;
 
 // Hosts always join full-page: recording & moderator tools do not work inside iframe embed (Jitsi limitation).
-if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $isModerator && $externalRoomUrl !== '') {
-    header('Location: ' . $externalRoomUrl);
-    exit;
-}
-
-// Students in "open" mode: full-page room (no iframe).
-if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open' && $externalRoomUrl !== '') {
+// FreeConferenceCall also cannot be iframed (browser: "refused to connect").
+if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $externalRoomUrl !== ''
+    && ($isFcc || $isModerator || $videoMode === 'open')) {
     header('Location: ' . $externalRoomUrl);
     exit;
 }
@@ -202,16 +197,6 @@ if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open
                     </p>
                 <?php endif; ?>
             </div>
-        </div>
-    <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed' && $isFcc && $fccWallUrl !== ''): ?>
-        <div class="oc-classroom">
-            <iframe
-                title="FreeConferenceCall classroom"
-                src="<?php echo htmlspecialchars($fccWallUrl); ?>"
-                style="width:100%;height:100%;border:0;background:#000;"
-                allow="camera; microphone; fullscreen; display-capture; autoplay"
-                allowfullscreen
-            ></iframe>
         </div>
     <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed' && !$isFcc): ?>
         <div class="oc-classroom">

@@ -298,7 +298,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             Create a free account at
                             <a href="https://www.freeconferencecall.com/" target="_blank" rel="noopener">freeconferencecall.com</a>,
                             then paste your <strong>join URL</strong> or account name above.
-                            Students still use the portal join link; video opens in FreeConferenceCall (computer or phone).
+                            Students still use the portal join link, then open FreeConferenceCall in a full page
+                            (FCC does not allow embedding inside this website).
                             Host: start the meeting from your FCC account so students can enter.
                         </div>
                     <?php endif; ?>
@@ -619,7 +620,7 @@ function syncVideoSettingsUi() {
         jwtFieldsWrap.style.display = (jwtOn && value !== 'official' && value !== 'disabled' && value !== 'freeconferencecall') ? 'flex' : 'none';
     }
     if (modeSelect) {
-        if (value === 'official' || value === 'disabled') {
+        if (value === 'official' || value === 'disabled' || value === 'freeconferencecall') {
             modeSelect.value = 'open';
             modeSelect.disabled = true;
         } else {
