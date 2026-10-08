@@ -453,12 +453,76 @@ if (!function_exists('batch_placement_status_options')) {
     }
 
     function getStudentPortalPlacements($conn, $student_id) {
+        $row = getStudentUnifiedPlacement($conn, $student_id);
+        if (!$row) {
+            return [];
+        }
+        $status = strtolower(trim((string) ($row['official_placement_status'] ?? $row['placement_status'] ?? 'not_placed')));
+        $verification = strtolower(trim((string) ($row['placement_verification_status'] ?? 'none')));
+        if ($verification === 'approved' && $status !== '' && $status !== 'not_placed') {
+            return [$row];
+        }
+        return [];
+    }
+
+    function getStudentUnifiedPlacement($conn, $student_id) {
         $rows = getStudentPlacementEnrollments($conn, $student_id);
-        return array_values(array_filter($rows, static function ($row) {
-            $status = strtolower(trim((string) ($row['official_placement_status'] ?? $row['placement_status'] ?? 'not_placed')));
+        if (empty($rows)) {
+            return null;
+        }
+
+        $chosen = $rows[0];
+        foreach ($rows as $row) {
             $verification = strtolower(trim((string) ($row['placement_verification_status'] ?? 'none')));
-            return $verification === 'approved' && $status !== '' && $status !== 'not_placed';
-        }));
+            $official = strtolower(trim((string) ($row['official_placement_status'] ?? 'not_placed')));
+            if ($verification === 'approved' && $official === 'placed') {
+                $chosen = $row;
+                break;
+            }
+        }
+        if (strtolower((string) ($chosen['placement_verification_status'] ?? '')) !== 'approved') {
+            foreach ($rows as $row) {
+                if (strtolower((string) ($row['placement_verification_status'] ?? '')) === 'pending') {
+                    $chosen = $row;
+                    break;
+                }
+            }
+        }
+
+        $courses = [];
+        $batches = [];
+        $recordIds = [];
+        $canonicalId = (int) ($chosen['student_record_id'] ?? 0);
+        $canonicalBatch = (int) ($chosen['batch_id'] ?? 0);
+        foreach ($rows as $row) {
+            $recordIds[] = (int) ($row['student_record_id'] ?? 0);
+            $courseName = trim((string) ($row['course_name'] ?? ''));
+            if ($courseName !== '' && !in_array($courseName, $courses, true)) {
+                $courses[] = $courseName;
+            }
+            $batchName = trim((string) ($row['batch_name'] ?? ''));
+            if ($batchName !== '') {
+                $label = $batchName;
+                if (!empty($row['batch_code'])) {
+                    $label .= ' (' . $row['batch_code'] . ')';
+                }
+                if (!in_array($label, $batches, true)) {
+                    $batches[] = $label;
+                }
+            }
+            if ($canonicalBatch <= 0 && (int) ($row['batch_id'] ?? 0) > 0) {
+                $canonicalId = (int) $row['student_record_id'];
+                $canonicalBatch = (int) $row['batch_id'];
+            }
+        }
+
+        $chosen['student_record_id'] = $canonicalId > 0 ? $canonicalId : (int) ($rows[0]['student_record_id'] ?? 0);
+        $chosen['batch_id'] = $canonicalBatch;
+        $chosen['course_names'] = $courses;
+        $chosen['batch_names'] = $batches;
+        $chosen['course_name'] = implode(', ', $courses);
+        $chosen['related_record_ids'] = array_values(array_filter($recordIds));
+        return $chosen;
     }
 
     /**
@@ -593,15 +657,23 @@ if (!function_exists('batch_placement_status_options')) {
         $student_login_id = trim((string) $student_login_id);
         $student_record_id = (int) $student_record_id;
 
-        if ($student_login_id === '' || $student_record_id <= 0) {
+        if ($student_login_id === '') {
             return ['success' => false, 'message' => 'Invalid placement request.'];
         }
 
-        $stmt = $conn->prepare('SELECT id, batch_id FROM students WHERE id = ? AND student_id = ? LIMIT 1');
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Database error.'];
+        if ($student_record_id > 0) {
+            $stmt = $conn->prepare('SELECT id FROM students WHERE id = ? AND student_id = ? LIMIT 1');
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Database error.'];
+            }
+            $stmt->bind_param('is', $student_record_id, $student_login_id);
+        } else {
+            $stmt = $conn->prepare('SELECT id FROM students WHERE student_id = ? LIMIT 1');
+            if (!$stmt) {
+                return ['success' => false, 'message' => 'Database error.'];
+            }
+            $stmt->bind_param('s', $student_login_id);
         }
-        $stmt->bind_param('is', $student_record_id, $student_login_id);
         $stmt->execute();
         $owned = $stmt->get_result()->fetch_assoc();
         $stmt->close();
@@ -627,12 +699,13 @@ if (!function_exists('batch_placement_status_options')) {
                 placement_verification_status = 'pending',
                 placement_rejection_note = NULL,
                 placement_updated_at = NOW()
-             WHERE id = ?"
+             WHERE student_id = ?
+             AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')"
         );
         if (!$upd) {
             return ['success' => false, 'message' => 'Could not submit placement for verification.'];
         }
-        $upd->bind_param('si', $pendingJson, $student_record_id);
+        $upd->bind_param('ss', $pendingJson, $student_login_id);
         $ok = $upd->execute();
         $upd->close();
 
@@ -654,16 +727,18 @@ if (!function_exists('batch_placement_status_options')) {
             return [];
         }
 
-        $sql = "SELECT s.id AS student_record_id, s.student_id, s.name, s.batch_id, s.course_id,
-                       s.placement_verification_status, s.placement_pending_json, s.placement_updated_at,
-                       b.batch_name, b.batch_code,
-                       COALESCE(c.course_name, b.batch_name, 'Course') AS course_name
+        $sql = "SELECT MIN(s.id) AS student_record_id, s.student_id, MAX(s.name) AS name,
+                       s.placement_verification_status, MAX(s.placement_pending_json) AS placement_pending_json,
+                       MAX(s.placement_updated_at) AS placement_updated_at,
+                       GROUP_CONCAT(DISTINCT COALESCE(c.course_name, b.batch_name, 'Course') ORDER BY c.course_name SEPARATOR ', ') AS course_name,
+                       GROUP_CONCAT(DISTINCT NULLIF(TRIM(CONCAT_WS(' — ', b.batch_name, b.batch_code)), '') ORDER BY b.batch_name SEPARATOR ', ') AS batch_name
                 FROM students s
                 LEFT JOIN courses c ON c.id = s.course_id
                 LEFT JOIN batches b ON b.id = s.batch_id
                 WHERE s.placement_verification_status = 'pending'
                 AND LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')
-                ORDER BY s.placement_updated_at DESC, s.id DESC";
+                GROUP BY s.student_id, s.placement_verification_status
+                ORDER BY MAX(s.placement_updated_at) DESC, MIN(s.id) DESC";
         $result = $conn->query($sql);
         $rows = [];
         if ($result) {
@@ -695,7 +770,7 @@ if (!function_exists('batch_placement_status_options')) {
             return ['success' => false, 'message' => 'Invalid student record.'];
         }
 
-        $stmt = $conn->prepare('SELECT id, batch_id, placement_pending_json, placement_verification_status FROM students WHERE id = ? LIMIT 1');
+        $stmt = $conn->prepare('SELECT id, student_id, batch_id, placement_pending_json, placement_verification_status FROM students WHERE id = ? LIMIT 1');
         if (!$stmt) {
             return ['success' => false, 'message' => 'Database error.'];
         }
@@ -707,6 +782,11 @@ if (!function_exists('batch_placement_status_options')) {
             return ['success' => false, 'message' => 'Student enrollment not found.'];
         }
 
+        $loginId = trim((string) ($row['student_id'] ?? ''));
+        if ($loginId === '') {
+            return ['success' => false, 'message' => 'Student login id is missing.'];
+        }
+
         if (!$approve) {
             $upd = $conn->prepare(
                 "UPDATE students SET
@@ -714,12 +794,13 @@ if (!function_exists('batch_placement_status_options')) {
                     placement_rejection_note = ?,
                     placement_verified_by = ?,
                     placement_verified_at = NOW()
-                 WHERE id = ?"
+                 WHERE student_id = ?
+                 AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')"
             );
             if (!$upd) {
                 return ['success' => false, 'message' => 'Could not reject placement.'];
             }
-            $upd->bind_param('sii', $note, $admin_id, $student_record_id);
+            $upd->bind_param('sis', $note, $admin_id, $loginId);
             $upd->execute();
             $upd->close();
             return ['success' => true, 'message' => 'Placement submission rejected. The student can update and resubmit.'];
@@ -730,15 +811,31 @@ if (!function_exists('batch_placement_status_options')) {
             return ['success' => false, 'message' => 'No pending placement details to approve.'];
         }
         $data = batch_placement_normalize_input($pending);
-        $batchId = (int) ($row['batch_id'] ?? 0);
-        if ($batchId > 0) {
-            $saved = saveBatchStudentPlacement($conn, $batchId, $student_record_id, $data, $admin_id);
-            if (!empty($saved['success'])) {
-                return ['success' => true, 'message' => 'Placement verified and updated.'];
+
+        $enrollStmt = $conn->prepare(
+            "SELECT id, batch_id FROM students
+             WHERE student_id = ?
+             AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')"
+        );
+        if ($enrollStmt) {
+            $enrollStmt->bind_param('s', $loginId);
+            $enrollStmt->execute();
+            $enrollments = $enrollStmt->get_result();
+            while ($enroll = $enrollments->fetch_assoc()) {
+                $recordId = (int) ($enroll['id'] ?? 0);
+                $batchId = (int) ($enroll['batch_id'] ?? 0);
+                if ($recordId > 0 && $batchId > 0) {
+                    saveBatchStudentPlacement($conn, $batchId, $recordId, $data, $admin_id);
+                }
+                if ($recordId > 0) {
+                    applyOfficialPlacementToStudentRecord($conn, $recordId, $data, $admin_id, 'approved');
+                }
             }
+            $enrollStmt->close();
+        } else {
+            applyOfficialPlacementToStudentRecord($conn, $student_record_id, $data, $admin_id, 'approved');
         }
 
-        applyOfficialPlacementToStudentRecord($conn, $student_record_id, $data, $admin_id, 'approved');
         return ['success' => true, 'message' => 'Placement verified and updated.'];
     }
 }

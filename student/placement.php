@@ -17,7 +17,7 @@ if (!$student) {
     exit;
 }
 
-$enrollments = getStudentPlacementEnrollments($conn, $student_id);
+$placement = getStudentUnifiedPlacement($conn, $student_id);
 $statusOptions = batch_placement_status_options();
 $packageTypes = batch_placement_package_type_options();
 
@@ -36,15 +36,13 @@ include 'includes/header.php';
     <div class="row mb-4">
         <div class="col-12">
             <h2><i class="fas fa-briefcase"></i> My Placement</h2>
-            <p class="text-muted mb-0">Each of your courses has its own placement record. After you submit, a placement officer must verify it before the official status is updated.</p>
+            <p class="text-muted mb-0">You have one placement record. After you submit, a placement officer must verify it before the official status is updated.</p>
         </div>
     </div>
 
     <div id="placementAlert" class="alert d-none" role="alert"></div>
 
-    <?php if (count($enrollments) > 0): ?>
-        <div class="row">
-            <?php foreach ($enrollments as $index => $placement):
+    <?php if ($placement):
                 $verification = strtolower(trim((string) ($placement['placement_verification_status'] ?? 'none')));
                 $officialStatus = strtolower(trim((string) ($placement['official_placement_status'] ?? 'not_placed')));
                 $status = $verification === 'pending'
@@ -60,31 +58,33 @@ include 'includes/header.php';
                     $placement['placement_package_amount'] ?? null,
                     $placement['placement_package_type'] ?? 'annual'
                 );
-                $formId = 'placement-form-' . (int) $index;
+                $formId = 'placement-form-1';
                 $batchId = (int) ($placement['batch_id'] ?? 0);
                 $recordId = (int) ($placement['student_record_id'] ?? 0);
                 $placementDate = !empty($placement['placement_date']) ? date('Y-m-d', strtotime($placement['placement_date'])) : '';
+                $courseNames = $placement['course_names'] ?? array_filter([(string) ($placement['course_name'] ?? '')]);
+                $batchNames = $placement['batch_names'] ?? [];
             ?>
-            <div class="col-lg-6 mb-4">
+        <div class="row">
+            <div class="col-lg-8 mb-4">
                 <div class="card placement-card h-100 shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-2">
-                            <h5 class="card-title mb-0"><?php echo htmlspecialchars($placement['course_name'] ?? 'Course'); ?></h5>
+                            <h5 class="card-title mb-0">My Placement</h5>
                             <span class="badge bg-<?php echo $verification === 'pending' ? 'warning' : ($verification === 'rejected' ? 'danger' : batch_placement_status_badge_class($officialStatus)); ?>">
                                 <?php echo htmlspecialchars($statusLabel); ?>
                             </span>
                         </div>
-                        <?php if (!empty($placement['batch_name'])): ?>
-                            <p class="text-muted small mb-2">Batch: <?php echo htmlspecialchars($placement['batch_name']); ?>
-                                <?php if (!empty($placement['batch_code'])): ?>
-                                    (<?php echo htmlspecialchars($placement['batch_code']); ?>)
-                                <?php endif; ?>
-                            </p>
+                        <?php if (!empty($courseNames)): ?>
+                            <p class="text-muted small mb-1">Courses: <?php echo htmlspecialchars(implode(', ', $courseNames)); ?></p>
+                        <?php endif; ?>
+                        <?php if (!empty($batchNames)): ?>
+                            <p class="text-muted small mb-2">Batch: <?php echo htmlspecialchars(implode(', ', $batchNames)); ?></p>
                         <?php else: ?>
                             <p class="text-muted small mb-2">Batch: Not assigned</p>
                         <?php endif; ?>
 
-                        <div class="placement-view" id="view-<?php echo (int) $index; ?>">
+                        <div class="placement-view" id="view-1">
                             <?php if ($status === 'placed'): ?>
                                 <?php if (!empty($placement['placement_company'])): ?>
                                     <p><strong>Company:</strong> <?php echo htmlspecialchars($placement['placement_company']); ?></p>
@@ -134,7 +134,7 @@ include 'includes/header.php';
                         </button>
 
                         <div class="placement-fields" id="<?php echo htmlspecialchars($formId); ?>">
-                            <form class="student-placement-form" data-index="<?php echo (int) $index; ?>">
+                            <form class="student-placement-form">
                                 <input type="hidden" name="batch_id" value="<?php echo $batchId; ?>">
                                 <input type="hidden" name="student_record_id" value="<?php echo $recordId; ?>">
                                 <div class="mb-3">
@@ -199,14 +199,13 @@ include 'includes/header.php';
                     </div>
                 </div>
             </div>
-            <?php endforeach; ?>
         </div>
     <?php else: ?>
         <div class="card">
             <div class="card-body text-center py-5">
                 <i class="fas fa-briefcase fa-4x text-muted mb-3"></i>
-                <h4 class="text-muted">No Course Enrollment Found</h4>
-                <p class="text-muted mb-4">Placement updates appear for each of your registered courses.</p>
+                <h4 class="text-muted">No Enrollment Found</h4>
+                <p class="text-muted mb-4">Placement can be updated after you are registered.</p>
                 <a href="dashboard.php" class="btn btn-primary"><i class="fas fa-home"></i> Back to Dashboard</a>
             </div>
         </div>

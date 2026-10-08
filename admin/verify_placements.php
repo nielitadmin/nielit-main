@@ -134,8 +134,8 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                             <span class="badge bg-warning text-dark">Awaiting verification</span>
                         </div>
-                        <p class="mb-1"><strong>Course:</strong> <?php echo htmlspecialchars((string) ($row['course_name'] ?? 'Course')); ?></p>
-                        <p class="mb-1"><strong>Batch:</strong> <?php echo htmlspecialchars($batchLabel); ?></p>
+                        <p class="mb-1"><strong>Courses:</strong> <?php echo htmlspecialchars((string) ($row['course_name'] ?? 'Course')); ?></p>
+                        <p class="mb-1"><strong>Batch:</strong> <?php echo htmlspecialchars($batchLabel !== '' ? $batchLabel : '—'); ?></p>
                         <p class="mb-1"><strong>Submitted status:</strong> <?php echo htmlspecialchars($statusLabel); ?></p>
                         <?php if (!empty($row['placement_company'])): ?>
                             <p class="mb-1"><strong>Company:</strong> <?php echo htmlspecialchars((string) $row['placement_company']); ?></p>

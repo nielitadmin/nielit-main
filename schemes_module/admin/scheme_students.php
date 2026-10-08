@@ -46,9 +46,14 @@ $batches = getSchemeBatchesWithStudents($conn, $scheme_id);
 $allRoster = getSchemeStudentsFromBatches($conn, $scheme_id);
 
 $uniqueStudentIds = [];
+$centreNames = [];
 $courses = [];
 foreach ($allRoster as $student) {
     $uniqueStudentIds[(int) $student['id']] = true;
+    $centreLabel = trim((string) ($student['centre_name'] ?? ''));
+    if ($centreLabel !== '') {
+        $centreNames[$centreLabel] = true;
+    }
     $courseId = (int) ($student['course_id'] ?? 0);
     $label = trim((string) ($student['course_name'] ?? ''));
     if ($label === '') {
@@ -60,16 +65,26 @@ foreach ($allRoster as $student) {
             'course_name' => $label,
             'students' => [],
             'batches' => [],
+            'centres' => [],
         ];
     }
     $courses[$courseId]['students'][(int) $student['id']] = true;
     $courses[$courseId]['batches'][(int) $student['batch_id']] = true;
+    if ($centreLabel !== '') {
+        $courses[$courseId]['centres'][$centreLabel] = true;
+    }
 }
 $uniqueStudentCount = count($uniqueStudentIds);
+$centreCount = count($centreNames);
 $batchStudentSum = 0;
 foreach ($batches as $batch) {
     $batchStudentSum += (int) ($batch['student_count'] ?? 0);
+    $centreLabel = trim((string) ($batch['centre_name'] ?? ''));
+    if ($centreLabel !== '') {
+        $centreNames[$centreLabel] = true;
+    }
 }
+$centreCount = count($centreNames);
 
 $roster = array_values(array_filter($allRoster, static function ($student) use ($filter_batch_id, $filter_course_id) {
     if ($filter_batch_id > 0 && (int) $student['batch_id'] !== $filter_batch_id) {
@@ -87,6 +102,7 @@ foreach ($courses as $course) {
         'course_name' => $course['course_name'],
         'student_count' => count($course['students']),
         'batch_count' => count($course['batches']),
+        'centre_name' => implode(', ', array_keys($course['centres'])),
     ];
 }
 usort($courseRows, static function ($a, $b) {
@@ -153,6 +169,7 @@ if ($filter_course_id > 0) {
             <div class="content-card" style="margin-bottom:1rem; padding:1rem 1.25rem;">
                 <span class="scheme-stat"><i class="fas fa-layer-group"></i> <?php echo count($batches); ?> batches</span>
                 <span class="scheme-stat"><i class="fas fa-book"></i> <?php echo count($courseRows); ?> courses</span>
+                <span class="scheme-stat"><i class="fas fa-building"></i> <?php echo (int) $centreCount; ?> centres</span>
                 <span class="scheme-stat"><i class="fas fa-user-check"></i> <?php echo number_format($uniqueStudentCount); ?> unique students</span>
                 <span class="scheme-stat"><i class="fas fa-list"></i> <?php echo number_format($batchStudentSum); ?> batch enrollments</span>
             </div>
@@ -193,6 +210,7 @@ if ($filter_course_id > 0) {
                                 <th>#</th>
                                 <th>Batch</th>
                                 <th>Course</th>
+                                <th>Centre</th>
                                 <th>Students</th>
                                 <th>Status</th>
                                 <th>Actions</th>
@@ -200,7 +218,7 @@ if ($filter_course_id > 0) {
                         </thead>
                         <tbody>
                             <?php if (count($batches) === 0): ?>
-                                <tr><td colspan="6" style="text-align:center;padding:2rem;color:#64748b;">No batches linked to this scheme.</td></tr>
+                                <tr><td colspan="7" style="text-align:center;padding:2rem;color:#64748b;">No batches linked to this scheme.</td></tr>
                             <?php else: ?>
                                 <?php $i = 1; foreach ($batches as $batch): ?>
                                 <tr>
@@ -212,6 +230,7 @@ if ($filter_course_id > 0) {
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo htmlspecialchars($batch['course_name'] ?? '—'); ?></td>
+                                    <td><?php echo htmlspecialchars(trim((string) ($batch['centre_name'] ?? '')) !== '' ? $batch['centre_name'] : '—'); ?></td>
                                     <td>
                                         <a href="<?php echo htmlspecialchars($baseUrl . '&view=students&batch_id=' . (int) $batch['id']); ?>">
                                             <span class="badge badge-success"><?php echo number_format((int) $batch['student_count']); ?></span>
@@ -240,6 +259,7 @@ if ($filter_course_id > 0) {
                             <tr>
                                 <th>#</th>
                                 <th>Course</th>
+                                <th>Centre</th>
                                 <th>Batches</th>
                                 <th>Students</th>
                                 <th>Actions</th>
@@ -247,12 +267,13 @@ if ($filter_course_id > 0) {
                         </thead>
                         <tbody>
                             <?php if (count($courseRows) === 0): ?>
-                                <tr><td colspan="5" style="text-align:center;padding:2rem;color:#64748b;">No course enrollments found in scheme batches.</td></tr>
+                                <tr><td colspan="6" style="text-align:center;padding:2rem;color:#64748b;">No course enrollments found in scheme batches.</td></tr>
                             <?php else: ?>
                                 <?php $i = 1; foreach ($courseRows as $course): ?>
                                 <tr>
                                     <td><?php echo $i++; ?></td>
                                     <td><strong><?php echo htmlspecialchars($course['course_name']); ?></strong></td>
+                                    <td><?php echo htmlspecialchars(trim((string) ($course['centre_name'] ?? '')) !== '' ? $course['centre_name'] : '—'); ?></td>
                                     <td><span class="badge badge-info"><?php echo number_format((int) $course['batch_count']); ?></span></td>
                                     <td><span class="badge badge-success"><?php echo number_format((int) $course['student_count']); ?></span></td>
                                     <td>
@@ -281,13 +302,14 @@ if ($filter_course_id > 0) {
                                 <th>Mobile</th>
                                 <th>Email</th>
                                 <th>Course</th>
+                                <th>Centre</th>
                                 <th>Batch</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php if (count($roster) === 0): ?>
-                                <tr><td colspan="8" style="text-align:center;padding:2rem;color:#64748b;">No students found in batch records for this scheme.</td></tr>
+                                <tr><td colspan="9" style="text-align:center;padding:2rem;color:#64748b;">No students found in batch records for this scheme.</td></tr>
                             <?php else: ?>
                                 <?php $i = 1; foreach ($roster as $student): ?>
                                 <tr>
@@ -297,6 +319,7 @@ if ($filter_course_id > 0) {
                                     <td><?php echo htmlspecialchars((string) $student['mobile']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $student['email']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $student['course_name']); ?></td>
+                                    <td><?php echo htmlspecialchars(trim((string) ($student['centre_name'] ?? '')) !== '' ? $student['centre_name'] : '—'); ?></td>
                                     <td>
                                         <?php echo htmlspecialchars((string) $student['batch_name']); ?>
                                         <?php if (!empty($student['batch_code'])): ?>

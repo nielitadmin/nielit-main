@@ -38,6 +38,23 @@ if (!function_exists('scheme_has_batch_students_table')) {
                    AND " . schemeStudentStatusFilter('st') . ")";
     }
 
+    function schemeResolveCentreName(array $row) {
+        $branding = __DIR__ . '/../../includes/institute_branding.php';
+        if (file_exists($branding)) {
+            require_once $branding;
+        }
+        $name = trim((string) ($row['location'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($row['course_centre_name'] ?? ''));
+        }
+        if ($name === '') {
+            return '';
+        }
+        return function_exists('normalize_nielit_centre_name')
+            ? normalize_nielit_centre_name($name)
+            : $name;
+    }
+
     function getSchemeBatchesWithStudents($conn, $scheme_id) {
         require_once __DIR__ . '/../../batch_module/includes/batch_functions.php';
         $scheme_id = (int) $scheme_id;
@@ -46,10 +63,32 @@ if (!function_exists('scheme_has_batch_students_table')) {
             return $rows;
         }
 
+        $hasCourseCentre = false;
+        $col = @$conn->query("SHOW COLUMNS FROM courses LIKE 'centre_id'");
+        if ($col && $col->num_rows > 0) {
+            $hasCourseCentre = true;
+        }
+        $hasLocation = false;
+        $loc = @$conn->query("SHOW COLUMNS FROM batches LIKE 'location'");
+        if ($loc && $loc->num_rows > 0) {
+            $hasLocation = true;
+        }
+
+        $extraCols = $hasLocation ? ', b.location' : ', NULL AS location';
+        $centreJoin = '';
+        if ($hasCourseCentre) {
+            $extraCols .= ', c.centre_id, cen.name AS course_centre_name';
+            $centreJoin = ' LEFT JOIN centres cen ON cen.id = c.centre_id';
+        } else {
+            $extraCols .= ', NULL AS centre_id, NULL AS course_centre_name';
+        }
+
         $sql = "SELECT b.id, b.batch_name, b.batch_code, b.status, b.start_date, b.end_date,
                        b.course_id, b.seats_total, c.course_name, c.course_code
+                       {$extraCols}
                 FROM batches b
                 LEFT JOIN courses c ON c.id = b.course_id
+                {$centreJoin}
                 WHERE b.scheme_id = ?
                 ORDER BY c.course_name ASC, b.batch_name ASC, b.id DESC";
         $stmt = $conn->prepare($sql);
@@ -62,6 +101,7 @@ if (!function_exists('scheme_has_batch_students_table')) {
         while ($row = $result->fetch_assoc()) {
             $batchId = (int) ($row['id'] ?? 0);
             $row['student_count'] = $batchId > 0 ? getBatchEnrolledCount($batchId, $conn) : 0;
+            $row['centre_name'] = schemeResolveCentreName($row);
             $rows[] = $row;
         }
         $stmt->close();
@@ -113,6 +153,7 @@ if (!function_exists('scheme_has_batch_students_table')) {
                     'batch_id' => $thisBatchId,
                     'batch_name' => $batch['batch_name'] ?? '',
                     'batch_code' => $batch['batch_code'] ?? '',
+                    'centre_name' => $batch['centre_name'] ?? '',
                 ];
             }
         }
