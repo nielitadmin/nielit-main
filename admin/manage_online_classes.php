@@ -218,7 +218,8 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                     </div>
                     <?php if ($jitsiStatus['video_enabled'] && $jitsiStatus['base_url'] !== ''): ?>
                         <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars($jitsiStatus['base_url']); ?>" target="_blank" rel="noopener">
-                            <i class="fas fa-external-link-alt"></i> Open Jitsi
+                            <i class="fas fa-external-link-alt"></i>
+                            <?php echo ($jitsiStatus['provider'] ?? '') === 'freeconferencecall' ? 'Open FreeConferenceCall' : 'Open Jitsi'; ?>
                         </a>
                     <?php endif; ?>
                 </div>
@@ -241,10 +242,11 @@ unset($_SESSION['message'], $_SESSION['message_type']);
 
                     <div class="form-row" style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;">
                         <div class="form-group" id="customDomainWrap" style="flex:1;min-width:240px;display:none;">
-                            <label for="oc_custom_domain">Custom Jitsi domain</label>
+                            <label for="oc_custom_domain" id="oc_custom_domain_label">Custom Jitsi domain</label>
                             <input type="text" class="form-control" id="oc_custom_domain" name="custom_domain"
                                    value="<?php echo htmlspecialchars($videoSettings['custom_domain'] ?? ''); ?>"
                                    placeholder="meet.example.com">
+                            <div class="oc-help" id="oc_custom_domain_help">Hostname only, e.g. meet.example.com</div>
                         </div>
                         <div class="form-group" style="min-width:180px;">
                             <label for="oc_video_mode">Join style</label>
@@ -289,6 +291,17 @@ unset($_SESSION['message'], $_SESSION['message_type']);
                             <div class="oc-help">Same value as <code>JWT_APP_SECRET</code> in <code>/opt/jitsi-meet/.env</code></div>
                         </div>
                     </div>
+
+                    <?php if (($videoSettings['provider'] ?? '') === 'freeconferencecall'): ?>
+                        <div class="alert alert-info mt-2 mb-0" style="font-size:.9rem;">
+                            <i class="fas fa-info-circle"></i>
+                            Create a free account at
+                            <a href="https://www.freeconferencecall.com/" target="_blank" rel="noopener">freeconferencecall.com</a>,
+                            then paste your <strong>join URL</strong> or account name above.
+                            Students still use the portal join link; video opens in FreeConferenceCall (computer or phone).
+                            Host: start the meeting from your FCC account so students can enter.
+                        </div>
+                    <?php endif; ?>
 
                     <?php if (!empty($videoSettings['jwt_enabled']) && empty($jitsiStatus['jwt_secret_configured'])): ?>
                         <div class="alert alert-warning mt-2 mb-0" style="font-size:.9rem;">
@@ -583,15 +596,27 @@ function syncVideoSettingsUi() {
         el.classList.toggle('is-selected', input && input.checked);
     });
 
+    var domainLabel = document.getElementById('oc_custom_domain_label');
+    var domainHelp = document.getElementById('oc_custom_domain_help');
+    var domainInput = document.getElementById('oc_custom_domain');
     if (customWrap) {
-        customWrap.style.display = value === 'custom' ? 'block' : 'none';
+        customWrap.style.display = (value === 'custom' || value === 'freeconferencecall') ? 'block' : 'none';
+    }
+    if (value === 'freeconferencecall') {
+        if (domainLabel) domainLabel.textContent = 'FreeConferenceCall account or join URL';
+        if (domainHelp) domainHelp.textContent = 'Example: nielitbbsr or https://join.freeconferencecall.com/nielitbbsr';
+        if (domainInput) domainInput.placeholder = 'nielitbbsr or https://join.freeconferencecall.com/nielitbbsr';
+    } else {
+        if (domainLabel) domainLabel.textContent = 'Custom Jitsi domain';
+        if (domainHelp) domainHelp.textContent = 'Hostname only, e.g. meet.example.com';
+        if (domainInput) domainInput.placeholder = 'meet.example.com';
     }
     if (jwtWrap) {
-        jwtWrap.style.display = (value === 'official' || value === 'disabled') ? 'none' : 'block';
+        jwtWrap.style.display = (value === 'official' || value === 'disabled' || value === 'freeconferencecall') ? 'none' : 'block';
     }
     if (jwtFieldsWrap) {
         var jwtOn = jwtEnabledInput && jwtEnabledInput.checked;
-        jwtFieldsWrap.style.display = (jwtOn && value !== 'official' && value !== 'disabled') ? 'flex' : 'none';
+        jwtFieldsWrap.style.display = (jwtOn && value !== 'official' && value !== 'disabled' && value !== 'freeconferencecall') ? 'flex' : 'none';
     }
     if (modeSelect) {
         if (value === 'official' || value === 'disabled') {

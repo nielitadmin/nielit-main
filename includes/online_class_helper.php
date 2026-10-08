@@ -117,6 +117,11 @@ if (!function_exists('onlineClassVideoProviderOptions')) {
                 'description' => 'Any other self-hosted Jitsi domain you control.',
                 'domain' => null,
             ],
+            'freeconferencecall' => [
+                'label' => 'FreeConferenceCall.com',
+                'description' => 'Use your FreeConferenceCall room. Students join via the portal, then open FCC (phone + video).',
+                'domain' => 'join.freeconferencecall.com',
+            ],
             'disabled' => [
                 'label' => 'Video disabled',
                 'description' => 'Keep class scheduling; block live video until re-enabled.',
@@ -301,7 +306,86 @@ if (!function_exists('onlineClassResolveProviderDomain')) {
             return rtrim($customDomain, '/');
         }
 
+        if ($provider === 'freeconferencecall') {
+            return 'join.freeconferencecall.com';
+        }
+
         return (string) ($options[$provider]['domain'] ?? 'meet.jit.si');
+    }
+}
+
+if (!function_exists('onlineClassGetProvider')) {
+    function onlineClassGetProvider(): string
+    {
+        $settings = onlineClassGetVideoSettings();
+        $provider = trim((string) ($settings['provider'] ?? 'official'));
+        return isset(onlineClassVideoProviderOptions()[$provider]) ? $provider : 'official';
+    }
+}
+
+if (!function_exists('onlineClassIsFccProvider')) {
+    function onlineClassIsFccProvider(): bool
+    {
+        return onlineClassGetProvider() === 'freeconferencecall';
+    }
+}
+
+if (!function_exists('onlineClassFccAccountSlug')) {
+    /** Username / room id from a FreeConferenceCall join URL or raw account name. */
+    function onlineClassFccAccountSlug(string $value = ''): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            $settings = onlineClassGetVideoSettings();
+            $value = trim((string) ($settings['custom_domain'] ?? ''));
+        }
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('#^https?://#i', $value)) {
+            $path = parse_url($value, PHP_URL_PATH);
+            $path = trim((string) $path, '/');
+            if (stripos($path, 'wall/') === 0) {
+                $path = substr($path, 5);
+            }
+            $slug = explode('/', $path)[0] ?? '';
+            return preg_replace('/[^a-zA-Z0-9._-]/', '', $slug) ?? '';
+        }
+
+        $value = preg_replace('#^https?://#i', '', $value) ?? $value;
+        $value = preg_replace('#^(join\.freeconferencecall\.com|www\.freeconferencecall\.com)/#i', '', $value) ?? $value;
+        $value = preg_replace('#^wall/#i', '', $value) ?? $value;
+        $slug = explode('/', trim($value, '/'))[0] ?? '';
+
+        return preg_replace('/[^a-zA-Z0-9._-]/', '', $slug) ?? '';
+    }
+}
+
+if (!function_exists('onlineClassFccJoinUrl')) {
+    function onlineClassFccJoinUrl(string $displayName = ''): string
+    {
+        $slug = onlineClassFccAccountSlug();
+        if ($slug === '') {
+            return '';
+        }
+        $url = 'https://join.freeconferencecall.com/' . rawurlencode($slug);
+        if ($displayName !== '') {
+            $url .= '?n=' . rawurlencode($displayName);
+        }
+        return $url;
+    }
+}
+
+if (!function_exists('onlineClassFccWallUrl')) {
+    /** Meeting-wall URL suitable for iframe embed. */
+    function onlineClassFccWallUrl(): string
+    {
+        $slug = onlineClassFccAccountSlug();
+        if ($slug === '') {
+            return '';
+        }
+        return 'https://www.freeconferencecall.com/wall/' . rawurlencode($slug);
     }
 }
 
@@ -321,12 +405,20 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
             return ['success' => false, 'message' => 'Invalid video provider selected.'];
         }
 
-        $customDomain = trim((string) ($data['custom_domain'] ?? ''));
-        $customDomain = preg_replace('#^https?://#i', '', $customDomain) ?? '';
+        $customDomainRaw = trim((string) ($data['custom_domain'] ?? ''));
+        $customDomain = preg_replace('#^https?://#i', '', $customDomainRaw) ?? '';
         $customDomain = rtrim($customDomain, '/');
 
         if ($provider === 'custom' && $customDomain === '') {
             return ['success' => false, 'message' => 'Enter a custom Jitsi domain or choose another provider.'];
+        }
+
+        if ($provider === 'freeconferencecall') {
+            $slug = onlineClassFccAccountSlug($customDomainRaw !== '' ? $customDomainRaw : $customDomain);
+            if ($slug === '') {
+                return ['success' => false, 'message' => 'Enter your FreeConferenceCall account name or join URL (e.g. nielitbbsr or https://join.freeconferencecall.com/nielitbbsr).'];
+            }
+            $customDomain = $slug;
         }
 
         $videoMode = strtolower(trim((string) ($data['video_mode'] ?? 'open')));
@@ -339,7 +431,7 @@ if (!function_exists('saveOnlineClassVideoSettings')) {
         }
 
         $jwtEnabled = !empty($data['jwt_enabled']) ? 1 : 0;
-        if ($provider === 'official' || $provider === 'disabled') {
+        if ($provider === 'official' || $provider === 'disabled' || $provider === 'freeconferencecall') {
             $jwtEnabled = 0;
         } elseif (in_array($provider, ['nielit_gcp', 'custom'], true)) {
             // Self-hosted: JWT required to block public room access
@@ -405,8 +497,14 @@ if (!function_exists('onlineClassVideoEnabled')) {
     function onlineClassVideoEnabled(): bool
     {
         $settings = onlineClassGetVideoSettings();
-        return ($settings['provider'] ?? 'official') !== 'disabled'
-            && onlineClassJitsiDomain() !== '';
+        $provider = (string) ($settings['provider'] ?? 'official');
+        if ($provider === 'disabled') {
+            return false;
+        }
+        if ($provider === 'freeconferencecall') {
+            return onlineClassFccAccountSlug() !== '';
+        }
+        return onlineClassJitsiDomain() !== '';
     }
 }
 
@@ -445,6 +543,9 @@ if (!function_exists('onlineClassVideoMode')) {
     {
         $settings = onlineClassGetVideoSettings();
         $mode = strtolower(trim((string) ($settings['video_mode'] ?? 'open')));
+        if (onlineClassIsFccProvider()) {
+            return $mode === 'embed' ? 'embed' : 'open';
+        }
         $domain = strtolower(onlineClassJitsiDomain());
 
         if ($domain === '' || $domain === 'meet.jit.si' || $domain === '8x8.vc') {
@@ -579,6 +680,9 @@ if (!function_exists('onlineClassJitsiToolbarButtons')) {
 if (!function_exists('onlineClassIsSelfHostedJitsi')) {
     function onlineClassIsSelfHostedJitsi(): bool
     {
+        if (onlineClassIsFccProvider()) {
+            return false;
+        }
         $domain = strtolower(onlineClassJitsiDomain());
         return $domain !== '' && !in_array($domain, ['meet.jit.si', '8x8.vc'], true);
     }
@@ -765,8 +869,10 @@ if (!function_exists('onlineClassJitsiStatus')) {
         $isPublic = in_array(strtolower($domain), ['meet.jit.si', '8x8.vc'], true);
         $jwtRequested = !empty($settings['jwt_enabled']);
         $jwtActive = onlineClassJitsiJwtEnabled();
+        $isFcc = $provider === 'freeconferencecall';
 
         $jwtSecretConfigured = onlineClassJitsiJwtSecretConfigured();
+        $fccJoin = $isFcc ? onlineClassFccJoinUrl() : '';
 
         return [
             'provider' => $provider,
@@ -774,10 +880,12 @@ if (!function_exists('onlineClassJitsiStatus')) {
             'provider_description' => $options[$provider]['description'] ?? '',
             'custom_domain' => (string) ($settings['custom_domain'] ?? ''),
             'video_enabled' => onlineClassVideoEnabled(),
-            'domain' => $domain,
-            'base_url' => $domain !== '' ? 'https://' . $domain : '',
+            'domain' => $isFcc ? 'join.freeconferencecall.com' : $domain,
+            'base_url' => $isFcc ? $fccJoin : ($domain !== '' ? 'https://' . $domain : ''),
+            'fcc_account' => $isFcc ? onlineClassFccAccountSlug() : '',
+            'fcc_wall_url' => $isFcc ? onlineClassFccWallUrl() : '',
             'video_mode' => onlineClassVideoMode(),
-            'is_self_hosted' => $domain !== '' && !$isPublic,
+            'is_self_hosted' => !$isFcc && $domain !== '' && !$isPublic,
             'jwt_requested' => $jwtRequested,
             'jwt_enabled' => $jwtActive,
             'jwt_secret_configured' => $jwtSecretConfigured,
@@ -798,6 +906,10 @@ if (!function_exists('onlineClassExternalRoomUrl')) {
         bool $isModerator = false,
         string $userId = ''
     ): string {
+        if (onlineClassIsFccProvider()) {
+            return onlineClassFccJoinUrl($displayName);
+        }
+
         $domain = onlineClassJitsiDomain();
         if ($domain === '') {
             return '';

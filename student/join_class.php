@@ -60,6 +60,8 @@ $canEnter = !empty($gate['allowed']);
 $videoEnabled = onlineClassVideoEnabled();
 $videoMode = onlineClassVideoMode();
 $jitsiDomain = onlineClassJitsiDomain();
+$isFcc = onlineClassIsFccProvider();
+$fccWallUrl = $isFcc ? onlineClassFccWallUrl() : '';
 $isModerator = $isAdmin;
 $jitsiUserId = $isAdmin
     ? 'admin:' . (string) ($_SESSION['admin_id'] ?? $_SESSION['admin'] ?? 'host')
@@ -69,7 +71,7 @@ $jwtReady = onlineClassJitsiJwtEnabled();
 $externalRoomUrl = onlineClassExternalRoomUrl($roomName, $displayName, $isModerator, $jitsiUserId);
 $jitsiEmbedOptions = onlineClassJitsiEmbedOptions($roomName, $displayName, $isModerator, $jitsiUserId);
 $leaveUrl = $isAdmin ? app_url('admin/manage_online_classes') : 'online_classes.php';
-$jwtBlocked = $videoEnabled && $jwtRequired && !$jwtReady;
+$jwtBlocked = !$isFcc && $videoEnabled && $jwtRequired && !$jwtReady;
 
 // Hosts always join full-page: recording & moderator tools do not work inside iframe embed (Jitsi limitation).
 if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $isModerator && $externalRoomUrl !== '') {
@@ -143,8 +145,13 @@ if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open
             <div class="oc-lobby-card">
                 <h2>NIELIT Classroom</h2>
                 <p class="mb-3 text-secondary">
-                    Your secure join link is on this website. When you enter, the live class opens
-                    in a free open-source video room — no 5-minute limit.
+                    <?php if ($isFcc): ?>
+                        Your secure join link is on this website. When you enter, the live class opens
+                        in FreeConferenceCall.com (computer or phone).
+                    <?php else: ?>
+                        Your secure join link is on this website. When you enter, the live class opens
+                        in a free open-source video room — no 5-minute limit.
+                    <?php endif; ?>
                 </p>
                 <?php if (!empty($class['description'])): ?>
                     <p class="mb-3"><?php echo nl2br(htmlspecialchars($class['description'])); ?></p>
@@ -175,6 +182,13 @@ if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open
                     </div>
                     <a class="back-link" href="<?php echo htmlspecialchars($leaveUrl); ?>">← Back to Online Classes</a>
                 <?php else: ?>
+                    <?php if ($isFcc && $isAdmin): ?>
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                            Host: sign in at FreeConferenceCall and start the meeting so students can join.
+                            Join URL: <code style="color:#fde68a;word-break:break-all;"><?php echo htmlspecialchars($externalRoomUrl); ?></code>
+                        </div>
+                    <?php endif; ?>
                     <div class="d-flex flex-wrap gap-2 align-items-center">
                         <a class="btn btn-enter btn-lg" href="?t=<?php echo rawurlencode($token); ?>&enter=1">
                             <i class="fas fa-door-open"></i> Enter Classroom
@@ -189,7 +203,17 @@ if ($enter && $canEnter && $videoEnabled && !$jwtBlocked && $videoMode === 'open
                 <?php endif; ?>
             </div>
         </div>
-    <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed'): ?>
+    <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed' && $isFcc && $fccWallUrl !== ''): ?>
+        <div class="oc-classroom">
+            <iframe
+                title="FreeConferenceCall classroom"
+                src="<?php echo htmlspecialchars($fccWallUrl); ?>"
+                style="width:100%;height:100%;border:0;background:#000;"
+                allow="camera; microphone; fullscreen; display-capture; autoplay"
+                allowfullscreen
+            ></iframe>
+        </div>
+    <?php elseif ($videoEnabled && !$jwtBlocked && $videoMode === 'embed' && !$isFcc): ?>
         <div class="oc-classroom">
             <div id="jitsi-container"></div>
         </div>
