@@ -11,8 +11,12 @@ require_once __DIR__ . '/../../batch_module/includes/batch_certificate_helper.ph
 
 $apiData = authenticateApiRequest();
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+$action = strtolower(trim((string) ($_GET['action'] ?? '')));
 
 if ($method === 'GET') {
+    if (in_array($action, ['eligible', 'certified', 'passed', 'list_certified'], true)) {
+        handleCertifiedEligibleList();
+    }
     handleCertificateList();
 }
 
@@ -21,6 +25,186 @@ if ($method === 'POST') {
 }
 
 sendApiError('Method not allowed', 405, 'METHOD_NOT_ALLOWED');
+
+function certificateCertifiedStatusSql(string $alias = 'bs'): string
+{
+    $col = "LOWER(REPLACE(REPLACE(TRIM(IFNULL({$alias}.result_status,'')), ' ', '_'), '-', '_'))";
+    return "{$col} IN ('pass','certified','pass_certified')";
+}
+
+function handleCertifiedEligibleList(): void
+{
+    global $conn;
+
+    require_once __DIR__ . '/../../batch_module/includes/batch_result_helper.php';
+    require_once __DIR__ . '/../../batch_module/includes/batch_certificate_helper.php';
+    ensureBatchResultSchema($conn);
+    ensureBatchCertificateSchema($conn);
+
+    if (!batch_result_column_exists($conn, 'result_status')) {
+        sendApiError('Result status is not available on batch records', 500, 'RESULT_STATUS_UNAVAILABLE');
+    }
+
+    $limit = (int) ($_GET['limit'] ?? 50);
+    $offset = (int) ($_GET['offset'] ?? 0);
+    $limit = max(1, min($limit, defined('API_MAX_RESULTS') ? API_MAX_RESULTS : 1000));
+    $offset = max(0, $offset);
+    $batchId = (int) ($_GET['batch_id'] ?? 0);
+    $courseId = (int) ($_GET['course_id'] ?? 0);
+    $centreId = (int) ($_GET['centre_id'] ?? 0);
+    $hasCertificate = strtolower(trim((string) ($_GET['has_certificate'] ?? '')));
+
+    $hasCourseCentre = false;
+    $col = @$conn->query("SHOW COLUMNS FROM courses LIKE 'centre_id'");
+    if ($col && $col->num_rows > 0) {
+        $hasCourseCentre = true;
+    }
+    $hasBatchLocation = false;
+    $loc = @$conn->query("SHOW COLUMNS FROM batches LIKE 'location'");
+    if ($loc && $loc->num_rows > 0) {
+        $hasBatchLocation = true;
+    }
+    $hasCertFile = false;
+    $cf = @$conn->query("SHOW COLUMNS FROM batch_students LIKE 'certificate_file'");
+    if ($cf && $cf->num_rows > 0) {
+        $hasCertFile = true;
+    }
+
+    $centreSelect = $hasCourseCentre
+        ? 'cen.name AS course_centre_name, c.centre_id'
+        : 'NULL AS course_centre_name, NULL AS centre_id';
+    $centreJoin = $hasCourseCentre ? 'LEFT JOIN centres cen ON cen.id = c.centre_id' : '';
+    $locationSelect = $hasBatchLocation ? 'b.location' : 'NULL AS location';
+    $certSelect = $hasCertFile
+        ? 'bs.certificate_file, bs.certificate_number'
+        : 'NULL AS certificate_file, NULL AS certificate_number';
+
+    $fromWhere = "FROM students s
+            INNER JOIN batch_students bs ON bs.batch_id > 0
+                AND (bs.student_record_id = s.id OR bs.student_id = s.id)
+            INNER JOIN batches b ON b.id = bs.batch_id
+            LEFT JOIN courses c ON c.id = COALESCE(NULLIF(s.course_id, 0), b.course_id)
+            {$centreJoin}
+            WHERE LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')
+              AND " . certificateCertifiedStatusSql('bs');
+
+    $params = [];
+    $types = '';
+    if ($batchId > 0) {
+        $fromWhere .= ' AND b.id = ?';
+        $types .= 'i';
+        $params[] = $batchId;
+    }
+    if ($courseId > 0) {
+        $fromWhere .= ' AND COALESCE(NULLIF(s.course_id, 0), b.course_id) = ?';
+        $types .= 'i';
+        $params[] = $courseId;
+    }
+    if ($centreId > 0 && $hasCourseCentre) {
+        $fromWhere .= ' AND c.centre_id = ?';
+        $types .= 'i';
+        $params[] = $centreId;
+    }
+    if ($hasCertificate === '0' || $hasCertificate === 'no' || $hasCertificate === 'false') {
+        $fromWhere .= $hasCertFile
+            ? " AND (bs.certificate_file IS NULL OR TRIM(bs.certificate_file) = '')"
+            : '';
+    } elseif ($hasCertificate === '1' || $hasCertificate === 'yes' || $hasCertificate === 'true') {
+        $fromWhere .= $hasCertFile
+            ? " AND bs.certificate_file IS NOT NULL AND TRIM(bs.certificate_file) <> ''"
+            : ' AND 1=0';
+    }
+
+    $countSql = "SELECT COUNT(DISTINCT bs.id) AS total {$fromWhere}";
+    $countStmt = $conn->prepare($countSql);
+    if (!$countStmt) {
+        sendApiError('Failed to prepare certified student count', 500, 'QUERY_PREPARE_FAILED');
+    }
+    if ($types !== '') {
+        $countStmt->bind_param($types, ...$params);
+    }
+    $countStmt->execute();
+    $total = (int) ($countStmt->get_result()->fetch_assoc()['total'] ?? 0);
+    $countStmt->close();
+
+    $sql = "SELECT s.id AS student_record_id, s.student_id, s.name, s.email, s.mobile, s.training_center,
+                   COALESCE(NULLIF(s.course_id, 0), b.course_id) AS course_id,
+                   c.course_name, c.course_code,
+                   b.id AS batch_id, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
+                   bs.id AS batch_student_id, bs.result_status, bs.result_updated_at,
+                   {$certSelect}, {$locationSelect}, {$centreSelect}
+            {$fromWhere}
+            ORDER BY bs.result_updated_at DESC, s.name ASC, s.id ASC
+            LIMIT ? OFFSET ?";
+
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        sendApiError('Failed to prepare certified student list', 500, 'QUERY_PREPARE_FAILED');
+    }
+    $listTypes = $types . 'ii';
+    $listParams = array_merge($params, [$limit, $offset]);
+    $stmt->bind_param($listTypes, ...$listParams);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    $branding = dirname(__DIR__, 2) . '/includes/institute_branding.php';
+    if (file_exists($branding)) {
+        require_once $branding;
+    }
+
+    $students = [];
+    while ($row = $result->fetch_assoc()) {
+        $centreName = trim((string) ($row['location'] ?? ''));
+        if ($centreName === '') {
+            $centreName = trim((string) ($row['course_centre_name'] ?? ''));
+        }
+        if ($centreName === '') {
+            $centreName = trim((string) ($row['training_center'] ?? ''));
+        }
+        if ($centreName !== '' && function_exists('normalize_nielit_centre_name')) {
+            $centreName = normalize_nielit_centre_name($centreName);
+        }
+        $certFile = trim((string) ($row['certificate_file'] ?? ''));
+        $resultStatus = function_exists('batch_result_normalize_status')
+            ? batch_result_normalize_status($row['result_status'] ?? 'pass')
+            : 'pass';
+        $students[] = [
+            'student_id' => (string) ($row['student_id'] ?? ''),
+            'student_record_id' => (int) ($row['student_record_id'] ?? 0),
+            'batch_student_id' => (int) ($row['batch_student_id'] ?? 0),
+            'name' => (string) ($row['name'] ?? ''),
+            'email' => (string) ($row['email'] ?? ''),
+            'mobile' => (string) ($row['mobile'] ?? ''),
+            'course_id' => (int) ($row['course_id'] ?? 0),
+            'course_code' => (string) ($row['course_code'] ?? ''),
+            'course_name' => (string) ($row['course_name'] ?? ''),
+            'batch_id' => (int) ($row['batch_id'] ?? 0),
+            'batch_code' => (string) ($row['batch_code'] ?? ''),
+            'batch_name' => (string) ($row['batch_name'] ?? ''),
+            'batch_start_date' => $row['batch_start_date'] ?? null,
+            'batch_end_date' => $row['batch_end_date'] ?? null,
+            'centre_name' => $centreName,
+            'result_status' => $resultStatus,
+            'result_status_label' => 'Pass / Certified',
+            'result_updated_at' => $row['result_updated_at'] ?? null,
+            'certificate_number' => (string) ($row['certificate_number'] ?? ''),
+            'has_certificate' => $certFile !== '',
+            'eligible_for_digital_certificate' => true,
+        ];
+    }
+    $stmt->close();
+
+    sendApiResponse([
+        'filter' => 'pass_certified',
+        'students' => $students,
+        'pagination' => [
+            'total' => $total,
+            'limit' => $limit,
+            'offset' => $offset,
+            'has_more' => ($offset + $limit) < $total,
+        ],
+    ], 200, 'Certified / passed students');
+}
 
 function handleCertificateList(): void
 {

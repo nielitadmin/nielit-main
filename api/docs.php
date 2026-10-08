@@ -405,6 +405,50 @@ require_once __DIR__ . '/config/api_config.php';
             </div>
         </div>
 
+        <!-- Certificates API -->
+        <div class="row mb-5">
+            <div class="col-12">
+                <h2><i class="fas fa-certificate"></i> Digital Certificates API</h2>
+                <p>List students who are marked <strong>Pass / Certified</strong> in batch records, then fetch or push their certificates.</p>
+
+                <div class="card endpoint-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <span class="badge method-badge method-get">GET</span>
+                            List students eligible for digital certificates
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Endpoint:</strong> <code>/api/v1/certificates.php?action=eligible</code></p>
+                        <p>Returns students whose batch result status is Pass or Certified. Use this list in the digital certificate system.</p>
+                        <h6>Parameters:</h6>
+                        <ul>
+                            <li><code>limit</code> / <code>offset</code> (optional) — pagination</li>
+                            <li><code>batch_id</code> (optional) — one batch</li>
+                            <li><code>course_id</code> (optional) — one course</li>
+                            <li><code>centre_id</code> (optional) — one centre</li>
+                            <li><code>has_certificate</code> (optional) — <code>0</code> = not yet uploaded, <code>1</code> = already has a file</li>
+                        </ul>
+                        <h6>Example Request:</h6>
+                        <pre><code class="language-bash">curl -X GET "https://nielitbhubaneswar.in/api/v1/certificates.php?action=eligible&amp;has_certificate=0" \
+  -H "X-API-Key: your_api_key_here"</code></pre>
+                    </div>
+                </div>
+
+                <div class="card endpoint-card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <span class="badge method-badge method-get">GET</span>
+                            Get certificates for one student
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Endpoint:</strong> <code>/api/v1/certificates.php?student_id=NIELIT/2026/BBSR/0004</code></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- API Tester -->
         <div class="row mb-5">
             <div class="col-12">
@@ -424,6 +468,7 @@ require_once __DIR__ . '/config/api_config.php';
                                     <option value="students.php?action=list">Get Students List</option>
                                     <option value="students.php?action=get&student_id=">Get Student by ID</option>
                                     <option value="students.php?action=search&q=">Search Students</option>
+                                    <option value="certificates.php?action=eligible">Certified students (digital certificates)</option>
                                 </select>
                             </div>
                             <div class="mb-3">
