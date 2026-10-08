@@ -129,7 +129,7 @@ function handleCertifiedEligibleList(): void
 
     $sql = "SELECT s.id AS student_record_id, s.student_id, s.name, s.email, s.mobile, s.training_center,
                    COALESCE(NULLIF(s.course_id, 0), b.course_id) AS course_id,
-                   c.course_name, c.course_code,
+                   c.course_name, c.course_code, c.duration AS course_duration,
                    b.id AS batch_id, b.batch_name, b.batch_code, b.start_date AS batch_start_date, b.end_date AS batch_end_date,
                    bs.id AS batch_student_id, bs.result_status, bs.result_updated_at,
                    {$certSelect}, {$locationSelect}, {$centreSelect}
@@ -178,6 +178,7 @@ function handleCertifiedEligibleList(): void
             'course_id' => (int) ($row['course_id'] ?? 0),
             'course_code' => (string) ($row['course_code'] ?? ''),
             'course_name' => (string) ($row['course_name'] ?? ''),
+            'course_duration' => (string) ($row['course_duration'] ?? ''),
             'batch_id' => (int) ($row['batch_id'] ?? 0),
             'batch_code' => (string) ($row['batch_code'] ?? ''),
             'batch_name' => (string) ($row['batch_name'] ?? ''),
