@@ -10,6 +10,11 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+if (($_SESSION['admin_role'] ?? '') === 'placement_coordinator') {
+    echo json_encode(['success' => false, 'message' => 'Placement coordinators can only update placement details.']);
+    exit();
+}
+
 $student_id = isset($_POST['student_id']) ? (int)$_POST['student_id'] : 0;
 $batch_id = isset($_POST['batch_id']) ? (int)$_POST['batch_id'] : 0;
 $nielit_reg_no = isset($_POST['nielit_reg_no']) ? trim((string)$_POST['nielit_reg_no']) : '';

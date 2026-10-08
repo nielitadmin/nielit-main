@@ -12,6 +12,12 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+if (($_SESSION['admin_role'] ?? '') === 'placement_coordinator') {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'Placement coordinators can only update placement details.']);
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed.']);

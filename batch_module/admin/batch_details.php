@@ -80,10 +80,11 @@ $students = getBatchStudents($batch_id, $conn);
 $eligible_students = getEligibleStudentsForBatch($batch_id, $conn);
 $move_target_batches = getMoveTargetBatches($batch_id, $conn);
 $stats = getBatchStats($batch_id, $conn);
-$can_upload_certificates = isBatchCertificateUploadAllowed($batch);
+$can_upload_certificates = isBatchCertificateUploadAllowed($batch) && !$is_placement_coordinator;
 $certificate_upload_hint = batch_certificate_upload_reason($batch);
 $can_manage_placement = canManageBatchPlacement($admin_role);
 $can_view_placement = canViewBatchPlacements($admin_role);
+$show_certificate_column = !$is_placement_coordinator;
 $placement_stats = getBatchPlacementStats($conn, (int) $batch_id);
 $placement_status_options = batch_placement_status_options();
 $placement_package_types = batch_placement_package_type_options();
@@ -1126,6 +1127,7 @@ function downloadScannedOrder(batchId) {
                         <i class="fas fa-info-circle"></i> Batch Information
                     </h5>
                     <div>
+                        <?php if (!$is_placement_coordinator): ?>
                         <?php 
                         $lock_restricted = $is_locked && !$is_master_admin; // Only restrict if locked AND not master admin
                         if ($lock_restricted): ?>
@@ -1162,6 +1164,7 @@ function downloadScannedOrder(batchId) {
                             <a href="generate_admission_order.php?batch_id=<?php echo $batch_id; ?>" class="btn btn-success">
                                 <i class="fas fa-file-alt"></i> Generate Admission Order
                             </a>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <a href="manage_batches.php" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Batches
@@ -1454,7 +1457,7 @@ function downloadScannedOrder(batchId) {
                         <strong>Certificate upload is enabled.</strong>
                         This batch is Completed and Locked. Upload each student's completion certificate (PDF/JPG/PNG). Students will see it under <em>My Certificates</em> in the student portal.
                     </div>
-                <?php elseif (!empty($students)): ?>
+                <?php elseif ($show_certificate_column && !empty($students)): ?>
                     <div class="alert alert-info certificate-info-banner" style="margin: 16px 16px 0;">
                         <i class="fas fa-info-circle"></i>
                         <?php echo htmlspecialchars($certificate_upload_hint ?: 'Certificate upload will be available after the batch is marked Completed and Locked.'); ?>
@@ -1507,7 +1510,9 @@ function downloadScannedOrder(batchId) {
                                     <th>Enrollment Date</th>
                                     <th>Fees Status</th>
                                     <th>Attendance</th>
+                                    <?php if ($show_certificate_column): ?>
                                     <th>Certificate</th>
+                                    <?php endif; ?>
                                     <?php if ($can_view_result): ?>
                                     <th>Result Status</th>
                                     <?php endif; ?>
@@ -1537,8 +1542,8 @@ function downloadScannedOrder(batchId) {
                                                        class="form-control form-control-sm nielit-reg-input" 
                                                        value="<?php echo htmlspecialchars(resolveNielitRegistrationNo($student)); ?>" 
                                                        placeholder="<?php echo htmlspecialchars($student['student_id'] ?? 'Same as Student ID'); ?>"
-                                                       <?php echo $is_locked ? 'disabled' : ''; ?>>
-                                                <?php if ($is_locked): ?>
+                                                       <?php echo ($is_locked || $is_placement_coordinator) ? 'disabled' : ''; ?>>
+                                                <?php if ($is_locked || $is_placement_coordinator): ?>
                                                     <button type="button" class="btn btn-secondary btn-sm" disabled title="Batch is locked">
                                                         <i class="fas fa-lock"></i>
                                                     </button>
@@ -1565,6 +1570,7 @@ function downloadScannedOrder(batchId) {
                                             </span>
                                         </td>
                                         <td><?php echo number_format($student['attendance_percentage'], 1); ?>%</td>
+                                        <?php if ($show_certificate_column): ?>
                                         <td>
                                             <?php if (!empty($student['certificate_file'])): ?>
                                                 <div class="cert-upload-wrap">
@@ -1596,6 +1602,7 @@ function downloadScannedOrder(batchId) {
                                                 <span class="text-muted small">Not uploaded</span>
                                             <?php endif; ?>
                                         </td>
+                                        <?php endif; ?>
                                         <?php if ($can_view_result):
                                             $rStatus = batch_result_normalize_status($student['result_status'] ?? 'exam_not_applied');
                                             $rBadge = batch_result_status_badge_class($rStatus);

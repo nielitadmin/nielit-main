@@ -59,7 +59,6 @@ if (!function_exists('batch_result_status_options')) {
         return in_array((string) $role, [
             'master_admin',
             'course_coordinator',
-            'placement_coordinator',
         ], true);
     }
 
@@ -68,7 +67,6 @@ if (!function_exists('batch_result_status_options')) {
         return in_array((string) $role, [
             'master_admin',
             'course_coordinator',
-            'placement_coordinator',
             'front_office_desk',
         ], true);
     }
