@@ -3288,16 +3288,40 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         $axis = report_monitor_build_graph_month_axis($graphMonths);
         $labels = $axis['labels'];
         $total = report_monitor_get_period_monthly($conn, $courseIds, $centreId, $monthFilter, $graphMonths);
+        $scopeLabel = 'Total (All Centres)';
+        if ($centreId > 0) {
+            $named = trim((string) report_monitor_get_centre_name($conn, $centreId));
+            $scopeLabel = $named !== '' ? $named : ('Centre ' . $centreId);
+        }
 
-        $series = [[
-            'key' => 'total',
-            'label' => 'Total (All Centres)',
-            'admissions' => $total['batch_enrollments'],
-            'batches' => $total['batches_created'],
-        ]];
+        $packSeries = static function (string $key, string $label, array $monthData): array {
+            $enrolled = $monthData['batch_enrollments'] ?? [];
+            return [
+                'key' => $key,
+                'label' => $label,
+                'admissions' => $enrolled,
+                'enrolled' => $enrolled,
+                'applications' => $monthData['applications'] ?? [],
+                'batches' => $monthData['batches_created'] ?? [],
+                'enrolled_total' => (int) array_sum(array_map('intval', $enrolled)),
+            ];
+        };
+
+        $series = [
+            $packSeries(
+                $centreId > 0 ? ('centre_' . $centreId) : 'total',
+                $scopeLabel,
+                $total
+            ),
+        ];
 
         if ($centreId > 0) {
-            return ['labels' => $labels, 'series' => $series];
+            return [
+                'labels' => $labels,
+                'series' => $series,
+                'scope' => 'single',
+                'enrolled_total' => (int) ($series[0]['enrolled_total'] ?? 0),
+            ];
         }
 
         foreach (report_monitor_get_centres_list($conn) as $cen) {
@@ -3306,15 +3330,19 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 continue;
             }
             $centreData = report_monitor_get_period_monthly($conn, $courseIds, $cid, $monthFilter, $graphMonths);
-            $series[] = [
-                'key' => 'centre_' . $cid,
-                'label' => (string) ($cen['name'] ?? ('Centre ' . $cid)),
-                'admissions' => $centreData['batch_enrollments'],
-                'batches' => $centreData['batches_created'],
-            ];
+            $series[] = $packSeries(
+                'centre_' . $cid,
+                (string) ($cen['name'] ?? ('Centre ' . $cid)),
+                $centreData
+            );
         }
 
-        return ['labels' => $labels, 'series' => $series];
+        return [
+            'labels' => $labels,
+            'series' => $series,
+            'scope' => 'all',
+            'enrolled_total' => (int) ($series[0]['enrolled_total'] ?? 0),
+        ];
     }
 
     function report_monitor_normalize_gender_key($rawGender): string {

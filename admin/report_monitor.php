@@ -7,7 +7,9 @@
  * ==========================================================
  */
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
@@ -1529,7 +1531,17 @@ Q4 (Jan–Mar)
 
                 <small class="text-muted ms-2">
 
-                    <?php echo htmlspecialchars($monthScopeLabel); ?> · Total + per centre (Admissions)
+                    <?php
+                    $trendEnrolledTotal = (int) ($batchMonthlyByCentre['enrolled_total'] ?? 0);
+                    $trendIsSingleCentre = (($batchMonthlyByCentre['scope'] ?? '') === 'single') || $centreId > 0;
+                    echo htmlspecialchars($monthScopeLabel);
+                    if ($trendIsSingleCentre) {
+                        echo ' · ' . htmlspecialchars($selectedCentreName);
+                        echo ' · ' . number_format($trendEnrolledTotal) . ' enrolled students';
+                    } else {
+                        echo ' · Total + per centre · ' . number_format($trendEnrolledTotal) . ' enrolled';
+                    }
+                    ?>
 
                 </small>
 
@@ -3356,18 +3368,45 @@ if(batchCanvas){
 
 const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
 const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
-const trendDatasets = (trendData.series || []).map(function(series, index){
-    const color = trendPalette[index % trendPalette.length];
-    return {
-        label: series.label + ' · Admissions',
-        data: series.admissions || [],
-        borderColor: color,
-        backgroundColor: color + '22',
-        fill: index === 0,
-        borderWidth: index === 0 ? 3 : 2,
-        tension: .35
-    };
-});
+const trendSingleCentre = (trendData.scope === 'single') || ((trendData.series || []).length === 1);
+let trendDatasets = [];
+if (trendSingleCentre && trendData.series && trendData.series[0]) {
+    const only = trendData.series[0];
+    trendDatasets = [
+        {
+            label: (only.label || 'Centre') + ' · Enrolled students',
+            data: only.enrolled || only.admissions || [],
+            borderColor: '#16a34a',
+            backgroundColor: '#16a34a22',
+            fill: true,
+            borderWidth: 3,
+            tension: .35
+        },
+        {
+            label: (only.label || 'Centre') + ' · Batches',
+            data: only.batches || [],
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b22',
+            fill: false,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            tension: .35
+        }
+    ];
+} else {
+    trendDatasets = (trendData.series || []).map(function(series, index){
+        const color = trendPalette[index % trendPalette.length];
+        return {
+            label: series.label + ' · Enrolled',
+            data: series.enrolled || series.admissions || [],
+            borderColor: color,
+            backgroundColor: color + '22',
+            fill: index === 0,
+            borderWidth: index === 0 ? 3 : 2,
+            tension: .35
+        };
+    });
+}
 
 new Chart(batchCanvas,{
 type:'line',
