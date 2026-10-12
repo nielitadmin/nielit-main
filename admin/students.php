@@ -619,6 +619,18 @@ if ($is_course_coordinator) {
     $rejected_students_count = runCount($conn, "SELECT COUNT(*) FROM students WHERE status='rejected'");
 }
 
+$removed_course_count = 0;
+if (!$is_front_office && function_exists('countPendingStudentCourseRemovals')) {
+    if ($is_course_coordinator && empty($admin_course_ids)) {
+        $removed_course_count = 0;
+    } else {
+        $removed_course_count = countPendingStudentCourseRemovals(
+            $conn,
+            $is_course_coordinator ? $admin_course_ids : []
+        );
+    }
+}
+
 // ─── COURSES DROPDOWN ─────────────────────────────────────────────────────────
 if ($is_course_coordinator && !empty($admin_course_ids)) {
     $course_ids_safe = implode(',', array_map('intval', $admin_course_ids));
@@ -1559,6 +1571,16 @@ if ($other_gender_count > 0) {
                 </p>
                 <?php endif; ?>
                 <small>View and manage all registered students</small>
+                <?php if (!$is_front_office): ?>
+                <p class="text-muted small mb-0" style="margin-top:4px;">
+                    <a href="<?php echo htmlspecialchars(relative_url('removed_course_enrollments.php')); ?>">
+                        <i class="fas fa-undo"></i> Recover removed enrollments
+                        <?php if ($removed_course_count > 0): ?>
+                            (<?php echo (int) $removed_course_count; ?>)
+                        <?php endif; ?>
+                    </a>
+                </p>
+                <?php endif; ?>
             </div>
             <div class="topbar-right">
                 <div class="user-info">
@@ -2544,7 +2566,7 @@ if ($other_gender_count > 0) {
             <p><strong>Selected students:</strong> <span id="bulk-remove-modal-count">0</span></p>
             <ul id="bulk-remove-modal-list" style="font-size:13px;color:#64748b;margin:8px 0 0 0;padding-left:18px;max-height:160px;overflow-y:auto;"></ul>
             <p style="font-size:12px;color:#64748b;margin-top:10px;">
-                <i class="fas fa-info-circle"></i> Each student is removed from the <strong>course shown in their row</strong> only. Other course enrollments are kept.
+                <i class="fas fa-info-circle"></i> Each student is removed from the <strong>course shown in their row</strong> only. Other course enrollments are kept. A recovery copy is saved so you can restore it later.
             </p>
         </div>
         <form method="POST" action="<?php echo htmlspecialchars(adminStudentsPageUrl()); ?>" id="bulk-remove-course-form">
@@ -3130,7 +3152,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 : '';
             const confirmed = await showConfirm({
                 title: 'Remove From Course',
-                message: `Remove <strong>${this.dataset.studentName}</strong> from <strong>${this.dataset.courseName}</strong> only?${keepNote}`,
+                message: `Remove <strong>${this.dataset.studentName}</strong> from <strong>${this.dataset.courseName}</strong> only?${keepNote} A recovery copy will be saved so you can restore this enrollment later.`,
                 confirmText: 'Remove From Course', cancelText: 'Cancel', type: 'warning'
             });
             if (confirmed) { toast.loading('Removing from course…'); window.location.href = this.dataset.url; }

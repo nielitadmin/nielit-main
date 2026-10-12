@@ -921,6 +921,13 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             return ['success' => false, 'message' => 'No enrollment found for ' . $courseName . '.'];
         }
 
+        if (!ensureStudentCourseRemovalArchive($conn)) {
+            return ['success' => false, 'message' => 'Could not prepare the recovery archive. The course enrollment was not removed.'];
+        }
+        if (!archiveStudentCourseRecords($conn, $studentIdStr, $courseId, $courseName, $recordIds)) {
+            return ['success' => false, 'message' => 'Could not save a recovery copy. The course enrollment was not removed.'];
+        }
+
         foreach ($recordIds as $recordId) {
             clearEnrollmentRecordBatchLinks($conn, $recordId);
 
@@ -1004,6 +1011,320 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             'message' => $message,
             'remaining_courses' => $remainingCourses,
         ];
+    }
+
+    function ensureStudentCourseRemovalArchive(mysqli $conn): bool
+    {
+        static $ready = null;
+        if ($ready === true) {
+            return true;
+        }
+        $sql = "CREATE TABLE IF NOT EXISTS student_course_removals (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            student_id VARCHAR(120) NOT NULL,
+            student_name VARCHAR(255) DEFAULT NULL,
+            course_id INT NOT NULL DEFAULT 0,
+            course_name VARCHAR(255) DEFAULT NULL,
+            student_record_ids VARCHAR(255) DEFAULT NULL,
+            snapshot_json LONGTEXT NOT NULL,
+            removed_by VARCHAR(150) DEFAULT NULL,
+            removed_by_role VARCHAR(100) DEFAULT NULL,
+            removed_at DATETIME NOT NULL,
+            restored_at DATETIME DEFAULT NULL,
+            restored_by VARCHAR(150) DEFAULT NULL,
+            PRIMARY KEY (id),
+            KEY idx_scr_student (student_id),
+            KEY idx_scr_course (course_id),
+            KEY idx_scr_restored (restored_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
+        $ok = (bool) $conn->query($sql);
+        $ready = $ok;
+        return $ok;
+    }
+
+    function studentCourseRemovalTableExists(mysqli $conn, string $table): bool
+    {
+        $allowed = ['students', 'student_enrollments', 'batch_students'];
+        if (!in_array($table, $allowed, true)) {
+            return false;
+        }
+        $res = $conn->query("SHOW TABLES LIKE '" . $conn->real_escape_string($table) . "'");
+        return $res && $res->num_rows > 0;
+    }
+
+    function studentCourseRemovalFetchRows(mysqli $conn, string $table, string $column, array $ids): array
+    {
+        if (!studentCourseRemovalTableExists($conn, $table)) {
+            return [];
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static function ($id) {
+            return $id > 0;
+        })));
+        if ($ids === []) {
+            return [];
+        }
+        $colRes = $conn->query("SHOW COLUMNS FROM `{$table}` LIKE '" . $conn->real_escape_string($column) . "'");
+        if (!$colRes || $colRes->num_rows === 0) {
+            return [];
+        }
+        $in = implode(',', $ids);
+        $res = $conn->query("SELECT * FROM `{$table}` WHERE `{$column}` IN ({$in})");
+        if (!$res) {
+            return [];
+        }
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+
+    function archiveStudentCourseRecords(
+        mysqli $conn,
+        string $studentIdStr,
+        int $courseId,
+        string $courseName,
+        array $recordIds
+    ): bool {
+        $recordIds = array_values(array_unique(array_filter(array_map('intval', $recordIds))));
+        if ($recordIds === []) {
+            return false;
+        }
+
+        $studentRows = studentCourseRemovalFetchRows($conn, 'students', 'id', $recordIds);
+        if ($studentRows === []) {
+            return false;
+        }
+
+        $studentName = trim((string) ($studentRows[0]['name'] ?? ''));
+        $enrollmentRows = studentCourseRemovalFetchRows($conn, 'student_enrollments', 'student_record_id', $recordIds);
+        $batchRows = studentCourseRemovalFetchRows($conn, 'batch_students', 'student_record_id', $recordIds);
+
+        $snapshot = json_encode([
+            'students' => $studentRows,
+            'student_enrollments' => $enrollmentRows,
+            'batch_students' => $batchRows,
+        ], JSON_UNESCAPED_UNICODE);
+        if (!is_string($snapshot) || $snapshot === '') {
+            return false;
+        }
+
+        $recordIdCsv = implode(',', $recordIds);
+        $removedBy = (string) ($_SESSION['admin'] ?? 'Admin');
+        $removedRole = (string) ($_SESSION['admin_role'] ?? '');
+        $stmt = $conn->prepare(
+            'INSERT INTO student_course_removals
+             (student_id, student_name, course_id, course_name, student_record_ids, snapshot_json, removed_by, removed_by_role, removed_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param(
+            'ssisssss',
+            $studentIdStr,
+            $studentName,
+            $courseId,
+            $courseName,
+            $recordIdCsv,
+            $snapshot,
+            $removedBy,
+            $removedRole
+        );
+        $ok = $stmt->execute();
+        $stmt->close();
+        return $ok;
+    }
+
+    function studentCourseRemovalInsertRow(mysqli $conn, string $table, array $row, bool $keepId = false): ?int
+    {
+        if (!studentCourseRemovalTableExists($conn, $table) || $row === []) {
+            return null;
+        }
+        $colRes = $conn->query("SHOW COLUMNS FROM `{$table}`");
+        if (!$colRes) {
+            return null;
+        }
+        $allowed = [];
+        while ($col = $colRes->fetch_assoc()) {
+            $allowed[$col['Field']] = true;
+        }
+
+        $originalId = (int) ($row['id'] ?? 0);
+        if ($keepId && $originalId > 0 && isset($allowed['id'])) {
+            $chk = $conn->prepare("SELECT id FROM `{$table}` WHERE id = ? LIMIT 1");
+            if ($chk) {
+                $chk->bind_param('i', $originalId);
+                $chk->execute();
+                $exists = (bool) $chk->get_result()->fetch_row();
+                $chk->close();
+                if ($exists) {
+                    $keepId = false;
+                }
+            }
+        }
+
+        $sets = [];
+        foreach ($row as $field => $value) {
+            if (!isset($allowed[$field])) {
+                continue;
+            }
+            if ($field === 'id' && !$keepId) {
+                continue;
+            }
+            if ($value === null) {
+                $sets[] = '`' . $field . '` = NULL';
+            } else {
+                $sets[] = '`' . $field . "` = '" . $conn->real_escape_string((string) $value) . "'";
+            }
+        }
+        if ($sets === []) {
+            return null;
+        }
+        $sql = "INSERT INTO `{$table}` SET " . implode(', ', $sets);
+        if (!$conn->query($sql)) {
+            return null;
+        }
+        if ($keepId && $originalId > 0) {
+            return $originalId;
+        }
+        return (int) $conn->insert_id;
+    }
+
+    function adminRestoreStudentCourseRemoval(mysqli $conn, int $removalId): array
+    {
+        if ($removalId <= 0) {
+            return ['success' => false, 'message' => 'Invalid recovery record.'];
+        }
+        if (!ensureStudentCourseRemovalArchive($conn)) {
+            return ['success' => false, 'message' => 'Recovery archive is not available.'];
+        }
+
+        $stmt = $conn->prepare('SELECT * FROM student_course_removals WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['success' => false, 'message' => $conn->error];
+        }
+        $stmt->bind_param('i', $removalId);
+        $stmt->execute();
+        $removal = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$removal) {
+            return ['success' => false, 'message' => 'Recovery record not found.'];
+        }
+        if (!empty($removal['restored_at'])) {
+            return ['success' => false, 'message' => 'This enrollment was already restored.'];
+        }
+
+        $studentIdStr = trim((string) ($removal['student_id'] ?? ''));
+        $courseId = (int) ($removal['course_id'] ?? 0);
+        $courseName = trim((string) ($removal['course_name'] ?? 'this course'));
+        $snapshot = json_decode((string) ($removal['snapshot_json'] ?? ''), true);
+        if ($studentIdStr === '' || $courseId <= 0 || !is_array($snapshot)) {
+            return ['success' => false, 'message' => 'Recovery copy is incomplete.'];
+        }
+
+        $dup = $conn->prepare(
+            "SELECT id FROM students
+             WHERE student_id = ? AND course_id = ?
+               AND LOWER(IFNULL(status,'')) NOT IN ('rejected')
+             LIMIT 1"
+        );
+        if ($dup) {
+            $dup->bind_param('si', $studentIdStr, $courseId);
+            $dup->execute();
+            $existing = $dup->get_result()->fetch_assoc();
+            $dup->close();
+            if ($existing) {
+                return [
+                    'success' => false,
+                    'message' => 'This student is already enrolled in ' . $courseName . '. Restore is not needed.',
+                ];
+            }
+        }
+
+        $studentRows = is_array($snapshot['students'] ?? null) ? $snapshot['students'] : [];
+        if ($studentRows === []) {
+            return ['success' => false, 'message' => 'No student record was stored in the recovery copy.'];
+        }
+
+        $idMap = [];
+        foreach ($studentRows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $oldId = (int) ($row['id'] ?? 0);
+            $newId = studentCourseRemovalInsertRow($conn, 'students', $row, true);
+            if (!$newId) {
+                return ['success' => false, 'message' => 'Could not restore the student course record.'];
+            }
+            if ($oldId > 0) {
+                $idMap[$oldId] = $newId;
+            }
+            if (function_exists('syncStudentEnrollmentRecord')) {
+                syncStudentEnrollmentRecord($conn, $newId);
+            }
+        }
+
+        $enrollmentRows = is_array($snapshot['student_enrollments'] ?? null) ? $snapshot['student_enrollments'] : [];
+        foreach ($enrollmentRows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $oldRecordId = (int) ($row['student_record_id'] ?? 0);
+            if ($oldRecordId > 0 && isset($idMap[$oldRecordId])) {
+                $row['student_record_id'] = $idMap[$oldRecordId];
+            }
+            studentCourseRemovalInsertRow($conn, 'student_enrollments', $row, false);
+        }
+
+        $restoredBy = (string) ($_SESSION['admin'] ?? 'Admin');
+        $mark = $conn->prepare('UPDATE student_course_removals SET restored_at = NOW(), restored_by = ? WHERE id = ?');
+        if ($mark) {
+            $mark->bind_param('si', $restoredBy, $removalId);
+            $mark->execute();
+            $mark->close();
+        }
+
+        if (file_exists(__DIR__ . '/activity_logger.php')) {
+            require_once __DIR__ . '/activity_logger.php';
+            if (function_exists('logStudentAdminActivity')) {
+                logStudentAdminActivity(
+                    $conn,
+                    'student_restore_course',
+                    'Restored student ' . $studentIdStr . ' to course "' . $courseName . '".',
+                    $studentIdStr,
+                    $studentIdStr,
+                    [
+                        'source' => 'removed_course_enrollments',
+                        'course_id' => $courseId,
+                        'course_name' => $courseName,
+                        'removal_id' => $removalId,
+                    ]
+                );
+            }
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Restored ' . $studentIdStr . ' to ' . $courseName . '. Assign a batch again if needed.',
+        ];
+    }
+
+    function countPendingStudentCourseRemovals(mysqli $conn, array $courseIds = []): int
+    {
+        if (!ensureStudentCourseRemovalArchive($conn)) {
+            return 0;
+        }
+        $sql = 'SELECT COUNT(*) AS c FROM student_course_removals WHERE restored_at IS NULL';
+        if ($courseIds !== []) {
+            $ids = implode(',', array_map('intval', $courseIds));
+            $sql .= " AND course_id IN ({$ids})";
+        }
+        $res = $conn->query($sql);
+        if (!$res) {
+            return 0;
+        }
+        return (int) ($res->fetch_assoc()['c'] ?? 0);
     }
 
     /**

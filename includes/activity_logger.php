@@ -637,6 +637,7 @@ if (!function_exists('activityActionLabels')) {
             'student_assign_course' => 'Student Assigned to Course',
             'student_assign_course_bulk' => 'Bulk Course Assign',
             'student_remove_course' => 'Student Removed from Course',
+            'student_restore_course' => 'Student Restored to Course',
             'student_scheme_update' => 'Student Scheme Updated',
             'student_scheme_sync' => 'Student Scheme Sync',
             'student_nielit_reg_update' => 'NIELIT Reg. No. Updated',
