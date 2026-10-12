@@ -3768,19 +3768,39 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         $sql = "CREATE TABLE IF NOT EXISTS report_monitor_public_links (
             id INT AUTO_INCREMENT PRIMARY KEY,
             token VARCHAR(64) NOT NULL,
+            link_key VARCHAR(40) NULL,
+            centre_id INT NOT NULL DEFAULT 0,
             is_active TINYINT(1) NOT NULL DEFAULT 1,
             created_by VARCHAR(120) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_rm_public_token (token)
+            UNIQUE KEY uq_rm_public_token (token),
+            UNIQUE KEY uq_rm_public_link_key (link_key)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         @$conn->query($sql);
+        $colKey = @$conn->query("SHOW COLUMNS FROM report_monitor_public_links LIKE 'link_key'");
+        if ($colKey && $colKey->num_rows === 0) {
+            @$conn->query("ALTER TABLE report_monitor_public_links ADD COLUMN link_key VARCHAR(40) NULL AFTER token");
+            @$conn->query("ALTER TABLE report_monitor_public_links ADD UNIQUE KEY uq_rm_public_link_key (link_key)");
+        }
+        $colCentre = @$conn->query("SHOW COLUMNS FROM report_monitor_public_links LIKE 'centre_id'");
+        if ($colCentre && $colCentre->num_rows === 0) {
+            @$conn->query("ALTER TABLE report_monitor_public_links ADD COLUMN centre_id INT NOT NULL DEFAULT 0 AFTER link_key");
+        }
         $ready = true;
     }
 
     function report_monitor_get_active_public_token($conn): string {
         report_monitor_ensure_public_share_schema($conn);
-        $res = $conn->query('SELECT token FROM report_monitor_public_links WHERE is_active = 1 ORDER BY id DESC LIMIT 1');
+        $res = $conn->query("SELECT token FROM report_monitor_public_links
+            WHERE is_active = 1 AND IFNULL(link_key,'') = '' AND centre_id = 0
+            ORDER BY id DESC LIMIT 1");
+        if ($res && ($row = $res->fetch_assoc())) {
+            return trim((string) ($row['token'] ?? ''));
+        }
+        $res = $conn->query("SELECT token FROM report_monitor_public_links
+            WHERE is_active = 1 AND IFNULL(link_key,'') = ''
+            ORDER BY id DESC LIMIT 1");
         if ($res && ($row = $res->fetch_assoc())) {
             return trim((string) ($row['token'] ?? ''));
         }
@@ -3790,8 +3810,8 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
     function report_monitor_regenerate_public_token($conn, string $createdBy = 'admin'): string {
         report_monitor_ensure_public_share_schema($conn);
         $token = bin2hex(random_bytes(24));
-        @$conn->query('UPDATE report_monitor_public_links SET is_active = 0');
-        $stmt = $conn->prepare('INSERT INTO report_monitor_public_links (token, is_active, created_by) VALUES (?, 1, ?)');
+        @$conn->query("UPDATE report_monitor_public_links SET is_active = 0 WHERE IFNULL(link_key,'') = ''");
+        $stmt = $conn->prepare('INSERT INTO report_monitor_public_links (token, link_key, centre_id, is_active, created_by) VALUES (?, NULL, 0, 1, ?)');
         if ($stmt) {
             $stmt->bind_param('ss', $token, $createdBy);
             $stmt->execute();
@@ -3800,38 +3820,147 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return $token;
     }
 
-    function report_monitor_validate_public_token($conn, string $token): bool {
+    function report_monitor_find_centre_id_by_keyword($conn, string $keyword): int {
+        $keyword = trim($keyword);
+        if ($keyword === '' || !report_monitor_table_exists($conn, 'centres')) {
+            return 0;
+        }
+        $like = '%' . $keyword . '%';
+        $stmt = $conn->prepare("SELECT id FROM centres
+            WHERE is_active = 1 AND (name LIKE ? OR code LIKE ?)
+            ORDER BY id ASC LIMIT 1");
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('ss', $like, $like);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return (int) ($row['id'] ?? 0);
+    }
+
+    function report_monitor_get_public_link_by_token($conn, string $token): ?array {
         $token = strtolower(trim($token));
         if ($token === '' || !preg_match('/^[a-f0-9]{32,64}$/', $token)) {
-            return false;
+            return null;
         }
         report_monitor_ensure_public_share_schema($conn);
-        $stmt = $conn->prepare('SELECT id FROM report_monitor_public_links WHERE token = ? AND is_active = 1 LIMIT 1');
+        $stmt = $conn->prepare('SELECT * FROM report_monitor_public_links WHERE token = ? AND is_active = 1 LIMIT 1');
         if (!$stmt) {
-            return false;
+            return null;
         }
         $stmt->bind_param('s', $token);
         $stmt->execute();
-        $ok = (bool) $stmt->get_result()->fetch_assoc();
+        $row = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-        return $ok;
+        return $row;
     }
 
-    function report_monitor_build_public_url(string $token, int $year = 0, string $quarter = 'FY', int $centreId = 0): string {
+    function report_monitor_get_public_link_by_key($conn, string $linkKey): ?array {
+        $linkKey = strtolower(trim($linkKey));
+        if ($linkKey === '' || !preg_match('/^[a-z0-9_-]{3,40}$/', $linkKey)) {
+            return null;
+        }
+        report_monitor_ensure_public_share_schema($conn);
+        $stmt = $conn->prepare('SELECT * FROM report_monitor_public_links WHERE link_key = ? AND is_active = 1 LIMIT 1');
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $linkKey);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc() ?: null;
+        $stmt->close();
+        return $row;
+    }
+
+    function report_monitor_ensure_named_centre_link($conn, string $linkKey, int $centreId, string $createdBy = 'admin'): ?array {
+        $linkKey = strtolower(trim($linkKey));
+        $centreId = (int) $centreId;
+        if ($linkKey === '' || $centreId <= 0) {
+            return null;
+        }
+        $existing = report_monitor_get_public_link_by_key($conn, $linkKey);
+        if ($existing) {
+            if ((int) ($existing['centre_id'] ?? 0) !== $centreId) {
+                $upd = $conn->prepare('UPDATE report_monitor_public_links SET centre_id = ? WHERE id = ?');
+                if ($upd) {
+                    $id = (int) $existing['id'];
+                    $upd->bind_param('ii', $centreId, $id);
+                    $upd->execute();
+                    $upd->close();
+                    $existing['centre_id'] = $centreId;
+                }
+            }
+            return $existing;
+        }
+        $token = bin2hex(random_bytes(24));
+        $stmt = $conn->prepare(
+            'INSERT INTO report_monitor_public_links (token, link_key, centre_id, is_active, created_by)
+             VALUES (?, ?, ?, 1, ?)'
+        );
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('ssis', $token, $linkKey, $centreId, $createdBy);
+        $ok = $stmt->execute();
+        $stmt->close();
+        if (!$ok) {
+            return report_monitor_get_public_link_by_key($conn, $linkKey);
+        }
+        return report_monitor_get_public_link_by_key($conn, $linkKey);
+    }
+
+    function report_monitor_ensure_raipur_public_link($conn, string $createdBy = 'admin'): ?array {
+        $centreId = report_monitor_find_centre_id_by_keyword($conn, 'Raipur');
+        if ($centreId <= 0) {
+            $centreId = report_monitor_find_centre_id_by_keyword($conn, 'RPR');
+        }
+        if ($centreId <= 0) {
+            return null;
+        }
+        return report_monitor_ensure_named_centre_link($conn, 'raipur', $centreId, $createdBy);
+    }
+
+    function report_monitor_validate_public_token($conn, string $token): bool {
+        return report_monitor_get_public_link_by_token($conn, $token) !== null;
+    }
+
+    function report_monitor_build_public_url(string $token, int $year = 0, string $quarter = 'FY', int $centreId = 0, string $shareKey = ''): string {
         if (!function_exists('app_url')) {
             require_once __DIR__ . '/url_helper.php';
         }
-        $params = ['share_token' => $token];
+        $params = [];
+        $shareKey = strtolower(trim($shareKey));
+        if ($shareKey !== '') {
+            $params['share'] = $shareKey;
+        } else {
+            $params['share_token'] = $token;
+        }
         if ($year > 0) {
             $params['year'] = $year;
         }
         if ($quarter !== '') {
             $params['quarter'] = $quarter;
         }
-        if ($centreId > 0) {
+        if ($centreId > 0 && $shareKey === '') {
             $params['centre_id'] = $centreId;
         }
         return app_url('admin/report_monitor') . '?' . http_build_query($params);
+    }
+
+    function report_monitor_build_raipur_public_url(int $year = 0, string $quarter = 'FY'): string {
+        if (!function_exists('app_url')) {
+            require_once __DIR__ . '/url_helper.php';
+        }
+        $params = [];
+        if ($year > 0) {
+            $params['year'] = $year;
+        }
+        if ($quarter !== '' && $quarter !== 'FY') {
+            $params['quarter'] = $quarter;
+        }
+        $qs = $params !== [] ? ('?' . http_build_query($params)) : '';
+        return app_url('public/report_raipur') . $qs;
     }
 }
 

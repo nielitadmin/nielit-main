@@ -17,14 +17,25 @@ require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/report_monitor_helper.php';
 
 $shareToken = trim((string) ($_GET['share_token'] ?? ''));
-$isPublicReportView = false;
-if ($shareToken !== '') {
-    $isPublicReportView = report_monitor_validate_public_token($conn, $shareToken);
-    if (!$isPublicReportView) {
-        http_response_code(403);
-        echo 'This report link is invalid or has expired.';
-        exit;
+$shareKey = strtolower(trim((string) ($_GET['share'] ?? '')));
+$publicLinkRow = null;
+if ($shareKey !== '') {
+    $publicLinkRow = report_monitor_get_public_link_by_key($conn, $shareKey);
+    if (!$publicLinkRow && $shareKey === 'raipur') {
+        $publicLinkRow = report_monitor_ensure_raipur_public_link($conn, 'public');
     }
+} elseif ($shareToken !== '') {
+    $publicLinkRow = report_monitor_get_public_link_by_token($conn, $shareToken);
+}
+$isPublicReportView = is_array($publicLinkRow);
+if (($shareKey !== '' || $shareToken !== '') && !$isPublicReportView) {
+    http_response_code(403);
+    echo 'This report link is invalid or has expired.';
+    exit;
+}
+$lockedPublicCentreId = $isPublicReportView ? (int) ($publicLinkRow['centre_id'] ?? 0) : 0;
+if ($isPublicReportView && $shareToken === '' && !empty($publicLinkRow['token'])) {
+    $shareToken = (string) $publicLinkRow['token'];
 }
 
 /*------------------------------------------------------------
@@ -75,6 +86,9 @@ if (
 $centreId = isset($_GET['centre_id'])
     ? (int)$_GET['centre_id']
     : 0;
+if ($lockedPublicCentreId > 0) {
+    $centreId = $lockedPublicCentreId;
+}
 
 $selectedYear = isset($_GET['year'])
     ? (int)$_GET['year']
@@ -238,9 +252,20 @@ $reportPublicShareUrl = $reportPublicShareToken !== ''
     ? report_monitor_build_public_url($reportPublicShareToken, $selectedYear, $selectedQuarter, $centreId)
     : '';
 
-$reportMonitorShareQuery = ($isPublicReportView && $shareToken !== '')
-    ? ['share_token' => $shareToken]
-    : [];
+$raipurPublicLink = !$isPublicReportView
+    ? report_monitor_ensure_raipur_public_link($conn, (string) ($_SESSION['admin'] ?? 'admin'))
+    : $publicLinkRow;
+$raipurPublicShareUrl = '';
+if (is_array($raipurPublicLink) && (int) ($raipurPublicLink['centre_id'] ?? 0) > 0) {
+    $raipurPublicShareUrl = report_monitor_build_raipur_public_url($selectedYear, $selectedQuarter);
+}
+
+$reportMonitorShareQuery = [];
+if ($isPublicReportView && $shareKey !== '') {
+    $reportMonitorShareQuery['share'] = $shareKey;
+} elseif ($isPublicReportView && $shareToken !== '') {
+    $reportMonitorShareQuery['share_token'] = $shareToken;
+}
 
 $categoryQuarterSummary = report_monitor_get_category_quarter_summary(
     $conn,
@@ -350,6 +375,11 @@ $courseFyTimeline = report_monitor_get_course_fy_timeline(
 $centresList = report_monitor_get_centres_list(
     $conn
 );
+if ($lockedPublicCentreId > 0) {
+    $centresList = array_values(array_filter($centresList, static function ($centre) use ($lockedPublicCentreId) {
+        return (int) ($centre['id'] ?? 0) === $lockedPublicCentreId;
+    }));
+}
 
 $batchDetails = report_monitor_get_batch_details(
     $conn,
@@ -377,6 +407,9 @@ $resultStatusCourses = $resultStatusSummary['courses'] ?? [];
 $resultStatusCentres = $resultStatusSummary['centres'] ?? [];
 $resultStatusOptions = $resultStatusSummary['options'] ?? [];
 $resultStatusFilterCentre = isset($_GET['rs_centre']) ? trim((string) $_GET['rs_centre']) : '';
+if ($lockedPublicCentreId > 0) {
+    $resultStatusFilterCentre = (string) $lockedPublicCentreId;
+}
 $resultStatusFilterCourse = isset($_GET['rs_course']) ? (int) $_GET['rs_course'] : 0;
 
 $resultStatusBatches = [];
@@ -1131,7 +1164,7 @@ $pageTitle="Report Monitor";
 
 <?php if ($isPublicReportView): ?>
 <div class="public-report-banner">
-    <strong><i class="fas fa-chart-line me-1"></i> NIELIT Report Monitor</strong>
+    <strong><i class="fas fa-chart-line me-1"></i> NIELIT Report Monitor<?php echo ($shareKey === 'raipur' || $lockedPublicCentreId > 0) ? ' · Raipur' : ''; ?></strong>
     <span>Read-only public view · <?php echo htmlspecialchars($reportScopeTitleLabel); ?> · <?php echo htmlspecialchars($monthScopeLabel); ?></span>
 </div>
 <?php endif; ?>
@@ -1155,16 +1188,27 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 </p>
 
 <?php if ($isPublicReportView): ?>
-<p class="text-muted mb-0 small"><i class="fas fa-link"></i> Public read-only report view</p>
+<p class="text-muted mb-0 small"><i class="fas fa-link"></i> Public read-only report view<?php echo $lockedPublicCentreId > 0 ? ' · this link shows one centre only' : ''; ?></p>
 <?php endif; ?>
 
 </div>
 
-<?php if (!$isPublicReportView && $reportPublicShareUrl !== ''): ?>
-<div class="d-flex flex-wrap gap-2 align-items-center">
-    <input type="text" class="form-control form-control-sm" id="reportPublicShareUrl" readonly value="<?php echo htmlspecialchars($reportPublicShareUrl); ?>" style="min-width:280px;max-width:520px;">
-    <button type="button" class="btn btn-outline-primary btn-sm" id="copyReportShareUrlBtn"><i class="fas fa-copy"></i> Copy Public Link</button>
-    <button type="button" class="btn btn-outline-secondary btn-sm" id="regenerateReportShareUrlBtn"><i class="fas fa-sync"></i> New Link</button>
+<?php if (!$isPublicReportView): ?>
+<div class="d-flex flex-column gap-2">
+    <?php if ($reportPublicShareUrl !== ''): ?>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="text" class="form-control form-control-sm" id="reportPublicShareUrl" readonly value="<?php echo htmlspecialchars($reportPublicShareUrl); ?>" style="min-width:280px;max-width:520px;">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="copyReportShareUrlBtn"><i class="fas fa-copy"></i> Copy Public Link</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="regenerateReportShareUrlBtn"><i class="fas fa-sync"></i> New Link</button>
+    </div>
+    <?php endif; ?>
+    <?php if ($raipurPublicShareUrl !== ''): ?>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="text" class="form-control form-control-sm" id="reportRaipurShareUrl" readonly value="<?php echo htmlspecialchars($raipurPublicShareUrl); ?>" style="min-width:280px;max-width:520px;">
+        <button type="button" class="btn btn-outline-success btn-sm" id="copyRaipurShareUrlBtn"><i class="fas fa-copy"></i> Copy Raipur Link</button>
+        <span class="small text-muted">Raipur only — public</span>
+    </div>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 
@@ -1177,8 +1221,13 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 <div class="card-body">
 
 <form method="GET">
-<?php if ($isPublicReportView && $shareToken !== ''): ?>
+<?php if ($isPublicReportView && $shareKey !== ''): ?>
+<input type="hidden" name="share" value="<?php echo htmlspecialchars($shareKey); ?>">
+<?php elseif ($isPublicReportView && $shareToken !== ''): ?>
 <input type="hidden" name="share_token" value="<?php echo htmlspecialchars($shareToken); ?>">
+<?php endif; ?>
+<?php if ($lockedPublicCentreId > 0): ?>
+<input type="hidden" name="centre_id" value="<?php echo (int) $lockedPublicCentreId; ?>">
 <?php endif; ?>
 
 <div class="row">
@@ -1195,9 +1244,13 @@ Centre
 
 class="form-select"
 
+<?php if ($lockedPublicCentreId > 0): ?>
+disabled
+<?php else: ?>
 name="centre_id"
 
 onchange="this.form.submit()"
+<?php endif; ?>
 
 >
 
@@ -2569,7 +2622,9 @@ if ($resultStatusFilterCourse > 0) {
     </div>
     <div class="card-body p-0 <?php echo $resultStatusDetailsOpen ? '' : 'd-none'; ?>" id="resultStatusBody">
         <form method="get" class="p-3 border-bottom bg-light" id="resultStatusFilterForm">
-            <?php if ($isPublicReportView && $shareToken !== ''): ?>
+            <?php if ($isPublicReportView && $shareKey !== ''): ?>
+            <input type="hidden" name="share" value="<?php echo htmlspecialchars($shareKey); ?>">
+            <?php elseif ($isPublicReportView && $shareToken !== ''): ?>
             <input type="hidden" name="share_token" value="<?php echo htmlspecialchars($shareToken); ?>">
             <?php endif; ?>
             <input type="hidden" name="centre_id" value="<?php echo (int) $centreId; ?>">
@@ -5307,6 +5362,24 @@ if (copyShareBtn && shareUrlInput) {
             navigator.clipboard.writeText(text).then(function () {
                 copyShareBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
                 setTimeout(function () { copyShareBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Public Link'; }, 1500);
+            });
+        } else {
+            document.execCommand('copy');
+        }
+    });
+}
+
+const copyRaipurBtn = document.getElementById('copyRaipurShareUrlBtn');
+const raipurUrlInput = document.getElementById('reportRaipurShareUrl');
+if (copyRaipurBtn && raipurUrlInput) {
+    copyRaipurBtn.addEventListener('click', function () {
+        raipurUrlInput.select();
+        raipurUrlInput.setSelectionRange(0, 99999);
+        const text = raipurUrlInput.value;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(function () {
+                copyRaipurBtn.innerHTML = '<i class="fas fa-check"></i> Copied';
+                setTimeout(function () { copyRaipurBtn.innerHTML = '<i class="fas fa-copy"></i> Copy Raipur Link'; }, 1500);
             });
         } else {
             document.execCommand('copy');
