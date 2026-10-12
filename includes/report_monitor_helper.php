@@ -587,7 +587,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     'unassigned' => 0,
                 ];
             }
-            $map[$id][$field] = (int) ($row['total'] ?? 0);
+            $map[$id][$field] = (int) ($map[$id][$field] ?? 0) + (int) ($row['total'] ?? 0);
         };
 
         $applySql = "SELECT {$centreSelect}, COUNT(DISTINCT s.id) AS total
@@ -714,6 +714,30 @@ if (!function_exists('get_report_monitor_category_groups')) {
             while ($row = $courseResult->fetch_assoc()) {
                 $mergeMetric($map, $row, 'course_count');
             }
+        }
+
+        if ($centreId > 0) {
+            $lockName = trim((string) report_monitor_get_centre_name($conn, $centreId));
+            $combined = [
+                'centre_id' => (int) $centreId,
+                'centre_name' => $lockName !== '' ? $lockName : 'Centre',
+                'centre_code' => '',
+                'course_count' => 0,
+                'batch_count' => 0,
+                'applications' => 0,
+                'batch_enrolled' => 0,
+                'unassigned' => 0,
+            ];
+            foreach ($map as $row) {
+                $combined['course_count'] += (int) ($row['course_count'] ?? 0);
+                $combined['batch_count'] += (int) ($row['batch_count'] ?? 0);
+                $combined['applications'] += (int) ($row['applications'] ?? 0);
+                $combined['batch_enrolled'] += (int) ($row['batch_enrolled'] ?? 0);
+                if ($combined['centre_code'] === '' && trim((string) ($row['centre_code'] ?? '')) !== '') {
+                    $combined['centre_code'] = (string) $row['centre_code'];
+                }
+            }
+            $map = [(int) $centreId => $combined];
         }
 
         $rows = array_values($map);
@@ -3299,7 +3323,20 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             }
         }
 
-        if ($lockCentreId <= 0) {
+        if ($lockCentreId > 0) {
+            $metricKeys = ['course_count', 'batch_count', 'applications', 'batch_enrolled', 'unassigned'];
+            foreach ($extras as $row) {
+                foreach ($merged as &$lockedRow) {
+                    if ((int) ($lockedRow['centre_id'] ?? 0) !== $lockCentreId) {
+                        continue;
+                    }
+                    foreach ($metricKeys as $field) {
+                        $lockedRow[$field] = (int) ($lockedRow[$field] ?? 0) + (int) ($row[$field] ?? 0);
+                    }
+                }
+                unset($lockedRow);
+            }
+        } else {
             foreach ($extras as $row) {
                 $merged[] = $row;
             }
