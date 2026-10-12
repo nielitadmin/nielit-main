@@ -1400,7 +1400,7 @@ Q4 (Jan–Mar)
 
                 <small>
 
-                    Total Students Applied
+                    Total Enrolled Students
 
                 </small>
 
@@ -1539,10 +1539,10 @@ Q4 (Jan–Mar)
                     echo htmlspecialchars($monthScopeLabel);
                     if ($trendIsSingleCentre) {
                         echo ' · ' . htmlspecialchars($selectedCentreName);
-                        echo ' · ' . number_format($trendAdmissionsTotal) . ' admissions';
-                        echo ' · ' . number_format($trendEnrolledTotal) . ' enrolled students';
+                        echo ' · ' . number_format($trendEnrolledTotal) . ' enrolled (applied)';
+                        echo ' · ' . number_format($trendAdmissionsTotal) . ' admissions (batch)';
                     } else {
-                        echo ' · Total + per centre · ' . number_format($trendAdmissionsTotal) . ' admissions · ' . number_format($trendEnrolledTotal) . ' enrolled';
+                        echo ' · Total + per centre · ' . number_format($trendEnrolledTotal) . ' enrolled · ' . number_format($trendAdmissionsTotal) . ' admissions';
                     }
                     ?>
 
@@ -2348,7 +2348,7 @@ Q4 (Jan–Mar)
 
                     <th class="text-end">
 
-                        Applied
+                        Enrolled
 
                     </th>
 
@@ -3377,20 +3377,20 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     const only = trendData.series[0];
     trendDatasets = [
         {
-            label: (only.label || 'Centre') + ' · Admissions',
-            data: only.admissions || only.applications || [],
-            borderColor: '#0f172a',
-            backgroundColor: '#0f172a22',
-            fill: false,
+            label: (only.label || 'Centre') + ' · Enrolled students',
+            data: only.enrolled || only.applications || [],
+            borderColor: '#16a34a',
+            backgroundColor: '#16a34a22',
+            fill: true,
             borderWidth: 3,
             tension: .35
         },
         {
-            label: (only.label || 'Centre') + ' · Enrolled students',
-            data: only.enrolled || [],
-            borderColor: '#16a34a',
-            backgroundColor: '#16a34a22',
-            fill: true,
+            label: (only.label || 'Centre') + ' · Admissions',
+            data: only.admissions || [],
+            borderColor: '#0f172a',
+            backgroundColor: '#0f172a22',
+            fill: false,
             borderWidth: 3,
             tension: .35
         },
@@ -3409,8 +3409,8 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     trendDatasets = (trendData.series || []).map(function(series, index){
         const color = trendPalette[index % trendPalette.length];
         return {
-            label: series.label + ' · Admissions',
-            data: series.admissions || series.applications || [],
+            label: series.label + ' · Enrolled',
+            data: series.enrolled || series.applications || [],
             borderColor: color,
             backgroundColor: color + '22',
             fill: index === 0,
@@ -3470,6 +3470,19 @@ datasets:[
 
 {
 
+label:'Enrolled',
+
+data:
+reportPayload.centreStats.map(
+x=>x.applications
+),
+
+backgroundColor:'#16a34a'
+
+},
+
+{
+
 label:'Admissions',
 
 data:
@@ -3477,7 +3490,7 @@ reportPayload.centreStats.map(
 x=>x.batch_enrolled
 ),
 
-backgroundColor:'#16a34a'
+backgroundColor:'#0f172a'
 
 },
 

@@ -1084,13 +1084,26 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
-        $enrollSql = "SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS month_key,
-                             SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
-                      FROM students s
-                      INNER JOIN courses c ON c.id = s.course_id
-                      WHERE {$activeCondition}{$scopeFilter['sql']}
-                      AND s.created_at >= ? AND s.created_at < ?
-                      GROUP BY month_key";
+        $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
+        if ($hasBatchStudents) {
+            $enrollmentExpr = report_monitor_enrollment_timestamp_sql($conn, 'bs', 's');
+            $enrollSql = "SELECT DATE_FORMAT({$enrollmentExpr}, '%Y-%m') AS month_key,
+                                 COUNT(DISTINCT COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id, s.id)) AS total
+                          FROM students s
+                          INNER JOIN courses c ON c.id = s.course_id
+                          INNER JOIN batch_students bs ON bs.student_record_id = s.id OR bs.student_id = s.id
+                          WHERE {$activeCondition}{$scopeFilter['sql']}
+                          AND {$enrollmentExpr} >= ? AND {$enrollmentExpr} < ?
+                          GROUP BY month_key";
+        } else {
+            $enrollSql = "SELECT DATE_FORMAT(s.created_at, '%Y-%m') AS month_key,
+                                 COUNT(DISTINCT s.id) AS total
+                          FROM students s
+                          INNER JOIN courses c ON c.id = s.course_id
+                          WHERE {$activeCondition} AND {$batchCondition}{$scopeFilter['sql']}
+                          AND s.created_at >= ? AND s.created_at < ?
+                          GROUP BY month_key";
+        }
         $enrollTypes = $scopeFilter['types'] . 'ss';
         $enrollValues = array_merge($scopeFilter['values'], [$monthStart, $monthNext]);
         $enrollResult = report_monitor_bind_and_execute($conn, $enrollSql, $enrollTypes, $enrollValues);
@@ -3295,7 +3308,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return $merged;
     }
 
-    /** Monthly admissions/batches: total + one series per centre (no Applied). */
+    /** Monthly enrolled (applications) vs admissions (batch records) + batches. */
     function report_monitor_get_period_monthly_by_centre($conn, array $courseIds = [], $centreId = 0, array $monthFilter = [], array $graphMonths = []) {
         $axis = report_monitor_build_graph_month_axis($graphMonths);
         $labels = $axis['labels'];
@@ -3307,14 +3320,14 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
 
         $packSeries = static function (string $key, string $label, array $monthData): array {
-            $enrolled = $monthData['batch_enrollments'] ?? [];
-            $admissions = $monthData['applications'] ?? [];
+            $enrolled = $monthData['applications'] ?? [];
+            $admissions = $monthData['batch_enrollments'] ?? [];
             return [
                 'key' => $key,
                 'label' => $label,
                 'admissions' => $admissions,
                 'enrolled' => $enrolled,
-                'applications' => $admissions,
+                'applications' => $enrolled,
                 'batches' => $monthData['batches_created'] ?? [],
                 'admissions_total' => (int) array_sum(array_map('intval', $admissions)),
                 'enrolled_total' => (int) array_sum(array_map('intval', $enrolled)),
