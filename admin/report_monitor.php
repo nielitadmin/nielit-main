@@ -206,7 +206,8 @@ $centreStats = report_monitor_merge_all_active_centres(
         $scopedCourseIds,
         $centreId,
         $fyMonthFilter
-    )
+    ),
+    $centreId
 );
 
 $batchMonthlyByCentre = report_monitor_get_period_monthly_by_centre(
@@ -1533,13 +1534,15 @@ Q4 (Jan–Mar)
 
                     <?php
                     $trendEnrolledTotal = (int) ($batchMonthlyByCentre['enrolled_total'] ?? 0);
+                    $trendAdmissionsTotal = (int) ($batchMonthlyByCentre['admissions_total'] ?? 0);
                     $trendIsSingleCentre = (($batchMonthlyByCentre['scope'] ?? '') === 'single') || $centreId > 0;
                     echo htmlspecialchars($monthScopeLabel);
                     if ($trendIsSingleCentre) {
                         echo ' · ' . htmlspecialchars($selectedCentreName);
+                        echo ' · ' . number_format($trendAdmissionsTotal) . ' admissions';
                         echo ' · ' . number_format($trendEnrolledTotal) . ' enrolled students';
                     } else {
-                        echo ' · Total + per centre · ' . number_format($trendEnrolledTotal) . ' enrolled';
+                        echo ' · Total + per centre · ' . number_format($trendAdmissionsTotal) . ' admissions · ' . number_format($trendEnrolledTotal) . ' enrolled';
                     }
                     ?>
 
@@ -3374,8 +3377,17 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     const only = trendData.series[0];
     trendDatasets = [
         {
+            label: (only.label || 'Centre') + ' · Admissions',
+            data: only.admissions || only.applications || [],
+            borderColor: '#0f172a',
+            backgroundColor: '#0f172a22',
+            fill: false,
+            borderWidth: 3,
+            tension: .35
+        },
+        {
             label: (only.label || 'Centre') + ' · Enrolled students',
-            data: only.enrolled || only.admissions || [],
+            data: only.enrolled || [],
             borderColor: '#16a34a',
             backgroundColor: '#16a34a22',
             fill: true,
@@ -3397,8 +3409,8 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     trendDatasets = (trendData.series || []).map(function(series, index){
         const color = trendPalette[index % trendPalette.length];
         return {
-            label: series.label + ' · Enrolled',
-            data: series.enrolled || series.admissions || [],
+            label: series.label + ' · Admissions',
+            data: series.admissions || series.applications || [],
             borderColor: color,
             backgroundColor: color + '22',
             fill: index === 0,

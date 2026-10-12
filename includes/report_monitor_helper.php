@@ -3234,9 +3234,16 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
 
     /**
      * Ensure every active centre appears in centre-wise stats (e.g. Raipur with zero activity).
+     * When $lockCentreId is set, only that centre is included (Raipur-only public page).
      */
-    function report_monitor_merge_all_active_centres($conn, array $centreStats): array {
+    function report_monitor_merge_all_active_centres($conn, array $centreStats, $lockCentreId = 0): array {
+        $lockCentreId = (int) $lockCentreId;
         if (!report_monitor_table_exists($conn, 'centres')) {
+            if ($lockCentreId > 0) {
+                return array_values(array_filter($centreStats, static function (array $row) use ($lockCentreId) {
+                    return (int) ($row['centre_id'] ?? 0) === $lockCentreId;
+                }));
+            }
             return $centreStats;
         }
 
@@ -3259,6 +3266,9 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 if ($id <= 0) {
                     continue;
                 }
+                if ($lockCentreId > 0 && $id !== $lockCentreId) {
+                    continue;
+                }
                 if (isset($byId[$id])) {
                     $merged[] = $byId[$id];
                     continue;
@@ -3276,8 +3286,10 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             }
         }
 
-        foreach ($extras as $row) {
-            $merged[] = $row;
+        if ($lockCentreId <= 0) {
+            foreach ($extras as $row) {
+                $merged[] = $row;
+            }
         }
 
         return $merged;
@@ -3296,13 +3308,15 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
 
         $packSeries = static function (string $key, string $label, array $monthData): array {
             $enrolled = $monthData['batch_enrollments'] ?? [];
+            $admissions = $monthData['applications'] ?? [];
             return [
                 'key' => $key,
                 'label' => $label,
-                'admissions' => $enrolled,
+                'admissions' => $admissions,
                 'enrolled' => $enrolled,
-                'applications' => $monthData['applications'] ?? [],
+                'applications' => $admissions,
                 'batches' => $monthData['batches_created'] ?? [],
+                'admissions_total' => (int) array_sum(array_map('intval', $admissions)),
                 'enrolled_total' => (int) array_sum(array_map('intval', $enrolled)),
             ];
         };
@@ -3320,6 +3334,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 'labels' => $labels,
                 'series' => $series,
                 'scope' => 'single',
+                'admissions_total' => (int) ($series[0]['admissions_total'] ?? 0),
                 'enrolled_total' => (int) ($series[0]['enrolled_total'] ?? 0),
             ];
         }
@@ -3341,6 +3356,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             'labels' => $labels,
             'series' => $series,
             'scope' => 'all',
+            'admissions_total' => (int) ($series[0]['admissions_total'] ?? 0),
             'enrolled_total' => (int) ($series[0]['enrolled_total'] ?? 0),
         ];
     }
@@ -3644,9 +3660,15 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             $graphMonths
         );
 
+        $scopeLabel = 'Total (All Centres)';
+        if ($centreId > 0) {
+            $named = trim((string) report_monitor_get_centre_name($conn, $centreId));
+            $scopeLabel = $named !== '' ? $named : ('Centre ' . $centreId);
+        }
+
         $series = [[
-            'key' => 'total',
-            'label' => 'Total (All Centres)',
+            'key' => $centreId > 0 ? ('centre_' . $centreId) : 'total',
+            'label' => $scopeLabel,
             'certified' => $total['certified'],
             'placed' => $total['placed'],
             'combined' => $total['combined'],
@@ -3690,7 +3712,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
 
     /** Certified (exam pass) and placed counts per centre for charts/tables. */
     function report_monitor_get_certified_placed_centre_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
-        $merged = report_monitor_merge_all_active_centres($conn, report_monitor_get_centre_stats($conn, $courseIds, $centreId, $monthFilter));
+        $merged = report_monitor_merge_all_active_centres($conn, report_monitor_get_centre_stats($conn, $courseIds, $centreId, $monthFilter), $centreId);
         $stats = [];
         foreach ($merged as $row) {
             $stats[(int) ($row['centre_id'] ?? 0)] = [
@@ -3732,6 +3754,9 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
                     $cid = (int) ($row['centre_id'] ?? 0);
+                    if ($centreId > 0 && $cid !== (int) $centreId) {
+                        continue;
+                    }
                     if (!isset($stats[$cid])) {
                         $stats[$cid] = [
                             'centre_id' => $cid,
@@ -3768,6 +3793,9 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             if ($result) {
                 while ($row = $result->fetch_assoc()) {
                     $cid = (int) ($row['centre_id'] ?? 0);
+                    if ($centreId > 0 && $cid !== (int) $centreId) {
+                        continue;
+                    }
                     if (!isset($stats[$cid])) {
                         $stats[$cid] = [
                             'centre_id' => $cid,
@@ -3782,6 +3810,11 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
 
         $rows = array_values($stats);
+        if ($centreId > 0) {
+            $rows = array_values(array_filter($rows, static function (array $row) use ($centreId) {
+                return (int) ($row['centre_id'] ?? 0) === (int) $centreId;
+            }));
+        }
         usort($rows, static function ($a, $b) {
             return strcasecmp((string) $a['centre_name'], (string) $b['centre_name']);
         });
