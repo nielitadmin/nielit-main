@@ -489,6 +489,7 @@ $active_theme = loadActiveTheme($conn);
                         <table class="modern-table">
                             <thead>
                                 <tr>
+                                    <th class="text-center" style="width:70px;">Sl No.</th>
                                     <th>Batch Code</th>
                                     <th>Batch Name</th>
                                     <th>Course</th>
@@ -501,8 +502,9 @@ $active_theme = loadActiveTheme($conn);
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($batches as $batch): ?>
+                                <?php foreach ($batches as $index => $batch): ?>
                                     <tr>
+                                        <td class="text-center"><?php echo (int) $index + 1; ?></td>
                                         <td><strong><?php echo htmlspecialchars($batch['batch_code']); ?></strong></td>
                                         <td>
                                             <?php echo htmlspecialchars($batch['batch_name']); ?>
