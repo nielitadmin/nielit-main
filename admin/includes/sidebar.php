@@ -163,13 +163,19 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
 
         <?php elseif (!$is_nsqf_manager): ?>
         <div class="nav-item has-dropdown">
-            <button type="button" class="nav-link <?php echo ($current_page === 'students.php' || $current_page === 'candidate_records.php') ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['students.php', 'candidate_records.php', 'removed_course_enrollments.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-users"></i> Students
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </button>
-            <div class="dropdown-menu">
+            <div class="dropdown-menu<?php echo ($current_page === 'removed_course_enrollments.php') ? ' show' : ''; ?>">
                 <a href="<?php echo app_url('admin/students'); ?>" class="dropdown-item <?php echo ($current_page === 'students.php') ? 'active' : ''; ?>">
                     <i class="fas fa-user-friends"></i> All Students
+                </a>
+                <a href="<?php echo app_url('admin/removed_course_enrollments'); ?>" class="dropdown-item <?php echo ($current_page === 'removed_course_enrollments.php' && (string) ($_GET['show'] ?? '') !== 'restored') ? 'active' : ''; ?>">
+                    <i class="fas fa-undo"></i> Recover enrollments
+                </a>
+                <a href="<?php echo app_url('admin/removed_course_enrollments'); ?>?show=restored" class="dropdown-item <?php echo ($current_page === 'removed_course_enrollments.php' && (string) ($_GET['show'] ?? '') === 'restored') ? 'active' : ''; ?>">
+                    <i class="fas fa-history"></i> Restored enrollments
                 </a>
                 <?php if ($is_master_admin): ?>
                 <a href="<?php echo app_url('admin/candidate_records'); ?>" class="dropdown-item <?php echo ($current_page === 'candidate_records.php') ? 'active' : ''; ?>">
