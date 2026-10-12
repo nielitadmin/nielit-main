@@ -1581,6 +1581,85 @@ if (!function_exists('attendanceStudentBatchLabels')) {
     }
 }
 
+if (!function_exists('attendanceStudentBatchIds')) {
+    /**
+     * @return list<int>
+     */
+    function attendanceStudentBatchIds($conn, string $student_id): array
+    {
+        $student_id = trim($student_id);
+        if ($student_id === '' || !($conn instanceof mysqli)) {
+            return [];
+        }
+        $batchIds = [];
+        $ids = attendanceStudentRecordIds($conn, $student_id);
+        if ($ids !== []) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $types = str_repeat('i', count($ids));
+            $stmt = $conn->prepare("SELECT DISTINCT batch_id FROM students
+                WHERE id IN ({$placeholders}) AND batch_id IS NOT NULL AND batch_id > 0");
+            if ($stmt) {
+                $stmt->bind_param($types, ...$ids);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                while ($row = $res->fetch_assoc()) {
+                    $bid = (int) ($row['batch_id'] ?? 0);
+                    if ($bid > 0) {
+                        $batchIds[] = $bid;
+                    }
+                }
+                $stmt->close();
+            }
+            $t = $conn->query("SHOW TABLES LIKE 'batch_students'");
+            if ($t && $t->num_rows > 0) {
+                $sql = "SELECT DISTINCT batch_id FROM batch_students
+                        WHERE student_record_id IN ({$placeholders})
+                           OR student_id IN ({$placeholders})";
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $params = array_merge($ids, $ids);
+                    $stmt->bind_param($types . $types, ...$params);
+                    $stmt->execute();
+                    $res = $stmt->get_result();
+                    while ($row = $res->fetch_assoc()) {
+                        $bid = (int) ($row['batch_id'] ?? 0);
+                        if ($bid > 0) {
+                            $batchIds[] = $bid;
+                        }
+                    }
+                    $stmt->close();
+                }
+            }
+        }
+        $enrTbl = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enrTbl && $enrTbl->num_rows > 0) {
+            $col = $conn->query("SHOW COLUMNS FROM student_enrollments LIKE 'batch_id'");
+            if ($col && $col->num_rows > 0) {
+                $sql = "SELECT DISTINCT se.batch_id FROM student_enrollments se
+                        LEFT JOIN students s ON s.id = se.student_record_id
+                        LEFT JOIN student_accounts sa ON sa.id = se.account_id
+                        WHERE se.batch_id IS NOT NULL AND se.batch_id > 0
+                          AND (LOWER(TRIM(IFNULL(s.student_id,''))) = LOWER(?)
+                               OR LOWER(TRIM(IFNULL(sa.student_id,''))) = LOWER(?))";
+                $enr = $conn->prepare($sql);
+                if ($enr) {
+                    $enr->bind_param('ss', $student_id, $student_id);
+                    $enr->execute();
+                    $res = $enr->get_result();
+                    while ($row = $res->fetch_assoc()) {
+                        $bid = (int) ($row['batch_id'] ?? 0);
+                        if ($bid > 0) {
+                            $batchIds[] = $bid;
+                        }
+                    }
+                    $enr->close();
+                }
+            }
+        }
+        return array_values(array_unique(array_map('intval', $batchIds)));
+    }
+}
+
 if (!function_exists('attendanceBatchName')) {
     function attendanceBatchName($conn, int $batchId): string
     {

@@ -840,8 +840,8 @@ if (!function_exists('studentKioskClearVerification')) {
 
 if (!function_exists('studentKioskActiveSessionsForStudent')) {
     /**
-     * Active attendance sessions for every course the student is enrolled in
-     * (one latest session per course).
+     * Active attendance sessions for the student's courses, matching their section
+     * when several batches of the same course are running (e.g. Batch-1 vs Batch-3).
      * @return array{ok:bool,message:string,sessions?:array<int,array<string,mixed>>}
      */
     function studentKioskActiveSessionsForStudent($conn, string $studentId): array
@@ -873,7 +873,9 @@ if (!function_exists('studentKioskActiveSessionsForStudent')) {
         }
         $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
         $types = str_repeat('i', count($courseIds));
-        $sql = "SELECT s.id, s.session_name, s.course_id,
+        $hasBatchCol = function_exists('attendanceSessionsHaveBatchColumn') && attendanceSessionsHaveBatchColumn($conn);
+        $batchSelect = $hasBatchCol ? ', IFNULL(s.batch_id, 0) AS batch_id' : ', 0 AS batch_id';
+        $sql = "SELECT s.id, s.session_name, s.course_id{$batchSelect},
                        IFNULL(c.course_name, '') AS course_name,
                        IFNULL(c.course_code, '') AS course_code
                 FROM attendance_sessions s
@@ -883,7 +885,8 @@ if (!function_exists('studentKioskActiveSessionsForStudent')) {
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             error_log('studentKioskActiveSessionsForStudent prepare: ' . $conn->error);
-            $sql = "SELECT id, session_name, course_id FROM attendance_sessions
+            $sql = "SELECT id, session_name, course_id" . ($hasBatchCol ? ', IFNULL(batch_id, 0) AS batch_id' : ', 0 AS batch_id') . "
+                    FROM attendance_sessions
                     WHERE status = 'active' AND course_id IN ($placeholders)
                     ORDER BY `date` DESC, id DESC";
             $stmt = $conn->prepare($sql);
@@ -900,19 +903,50 @@ if (!function_exists('studentKioskActiveSessionsForStudent')) {
         }
         $res = $stmt->get_result();
         $byCourse = [];
+        $otherSection = [];
         if (!($res instanceof mysqli_result)) {
             $stmt->close();
             return ['ok' => false, 'message' => 'Could not load the attendance session. Ask the coordinator to start it again.', 'sessions' => []];
         }
+        $studentBatches = function_exists('attendanceStudentBatchIds')
+            ? attendanceStudentBatchIds($conn, $studentId)
+            : [];
+        $studentBatchSet = [];
+        foreach ($studentBatches as $bid) {
+            $studentBatchSet[(int) $bid] = true;
+        }
         while ($row = $res->fetch_assoc()) {
             $cid = (int) ($row['course_id'] ?? 0);
-            if ($cid > 0 && !isset($byCourse[$cid])) {
+            if ($cid <= 0) {
+                continue;
+            }
+            $sessionBatch = (int) ($row['batch_id'] ?? 0);
+            if ($sessionBatch > 0 && $studentBatchSet !== [] && !isset($studentBatchSet[$sessionBatch])) {
+                $otherSection[] = $row;
+                continue;
+            }
+            if ($sessionBatch > 0 && $studentBatchSet === []) {
+                $otherSection[] = $row;
+                continue;
+            }
+            if (!isset($byCourse[$cid])) {
                 $byCourse[$cid] = $row;
             }
         }
         $stmt->close();
         $sessions = array_values($byCourse);
         if ($sessions === []) {
+            $their = function_exists('attendanceStudentBatchLabels')
+                ? attendanceStudentBatchLabels($conn, $studentId)
+                : [];
+            $theirText = $their !== [] ? implode(', ', $their) : 'your section';
+            if ($otherSection !== []) {
+                return [
+                    'ok' => false,
+                    'message' => 'An attendance session is running for another section of this course, not for ' . $theirText . '. Ask the coordinator to open the fingerprint kiosk for ' . $theirText . '.',
+                    'sessions' => [],
+                ];
+            }
             return ['ok' => false, 'message' => 'No active attendance session for your class right now. Ask your coordinator to start one.', 'sessions' => []];
         }
         return ['ok' => true, 'message' => 'ok', 'sessions' => $sessions];

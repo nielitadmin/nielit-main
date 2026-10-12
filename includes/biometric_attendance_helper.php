@@ -196,11 +196,14 @@ if (!function_exists('lookupBiometricKioskStudent')) {
                 ? attendanceStudentBatchLabels($conn, (string) $row['student_id'])
                 : [];
             $extra = $theirBatches !== []
-                ? (' They are currently in: ' . implode(', ', $theirBatches) . '.')
+                ? (' They belong to: ' . implode(', ', $theirBatches) . '.')
                 : ' They are registered in the course, but not assigned to this section yet.';
+            $hint = $theirBatches !== []
+                ? ' Close this kiosk and open the fingerprint kiosk for their own section (' . implode(', ', $theirBatches) . '). Do not add them to "' . $batchLabel . '".'
+                : ' Open Batch Details → Add Students to Batch for this section, then try again.';
             return [
                 'ok' => false,
-                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not assigned to section "' . $batchLabel . '".' . $extra . ' Open Batch Details → Add Students to Batch (or move them to this section), then try again.',
+                'message' => ($row['name'] ?? 'This student') . ' (' . $row['student_id'] . ') is not assigned to section "' . $batchLabel . '".' . $extra . $hint,
             ];
         }
 
