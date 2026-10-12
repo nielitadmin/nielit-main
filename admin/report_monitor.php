@@ -575,6 +575,8 @@ $reportPayload=[
 
     'facultyTrainingStats'=>$facultyTrainingStats,
 
+    'singleCentre'=>$centreId > 0,
+
 ];
 
 $pageTitle="Report Monitor";
@@ -1400,7 +1402,7 @@ Q4 (Jan–Mar)
 
                 <small>
 
-                    Total Enrolled Students
+                    <?php echo $centreId > 0 ? 'Total Enrolled Students' : 'Total Students Applied'; ?>
 
                 </small>
 
@@ -1542,7 +1544,7 @@ Q4 (Jan–Mar)
                         echo ' · ' . number_format($trendEnrolledTotal) . ' enrolled (applied)';
                         echo ' · ' . number_format($trendAdmissionsTotal) . ' admissions (batch)';
                     } else {
-                        echo ' · Total + per centre · ' . number_format($trendEnrolledTotal) . ' enrolled · ' . number_format($trendAdmissionsTotal) . ' admissions';
+                        echo ' · Total + per centre · ' . number_format($trendAdmissionsTotal) . ' admissions';
                     }
                     ?>
 
@@ -2348,7 +2350,7 @@ Q4 (Jan–Mar)
 
                     <th class="text-end">
 
-                        Enrolled
+                        <?php echo $centreId > 0 ? 'Enrolled' : 'Applied'; ?>
 
                     </th>
 
@@ -3371,7 +3373,7 @@ if(batchCanvas){
 
 const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
 const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
-const trendSingleCentre = (trendData.scope === 'single') || ((trendData.series || []).length === 1);
+const trendSingleCentre = reportPayload.singleCentre === true || trendData.scope === 'single';
 let trendDatasets = [];
 if (trendSingleCentre && trendData.series && trendData.series[0]) {
     const only = trendData.series[0];
@@ -3409,8 +3411,8 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     trendDatasets = (trendData.series || []).map(function(series, index){
         const color = trendPalette[index % trendPalette.length];
         return {
-            label: series.label + ' · Enrolled',
-            data: series.enrolled || series.applications || [],
+            label: series.label + ' · Admissions',
+            data: series.admissions || [],
             borderColor: color,
             backgroundColor: color + '22',
             fill: index === 0,
@@ -3456,9 +3458,14 @@ const toCount = function (value) { return Number(value) || 0; };
 const enrolledCounts = centreRows.map(function (row) { return toCount(row.applications); });
 const admissionCounts = centreRows.map(function (row) { return toCount(row.batch_enrolled); });
 const batchCounts = centreRows.map(function (row) { return toCount(row.batch_count); });
-const centreChartMax = Math.max(0, ...enrolledCounts, ...admissionCounts, ...batchCounts);
+const singleCentreBars = reportPayload.singleCentre === true || centreRows.length <= 1;
+const centreChartMax = singleCentreBars
+    ? Math.max(0, enrolledCounts[0] || 0, admissionCounts[0] || 0, batchCounts[0] || 0)
+    : Math.max(0, ...admissionCounts, ...batchCounts);
 const centreYMax = Math.max(centreChartMax, 1);
-const singleCentreBars = centreRows.length <= 1;
+const centreYTicks = centreYMax <= 20
+    ? { precision: 0, stepSize: 1 }
+    : { precision: 0 };
 const centreChartData = singleCentreBars
     ? {
         labels: ['Enrolled', 'Admissions', 'Batches'],
@@ -3480,16 +3487,9 @@ const centreChartData = singleCentreBars
         labels: centreRows.map(function (row) { return row.centre_name; }),
         datasets: [
             {
-                label: 'Enrolled',
-                data: enrolledCounts,
-                backgroundColor: '#16a34a',
-                borderRadius: 4,
-                maxBarThickness: 42
-            },
-            {
                 label: 'Admissions',
                 data: admissionCounts,
-                backgroundColor: '#0f172a',
+                backgroundColor: '#16a34a',
                 borderRadius: 4,
                 maxBarThickness: 42
             },
@@ -3526,10 +3526,7 @@ new Chart(centreCanvas, {
             y: {
                 beginAtZero: true,
                 suggestedMax: centreYMax,
-                ticks: {
-                    precision: 0,
-                    stepSize: 1
-                }
+                ticks: centreYTicks
             }
         }
     })
