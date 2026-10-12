@@ -3451,104 +3451,89 @@ document.getElementById(
 
 if(centreCanvas){
 
-new Chart(
+const centreRows = reportPayload.centreStats || [];
+const toCount = function (value) { return Number(value) || 0; };
+const enrolledCounts = centreRows.map(function (row) { return toCount(row.applications); });
+const admissionCounts = centreRows.map(function (row) { return toCount(row.batch_enrolled); });
+const batchCounts = centreRows.map(function (row) { return toCount(row.batch_count); });
+const centreChartMax = Math.max(0, ...enrolledCounts, ...admissionCounts, ...batchCounts);
+const centreYMax = Math.max(centreChartMax, 1);
+const singleCentreBars = centreRows.length <= 1;
+const centreChartData = singleCentreBars
+    ? {
+        labels: ['Enrolled', 'Admissions', 'Batches'],
+        datasets: [{
+            label: (centreRows[0] && centreRows[0].centre_name) ? centreRows[0].centre_name : 'Centre',
+            data: [
+                enrolledCounts[0] || 0,
+                admissionCounts[0] || 0,
+                batchCounts[0] || 0
+            ],
+            backgroundColor: ['#16a34a', '#0f172a', '#f59e0b'],
+            borderRadius: 6,
+            maxBarThickness: 64,
+            categoryPercentage: 0.5,
+            barPercentage: 0.8
+        }]
+    }
+    : {
+        labels: centreRows.map(function (row) { return row.centre_name; }),
+        datasets: [
+            {
+                label: 'Enrolled',
+                data: enrolledCounts,
+                backgroundColor: '#16a34a',
+                borderRadius: 4,
+                maxBarThickness: 42
+            },
+            {
+                label: 'Admissions',
+                data: admissionCounts,
+                backgroundColor: '#0f172a',
+                borderRadius: 4,
+                maxBarThickness: 42
+            },
+            {
+                label: 'Batches',
+                data: batchCounts,
+                backgroundColor: '#f59e0b',
+                borderRadius: 4,
+                maxBarThickness: 42
+            }
+        ]
+    };
 
-centreCanvas,
-
-{
-
-type:'bar',
-
-data:{
-
-labels:
-reportPayload.centreStats.map(
-x=>x.centre_name
-),
-
-datasets:[
-
-{
-
-label:'Enrolled',
-
-data:
-reportPayload.centreStats.map(
-x=>x.applications
-),
-
-backgroundColor:'#16a34a'
-
-},
-
-{
-
-label:'Admissions',
-
-data:
-reportPayload.centreStats.map(
-x=>x.batch_enrolled
-),
-
-backgroundColor:'#0f172a'
-
-},
-
-{
-
-label:'Batches',
-
-data:
-reportPayload.centreStats.map(
-x=>x.batch_count
-),
-
-backgroundColor:'#f59e0b'
-
-}
-
-]
-
-},
-
-options: reportMonitorChartOptions({
-
-responsive:true,
-maintainAspectRatio:false,
-
-plugins:{
-
-legend:{
-
-position:'bottom'
-
-}
-
-},
-
-scales:{
-
-x: {
-ticks: {
-maxRotation: 45,
-minRotation: 0,
-autoSkip: true
-}
-},
-
-y:{
-
-beginAtZero:true
-
-}
-
-}
-
-})
-
-}
-
-);
+new Chart(centreCanvas, {
+    type: 'bar',
+    data: centreChartData,
+    options: reportMonitorChartOptions({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                display: !singleCentreBars,
+                position: 'bottom'
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    maxRotation: 45,
+                    minRotation: 0,
+                    autoSkip: true
+                }
+            },
+            y: {
+                beginAtZero: true,
+                suggestedMax: centreYMax,
+                ticks: {
+                    precision: 0,
+                    stepSize: 1
+                }
+            }
+        }
+    })
+});
 
 }
 
@@ -3630,17 +3615,18 @@ function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage)
         canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
         return;
     }
+    const cpBarValues = cpCentreStats.map(function (row) { return Number(row[metricKey]) || 0; });
+    const cpBarMax = Math.max(0, ...cpBarValues);
     new Chart(canvas, {
         type: 'bar',
         data: {
             labels: cpCentreStats.map(function (row) { return row.centre_name; }),
             datasets: [{
                 label: label,
-                data: cpCentreStats.map(function (row) { return row[metricKey] || 0; }),
+                data: cpBarValues,
                 backgroundColor: color,
                 borderRadius: 4,
-                maxBarThickness: 52,
-                minBarLength: 2
+                maxBarThickness: 52
             }]
         },
         options: reportMonitorChartOptions({
@@ -3651,7 +3637,11 @@ function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage)
                 x: {
                     ticks: { maxRotation: 45, minRotation: 0, autoSkip: false }
                 },
-                y: { beginAtZero: true, ticks: { precision: 0 } }
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: Math.max(cpBarMax, 1),
+                    ticks: { precision: 0, stepSize: 1 }
+                }
             }
         })
     });
