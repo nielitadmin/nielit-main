@@ -362,7 +362,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         if ($centreId > 0) {
             $centreName = report_monitor_get_centre_name($conn, $centreId);
             if ($centreName !== '') {
-                $sql .= " AND ({$courseAlias}.centre_id = ? OR ({$courseAlias}.centre_id IS NULL AND TRIM({$courseAlias}.training_center) = ?))";
+                $sql .= " AND ({$courseAlias}.centre_id = ? OR (({$courseAlias}.centre_id IS NULL OR {$courseAlias}.centre_id = 0) AND TRIM({$courseAlias}.training_center) = ?))";
                 $types .= 'is';
                 $values[] = (int) $centreId;
                 $values[] = $centreName;
@@ -3269,6 +3269,16 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return $out;
     }
 
+    function report_monitor_centre_match_key(string $name): string
+    {
+        $name = strtolower(trim($name));
+        $name = preg_replace('/\s+/', ' ', $name);
+        $name = preg_replace('/[^a-z0-9 ]/', '', $name);
+        $name = preg_replace('/^nielit\s+/', '', $name);
+        $name = str_replace([' extension centre', ' extension'], '', $name);
+        return trim((string) $name);
+    }
+
     /**
      * Ensure every active centre appears in centre-wise stats (e.g. Raipur with zero activity).
      * When $lockCentreId is set, only that centre is included (Raipur-only public page).
@@ -3323,22 +3333,41 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             }
         }
 
+        $metricKeys = ['course_count', 'batch_count', 'applications', 'batch_enrolled', 'unassigned'];
+        $addMetrics = static function (array &$target, array $row) use ($metricKeys): void {
+            foreach ($metricKeys as $field) {
+                $target[$field] = (int) ($target[$field] ?? 0) + (int) ($row[$field] ?? 0);
+            }
+        };
+
         if ($lockCentreId > 0) {
-            $metricKeys = ['course_count', 'batch_count', 'applications', 'batch_enrolled', 'unassigned'];
             foreach ($extras as $row) {
                 foreach ($merged as &$lockedRow) {
                     if ((int) ($lockedRow['centre_id'] ?? 0) !== $lockCentreId) {
                         continue;
                     }
-                    foreach ($metricKeys as $field) {
-                        $lockedRow[$field] = (int) ($lockedRow[$field] ?? 0) + (int) ($row[$field] ?? 0);
-                    }
+                    $addMetrics($lockedRow, $row);
                 }
                 unset($lockedRow);
             }
         } else {
             foreach ($extras as $row) {
-                $merged[] = $row;
+                $extraKey = report_monitor_centre_match_key((string) ($row['centre_name'] ?? ''));
+                $folded = false;
+                if ($extraKey !== '') {
+                    foreach ($merged as &$official) {
+                        $officialKey = report_monitor_centre_match_key((string) ($official['centre_name'] ?? ''));
+                        if ($officialKey !== '' && $officialKey === $extraKey) {
+                            $addMetrics($official, $row);
+                            $folded = true;
+                            break;
+                        }
+                    }
+                    unset($official);
+                }
+                if (!$folded) {
+                    $merged[] = $row;
+                }
             }
         }
 

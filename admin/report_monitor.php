@@ -3461,7 +3461,7 @@ const batchCounts = centreRows.map(function (row) { return toCount(row.batch_cou
 const singleCentreBars = reportPayload.singleCentre === true || centreRows.length <= 1;
 const centreChartMax = singleCentreBars
     ? Math.max(0, enrolledCounts[0] || 0, admissionCounts[0] || 0, batchCounts[0] || 0)
-    : Math.max(0, ...admissionCounts, ...batchCounts);
+    : Math.max(0, ...enrolledCounts, ...admissionCounts, ...batchCounts);
 const centreYMax = Math.max(centreChartMax, 1);
 const centreYTicks = centreYMax <= 20
     ? { precision: 0, stepSize: 1 }
@@ -3487,9 +3487,16 @@ const centreChartData = singleCentreBars
         labels: centreRows.map(function (row) { return row.centre_name; }),
         datasets: [
             {
+                label: 'Enrolled',
+                data: enrolledCounts,
+                backgroundColor: '#16a34a',
+                borderRadius: 4,
+                maxBarThickness: 42
+            },
+            {
                 label: 'Admissions',
                 data: admissionCounts,
-                backgroundColor: '#16a34a',
+                backgroundColor: '#0f172a',
                 borderRadius: 4,
                 maxBarThickness: 42
             },
