@@ -3453,8 +3453,31 @@ document.getElementById(
 
 if(centreCanvas){
 
-const centreRows = reportPayload.centreStats || [];
 const toCount = function (value) { return Number(value) || 0; };
+function reportMonitorCentreNameKey(name) {
+    return String(name || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9 ]+/g, ' ')
+        .replace(/^nielit\s+/, '')
+        .replace(/\s+extension(\s+centre)?$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+const centreRowsRaw = reportPayload.centreStats || [];
+const centreRows = [];
+centreRowsRaw.forEach(function (row) {
+    const key = reportMonitorCentreNameKey(row.centre_name);
+    const existing = key !== ''
+        ? centreRows.find(function (item) { return reportMonitorCentreNameKey(item.centre_name) === key; })
+        : null;
+    if (existing) {
+        existing.applications = toCount(existing.applications) + toCount(row.applications);
+        existing.batch_enrolled = toCount(existing.batch_enrolled) + toCount(row.batch_enrolled);
+        existing.batch_count = toCount(existing.batch_count) + toCount(row.batch_count);
+        return;
+    }
+    centreRows.push(Object.assign({}, row));
+});
 const enrolledCounts = centreRows.map(function (row) { return toCount(row.applications); });
 const admissionCounts = centreRows.map(function (row) { return toCount(row.batch_enrolled); });
 const batchCounts = centreRows.map(function (row) { return toCount(row.batch_count); });

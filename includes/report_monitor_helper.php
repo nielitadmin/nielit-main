@@ -3306,6 +3306,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
 
         $merged = [];
+        $seenNameKey = [];
         $result = $conn->query('SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC');
         if ($result) {
             while ($cen = $result->fetch_assoc()) {
@@ -3316,11 +3317,8 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 if ($lockCentreId > 0 && $id !== $lockCentreId) {
                     continue;
                 }
-                if (isset($byId[$id])) {
-                    $merged[] = $byId[$id];
-                    continue;
-                }
-                $merged[] = [
+                $nameKey = report_monitor_centre_match_key((string) ($cen['name'] ?? ''));
+                $row = isset($byId[$id]) ? $byId[$id] : [
                     'centre_id' => $id,
                     'centre_name' => (string) ($cen['name'] ?? ''),
                     'centre_code' => (string) ($cen['code'] ?? ''),
@@ -3330,6 +3328,17 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                     'batch_enrolled' => 0,
                     'unassigned' => 0,
                 ];
+                if ($nameKey !== '' && isset($seenNameKey[$nameKey])) {
+                    $idx = $seenNameKey[$nameKey];
+                    foreach (['course_count', 'batch_count', 'applications', 'batch_enrolled', 'unassigned'] as $field) {
+                        $merged[$idx][$field] = (int) ($merged[$idx][$field] ?? 0) + (int) ($row[$field] ?? 0);
+                    }
+                    continue;
+                }
+                if ($nameKey !== '') {
+                    $seenNameKey[$nameKey] = count($merged);
+                }
+                $merged[] = $row;
             }
         }
 
@@ -3371,7 +3380,22 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             }
         }
 
-        return $merged;
+        $collapsed = [];
+        $indexByKey = [];
+        foreach ($merged as $row) {
+            $key = report_monitor_centre_match_key((string) ($row['centre_name'] ?? ''));
+            if ($key === '') {
+                $key = 'id:' . (int) ($row['centre_id'] ?? 0);
+            }
+            if (isset($indexByKey[$key])) {
+                $addMetrics($collapsed[$indexByKey[$key]], $row);
+                continue;
+            }
+            $indexByKey[$key] = count($collapsed);
+            $collapsed[] = $row;
+        }
+
+        return $collapsed;
     }
 
     /** Monthly enrolled (applications) vs admissions (batch records) + batches. */
