@@ -1128,18 +1128,25 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
             font-size: 1.2rem;
             margin-bottom: 0.15rem;
         }
-        body.public-report-raipur .public-report-banner {
-            text-align: center;
-        }
-        body.public-report-raipur .report-page-header {
-            justify-content: center !important;
-            text-align: center;
-            align-items: center !important;
-        }
         body.public-report-view .report-page-header {
             flex-direction: column;
             align-items: flex-start !important;
             gap: 0.5rem;
+        }
+        body.public-report-view.public-report-raipur .public-report-banner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        body.public-report-view.public-report-raipur .report-page-header {
+            justify-content: center !important;
+            align-items: center !important;
+            text-align: center;
+        }
+        body.public-report-view.public-report-raipur .report-page-header > div {
+            width: 100%;
+            text-align: center;
         }
         body.public-report-view .report-page-header h2 {
             font-size: 1.7rem;
