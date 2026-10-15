@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/course_category_options.php';
+require_once __DIR__ . '/centre_chrome_helper.php';
 
 if (!function_exists('get_report_monitor_category_groups')) {
 
@@ -4192,191 +4193,31 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
     }
 
     function report_monitor_get_centre_row($conn, int $centreId): array {
-        if ($centreId <= 0 || !report_monitor_table_exists($conn, 'centres')) {
-            return [];
-        }
-        $stmt = $conn->prepare('SELECT * FROM centres WHERE id = ? LIMIT 1');
-        if (!$stmt) {
-            return [];
-        }
-        $stmt->bind_param('i', $centreId);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc() ?: [];
-        $stmt->close();
-        return $row;
+        return centre_chrome_centre_row($conn, $centreId);
     }
 
     function report_monitor_public_branding_field_keys(): array {
-        return [
-            'header_name_hi',
-            'header_name_en',
-            'ticker_text',
-            'banner_title',
-            'banner_tagline',
-            'footer_brand',
-            'footer_centre_label',
-            'footer_about',
-            'footer_address',
-            'footer_phone',
-            'footer_email',
-            'footer_copyright',
-        ];
+        return centre_chrome_field_keys();
     }
 
     function report_monitor_public_branding_defaults(array $centreRow = [], string $centreName = ''): array {
-        $name = trim($centreName !== '' ? $centreName : (string) ($centreRow['name'] ?? ''));
-        if ($name === '') {
-            $name = 'NIELIT Raipur';
-        }
-        $short = trim((string) preg_replace('/^nielit\s+/i', '', $name));
-        if ($short === '') {
-            $short = 'Raipur';
-        }
-        $addressParts = array_filter([
-            trim((string) ($centreRow['address'] ?? '')),
-            trim((string) ($centreRow['city'] ?? '')),
-            trim((string) ($centreRow['state'] ?? '')),
-            trim((string) ($centreRow['pincode'] ?? '')),
-        ]);
-        $address = implode(', ', $addressParts);
-        if ($address === '') {
-            $address = 'Raipur, Chhattisgarh';
-        }
-
-        return [
-            'header_name_hi' => 'राष्ट्रीय इलेक्ट्रॉनिकी एवं सूचना प्रौद्योगिकी संस्थान, रायपुर',
-            'header_name_en' => 'National Institute of Electronics & Information Technology, Raipur',
-            'ticker_text' => 'NIELIT Raipur offers NSQF-aligned courses with modern facilities & industry-standard training. Enroll now!',
-            'banner_title' => 'NIELIT Report Monitor · ' . $short,
-            'banner_tagline' => 'Read-only public view',
-            'footer_brand' => 'NIELIT',
-            'footer_centre_label' => $short,
-            'footer_about' => $name . ' under Ministry of Electronics & Information Technology, Govt. of India.',
-            'footer_address' => $address,
-            'footer_phone' => trim((string) ($centreRow['phone'] ?? '')),
-            'footer_email' => trim((string) ($centreRow['email'] ?? '')),
-            'footer_copyright' => 'Designed & Developed by NIELIT Bhubaneswar IT Team © {year} | All Rights Reserved',
-        ];
+        return centre_chrome_defaults($centreRow, $centreName, 0);
     }
 
     function report_monitor_ensure_public_branding_schema($conn): void {
-        static $ready = false;
-        if ($ready) {
-            return;
-        }
-        $sql = "CREATE TABLE IF NOT EXISTS report_public_centre_branding (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            centre_id INT NOT NULL,
-            header_name_hi VARCHAR(255) NULL,
-            header_name_en VARCHAR(255) NULL,
-            ticker_text VARCHAR(500) NULL,
-            banner_title VARCHAR(255) NULL,
-            banner_tagline VARCHAR(255) NULL,
-            footer_brand VARCHAR(80) NULL,
-            footer_centre_label VARCHAR(120) NULL,
-            footer_about TEXT NULL,
-            footer_address VARCHAR(255) NULL,
-            footer_phone VARCHAR(80) NULL,
-            footer_email VARCHAR(160) NULL,
-            footer_copyright VARCHAR(255) NULL,
-            updated_by VARCHAR(120) NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            UNIQUE KEY uq_rm_public_branding_centre (centre_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
-        @$conn->query($sql);
-        $ready = true;
+        centre_chrome_ensure_schema($conn);
     }
 
     function report_monitor_get_public_centre_branding($conn, int $centreId): array {
-        $centreRow = report_monitor_get_centre_row($conn, $centreId);
-        $centreName = trim((string) ($centreRow['name'] ?? ''));
-        if ($centreName === '' && $centreId > 0) {
-            $centreName = report_monitor_get_centre_name($conn, $centreId);
-        }
-        $defaults = report_monitor_public_branding_defaults($centreRow, $centreName);
-        $defaults['centre_id'] = $centreId;
-        if ($centreId <= 0) {
-            return $defaults;
-        }
-        report_monitor_ensure_public_branding_schema($conn);
-        $stmt = $conn->prepare('SELECT * FROM report_public_centre_branding WHERE centre_id = ? LIMIT 1');
-        if (!$stmt) {
-            return $defaults;
-        }
-        $stmt->bind_param('i', $centreId);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc() ?: [];
-        $stmt->close();
-        foreach (report_monitor_public_branding_field_keys() as $key) {
-            $value = trim((string) ($row[$key] ?? ''));
-            if ($value !== '') {
-                $defaults[$key] = $value;
-            }
-        }
-        return $defaults;
+        return centre_chrome_get($conn, $centreId);
     }
 
     function report_monitor_save_public_centre_branding($conn, int $centreId, array $input, string $updatedBy = 'admin'): array {
-        $centreId = (int) $centreId;
-        if ($centreId <= 0) {
-            return ['success' => false, 'message' => 'Centre is required.'];
-        }
-        report_monitor_ensure_public_branding_schema($conn);
-        $defaults = report_monitor_get_public_centre_branding($conn, $centreId);
-        $values = [];
-        foreach (report_monitor_public_branding_field_keys() as $key) {
-            $values[$key] = trim((string) ($input[$key] ?? $defaults[$key] ?? ''));
-        }
-        $sql = 'INSERT INTO report_public_centre_branding
-            (centre_id, header_name_hi, header_name_en, ticker_text, banner_title, banner_tagline,
-             footer_brand, footer_centre_label, footer_about, footer_address, footer_phone, footer_email, footer_copyright, updated_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-             header_name_hi = VALUES(header_name_hi),
-             header_name_en = VALUES(header_name_en),
-             ticker_text = VALUES(ticker_text),
-             banner_title = VALUES(banner_title),
-             banner_tagline = VALUES(banner_tagline),
-             footer_brand = VALUES(footer_brand),
-             footer_centre_label = VALUES(footer_centre_label),
-             footer_about = VALUES(footer_about),
-             footer_address = VALUES(footer_address),
-             footer_phone = VALUES(footer_phone),
-             footer_email = VALUES(footer_email),
-             footer_copyright = VALUES(footer_copyright),
-             updated_by = VALUES(updated_by)';
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return ['success' => false, 'message' => 'Could not save branding.'];
-        }
-        $stmt->bind_param(
-            'isssssssssssss',
-            $centreId,
-            $values['header_name_hi'],
-            $values['header_name_en'],
-            $values['ticker_text'],
-            $values['banner_title'],
-            $values['banner_tagline'],
-            $values['footer_brand'],
-            $values['footer_centre_label'],
-            $values['footer_about'],
-            $values['footer_address'],
-            $values['footer_phone'],
-            $values['footer_email'],
-            $values['footer_copyright'],
-            $updatedBy
-        );
-        $ok = $stmt->execute();
-        $stmt->close();
-        if (!$ok) {
-            return ['success' => false, 'message' => 'Could not save branding.'];
-        }
-        return ['success' => true, 'branding' => report_monitor_get_public_centre_branding($conn, $centreId)];
+        return centre_chrome_save($conn, $centreId, $input, $updatedBy);
     }
 
     function report_monitor_format_branding_copyright(string $text): string {
-        return str_replace('{year}', (string) date('Y'), $text);
+        return centre_chrome_format_copyright($text);
     }
 }
 

@@ -238,13 +238,16 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <!-- System Settings (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
         <div class="nav-item has-dropdown">
-            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_centres.php', 'manage_themes.php', 'manage_public_themes.php', 'manage_festival_themes.php', 'manage_sidebar_themes.php', 'manage_maintenance.php', 'manage_migrations.php', 'manage_student_kiosk.php', 'manage_activity.php', 'visitor_stats.php', 'check_student_exists.php', 'manage_homepage.php', 'manage_news.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_centres.php', 'manage_header_footer.php', 'manage_themes.php', 'manage_public_themes.php', 'manage_festival_themes.php', 'manage_sidebar_themes.php', 'manage_maintenance.php', 'manage_migrations.php', 'manage_student_kiosk.php', 'manage_activity.php', 'visitor_stats.php', 'check_student_exists.php', 'manage_homepage.php', 'manage_news.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-cog"></i> System Settings
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </button>
             <div class="dropdown-menu">
                 <a href="<?php echo app_url('admin/manage_centres'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_centres.php') ? 'active' : ''; ?>">
                     <i class="fas fa-building"></i> Training Centres
+                </a>
+                <a href="<?php echo app_url('admin/manage_header_footer'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_header_footer.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-window-maximize"></i> Header &amp; Footer
                 </a>
                 <a href="<?php echo app_url('admin/manage_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_themes.php') ? 'active' : ''; ?>" title="Themes">
                     <i class="fas fa-palette"></i> Themes

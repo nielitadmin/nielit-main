@@ -10,6 +10,8 @@ require_once __DIR__ . '/../includes/navigation_helper.php';
 require_once __DIR__ . '/../includes/public_theme_helper.php';
 require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/centre_chrome_helper.php';
+$siteChrome = centre_chrome_get_main($conn);
 
 ensureCourseProjectLevelColumn($conn);
 clearRegistrationFlashFromCoursesPage();
@@ -568,18 +570,18 @@ public_skeleton_render_head();
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-8 d-flex align-items-center justify-content-md-start justify-content-center text-header-group">
-                <img src="<?php echo APP_URL . '/' . $theme_logo; ?>" alt="NIELIT Logo" class="me-md-3" style="height: 50px; flex-shrink: 0;">
+                <img src="<?php echo htmlspecialchars(centre_chrome_public_url((string) ($siteChrome['left_logo_path'] ?? '')) ?: (APP_URL . '/' . $theme_logo), ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Logo" class="me-md-3" style="height: 50px; flex-shrink: 0;">
                 <div class="top-bar-text" style="min-width: 0;">
-                    <div class="fw-bold d-none d-sm-block top-bar-title-hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
-                    <div class="fw-bold top-bar-title-en"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
+                    <div class="fw-bold d-none d-sm-block top-bar-title-hi"><?php echo htmlspecialchars((string) ($siteChrome['header_name_hi'] ?? INSTITUTE_NAME_HI), ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="fw-bold top-bar-title-en"><?php echo htmlspecialchars((string) ($siteChrome['header_name_en'] ?? INSTITUTE_NAME_EN), ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center gov-logos">
                 <div class="text-end me-3 d-none d-lg-block">
-                    <small class="d-block top-bar-ministry-hi d-none d-md-block"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></small>
-                    <small class="d-block fw-bold top-bar-ministry-en"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></small>
+                    <small class="d-block top-bar-ministry-hi d-none d-md-block"><?php echo htmlspecialchars((string) ($siteChrome['ministry_name_hi'] ?? MINISTRY_NAME_HI), ENT_QUOTES, 'UTF-8'); ?></small>
+                    <small class="d-block fw-bold top-bar-ministry-en"><?php echo htmlspecialchars((string) ($siteChrome['ministry_name_en'] ?? MINISTRY_NAME_EN), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
-                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" class="national-emblem" style="height: 50px;">
+                <img src="<?php echo htmlspecialchars(centre_chrome_public_url((string) ($siteChrome['right_logo_path'] ?? 'assets/images/National-Emblem.png')), ENT_QUOTES, 'UTF-8'); ?>" alt="Gov India" class="national-emblem" style="height: 50px;">
             </div>
         </div>
     </div>

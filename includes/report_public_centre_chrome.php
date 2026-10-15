@@ -8,11 +8,16 @@ require_once __DIR__ . '/visitor_counter.php';
 if (!function_exists('report_monitor_render_public_centre_header')) {
     function report_monitor_render_public_centre_header(array $branding): void
     {
-        $logo = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/images/bhubaneswar_logo.png';
-        $emblem = (defined('APP_URL') ? rtrim(APP_URL, '/') : '') . '/assets/images/National-Emblem.png';
+        if (!function_exists('centre_chrome_public_url')) {
+            require_once __DIR__ . '/centre_chrome_helper.php';
+        }
+        $logo = centre_chrome_public_url((string) ($branding['left_logo_path'] ?? 'assets/images/bhubaneswar_logo.png'));
+        $emblem = centre_chrome_public_url((string) ($branding['right_logo_path'] ?? 'assets/images/National-Emblem.png'));
         $hi = (string) ($branding['header_name_hi'] ?? '');
         $en = (string) ($branding['header_name_en'] ?? '');
         $ticker = (string) ($branding['ticker_text'] ?? '');
+        $ministryHi = (string) ($branding['ministry_name_hi'] ?? (defined('MINISTRY_NAME_HI') ? MINISTRY_NAME_HI : ''));
+        $ministryEn = (string) ($branding['ministry_name_en'] ?? (defined('MINISTRY_NAME_EN') ? MINISTRY_NAME_EN : ''));
         ?>
 <header class="header py-3" style="background: #fff; border-bottom: 1px solid rgba(0,0,0,0.08);">
     <div class="container-fluid">
@@ -30,8 +35,12 @@ if (!function_exists('report_monitor_render_public_centre_header')) {
             </div>
             <div class="col-md-4 text-md-end text-center d-flex align-items-center justify-content-md-end justify-content-center gap-3 mt-2 mt-md-0">
                 <div class="text-end">
-                    <h6 class="mb-0 hindi-text ministry-text d-none d-md-block" style="color: #0a1628; font-weight: 600; font-size: 0.68rem;"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></h6>
-                    <h6 class="mb-0 ministry-text" style="color: #0a1628; font-weight: 600; font-size: 0.72rem;"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></h6>
+                    <?php if ($ministryHi !== ''): ?>
+                    <h6 class="mb-0 hindi-text ministry-text d-none d-md-block" style="color: #0a1628; font-weight: 600; font-size: 0.68rem;"><?php echo htmlspecialchars($ministryHi, ENT_QUOTES, 'UTF-8'); ?></h6>
+                    <?php endif; ?>
+                    <?php if ($ministryEn !== ''): ?>
+                    <h6 class="mb-0 ministry-text" style="color: #0a1628; font-weight: 600; font-size: 0.72rem;"><?php echo htmlspecialchars($ministryEn, ENT_QUOTES, 'UTF-8'); ?></h6>
+                    <?php endif; ?>
                 </div>
                 <img src="<?php echo htmlspecialchars($emblem); ?>" alt="Government Emblem" class="gov-logo" style="height: 48px; width: auto;">
             </div>

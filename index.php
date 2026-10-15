@@ -18,6 +18,8 @@ require_once __DIR__ . '/includes/navigation_helper.php';
 require_once __DIR__ . '/includes/url_helper.php';
 require_once __DIR__ . '/includes/public_theme_helper.php';
 require_once __DIR__ . '/includes/news_helper.php';
+require_once __DIR__ . '/includes/centre_chrome_helper.php';
+$siteChrome = centre_chrome_get_main($conn);
 
 $active_theme = loadActiveTheme($conn);
 $theme_logo = getThemeLogo($active_theme);
@@ -1370,18 +1372,18 @@ if (function_exists('festivalThemeRibbonHtml')) {
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-8 d-flex align-items-center gap-3">
-                <img src="<?php echo htmlspecialchars(getThemeLogoUrl($active_theme), ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Logo">
+                <img src="<?php echo htmlspecialchars(centre_chrome_public_url((string) ($siteChrome['left_logo_path'] ?? '')) ?: getThemeLogoUrl($active_theme), ENT_QUOTES, 'UTF-8'); ?>" alt="NIELIT Logo">
                 <div>
-                    <div class="inst-name-hi"><?php echo htmlspecialchars(INSTITUTE_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
-                    <div class="inst-name-en"><?php echo htmlspecialchars(INSTITUTE_NAME_EN); ?></div>
+                    <div class="inst-name-hi"><?php echo htmlspecialchars((string) ($siteChrome['header_name_hi'] ?? INSTITUTE_NAME_HI), ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="inst-name-en"><?php echo htmlspecialchars((string) ($siteChrome['header_name_en'] ?? INSTITUTE_NAME_EN), ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
             </div>
             <div class="col-md-4 d-flex justify-content-md-end justify-content-center align-items-center gap-3 mt-2 mt-md-0">
                 <div class="text-end d-none d-md-block">
-                    <div class="ministry-hi"><?php echo htmlspecialchars(MINISTRY_NAME_HI, ENT_QUOTES, 'UTF-8'); ?></div>
-                    <div class="ministry-badge"><?php echo htmlspecialchars(MINISTRY_NAME_EN, ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="ministry-hi"><?php echo htmlspecialchars((string) ($siteChrome['ministry_name_hi'] ?? MINISTRY_NAME_HI), ENT_QUOTES, 'UTF-8'); ?></div>
+                    <div class="ministry-badge"><?php echo htmlspecialchars((string) ($siteChrome['ministry_name_en'] ?? MINISTRY_NAME_EN), ENT_QUOTES, 'UTF-8'); ?></div>
                 </div>
-                <img src="<?php echo APP_URL; ?>/assets/images/National-Emblem.png" alt="Gov India" class="national-emblem" style="height: 48px;">
+                <img src="<?php echo htmlspecialchars(centre_chrome_public_url((string) ($siteChrome['right_logo_path'] ?? 'assets/images/National-Emblem.png')), ENT_QUOTES, 'UTF-8'); ?>" alt="Gov India" class="national-emblem" style="height: 48px;">
             </div>
         </div>
     </div>

@@ -1373,74 +1373,11 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
 </div>
 
 <?php if (!$isPublicReportView && $raipurBrandingCentreId > 0): ?>
-<div class="card report-card mb-4">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <strong><i class="fas fa-heading me-2"></i> Raipur public header &amp; footer</strong>
-        <span class="small text-muted">Shown only on the Raipur public report link</span>
-    </div>
-    <div class="card-body">
-        <p class="text-muted small mb-3">Edit the Raipur page title, orange ticker, and footer. Leave a field blank to keep the default. Use <code>{year}</code> in the copyright line.</p>
-        <div id="raipurBrandingError" class="alert alert-danger d-none" role="alert"></div>
-        <div id="raipurBrandingSuccess" class="alert alert-success d-none" role="alert"></div>
-        <form id="raipurPublicBrandingForm">
-            <input type="hidden" name="centre_id" value="<?php echo (int) $raipurBrandingCentreId; ?>">
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Header name (Hindi)</label>
-                    <input type="text" class="form-control" name="header_name_hi" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['header_name_hi'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Header name (English)</label>
-                    <input type="text" class="form-control" name="header_name_en" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['header_name_en'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Orange ticker text</label>
-                    <input type="text" class="form-control" name="ticker_text" maxlength="500" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['ticker_text'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Blue banner title</label>
-                    <input type="text" class="form-control" name="banner_title" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['banner_title'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Blue banner tagline</label>
-                    <input type="text" class="form-control" name="banner_tagline" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['banner_tagline'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Footer brand</label>
-                    <input type="text" class="form-control" name="footer_brand" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_brand'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Footer centre name</label>
-                    <input type="text" class="form-control" name="footer_centre_label" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_centre_label'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Footer phone</label>
-                    <input type="text" class="form-control" name="footer_phone" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_phone'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Footer about text</label>
-                    <textarea class="form-control" name="footer_about" rows="2"><?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_about'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Footer address</label>
-                    <input type="text" class="form-control" name="footer_address" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_address'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Footer email</label>
-                    <input type="email" class="form-control" name="footer_email" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_email'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-                <div class="col-12">
-                    <label class="form-label">Footer copyright</label>
-                    <input type="text" class="form-control" name="footer_copyright" value="<?php echo htmlspecialchars((string) ($raipurPublicBranding['footer_copyright'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
-                </div>
-            </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-primary" id="raipurBrandingSaveBtn">
-                    <i class="fas fa-save me-1"></i> Save Raipur header &amp; footer
-                </button>
-            </div>
-        </form>
-    </div>
+<div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+    <span><i class="fas fa-window-maximize me-1"></i> Header, logos, ticker and footer for Raipur and other centres are edited in System Settings.</span>
+    <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(APP_URL . '/admin/manage_header_footer.php?centre_id=' . (int) $raipurBrandingCentreId); ?>">
+        Open Header &amp; Footer
+    </a>
 </div>
 <?php endif; ?>
 
@@ -5697,56 +5634,6 @@ if (copyShareBtn && shareUrlInput) {
             });
         } else {
             document.execCommand('copy');
-        }
-    });
-}
-
-const raipurBrandingForm = document.getElementById('raipurPublicBrandingForm');
-if (raipurBrandingForm) {
-    raipurBrandingForm.addEventListener('submit', async function (event) {
-        event.preventDefault();
-        const saveBtn = document.getElementById('raipurBrandingSaveBtn');
-        const errorBox = document.getElementById('raipurBrandingError');
-        const successBox = document.getElementById('raipurBrandingSuccess');
-        const originalBtnHtml = saveBtn ? saveBtn.innerHTML : '';
-        if (errorBox) {
-            errorBox.classList.add('d-none');
-            errorBox.textContent = '';
-        }
-        if (successBox) {
-            successBox.classList.add('d-none');
-            successBox.textContent = '';
-        }
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Saving...';
-        }
-        try {
-            const response = await fetch(<?php echo json_encode(APP_URL . '/admin/ajax_report_public_branding.php', JSON_UNESCAPED_SLASHES); ?>, {
-                method: 'POST',
-                body: new FormData(raipurBrandingForm),
-                credentials: 'same-origin'
-            });
-            const data = await response.json();
-            if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Could not save Raipur header and footer.');
-            }
-            if (successBox) {
-                successBox.textContent = 'Raipur header and footer saved. Refresh the public Raipur page to see it.';
-                successBox.classList.remove('d-none');
-            }
-        } catch (err) {
-            if (errorBox) {
-                errorBox.textContent = err.message || 'Could not save Raipur header and footer.';
-                errorBox.classList.remove('d-none');
-            } else {
-                alert(err.message || 'Could not save Raipur header and footer.');
-            }
-        } finally {
-            if (saveBtn) {
-                saveBtn.disabled = false;
-                saveBtn.innerHTML = originalBtnHtml;
-            }
         }
     });
 }
