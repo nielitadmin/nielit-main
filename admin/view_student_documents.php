@@ -49,7 +49,13 @@ foreach ($return_keys as $key) {
     }
     $return_query[$key] = $value;
 }
-$return_url = relative_url('students.php') . ($return_query ? '?' . http_build_query($return_query) : '');
+if ($batch_id > 0) {
+    $return_url = app_url('batch_module/admin/batch_details.php?id=' . $batch_id);
+    $return_label = 'Back to Batch';
+} else {
+    $return_url = relative_url('students.php') . ($return_query ? '?' . http_build_query($return_query) : '');
+    $return_label = 'Back to Students';
+}
 
 // Fetch this enrollment. Batch pages pass record_id so we do not open the original O-Level row.
 if ($record_id > 0) {
@@ -215,8 +221,8 @@ $active_theme = loadActiveTheme($conn);
             <!-- Action Buttons -->
             <div class="content-card" style="margin-bottom: 24px;">
                 <div style="display: flex; gap: 12px; justify-content: flex-start;">
-                    <a href="<?php echo $return_url; ?>" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Students
+                    <a href="<?php echo htmlspecialchars($return_url); ?>" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> <?php echo htmlspecialchars($return_label); ?>
                     </a>
                     <a href="edit_student.php?id=<?php echo $student_id; ?><?php 
                         if (!empty($filter_course) && $filter_course != 'All') echo '&filter_course=' . urlencode($filter_course);
