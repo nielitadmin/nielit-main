@@ -9,9 +9,12 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         if ($recordId <= 0) {
             return null;
         }
-        $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code
+        $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code,
+                       bc.course_name AS batch_course_name
                 FROM students s
                 LEFT JOIN courses c ON c.id = s.course_id
+                LEFT JOIN batches b ON b.id = s.batch_id
+                LEFT JOIN courses bc ON bc.id = b.course_id
                 WHERE s.id = ? LIMIT 1";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
@@ -29,9 +32,12 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         if ($studentId === '') {
             return [];
         }
-        $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code
+        $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code,
+                       bc.course_name AS batch_course_name
                 FROM students s
                 LEFT JOIN courses c ON c.id = s.course_id
+                LEFT JOIN batches b ON b.id = s.batch_id
+                LEFT JOIN courses bc ON bc.id = b.course_id
                 WHERE s.student_id = ?
                 AND LOWER(s.status) NOT IN ('rejected', 'cancelled')
                 ORDER BY s.registration_date DESC, s.id DESC";
@@ -51,10 +57,96 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     }
 
     function normalizeEnrollmentRowForForm(array $row): array {
-        if (!empty($row['joined_course_name'])) {
-            $row['course'] = $row['joined_course_name'];
+        $legacy = trim((string) ($row['course'] ?? ''));
+        $joined = trim((string) ($row['joined_course_name'] ?? ''));
+        $batchCourse = trim((string) ($row['batch_course_name'] ?? ''));
+
+        // Transfers via Edit Student often update the course name but leave course_id on the old course.
+        if ($legacy !== '' && $joined !== '' && strcasecmp($legacy, $joined) !== 0) {
+            $row['course'] = $legacy;
+        } elseif ($batchCourse !== '') {
+            $row['course'] = $batchCourse;
+        } elseif ($joined !== '') {
+            $row['course'] = $joined;
+        } elseif ($legacy !== '') {
+            $row['course'] = $legacy;
         }
+
         return $row;
+    }
+
+    function findCourseIdByName(mysqli $conn, string $courseName): int
+    {
+        $courseName = trim($courseName);
+        if ($courseName === '') {
+            return 0;
+        }
+        $stmt = $conn->prepare('SELECT id FROM courses WHERE TRIM(course_name) = ? ORDER BY id ASC LIMIT 1');
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('s', $courseName);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!empty($row['id'])) {
+            return (int) $row['id'];
+        }
+        $like = $courseName;
+        $stmt = $conn->prepare('SELECT id FROM courses WHERE course_name LIKE ? ORDER BY id ASC LIMIT 1');
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('s', $like);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return (int) ($row['id'] ?? 0);
+    }
+
+    /**
+     * Keep students.course_id (and student_enrollments) in sync when a student is moved to another course.
+     */
+    function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
+    {
+        $recordId = (int) $recordId;
+        $courseName = trim($courseName);
+        if ($recordId <= 0 || $courseName === '') {
+            return false;
+        }
+        $courseId = findCourseIdByName($conn, $courseName);
+        $hasCourseId = false;
+        $col = @$conn->query("SHOW COLUMNS FROM students LIKE 'course_id'");
+        if ($col && $col->num_rows > 0) {
+            $hasCourseId = true;
+        }
+        if ($hasCourseId && $courseId > 0) {
+            $stmt = $conn->prepare('UPDATE students SET course = ?, course_id = ? WHERE id = ?');
+            if ($stmt) {
+                $stmt->bind_param('sii', $courseName, $courseId, $recordId);
+                $stmt->execute();
+                $stmt->close();
+            }
+        } else {
+            $stmt = $conn->prepare('UPDATE students SET course = ? WHERE id = ?');
+            if ($stmt) {
+                $stmt->bind_param('si', $courseName, $recordId);
+                $stmt->execute();
+                $stmt->close();
+            }
+        }
+        if ($courseId > 0) {
+            $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+            if ($enrTable && $enrTable->num_rows > 0) {
+                $enr = $conn->prepare('UPDATE student_enrollments SET course_id = ? WHERE student_record_id = ?');
+                if ($enr) {
+                    $enr->bind_param('ii', $courseId, $recordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        }
+        return true;
     }
 
     function resolveStudentEnrollmentForForm(mysqli $conn, array $params): ?array {
@@ -69,9 +161,12 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         }
 
         if ($courseId > 0) {
-            $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code
+            $sql = "SELECT s.*, c.course_name AS joined_course_name, c.course_code,
+                           bc.course_name AS batch_course_name
                     FROM students s
                     LEFT JOIN courses c ON c.id = s.course_id
+                    LEFT JOIN batches b ON b.id = s.batch_id
+                    LEFT JOIN courses bc ON bc.id = b.course_id
                     WHERE s.student_id = ? AND s.course_id = ?
                     LIMIT 1";
             $stmt = $conn->prepare($sql);

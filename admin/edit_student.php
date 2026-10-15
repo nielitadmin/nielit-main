@@ -12,6 +12,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/student_form_helpers.php';
 
 // ============================================================
 // DOCUMENT UPLOAD HELPER FUNCTIONS (from submit_registration.php)
@@ -486,6 +487,9 @@ if (isset($_POST['update_student'])) {
     if ($stmt->execute()) {
         // Log successful database update
         error_log("Student database update successful for student_id: $student_id");
+        if (function_exists('syncStudentRecordCourse') && !empty($student['id'])) {
+            syncStudentRecordCourse($conn, (int) $student['id'], (string) $course);
+        }
         if (!empty($uploadedDocs)) {
             error_log("Documents updated for student $student_id: " . implode(', ', array_keys($uploadedDocs)));
         }

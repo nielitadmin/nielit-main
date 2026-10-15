@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/student_form_helpers.php';
 require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
 
 // Enable error reporting for debugging (remove in production)
@@ -263,6 +264,18 @@ if (isset($_POST['update_student'])) {
     if ($stmt->execute()) {
         $_SESSION['message'] = "Student updated successfully!";
         $_SESSION['message_type'] = "success";
+        if (function_exists('syncStudentRecordCourse')) {
+            $idStmt = $conn->prepare('SELECT id FROM students WHERE student_id = ?');
+            if ($idStmt) {
+                $idStmt->bind_param('s', $student_id);
+                $idStmt->execute();
+                $idRes = $idStmt->get_result();
+                while ($idRow = $idRes->fetch_assoc()) {
+                    syncStudentRecordCourse($conn, (int) $idRow['id'], (string) $course);
+                }
+                $idStmt->close();
+            }
+        }
     } else {
         $_SESSION['message'] = "Error updating student: " . $conn->error;
         $_SESSION['message_type'] = "danger";
