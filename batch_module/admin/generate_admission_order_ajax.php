@@ -317,8 +317,12 @@ $total_pwd = $pwd_counts['M'] + $pwd_counts['F'];
             <select id="edit_location" class="inline-edit-field" 
                     onchange="updateField('location', this.value)"
                     style="width: 100%; padding: 5px; border: 1px solid #ddd; border-radius: 4px; margin-top: 5px;">
-                <option value="NIELIT Bhubaneswar" <?php echo ($location == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
-                <option value="<?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?>" <?php echo is_nielit_baleshwar_location($location) ? 'selected' : ''; ?>><?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?></option>
+                <?php foreach (nielit_batch_location_options($conn, $location) as $locationOption):
+                    $isSelected = $locationOption === $location
+                        || ($locationOption === NIELIT_BALESHWAR_EXTENSION && is_nielit_baleshwar_location($location));
+                ?>
+                <option value="<?php echo htmlspecialchars($locationOption); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($locationOption); ?></option>
+                <?php endforeach; ?>
             </select>
         </div>
         <div>

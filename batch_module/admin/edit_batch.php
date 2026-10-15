@@ -381,8 +381,14 @@ $active_theme = loadActiveTheme($conn);
                             <div class="form-group">
                                 <label class="form-label">Location</label>
                                 <select class="form-control" name="location">
-                                    <option value="NIELIT Bhubaneswar" <?php echo (($batch['location'] ?? 'NIELIT Bhubaneswar') == 'NIELIT Bhubaneswar') ? 'selected' : ''; ?>>NIELIT Bhubaneswar</option>
-                                    <option value="<?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?>" <?php echo is_nielit_baleshwar_location($batch['location'] ?? '') ? 'selected' : ''; ?>><?php echo htmlspecialchars(NIELIT_BALESHWAR_EXTENSION); ?></option>
+                                    <?php
+                                    $currentBatchLocation = normalize_nielit_batch_location($batch['location'] ?? 'NIELIT Bhubaneswar');
+                                    foreach (nielit_batch_location_options($conn, $currentBatchLocation) as $locationOption):
+                                        $isSelected = $locationOption === $currentBatchLocation
+                                            || ($locationOption === NIELIT_BALESHWAR_EXTENSION && is_nielit_baleshwar_location($batch['location'] ?? ''));
+                                    ?>
+                                    <option value="<?php echo htmlspecialchars($locationOption); ?>" <?php echo $isSelected ? 'selected' : ''; ?>><?php echo htmlspecialchars($locationOption); ?></option>
+                                    <?php endforeach; ?>
                                 </select>
                                 <small class="text-muted">Training centre location</small>
                             </div>
