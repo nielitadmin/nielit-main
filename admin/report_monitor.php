@@ -600,6 +600,43 @@ $reportPayload=[
 
 $pageTitle="Report Monitor";
 
+if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
+    require_once __DIR__ . '/../includes/report_monitor_excel.php';
+    report_monitor_send_excel([
+        'scope' => $reportScopeTitleLabel,
+        'fy_label' => $selectedFyFullLabel,
+        'period' => $monthScopeLabel,
+        'centre' => $selectedCentreName,
+        'kpi_registered' => $kpiRegistered,
+        'kpi_admission' => $kpiAdmission,
+        'kpi_batches' => $kpiBatches,
+        'kpi_completed' => $kpiCompleted,
+        'overall' => $overallStats,
+        'courses' => $courseStats,
+        'category_summary' => $categoryQuarterSummary,
+        'category_courses' => $categoryCourseQuarterSummary,
+        'category_grand_total' => $categoryQuarterGrandTotal,
+        'category_grand_target' => $categoryQuarterGrandTarget,
+        'category_grand_achievement' => $categoryQuarterGrandAchievement,
+        'social_summary' => $socialCategoryQuarterSummary,
+        'social_courses' => $socialCategoryCourseQuarterSummary,
+        'social_grand_total' => $socialCategoryQuarterGrandTotal,
+        'social_grand_target' => $socialCategoryQuarterGrandTarget,
+        'social_grand_achievement' => $socialCategoryQuarterGrandAchievement,
+        'gender_social' => $genderSocialCategoryQuarterSummary,
+        'centres' => $centreStats,
+        'certified_placed' => $certifiedPlacedCentreStats,
+        'monthly' => $batchMonthly,
+        'timeline' => $courseFyTimeline,
+        'admissions_by_batch' => $admissionsByBatch,
+        'result_batches' => $resultStatusBatches,
+        'result_totals' => $resultStatusTotals,
+        'batches' => $batchDetails,
+        'faculty' => $facultyTrainingStats,
+    ]);
+    exit;
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1368,6 +1405,14 @@ Quarterly Analytics Dashboard (Financial Year: April–March)
     </div>
     <?php endif; ?>
 </div>
+<?php else: ?>
+<?php
+    $excelQuery = $_GET;
+    $excelQuery['export'] = 'excel';
+?>
+<a class="btn btn-success" href="<?php echo htmlspecialchars('?' . http_build_query($excelQuery)); ?>">
+    <i class="fas fa-file-excel"></i> Download Excel
+</a>
 <?php endif; ?>
 
 </div>
