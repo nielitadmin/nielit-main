@@ -1672,8 +1672,11 @@ function downloadScannedOrder(batchId) {
                                         </td>
                                         <?php endif; ?>
                                         <td>
-                                            <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>" class="btn btn-primary btn-sm" title="View Student Details">
+                                            <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>&record_id=<?php echo (int) $student['id']; ?>&batch_id=<?php echo (int) $batch_id; ?>" class="btn btn-primary btn-sm" title="View Student Details">
                                                 <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="../../admin/download_student_form.php?record_id=<?php echo (int) $student['id']; ?>&batch_id=<?php echo (int) $batch_id; ?>" class="btn btn-success btn-sm" target="_blank" title="Download admission form for this batch course">
+                                                <i class="fas fa-file-pdf"></i>
                                             </a>
                                             <?php if (!$is_placement_coordinator): ?>
                                             <?php if ($is_locked): ?>

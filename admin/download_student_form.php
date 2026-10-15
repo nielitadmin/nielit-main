@@ -117,5 +117,9 @@ if (!$student) {
 }
 
 require_once __DIR__ . '/../includes/render_student_admission_form_pdf.php';
+$batchId = (int) ($_GET['batch_id'] ?? 0);
+if ($batchId > 0) {
+    $student = applyBatchCourseToAdmissionForm($conn, $student, $batchId);
+}
 $education_records = fetchEducationRecordsForStudentId($conn, $student['student_id']);
 renderStudentAdmissionFormPdf($student, $education_records);

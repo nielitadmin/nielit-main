@@ -212,4 +212,36 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     function enrollmentBelongsToStudentId(array $enrollment, string $studentId): bool {
         return trim($enrollment['student_id'] ?? '') === trim($studentId);
     }
+
+    /**
+     * When a form is opened from a batch, print that batch's course.
+     * A transfer can leave the old course name (for example O-Level) on the student row.
+     */
+    function applyBatchCourseToAdmissionForm(mysqli $conn, array $student, int $batchId): array
+    {
+        if ($batchId <= 0) {
+            return $student;
+        }
+        $stmt = $conn->prepare(
+            'SELECT c.course_name
+             FROM batches b
+             LEFT JOIN courses c ON c.id = b.course_id
+             WHERE b.id = ?
+             LIMIT 1'
+        );
+        if (!$stmt) {
+            return $student;
+        }
+        $stmt->bind_param('i', $batchId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $courseName = trim((string) ($row['course_name'] ?? ''));
+        if ($courseName !== '') {
+            $student['course'] = $courseName;
+            $student['joined_course_name'] = $courseName;
+            $student['batch_course_name'] = $courseName;
+        }
+        return $student;
+    }
 }

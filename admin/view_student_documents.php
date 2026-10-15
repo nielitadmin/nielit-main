@@ -19,6 +19,8 @@ if (!isset($_GET['id'])) {
 }
 
 $student_id = $_GET['id'];
+$record_id = isset($_GET['record_id']) ? (int) $_GET['record_id'] : 0;
+$batch_id = isset($_GET['batch_id']) ? (int) $_GET['batch_id'] : 0;
 
 // Build return URL — preserve students list filters and pagination
 $return_query = [];
@@ -49,10 +51,16 @@ foreach ($return_keys as $key) {
 }
 $return_url = relative_url('students.php') . ($return_query ? '?' . http_build_query($return_query) : '');
 
-// Fetch student data
-$sql = "SELECT * FROM students WHERE student_id = ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("s", $student_id);
+// Fetch this enrollment. Batch pages pass record_id so we do not open the original O-Level row.
+if ($record_id > 0) {
+    $sql = "SELECT * FROM students WHERE id = ? AND student_id = ? LIMIT 1";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("is", $record_id, $student_id);
+} else {
+    $sql = "SELECT * FROM students WHERE student_id = ? ORDER BY id DESC LIMIT 1";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $student_id);
+}
 $stmt->execute();
 $result = $stmt->get_result();
 
@@ -63,6 +71,10 @@ if ($result->num_rows == 0) {
 }
 
 $student = $result->fetch_assoc();
+require_once __DIR__ . '/../includes/student_form_helpers.php';
+if ($batch_id > 0 && function_exists('applyBatchCourseToAdmissionForm')) {
+    $student = applyBatchCourseToAdmissionForm($conn, $student, $batch_id);
+}
 
 // Fetch education details from separate table
 $sql_education = "SELECT * FROM education_details WHERE student_id = ? ORDER BY id ASC";
@@ -213,7 +225,7 @@ $active_theme = loadActiveTheme($conn);
                     ?>" class="btn btn-primary">
                         <i class="fas fa-edit"></i> Edit Student
                     </a>
-                    <a href="download_student_form.php?record_id=<?php echo (int)($student['id'] ?? 0); ?>" class="btn btn-success" target="_blank">
+                    <a href="download_student_form.php?record_id=<?php echo (int)($student['id'] ?? 0); ?><?php echo $batch_id > 0 ? '&batch_id=' . (int) $batch_id : ''; ?>" class="btn btn-success" target="_blank">
                         <i class="fas fa-download"></i> Download Form
                     </a>
                 </div>
