@@ -664,6 +664,48 @@ $pageTitle="Report Monitor";
 
         }
 
+        @media (min-width: 1400px) {
+            body.admin-body:not(.public-report-view) {
+                font-size: 16px;
+            }
+            body.admin-body:not(.public-report-view) .report-page-header h2 {
+                font-size: 2rem;
+            }
+            body.admin-body:not(.public-report-view) .report-page-header p,
+            body.admin-body:not(.public-report-view) .report-filter-card label,
+            body.admin-body:not(.public-report-view) .report-filter-card .form-select,
+            body.admin-body:not(.public-report-view) .form-select,
+            body.admin-body:not(.public-report-view) .table {
+                font-size: 1.05rem;
+            }
+            body.admin-body:not(.public-report-view) .kpi-value {
+                font-size: 44px;
+            }
+            body.admin-body:not(.public-report-view) .kpi-card small {
+                font-size: 0.95rem;
+            }
+            body.admin-body:not(.public-report-view) .chart-card .card-header strong,
+            body.admin-body:not(.public-report-view) .table-card .card-header strong {
+                font-size: 1.2rem;
+            }
+            body.admin-body:not(.public-report-view) .chart-card .card-header small,
+            body.admin-body:not(.public-report-view) .table-card .card-header small {
+                font-size: 0.95rem;
+            }
+            body.admin-body:not(.public-report-view) .table th,
+            body.admin-body:not(.public-report-view) .table td {
+                font-size: 1rem;
+                padding: 0.65rem 0.7rem;
+            }
+            body.admin-body:not(.public-report-view) .monthly-progress-table th,
+            body.admin-body:not(.public-report-view) .monthly-progress-table td {
+                font-size: 14px;
+            }
+            body.admin-body:not(.public-report-view) .chart-card .card-body {
+                min-height: 400px;
+            }
+        }
+
         .chart-card{
 
             border:none;
@@ -1006,17 +1048,36 @@ $pageTitle="Report Monitor";
             padding-right: max(0.75rem, env(safe-area-inset-right));
             padding-bottom: max(1rem, env(safe-area-inset-bottom));
         }
+        body.public-report-view > header.header,
+        body.public-report-view > .sliding-info,
+        body.public-report-view > footer {
+            width: 100%;
+            max-width: 100%;
+        }
+        body.public-report-view > header.header .logo,
+        body.public-report-view > header.header .gov-logo {
+            height: 56px !important;
+        }
+        body.public-report-view > header.header h5.hindi-text {
+            font-size: 0.95rem !important;
+        }
+        body.public-report-view > header.header h6 {
+            font-size: 1.05rem !important;
+        }
+        body.public-report-view > header.header .ministry-text {
+            font-size: 0.82rem !important;
+        }
         body.public-report-view .public-report-banner {
             background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
             color: #fff;
             border-radius: 12px;
             padding: 0.85rem 1rem;
             margin-bottom: 1rem;
-            font-size: 0.9rem;
+            font-size: 1.05rem;
         }
         body.public-report-view .public-report-banner strong {
             display: block;
-            font-size: 1rem;
+            font-size: 1.2rem;
             margin-bottom: 0.15rem;
         }
         body.public-report-view .report-page-header {
@@ -1025,15 +1086,15 @@ $pageTitle="Report Monitor";
             gap: 0.5rem;
         }
         body.public-report-view .report-page-header h2 {
-            font-size: 1.35rem;
+            font-size: 1.7rem;
             line-height: 1.3;
         }
         body.public-report-view .report-page-header p {
-            font-size: 0.85rem;
+            font-size: 1.05rem;
         }
         body.public-report-view .report-filter-card .form-select,
         body.public-report-view .report-filter-card label {
-            font-size: 0.95rem;
+            font-size: 1.08rem;
         }
         body.public-report-view .report-filter-card .form-select {
             min-height: 44px;
@@ -1045,13 +1106,13 @@ $pageTitle="Report Monitor";
             margin-bottom: 0.75rem;
         }
         body.public-report-view .kpi-value {
-            font-size: 1.65rem;
+            font-size: 2.1rem;
         }
         body.public-report-view .kpi-card .card-body {
             padding: 0.85rem 1rem;
         }
         body.public-report-view .kpi-card small {
-            font-size: 0.72rem;
+            font-size: 0.9rem;
             line-height: 1.3;
         }
         body.public-report-view .chart-card .card-header,
@@ -1062,7 +1123,7 @@ $pageTitle="Report Monitor";
         }
         body.public-report-view .chart-card .card-header strong,
         body.public-report-view .table-card .card-header strong {
-            font-size: 0.95rem;
+            font-size: 1.15rem;
             line-height: 1.35;
         }
         body.public-report-view .chart-card .card-header small,
@@ -1070,7 +1131,7 @@ $pageTitle="Report Monitor";
             display: block;
             width: 100%;
             margin-left: 0 !important;
-            font-size: 0.78rem;
+            font-size: 0.95rem;
             line-height: 1.35;
         }
         body.public-report-view .chart-card .card-body {
@@ -1082,12 +1143,13 @@ $pageTitle="Report Monitor";
             max-width: 100%;
         }
         body.public-report-view .table {
-            font-size: 0.78rem;
+            font-size: 1rem;
         }
         body.public-report-view .table th,
         body.public-report-view .table td {
-            padding: 0.45rem 0.4rem;
+            padding: 0.55rem 0.5rem;
             vertical-align: middle;
+            font-size: 1rem;
         }
         body.public-report-view .btn {
             min-height: 40px;
@@ -1147,51 +1209,48 @@ $pageTitle="Report Monitor";
                 font-size: 1.45rem;
             }
         }
+        @media (min-width: 1400px) {
+            body.public-report-view .report-page-header h2 {
+                font-size: 2rem;
+            }
+            body.public-report-view .report-page-header p,
+            body.public-report-view .report-filter-card .form-select,
+            body.public-report-view .report-filter-card label {
+                font-size: 1.15rem;
+            }
+            body.public-report-view .kpi-value {
+                font-size: 2.6rem;
+            }
+            body.public-report-view .kpi-card small {
+                font-size: 1rem;
+            }
+            body.public-report-view .chart-card .card-header strong,
+            body.public-report-view .table-card .card-header strong {
+                font-size: 1.28rem;
+            }
+            body.public-report-view .chart-card .card-header small,
+            body.public-report-view .table-card .card-header small {
+                font-size: 1.05rem;
+            }
+            body.public-report-view .table,
+            body.public-report-view .table th,
+            body.public-report-view .table td {
+                font-size: 1.1rem;
+            }
+            body.public-report-view .chart-card .card-body {
+                min-height: 380px;
+            }
+            body.public-report-view > header.header .logo,
+            body.public-report-view > header.header .gov-logo {
+                height: 64px !important;
+            }
+        }
         <?php if (!empty($isRaipurPublicReport)): ?>
         body.public-report-raipur .public-report-banner {
-            font-size: 1.05rem;
+            font-size: 1.1rem;
         }
         body.public-report-raipur .public-report-banner strong {
-            font-size: 1.2rem;
-        }
-        body.public-report-raipur .report-page-header h2 {
-            font-size: 1.55rem;
-        }
-        body.public-report-raipur .report-page-header p {
-            font-size: 1rem;
-        }
-        body.public-report-raipur .report-filter-card .form-select,
-        body.public-report-raipur .report-filter-card label {
-            font-size: 1.08rem;
-        }
-        body.public-report-raipur .kpi-value {
-            font-size: 1.95rem;
-        }
-        body.public-report-raipur .kpi-card small {
-            font-size: 0.88rem;
-        }
-        body.public-report-raipur .chart-card .card-header strong,
-        body.public-report-raipur .table-card .card-header strong {
-            font-size: 1.12rem;
-        }
-        body.public-report-raipur .chart-card .card-header small,
-        body.public-report-raipur .table-card .card-header small {
-            font-size: 0.92rem;
-        }
-        body.public-report-raipur .table {
-            font-size: 0.92rem;
-        }
-        body.public-report-raipur .table th,
-        body.public-report-raipur .table td {
-            font-size: 0.92rem;
-        }
-        @media (max-width: 767.98px) {
-            body.public-report-raipur .report-page-header h2 {
-                font-size: 1.35rem;
-            }
-            body.public-report-raipur .kpi-value {
-                font-size: 1.75rem;
-            }
+            font-size: 1.28rem;
         }
         <?php endif; ?>
         <?php endif; ?>
@@ -1217,6 +1276,10 @@ $pageTitle="Report Monitor";
         echo htmlspecialchars(adminBodySidebarClass($conn));
     }
 ?>">
+
+<?php if ($isPublicReportView): ?>
+<?php require_once __DIR__ . '/../includes/header.php'; ?>
+<?php endif; ?>
 
 <div class="admin-wrapper">
 
@@ -3132,6 +3195,9 @@ if ($resultStatusFilterCourse > 0) {
 
             <i class="fas fa-chalkboard-teacher me-2"></i>
             Faculty Training Summary
+            <?php if ($centreId > 0 && $selectedCentreName !== ''): ?>
+                <small class="text-muted fw-normal ms-1"><?php echo htmlspecialchars($selectedCentreName); ?> faculty only</small>
+            <?php endif; ?>
 
         </strong>
 
@@ -3228,6 +3294,10 @@ if ($resultStatusFilterCourse > 0) {
 </main>
 
 </div>
+
+<?php if ($isPublicReportView): ?>
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+<?php endif; ?>
 
 <?php if (!$isPublicReportView): ?>
 <div class="modal fade" id="categoryTargetsModal" tabindex="-1" aria-labelledby="categoryTargetsModalLabel" aria-hidden="true">
@@ -3417,11 +3487,15 @@ function reportMonitorChartOptions(options) {
 }
 
 if (typeof Chart !== 'undefined') {
-    if (isRaipurPublicReport) {
-        Chart.defaults.font.size = reportMonitorIsMobile() ? 12 : 13;
+    if (isPublicReportView) {
+        Chart.defaults.font.size = reportMonitorIsMobile() ? 13 : 15;
         Chart.defaults.plugins.legend.labels.boxWidth = 12;
-        Chart.defaults.plugins.legend.labels.padding = 10;
-    } else if (isPublicReportView && reportMonitorIsMobile()) {
+        Chart.defaults.plugins.legend.labels.padding = 12;
+    } else if (window.innerWidth >= 1400) {
+        Chart.defaults.font.size = 14;
+        Chart.defaults.plugins.legend.labels.boxWidth = 12;
+        Chart.defaults.plugins.legend.labels.padding = 12;
+    } else if (reportMonitorIsMobile()) {
         Chart.defaults.font.size = 11;
         Chart.defaults.plugins.legend.labels.boxWidth = 10;
         Chart.defaults.plugins.legend.labels.padding = 8;

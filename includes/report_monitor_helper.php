@@ -2613,6 +2613,67 @@ if (!function_exists('get_report_monitor_category_groups')) {
         ];
     }
 
+    function report_monitor_column_exists($conn, $table, $column) {
+        $table = $conn->real_escape_string((string) $table);
+        $column = $conn->real_escape_string((string) $column);
+        $result = $conn->query("SHOW COLUMNS FROM `{$table}` LIKE '{$column}'");
+        return $result && $result->num_rows > 0;
+    }
+
+    /**
+     * Restrict faculty rows to the selected centre via nielit_centre and/or batches taught there.
+     * All Centres (centre_id = 0) returns no extra filter.
+     */
+    function report_monitor_faculty_centre_where($conn, $centreId, $facultyAlias = 'f', $courseAlias = 'c') {
+        $centreId = (int) $centreId;
+        if ($centreId <= 0) {
+            return ['sql' => '', 'types' => '', 'values' => []];
+        }
+
+        $centreName = report_monitor_get_centre_name($conn, $centreId);
+        $centreKey = report_monitor_centre_match_key($centreName);
+        $tokens = [];
+        if ($centreKey !== '') {
+            $tokens[$centreKey] = true;
+            foreach (preg_split('/\s+/', $centreKey) as $part) {
+                if (strlen($part) >= 4) {
+                    $tokens[$part] = true;
+                }
+            }
+        }
+        if (isset($tokens['baleshwar']) || isset($tokens['balasore'])) {
+            $tokens['baleshwar'] = true;
+            $tokens['balasore'] = true;
+        }
+        if (isset($tokens['bbsr']) || isset($tokens['bhubaneswar'])) {
+            $tokens['bhubaneswar'] = true;
+            $tokens['bbsr'] = true;
+        }
+
+        $sqlParts = [];
+        $types = '';
+        $values = [];
+        if (report_monitor_column_exists($conn, 'faculty', 'nielit_centre') && !empty($tokens)) {
+            $likeParts = [];
+            foreach (array_keys($tokens) as $token) {
+                $likeParts[] = "LOWER(TRIM(COALESCE({$facultyAlias}.nielit_centre, ''))) LIKE ?";
+                $types .= 's';
+                $values[] = '%' . $token . '%';
+            }
+            if ($likeParts) {
+                $sqlParts[] = '(' . implode(' OR ', $likeParts) . ')';
+            }
+        }
+
+        $sqlParts[] = "{$courseAlias}.id IS NOT NULL";
+
+        return [
+            'sql' => ' AND (' . implode(' OR ', $sqlParts) . ')',
+            'types' => $types,
+            'values' => $values,
+        ];
+    }
+
     /**
      * Faculty-wise student training summary for the selected FY quarter.
      */
@@ -2622,6 +2683,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $facultyCentreFilter = report_monitor_faculty_centre_where($conn, $centreId, 'f', 'c');
         $batchStartExpr = report_monitor_batch_start_sql('b');
         $batchEndExpr = report_monitor_batch_end_sql('b');
         $hasBatchStudents = report_monitor_table_exists($conn, 'batch_students');
@@ -2657,11 +2719,13 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 LEFT JOIN batches b ON b.id = bf.batch_id{$batchMonthJoin}
                 LEFT JOIN courses c ON c.id = b.course_id{$scopeFilter['sql']}
                 {$studentJoin}
-                WHERE f.is_active = 1
+                WHERE f.is_active = 1{$facultyCentreFilter['sql']}
                 GROUP BY f.id, f.name, f.designation, f.department
                 ORDER BY students_trained DESC, batch_count DESC, f.name ASC";
         $types .= $scopeFilter['types'];
         $values = array_merge($values, $scopeFilter['values']);
+        $types .= $facultyCentreFilter['types'];
+        $values = array_merge($values, $facultyCentreFilter['values']);
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
         if (!$result) {
