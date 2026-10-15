@@ -36,6 +36,7 @@ if (($shareKey !== '' || $shareToken !== '') && !$isPublicReportView) {
     exit;
 }
 $lockedPublicCentreId = $isPublicReportView ? (int) ($publicLinkRow['centre_id'] ?? 0) : 0;
+$isRaipurPublicReport = $isPublicReportView && ($shareKey === 'raipur' || $lockedPublicCentreId > 0);
 if ($isPublicReportView && $shareToken === '' && !empty($publicLinkRow['token'])) {
     $shareToken = (string) $publicLinkRow['token'];
 }
@@ -95,6 +96,13 @@ if ($lockedPublicCentreId > 0) {
 $selectedYear = isset($_GET['year'])
     ? (int)$_GET['year']
     : report_monitor_get_financial_year_start();
+
+if (!empty($isRaipurPublicReport)) {
+    $raipurFyStart = report_monitor_get_financial_year_start();
+    if ($selectedYear < $raipurFyStart) {
+        $selectedYear = $raipurFyStart;
+    }
+}
 
 $selectedQuarter = isset($_GET['quarter'])
     ? $_GET['quarter']
@@ -1139,6 +1147,53 @@ $pageTitle="Report Monitor";
                 font-size: 1.45rem;
             }
         }
+        <?php if (!empty($isRaipurPublicReport)): ?>
+        body.public-report-raipur .public-report-banner {
+            font-size: 1.05rem;
+        }
+        body.public-report-raipur .public-report-banner strong {
+            font-size: 1.2rem;
+        }
+        body.public-report-raipur .report-page-header h2 {
+            font-size: 1.55rem;
+        }
+        body.public-report-raipur .report-page-header p {
+            font-size: 1rem;
+        }
+        body.public-report-raipur .report-filter-card .form-select,
+        body.public-report-raipur .report-filter-card label {
+            font-size: 1.08rem;
+        }
+        body.public-report-raipur .kpi-value {
+            font-size: 1.95rem;
+        }
+        body.public-report-raipur .kpi-card small {
+            font-size: 0.88rem;
+        }
+        body.public-report-raipur .chart-card .card-header strong,
+        body.public-report-raipur .table-card .card-header strong {
+            font-size: 1.12rem;
+        }
+        body.public-report-raipur .chart-card .card-header small,
+        body.public-report-raipur .table-card .card-header small {
+            font-size: 0.92rem;
+        }
+        body.public-report-raipur .table {
+            font-size: 0.92rem;
+        }
+        body.public-report-raipur .table th,
+        body.public-report-raipur .table td {
+            font-size: 0.92rem;
+        }
+        @media (max-width: 767.98px) {
+            body.public-report-raipur .report-page-header h2 {
+                font-size: 1.35rem;
+            }
+            body.public-report-raipur .kpi-value {
+                font-size: 1.75rem;
+            }
+        }
+        <?php endif; ?>
         <?php endif; ?>
 
         .table-card{
@@ -1155,7 +1210,13 @@ $pageTitle="Report Monitor";
 
 </head>
 
-<body class="admin-body <?php echo $isPublicReportView ? 'public-report-view' : htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<body class="admin-body <?php
+    if ($isPublicReportView) {
+        echo 'public-report-view' . (!empty($isRaipurPublicReport) ? ' public-report-raipur' : '');
+    } else {
+        echo htmlspecialchars(adminBodySidebarClass($conn));
+    }
+?>">
 
 <div class="admin-wrapper">
 
@@ -1298,12 +1359,18 @@ onchange="this.form.submit()"
 >
 
 <?php
+$yearFrom = (int) date("Y");
+$yearTo = 2020;
+if (!empty($isRaipurPublicReport)) {
+    $yearFrom = report_monitor_get_financial_year_start();
+    $yearTo = $yearFrom;
+}
 
 for(
 
-$y = (int)date("Y");
+$y = $yearFrom;
 
-$y >= 2020;
+$y >= $yearTo;
 
 $y--
 
@@ -3306,6 +3373,7 @@ const reportPayload = <?php echo json_encode(
 ); ?>;
 
 const isPublicReportView = <?php echo $isPublicReportView ? 'true' : 'false'; ?>;
+const isRaipurPublicReport = <?php echo !empty($isRaipurPublicReport) ? 'true' : 'false'; ?>;
 
 function reportMonitorIsMobile() {
     return window.matchMedia('(max-width: 767.98px)').matches;
@@ -3348,10 +3416,16 @@ function reportMonitorChartOptions(options) {
     return merged;
 }
 
-if (isPublicReportView && reportMonitorIsMobile() && typeof Chart !== 'undefined') {
-    Chart.defaults.font.size = 11;
-    Chart.defaults.plugins.legend.labels.boxWidth = 10;
-    Chart.defaults.plugins.legend.labels.padding = 8;
+if (typeof Chart !== 'undefined') {
+    if (isRaipurPublicReport) {
+        Chart.defaults.font.size = reportMonitorIsMobile() ? 12 : 13;
+        Chart.defaults.plugins.legend.labels.boxWidth = 12;
+        Chart.defaults.plugins.legend.labels.padding = 10;
+    } else if (isPublicReportView && reportMonitorIsMobile()) {
+        Chart.defaults.font.size = 11;
+        Chart.defaults.plugins.legend.labels.boxWidth = 10;
+        Chart.defaults.plugins.legend.labels.padding = 8;
+    }
 }
 
 document.addEventListener(
