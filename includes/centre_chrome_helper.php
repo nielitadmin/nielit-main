@@ -211,7 +211,13 @@ if (!function_exists('centre_chrome_defaults')) {
             'footer_centre_label' => $short,
             'footer_about' => $name . ' under Ministry of Electronics & Information Technology, Govt. of India.',
             'footer_address' => $address,
-            'footer_phone' => trim((string) ($centreRow['phone'] ?? '')),
+            'footer_phone' => (static function () use ($centreRow, $isRaipur): string {
+                $phone = trim((string) ($centreRow['phone'] ?? ''));
+                if ($phone === '' && $isRaipur) {
+                    return '+91 77129 90566';
+                }
+                return $phone;
+            })(),
             'footer_email' => trim((string) ($centreRow['email'] ?? '')),
             'footer_copyright' => 'Designed & Developed by NIELIT Bhubaneswar IT Team © {year} | All Rights Reserved',
         ];

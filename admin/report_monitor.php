@@ -613,6 +613,12 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
         'kpi_completed' => $kpiCompleted,
         'overall' => $overallStats,
         'courses' => $courseStats,
+        'students' => report_monitor_get_student_records(
+            $conn,
+            $scopedCourseIds,
+            $centreId,
+            $monthFilter
+        ),
         'category_summary' => $categoryQuarterSummary,
         'category_courses' => $categoryCourseQuarterSummary,
         'category_grand_total' => $categoryQuarterGrandTotal,

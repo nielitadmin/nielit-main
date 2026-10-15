@@ -142,6 +142,37 @@ function report_monitor_send_excel(array $ctx): void
         $courseRows
     );
 
+    $studentRows = [
+        ['_style' => 'Title', 'All student records', $centre, $period],
+        ['Every active application in this period. Contact details are not included.'],
+        [],
+        ['_style' => 'Header', 'Sl No.', 'Student ID', 'Name', 'Course', 'Code', 'Centre', 'Status', 'Applied On', 'Batch', 'Batch Code', 'Gender', 'Category'],
+    ];
+    $sl = 1;
+    foreach (($ctx['students'] ?? []) as $student) {
+        $studentRows[] = [
+            $sl++,
+            (string) ($student['student_id'] ?? ''),
+            (string) ($student['name'] ?? ''),
+            (string) ($student['course_name'] ?? ''),
+            (string) ($student['course_code'] ?? ''),
+            (string) ($student['centre_name'] ?? ''),
+            (string) ($student['status'] ?? ''),
+            (string) ($student['applied_on'] ?? ''),
+            (string) ($student['batch_name'] ?? ''),
+            (string) ($student['batch_code'] ?? ''),
+            (string) ($student['gender'] ?? ''),
+            (string) ($student['category'] ?? ''),
+        ];
+    }
+    if ($sl === 1) {
+        $studentRows[] = ['No student records for this period.'];
+    }
+    $sheets[] = report_monitor_excel_worksheet(
+        report_monitor_excel_sheet_name('Students', $usedNames),
+        $studentRows
+    );
+
     $categoryRows = [
         ['_style' => 'Title', 'Category Quarterly Admissions', $scope, 'FY - ' . $fyLabel],
         [],

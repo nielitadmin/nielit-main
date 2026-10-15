@@ -1054,6 +1054,70 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $rows;
     }
 
+    /**
+     * Every active student application in the selected centre and period.
+     * Used by the report Excel download so the file is not limited to summary counts.
+     */
+    function report_monitor_get_student_records($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []): array
+    {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $sql = "SELECT s.student_id,
+                       s.name,
+                       s.gender,
+                       s.category,
+                       s.status,
+                       s.created_at,
+                       c.course_name,
+                       c.course_code,
+                       COALESCE(NULLIF(TRIM(cen.name), ''), NULLIF(TRIM(c.training_center), ''), 'Unassigned') AS centre_name,
+                       COALESCE(b.batch_name, '') AS batch_name,
+                       COALESCE(b.batch_code, '') AS batch_code
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                LEFT JOIN centres cen ON cen.id = c.centre_id
+                LEFT JOIN batches b ON b.id = s.batch_id
+                WHERE {$activeCondition}{$scopeFilter['sql']}";
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        if (!empty($monthFilter['active'])) {
+            $sql .= ' AND s.created_at >= ? AND s.created_at < ?';
+            $types .= 'ss';
+            $values[] = $monthFilter['start'];
+            $values[] = $monthFilter['next_start'];
+        }
+        $sql .= ' ORDER BY c.course_name ASC, s.created_at ASC, s.id ASC';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return [];
+        }
+
+        $rows = [];
+        while ($row = $result->fetch_assoc()) {
+            $created = (string) ($row['created_at'] ?? '');
+            $rows[] = [
+                'student_id' => (string) ($row['student_id'] ?? ''),
+                'name' => (string) ($row['name'] ?? ''),
+                'gender' => (string) ($row['gender'] ?? ''),
+                'category' => (string) ($row['category'] ?? ''),
+                'status' => (string) ($row['status'] ?? ''),
+                'applied_on' => $created !== '' ? date('d M Y', strtotime($created)) : '',
+                'course_name' => (string) ($row['course_name'] ?? ''),
+                'course_code' => (string) ($row['course_code'] ?? ''),
+                'centre_name' => (string) ($row['centre_name'] ?? ''),
+                'batch_name' => (string) ($row['batch_name'] ?? ''),
+                'batch_code' => (string) ($row['batch_code'] ?? ''),
+            ];
+        }
+
+        return $rows;
+    }
+
     /** Month keys and display labels for an FY period (quarter or full year). */
     function report_monitor_build_graph_month_axis(array $graphMonths): array {
         $monthKeys = [];
@@ -2030,7 +2094,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 WHERE 1=1{$scopeFilter['sql']}";
 
         report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
-        $sql .= " ORDER BY b.created_at DESC, b.id DESC LIMIT 100";
+        $sql .= " ORDER BY b.created_at DESC, b.id DESC";
 
         $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
         if (!$result) {
