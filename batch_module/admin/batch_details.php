@@ -472,9 +472,155 @@ $active_theme = loadActiveTheme($conn);
             border-color: #94a3b8 !important;
             -webkit-text-fill-color: #e2e8f0;
         }
+
+        .batch-details-page .admin-wrapper,
+        .batch-details-page .admin-content,
+        .batch-details-page .admin-main,
+        .batch-details-page .content-card {
+            min-width: 0;
+            max-width: 100%;
+        }
+        .batch-details-page .admin-content {
+            width: 100%;
+        }
+        .batch-details-page .admin-topbar {
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .batch-details-page .topbar-left {
+            min-width: 0;
+            flex: 1 1 220px;
+        }
+        .batch-details-page .topbar-left h4,
+        .batch-details-page .topbar-left small {
+            overflow-wrap: anywhere;
+        }
+        .batch-details-page .stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+        .batch-details-page .batch-info-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        .batch-details-page .card-header > div:last-child,
+        .batch-details-page .batch-header-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+        .batch-details-page .table-responsive {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        .batch-details-page .modern-table {
+            width: max-content;
+            min-width: 100%;
+        }
+        .batch-details-page .modern-table th,
+        .batch-details-page .modern-table td {
+            white-space: nowrap;
+        }
+        .batch-details-page .nielit-reg-wrap {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            min-width: 0;
+        }
+        .batch-details-page .nielit-reg-input {
+            min-width: 120px;
+            width: 150px;
+            max-width: 200px;
+        }
+        .batch-details-page .student-action-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+        @media (max-width: 1100px) {
+            .batch-details-page .admin-main {
+                padding: 16px;
+            }
+            .batch-details-page .modern-table thead th,
+            .batch-details-page .modern-table tbody td {
+                padding: 10px 8px;
+                font-size: 12px;
+            }
+            .batch-details-page .stat-value {
+                font-size: 24px;
+            }
+        }
+        @media (max-width: 768px) {
+            .batch-details-page .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+            .batch-details-page .stat-card {
+                padding: 14px 10px;
+            }
+            .batch-details-page .info-box p,
+            .batch-details-page .certificate-info-banner {
+                overflow-wrap: anywhere;
+            }
+            .batch-details-page .table-responsive {
+                overflow-x: visible;
+            }
+            .batch-details-page .responsive-stack-table {
+                width: 100%;
+                min-width: 0;
+            }
+            .batch-details-page .responsive-stack-table thead {
+                display: none;
+            }
+            .batch-details-page .responsive-stack-table tbody tr {
+                display: block;
+                margin: 0 12px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                background: #fff;
+                padding: 4px 0;
+            }
+            .batch-details-page .responsive-stack-table tbody td {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                gap: 12px;
+                width: auto;
+                white-space: normal;
+                border-bottom: 1px solid #f1f5f9;
+                padding: 8px 12px;
+                text-align: right;
+            }
+            .batch-details-page .responsive-stack-table tbody td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                color: #64748b;
+                text-align: left;
+                flex: 0 0 40%;
+                font-size: 11px;
+                text-transform: uppercase;
+            }
+            .batch-details-page .responsive-stack-table tbody td:last-child {
+                border-bottom: none;
+            }
+            .batch-details-page .nielit-reg-wrap {
+                flex: 1;
+                justify-content: flex-end;
+            }
+            .batch-details-page .nielit-reg-input {
+                width: 100%;
+                min-width: 0;
+                max-width: none;
+            }
+            .batch-details-page .student-action-group,
+            .batch-details-page .cert-upload-wrap {
+                justify-content: flex-end;
+            }
+        }
     </style>
 </head>
-<body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
+<body class="admin-body batch-details-page <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
@@ -1126,7 +1272,7 @@ function downloadScannedOrder(batchId) {
                     <h5 class="card-title">
                         <i class="fas fa-info-circle"></i> Batch Information
                     </h5>
-                    <div>
+                    <div class="batch-header-actions">
                         <?php if (!$is_placement_coordinator): ?>
                         <?php 
                         $lock_restricted = $is_locked && !$is_master_admin; // Only restrict if locked AND not master admin
@@ -1385,7 +1531,7 @@ function downloadScannedOrder(batchId) {
                 </p>
                 <form method="POST" action="batch_details.php?id=<?php echo (int) $batch_id; ?>#add-students" id="add-students-form">
                     <div class="table-responsive">
-                        <table class="modern-table">
+                        <table class="modern-table responsive-stack-table">
                             <thead>
                                 <tr>
                                     <th style="width:40px;"><input type="checkbox" id="select-all-eligible" title="Select All"></th>
@@ -1493,7 +1639,7 @@ function downloadScannedOrder(batchId) {
                 
                 <?php if (!empty($students)): ?>
                     <div class="table-responsive">
-                        <table class="modern-table">
+                        <table class="modern-table responsive-stack-table">
                             <thead>
                                 <tr>
                                     <?php if (!$is_locked && !empty($move_target_batches)): ?>
@@ -1536,7 +1682,7 @@ function downloadScannedOrder(batchId) {
                                         <td><?php echo $sn; ?></td>
                                         <td><strong><?php echo htmlspecialchars($student['student_id'] ?? 'N/A'); ?></strong></td>
                                         <td>
-                                            <div style="display: flex; gap: 5px; align-items: center;">
+                                            <div class="nielit-reg-wrap">
                                                 <input type="text" 
                                                        id="nielit_reg_<?php echo $student['id']; ?>"
                                                        class="form-control form-control-sm nielit-reg-input" 
@@ -1672,6 +1818,7 @@ function downloadScannedOrder(batchId) {
                                         </td>
                                         <?php endif; ?>
                                         <td>
+                                            <div class="student-action-group">
                                             <a href="../../admin/view_student_documents.php?id=<?php echo urlencode($student['student_id']); ?>&record_id=<?php echo (int) $student['id']; ?>&batch_id=<?php echo (int) $batch_id; ?>" class="btn btn-primary btn-sm" title="View Student Details">
                                                 <i class="fas fa-eye"></i>
                                             </a>
@@ -1700,6 +1847,7 @@ function downloadScannedOrder(batchId) {
                                                 </a>
                                             <?php endif; ?>
                                             <?php endif; ?>
+                                            </div>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -1914,6 +2062,22 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+document.querySelectorAll('.responsive-stack-table').forEach(function (table) {
+    var headers = Array.prototype.map.call(table.querySelectorAll('thead th'), function (th) {
+        var label = (th.innerText || '').replace(/\s+/g, ' ').trim();
+        return label || 'Select';
+    });
+    table.querySelectorAll('tbody tr').forEach(function (row) {
+        Array.prototype.forEach.call(row.children, function (cell, index) {
+            if (headers[index]) {
+                cell.setAttribute('data-label', headers[index]);
+            }
+        });
+    });
+});
+</script>
 
 </body>
 </html>
