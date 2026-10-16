@@ -3606,20 +3606,6 @@ document.addEventListener(
 
 function(){
 
-/*==================================================
-MONTH WISE GRAPH
-==================================================*/
-
-const batchCanvas =
-document.getElementById(
-'batchMonthlyChart'
-);
-
-if(batchCanvas){
-
-const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
-const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
-const trendSingleCentre = reportPayload.singleCentre === true || trendData.scope === 'single';
 function reportMonitorDropLeadingZeros(values) {
     const data = (values || []).map(function (value) { return Number(value) || 0; });
     let started = false;
@@ -3631,56 +3617,6 @@ function reportMonitorDropLeadingZeros(values) {
             started = true;
         }
         return value;
-    });
-}
-
-let trendLabels = (trendData.labels || reportPayload.batchMonthly.labels || []).slice();
-if (trendSingleCentre && trendData.series && trendData.series[0]) {
-    const only = trendData.series[0];
-    trendDatasets = [
-        {
-            label: (only.label || 'Centre') + ' · Enrolled students',
-            data: only.enrolled || only.applications || [],
-            borderColor: '#16a34a',
-            backgroundColor: '#16a34a22',
-            fill: true,
-            borderWidth: 3,
-            tension: .35
-        },
-        {
-            label: (only.label || 'Centre') + ' · Admissions',
-            data: only.admissions || [],
-            borderColor: '#0f172a',
-            backgroundColor: '#0f172a22',
-            fill: false,
-            borderWidth: 3,
-            tension: .35
-        },
-        {
-            label: (only.label || 'Centre') + ' · Batches',
-            data: only.batches || [],
-            borderColor: '#f59e0b',
-            backgroundColor: '#f59e0b22',
-            fill: false,
-            borderWidth: 2,
-            borderDash: [6, 4],
-            tension: .35
-        }
-    ];
-} else {
-    trendDatasets = (trendData.series || []).map(function(series, index){
-        const color = trendPalette[index % trendPalette.length];
-        const admissions = series.admissions || [];
-        return {
-            label: series.label + ' · Admissions',
-            data: index === 0 ? admissions : reportMonitorDropLeadingZeros(admissions),
-            borderColor: color,
-            backgroundColor: color + '22',
-            fill: index === 0,
-            borderWidth: index === 0 ? 3 : 2,
-            tension: .35,
-            spanGaps: false
-        };
     });
 }
 
@@ -3735,6 +3671,71 @@ function reportMonitorAnimateChart(chart) {
         chart._trendTimer = requestAnimationFrame(moveDots);
     };
     chart._trendTimer = requestAnimationFrame(moveDots);
+}
+
+/*==================================================
+MONTH WISE GRAPH
+==================================================*/
+
+const batchCanvas =
+document.getElementById(
+'batchMonthlyChart'
+);
+
+if(batchCanvas){
+
+const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
+const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
+const trendSingleCentre = reportPayload.singleCentre === true || trendData.scope === 'single';
+
+let trendLabels = (trendData.labels || reportPayload.batchMonthly.labels || []).slice();
+if (trendSingleCentre && trendData.series && trendData.series[0]) {
+    const only = trendData.series[0];
+    trendDatasets = [
+        {
+            label: (only.label || 'Centre') + ' · Enrolled students',
+            data: only.enrolled || only.applications || [],
+            borderColor: '#16a34a',
+            backgroundColor: '#16a34a22',
+            fill: true,
+            borderWidth: 3,
+            tension: .35
+        },
+        {
+            label: (only.label || 'Centre') + ' · Admissions',
+            data: only.admissions || [],
+            borderColor: '#0f172a',
+            backgroundColor: '#0f172a22',
+            fill: false,
+            borderWidth: 3,
+            tension: .35
+        },
+        {
+            label: (only.label || 'Centre') + ' · Batches',
+            data: only.batches || [],
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b22',
+            fill: false,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            tension: .35
+        }
+    ];
+} else {
+    trendDatasets = (trendData.series || []).map(function(series, index){
+        const color = trendPalette[index % trendPalette.length];
+        const admissions = series.admissions || [];
+        return {
+            label: series.label + ' · Admissions',
+            data: index === 0 ? admissions : reportMonitorDropLeadingZeros(admissions),
+            borderColor: color,
+            backgroundColor: color + '22',
+            fill: index === 0,
+            borderWidth: index === 0 ? 3 : 2,
+            tension: .35,
+            spanGaps: false
+        };
+    });
 }
 
 const trendChart = new Chart(batchCanvas,{
