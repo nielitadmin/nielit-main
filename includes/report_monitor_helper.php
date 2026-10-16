@@ -2674,8 +2674,28 @@ if (!function_exists('get_report_monitor_category_groups')) {
             'next_start' => $nextStart,
             'quarter_label' => $quarterLabel,
             'scope_label' => $fyLabel . ' · ' . $quarterLabel,
-            'graph_months' => $graphMonths,
+            'graph_months' => report_monitor_trim_future_graph_months($graphMonths),
         ];
+    }
+
+    /**
+     * Drop months that have not started yet so trend lines do not fall to zero
+     * through the rest of the financial year.
+     */
+    function report_monitor_trim_future_graph_months(array $graphMonths, ?string $today = null): array
+    {
+        $today = $today ?: date('Y-m-d');
+        $currentKey = date('Y-m', strtotime($today));
+        $kept = [];
+        foreach ($graphMonths as $graphMonth) {
+            $key = sprintf('%04d-%02d', (int) ($graphMonth['year'] ?? 0), (int) ($graphMonth['month'] ?? 0));
+            if ($key > $currentKey) {
+                break;
+            }
+            $kept[] = $graphMonth;
+        }
+
+        return $kept !== [] ? $kept : $graphMonths;
     }
 
     function report_monitor_column_exists($conn, $table, $column) {
