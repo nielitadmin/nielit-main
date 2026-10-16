@@ -772,7 +772,33 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
 
         .chart-card .card-body{
 
-            min-height:340px;
+            position:relative;
+
+            height:360px;
+
+            min-height:360px;
+
+        }
+
+        .report-chart-empty{
+
+            margin:0;
+
+            height:100%;
+
+            min-height:220px;
+
+            display:flex;
+
+            align-items:center;
+
+            justify-content:center;
+
+            text-align:center;
+
+            color:#475569;
+
+            font-size:1.05rem;
 
         }
 
@@ -3620,6 +3646,13 @@ function reportMonitorDropLeadingZeros(values) {
     });
 }
 
+function reportMonitorVisibleSeries(values) {
+    const data = (values || []).map(function (value) { return Number(value) || 0; });
+    const trimmed = reportMonitorDropLeadingZeros(data);
+    const hasPoint = trimmed.some(function (value) { return value !== null; });
+    return hasPoint ? trimmed : data;
+}
+
 const travelingDots = {
     id: 'travelingDots',
     afterDatasetsDraw(chart) {
@@ -3921,7 +3954,7 @@ function cpBuildTrendLineDatasets(metricKey, labelSuffix) {
         const values = series[metricKey] || [];
         return {
             label: series.label + ' · ' + labelSuffix,
-            data: isTotal ? values : reportMonitorDropLeadingZeros(values),
+            data: isTotal ? values : reportMonitorVisibleSeries(values),
             borderColor: color,
             backgroundColor: color + '22',
             fill: isTotal,
@@ -3939,16 +3972,18 @@ function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) 
     if (!canvas) {
         return;
     }
-    if (!cpTrendHasMetric(metricKey)) {
-        canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
+    const labels = (cpTrendData.labels || []).slice();
+    const datasets = cpBuildTrendLineDatasets(metricKey, labelSuffix);
+    if (!labels.length || !datasets.length) {
+        canvas.parentElement.innerHTML = '<p class="report-chart-empty">' + emptyMessage + '</p>';
         return;
     }
     const trendLine = new Chart(canvas, {
         type: 'line',
         plugins: [travelingDots],
         data: {
-            labels: cpTrendData.labels || [],
-            datasets: cpBuildTrendLineDatasets(metricKey, labelSuffix)
+            labels: labels,
+            datasets: datasets
         },
         options: reportMonitorChartOptions({
             responsive: true,
@@ -3962,7 +3997,7 @@ function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) 
             },
             scales: {
                 x: { grid: { display: false } },
-                y: { beginAtZero: true, ticks: { precision: 0 } }
+                y: { beginAtZero: true, suggestedMax: 1, ticks: { precision: 0 } }
             }
         })
     });
@@ -3975,7 +4010,7 @@ function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage)
         return;
     }
     if (!cpCentreStats.length) {
-        canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
+        canvas.parentElement.innerHTML = '<p class="report-chart-empty">' + emptyMessage + '</p>';
         return;
     }
     const cpBarValues = cpCentreStats.map(function (row) { return Number(row[metricKey]) || 0; });
@@ -4010,32 +4045,48 @@ function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage)
     });
 }
 
-cpRenderTrendLineChart(
-    'certifiedMonthlyLineChart',
-    'certified',
-    'Certified',
-    'No certified data for the selected period.'
-);
-cpRenderCentreBarChart(
-    'certifiedCentreBarChart',
-    'certified',
-    'Certified',
-    '#16a34a',
-    'No centres found.'
-);
-cpRenderTrendLineChart(
-    'placedMonthlyLineChart',
-    'placed',
-    'Placed',
-    'No placed data for the selected period.'
-);
-cpRenderCentreBarChart(
-    'placedCentreBarChart',
-    'placed',
-    'Placed',
-    '#2563eb',
-    'No centres found.'
-);
+function reportMonitorRenderChart(draw) {
+    try {
+        draw();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+reportMonitorRenderChart(function () {
+    cpRenderTrendLineChart(
+        'certifiedMonthlyLineChart',
+        'certified',
+        'Certified',
+        'No certified data for the selected period.'
+    );
+});
+reportMonitorRenderChart(function () {
+    cpRenderCentreBarChart(
+        'certifiedCentreBarChart',
+        'certified',
+        'Certified',
+        '#16a34a',
+        'No centres found.'
+    );
+});
+reportMonitorRenderChart(function () {
+    cpRenderTrendLineChart(
+        'placedMonthlyLineChart',
+        'placed',
+        'Placed',
+        'No placed data for the selected period.'
+    );
+});
+reportMonitorRenderChart(function () {
+    cpRenderCentreBarChart(
+        'placedCentreBarChart',
+        'placed',
+        'Placed',
+        '#2563eb',
+        'No centres found.'
+    );
+});
 
 /*==================================================
 COURSE WISE GRAPH
@@ -4048,10 +4099,14 @@ document.getElementById(
 
 if(courseCanvas){
 
-if(!reportPayload.courseStats.length){
+reportMonitorRenderChart(function () {
+
+const courseRows = reportPayload.courseStats || [];
+
+if(!courseRows.length){
 
 courseCanvas.parentElement.innerHTML =
-'<p class="text-center text-muted py-5 mb-0">No course activity for the selected quarter.</p>';
+'<p class="report-chart-empty">No course activity for the selected period.</p>';
 
 }else{
 
@@ -4186,6 +4241,8 @@ precision:0
 );
 
 }
+
+});
 
 }
 
