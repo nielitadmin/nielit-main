@@ -3668,15 +3668,65 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
     });
 }
 
-new Chart(batchCanvas,{
+const travelingDots = {
+    id: 'travelingDots',
+    afterDatasetsDraw(chart) {
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+        const ctx = chart.ctx;
+        const progress = (performance.now() / 2800) % 1;
+        chart.data.datasets.forEach(function(dataset, index) {
+            const meta = chart.getDatasetMeta(index);
+            if (!meta || meta.hidden || !meta.data || meta.data.length < 2) {
+                return;
+            }
+            const points = meta.data.filter(function(point) {
+                return point && Number.isFinite(point.x) && Number.isFinite(point.y);
+            });
+            if (points.length < 2) {
+                return;
+            }
+            const span = progress * (points.length - 1);
+            const start = Math.floor(span);
+            const end = Math.min(start + 1, points.length - 1);
+            const mix = span - start;
+            const x = points[start].x + (points[end].x - points[start].x) * mix;
+            const y = points[start].y + (points[end].y - points[start].y) * mix;
+            ctx.save();
+            ctx.beginPath();
+            ctx.fillStyle = dataset.borderColor || '#2563eb';
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#ffffff';
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+};
+
+const trendChart = new Chart(batchCanvas,{
 type:'line',
 data:{
 labels: trendData.labels || reportPayload.batchMonthly.labels,
 datasets: trendDatasets
 },
+plugins: [travelingDots],
 options: reportMonitorChartOptions({
 responsive:true,
 maintainAspectRatio:false,
+animation: {
+    duration: 900
+},
+elements: {
+    point: {
+        radius: 4,
+        hoverRadius: 7,
+        borderWidth: 2,
+        borderColor: '#ffffff'
+    }
+},
 plugins:{
 legend:{ position:'bottom' }
 },
@@ -3685,6 +3735,18 @@ y:{ beginAtZero:true }
 }
 })
 });
+
+if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+    const moveTrendDots = function() {
+        if (document.hidden) {
+            trendChart._trendTimer = setTimeout(moveTrendDots, 400);
+            return;
+        }
+        trendChart.draw();
+        trendChart._trendTimer = requestAnimationFrame(moveTrendDots);
+    };
+    trendChart._trendTimer = requestAnimationFrame(moveTrendDots);
+}
 
 }
 
