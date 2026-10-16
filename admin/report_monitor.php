@@ -3634,34 +3634,13 @@ function reportMonitorDropLeadingZeros(values) {
     });
 }
 
-function reportMonitorFirstActiveIndex(rows) {
-    const lists = (rows || []).filter(Boolean);
-    const length = lists.reduce(function (max, row) {
-        return Math.max(max, row.length);
-    }, 0);
-    for (let index = 0; index < length; index++) {
-        if (lists.some(function (row) { return Number(row[index]) > 0; })) {
-            return index;
-        }
-    }
-    return 0;
-}
-
 let trendLabels = (trendData.labels || reportPayload.batchMonthly.labels || []).slice();
 if (trendSingleCentre && trendData.series && trendData.series[0]) {
     const only = trendData.series[0];
-    const enrolled = only.enrolled || only.applications || [];
-    const admissions = only.admissions || [];
-    const batches = only.batches || [];
-    const startAt = reportMonitorFirstActiveIndex([enrolled, admissions, batches]);
-    trendLabels = trendLabels.slice(startAt);
-    const enrolledFromStart = enrolled.slice(startAt);
-    const admissionsFromStart = admissions.slice(startAt);
-    const batchesFromStart = batches.slice(startAt);
     trendDatasets = [
         {
             label: (only.label || 'Centre') + ' · Enrolled students',
-            data: enrolledFromStart,
+            data: only.enrolled || only.applications || [],
             borderColor: '#16a34a',
             backgroundColor: '#16a34a22',
             fill: true,
@@ -3670,7 +3649,7 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
         },
         {
             label: (only.label || 'Centre') + ' · Admissions',
-            data: admissionsFromStart,
+            data: only.admissions || [],
             borderColor: '#0f172a',
             backgroundColor: '#0f172a22',
             fill: false,
@@ -3679,7 +3658,7 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
         },
         {
             label: (only.label || 'Centre') + ' · Batches',
-            data: batchesFromStart,
+            data: only.batches || [],
             borderColor: '#f59e0b',
             backgroundColor: '#f59e0b22',
             fill: false,
@@ -3935,24 +3914,13 @@ function cpCentreHasMetric(metricKey) {
 }
 
 function cpBuildTrendLineDatasets(metricKey, labelSuffix) {
-    const seriesList = cpTrendData.series || [];
-    const onlyCentre = seriesList.length === 1;
-    let startAt = 0;
-    if (onlyCentre) {
-        startAt = reportMonitorFirstActiveIndex(seriesList.map(function (series) {
-            return series[metricKey] || [];
-        }));
-    }
-    return seriesList.map(function (series, index) {
+    return (cpTrendData.series || []).map(function (series, index) {
         const isTotal = series.is_total === true || series.key === 'total';
         const color = cpTrendPalette[index % cpTrendPalette.length];
-        const values = (series[metricKey] || []).slice();
-        const data = onlyCentre
-            ? values.slice(startAt)
-            : (isTotal ? values : reportMonitorDropLeadingZeros(values));
+        const values = series[metricKey] || [];
         return {
             label: series.label + ' · ' + labelSuffix,
-            data: data,
+            data: isTotal ? values : reportMonitorDropLeadingZeros(values),
             borderColor: color,
             backgroundColor: color + '22',
             fill: isTotal,
@@ -3974,16 +3942,11 @@ function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) 
         canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
         return;
     }
-    const seriesList = cpTrendData.series || [];
-    const onlyCentre = seriesList.length === 1;
-    const startAt = onlyCentre
-        ? reportMonitorFirstActiveIndex(seriesList.map(function (series) { return series[metricKey] || []; }))
-        : 0;
     const trendLine = new Chart(canvas, {
         type: 'line',
         plugins: [travelingDots],
         data: {
-            labels: (cpTrendData.labels || []).slice(startAt),
+            labels: cpTrendData.labels || [],
             datasets: cpBuildTrendLineDatasets(metricKey, labelSuffix)
         },
         options: reportMonitorChartOptions({
