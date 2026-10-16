@@ -3620,13 +3620,48 @@ if(batchCanvas){
 const trendPalette = ['#0f172a','#16a34a','#2563eb','#ea580c','#a855f7','#0891b2','#db2777','#65a30d'];
 const trendData = reportPayload.batchMonthlyByCentre || { labels: [], series: [] };
 const trendSingleCentre = reportPayload.singleCentre === true || trendData.scope === 'single';
-let trendDatasets = [];
+function reportMonitorDropLeadingZeros(values) {
+    const data = (values || []).map(function (value) { return Number(value) || 0; });
+    let started = false;
+    return data.map(function (value) {
+        if (!started) {
+            if (value <= 0) {
+                return null;
+            }
+            started = true;
+        }
+        return value;
+    });
+}
+
+function reportMonitorFirstActiveIndex(rows) {
+    const lists = (rows || []).filter(Boolean);
+    const length = lists.reduce(function (max, row) {
+        return Math.max(max, row.length);
+    }, 0);
+    for (let index = 0; index < length; index++) {
+        if (lists.some(function (row) { return Number(row[index]) > 0; })) {
+            return index;
+        }
+    }
+    return 0;
+}
+
+let trendLabels = (trendData.labels || reportPayload.batchMonthly.labels || []).slice();
 if (trendSingleCentre && trendData.series && trendData.series[0]) {
     const only = trendData.series[0];
+    const enrolled = only.enrolled || only.applications || [];
+    const admissions = only.admissions || [];
+    const batches = only.batches || [];
+    const startAt = reportMonitorFirstActiveIndex([enrolled, admissions, batches]);
+    trendLabels = trendLabels.slice(startAt);
+    const enrolledFromStart = enrolled.slice(startAt);
+    const admissionsFromStart = admissions.slice(startAt);
+    const batchesFromStart = batches.slice(startAt);
     trendDatasets = [
         {
             label: (only.label || 'Centre') + ' · Enrolled students',
-            data: only.enrolled || only.applications || [],
+            data: enrolledFromStart,
             borderColor: '#16a34a',
             backgroundColor: '#16a34a22',
             fill: true,
@@ -3635,7 +3670,7 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
         },
         {
             label: (only.label || 'Centre') + ' · Admissions',
-            data: only.admissions || [],
+            data: admissionsFromStart,
             borderColor: '#0f172a',
             backgroundColor: '#0f172a22',
             fill: false,
@@ -3644,7 +3679,7 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
         },
         {
             label: (only.label || 'Centre') + ' · Batches',
-            data: only.batches || [],
+            data: batchesFromStart,
             borderColor: '#f59e0b',
             backgroundColor: '#f59e0b22',
             fill: false,
@@ -3656,14 +3691,16 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
 } else {
     trendDatasets = (trendData.series || []).map(function(series, index){
         const color = trendPalette[index % trendPalette.length];
+        const admissions = series.admissions || [];
         return {
             label: series.label + ' · Admissions',
-            data: series.admissions || [],
+            data: index === 0 ? admissions : reportMonitorDropLeadingZeros(admissions),
             borderColor: color,
             backgroundColor: color + '22',
             fill: index === 0,
             borderWidth: index === 0 ? 3 : 2,
-            tension: .35
+            tension: .35,
+            spanGaps: false
         };
     });
 }
@@ -3706,10 +3743,25 @@ const travelingDots = {
     }
 };
 
+function reportMonitorAnimateChart(chart) {
+    if (!chart || (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+        return;
+    }
+    const moveDots = function() {
+        if (document.hidden) {
+            chart._trendTimer = setTimeout(moveDots, 400);
+            return;
+        }
+        chart.draw();
+        chart._trendTimer = requestAnimationFrame(moveDots);
+    };
+    chart._trendTimer = requestAnimationFrame(moveDots);
+}
+
 const trendChart = new Chart(batchCanvas,{
 type:'line',
 data:{
-labels: trendData.labels || reportPayload.batchMonthly.labels,
+labels: trendLabels,
 datasets: trendDatasets
 },
 plugins: [travelingDots],
@@ -3737,15 +3789,7 @@ y:{ beginAtZero:true }
 });
 
 if (!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
-    const moveTrendDots = function() {
-        if (document.hidden) {
-            trendChart._trendTimer = setTimeout(moveTrendDots, 400);
-            return;
-        }
-        trendChart.draw();
-        trendChart._trendTimer = requestAnimationFrame(moveTrendDots);
-    };
-    trendChart._trendTimer = requestAnimationFrame(moveTrendDots);
+    reportMonitorAnimateChart(trendChart);
 }
 
 }
@@ -3891,19 +3935,32 @@ function cpCentreHasMetric(metricKey) {
 }
 
 function cpBuildTrendLineDatasets(metricKey, labelSuffix) {
-    return (cpTrendData.series || []).map(function (series, index) {
+    const seriesList = cpTrendData.series || [];
+    const onlyCentre = seriesList.length === 1;
+    let startAt = 0;
+    if (onlyCentre) {
+        startAt = reportMonitorFirstActiveIndex(seriesList.map(function (series) {
+            return series[metricKey] || [];
+        }));
+    }
+    return seriesList.map(function (series, index) {
         const isTotal = series.is_total === true || series.key === 'total';
         const color = cpTrendPalette[index % cpTrendPalette.length];
+        const values = (series[metricKey] || []).slice();
+        const data = onlyCentre
+            ? values.slice(startAt)
+            : (isTotal ? values : reportMonitorDropLeadingZeros(values));
         return {
             label: series.label + ' · ' + labelSuffix,
-            data: series[metricKey] || [],
+            data: data,
             borderColor: color,
             backgroundColor: color + '22',
             fill: isTotal,
             borderWidth: isTotal ? 3 : 2,
             tension: 0.35,
             pointRadius: isTotal ? 4 : 3,
-            pointHoverRadius: isTotal ? 6 : 4
+            pointHoverRadius: isTotal ? 6 : 4,
+            spanGaps: false
         };
     });
 }
@@ -3917,10 +3974,16 @@ function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) 
         canvas.parentElement.innerHTML = '<p class="text-center text-muted py-5 mb-0">' + emptyMessage + '</p>';
         return;
     }
-    new Chart(canvas, {
+    const seriesList = cpTrendData.series || [];
+    const onlyCentre = seriesList.length === 1;
+    const startAt = onlyCentre
+        ? reportMonitorFirstActiveIndex(seriesList.map(function (series) { return series[metricKey] || []; }))
+        : 0;
+    const trendLine = new Chart(canvas, {
         type: 'line',
+        plugins: [travelingDots],
         data: {
-            labels: cpTrendData.labels || [],
+            labels: (cpTrendData.labels || []).slice(startAt),
             datasets: cpBuildTrendLineDatasets(metricKey, labelSuffix)
         },
         options: reportMonitorChartOptions({
@@ -3939,6 +4002,7 @@ function cpRenderTrendLineChart(canvasId, metricKey, labelSuffix, emptyMessage) 
             }
         })
     });
+    reportMonitorAnimateChart(trendLine);
 }
 
 function cpRenderCentreBarChart(canvasId, metricKey, label, color, emptyMessage) {
