@@ -187,6 +187,58 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return payment_gateway_save($conn, 'razorpay', $enabled, $keyId, $keySecret);
     }
 
+    function payment_parse_money($value): float
+    {
+        if (is_int($value) || is_float($value)) {
+            return round((float) $value, 2);
+        }
+        $clean = preg_replace('/[^\d.]/', '', (string) $value);
+        if ($clean === null || $clean === '' || $clean === '.') {
+            return 0.0;
+        }
+        return round((float) $clean, 2);
+    }
+
+    function payment_course_fee_amount(array $row): float
+    {
+        $training = payment_parse_money($row['training_fees'] ?? 0);
+        if ($training > 0) {
+            return $training;
+        }
+        return payment_parse_money($row['fees'] ?? 0);
+    }
+
+    function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $trainingFees): void
+    {
+        if ($courseId <= 0) {
+            return;
+        }
+        payment_gateway_ensure_schema($conn);
+        $amount = payment_parse_money($trainingFees);
+        if ($enabled === 1 && $amount <= 0) {
+            $enabled = 0;
+        }
+        $stmt = $conn->prepare('UPDATE courses SET online_payment_enabled = ? WHERE id = ?');
+        if ($stmt) {
+            $stmt->bind_param('ii', $enabled, $courseId);
+            $stmt->execute();
+            $stmt->close();
+        }
+        if ($amount <= 0) {
+            return;
+        }
+        $feesColumn = $conn->query("SHOW COLUMNS FROM courses LIKE 'fees'");
+        if (!$feesColumn || $feesColumn->num_rows === 0) {
+            return;
+        }
+        $feeStmt = $conn->prepare('UPDATE courses SET fees = ? WHERE id = ?');
+        if ($feeStmt) {
+            $feeStmt->bind_param('di', $amount, $courseId);
+            $feeStmt->execute();
+            $feeStmt->close();
+        }
+    }
+
     function payment_course_offer(mysqli $conn, int $courseId): array
     {
         payment_gateway_ensure_schema($conn);
@@ -194,7 +246,15 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if ($courseId <= 0) {
             return $empty;
         }
-        $stmt = $conn->prepare('SELECT id, course_name, fees, online_payment_enabled FROM courses WHERE id = ? LIMIT 1');
+        $hasTraining = false;
+        $trainingColumn = $conn->query("SHOW COLUMNS FROM courses LIKE 'training_fees'");
+        if ($trainingColumn && $trainingColumn->num_rows > 0) {
+            $hasTraining = true;
+        }
+        $sql = $hasTraining
+            ? 'SELECT id, course_name, fees, training_fees, online_payment_enabled FROM courses WHERE id = ? LIMIT 1'
+            : 'SELECT id, course_name, fees, online_payment_enabled FROM courses WHERE id = ? LIMIT 1';
+        $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return $empty;
         }
@@ -205,7 +265,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if (!$row) {
             return $empty;
         }
-        $amount = (float) ($row['fees'] ?? 0);
+        $amount = payment_course_fee_amount($row);
         $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $amount > 0;
         return [
             'enabled' => $enabled,

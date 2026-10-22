@@ -15,6 +15,7 @@ require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 ensureCourseRequiredDocumentsColumn($conn);
 
 // Function to generate short token
@@ -164,6 +165,7 @@ if (isset($_POST['update_course'])) {
     $eligibility        = $_POST['eligibility'];
     $duration           = $_POST['duration'];
     $training_fees      = $_POST['training_fees'];
+    $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
     $category           = $_POST['category'];
     $start_date         = $_POST['start_date'];
     $end_date           = $_POST['end_date'];
@@ -394,6 +396,7 @@ if (isset($_POST['update_course'])) {
     }
 
     if ($stmt->execute()) {
+        payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $training_fees);
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
 
         // Handle scheme associations (only if table exists)
@@ -533,11 +536,11 @@ $active_theme = loadActiveTheme($conn);
             <div class="topbar-right">
                 <div class="user-info">
                     <div class="user-details">
-                        <span class="user-name"><?php echo htmlspecialchars($_SESSION['admin']); ?></span>
+                        <span class="user-name"><?php echo htmlspecialchars((string) ($_SESSION['admin'] ?? 'Admin')); ?></span>
                         <span class="user-role">Administrator</span>
                     </div>
                     <div class="user-avatar">
-                        <?php echo strtoupper(substr($_SESSION['admin'], 0, 1)); ?>
+                        <?php echo strtoupper(substr((string) ($_SESSION['admin'] ?? 'A'), 0, 1)); ?>
                     </div>
                 </div>
             </div>
@@ -637,6 +640,11 @@ $active_theme = loadActiveTheme($conn);
                         <div class="form-group">
                             <label class="form-label">Training Fees *</label>
                             <input type="text" class="form-control" name="training_fees" value="<?php echo htmlspecialchars($course['training_fees']); ?>" placeholder="e.g., 15000" required>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="edit_online_payment" value="1" <?php echo ((int) ($course['online_payment_enabled'] ?? 0) === 1) ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="edit_online_payment">Collect this amount online after the student applies</label>
+                            </div>
+                            <small class="text-muted">Tick this, then click Update Course. The student is told to log in and pay this training fee.</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Course Coordinator *</label>

@@ -14,6 +14,7 @@ require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/support_ticket_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 ensureCourseRequiredDocumentsColumn($conn);
 
 if (!isset($_SESSION['admin'])) {
@@ -312,6 +313,12 @@ if (isset($_POST['add_course'])) {
 
     if ($stmt->execute()) {
         $course_id = $conn->insert_id;
+        payment_save_course_online_flag(
+            $conn,
+            (int) $course_id,
+            isset($_POST['online_payment_enabled']) ? 1 : 0,
+            $training_fees
+        );
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
         
         // Auto-assign course to course coordinator who created it
@@ -2588,6 +2595,10 @@ $dashboard_payload = [
                         <div class="form-group">
                             <label class="form-label">Training Fees <span class="required">*</span></label>
                             <input type="text" class="form-control" name="training_fees" placeholder="15000" required>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="add_online_payment_dash" value="1">
+                                <label class="form-check-label" for="add_online_payment_dash">Collect this amount online after the student applies</label>
+                            </div>
                             <div class="form-help">
                                 <i class="fas fa-rupee-sign"></i>
                                 Enter amount in INR (without currency symbol)

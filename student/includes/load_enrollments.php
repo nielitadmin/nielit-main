@@ -13,7 +13,7 @@ $student_enrollments = getEnrollmentsForStudentId($conn, $student_id);
 $student_enrollment_rows = [];
 $student_profile = null;
 
-$rowSql = "SELECT s.*, c.course_name, c.duration, c.fees AS catalog_fees, c.online_payment_enabled,
+$rowSql = "SELECT s.*, c.course_name, c.duration, c.fees AS catalog_fees, c.training_fees AS catalog_training_fees, c.online_payment_enabled,
                   sch.scheme_name, sch.scheme_code,
                   b.batch_name, b.batch_code
            FROM students s

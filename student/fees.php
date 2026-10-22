@@ -92,6 +92,9 @@ foreach ($student_enrollment_rows as $erow) {
     }
     $onlineAmount = (float) ($erow['catalog_fees'] ?? 0);
     if ($onlineAmount <= 0) {
+        $onlineAmount = payment_parse_money($erow['catalog_training_fees'] ?? 0);
+    }
+    if ($onlineAmount <= 0) {
         $onlineAmount = (float) ($erow['fees'] ?? 0);
     }
     if ($onlineAmount <= 0) {
