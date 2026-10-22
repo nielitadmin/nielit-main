@@ -1947,6 +1947,7 @@ Q4 (Jan–Mar)
                         <table class="table table-sm mb-0">
                             <thead>
                                 <tr>
+                                    <th>Scheme / project</th>
                                     <th>Training partner</th>
                                     <th class="text-end">Certified</th>
                                     <th class="text-end">Placed</th>
@@ -1955,6 +1956,7 @@ Q4 (Jan–Mar)
                             <tbody>
                             <?php foreach ($trainingPartnerRows as $trainingPartnerRow): ?>
                                 <tr>
+                                    <td><?php echo htmlspecialchars((string) ($trainingPartnerRow['scheme_name'] ?? '')) !== '' ? htmlspecialchars((string) $trainingPartnerRow['scheme_name']) : '—'; ?></td>
                                     <td>
                                         <?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?>
                                         <?php if ($trainingPartnerRow['partner_code'] !== ''): ?>
@@ -1968,7 +1970,7 @@ Q4 (Jan–Mar)
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th>Total</th>
+                                    <th colspan="2">Total</th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
                                 </tr>
@@ -1985,7 +1987,9 @@ Q4 (Jan–Mar)
                         new Chart(canvas, {
                             type: 'bar',
                             data: {
-                                labels: rows.map(function (row) { return row.partner_name; }),
+                                labels: rows.map(function (row) {
+                                    return row.scheme_name ? row.scheme_name + ' · ' + row.partner_name : row.partner_name;
+                                }),
                                 datasets: [
                                     { label: 'Certified', data: rows.map(function (row) { return row.certified; }), backgroundColor: '#16a34a' },
                                     { label: 'Placed', data: rows.map(function (row) { return row.placed; }), backgroundColor: '#0f172a' }
@@ -3882,8 +3886,7 @@ if (reportMonitorHasTrendValue(tpTrend.certified)) {
         backgroundColor: '#7c3aed22',
         fill: false,
         borderWidth: 3,
-        borderDash: [7, 4],
-        tension: .35,
+        tension: 0,
         spanGaps: true
     });
 }
@@ -3895,8 +3898,7 @@ if (reportMonitorHasTrendValue(tpTrend.placed)) {
         backgroundColor: '#0891b222',
         fill: false,
         borderWidth: 3,
-        borderDash: [2, 3],
-        tension: .35,
+        tension: 0,
         spanGaps: true
     });
 }

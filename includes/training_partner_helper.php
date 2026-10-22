@@ -18,6 +18,19 @@ if (!function_exists('training_partner_ensure_schema')) {
             KEY idx_tp_centre (centre_id),
             KEY idx_tp_active (is_active)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $conn->query("CREATE TABLE IF NOT EXISTS training_partner_students (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            partner_id INT NOT NULL,
+            scheme_id INT NOT NULL,
+            student_name VARCHAR(180) NOT NULL,
+            mobile VARCHAR(20) NOT NULL DEFAULT '',
+            figure_month DATE NOT NULL,
+            is_certified TINYINT(1) NOT NULL DEFAULT 0,
+            is_placed TINYINT(1) NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            KEY idx_tp_student_period (figure_month),
+            KEY idx_tp_student_partner (partner_id, scheme_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $conn->query("CREATE TABLE IF NOT EXISTS training_partner_figures (
             id INT AUTO_INCREMENT PRIMARY KEY,
             partner_id INT NOT NULL,
@@ -276,6 +289,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             while ($row = $result->fetch_assoc()) {
                 $rows[] = [
                     'id' => (int) $row['id'],
+                    'scheme_name' => '',
                     'partner_name' => (string) $row['partner_name'],
                     'partner_code' => (string) $row['partner_code'],
                     'enrolled' => (int) $row['enrolled'],
@@ -285,6 +299,114 @@ if (!function_exists('training_partner_ensure_schema')) {
             }
         }
         $stmt->close();
+
+        $studentSql = "SELECT p.id, p.partner_name, p.partner_code,
+                              COALESCE(sc.scheme_name, '') AS scheme_name,
+                              SUM(st.is_certified) AS certified,
+                              SUM(st.is_placed) AS placed
+                       FROM training_partner_students st
+                       INNER JOIN training_partners p ON p.id = st.partner_id
+                       LEFT JOIN schemes sc ON sc.id = st.scheme_id
+                       WHERE p.is_active = 1
+                         AND st.figure_month >= ? AND st.figure_month < ?";
+        $studentTypes = 'ss';
+        $studentValues = [$start, $next];
+        if ($centreId > 0) {
+            $studentSql .= ' AND p.centre_id = ?';
+            $studentTypes .= 'i';
+            $studentValues[] = $centreId;
+        }
+        $studentSql .= ' GROUP BY p.id, p.partner_name, p.partner_code, sc.scheme_name
+                         ORDER BY sc.scheme_name ASC, p.partner_name ASC';
+        $studentStmt = $conn->prepare($studentSql);
+        if ($studentStmt) {
+            $studentStmt->bind_param($studentTypes, ...$studentValues);
+            $studentStmt->execute();
+            $studentResult = $studentStmt->get_result();
+            if ($studentResult) {
+                while ($row = $studentResult->fetch_assoc()) {
+                    $rows[] = [
+                        'id' => (int) $row['id'],
+                        'scheme_name' => (string) $row['scheme_name'],
+                        'partner_name' => (string) $row['partner_name'],
+                        'partner_code' => (string) $row['partner_code'],
+                        'enrolled' => 0,
+                        'certified' => (int) $row['certified'],
+                        'placed' => (int) $row['placed'],
+                    ];
+                }
+            }
+            $studentStmt->close();
+        }
+        return $rows;
+    }
+
+    function training_partner_schemes(mysqli $conn): array
+    {
+        $rows = [];
+        $result = $conn->query("SELECT id, scheme_name, scheme_code FROM schemes WHERE LOWER(status) = 'active' ORDER BY scheme_name ASC");
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
+            }
+        }
+        return $rows;
+    }
+
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $fyYear, string $quarter, int $certified, int $placed): array
+    {
+        training_partner_ensure_schema($conn);
+        $name = trim($name);
+        $mobile = trim($mobile);
+        $figureMonth = training_partner_quarter_start($fyYear, strtoupper(trim($quarter)));
+        if ($schemeId <= 0) {
+            return ['ok' => false, 'error' => 'Choose the scheme or project first.'];
+        }
+        if ($partnerId <= 0 || $figureMonth === '' || $name === '') {
+            return ['ok' => false, 'error' => 'Choose the training partner, quarter, and student name.'];
+        }
+        $certified = $certified === 1 ? 1 : 0;
+        $placed = $placed === 1 ? 1 : 0;
+        $stmt = $conn->prepare('INSERT INTO training_partner_students (partner_id, scheme_id, student_name, mobile, figure_month, is_certified, is_placed) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        if (!$stmt) {
+            return ['ok' => false, 'error' => 'Could not save the student record.'];
+        }
+        $stmt->bind_param('iisssii', $partnerId, $schemeId, $name, $mobile, $figureMonth, $certified, $placed);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
+    }
+
+    function training_partner_delete_student(mysqli $conn, int $id): bool
+    {
+        training_partner_ensure_schema($conn);
+        $stmt = $conn->prepare('DELETE FROM training_partner_students WHERE id = ?');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $id);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return $ok;
+    }
+
+    function training_partner_students_list(mysqli $conn): array
+    {
+        training_partner_ensure_schema($conn);
+        $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.student_name, st.mobile, st.figure_month, st.is_certified, st.is_placed,
+                       p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                LEFT JOIN schemes sc ON sc.id = st.scheme_id
+                WHERE p.is_active = 1
+                ORDER BY st.figure_month DESC, sc.scheme_name ASC, p.partner_name ASC, st.student_name ASC";
+        $result = $conn->query($sql);
+        $rows = [];
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[] = $row;
+            }
+        }
         return $rows;
     }
 
@@ -336,24 +458,272 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         $figureStmt->close();
 
-        $lastIndexByQuarter = [];
+        $studentStmt = $conn->prepare('SELECT st.figure_month, SUM(st.is_certified) AS certified, SUM(st.is_placed) AS placed
+            FROM training_partner_students st
+            INNER JOIN training_partners p ON p.id = st.partner_id
+            WHERE p.is_active = 1 AND st.figure_month >= ? AND st.figure_month < ?'
+            . ($centreId > 0 ? ' AND p.centre_id = ?' : '')
+            . ' GROUP BY st.figure_month');
+        if ($studentStmt) {
+            if ($centreId > 0) {
+                $studentStmt->bind_param('ssi', $start, $next, $centreId);
+            } else {
+                $studentStmt->bind_param('ss', $start, $next);
+            }
+            $studentStmt->execute();
+            $studentResult = $studentStmt->get_result();
+            if ($studentResult) {
+                while ($row = $studentResult->fetch_assoc()) {
+                    $info = training_partner_quarter_from_date((string) $row['figure_month']);
+                    $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
+                    if (!isset($quarterTotals[$key])) {
+                        $quarterTotals[$key] = ['certified' => 0, 'placed' => 0];
+                    }
+                    $quarterTotals[$key]['certified'] += (int) $row['certified'];
+                    $quarterTotals[$key]['placed'] += (int) $row['placed'];
+                }
+            }
+            $studentStmt->close();
+        }
+
+        $indexesByQuarter = [];
         foreach ($monthKeys as $index => $monthKey) {
             $info = training_partner_quarter_from_date($monthKey . '-01');
             $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
-            $lastIndexByQuarter[$key] = $index;
+            $indexesByQuarter[$key][] = $index;
         }
-        foreach ($lastIndexByQuarter as $key => $index) {
+        foreach ($indexesByQuarter as $key => $indexes) {
             if (!isset($quarterTotals[$key])) {
                 continue;
             }
-            if ((int) $quarterTotals[$key]['certified'] > 0) {
-                $certified[$index] = (int) $quarterTotals[$key]['certified'];
-            }
-            if ((int) $quarterTotals[$key]['placed'] > 0) {
-                $placed[$index] = (int) $quarterTotals[$key]['placed'];
+            foreach ($indexes as $index) {
+                if ((int) $quarterTotals[$key]['certified'] > 0) {
+                    $certified[$index] = (int) $quarterTotals[$key]['certified'];
+                }
+                if ((int) $quarterTotals[$key]['placed'] > 0) {
+                    $placed[$index] = (int) $quarterTotals[$key]['placed'];
+                }
             }
         }
 
         return ['certified' => $certified, 'placed' => $placed];
+    }
+
+    function training_partner_student_template(): void
+    {
+        $rows = [
+            ['Student name', 'Mobile', 'Certified', 'Placed'],
+            ['Anita Das', '9876543210', 'Yes', 'No'],
+            ['Ravi Kumar', '', 'Yes', 'Yes'],
+        ];
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>'
+            . '<?mso-application progid="Excel.Sheet"?>'
+            . '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+            . '<Worksheet ss:Name="Students"><Table>';
+        foreach ($rows as $row) {
+            $xml .= '<Row>';
+            foreach ($row as $cell) {
+                $xml .= '<Cell><Data ss:Type="String">' . htmlspecialchars($cell, ENT_QUOTES | ENT_XML1, 'UTF-8') . '</Data></Cell>';
+            }
+            $xml .= '</Row>';
+        }
+        $xml .= '</Table></Worksheet></Workbook>';
+        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="training-partner-students.xls"');
+        echo $xml;
+    }
+
+    function training_partner_sheet_flag($value): int
+    {
+        $text = strtolower(trim((string) $value));
+        return in_array($text, ['1', 'y', 'yes', 'true'], true) ? 1 : 0;
+    }
+
+    function training_partner_rows_from_matrix(array $matrix): array
+    {
+        $records = [];
+        if ($matrix === []) {
+            return $records;
+        }
+        $header = array_map(static function ($cell) {
+            $text = strtolower(trim((string) $cell));
+            return preg_replace('/[^a-z]/', '', $text);
+        }, $matrix[0]);
+        $nameCol = 0;
+        $mobileCol = 1;
+        $certifiedCol = 2;
+        $placedCol = 3;
+        $start = 0;
+        foreach ($header as $index => $label) {
+            if (in_array($label, ['studentname', 'name', 'student'], true)) {
+                $nameCol = $index;
+                $start = 1;
+            } elseif (in_array($label, ['mobile', 'phone', 'mobileno'], true)) {
+                $mobileCol = $index;
+                $start = 1;
+            } elseif ($label === 'certified') {
+                $certifiedCol = $index;
+                $start = 1;
+            } elseif ($label === 'placed') {
+                $placedCol = $index;
+                $start = 1;
+            }
+        }
+        for ($i = $start; $i < count($matrix); $i++) {
+            $row = $matrix[$i];
+            $name = trim((string) ($row[$nameCol] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $records[] = [
+                'name' => $name,
+                'mobile' => trim((string) ($row[$mobileCol] ?? '')),
+                'certified' => training_partner_sheet_flag($row[$certifiedCol] ?? ''),
+                'placed' => training_partner_sheet_flag($row[$placedCol] ?? ''),
+            ];
+        }
+        return $records;
+    }
+
+    function training_partner_read_csv(string $path): array
+    {
+        $matrix = [];
+        $handle = fopen($path, 'rb');
+        if (!$handle) {
+            return $matrix;
+        }
+        while (($row = fgetcsv($handle)) !== false) {
+            $matrix[] = $row;
+        }
+        fclose($handle);
+        return $matrix;
+    }
+
+    function training_partner_read_spreadsheetml(string $xml): array
+    {
+        $matrix = [];
+        if (!preg_match_all('/<Row\b[^>]*>(.*?)<\/Row>/s', $xml, $rows)) {
+            return $matrix;
+        }
+        foreach ($rows[1] as $rowXml) {
+            preg_match_all('/<Data\b[^>]*>(.*?)<\/Data>/s', $rowXml, $cells);
+            $matrix[] = array_map(static function ($cell) {
+                return html_entity_decode(strip_tags($cell), ENT_QUOTES | ENT_XML1, 'UTF-8');
+            }, $cells[1]);
+        }
+        return $matrix;
+    }
+
+    function training_partner_read_xlsx(string $path): array
+    {
+        if (!class_exists('ZipArchive')) {
+            return [];
+        }
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) {
+            return [];
+        }
+        $shared = [];
+        $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+        if (is_string($sharedXml) && $sharedXml !== '') {
+            if (preg_match_all('/<si\b[^>]*>(.*?)<\/si>/s', $sharedXml, $items)) {
+                foreach ($items[1] as $item) {
+                    preg_match_all('/<t\b[^>]*>(.*?)<\/t>/s', $item, $texts);
+                    $shared[] = html_entity_decode(implode('', $texts[1]), ENT_QUOTES | ENT_XML1, 'UTF-8');
+                }
+            }
+        }
+        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        if (!is_string($sheetXml) || $sheetXml === '') {
+            return [];
+        }
+        $grid = [];
+        if (!preg_match_all('/<c\b([^>]*)>(.*?)<\/c>/s', $sheetXml, $cells, PREG_SET_ORDER)) {
+            return [];
+        }
+        foreach ($cells as $cell) {
+            $attrs = $cell[1];
+            $body = $cell[2];
+            if (!preg_match('/r="([A-Z]+)(\d+)"/', $attrs, $ref)) {
+                continue;
+            }
+            $col = 0;
+            foreach (str_split($ref[1]) as $letter) {
+                $col = ($col * 26) + (ord($letter) - 64);
+            }
+            $col--;
+            $rowIndex = (int) $ref[2] - 1;
+            $value = '';
+            if (strpos($attrs, 't="s"') !== false && preg_match('/<v>(\d+)<\/v>/', $body, $sharedRef)) {
+                $value = $shared[(int) $sharedRef[1]] ?? '';
+            } elseif (preg_match('/<v>(.*?)<\/v>/s', $body, $number)) {
+                $value = $number[1];
+            } elseif (preg_match('/<t\b[^>]*>(.*?)<\/t>/s', $body, $inline)) {
+                $value = html_entity_decode($inline[1], ENT_QUOTES | ENT_XML1, 'UTF-8');
+            }
+            $grid[$rowIndex][$col] = $value;
+        }
+        if ($grid === []) {
+            return [];
+        }
+        ksort($grid);
+        $matrix = [];
+        $width = 0;
+        foreach ($grid as $row) {
+            $width = max($width, max(array_keys($row)) + 1);
+        }
+        foreach ($grid as $row) {
+            $line = array_fill(0, $width, '');
+            foreach ($row as $col => $value) {
+                $line[$col] = $value;
+            }
+            $matrix[] = $line;
+        }
+        return $matrix;
+    }
+
+    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, int $fyYear, string $quarter): array
+    {
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        $matrix = [];
+        if ($ext === 'csv') {
+            $matrix = training_partner_read_csv($path);
+        } elseif ($ext === 'xlsx') {
+            $matrix = training_partner_read_xlsx($path);
+        } elseif ($ext === 'xls') {
+            $raw = file_get_contents($path);
+            if (!is_string($raw) || strpos($raw, '<Workbook') === false) {
+                return ['ok' => false, 'error' => 'Use the downloaded Excel template, or save the sheet as .xlsx.', 'saved' => 0];
+            }
+            $matrix = training_partner_read_spreadsheetml($raw);
+        } else {
+            return ['ok' => false, 'error' => 'Upload an Excel file (.xlsx or the .xls template) or a .csv file.', 'saved' => 0];
+        }
+        $records = training_partner_rows_from_matrix($matrix);
+        if ($records === []) {
+            return ['ok' => false, 'error' => 'No student names were found. Keep the header row: Student name, Mobile, Certified, Placed.', 'saved' => 0];
+        }
+        $saved = 0;
+        foreach ($records as $record) {
+            $result = training_partner_save_student(
+                $conn,
+                $partnerId,
+                $schemeId,
+                $record['name'],
+                $record['mobile'],
+                $fyYear,
+                $quarter,
+                (int) $record['certified'],
+                (int) $record['placed']
+            );
+            if (!empty($result['ok'])) {
+                $saved++;
+            }
+        }
+        if ($saved === 0) {
+            return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Check the scheme, training partner, and quarter.', 'saved' => 0];
+        }
+        return ['ok' => true, 'saved' => $saved];
     }
 }

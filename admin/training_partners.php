@@ -14,6 +14,10 @@ if (!isset($_SESSION['admin']) || ($_SESSION['admin_role'] ?? '') !== 'master_ad
 }
 
 training_partner_ensure_schema($conn);
+if (($_GET['download'] ?? '') === 'student_template') {
+    training_partner_student_template();
+    exit;
+}
 $success = '';
 $error = '';
 
@@ -49,6 +53,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
         $success = $result['ok'] ? 'Quarter figures saved. Saving the same partner and quarter again updates those numbers.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the figures.');
+    } elseif ($action === 'save_student') {
+        $result = training_partner_save_student(
+            $conn,
+            (int) ($_POST['partner_id'] ?? 0),
+            (int) ($_POST['scheme_id'] ?? 0),
+            (string) ($_POST['student_name'] ?? ''),
+            (string) ($_POST['mobile'] ?? ''),
+            (int) ($_POST['fy_year'] ?? 0),
+            (string) ($_POST['quarter'] ?? ''),
+            isset($_POST['is_certified']) ? 1 : 0,
+            isset($_POST['is_placed']) ? 1 : 0
+        );
+        $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
+        $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
+    } elseif ($action === 'upload_students') {
+        $file = $_FILES['student_sheet'] ?? null;
+        if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $error = 'Choose an Excel file to upload.';
+        } else {
+            $result = training_partner_import_students(
+                $conn,
+                (string) $file['tmp_name'],
+                (string) ($file['name'] ?? ''),
+                (int) ($_POST['partner_id'] ?? 0),
+                (int) ($_POST['scheme_id'] ?? 0),
+                (int) ($_POST['fy_year'] ?? 0),
+                (string) ($_POST['quarter'] ?? '')
+            );
+            $success = !empty($result['ok']) ? ((int) $result['saved'] . ' students uploaded for this scheme and training partner.') : '';
+            $error = !empty($result['ok']) ? '' : (string) ($result['error'] ?? 'Could not read the Excel file.');
+        }
+    } elseif ($action === 'delete_student') {
+        $success = training_partner_delete_student($conn, (int) ($_POST['student_record_id'] ?? 0))
+            ? 'Student record removed.'
+            : '';
+        if ($success === '') {
+            $error = 'Could not remove that student record.';
+        }
     } elseif ($action === 'delete_figure') {
         $success = training_partner_delete_figure($conn, (int) ($_POST['figure_id'] ?? 0))
             ? 'Figure row removed.'
@@ -59,6 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+$schemes = training_partner_schemes($conn);
+$students = training_partner_students_list($conn);
 $partners = training_partner_list($conn);
 $centres = training_partner_centres($conn);
 $figures = training_partner_figures_list($conn);
@@ -114,7 +158,7 @@ $active_theme = loadActiveTheme($conn);
     <main class="admin-content">
         <div class="tp-page">
             <h1>Training Partner Figures</h1>
-            <p class="tp-note">Enter how many were certified and how many were placed for Q1, Q2, Q3, or Q4. Report Monitor shows the quarter you select there. Saving the same partner and quarter again updates the figures.</p>
+            <p class="tp-note">Choose the scheme or project first, then the training partner, and add each student. Tick Certified or Placed. Report Monitor counts those students on the certified and placed lines for that quarter.</p>
             <?php if ($success !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
@@ -228,6 +272,170 @@ $active_theme = loadActiveTheme($conn);
                         </form>
                     <?php endif; ?>
                 </div>
+            </div>
+            <div class="tp-card mt-3">
+                <h2>Add a student record</h2>
+                <?php if (!$partners || !$schemes): ?>
+                    <p class="text-muted mb-0"><?php echo !$schemes ? 'No active scheme or project is available.' : 'Add a training partner first.'; ?></p>
+                <?php else: ?>
+                    <form method="post">
+                        <input type="hidden" name="action" value="save_student">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Scheme / project</label>
+                                <select class="form-select" name="scheme_id" required>
+                                    <option value="">Select scheme or project</option>
+                                    <?php foreach ($schemes as $scheme): ?>
+                                        <option value="<?php echo (int) $scheme['id']; ?>">
+                                            <?php echo htmlspecialchars((string) $scheme['scheme_name']); ?>
+                                            <?php if ((string) $scheme['scheme_code'] !== ''): ?>
+                                                (<?php echo htmlspecialchars((string) $scheme['scheme_code']); ?>)
+                                            <?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Training partner for this project</label>
+                                <select class="form-select" name="partner_id" required>
+                                    <option value="">Select training partner</option>
+                                    <?php foreach ($partners as $partner): ?>
+                                        <option value="<?php echo (int) $partner['id']; ?>"><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Financial year</label>
+                                <select class="form-select" name="fy_year" required>
+                                    <?php foreach ($fyChoices as $fy): ?>
+                                        <?php $endShort = substr((string) ($fy + 1), -2); ?>
+                                        <option value="<?php echo $fy; ?>" <?php echo ((int) $currentQuarter['fy'] === $fy) ? 'selected' : ''; ?>>
+                                            FY <?php echo $fy . '-' . $endShort; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Quarter</label>
+                                <select class="form-select" name="quarter" required>
+                                    <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
+                                        <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($currentQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($quarterLabel); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Mobile</label>
+                                <input class="form-control" name="mobile" maxlength="20" placeholder="Optional">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Student name</label>
+                            <input class="form-control" name="student_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-check-label me-3"><input type="checkbox" name="is_certified" value="1"> Certified</label>
+                            <label class="form-check-label"><input type="checkbox" name="is_placed" value="1"> Placed</label>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Save student</button>
+                    </form>
+                    <hr>
+                    <h2>Upload students from Excel</h2>
+                    <div class="alert alert-info">
+                        Reminder: choose the scheme, training partner, year, and quarter here. The Excel sheet only needs four columns: <strong>Student name</strong>, <strong>Mobile</strong>, <strong>Certified</strong>, <strong>Placed</strong>. Use Yes or No in the last two columns. Uploaded students are kept in their own table and are not added to All Students.
+                        <a href="training_partners.php?download=student_template">Download the Excel template</a>.
+                    </div>
+                    <form method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="upload_students">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Scheme / project</label>
+                                <select class="form-select" name="scheme_id" required>
+                                    <option value="">Select scheme or project</option>
+                                    <?php foreach ($schemes as $scheme): ?>
+                                        <option value="<?php echo (int) $scheme['id']; ?>"><?php echo htmlspecialchars((string) $scheme['scheme_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Training partner for this project</label>
+                                <select class="form-select" name="partner_id" required>
+                                    <option value="">Select training partner</option>
+                                    <?php foreach ($partners as $partner): ?>
+                                        <option value="<?php echo (int) $partner['id']; ?>"><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Financial year</label>
+                                <select class="form-select" name="fy_year" required>
+                                    <?php foreach ($fyChoices as $fy): ?>
+                                        <option value="<?php echo $fy; ?>" <?php echo ((int) $currentQuarter['fy'] === $fy) ? 'selected' : ''; ?>>FY <?php echo $fy . '-' . substr((string) ($fy + 1), -2); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Quarter</label>
+                                <select class="form-select" name="quarter" required>
+                                    <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
+                                        <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($currentQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>><?php echo htmlspecialchars($quarterLabel); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Excel file</label>
+                                <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" type="submit">Upload students</button>
+                    </form>
+                <?php endif; ?>
+                <?php if ($students): ?>
+                    <div class="table-responsive mt-3">
+                        <table class="tp-table">
+                            <thead>
+                                <tr>
+                                    <th>Scheme / project</th>
+                                    <th>Training partner</th>
+                                    <th>Quarter</th>
+                                    <th>Student</th>
+                                    <th>Certified</th>
+                                    <th>Placed</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($students as $student): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
+                                    <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
+                                    <td>
+                                        <?php echo htmlspecialchars((string) $student['student_name']); ?>
+                                        <?php if ((string) $student['mobile'] !== ''): ?>
+                                            <div class="text-muted small"><?php echo htmlspecialchars((string) $student['mobile']); ?></div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo (int) $student['is_certified'] === 1 ? 'Yes' : 'No'; ?></td>
+                                    <td><?php echo (int) $student['is_placed'] === 1 ? 'Yes' : 'No'; ?></td>
+                                    <td>
+                                        <form method="post" onsubmit="return confirm('Remove this student record?');">
+                                            <input type="hidden" name="action" value="delete_student">
+                                            <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
+                                            <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
             </div>
             <div class="tp-card mt-3">
                 <h2>Saved figures</h2>
