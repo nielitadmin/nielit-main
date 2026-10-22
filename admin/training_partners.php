@@ -40,12 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $result = training_partner_save_figure(
             $conn,
             (int) ($_POST['partner_id'] ?? 0),
-            (string) ($_POST['figure_month'] ?? ''),
+            (int) ($_POST['fy_year'] ?? 0),
+            (string) ($_POST['quarter'] ?? ''),
             (int) ($_POST['enrolled'] ?? 0),
             (int) ($_POST['certified'] ?? 0),
-            (int) ($_POST['placed'] ?? 0)
+            (int) ($_POST['placed'] ?? 0),
+            (int) ($_POST['figure_id'] ?? 0)
         );
-        $success = $result['ok'] ? 'Training partner figures saved. They appear on Report Monitor for that month.' : '';
+        $success = $result['ok'] ? 'Quarter figures saved. Saving the same partner and quarter again updates those numbers.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the figures.');
     } elseif ($action === 'delete_figure') {
         $success = training_partner_delete_figure($conn, (int) ($_POST['figure_id'] ?? 0))
@@ -67,6 +69,22 @@ foreach ($partners as $partner) {
         $editPartner = $partner;
         break;
     }
+}
+$editFigure = null;
+$editFigureId = (int) ($_GET['figure'] ?? 0);
+foreach ($figures as $figure) {
+    if ((int) $figure['id'] === $editFigureId) {
+        $editFigure = $figure;
+        break;
+    }
+}
+$currentQuarter = training_partner_current_quarter();
+$figureQuarter = $editFigure
+    ? training_partner_quarter_from_date((string) $editFigure['figure_month'])
+    : $currentQuarter;
+$fyChoices = [];
+for ($fy = (int) date('Y') + 1; $fy >= (int) date('Y') - 6; $fy--) {
+    $fyChoices[] = $fy;
 }
 $page_title = 'Training Partner Figures';
 $active_theme = loadActiveTheme($conn);
@@ -96,7 +114,7 @@ $active_theme = loadActiveTheme($conn);
     <main class="admin-content">
         <div class="tp-page">
             <h1>Training Partner Figures</h1>
-            <p class="tp-note">Enter whole numbers for each partner and month. Report Monitor adds the months that fall in the selected financial year or quarter. These figures stay separate from the centre student totals.</p>
+            <p class="tp-note">Enter whole numbers for Q1, Q2, Q3, or Q4. Report Monitor shows the quarter you select there. Saving the same partner and quarter again updates the figures. These numbers stay separate from the centre student totals.</p>
             <?php if ($success !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
@@ -158,39 +176,59 @@ $active_theme = loadActiveTheme($conn);
                     <?php endif; ?>
                 </div>
                 <div class="tp-card">
-                    <h2>Monthly figures</h2>
+                    <h2><?php echo $editFigure ? 'Update quarter figures' : 'Quarter figures'; ?></h2>
                     <?php if (!$partners): ?>
                         <p class="text-muted">Add a training partner first.</p>
                     <?php else: ?>
                         <form method="post">
                             <input type="hidden" name="action" value="save_figure">
+                            <input type="hidden" name="figure_id" value="<?php echo (int) ($editFigure['id'] ?? 0); ?>">
                             <div class="mb-3">
                                 <label class="form-label">Training partner</label>
                                 <select class="form-select" name="partner_id" required>
                                     <?php foreach ($partners as $partner): ?>
-                                        <option value="<?php echo (int) $partner['id']; ?>"><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
+                                        <option value="<?php echo (int) $partner['id']; ?>" <?php echo ((int) ($editFigure['partner_id'] ?? 0) === (int) $partner['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Month</label>
-                                <input class="form-control" type="month" name="figure_month" required value="<?php echo date('Y-m'); ?>">
+                            <div class="row">
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Financial year</label>
+                                    <select class="form-select" name="fy_year" required>
+                                        <?php foreach ($fyChoices as $fy): ?>
+                                            <?php $endShort = substr((string) ($fy + 1), -2); ?>
+                                            <option value="<?php echo $fy; ?>" <?php echo ((int) $figureQuarter['fy'] === $fy) ? 'selected' : ''; ?>>
+                                                FY <?php echo $fy . '-' . $endShort; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-6 mb-3">
+                                    <label class="form-label">Quarter</label>
+                                    <select class="form-select" name="quarter" required>
+                                        <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
+                                            <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($figureQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>>
+                                                <?php echo htmlspecialchars($quarterLabel); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                             </div>
                             <div class="row">
                                 <div class="col-4 mb-3">
                                     <label class="form-label">Enrolled</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="enrolled" value="0" required>
+                                    <input class="form-control" type="number" min="0" step="1" name="enrolled" value="<?php echo (int) ($editFigure['enrolled'] ?? 0); ?>" required>
                                 </div>
                                 <div class="col-4 mb-3">
                                     <label class="form-label">Certified</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="certified" value="0" required>
+                                    <input class="form-control" type="number" min="0" step="1" name="certified" value="<?php echo (int) ($editFigure['certified'] ?? 0); ?>" required>
                                 </div>
                                 <div class="col-4 mb-3">
                                     <label class="form-label">Placed</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="placed" value="0" required>
+                                    <input class="form-control" type="number" min="0" step="1" name="placed" value="<?php echo (int) ($editFigure['placed'] ?? 0); ?>" required>
                                 </div>
                             </div>
-                            <button class="btn btn-primary" type="submit">Save figures</button>
+                            <button class="btn btn-primary" type="submit"><?php echo $editFigure ? 'Update figures' : 'Save figures'; ?></button>
                         </form>
                     <?php endif; ?>
                 </div>
@@ -204,7 +242,7 @@ $active_theme = loadActiveTheme($conn);
                         <table class="tp-table">
                             <thead>
                                 <tr>
-                                    <th>Month</th>
+                                    <th>Quarter</th>
                                     <th>Partner</th>
                                     <th>Enrolled</th>
                                     <th>Certified</th>
@@ -215,13 +253,14 @@ $active_theme = loadActiveTheme($conn);
                             <tbody>
                             <?php foreach ($figures as $figure): ?>
                                 <tr>
-                                    <td><?php echo date('M Y', strtotime((string) $figure['figure_month'])); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $figure['figure_month'])['label']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $figure['partner_name']); ?></td>
                                     <td><?php echo number_format((int) $figure['enrolled']); ?></td>
                                     <td><?php echo number_format((int) $figure['certified']); ?></td>
                                     <td><?php echo number_format((int) $figure['placed']); ?></td>
                                     <td>
-                                        <form method="post" onsubmit="return confirm('Remove this month?');">
+                                        <a href="training_partners.php?figure=<?php echo (int) $figure['id']; ?>">Update</a>
+                                        <form method="post" onsubmit="return confirm('Remove this quarter?');">
                                             <input type="hidden" name="action" value="delete_figure">
                                             <input type="hidden" name="figure_id" value="<?php echo (int) $figure['id']; ?>">
                                             <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>

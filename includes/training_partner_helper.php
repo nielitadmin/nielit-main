@@ -106,13 +106,80 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_save_figure(mysqli $conn, int $partnerId, string $month, int $enrolled, int $certified, int $placed): array
+    function training_partner_quarter_options(): array
+    {
+        return [
+            'Q1' => 'Q1 (Apr–Jun)',
+            'Q2' => 'Q2 (Jul–Sep)',
+            'Q3' => 'Q3 (Oct–Dec)',
+            'Q4' => 'Q4 (Jan–Mar)',
+        ];
+    }
+
+    function training_partner_current_quarter(): array
+    {
+        $month = (int) date('n');
+        $year = (int) date('Y');
+        if ($month >= 4 && $month <= 6) {
+            return ['fy' => $year, 'quarter' => 'Q1'];
+        }
+        if ($month >= 7 && $month <= 9) {
+            return ['fy' => $year, 'quarter' => 'Q2'];
+        }
+        if ($month >= 10) {
+            return ['fy' => $year, 'quarter' => 'Q3'];
+        }
+        return ['fy' => $year - 1, 'quarter' => 'Q4'];
+    }
+
+    function training_partner_quarter_start(int $fyYear, string $quarter): string
+    {
+        $map = [
+            'Q1' => sprintf('%04d-04-01', $fyYear),
+            'Q2' => sprintf('%04d-07-01', $fyYear),
+            'Q3' => sprintf('%04d-10-01', $fyYear),
+            'Q4' => sprintf('%04d-01-01', $fyYear + 1),
+        ];
+        return $map[$quarter] ?? '';
+    }
+
+    function training_partner_quarter_from_date(string $date): array
+    {
+        $time = strtotime($date);
+        if ($time === false) {
+            return ['fy' => 0, 'quarter' => '', 'label' => ''];
+        }
+        $month = (int) date('n', $time);
+        $year = (int) date('Y', $time);
+        if ($month >= 4 && $month <= 6) {
+            $fy = $year;
+            $quarter = 'Q1';
+        } elseif ($month >= 7 && $month <= 9) {
+            $fy = $year;
+            $quarter = 'Q2';
+        } elseif ($month >= 10) {
+            $fy = $year;
+            $quarter = 'Q3';
+        } else {
+            $fy = $year - 1;
+            $quarter = 'Q4';
+        }
+        $endShort = substr((string) ($fy + 1), -2);
+        return [
+            'fy' => $fy,
+            'quarter' => $quarter,
+            'label' => $quarter . ' FY ' . $fy . '-' . $endShort,
+        ];
+    }
+
+    function training_partner_save_figure(mysqli $conn, int $partnerId, int $fyYear, string $quarter, int $enrolled, int $certified, int $placed, int $replaceId = 0): array
     {
         training_partner_ensure_schema($conn);
-        if ($partnerId <= 0 || !preg_match('/^\d{4}-\d{2}$/', $month)) {
-            return ['ok' => false, 'error' => 'Choose a training partner and a month.'];
+        $quarter = strtoupper(trim($quarter));
+        $figureMonth = training_partner_quarter_start($fyYear, $quarter);
+        if ($partnerId <= 0 || $figureMonth === '' || $fyYear < 2000) {
+            return ['ok' => false, 'error' => 'Choose a training partner, financial year, and quarter.'];
         }
-        $figureMonth = $month . '-01';
         $enrolled = max(0, $enrolled);
         $certified = max(0, $certified);
         $placed = max(0, $placed);
@@ -125,6 +192,18 @@ if (!function_exists('training_partner_ensure_schema')) {
         $stmt->bind_param('isiii', $partnerId, $figureMonth, $enrolled, $certified, $placed);
         $ok = $stmt->execute();
         $stmt->close();
+        if ($ok && $replaceId > 0) {
+            $old = $conn->prepare('SELECT figure_month FROM training_partner_figures WHERE id = ? LIMIT 1');
+            if ($old) {
+                $old->bind_param('i', $replaceId);
+                $old->execute();
+                $oldRow = $old->get_result()->fetch_assoc();
+                $old->close();
+                if ($oldRow && (string) $oldRow['figure_month'] !== $figureMonth) {
+                    training_partner_delete_figure($conn, $replaceId);
+                }
+            }
+        }
         return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the figures.'];
     }
 
