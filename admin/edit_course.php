@@ -73,6 +73,7 @@ $registration_form_column_exists = $registration_form_column_check && $registrat
 
 $course = [];
 ensureCourseProjectLevelColumn($conn);
+payment_gateway_ensure_schema($conn);
 
 if (isset($_GET['id'])) {
     $course_id = $_GET['id'];
@@ -165,7 +166,13 @@ if (isset($_POST['update_course'])) {
     $eligibility        = $_POST['eligibility'];
     $duration           = $_POST['duration'];
     $training_fees      = $_POST['training_fees'];
+    $online_receive_amount = payment_round_rupees($_POST['online_receive_amount'] ?? '');
     $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
+    $online_payment_warning = '';
+    if ($online_payment_enabled === 1 && $online_receive_amount < 1) {
+        $online_payment_enabled = 0;
+        $online_payment_warning = ' Online payment stayed off. Enter a whole-rupee amount to receive.';
+    }
     $category           = $_POST['category'];
     $start_date         = $_POST['start_date'];
     $end_date           = $_POST['end_date'];
@@ -396,7 +403,7 @@ if (isset($_POST['update_course'])) {
     }
 
     if ($stmt->execute()) {
-        payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $training_fees);
+        payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount);
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
 
         // Handle scheme associations (only if table exists)
@@ -467,6 +474,9 @@ if (isset($_POST['update_course'])) {
         if (!empty($_SESSION['scheme_sync_message'])) {
             $_SESSION['message'] .= ' ' . $_SESSION['scheme_sync_message'];
             unset($_SESSION['scheme_sync_message']);
+        }
+        if ($online_payment_warning !== '') {
+            $_SESSION['message'] .= $online_payment_warning;
         }
 
         if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
@@ -640,11 +650,8 @@ $active_theme = loadActiveTheme($conn);
                         <div class="form-group">
                             <label class="form-label">Training Fees *</label>
                             <input type="text" class="form-control" name="training_fees" value="<?php echo htmlspecialchars($course['training_fees']); ?>" placeholder="e.g., 15000" required>
-                            <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="edit_online_payment" value="1" <?php echo ((int) ($course['online_payment_enabled'] ?? 0) === 1) ? 'checked' : ''; ?>>
-                                <label class="form-check-label" for="edit_online_payment">Collect this amount online after the student applies</label>
-                            </div>
-                            <small class="text-muted">Tick this, then click Update Course. The student is told to log in and pay this training fee.</small>
+                            <?php payment_render_online_amount_fields('edit_online_payment', 'edit_online_panel', (int) ($course['online_payment_enabled'] ?? 0) === 1, (int) ($course['online_receive_amount'] ?? 0)); ?>
+                            <?php payment_online_amount_script(); ?>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Course Coordinator *</label>

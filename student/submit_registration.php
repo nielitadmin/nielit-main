@@ -1131,6 +1131,8 @@ $_SESSION['registration_email_queued'] = !empty($email_queued);
 $onlineOffer = payment_course_offer($conn, (int) ($course_id ?? 0));
 $_SESSION['online_payment_required'] = !empty($onlineOffer['enabled']);
 $_SESSION['online_payment_amount'] = (float) ($onlineOffer['amount'] ?? 0);
+$_SESSION['online_payment_receive'] = (int) ($onlineOffer['receive_amount'] ?? 0);
+$_SESSION['online_payment_platform_fee'] = (float) ($onlineOffer['platform_fee'] ?? 0);
 $_SESSION['online_payment_course'] = (string) ($onlineOffer['course_name'] ?? $course_name);
 
 finalizeRegistrationRedirect(APP_URL . "/student/registration_success.php");

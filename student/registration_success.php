@@ -20,6 +20,8 @@ $email_sent           = !empty($_SESSION['registration_email_sent']);
 $email_queued         = !empty($_SESSION['registration_email_queued']);
 $online_payment_required = !empty($_SESSION['online_payment_required']);
 $online_payment_amount = (float) ($_SESSION['online_payment_amount'] ?? 0);
+$online_payment_receive = (int) ($_SESSION['online_payment_receive'] ?? 0);
+$online_payment_platform_fee = (float) ($_SESSION['online_payment_platform_fee'] ?? 0);
 $online_payment_course = (string) ($_SESSION['online_payment_course'] ?? ($course_name ?? ''));
 
 // Clear session variables after reading them
@@ -35,6 +37,8 @@ unset(
     $_SESSION['registration_email_queued'],
     $_SESSION['online_payment_required'],
     $_SESSION['online_payment_amount'],
+    $_SESSION['online_payment_receive'],
+    $_SESSION['online_payment_platform_fee'],
     $_SESSION['online_payment_course']
 );
 ?>
@@ -497,7 +501,8 @@ unset(
                         <p style="color:#78350f;">
                             <strong>Online fee:</strong>
                             <?php echo htmlspecialchars($online_payment_course !== '' ? $online_payment_course : 'This course'); ?>
-                            has an online fee of <strong>₹<?php echo number_format($online_payment_amount, 2); ?></strong>.
+                            has an online fee of <strong>₹<?php echo number_format($online_payment_amount, 2); ?></strong>
+                            (₹<?php echo number_format($online_payment_receive, 0); ?> + 2.4% platform fee ₹<?php echo number_format($online_payment_platform_fee, 2); ?>).
                             Log in to the student portal and open Fee Details to pay. Your invoice appears there after the payment succeeds.
                         </p>
                     </div>

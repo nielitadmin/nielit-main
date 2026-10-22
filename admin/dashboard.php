@@ -317,7 +317,7 @@ if (isset($_POST['add_course'])) {
             $conn,
             (int) $course_id,
             isset($_POST['online_payment_enabled']) ? 1 : 0,
-            $training_fees
+            $_POST['online_receive_amount'] ?? ''
         );
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
         
@@ -2595,10 +2595,8 @@ $dashboard_payload = [
                         <div class="form-group">
                             <label class="form-label">Training Fees <span class="required">*</span></label>
                             <input type="text" class="form-control" name="training_fees" placeholder="15000" required>
-                            <div class="form-check mt-2">
-                                <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="add_online_payment_dash" value="1">
-                                <label class="form-check-label" for="add_online_payment_dash">Collect this amount online after the student applies</label>
-                            </div>
+                            <?php payment_render_online_amount_fields('add_online_payment_dash', 'add_online_panel_dash', false, 0); ?>
+                            <?php payment_online_amount_script(); ?>
                             <div class="form-help">
                                 <i class="fas fa-rupee-sign"></i>
                                 Enter amount in INR (without currency symbol)

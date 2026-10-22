@@ -86,8 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
         $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
-        if ($online_payment_enabled === 1 && (float) $fees <= 0) {
-            $error = 'Enter the fee amount before turning on online payment.';
+        $online_receive_amount = payment_round_rupees($_POST['online_receive_amount'] ?? '');
+        if ($online_payment_enabled === 1 && $online_receive_amount < 1) {
+            $error = 'Enter the whole-rupee amount you want to receive before turning on online payment.';
             goto skip_add;
         }
         $description = $_POST['description'];
@@ -115,6 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
+            payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount);
             saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
             
             // Auto-assign course to course coordinator who created it
@@ -226,8 +228,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
         $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
-        if ($online_payment_enabled === 1 && (float) $fees <= 0) {
-            $error = 'Enter the fee amount before turning on online payment.';
+        $online_receive_amount = payment_round_rupees($_POST['online_receive_amount'] ?? '');
+        if ($online_payment_enabled === 1 && $online_receive_amount < 1) {
+            $error = 'Enter the whole-rupee amount you want to receive before turning on online payment.';
             goto skip_edit;
         }
         $description = $_POST['description'];
@@ -247,6 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("issssssssdsssissii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $online_payment_enabled, $id);
         
         if ($stmt->execute()) {
+            payment_save_course_online_flag($conn, (int) $id, $online_payment_enabled, $online_receive_amount);
             saveCourseRequiredDocuments($conn, (int) $id, parseCourseRequiredDocumentsFromPost($_POST));
 
             // Regenerate QR code if registration link exists
@@ -762,10 +766,7 @@ if (!empty($params)) {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Fees (₹) *</label>
                                 <input type="number" name="fees" id="add_fees" class="form-control" step="0.01" min="0" required>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="add_online_payment" value="1">
-                                    <label class="form-check-label" for="add_online_payment">Collect this amount online after the student applies</label>
-                                </div>
+                                <?php payment_render_online_amount_fields('add_online_payment', 'add_online_panel', false, 0); ?>
                             </div>
                         </div>
 
@@ -925,10 +926,7 @@ if (!empty($params)) {
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Fees (₹) *</label>
                                 <input type="number" name="fees" id="edit_fees" class="form-control" step="0.01" min="0" required>
-                                <div class="form-check mt-2">
-                                    <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="edit_online_payment" value="1">
-                                    <label class="form-check-label" for="edit_online_payment">Collect this amount online after the student applies</label>
-                                </div>
+                                <?php payment_render_online_amount_fields('edit_online_payment', 'edit_online_panel', false, 0); ?>
                             </div>
                         </div>
 
@@ -1330,8 +1328,16 @@ if (!empty($params)) {
             document.getElementById('edit_duration').value = course.duration || '';
             document.getElementById('edit_fees').value = course.fees || '';
             const editOnlinePayment = document.getElementById('edit_online_payment');
+            const editOnlineReceive = document.getElementById('edit_online_panel_amount');
+            if (editOnlineReceive) {
+                const receiveAmount = parseInt(course.online_receive_amount || '0', 10);
+                editOnlineReceive.value = receiveAmount > 0 ? String(receiveAmount) : '';
+            }
             if (editOnlinePayment) {
                 editOnlinePayment.checked = course.online_payment_enabled == 1 || course.online_payment_enabled === '1';
+                if (window.paymentRefreshOnlinePanel) {
+                    window.paymentRefreshOnlinePanel(editOnlinePayment);
+                }
             }
             document.getElementById('edit_description').value = course.description || '';
             document.getElementById('edit_eligibility').value = course.eligibility || '';
@@ -1794,5 +1800,6 @@ if (!empty($params)) {
         }
     }
     </script>
+<?php payment_online_amount_script(); ?>
 </body>
 </html>

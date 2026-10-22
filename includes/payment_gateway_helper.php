@@ -46,6 +46,10 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if ($col && $col->num_rows === 0) {
             $conn->query("ALTER TABLE courses ADD COLUMN online_payment_enabled TINYINT(1) NOT NULL DEFAULT 0");
         }
+        $receiveCol = $conn->query("SHOW COLUMNS FROM courses LIKE 'online_receive_amount'");
+        if ($receiveCol && $receiveCol->num_rows === 0) {
+            $conn->query("ALTER TABLE courses ADD COLUMN online_receive_amount INT NOT NULL DEFAULT 0");
+        }
 
         foreach (payment_gateway_catalog() as $provider => $meta) {
             $stmt = $conn->prepare('SELECT id FROM payment_gateway_accounts WHERE provider = ? LIMIT 1');
@@ -199,44 +203,123 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return round((float) $clean, 2);
     }
 
-    function payment_course_fee_amount(array $row): float
+    function payment_platform_percent(): float
     {
-        $training = payment_parse_money($row['training_fees'] ?? 0);
-        if ($training > 0) {
-            return $training;
-        }
-        return payment_parse_money($row['fees'] ?? 0);
+        return 2.4;
     }
 
-    function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $trainingFees): void
+    function payment_round_rupees($value): int
+    {
+        $text = trim((string) $value);
+        if ($text === '' || !preg_match('/^\d+$/', $text)) {
+            return 0;
+        }
+        return (int) $text;
+    }
+
+    function payment_charge_from_receive(int $receive): array
+    {
+        $percent = payment_platform_percent();
+        $fee = round($receive * $percent / 100, 2);
+        return [
+            'receive' => $receive,
+            'platform_percent' => $percent,
+            'platform_fee' => $fee,
+            'total' => round($receive + $fee, 2),
+        ];
+    }
+
+    function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $receiveAmount): void
     {
         if ($courseId <= 0) {
             return;
         }
         payment_gateway_ensure_schema($conn);
-        $amount = payment_parse_money($trainingFees);
-        if ($enabled === 1 && $amount <= 0) {
+        $receive = payment_round_rupees($receiveAmount);
+        if ($enabled === 1 && $receive < 1) {
             $enabled = 0;
         }
-        $stmt = $conn->prepare('UPDATE courses SET online_payment_enabled = ? WHERE id = ?');
+        $stmt = $conn->prepare('UPDATE courses SET online_payment_enabled = ?, online_receive_amount = ? WHERE id = ?');
         if ($stmt) {
-            $stmt->bind_param('ii', $enabled, $courseId);
+            $stmt->bind_param('iii', $enabled, $receive, $courseId);
             $stmt->execute();
             $stmt->close();
         }
-        if ($amount <= 0) {
+    }
+
+    function payment_render_online_amount_fields(string $checkboxId, string $panelId, bool $checked, int $receiveAmount): void
+    {
+        $percent = payment_platform_percent();
+        $value = $receiveAmount > 0 ? (string) $receiveAmount : '';
+        ?>
+        <div class="form-check mt-2">
+            <input class="form-check-input online-pay-toggle" type="checkbox" name="online_payment_enabled" id="<?php echo htmlspecialchars($checkboxId); ?>" value="1" data-panel="<?php echo htmlspecialchars($panelId); ?>" <?php echo $checked ? 'checked' : ''; ?>>
+            <label class="form-check-label" for="<?php echo htmlspecialchars($checkboxId); ?>">Accept online payment for this course</label>
+        </div>
+        <div id="<?php echo htmlspecialchars($panelId); ?>" class="online-pay-panel" style="display:<?php echo $checked ? 'block' : 'none'; ?>; margin-top:10px; padding:12px 14px; border:1px solid #c9d7ea; border-radius:8px; background:#f4f8fc;">
+            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Amount you want to receive (whole rupees only)</label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="10" autocomplete="off" style="max-width:220px;">
+            <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:8px; font-size:13px;">
+                Example: ₹10 + <?php echo htmlspecialchars((string) $percent); ?>% = ₹10.24 shown to the student.
+            </div>
+        </div>
+        <?php
+    }
+
+    function payment_online_amount_script(): void
+    {
+        static $printed = false;
+        if ($printed) {
             return;
         }
-        $feesColumn = $conn->query("SHOW COLUMNS FROM courses LIKE 'fees'");
-        if (!$feesColumn || $feesColumn->num_rows === 0) {
-            return;
-        }
-        $feeStmt = $conn->prepare('UPDATE courses SET fees = ? WHERE id = ?');
-        if ($feeStmt) {
-            $feeStmt->bind_param('di', $amount, $courseId);
-            $feeStmt->execute();
-            $feeStmt->close();
-        }
+        $printed = true;
+        ?>
+        <script>
+        (function () {
+            function money(amount) {
+                return '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+            function refresh(checkbox) {
+                var panel = document.getElementById(checkbox.getAttribute('data-panel'));
+                if (!panel) {
+                    return;
+                }
+                panel.style.display = checkbox.checked ? 'block' : 'none';
+                var input = panel.querySelector('.online-receive-input');
+                var preview = panel.querySelector('.online-pay-preview');
+                if (!input || !preview) {
+                    return;
+                }
+                input.required = checkbox.checked;
+                var digits = String(input.value || '').replace(/\D/g, '');
+                if (input.value !== digits) {
+                    input.value = digits;
+                }
+                var percent = parseFloat(preview.getAttribute('data-percent') || '2.4');
+                var receive = parseInt(digits, 10);
+                if (!receive) {
+                    preview.textContent = 'Example: ₹10 + ' + percent + '% = ₹10.24. That ₹10.24 is what the student sees.';
+                    return;
+                }
+                var fee = Math.round(receive * percent) / 100;
+                var total = Math.round((receive + fee) * 100) / 100;
+                preview.textContent = 'You receive ' + money(receive) + '. Platform fee ' + percent + '% is ' + money(fee) + '. Student pays ' + money(total) + '.';
+            }
+            document.querySelectorAll('.online-pay-toggle').forEach(function (checkbox) {
+                checkbox.addEventListener('change', function () { refresh(checkbox); });
+                var panel = document.getElementById(checkbox.getAttribute('data-panel'));
+                if (panel) {
+                    var input = panel.querySelector('.online-receive-input');
+                    if (input) {
+                        input.addEventListener('input', function () { refresh(checkbox); });
+                    }
+                }
+                refresh(checkbox);
+            });
+            window.paymentRefreshOnlinePanel = refresh;
+        })();
+        </script>
+        <?php
     }
 
     function payment_course_offer(mysqli $conn, int $courseId): array
@@ -246,14 +329,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if ($courseId <= 0) {
             return $empty;
         }
-        $hasTraining = false;
-        $trainingColumn = $conn->query("SHOW COLUMNS FROM courses LIKE 'training_fees'");
-        if ($trainingColumn && $trainingColumn->num_rows > 0) {
-            $hasTraining = true;
-        }
-        $sql = $hasTraining
-            ? 'SELECT id, course_name, fees, training_fees, online_payment_enabled FROM courses WHERE id = ? LIMIT 1'
-            : 'SELECT id, course_name, fees, online_payment_enabled FROM courses WHERE id = ? LIMIT 1';
+        $sql = 'SELECT id, course_name, online_payment_enabled, online_receive_amount FROM courses WHERE id = ? LIMIT 1';
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return $empty;
@@ -265,11 +341,15 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if (!$row) {
             return $empty;
         }
-        $amount = payment_course_fee_amount($row);
-        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $amount > 0;
+        $receive = (int) ($row['online_receive_amount'] ?? 0);
+        $charge = payment_charge_from_receive($receive);
+        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $receive > 0;
         return [
             'enabled' => $enabled,
-            'amount' => $amount,
+            'amount' => $charge['total'],
+            'receive_amount' => $receive,
+            'platform_fee' => $charge['platform_fee'],
+            'platform_percent' => $charge['platform_percent'],
             'course_name' => (string) ($row['course_name'] ?? ''),
             'course_id' => (int) $row['id'],
         ];

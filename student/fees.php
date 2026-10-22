@@ -87,16 +87,11 @@ foreach ($student_enrollment_rows as $erow) {
     if ($onlineCourseId <= 0 || isset($seenOnlineCourse[$onlineCourseId])) {
         continue;
     }
-    if ((int) ($erow['online_payment_enabled'] ?? 0) !== 1) {
+    $offer = payment_course_offer($conn, $onlineCourseId);
+    if (empty($offer['enabled'])) {
         continue;
     }
-    $onlineAmount = (float) ($erow['catalog_fees'] ?? 0);
-    if ($onlineAmount <= 0) {
-        $onlineAmount = payment_parse_money($erow['catalog_training_fees'] ?? 0);
-    }
-    if ($onlineAmount <= 0) {
-        $onlineAmount = (float) ($erow['fees'] ?? 0);
-    }
+    $onlineAmount = (float) $offer['amount'];
     if ($onlineAmount <= 0) {
         continue;
     }
@@ -107,6 +102,9 @@ foreach ($student_enrollment_rows as $erow) {
         'record_id' => (int) ($erow['id'] ?? 0),
         'course_name' => (string) ($erow['course_name'] ?? 'Course'),
         'amount' => $onlineAmount,
+        'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
+        'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
+        'platform_percent' => (float) ($offer['platform_percent'] ?? payment_platform_percent()),
         'paid' => $alreadyPaid,
         'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
     ];
@@ -285,7 +283,10 @@ include 'includes/header.php';
                             <?php foreach ($onlineFeeCourses as $onlineCourse): ?>
                                 <div class="border rounded p-3 mb-2 text-start">
                                     <strong><?php echo htmlspecialchars($onlineCourse['course_name']); ?></strong>
-                                    <div>Fee ₹<?php echo number_format($onlineCourse['amount'], 2); ?>
+                                    <div>You pay ₹<?php echo number_format($onlineCourse['amount'], 2); ?>
+                                        (₹<?php echo number_format((float) $onlineCourse['receive_amount'], 0); ?>
+                                        + <?php echo htmlspecialchars(rtrim(rtrim(number_format((float) $onlineCourse['platform_percent'], 1), '0'), '.')); ?>% platform fee
+                                        ₹<?php echo number_format((float) $onlineCourse['platform_fee'], 2); ?>)
                                         · Paid ₹<?php echo number_format($onlineCourse['paid'], 2); ?></div>
                                     <?php if ($onlineCourse['due'] <= 0): ?>
                                         <span class="badge bg-success mt-2">Paid</span>
