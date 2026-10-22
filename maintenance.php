@@ -1,6 +1,13 @@
 <?php
 require_once __DIR__ . '/config/config.php';
 
+if (!defined('MINISTRY_NAME_HI')) {
+    define('MINISTRY_NAME_HI', 'इलेक्ट्रॉनिकी और सूचना प्रौद्योगिकी मंत्रालय');
+}
+if (!defined('MINISTRY_NAME_EN')) {
+    define('MINISTRY_NAME_EN', 'Ministry of Electronics & Information Technology');
+}
+
 // Check if maintenance mode is enabled
 $maintenance_query = $conn->query("SELECT * FROM maintenance_mode WHERE id = 1");
 $maintenance = $maintenance_query ? $maintenance_query->fetch_assoc() : null;
