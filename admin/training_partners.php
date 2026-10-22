@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) ($_POST['partner_id'] ?? 0),
             (int) ($_POST['fy_year'] ?? 0),
             (string) ($_POST['quarter'] ?? ''),
-            (int) ($_POST['enrolled'] ?? 0),
+            0,
             (int) ($_POST['certified'] ?? 0),
             (int) ($_POST['placed'] ?? 0),
             (int) ($_POST['figure_id'] ?? 0)
@@ -114,7 +114,7 @@ $active_theme = loadActiveTheme($conn);
     <main class="admin-content">
         <div class="tp-page">
             <h1>Training Partner Figures</h1>
-            <p class="tp-note">Enter whole numbers for Q1, Q2, Q3, or Q4. Report Monitor shows the quarter you select there. Saving the same partner and quarter again updates the figures. These numbers stay separate from the centre student totals.</p>
+            <p class="tp-note">Enter how many were certified and how many were placed for Q1, Q2, Q3, or Q4. Report Monitor shows the quarter you select there. Saving the same partner and quarter again updates the figures.</p>
             <?php if ($success !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
@@ -215,15 +215,11 @@ $active_theme = loadActiveTheme($conn);
                                 </div>
                             </div>
                             <div class="row">
-                                <div class="col-4 mb-3">
-                                    <label class="form-label">Enrolled</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="enrolled" value="<?php echo (int) ($editFigure['enrolled'] ?? 0); ?>" required>
-                                </div>
-                                <div class="col-4 mb-3">
+                                <div class="col-6 mb-3">
                                     <label class="form-label">Certified</label>
                                     <input class="form-control" type="number" min="0" step="1" name="certified" value="<?php echo (int) ($editFigure['certified'] ?? 0); ?>" required>
                                 </div>
-                                <div class="col-4 mb-3">
+                                <div class="col-6 mb-3">
                                     <label class="form-label">Placed</label>
                                     <input class="form-control" type="number" min="0" step="1" name="placed" value="<?php echo (int) ($editFigure['placed'] ?? 0); ?>" required>
                                 </div>
@@ -244,7 +240,6 @@ $active_theme = loadActiveTheme($conn);
                                 <tr>
                                     <th>Quarter</th>
                                     <th>Partner</th>
-                                    <th>Enrolled</th>
                                     <th>Certified</th>
                                     <th>Placed</th>
                                     <th></th>
@@ -255,7 +250,6 @@ $active_theme = loadActiveTheme($conn);
                                 <tr>
                                     <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $figure['figure_month'])['label']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $figure['partner_name']); ?></td>
-                                    <td><?php echo number_format((int) $figure['enrolled']); ?></td>
                                     <td><?php echo number_format((int) $figure['certified']); ?></td>
                                     <td><?php echo number_format((int) $figure['placed']); ?></td>
                                     <td>

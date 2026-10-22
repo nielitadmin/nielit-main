@@ -242,9 +242,12 @@ $genderSocialCategoryQuarterSummary = report_monitor_get_gender_social_category_
 );
 
 $trainingPartnerRows = training_partner_report_rows($conn, $monthFilter, $centreId);
-$trainingPartnerTotals = ['enrolled' => 0, 'certified' => 0, 'placed' => 0];
+$trainingPartnerTrend = training_partner_trend_points($conn, $quarterRange['graph_months'] ?? [], $centreId);
+$trainingPartnerRows = array_values(array_filter($trainingPartnerRows, static function (array $row): bool {
+    return (int) $row['certified'] > 0 || (int) $row['placed'] > 0;
+}));
+$trainingPartnerTotals = ['certified' => 0, 'placed' => 0];
 foreach ($trainingPartnerRows as $trainingPartnerRow) {
-    $trainingPartnerTotals['enrolled'] += (int) $trainingPartnerRow['enrolled'];
     $trainingPartnerTotals['certified'] += (int) $trainingPartnerRow['certified'];
     $trainingPartnerTotals['placed'] += (int) $trainingPartnerRow['placed'];
 }
@@ -586,6 +589,8 @@ $reportPayload=[
     'batchMonthly'=>$batchMonthly,
 
     'batchMonthlyByCentre'=>$batchMonthlyByCentre,
+
+    'trainingPartnerTrend'=>$trainingPartnerTrend,
 
     'centreStats'=>$centreStats,
 
@@ -1807,6 +1812,7 @@ Q4 (Jan–Mar)
                     } else {
                         echo ' · Total + per centre · ' . number_format($trendAdmissionsTotal) . ' admissions';
                     }
+                    echo ' · training partner certified and placed';
                     ?>
 
                 </small>
@@ -1924,7 +1930,7 @@ Q4 (Jan–Mar)
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <strong>Training Partner Figures</strong>
-                    <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · enrolled, certified, placed</small>
+                    <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · certified, placed</small>
                 </div>
                 <?php if (empty($isPublicReportView)): ?>
                     <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">Enter figures</a>
@@ -1942,7 +1948,6 @@ Q4 (Jan–Mar)
                             <thead>
                                 <tr>
                                     <th>Training partner</th>
-                                    <th class="text-end">Enrolled</th>
                                     <th class="text-end">Certified</th>
                                     <th class="text-end">Placed</th>
                                 </tr>
@@ -1956,7 +1961,6 @@ Q4 (Jan–Mar)
                                             <span class="text-muted small"><?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?></span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['enrolled']); ?></td>
                                     <td class="text-end"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
                                     <td class="text-end"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
                                 </tr>
@@ -1965,7 +1969,6 @@ Q4 (Jan–Mar)
                             <tfoot>
                                 <tr>
                                     <th>Total</th>
-                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
                                 </tr>
@@ -1984,7 +1987,6 @@ Q4 (Jan–Mar)
                             data: {
                                 labels: rows.map(function (row) { return row.partner_name; }),
                                 datasets: [
-                                    { label: 'Enrolled', data: rows.map(function (row) { return row.enrolled; }), backgroundColor: '#2563eb' },
                                     { label: 'Certified', data: rows.map(function (row) { return row.certified; }), backgroundColor: '#16a34a' },
                                     { label: 'Placed', data: rows.map(function (row) { return row.placed; }), backgroundColor: '#0f172a' }
                                 ]
@@ -3865,6 +3867,37 @@ if (trendSingleCentre && trendData.series && trendData.series[0]) {
             tension: .35,
             spanGaps: false
         };
+    });
+}
+
+const tpTrend = reportPayload.trainingPartnerTrend || {};
+function reportMonitorHasTrendValue(values) {
+    return Array.isArray(values) && values.some(function (value) { return value !== null && value !== undefined; });
+}
+if (reportMonitorHasTrendValue(tpTrend.certified)) {
+    trendDatasets.push({
+        label: 'Training partners · Certified',
+        data: tpTrend.certified,
+        borderColor: '#7c3aed',
+        backgroundColor: '#7c3aed22',
+        fill: false,
+        borderWidth: 3,
+        borderDash: [7, 4],
+        tension: .35,
+        spanGaps: true
+    });
+}
+if (reportMonitorHasTrendValue(tpTrend.placed)) {
+    trendDatasets.push({
+        label: 'Training partners · Placed',
+        data: tpTrend.placed,
+        borderColor: '#0891b2',
+        backgroundColor: '#0891b222',
+        fill: false,
+        borderWidth: 3,
+        borderDash: [2, 3],
+        tension: .35,
+        spanGaps: true
     });
 }
 

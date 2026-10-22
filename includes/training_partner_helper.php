@@ -287,4 +287,73 @@ if (!function_exists('training_partner_ensure_schema')) {
         $stmt->close();
         return $rows;
     }
+
+    function training_partner_trend_points(mysqli $conn, array $graphMonths, int $centreId = 0): array
+    {
+        $emptyCertified = [];
+        $emptyPlaced = [];
+        $monthKeys = [];
+        foreach ($graphMonths as $graphMonth) {
+            $monthKeys[] = sprintf('%04d-%02d', (int) ($graphMonth['year'] ?? 0), (int) ($graphMonth['month'] ?? 0));
+            $emptyCertified[] = null;
+            $emptyPlaced[] = null;
+        }
+        if ($monthKeys === []) {
+            return ['certified' => [], 'placed' => []];
+        }
+
+        $start = $monthKeys[0] . '-01';
+        $last = $monthKeys[count($monthKeys) - 1] . '-01';
+        $next = date('Y-m-d', strtotime($last . ' +1 month'));
+        $certified = $emptyCertified;
+        $placed = $emptyPlaced;
+        $quarterTotals = [];
+        $figureStmt = $conn->prepare('SELECT f.figure_month, SUM(f.certified) AS certified, SUM(f.placed) AS placed
+            FROM training_partner_figures f
+            INNER JOIN training_partners p ON p.id = f.partner_id
+            WHERE p.is_active = 1 AND f.figure_month >= ? AND f.figure_month < ?'
+            . ($centreId > 0 ? ' AND p.centre_id = ?' : '')
+            . ' GROUP BY f.figure_month');
+        if (!$figureStmt) {
+            return ['certified' => $certified, 'placed' => $placed];
+        }
+        if ($centreId > 0) {
+            $figureStmt->bind_param('ssi', $start, $next, $centreId);
+        } else {
+            $figureStmt->bind_param('ss', $start, $next);
+        }
+        $figureStmt->execute();
+        $figureResult = $figureStmt->get_result();
+        if ($figureResult) {
+            while ($row = $figureResult->fetch_assoc()) {
+                $info = training_partner_quarter_from_date((string) $row['figure_month']);
+                $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
+                $quarterTotals[$key] = [
+                    'certified' => (int) $row['certified'],
+                    'placed' => (int) $row['placed'],
+                ];
+            }
+        }
+        $figureStmt->close();
+
+        $lastIndexByQuarter = [];
+        foreach ($monthKeys as $index => $monthKey) {
+            $info = training_partner_quarter_from_date($monthKey . '-01');
+            $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
+            $lastIndexByQuarter[$key] = $index;
+        }
+        foreach ($lastIndexByQuarter as $key => $index) {
+            if (!isset($quarterTotals[$key])) {
+                continue;
+            }
+            if ((int) $quarterTotals[$key]['certified'] > 0) {
+                $certified[$index] = (int) $quarterTotals[$key]['certified'];
+            }
+            if ((int) $quarterTotals[$key]['placed'] > 0) {
+                $placed[$index] = (int) $quarterTotals[$key]['placed'];
+            }
+        }
+
+        return ['certified' => $certified, 'placed' => $placed];
+    }
 }
