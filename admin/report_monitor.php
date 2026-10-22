@@ -17,6 +17,7 @@ require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/report_monitor_helper.php';
+require_once __DIR__ . '/../includes/training_partner_helper.php';
 
 $shareToken = trim((string) ($_GET['share_token'] ?? ''));
 $shareKey = strtolower(trim((string) ($_GET['share'] ?? '')));
@@ -239,6 +240,14 @@ $genderSocialCategoryQuarterSummary = report_monitor_get_gender_social_category_
     $centreId,
     $selectedYear
 );
+
+$trainingPartnerRows = training_partner_report_rows($conn, $monthFilter, $centreId);
+$trainingPartnerTotals = ['enrolled' => 0, 'certified' => 0, 'placed' => 0];
+foreach ($trainingPartnerRows as $trainingPartnerRow) {
+    $trainingPartnerTotals['enrolled'] += (int) $trainingPartnerRow['enrolled'];
+    $trainingPartnerTotals['certified'] += (int) $trainingPartnerRow['certified'];
+    $trainingPartnerTotals['placed'] += (int) $trainingPartnerRow['placed'];
+}
 
 $certifiedPlacedCentreStats = report_monitor_get_certified_placed_centre_stats(
     $conn,
@@ -1907,6 +1916,94 @@ Q4 (Jan–Mar)
         </div>
     </div>
 </div>
+
+<?php if ($trainingPartnerRows !== [] || empty($isPublicReportView)): ?>
+<div class="row mb-4">
+    <div class="col-lg-12">
+        <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <strong>Training Partner Figures</strong>
+                    <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · enrolled, certified, placed</small>
+                </div>
+                <?php if (empty($isPublicReportView)): ?>
+                    <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">Enter figures</a>
+                <?php endif; ?>
+            </div>
+            <div class="card-body">
+                <?php if ($trainingPartnerRows === []): ?>
+                    <div class="report-chart-empty">No training partner figures for this period.</div>
+                <?php else: ?>
+                    <div style="height: 320px;">
+                        <canvas id="trainingPartnerChart"></canvas>
+                    </div>
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Training partner</th>
+                                    <th class="text-end">Enrolled</th>
+                                    <th class="text-end">Certified</th>
+                                    <th class="text-end">Placed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($trainingPartnerRows as $trainingPartnerRow): ?>
+                                <tr>
+                                    <td>
+                                        <?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?>
+                                        <?php if ($trainingPartnerRow['partner_code'] !== ''): ?>
+                                            <span class="text-muted small"><?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['enrolled']); ?></td>
+                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
+                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th>Total</th>
+                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
+                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
+                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <script>
+                    document.addEventListener('DOMContentLoaded', function () {
+                        var canvas = document.getElementById('trainingPartnerChart');
+                        if (!canvas || typeof Chart === 'undefined') {
+                            return;
+                        }
+                        var rows = <?php echo json_encode($trainingPartnerRows, JSON_UNESCAPED_UNICODE); ?>;
+                        new Chart(canvas, {
+                            type: 'bar',
+                            data: {
+                                labels: rows.map(function (row) { return row.partner_name; }),
+                                datasets: [
+                                    { label: 'Enrolled', data: rows.map(function (row) { return row.enrolled; }), backgroundColor: '#2563eb' },
+                                    { label: 'Certified', data: rows.map(function (row) { return row.certified; }), backgroundColor: '#16a34a' },
+                                    { label: 'Placed', data: rows.map(function (row) { return row.placed; }), backgroundColor: '#0f172a' }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: { legend: { position: 'bottom' } },
+                                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                            }
+                        });
+                    });
+                    </script>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- CATEGORY / COURSE GRAPH -->
 

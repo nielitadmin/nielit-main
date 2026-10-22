@@ -569,6 +569,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-chart-line"></i> Report Monitor
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/training_partners'); ?>" class="nav-link <?php echo ($current_page === 'training_partners.php') ? 'active' : ''; ?>">
+                <i class="fas fa-handshake"></i> Training Partners
+            </a>
+        </div>
         <?php endif; ?>
         <div class="nav-item">
             <a href="<?php echo app_url(); ?>" class="nav-link" target="_blank" rel="noopener noreferrer">
