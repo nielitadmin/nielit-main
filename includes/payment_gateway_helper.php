@@ -47,10 +47,62 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             $conn->query("ALTER TABLE courses ADD COLUMN online_payment_enabled TINYINT(1) NOT NULL DEFAULT 0");
         }
 
-        $exists = $conn->query("SELECT id FROM payment_gateway_accounts WHERE provider = 'razorpay' LIMIT 1");
-        if ($exists && $exists->num_rows === 0) {
-            $conn->query("INSERT INTO payment_gateway_accounts (provider, display_name, is_enabled) VALUES ('razorpay', 'Razorpay', 0)");
+        foreach (payment_gateway_catalog() as $provider => $meta) {
+            $stmt = $conn->prepare('SELECT id FROM payment_gateway_accounts WHERE provider = ? LIMIT 1');
+            if (!$stmt) {
+                continue;
+            }
+            $stmt->bind_param('s', $provider);
+            $stmt->execute();
+            $existing = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if ($existing) {
+                continue;
+            }
+            $insert = $conn->prepare('INSERT INTO payment_gateway_accounts (provider, display_name, is_enabled) VALUES (?, ?, 0)');
+            if ($insert) {
+                $name = $meta['name'];
+                $insert->bind_param('ss', $provider, $name);
+                $insert->execute();
+                $insert->close();
+            }
         }
+    }
+
+    function payment_gateway_catalog(): array
+    {
+        return [
+            'razorpay' => [
+                'name' => 'Razorpay',
+                'key_label' => 'Key ID',
+                'secret_label' => 'Key Secret',
+                'hint' => 'Razorpay Dashboard → Account & Settings → API Keys',
+            ],
+            'cashfree' => [
+                'name' => 'Cashfree',
+                'key_label' => 'App ID',
+                'secret_label' => 'Secret Key',
+                'hint' => 'Cashfree → Developers → API Keys',
+            ],
+            'payu' => [
+                'name' => 'PayU',
+                'key_label' => 'Merchant Key',
+                'secret_label' => 'Merchant Salt',
+                'hint' => 'PayU Dashboard → Payment Gateway → Key and Salt',
+            ],
+            'stripe' => [
+                'name' => 'Stripe',
+                'key_label' => 'Publishable key',
+                'secret_label' => 'Secret key',
+                'hint' => 'Stripe Dashboard → Developers → API keys',
+            ],
+            'instamojo' => [
+                'name' => 'Instamojo',
+                'key_label' => 'API Key',
+                'secret_label' => 'Auth Token',
+                'hint' => 'Instamojo → API & Plugins',
+            ],
+        ];
     }
 
     function payment_gateway_get(mysqli $conn, string $provider = 'razorpay'): ?array
@@ -76,10 +128,47 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return $row;
     }
 
-    function payment_gateway_save_razorpay(mysqli $conn, int $enabled, string $keyId, ?string $keySecret): bool
+    function payment_gateway_list(mysqli $conn): array
     {
         payment_gateway_ensure_schema($conn);
-        $current = payment_gateway_get($conn, 'razorpay');
+        $rows = [];
+        $result = $conn->query('SELECT * FROM payment_gateway_accounts ORDER BY id ASC');
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $rows[$row['provider']] = $row;
+            }
+        }
+        $ordered = [];
+        foreach (payment_gateway_catalog() as $provider => $meta) {
+            $ordered[] = array_merge($meta, $rows[$provider] ?? [
+                'provider' => $provider,
+                'display_name' => $meta['name'],
+                'is_enabled' => 0,
+                'key_id' => '',
+                'key_secret' => '',
+            ], ['provider' => $provider]);
+        }
+        return $ordered;
+    }
+
+    function payment_gateway_active_list(mysqli $conn): array
+    {
+        $active = [];
+        foreach (payment_gateway_list($conn) as $row) {
+            if (!empty($row['is_enabled']) && trim((string) ($row['key_id'] ?? '')) !== '' && trim((string) ($row['key_secret'] ?? '')) !== '') {
+                $active[] = $row;
+            }
+        }
+        return $active;
+    }
+
+    function payment_gateway_save(mysqli $conn, string $provider, int $enabled, string $keyId, ?string $keySecret): bool
+    {
+        payment_gateway_ensure_schema($conn);
+        if (!isset(payment_gateway_catalog()[$provider])) {
+            return false;
+        }
+        $current = payment_gateway_get($conn, $provider);
         $secret = $keySecret !== null && $keySecret !== ''
             ? $keySecret
             : (string) ($current['key_secret'] ?? '');
@@ -87,11 +176,15 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if (!$stmt) {
             return false;
         }
-        $provider = 'razorpay';
         $stmt->bind_param('isss', $enabled, $keyId, $secret, $provider);
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
+    }
+
+    function payment_gateway_save_razorpay(mysqli $conn, int $enabled, string $keyId, ?string $keySecret): bool
+    {
+        return payment_gateway_save($conn, 'razorpay', $enabled, $keyId, $keySecret);
     }
 
     function payment_course_offer(mysqli $conn, int $courseId): array
@@ -326,7 +419,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         $values = [$studentCode, $amount];
         $optional = [
             'transaction_id' => [$paymentId, 's'],
-            'payment_mode' => ['Razorpay', 's'],
+            'payment_mode' => ['Online', 's'],
             'payment_date' => [date('Y-m-d'), 's'],
             'status' => ['paid', 's'],
         ];
@@ -346,5 +439,352 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         $stmt->bind_param($types, ...$values);
         $stmt->execute();
         $stmt->close();
+    }
+
+    function payment_public_base(): string
+    {
+        return defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+    }
+
+    function payment_http(string $method, string $url, array $headers, ?string $body): array
+    {
+        $headerLines = $headers;
+        if (function_exists('curl_init')) {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CUSTOMREQUEST => $method,
+                CURLOPT_HTTPHEADER => $headerLines,
+                CURLOPT_TIMEOUT => 30,
+            ]);
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+            }
+            $raw = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+        } else {
+            $context = stream_context_create([
+                'http' => [
+                    'method' => $method,
+                    'header' => implode("\r\n", $headerLines),
+                    'content' => $body ?? '',
+                    'timeout' => 30,
+                    'ignore_errors' => true,
+                ],
+            ]);
+            $raw = @file_get_contents($url, false, $context);
+            $code = 0;
+            if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $match)) {
+                $code = (int) $match[1];
+            }
+        }
+        $decoded = json_decode((string) $raw, true);
+        return ['code' => $code, 'raw' => (string) $raw, 'body' => is_array($decoded) ? $decoded : []];
+    }
+
+    function payment_insert_attempt(mysqli $conn, string $studentCode, int $recordId, int $courseId, string $courseName, float $amount, string $gateway, string $orderId): int
+    {
+        $stmt = $conn->prepare("INSERT INTO online_course_payments
+            (student_code, student_record_id, course_id, course_name, amount, status, gateway, gateway_order_id)
+            VALUES (?, ?, ?, ?, ?, 'created', ?, ?)");
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('siisdss', $studentCode, $recordId, $courseId, $courseName, $amount, $gateway, $orderId);
+        $stmt->execute();
+        $id = (int) $stmt->insert_id;
+        $stmt->close();
+        return $id;
+    }
+
+    function payment_mark_paid_by_order(mysqli $conn, string $orderId, string $paymentId): array
+    {
+        $stmt = $conn->prepare('SELECT * FROM online_course_payments WHERE gateway_order_id = ? LIMIT 1');
+        if (!$stmt) {
+            return ['ok' => false, 'error' => 'Payment order was not found.'];
+        }
+        $stmt->bind_param('s', $orderId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return ['ok' => false, 'error' => 'Payment order was not found.'];
+        }
+        if (($row['status'] ?? '') === 'paid') {
+            return ['ok' => true, 'invoice_id' => (int) $row['id'], 'already' => true];
+        }
+        $invoice = 'INV-' . date('Ymd') . '-' . str_pad((string) $row['id'], 5, '0', STR_PAD_LEFT);
+        $update = $conn->prepare("UPDATE online_course_payments
+            SET status = 'paid', gateway_payment_id = ?, invoice_number = ?, paid_at = NOW()
+            WHERE id = ? AND status <> 'paid'");
+        if (!$update) {
+            return ['ok' => false, 'error' => 'Could not record the payment.'];
+        }
+        $id = (int) $row['id'];
+        $update->bind_param('ssi', $paymentId, $invoice, $id);
+        $update->execute();
+        $update->close();
+        payment_mirror_legacy_payment($conn, (string) $row['student_code'], (float) $row['amount'], $paymentId);
+        return ['ok' => true, 'invoice_id' => $id];
+    }
+
+    function payment_due_for_checkout(mysqli $conn, string $provider, string $studentCode, int $courseId): array
+    {
+        $catalog = payment_gateway_catalog();
+        $gateway = payment_gateway_get($conn, $provider);
+        if (!$gateway || empty($gateway['is_enabled']) || trim((string) $gateway['key_id']) === '' || trim((string) $gateway['key_secret']) === '') {
+            return ['ok' => false, 'error' => ($catalog[$provider]['name'] ?? 'This gateway') . ' is not switched on.'];
+        }
+        $offer = payment_course_offer($conn, $courseId);
+        if (!$offer['enabled']) {
+            return ['ok' => false, 'error' => 'This course does not collect fees online.'];
+        }
+        $due = round($offer['amount'] - payment_student_paid_amount($conn, $studentCode, $courseId), 2);
+        if ($due <= 0) {
+            return ['ok' => false, 'error' => 'This course fee is already paid.'];
+        }
+        return ['ok' => true, 'gateway' => $gateway, 'offer' => $offer, 'due' => $due];
+    }
+
+    function payment_start_checkout(mysqli $conn, string $provider, string $studentCode, int $recordId, int $courseId, string $studentName, string $email, string $phone): array
+    {
+        if ($provider === 'razorpay') {
+            $order = payment_create_razorpay_order($conn, $studentCode, $recordId, $courseId, $studentName, $email, $phone);
+            if (!empty($order['ok'])) {
+                $order['mode'] = 'razorpay';
+            }
+            return $order;
+        }
+
+        $ready = payment_due_for_checkout($conn, $provider, $studentCode, $courseId);
+        if (empty($ready['ok'])) {
+            return $ready;
+        }
+        $gateway = $ready['gateway'];
+        $due = (float) $ready['due'];
+        $courseName = (string) $ready['offer']['course_name'];
+        $base = payment_public_base();
+        $returnUrl = $base . '/student/payment_return.php';
+        $localRef = 'N' . date('ymdHis') . substr(preg_replace('/\D/', '', $studentCode), -4) . $courseId;
+
+        if ($provider === 'stripe') {
+            $attemptId = payment_insert_attempt($conn, $studentCode, $recordId, $courseId, $courseName, $due, 'stripe', $localRef);
+            if ($attemptId <= 0) {
+                return ['ok' => false, 'error' => 'Could not save the payment order.'];
+            }
+            $body = http_build_query([
+                'mode' => 'payment',
+                'success_url' => $returnUrl . '?gateway=stripe&session_id={CHECKOUT_SESSION_ID}',
+                'cancel_url' => $base . '/student/fees.php',
+                'client_reference_id' => (string) $attemptId,
+                'customer_email' => $email,
+                'line_items[0][quantity]' => 1,
+                'line_items[0][price_data][currency]' => 'inr',
+                'line_items[0][price_data][unit_amount]' => (int) round($due * 100),
+                'line_items[0][price_data][product_data][name]' => $courseName,
+            ]);
+            $response = payment_http('POST', 'https://api.stripe.com/v1/checkout/sessions', [
+                'Authorization: Bearer ' . $gateway['key_secret'],
+                'Content-Type: application/x-www-form-urlencoded',
+            ], $body);
+            $sessionId = (string) ($response['body']['id'] ?? '');
+            $url = (string) ($response['body']['url'] ?? '');
+            if ($sessionId === '' || $url === '') {
+                return ['ok' => false, 'error' => (string) ($response['body']['error']['message'] ?? 'Could not start Stripe checkout.')];
+            }
+            $update = $conn->prepare('UPDATE online_course_payments SET gateway_order_id = ? WHERE id = ?');
+            if ($update) {
+                $update->bind_param('si', $sessionId, $attemptId);
+                $update->execute();
+                $update->close();
+            }
+            return ['ok' => true, 'mode' => 'redirect', 'url' => $url];
+        }
+
+        if ($provider === 'cashfree') {
+            $attemptId = payment_insert_attempt($conn, $studentCode, $recordId, $courseId, $courseName, $due, 'cashfree', $localRef);
+            if ($attemptId <= 0) {
+                return ['ok' => false, 'error' => 'Could not save the payment order.'];
+            }
+            $orderId = 'CF' . $attemptId . date('His');
+            $update = $conn->prepare('UPDATE online_course_payments SET gateway_order_id = ? WHERE id = ?');
+            if ($update) {
+                $update->bind_param('si', $orderId, $attemptId);
+                $update->execute();
+                $update->close();
+            }
+            $sandbox = stripos((string) $gateway['key_id'], 'TEST') !== false;
+            $api = $sandbox ? 'https://sandbox.cashfree.com/pg/orders' : 'https://api.cashfree.com/pg/orders';
+            $response = payment_http('POST', $api, [
+                'Content-Type: application/json',
+                'x-api-version: 2023-08-01',
+                'x-client-id: ' . $gateway['key_id'],
+                'x-client-secret: ' . $gateway['key_secret'],
+            ], json_encode([
+                'order_id' => $orderId,
+                'order_amount' => $due,
+                'order_currency' => 'INR',
+                'customer_details' => [
+                    'customer_id' => substr(preg_replace('/[^A-Za-z0-9]/', '', $studentCode), 0, 20) ?: 'student',
+                    'customer_name' => $studentName !== '' ? $studentName : 'Student',
+                    'customer_email' => $email !== '' ? $email : 'student@nielitbhubaneswar.in',
+                    'customer_phone' => preg_replace('/\D/', '', $phone) ?: '9999999999',
+                ],
+                'order_meta' => [
+                    'return_url' => $returnUrl . '?gateway=cashfree&order_id={order_id}',
+                ],
+            ]));
+            $session = (string) ($response['body']['payment_session_id'] ?? '');
+            if ($session === '') {
+                return ['ok' => false, 'error' => (string) ($response['body']['message'] ?? 'Could not start Cashfree checkout.')];
+            }
+            return ['ok' => true, 'mode' => 'cashfree', 'payment_session_id' => $session, 'sandbox' => $sandbox];
+        }
+
+        if ($provider === 'payu') {
+            $txnid = 'PU' . date('ymdHis') . $courseId;
+            $attemptId = payment_insert_attempt($conn, $studentCode, $recordId, $courseId, $courseName, $due, 'payu', $txnid);
+            if ($attemptId <= 0) {
+                return ['ok' => false, 'error' => 'Could not save the payment order.'];
+            }
+            $amount = number_format($due, 2, '.', '');
+            $product = substr(preg_replace('/[|\r\n]/', ' ', $courseName), 0, 100);
+            $first = substr(preg_replace('/[^A-Za-z ]/', '', $studentName), 0, 40) ?: 'Student';
+            $buyerEmail = $email !== '' ? $email : 'student@nielitbhubaneswar.in';
+            $hash = strtolower(hash('sha512', $gateway['key_id'] . '|' . $txnid . '|' . $amount . '|' . $product . '|' . $first . '|' . $buyerEmail . '|||||||||||' . $gateway['key_secret']));
+            $sandbox = stripos((string) $gateway['key_id'], 'test') !== false;
+            return [
+                'ok' => true,
+                'mode' => 'payu',
+                'action' => $sandbox ? 'https://test.payu.in/_payment' : 'https://secure.payu.in/_payment',
+                'fields' => [
+                    'key' => (string) $gateway['key_id'],
+                    'txnid' => $txnid,
+                    'amount' => $amount,
+                    'productinfo' => $product,
+                    'firstname' => $first,
+                    'email' => $buyerEmail,
+                    'phone' => preg_replace('/\D/', '', $phone),
+                    'surl' => $returnUrl . '?gateway=payu',
+                    'furl' => $returnUrl . '?gateway=payu',
+                    'hash' => $hash,
+                ],
+            ];
+        }
+
+        if ($provider === 'instamojo') {
+            $digits = preg_replace('/\D/', '', $phone);
+            if (strlen($digits) > 10) {
+                $digits = substr($digits, -10);
+            }
+            if (strlen($digits) !== 10) {
+                return ['ok' => false, 'error' => 'Add a 10-digit mobile number on the student profile before paying with Instamojo.'];
+            }
+            $requestId = 'IM' . date('ymdHis') . $courseId;
+            $attemptId = payment_insert_attempt($conn, $studentCode, $recordId, $courseId, $courseName, $due, 'instamojo', $requestId);
+            if ($attemptId <= 0) {
+                return ['ok' => false, 'error' => 'Could not save the payment order.'];
+            }
+            $response = payment_http('POST', 'https://www.instamojo.com/api/1.1/payment-requests/', [
+                'X-Api-Key: ' . $gateway['key_id'],
+                'X-Auth-Token: ' . $gateway['key_secret'],
+                'Content-Type: application/x-www-form-urlencoded',
+            ], http_build_query([
+                'purpose' => substr($courseName, 0, 100),
+                'amount' => number_format($due, 2, '.', ''),
+                'buyer_name' => $studentName !== '' ? $studentName : 'Student',
+                'email' => $email !== '' ? $email : 'student@nielitbhubaneswar.in',
+                'phone' => $digits,
+                'redirect_url' => $returnUrl . '?gateway=instamojo',
+                'allow_repeated_payments' => 'false',
+                'send_email' => 'false',
+                'send_sms' => 'false',
+            ]));
+            $request = $response['body']['payment_request'] ?? [];
+            $longUrl = (string) ($request['longurl'] ?? '');
+            $realId = (string) ($request['id'] ?? '');
+            if ($longUrl === '' || $realId === '') {
+                return ['ok' => false, 'error' => (string) ($response['body']['message'] ?? 'Could not start Instamojo checkout.')];
+            }
+            $update = $conn->prepare('UPDATE online_course_payments SET gateway_order_id = ? WHERE id = ?');
+            if ($update) {
+                $update->bind_param('si', $realId, $attemptId);
+                $update->execute();
+                $update->close();
+            }
+            return ['ok' => true, 'mode' => 'redirect', 'url' => $longUrl];
+        }
+
+        return ['ok' => false, 'error' => 'That payment gateway is not available.'];
+    }
+
+    function payment_finish_return(mysqli $conn, array $request): array
+    {
+        $provider = strtolower(trim((string) ($request['gateway'] ?? '')));
+        $gateway = payment_gateway_get($conn, $provider);
+        if (!$gateway) {
+            return ['ok' => false, 'error' => 'Payment could not be confirmed.'];
+        }
+
+        if ($provider === 'stripe') {
+            $sessionId = trim((string) ($request['session_id'] ?? ''));
+            $response = payment_http('GET', 'https://api.stripe.com/v1/checkout/sessions/' . rawurlencode($sessionId), [
+                'Authorization: Bearer ' . $gateway['key_secret'],
+            ], null);
+            if (($response['body']['payment_status'] ?? '') !== 'paid') {
+                return ['ok' => false, 'error' => 'Stripe payment was not completed.'];
+            }
+            return payment_mark_paid_by_order($conn, $sessionId, (string) ($response['body']['payment_intent'] ?? $sessionId));
+        }
+
+        if ($provider === 'cashfree') {
+            $orderId = trim((string) ($request['order_id'] ?? ''));
+            $sandbox = stripos((string) $gateway['key_id'], 'TEST') !== false;
+            $api = ($sandbox ? 'https://sandbox.cashfree.com/pg/orders/' : 'https://api.cashfree.com/pg/orders/') . rawurlencode($orderId);
+            $response = payment_http('GET', $api, [
+                'x-api-version: 2023-08-01',
+                'x-client-id: ' . $gateway['key_id'],
+                'x-client-secret: ' . $gateway['key_secret'],
+            ], null);
+            if (strtoupper((string) ($response['body']['order_status'] ?? '')) !== 'PAID') {
+                return ['ok' => false, 'error' => 'Cashfree payment was not completed.'];
+            }
+            return payment_mark_paid_by_order($conn, $orderId, (string) ($response['body']['cf_order_id'] ?? $orderId));
+        }
+
+        if ($provider === 'payu') {
+            $status = strtolower((string) ($request['status'] ?? ''));
+            $txnid = (string) ($request['txnid'] ?? '');
+            $postedHash = (string) ($request['hash'] ?? '');
+            $salt = (string) $gateway['key_secret'];
+            $key = (string) $gateway['key_id'];
+            $reverse = $salt . '|' . ($request['status'] ?? '') . '|||||||||||' . ($request['email'] ?? '') . '|' . ($request['firstname'] ?? '') . '|' . ($request['productinfo'] ?? '') . '|' . ($request['amount'] ?? '') . '|' . $txnid . '|' . $key;
+            $additional = trim((string) ($request['additionalCharges'] ?? ''));
+            if ($additional !== '') {
+                $reverse = $additional . '|' . $reverse;
+            }
+            $expected = strtolower(hash('sha512', $reverse));
+            if ($status !== 'success' || !hash_equals($expected, strtolower($postedHash))) {
+                return ['ok' => false, 'error' => 'PayU payment was not confirmed.'];
+            }
+            return payment_mark_paid_by_order($conn, $txnid, (string) ($request['mihpayid'] ?? $txnid));
+        }
+
+        if ($provider === 'instamojo') {
+            $requestId = trim((string) ($request['payment_request_id'] ?? ''));
+            $paymentId = trim((string) ($request['payment_id'] ?? ''));
+            $response = payment_http('GET', 'https://www.instamojo.com/api/1.1/payment-requests/' . rawurlencode($requestId) . '/' . rawurlencode($paymentId) . '/', [
+                'X-Api-Key: ' . $gateway['key_id'],
+                'X-Auth-Token: ' . $gateway['key_secret'],
+            ], null);
+            $status = strtolower((string) ($response['body']['payment_request']['payment']['status'] ?? ''));
+            if ($status !== 'credit') {
+                return ['ok' => false, 'error' => 'Instamojo payment was not completed.'];
+            }
+            return payment_mark_paid_by_order($conn, $requestId, $paymentId);
+        }
+
+        return ['ok' => false, 'error' => 'Payment could not be confirmed.'];
     }
 }

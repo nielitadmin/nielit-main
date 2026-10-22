@@ -31,8 +31,10 @@ if (!$student) {
 }
 
 $phone = trim((string) ($student['mobile'] ?? ''));
-$result = payment_create_razorpay_order(
+$provider = strtolower(trim((string) ($_POST['gateway'] ?? 'razorpay')));
+$result = payment_start_checkout(
     $conn,
+    $provider,
     $studentCode,
     $recordId > 0 ? $recordId : (int) $student['id'],
     $courseId,

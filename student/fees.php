@@ -109,7 +109,8 @@ foreach ($student_enrollment_rows as $erow) {
     ];
 }
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
-$onlineGatewayReady = payment_gateway_active_razorpay($conn) !== null;
+$onlineGateways = payment_gateway_active_list($conn);
+$onlineGatewayReady = !empty($onlineGateways);
 if (count($payment_records) === 0) {
     foreach ($onlineInvoices as $invoiceRow) {
         $total_paid += (float) $invoiceRow['amount'];
@@ -122,6 +123,11 @@ include 'includes/header.php';
 ?>
 
 <div class="container py-4">
+    <?php if (!empty($_GET['paid'])): ?>
+        <div class="alert alert-success">Payment received. Your invoice is listed below.</div>
+    <?php elseif (!empty($_GET['pay_error'])): ?>
+        <div class="alert alert-danger"><?php echo htmlspecialchars((string) $_GET['pay_error']); ?></div>
+    <?php endif; ?>
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">
@@ -281,12 +287,18 @@ include 'includes/header.php';
                                     <?php if ($onlineCourse['due'] <= 0): ?>
                                         <span class="badge bg-success mt-2">Paid</span>
                                     <?php elseif ($onlineGatewayReady): ?>
-                                        <button type="button"
-                                                class="btn btn-primary btn-sm mt-2 pay-course-fee"
-                                                data-course-id="<?php echo (int) $onlineCourse['course_id']; ?>"
-                                                data-record-id="<?php echo (int) $onlineCourse['record_id']; ?>">
-                                            <i class="fas fa-credit-card"></i> Pay ₹<?php echo number_format($onlineCourse['due'], 2); ?>
-                                        </button>
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            <?php foreach ($onlineGateways as $gatewayOption): ?>
+                                                <button type="button"
+                                                        class="btn btn-primary btn-sm pay-course-fee"
+                                                        data-gateway="<?php echo htmlspecialchars((string) $gatewayOption['provider']); ?>"
+                                                        data-course-id="<?php echo (int) $onlineCourse['course_id']; ?>"
+                                                        data-record-id="<?php echo (int) $onlineCourse['record_id']; ?>">
+                                                    <i class="fas fa-credit-card"></i>
+                                                    Pay ₹<?php echo number_format($onlineCourse['due'], 2); ?> with <?php echo htmlspecialchars((string) $gatewayOption['name']); ?>
+                                                </button>
+                                            <?php endforeach; ?>
+                                        </div>
                                     <?php else: ?>
                                         <div class="small text-muted mt-2">Online payment is not open yet. Please contact the centre.</div>
                                     <?php endif; ?>
@@ -440,6 +452,7 @@ include 'includes/header.php';
 
 <?php if ($onlineGatewayReady && !empty($onlineFeeCourses)): ?>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
 <script>
 document.querySelectorAll('.pay-course-fee').forEach(function (button) {
     button.addEventListener('click', function () {
@@ -448,11 +461,36 @@ document.querySelectorAll('.pay-course-fee').forEach(function (button) {
         const body = new URLSearchParams();
         body.set('course_id', button.getAttribute('data-course-id') || '');
         body.set('record_id', button.getAttribute('data-record-id') || '');
+        body.set('gateway', button.getAttribute('data-gateway') || 'razorpay');
         fetch('create_course_order.php', { method: 'POST', body: body })
             .then(function (response) { return response.json(); })
             .then(function (order) {
                 if (!order.ok) {
                     throw new Error(order.error || 'Could not start payment');
+                }
+                if (order.mode === 'redirect' && order.url) {
+                    window.location.href = order.url;
+                    return;
+                }
+                if (order.mode === 'payu' && order.action && order.fields) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = order.action;
+                    Object.keys(order.fields).forEach(function (name) {
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        input.value = order.fields[name];
+                        form.appendChild(input);
+                    });
+                    document.body.appendChild(form);
+                    form.submit();
+                    return;
+                }
+                if (order.mode === 'cashfree' && window.Cashfree) {
+                    const cashfree = Cashfree({ mode: order.sandbox ? 'sandbox' : 'production' });
+                    cashfree.checkout({ paymentSessionId: order.payment_session_id, redirectTarget: '_self' });
+                    return;
                 }
                 const checkout = new Razorpay({
                     key: order.key_id,
