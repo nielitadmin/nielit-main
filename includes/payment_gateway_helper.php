@@ -382,6 +382,69 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             : 'unpaid';
     }
 
+    function payment_student_course_invoices(mysqli $conn, string $studentCode, int $courseId): array
+    {
+        payment_gateway_ensure_schema($conn);
+        if ($studentCode === '' || $courseId <= 0) {
+            return [];
+        }
+        $stmt = $conn->prepare("SELECT id, invoice_number, amount, paid_at, course_name, gateway
+            FROM online_course_payments
+            WHERE student_code = ? AND course_id = ? AND status = 'paid'
+            ORDER BY paid_at DESC, id DESC");
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('si', $studentCode, $courseId);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows ?: [];
+    }
+
+    function payment_render_invoice_page(array $row, string $studentCode): void
+    {
+        $gateway = trim((string) ($row['gateway'] ?? ''));
+        $gatewayLabel = $gateway !== '' ? ucfirst($gateway) : 'Online';
+        $paidAt = (string) ($row['paid_at'] ?? '');
+        $paidLabel = $paidAt !== '' ? date('d M Y, h:i A', strtotime($paidAt)) : '';
+        ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice <?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></title>
+    <style>
+        body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
+        h1 { margin-bottom: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+        td { padding: 8px 0; vertical-align: top; }
+        td:first-child { width: 160px; color: #64748b; }
+        .box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <button class="no-print" onclick="window.print()">Print invoice</button>
+    <div class="box">
+        <h1>Fee invoice</h1>
+        <p style="color:#64748b;">NIELIT Bhubaneswar</p>
+        <table>
+            <tr><td>Invoice</td><td><strong><?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></strong></td></tr>
+            <tr><td>Student</td><td><?php echo htmlspecialchars((string) ($row['name'] ?? $studentCode)); ?> (<?php echo htmlspecialchars($studentCode); ?>)</td></tr>
+            <tr><td>Course</td><td><?php echo htmlspecialchars((string) ($row['course_name'] ?? '')); ?></td></tr>
+            <tr><td>Amount paid</td><td><strong>₹<?php echo number_format((float) ($row['amount'] ?? 0), 2); ?></strong></td></tr>
+            <tr><td>Paid on</td><td><?php echo htmlspecialchars($paidLabel); ?></td></tr>
+            <tr><td>Gateway</td><td><?php echo htmlspecialchars($gatewayLabel); ?></td></tr>
+            <tr><td>Payment ID</td><td><?php echo htmlspecialchars((string) ($row['gateway_payment_id'] ?? '')); ?></td></tr>
+            <tr><td>Status</td><td>Paid</td></tr>
+        </table>
+    </div>
+</body>
+</html>
+        <?php
+    }
+
     function payment_student_invoices(mysqli $conn, string $studentCode): array
     {
         payment_gateway_ensure_schema($conn);

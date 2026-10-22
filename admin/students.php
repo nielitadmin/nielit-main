@@ -1339,6 +1339,7 @@ if ($other_gender_count > 0) {
         .students-table .col-cat { width: 56px; }
         .students-table .col-course { width: 120px; }
         .students-table .col-scheme { width: 160px; }
+        .students-table .col-pay { width: 128px; }
         .students-table .col-batch { width: 110px; }
         .students-table .col-status { width: 88px; }
         .students-table .col-date { width: 88px; }
@@ -1990,6 +1991,7 @@ if ($other_gender_count > 0) {
                                 <th class="col-cat">Cat.</th>
                                 <th class="col-course">Course</th>
                                 <th class="col-scheme">Scheme / Project</th>
+                                <th class="col-pay">Online Payment</th>
                                 <th class="col-batch">Batch</th>
                                 <th class="col-status">Status</th>
                                 <th class="col-date">Registered</th>
@@ -2247,6 +2249,32 @@ if ($other_gender_count > 0) {
                                 <?php endif; ?>
                             </td>
                             <td>
+                                <?php
+                                $feeState = $row_course_id > 0
+                                    ? payment_student_status_label($conn, (string) $row['student_id'], $row_course_id)
+                                    : 'not_required';
+                                $feeInvoices = $row_course_id > 0
+                                    ? payment_student_course_invoices($conn, (string) $row['student_id'], $row_course_id)
+                                    : [];
+                                ?>
+                                <?php if ($feeState === 'not_required' && $feeInvoices === []): ?>
+                                    <span class="text-muted small">—</span>
+                                <?php else: ?>
+                                    <?php if ($feeState === 'paid'): ?>
+                                        <span class="badge badge-success">Paid</span>
+                                    <?php elseif ($feeState === 'unpaid'): ?>
+                                        <span class="badge badge-danger">Unpaid</span>
+                                    <?php endif; ?>
+                                    <?php foreach ($feeInvoices as $feeInvoice): ?>
+                                        <?php $invoiceNo = trim((string) ($feeInvoice['invoice_number'] ?? '')); ?>
+                                        <a style="display:block;margin-top:4px;font-size:12px;" target="_blank" rel="noopener"
+                                           href="payment_invoice.php?id=<?php echo (int) $feeInvoice['id']; ?>">
+                                            <?php echo htmlspecialchars($invoiceNo !== '' ? $invoiceNo : 'Invoice'); ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
                                 <?php if (!empty($row_batches)): ?>
                                     <?php foreach ($row_batches as $rb): ?>
                                         <?php $batch_record_id = (int)($rb['student_record_id'] ?? $record_id); ?>
@@ -2273,15 +2301,6 @@ if ($other_gender_count > 0) {
                             </td>
                             <td>
                                 <span class="badge <?php echo $badge_cls; ?>"><?php echo ucfirst($status); ?></span>
-                                <?php
-                                $feeState = $row_course_id > 0
-                                    ? payment_student_status_label($conn, (string) $row['student_id'], $row_course_id)
-                                    : 'not_required';
-                                if ($feeState === 'paid'): ?>
-                                    <br><span class="badge badge-success">Fee paid</span>
-                                <?php elseif ($feeState === 'unpaid'): ?>
-                                    <br><span class="badge badge-danger">Fee unpaid</span>
-                                <?php endif; ?>
                                 <?php if ($status === 'rejected' && !empty($row['rejection_reason'])): ?>
                                     <br><small style="color:#dc2626;font-size:11px;" title="<?php echo htmlspecialchars($row['rejection_note'] ?? ''); ?>">
                                         <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($row['rejection_reason']); ?>
@@ -2403,7 +2422,7 @@ if ($other_gender_count > 0) {
                         else:
                         ?>
                         <tr>
-                            <td colspan="12" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
+                            <td colspan="13" style="padding:2.5rem;text-align:center;color:var(--text-muted);">
                                 <strong>No students found for the selected filters.</strong>
                             </td>
                         </tr>
