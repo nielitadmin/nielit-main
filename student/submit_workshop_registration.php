@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/email_helper.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/state_city_registration.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 
 ensureWorkshopRegistrationSchema($conn);
 
@@ -334,5 +335,9 @@ $_SESSION['student_email'] = $email;
 $_SESSION['course_name'] = $course_name;
 $_SESSION['training_center'] = $training_center;
 $_SESSION['is_returning_student'] = $is_returning_student;
+$onlineOffer = payment_course_offer($conn, (int) ($course_id ?? 0));
+$_SESSION['online_payment_required'] = !empty($onlineOffer['enabled']);
+$_SESSION['online_payment_amount'] = (float) ($onlineOffer['amount'] ?? 0);
+$_SESSION['online_payment_course'] = (string) ($onlineOffer['course_name'] ?? $course_name);
 
 finalizeRegistrationRedirect(APP_URL . '/student/registration_success.php');

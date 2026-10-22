@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/url_helper.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/student_form_helpers.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
 
 // Enable error reporting for debugging (remove in production)
@@ -2272,6 +2273,15 @@ if ($other_gender_count > 0) {
                             </td>
                             <td>
                                 <span class="badge <?php echo $badge_cls; ?>"><?php echo ucfirst($status); ?></span>
+                                <?php
+                                $feeState = $row_course_id > 0
+                                    ? payment_student_status_label($conn, (string) $row['student_id'], $row_course_id)
+                                    : 'not_required';
+                                if ($feeState === 'paid'): ?>
+                                    <br><span class="badge badge-success">Fee paid</span>
+                                <?php elseif ($feeState === 'unpaid'): ?>
+                                    <br><span class="badge badge-danger">Fee unpaid</span>
+                                <?php endif; ?>
                                 <?php if ($status === 'rejected' && !empty($row['rejection_reason'])): ?>
                                     <br><small style="color:#dc2626;font-size:11px;" title="<?php echo htmlspecialchars($row['rejection_note'] ?? ''); ?>">
                                         <i class="fas fa-info-circle"></i> <?php echo htmlspecialchars($row['rejection_reason']); ?>

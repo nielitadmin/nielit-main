@@ -238,7 +238,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <!-- System Settings (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
         <div class="nav-item has-dropdown">
-            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_centres.php', 'manage_header_footer.php', 'manage_themes.php', 'manage_public_themes.php', 'manage_festival_themes.php', 'manage_sidebar_themes.php', 'manage_maintenance.php', 'manage_migrations.php', 'manage_student_kiosk.php', 'manage_activity.php', 'visitor_stats.php', 'check_student_exists.php', 'manage_homepage.php', 'manage_news.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['manage_centres.php', 'manage_header_footer.php', 'manage_themes.php', 'manage_public_themes.php', 'manage_festival_themes.php', 'manage_sidebar_themes.php', 'manage_maintenance.php', 'payment_gateways.php', 'manage_migrations.php', 'manage_student_kiosk.php', 'manage_activity.php', 'visitor_stats.php', 'check_student_exists.php', 'manage_homepage.php', 'manage_news.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-cog"></i> System Settings
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </button>
@@ -260,6 +260,9 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 </a>
                 <a href="<?php echo app_url('admin/manage_sidebar_themes'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_sidebar_themes.php') ? 'active' : ''; ?>" title="Sidebar Themes">
                     <i class="fas fa-columns"></i> Sidebar Themes
+                </a>
+                <a href="<?php echo app_url('admin/payment_gateways'); ?>" class="dropdown-item <?php echo ($current_page === 'payment_gateways.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-credit-card"></i> Payment Gateways
                 </a>
                 <a href="<?php echo app_url('admin/manage_maintenance'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_maintenance.php') ? 'active' : ''; ?>">
                     <i class="fas fa-tools"></i> Maintenance Mode

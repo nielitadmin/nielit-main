@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/course_public_display.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/email_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 ensureCourseRequiredDocumentsColumn($conn);
 
 // ============================================================
@@ -1127,6 +1128,10 @@ $_SESSION['training_center']       = $training_center;
 $_SESSION['is_returning_student']  = $is_returning_student;
 $_SESSION['registration_email_sent'] = false;
 $_SESSION['registration_email_queued'] = !empty($email_queued);
+$onlineOffer = payment_course_offer($conn, (int) ($course_id ?? 0));
+$_SESSION['online_payment_required'] = !empty($onlineOffer['enabled']);
+$_SESSION['online_payment_amount'] = (float) ($onlineOffer['amount'] ?? 0);
+$_SESSION['online_payment_course'] = (string) ($onlineOffer['course_name'] ?? $course_name);
 
 finalizeRegistrationRedirect(APP_URL . "/student/registration_success.php");
 ?>

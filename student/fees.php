@@ -80,6 +80,43 @@ if ($course_fees <= 0) {
 }
 $balance = $course_fees - $total_paid;
 
+$onlineFeeCourses = [];
+$seenOnlineCourse = [];
+foreach ($student_enrollment_rows as $erow) {
+    $onlineCourseId = (int) ($erow['course_id'] ?? 0);
+    if ($onlineCourseId <= 0 || isset($seenOnlineCourse[$onlineCourseId])) {
+        continue;
+    }
+    if ((int) ($erow['online_payment_enabled'] ?? 0) !== 1) {
+        continue;
+    }
+    $onlineAmount = (float) ($erow['catalog_fees'] ?? 0);
+    if ($onlineAmount <= 0) {
+        $onlineAmount = (float) ($erow['fees'] ?? 0);
+    }
+    if ($onlineAmount <= 0) {
+        continue;
+    }
+    $seenOnlineCourse[$onlineCourseId] = true;
+    $alreadyPaid = payment_student_paid_amount($conn, (string) $student_id, $onlineCourseId);
+    $onlineFeeCourses[] = [
+        'course_id' => $onlineCourseId,
+        'record_id' => (int) ($erow['id'] ?? 0),
+        'course_name' => (string) ($erow['course_name'] ?? 'Course'),
+        'amount' => $onlineAmount,
+        'paid' => $alreadyPaid,
+        'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
+    ];
+}
+$onlineInvoices = payment_student_invoices($conn, (string) $student_id);
+$onlineGatewayReady = payment_gateway_active_razorpay($conn) !== null;
+if (count($payment_records) === 0) {
+    foreach ($onlineInvoices as $invoiceRow) {
+        $total_paid += (float) $invoiceRow['amount'];
+    }
+    $balance = $course_fees - $total_paid;
+}
+
 $page_title = "Fee Details";
 include 'includes/header.php';
 ?>
@@ -230,14 +267,37 @@ include 'includes/header.php';
                             </text>
                         </svg>
                     </div>
-                    <?php if ($balance > 0): ?>
+                    <?php if ($balance > 0 || !empty($onlineFeeCourses)): ?>
                         <div class="alert alert-warning">
                             <i class="fas fa-info-circle"></i> 
-                            You have a pending balance of <strong>₹<?php echo number_format($balance, 2); ?></strong>
+                            You have a pending balance of <strong>₹<?php echo number_format(max(0, $balance), 2); ?></strong>
                         </div>
+                        <?php if (!empty($onlineFeeCourses)): ?>
+                            <?php foreach ($onlineFeeCourses as $onlineCourse): ?>
+                                <div class="border rounded p-3 mb-2 text-start">
+                                    <strong><?php echo htmlspecialchars($onlineCourse['course_name']); ?></strong>
+                                    <div>Fee ₹<?php echo number_format($onlineCourse['amount'], 2); ?>
+                                        · Paid ₹<?php echo number_format($onlineCourse['paid'], 2); ?></div>
+                                    <?php if ($onlineCourse['due'] <= 0): ?>
+                                        <span class="badge bg-success mt-2">Paid</span>
+                                    <?php elseif ($onlineGatewayReady): ?>
+                                        <button type="button"
+                                                class="btn btn-primary btn-sm mt-2 pay-course-fee"
+                                                data-course-id="<?php echo (int) $onlineCourse['course_id']; ?>"
+                                                data-record-id="<?php echo (int) $onlineCourse['record_id']; ?>">
+                                            <i class="fas fa-credit-card"></i> Pay ₹<?php echo number_format($onlineCourse['due'], 2); ?>
+                                        </button>
+                                    <?php else: ?>
+                                        <div class="small text-muted mt-2">Online payment is not open yet. Please contact the centre.</div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                            <div id="coursePaymentMessage" class="small mt-2"></div>
+                        <?php else: ?>
                         <a href="make_payment.php" class="btn btn-primary">
                             <i class="fas fa-credit-card"></i> Make Payment
                         </a>
+                        <?php endif; ?>
 
                         <?php
                         $qrFile = __DIR__ . '/../uploads/payment_qr.png';
@@ -303,11 +363,38 @@ include 'includes/header.php';
                                 </tbody>
                             </table>
                         </div>
-                    <?php else: ?>
+                    <?php elseif (empty($onlineInvoices)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
                             <h5 class="text-muted">No payment records found</h5>
                             <p class="text-muted">Your payment history will appear here.</p>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($onlineInvoices)): ?>
+                        <h6 class="mt-4">Invoices</h6>
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Invoice</th>
+                                        <th>Course</th>
+                                        <th>Paid on</th>
+                                        <th>Amount</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($onlineInvoices as $invoice): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) $invoice['invoice_number']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $invoice['course_name']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $invoice['paid_at']); ?></td>
+                                        <td>₹<?php echo number_format((float) $invoice['amount'], 2); ?></td>
+                                        <td><a class="btn btn-sm btn-outline-primary" href="payment_invoice.php?id=<?php echo (int) $invoice['id']; ?>">View invoice</a></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
                     <?php endif; ?>
                 </div>
@@ -351,4 +438,64 @@ include 'includes/header.php';
     <?php endif; ?>
 </div>
 
+<?php if ($onlineGatewayReady && !empty($onlineFeeCourses)): ?>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+document.querySelectorAll('.pay-course-fee').forEach(function (button) {
+    button.addEventListener('click', function () {
+        const message = document.getElementById('coursePaymentMessage');
+        button.disabled = true;
+        const body = new URLSearchParams();
+        body.set('course_id', button.getAttribute('data-course-id') || '');
+        body.set('record_id', button.getAttribute('data-record-id') || '');
+        fetch('create_course_order.php', { method: 'POST', body: body })
+            .then(function (response) { return response.json(); })
+            .then(function (order) {
+                if (!order.ok) {
+                    throw new Error(order.error || 'Could not start payment');
+                }
+                const checkout = new Razorpay({
+                    key: order.key_id,
+                    amount: order.amount,
+                    currency: order.currency,
+                    name: order.name,
+                    description: order.description,
+                    order_id: order.order_id,
+                    prefill: order.prefill || {},
+                    handler: function (payment) {
+                        const paid = new URLSearchParams();
+                        paid.set('razorpay_order_id', payment.razorpay_order_id);
+                        paid.set('razorpay_payment_id', payment.razorpay_payment_id);
+                        paid.set('razorpay_signature', payment.razorpay_signature);
+                        fetch('verify_course_payment.php', { method: 'POST', body: paid })
+                            .then(function (response) { return response.json(); })
+                            .then(function (result) {
+                                if (!result.ok) {
+                                    throw new Error(result.error || 'Payment could not be verified');
+                                }
+                                window.location.reload();
+                            })
+                            .catch(function (error) {
+                                message.textContent = error.message;
+                                button.disabled = false;
+                            });
+                    },
+                    modal: {
+                        ondismiss: function () { button.disabled = false; }
+                    }
+                });
+                checkout.on('payment.failed', function (response) {
+                    message.textContent = (response.error && response.error.description) || 'Payment failed';
+                    button.disabled = false;
+                });
+                checkout.open();
+            })
+            .catch(function (error) {
+                message.textContent = error.message;
+                button.disabled = false;
+            });
+    });
+});
+</script>
+<?php endif; ?>
 <?php include 'includes/footer.php'; ?>

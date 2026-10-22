@@ -4,12 +4,16 @@
  * Expects $conn and $student_id to be set by the including script.
  */
 require_once __DIR__ . '/../../includes/multi_course_helper.php';
+require_once __DIR__ . '/../../includes/payment_gateway_helper.php';
+if (isset($conn) && $conn instanceof mysqli) {
+    payment_gateway_ensure_schema($conn);
+}
 
 $student_enrollments = getEnrollmentsForStudentId($conn, $student_id);
 $student_enrollment_rows = [];
 $student_profile = null;
 
-$rowSql = "SELECT s.*, c.course_name, c.duration, c.fees AS catalog_fees,
+$rowSql = "SELECT s.*, c.course_name, c.duration, c.fees AS catalog_fees, c.online_payment_enabled,
                   sch.scheme_name, sch.scheme_code,
                   b.batch_name, b.batch_code
            FROM students s

@@ -16,8 +16,10 @@ require_once __DIR__ . '/../includes/course_category_options.php';
 require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 
 ensureWorkshopRegistrationSchema($conn);
+payment_gateway_ensure_schema($conn);
 ensureCourseRequiredDocumentsColumn($conn);
 
 function findDuplicateCourseCode($conn, $course_code, $exclude_id = null) {
@@ -83,6 +85,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : NULL;
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
+        $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
+        if ($online_payment_enabled === 1 && (float) $fees <= 0) {
+            $error = 'Enter the fee amount before turning on online payment.';
+            goto skip_add;
+        }
         $description = $_POST['description'];
         $eligibility = $_POST['eligibility'] ?? '';
         $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
@@ -103,8 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once __DIR__ . '/../includes/course_category_options.php';
         ensure_course_sub_category_column($conn);
 
-        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, course_sub_category, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
-        $stmt->bind_param("issssssssdsssiss", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date);
+        $stmt = $conn->prepare("INSERT INTO courses (centre_id, course_name, course_code, course_abbreviation, course_type, course_sub_category, registration_form, training_center, duration, fees, description, eligibility, registration_link, is_nsqf, link_published, enrollment_closing_date, online_payment_enabled, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')");
+        $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $online_payment_enabled);
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
@@ -218,6 +225,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $centre_id = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : NULL;
         $duration = $_POST['duration'];
         $fees = $_POST['fees'];
+        $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
+        if ($online_payment_enabled === 1 && (float) $fees <= 0) {
+            $error = 'Enter the fee amount before turning on online payment.';
+            goto skip_edit;
+        }
         $description = $_POST['description'];
         $eligibility = $_POST['eligibility'] ?? '';
         $nsqf_type = normalize_course_sub_category($_POST['nsqf_type'] ?? get_default_non_nsqf_sub_category());
@@ -231,8 +243,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once __DIR__ . '/../includes/course_category_options.php';
         ensure_course_sub_category_column($conn);
 
-        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, course_sub_category=?, registration_form=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=? WHERE id=?");
-        $stmt->bind_param("issssssssdsssissi", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $id);
+        $stmt = $conn->prepare("UPDATE courses SET centre_id=?, course_name=?, course_code=?, course_abbreviation=?, course_type=?, course_sub_category=?, registration_form=?, training_center=?, duration=?, fees=?, description=?, eligibility=?, registration_link=?, is_nsqf=?, link_published=?, enrollment_closing_date=?, online_payment_enabled=? WHERE id=?");
+        $stmt->bind_param("issssssssdsssissii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $online_payment_enabled, $id);
         
         if ($stmt->execute()) {
             saveCourseRequiredDocuments($conn, (int) $id, parseCourseRequiredDocumentsFromPost($_POST));
@@ -749,7 +761,11 @@ if (!empty($params)) {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Fees (₹) *</label>
-                                <input type="number" name="fees" id="add_fees" class="form-control" step="0.01" required>
+                                <input type="number" name="fees" id="add_fees" class="form-control" step="0.01" min="0" required>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="add_online_payment" value="1">
+                                    <label class="form-check-label" for="add_online_payment">Collect this amount online after the student applies</label>
+                                </div>
                             </div>
                         </div>
 
@@ -908,7 +924,11 @@ if (!empty($params)) {
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training Fees (₹) *</label>
-                                <input type="number" name="fees" id="edit_fees" class="form-control" step="0.01" required>
+                                <input type="number" name="fees" id="edit_fees" class="form-control" step="0.01" min="0" required>
+                                <div class="form-check mt-2">
+                                    <input class="form-check-input" type="checkbox" name="online_payment_enabled" id="edit_online_payment" value="1">
+                                    <label class="form-check-label" for="edit_online_payment">Collect this amount online after the student applies</label>
+                                </div>
                             </div>
                         </div>
 
@@ -1309,6 +1329,10 @@ if (!empty($params)) {
             document.getElementById('edit_centre_id').value = course.centre_id || '';
             document.getElementById('edit_duration').value = course.duration || '';
             document.getElementById('edit_fees').value = course.fees || '';
+            const editOnlinePayment = document.getElementById('edit_online_payment');
+            if (editOnlinePayment) {
+                editOnlinePayment.checked = course.online_payment_enabled == 1 || course.online_payment_enabled === '1';
+            }
             document.getElementById('edit_description').value = course.description || '';
             document.getElementById('edit_eligibility').value = course.eligibility || '';
             document.getElementById('edit_is_nsqf').checked = (course.is_nsqf == 1 || course.is_nsqf === '1');

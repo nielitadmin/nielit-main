@@ -18,6 +18,9 @@ $training_center      = $_SESSION['training_center'] ?? null;
 $is_returning_student = !empty($_SESSION['is_returning_student']);
 $email_sent           = !empty($_SESSION['registration_email_sent']);
 $email_queued         = !empty($_SESSION['registration_email_queued']);
+$online_payment_required = !empty($_SESSION['online_payment_required']);
+$online_payment_amount = (float) ($_SESSION['online_payment_amount'] ?? 0);
+$online_payment_course = (string) ($_SESSION['online_payment_course'] ?? ($course_name ?? ''));
 
 // Clear session variables after reading them
 unset(
@@ -29,7 +32,10 @@ unset(
     $_SESSION['training_center'],
     $_SESSION['is_returning_student'],
     $_SESSION['registration_email_sent'],
-    $_SESSION['registration_email_queued']
+    $_SESSION['registration_email_queued'],
+    $_SESSION['online_payment_required'],
+    $_SESSION['online_payment_amount'],
+    $_SESSION['online_payment_course']
 );
 ?>
 <!DOCTYPE html>
@@ -484,6 +490,18 @@ unset(
                             Take a screenshot or write them down in a safe place.
                         </p>
                     </div>
+
+                    <?php if ($online_payment_required): ?>
+                    <div class="alert-box alert-warning-box">
+                        <i class="fas fa-credit-card" style="color:#f59e0b;"></i>
+                        <p style="color:#78350f;">
+                            <strong>Online fee:</strong>
+                            <?php echo htmlspecialchars($online_payment_course !== '' ? $online_payment_course : 'This course'); ?>
+                            has an online fee of <strong>₹<?php echo number_format($online_payment_amount, 2); ?></strong>.
+                            Log in to the student portal and open Fee Details to pay. Your invoice appears there after the payment succeeds.
+                        </p>
+                    </div>
+                    <?php endif; ?>
 
                     <div class="action-buttons">
                         <a href="<?php echo APP_URL; ?>/student/login.php" class="btn-modern btn-primary-modern">
