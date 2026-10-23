@@ -32,31 +32,24 @@ $navy = imagecolorallocate($qr, 15, 61, 122);
 imagefilledrectangle($qr, $bx - 2, $by - 2, $bx + $badgeW + 1, $by + $badgeH + 1, $navy);
 imagefilledrectangle($qr, $bx, $by, $bx + $badgeW - 1, $by + $badgeH - 1, $white);
 
-$pad = 6;
+$pad = 8;
 $maxW = $badgeW - ($pad * 2);
 $maxH = $badgeH - ($pad * 2);
 $scale = min($maxW / $lw, $maxH / $lh);
 $dw = max(1, (int) round($lw * $scale));
 $dh = max(1, (int) round($lh * $scale));
 
-$scaled = imagecreatetruecolor($dw, $dh);
-imagealphablending($scaled, false);
-imagesavealpha($scaled, true);
-$clear = imagecolorallocatealpha($scaled, 0, 0, 0, 127);
-imagefilledrectangle($scaled, 0, 0, $dw, $dh, $clear);
-imagecopyresampled($scaled, $logo, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
+// Flatten onto white first. Resampling the transparent logo turns its clear
+// background into an opaque black rectangle.
+$flat = imagecreatetruecolor($lw, $lh);
+$flatWhite = imagecolorallocate($flat, 255, 255, 255);
+imagefilledrectangle($flat, 0, 0, $lw, $lh, $flatWhite);
+imagealphablending($flat, true);
+imagecopy($flat, $logo, 0, 0, 0, 0, $lw, $lh);
 
-for ($y = 0; $y < $dh; $y++) {
-    for ($x = 0; $x < $dw; $x++) {
-        $rgba = imagecolorat($scaled, $x, $y);
-        $r = ($rgba >> 16) & 255;
-        $g = ($rgba >> 8) & 255;
-        $b = $rgba & 255;
-        if ($r < 28 && $g < 28 && $b < 28) {
-            imagesetpixel($scaled, $x, $y, $clear);
-        }
-    }
-}
+$scaled = imagecreatetruecolor($dw, $dh);
+imagealphablending($scaled, true);
+imagecopyresampled($scaled, $flat, 0, 0, 0, 0, $dw, $dh, $lw, $lh);
 
 $dx = (int) (($qw - $dw) / 2);
 $dy = (int) (($qh - $dh) / 2);
@@ -66,6 +59,7 @@ imagecopy($qr, $scaled, $dx, $dy, 0, 0, $dw, $dh);
 imagepng($qr, $outPath);
 imagedestroy($qr);
 imagedestroy($logo);
+imagedestroy($flat);
 imagedestroy($scaled);
 @unlink($tmpPath);
 
