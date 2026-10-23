@@ -1480,6 +1480,9 @@ if (function_exists('festivalThemeRibbonHtml')) {
                     <a href="<?php echo htmlspecialchars($hero_btn_4['url'], ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-outline" target="_blank" rel="noopener">
                         <i class="fas fa-globe fa-sm"></i> <?php echo htmlspecialchars($hero_btn_4['label'], ENT_QUOTES, 'UTF-8'); ?>
                     </a>
+                    <a href="<?php echo htmlspecialchars(app_url('download_website_qr.php'), ENT_QUOTES, 'UTF-8'); ?>" class="btn-hero-outline">
+                        <i class="fas fa-download fa-sm"></i> Download QR
+                    </a>
                 </div>
             </div>
         </div>

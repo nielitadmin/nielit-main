@@ -576,6 +576,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         </div>
         <?php endif; ?>
         <div class="nav-item">
+            <a href="<?php echo app_url('download_website_qr.php'); ?>" class="nav-link">
+                <i class="fas fa-qrcode"></i> Download QR
+            </a>
+        </div>
+        <div class="nav-item">
             <a href="<?php echo app_url(); ?>" class="nav-link" target="_blank" rel="noopener noreferrer">
                 <i class="fas fa-globe"></i> View Website
             </a>

@@ -95,6 +95,11 @@ require_once __DIR__ . '/../../includes/institute_branding.php';
                             <i class="fas fa-rupee-sign"></i> Fees
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="../download_website_qr.php">
+                            <i class="fas fa-qrcode"></i> Download QR
+                        </a>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle"></i> <?php echo htmlspecialchars($_SESSION['student_name'] ?? 'Account'); ?>
