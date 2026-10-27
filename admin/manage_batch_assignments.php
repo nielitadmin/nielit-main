@@ -21,6 +21,20 @@ require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 batch_assignment_ensure_schema($conn);
 $active_theme = loadActiveTheme($conn);
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['remove_assignment_id'])) {
+    $removeId = (int) $_POST['remove_assignment_id'];
+    $removed = $conn->prepare('UPDATE admin_batch_assignments SET is_active = 0 WHERE id = ? AND is_active = 1');
+    $ok = false;
+    if ($removed && $removeId > 0) {
+        $removed->bind_param('i', $removeId);
+        $ok = $removed->execute() && $removed->affected_rows > 0;
+        $removed->close();
+    }
+    $_SESSION['batch_assignment_flash'] = $ok ? 'Batch assignment removed.' : 'Assignment was already removed.';
+    $_SESSION['batch_assignment_flash_type'] = $ok ? 'assignment' : 'warning';
+    header('Location: manage_batch_assignments.php');
+    exit();
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['batch_ids'])) {
     $saved = batch_assignment_save($conn, (int) ($_POST['admin_id'] ?? 0), (array) $_POST['batch_ids']);
     $_SESSION['batch_assignment_flash'] = $saved['message'] ?? '';
@@ -277,9 +291,12 @@ $selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
                                     <td><?php echo htmlspecialchars($savedRow['assigned_by_name'] ?: 'System'); ?></td>
                                     <td><?php echo htmlspecialchars($savedRow['assigned_at'] ?: ''); ?></td>
                                     <td>
-                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAssignment(<?php echo (int) $savedRow['id']; ?>)">
-                                            <i class="fas fa-times"></i> Remove
-                                        </button>
+                                        <form method="post" action="" class="d-inline" onsubmit="return confirm('Remove this batch assignment?');">
+                                            <input type="hidden" name="remove_assignment_id" value="<?php echo (int) $savedRow['id']; ?>">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-times"></i> Remove
+                                            </button>
+                                        </form>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -444,7 +461,7 @@ function renderAssignments(assignments) {
             + '<td><span class="badge-modern badge-manual">' + escapeHtml(row.assignment_type || 'Manual') + '</span></td>'
             + '<td>' + escapeHtml(row.assigned_by_name || 'System') + '</td>'
             + '<td>' + dateText + '</td>'
-            + '<td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAssignment(' + parseInt(row.id, 10) + ')"><i class="fas fa-times"></i> Remove</button></td>'
+            + '<td><form method="post" action="" class="d-inline" onsubmit="return confirm(\'Remove this batch assignment?\');"><input type="hidden" name="remove_assignment_id" value="' + parseInt(row.id, 10) + '"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Remove</button></form></td>'
             + '</tr>';
     });
     html += '</tbody></table>';
