@@ -291,12 +291,12 @@ $selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
                                     <td><?php echo htmlspecialchars($savedRow['assigned_by_name'] ?: 'System'); ?></td>
                                     <td><?php echo htmlspecialchars($savedRow['assigned_at'] ?: ''); ?></td>
                                     <td>
-                                        <form method="post" action="manage_batch_assignments.php" class="d-inline">
-                                            <input type="hidden" name="remove_assignment_id" value="<?php echo (int) $savedRow['id']; ?>">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="fas fa-times"></i> Remove
-                                            </button>
-                                        </form>
+                                        <button type="button" class="btn btn-sm btn-outline-danger js-remove-assignment"
+                                            data-id="<?php echo (int) $savedRow['id']; ?>"
+                                            data-admin="<?php echo htmlspecialchars($savedRow['admin_name']); ?>"
+                                            data-batch="<?php echo htmlspecialchars($savedRow['batch_name']); ?>">
+                                            <i class="fas fa-times"></i> Remove
+                                        </button>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -392,13 +392,22 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
-function toast(kind, message) {
-    if (typeof ToastNotification !== 'undefined') {
-        var t = new ToastNotification();
-        (t[kind] || t.info).call(t, message);
+function notify(kind, message) {
+    if (typeof toast !== 'undefined' && toast && typeof toast.show === 'function') {
+        if (kind === 'delete' && typeof toast.deleted === 'function') {
+            toast.deleted(message);
+            return;
+        }
+        if (typeof toast[kind] === 'function') {
+            toast[kind](message);
+            return;
+        }
+        toast.show(message, kind);
         return;
     }
-    window.alert(message);
+    if (typeof showToast === 'function') {
+        showToast(message, kind);
+    }
 }
 
 function loadBatchesForCoordinator(adminId) {
@@ -461,7 +470,7 @@ function renderAssignments(assignments) {
             + '<td><span class="badge-modern badge-manual">' + escapeHtml(row.assignment_type || 'Manual') + '</span></td>'
             + '<td>' + escapeHtml(row.assigned_by_name || 'System') + '</td>'
             + '<td>' + dateText + '</td>'
-            + '<td><form method="post" action="manage_batch_assignments.php" class="d-inline"><input type="hidden" name="remove_assignment_id" value="' + parseInt(row.id, 10) + '"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Remove</button></form></td>'
+            + '<td><button type="button" class="btn btn-sm btn-outline-danger js-remove-assignment" data-id="' + parseInt(row.id, 10) + '" data-admin="' + escapeHtml(row.admin_name) + '" data-batch="' + escapeHtml(row.batch_name) + '"><i class="fas fa-times"></i> Remove</button></td>'
             + '</tr>';
     });
     html += '</tbody></table>';
@@ -491,18 +500,28 @@ function refreshAssignments() {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!data.success) {
-                toast('error', data.message || 'Could not load assignments');
+                notify('error', data.message || 'Could not load assignments');
                 return;
             }
             renderAssignments(data.assignments || []);
         })
         .catch(function () {
-            toast('error', 'Network error while loading assignments');
+            notify('error', 'Network error while loading assignments');
         });
 }
 
-function removeAssignment(id) {
-    if (!window.confirm('Remove this batch assignment?')) {
+async function removeAssignment(id, coordinatorName, batchName) {
+    var confirmed = true;
+    if (typeof showConfirm === 'function') {
+        confirmed = await showConfirm({
+            title: 'Remove Batch Assignment',
+            message: 'Are you sure you want to remove "' + batchName + '" from "' + coordinatorName + '"?',
+            type: 'danger',
+            confirmText: 'Remove Assignment',
+            cancelText: 'Keep Assignment'
+        });
+    }
+    if (!confirmed) {
         return;
     }
     var body = new URLSearchParams();
@@ -511,16 +530,24 @@ function removeAssignment(id) {
     fetch('ajax_batch_assignments.php', { method: 'POST', body: body })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-            toast(data.success ? 'success' : 'error', data.message || 'Could not remove assignment');
+            notify(data.success ? 'delete' : 'error', data.message || 'Could not remove assignment');
             if (data.success) {
                 refreshAssignments();
                 refreshStats();
             }
         })
         .catch(function () {
-            toast('error', 'Network error while removing the assignment');
+            notify('error', 'Network error while removing the assignment');
         });
 }
+
+document.getElementById('assignments-table-container').addEventListener('click', function (event) {
+    var button = event.target.closest('.js-remove-assignment');
+    if (!button) {
+        return;
+    }
+    removeAssignment(button.getAttribute('data-id'), button.getAttribute('data-admin') || '', button.getAttribute('data-batch') || '');
+});
 
 document.getElementById('coordinatorSelect').addEventListener('change', function () {
     loadBatchesForCoordinator(this.value);
@@ -538,7 +565,7 @@ document.getElementById('assignBatchesForm').addEventListener('submit', function
     var form = event.target;
     var selected = form.querySelectorAll('input[name="batch_ids[]"]:checked');
     if (!form.admin_id.value || selected.length === 0) {
-        toast('warning', 'Select a coordinator and at least one batch.');
+        notify('warning', 'Select a coordinator and at least one batch.');
         return;
     }
     var button = document.getElementById('assignSubmit');
@@ -549,7 +576,7 @@ document.getElementById('assignBatchesForm').addEventListener('submit', function
         .then(function (r) { return r.json(); })
         .then(function (data) {
             var kind = data.type === 'error' ? 'error' : (data.type === 'warning' ? 'warning' : (data.success ? 'success' : 'info'));
-            toast(kind, data.message || 'Assignment finished');
+            notify(kind, data.message || 'Assignment finished');
             if (data.success) {
                 form.reset();
                 loadBatchesForCoordinator('');
@@ -562,7 +589,7 @@ document.getElementById('assignBatchesForm').addEventListener('submit', function
             }
         })
         .catch(function () {
-            toast('error', 'Network error while assigning batches');
+            notify('error', 'Network error while assigning batches');
         })
         .finally(function () {
             button.disabled = false;
@@ -570,6 +597,9 @@ document.getElementById('assignBatchesForm').addEventListener('submit', function
 });
 
 refreshAssignments();
+<?php if ($assignmentFlash !== ''): ?>
+notify(<?php echo json_encode($assignmentFlashType === 'error' ? 'error' : ($assignmentFlashType === 'warning' ? 'warning' : 'success')); ?>, <?php echo json_encode($assignmentFlash); ?>);
+<?php endif; ?>
 </script>
 </body>
 </html>
