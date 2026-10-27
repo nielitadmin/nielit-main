@@ -977,28 +977,53 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return implode(', ', $names);
     }
 
-    function report_monitor_course_faculty_select_sql($conn, $batchAlias = 'b') {
-        $alias = preg_replace('/[^A-Za-z0-9_]/', '', (string) $batchAlias);
-        if ($alias === '') {
-            $alias = 'b';
-        }
+    function report_monitor_get_course_faculty_map($conn, array $courseIds, $centreId, array $monthFilter) {
         $hasFacultyLink = report_monitor_table_exists($conn, 'batch_faculty') && report_monitor_table_exists($conn, 'faculty');
         $hasCoordinator = report_monitor_column_exists($conn, 'batches', 'batch_coordinator');
-        $expr = "''";
-        if ($hasFacultyLink) {
-            $expr = "NULLIF((
-                SELECT GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ')
-                FROM batch_faculty bf
-                INNER JOIN faculty f ON f.id = bf.faculty_id
-                WHERE bf.batch_id = {$alias}.id
-            ), '')";
-            if ($hasCoordinator) {
-                $expr = "COALESCE({$expr}, NULLIF(TRIM({$alias}.batch_coordinator), ''), NULLIF(TRIM({$alias}.batch_coordinator), '0'))";
-            }
-        } elseif ($hasCoordinator) {
-            $expr = "COALESCE(NULLIF(TRIM({$alias}.batch_coordinator), ''), NULLIF(TRIM({$alias}.batch_coordinator), '0'))";
+        if (!$hasFacultyLink && !$hasCoordinator) {
+            return [];
         }
-        return "GROUP_CONCAT(DISTINCT NULLIF(TRIM({$expr}), '') SEPARATOR ', ')";
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $linkedSelect = $hasFacultyLink
+            ? "GROUP_CONCAT(DISTINCT NULLIF(TRIM(f.name), '') ORDER BY f.name SEPARATOR ', ')"
+            : "''";
+        $coordinatorSelect = $hasCoordinator
+            ? "GROUP_CONCAT(DISTINCT NULLIF(NULLIF(TRIM(b.batch_coordinator), ''), '0') ORDER BY b.batch_coordinator SEPARATOR ', ')"
+            : "''";
+        $facultyJoin = $hasFacultyLink
+            ? 'LEFT JOIN batch_faculty bf ON bf.batch_id = b.id LEFT JOIN faculty f ON f.id = bf.faculty_id'
+            : '';
+
+        $sql = "SELECT b.course_id,
+                       {$linkedSelect} AS linked_names,
+                       {$coordinatorSelect} AS coordinator_names
+                FROM batches b
+                INNER JOIN courses c ON c.id = b.course_id
+                {$facultyJoin}
+                WHERE 1=1{$scopeFilter['sql']}";
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
+        $sql .= ' GROUP BY b.course_id';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return [];
+        }
+
+        $map = [];
+        while ($row = $result->fetch_assoc()) {
+            $courseId = (int) ($row['course_id'] ?? 0);
+            if ($courseId <= 0) {
+                continue;
+            }
+            $linked = report_monitor_unique_faculty_label($row['linked_names'] ?? '');
+            $coordinator = report_monitor_unique_faculty_label($row['coordinator_names'] ?? '');
+            $map[$courseId] = $linked !== '—' ? $linked : $coordinator;
+        }
+
+        return $map;
     }
 
     function report_monitor_get_course_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
@@ -1439,12 +1464,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $schemeSelect = $hasSchemes
             ? "GROUP_CONCAT(DISTINCT NULLIF(TRIM(s.scheme_name), '') ORDER BY s.scheme_name SEPARATOR ', ')"
             : "''";
-        $facultySelect = report_monitor_course_faculty_select_sql($conn, 'b');
 
         $sql = "SELECT
                     c.id AS course_id,
                     {$schemeSelect} AS scheme_names,
-                    {$facultySelect} AS faculty_names,
                     MIN({$batchStartExpr}) AS batch_start,
                     MAX({$batchEndExpr}) AS batch_end
                 FROM batches b
@@ -1462,6 +1485,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             return [];
         }
 
+        $facultyMap = report_monitor_get_course_faculty_map($conn, $courseIds, $centreId, $monthFilter);
         $metaMap = [];
         while ($row = $result->fetch_assoc()) {
             $courseId = (int) ($row['course_id'] ?? 0);
@@ -1472,7 +1496,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $schemeNames = trim((string) ($row['scheme_names'] ?? ''));
             $metaMap[$courseId] = [
                 'scheme_names' => $schemeNames !== '' ? $schemeNames : '—',
-                'faculty_names' => report_monitor_unique_faculty_label($row['faculty_names'] ?? ''),
+                'faculty_names' => $facultyMap[$courseId] ?? '—',
                 'batch_start' => $row['batch_start'] ?? null,
                 'batch_end' => $row['batch_end'] ?? null,
                 'batch_period_label' => report_monitor_format_batch_period_label(
