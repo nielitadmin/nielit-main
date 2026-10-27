@@ -66,7 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             isset($_POST['is_placed']) ? 1 : 0,
             (string) ($_POST['course_name'] ?? ''),
             training_partner_parse_date($_POST['course_start_date'] ?? ''),
-            training_partner_parse_date($_POST['course_end_date'] ?? '')
+            training_partner_parse_date($_POST['course_end_date'] ?? ''),
+            training_partner_details_from_request($_POST)
         );
         $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
@@ -344,13 +345,23 @@ $active_theme = loadActiveTheme($conn);
                                 </select>
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Mobile</label>
+                                <label class="form-label">WhatsApp / mobile</label>
                                 <input class="form-control" name="mobile" maxlength="20" placeholder="Optional">
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Student name</label>
-                            <input class="form-control" name="student_name" required>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Name of candidate</label>
+                                <input class="form-control" name="student_name" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Father's name</label>
+                                <input class="form-control" name="father_name">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Batch no.</label>
+                                <input class="form-control" name="batch_no">
+                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
@@ -366,7 +377,62 @@ $active_theme = loadActiveTheme($conn);
                                 <input class="form-control" type="date" name="course_end_date">
                             </div>
                         </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">NIELIT registration no.</label>
+                                <input class="form-control" name="nielit_reg_no">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Category (SC/ST/EWS)</label>
+                                <input class="form-control" name="category" placeholder="SC, ST, EWS, or other">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Gender</label>
+                                <select class="form-select" name="gender">
+                                    <option value="">Select</option>
+                                    <option>Male</option>
+                                    <option>Female</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Aadhaar card</label>
+                                <input class="form-control" name="aadhaar" maxlength="20" inputmode="numeric">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">APAAR ID</label>
+                                <input class="form-control" name="apaar_id" maxlength="50">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Religion</label>
+                                <input class="form-control" name="religion">
+                            </div>
+                        </div>
                         <div class="mb-3">
+                            <label class="form-label">Communication address and district</label>
+                            <textarea class="form-control" name="communication_address" rows="2"></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">District</label>
+                                <input class="form-control" name="district">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">State</label>
+                                <input class="form-control" name="state">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">HQ Accr number</label>
+                                <input class="form-control" name="hq_accr_number">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Training venue address</label>
+                            <textarea class="form-control" name="venue_address" rows="2"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-check-label me-3"><input type="checkbox" name="currently_employed" value="1"> Currently employed</label>
                             <label class="form-check-label me-3"><input type="checkbox" name="is_certified" value="1"> Certified</label>
                             <label class="form-check-label"><input type="checkbox" name="is_placed" value="1"> Placed</label>
                         </div>
@@ -375,7 +441,7 @@ $active_theme = loadActiveTheme($conn);
                     <hr>
                     <h2>Upload students from Excel</h2>
                     <div class="alert alert-info">
-                        Choose the scheme, year, and quarter here. A workbook with several sheets is read sheet by sheet. Columns that are recognised: <strong>Student name</strong> or <strong>Name of candidate</strong>, <strong>Mobile</strong> or WhatsApp number, <strong>Course name</strong>, <strong>Course start date</strong>, <strong>Course end date</strong>, and <strong>Training partner</strong> or <strong>Name of Institute</strong>. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
+                        Choose the scheme, year, and quarter here. A workbook with several sheets is read sheet by sheet. The template now includes Sl. No., Batch No, Course Name, NIELIT Registration No., Name of candidate, Father's Name, Category, Gender, Aadhaar Card, APAAR ID, Religion, WhatsApp number, communication address, currently employed, Name of Institute, training venue address, HQ Accr number, District, and State. Course start date, course end date, Certified, and Placed are still read when those columns are present. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
                         <a href="training_partners.php?download=student_template">Download the Excel template</a>.
                     </div>
                     <form method="post" enctype="multipart/form-data">
@@ -442,12 +508,26 @@ $active_theme = loadActiveTheme($conn);
                             <thead>
                                 <tr>
                                     <th>Scheme / project</th>
-                                    <th>Training partner</th>
+                                    <th>Institute</th>
+                                    <th>Batch</th>
                                     <th>Course</th>
                                     <th>Start</th>
                                     <th>End</th>
                                     <th>Quarter</th>
-                                    <th>Student</th>
+                                    <th>Candidate</th>
+                                    <th>Father</th>
+                                    <th>NIELIT reg.</th>
+                                    <th>Category</th>
+                                    <th>Gender</th>
+                                    <th>Aadhaar</th>
+                                    <th>APAAR</th>
+                                    <th>Religion</th>
+                                    <th>Address</th>
+                                    <th>District</th>
+                                    <th>State</th>
+                                    <th>Venue</th>
+                                    <th>HQ Accr</th>
+                                    <th>Employed</th>
                                     <th>Certified</th>
                                     <th>Placed</th>
                                     <th></th>
@@ -458,9 +538,10 @@ $active_theme = loadActiveTheme($conn);
                                 <tr>
                                     <td><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
-                                    <td><?php echo htmlspecialchars((string) ($student['course_name'] ?? '') !== '' ? (string) $student['course_name'] : '—'); ?></td>
-                                    <td><?php echo !empty($student['course_start_date']) ? htmlspecialchars(date('d M Y', strtotime((string) $student['course_start_date']))) : '—'; ?></td>
-                                    <td><?php echo !empty($student['course_end_date']) ? htmlspecialchars(date('d M Y', strtotime((string) $student['course_end_date']))) : '—'; ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['batch_no'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
                                     <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
                                     <td>
                                         <?php echo htmlspecialchars((string) $student['student_name']); ?>
@@ -468,6 +549,19 @@ $active_theme = loadActiveTheme($conn);
                                             <div class="text-muted small"><?php echo htmlspecialchars((string) $student['mobile']); ?></div>
                                         <?php endif; ?>
                                     </td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['father_name'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['category'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['gender'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['aadhaar'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['apaar_id'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['religion'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['communication_address'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['district'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['state'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['venue_address'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars(training_partner_show($student['hq_accr_number'] ?? '')); ?></td>
+                                    <td><?php echo (int) ($student['currently_employed'] ?? 0) === 1 ? 'Yes' : 'No'; ?></td>
                                     <td><?php echo (int) $student['is_certified'] === 1 ? 'Yes' : 'No'; ?></td>
                                     <td><?php echo (int) $student['is_placed'] === 1 ? 'Yes' : 'No'; ?></td>
                                     <td>

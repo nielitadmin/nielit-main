@@ -50,6 +50,24 @@ if (!function_exists('training_partner_ensure_schema')) {
         if (!isset($studentColumns['course_end_date'])) {
             $conn->query('ALTER TABLE training_partner_students ADD COLUMN course_end_date DATE NULL AFTER course_start_date');
         }
+        foreach (training_partner_detail_fields() as $field => $kind) {
+            if (isset($studentColumns[$field])) {
+                continue;
+            }
+            $sqlType = $kind === 'text' ? 'TEXT NULL' : ($kind === 'int' ? 'TINYINT(1) NOT NULL DEFAULT 0' : 'VARCHAR(180) NOT NULL DEFAULT \'\'');
+            if ($field === 'aadhaar' || $field === 'gender') {
+                $sqlType = 'VARCHAR(20) NOT NULL DEFAULT \'\'';
+            } elseif ($field === 'category') {
+                $sqlType = 'VARCHAR(40) NOT NULL DEFAULT \'\'';
+            } elseif ($field === 'apaar_id') {
+                $sqlType = 'VARCHAR(50) NOT NULL DEFAULT \'\'';
+            } elseif (in_array($field, ['batch_no', 'nielit_reg_no', 'hq_accr_number', 'religion'], true)) {
+                $sqlType = 'VARCHAR(80) NOT NULL DEFAULT \'\'';
+            } elseif (in_array($field, ['district', 'state'], true)) {
+                $sqlType = 'VARCHAR(120) NOT NULL DEFAULT \'\'';
+            }
+            $conn->query('ALTER TABLE training_partner_students ADD COLUMN `' . $field . '` ' . $sqlType);
+        }
         $conn->query("CREATE TABLE IF NOT EXISTS training_partner_figures (
             id INT AUTO_INCREMENT PRIMARY KEY,
             partner_id INT NOT NULL,
@@ -404,7 +422,88 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $id;
     }
 
-    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $fyYear, string $quarter, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null): array
+    function training_partner_detail_fields(): array
+    {
+        return [
+            'batch_no' => 'string',
+            'nielit_reg_no' => 'string',
+            'father_name' => 'string',
+            'category' => 'string',
+            'gender' => 'string',
+            'aadhaar' => 'string',
+            'apaar_id' => 'string',
+            'religion' => 'string',
+            'communication_address' => 'text',
+            'currently_employed' => 'int',
+            'venue_address' => 'text',
+            'hq_accr_number' => 'string',
+            'district' => 'string',
+            'state' => 'string',
+        ];
+    }
+
+    function training_partner_details_from_request(array $source): array
+    {
+        $details = ['_present' => []];
+        foreach (training_partner_detail_fields() as $field => $kind) {
+            $details['_present'][$field] = true;
+            if ($kind === 'int') {
+                $details[$field] = !empty($source[$field]) ? 1 : 0;
+                continue;
+            }
+            $details[$field] = trim((string) ($source[$field] ?? ''));
+        }
+        return $details;
+    }
+
+    function training_partner_show($value): string
+    {
+        $text = trim((string) $value);
+        return $text === '' ? '-' : $text;
+    }
+
+    function training_partner_show_date($value): string
+    {
+        $text = trim((string) $value);
+        if ($text === '' || $text === '0000-00-00') {
+            return '-';
+        }
+        $time = strtotime($text);
+        return $time ? date('d M Y', $time) : $text;
+    }
+
+    function training_partner_detail_value(string $field, array $details)
+    {
+        $kind = training_partner_detail_fields()[$field] ?? 'string';
+        if ($kind === 'int') {
+            return !empty($details[$field]) ? 1 : 0;
+        }
+        $value = trim((string) ($details[$field] ?? ''));
+        if ($field === 'aadhaar') {
+            $digits = preg_replace('/\D+/', '', $value);
+            return $digits !== '' ? $digits : $value;
+        }
+        return $value;
+    }
+
+    function training_partner_execute(mysqli $conn, string $sql, string $types, array $values): bool
+    {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return false;
+        }
+        $refs = [];
+        $refs[] = &$types;
+        foreach ($values as $index => $value) {
+            $refs[] = &$values[$index];
+        }
+        $bound = call_user_func_array([$stmt, 'bind_param'], $refs);
+        $ok = $bound && $stmt->execute();
+        $stmt->close();
+        return $ok;
+    }
+
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $fyYear, string $quarter, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = []): array
     {
         training_partner_ensure_schema($conn);
         $name = trim($name);
@@ -421,6 +520,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $placed = $placed === 1 ? 1 : 0;
         $courseStart = $courseStart !== null && $courseStart !== '' ? $courseStart : null;
         $courseEnd = $courseEnd !== null && $courseEnd !== '' ? $courseEnd : null;
+        $present = is_array($details['_present'] ?? null) ? $details['_present'] : [];
         $existing = $conn->prepare('SELECT id FROM training_partner_students WHERE partner_id = ? AND scheme_id = ? AND student_name = ? AND mobile = ? AND figure_month = ? LIMIT 1');
         if ($existing) {
             $existing->bind_param('iisss', $partnerId, $schemeId, $name, $mobile, $figureMonth);
@@ -428,24 +528,37 @@ if (!function_exists('training_partner_ensure_schema')) {
             $found = $existing->get_result()->fetch_assoc();
             $existing->close();
             if ($found) {
-                $update = $conn->prepare('UPDATE training_partner_students SET course_name = ?, course_start_date = ?, course_end_date = ?, is_certified = ?, is_placed = ? WHERE id = ?');
-                if (!$update) {
-                    return ['ok' => false, 'error' => 'Could not save the student record.'];
+                $sets = ['course_name = ?', 'course_start_date = ?', 'course_end_date = ?', 'is_certified = ?', 'is_placed = ?'];
+                $types = 'sssii';
+                $values = [$courseName, $courseStart, $courseEnd, $certified, $placed];
+                foreach (training_partner_detail_fields() as $field => $kind) {
+                    if (empty($present[$field])) {
+                        continue;
+                    }
+                    $sets[] = '`' . $field . '` = ?';
+                    $types .= $kind === 'int' ? 'i' : 's';
+                    $values[] = training_partner_detail_value($field, $details);
                 }
-                $id = (int) $found['id'];
-                $update->bind_param('sssiii', $courseName, $courseStart, $courseEnd, $certified, $placed, $id);
-                $ok = $update->execute();
-                $update->close();
+                $types .= 'i';
+                $values[] = (int) $found['id'];
+                $ok = training_partner_execute($conn, 'UPDATE training_partner_students SET ' . implode(', ', $sets) . ' WHERE id = ?', $types, $values);
                 return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
-        $stmt = $conn->prepare('INSERT INTO training_partner_students (partner_id, scheme_id, course_name, student_name, mobile, figure_month, course_start_date, course_end_date, is_certified, is_placed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
-        if (!$stmt) {
-            return ['ok' => false, 'error' => 'Could not save the student record.'];
+        $columns = ['partner_id', 'scheme_id', 'course_name', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'is_certified', 'is_placed'];
+        $types = 'iissssssii';
+        $values = [$partnerId, $schemeId, $courseName, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $certified, $placed];
+        foreach (training_partner_detail_fields() as $field => $kind) {
+            $columns[] = '`' . $field . '`';
+            $types .= $kind === 'int' ? 'i' : 's';
+            $values[] = training_partner_detail_value($field, $details);
         }
-        $stmt->bind_param('iissssssii', $partnerId, $schemeId, $courseName, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $certified, $placed);
-        $ok = $stmt->execute();
-        $stmt->close();
+        $ok = training_partner_execute(
+            $conn,
+            'INSERT INTO training_partner_students (' . implode(', ', $columns) . ') VALUES (' . implode(', ', array_fill(0, count($columns), '?')) . ')',
+            $types,
+            $values
+        );
         return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
     }
 
@@ -465,8 +578,11 @@ if (!function_exists('training_partner_ensure_schema')) {
     function training_partner_students_list(mysqli $conn): array
     {
         training_partner_ensure_schema($conn);
+        $detailSelect = implode(', ', array_map(static function ($field) {
+            return 'st.`' . $field . '`';
+        }, array_keys(training_partner_detail_fields())));
         $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.student_name, st.mobile, st.figure_month,
-                       st.course_start_date, st.course_end_date, st.is_certified, st.is_placed,
+                       st.course_start_date, st.course_end_date, st.is_certified, st.is_placed, {$detailSelect},
                        p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
                 FROM training_partner_students st
                 INNER JOIN training_partners p ON p.id = st.partner_id
@@ -586,9 +702,81 @@ if (!function_exists('training_partner_ensure_schema')) {
     function training_partner_student_template(): void
     {
         $rows = [
-            ['Student name', 'Mobile', 'Course name', 'Course start date', 'Course end date', 'Training partner', 'Certified', 'Placed'],
-            ['Anita Das', '9876543210', 'Certified Data Entry and Office Assistant', '01-04-2025', '30-06-2025', 'Example Institute', 'Yes', 'No'],
-            ['Ravi Kumar', '', 'Certified Web Developer', '01-04-2025', '30-06-2025', '', 'Yes', 'Yes'],
+            [
+                'Sl. No.',
+                'Batch No',
+                'Course Name',
+                'NIELIT Registration No. (NIELIT Portal)',
+                'Name of candidate',
+                'Father\'s Name',
+                'Category (SC/ST/EWS)',
+                'Gender (Male/Female)',
+                'Aadhaar Card',
+                'APAAR ID',
+                'Religion',
+                'Watsapp No. of candidates',
+                'Communication address and districts of the candidate',
+                'Candidate Currently employed (Yes/No)',
+                'Name of Institute',
+                'Training venue Address',
+                'HQ Accr number',
+                'District',
+                'State',
+                'Course start date',
+                'Course end date',
+                'Certified',
+                'Placed',
+            ],
+            [
+                '1',
+                'B-2025-01',
+                'Certified Data Entry and Office Assistant',
+                'NL123456',
+                'Anita Das',
+                'Ramesh Das',
+                'EWS',
+                'Female',
+                '000000000000',
+                '123456789012',
+                'Hindu',
+                '9876543210',
+                'House 12, Example Road, Kamrup',
+                'No',
+                'Example Institute',
+                'Example Institute, Guwahati',
+                'HQ-1001',
+                'Kamrup',
+                'Assam',
+                '01-04-2025',
+                '30-06-2025',
+                'Yes',
+                'No',
+            ],
+            [
+                '2',
+                'B-2025-01',
+                'Certified Web Developer',
+                '',
+                'Ravi Kumar',
+                'Suresh Kumar',
+                'SC',
+                'Male',
+                '',
+                '',
+                '',
+                '',
+                '',
+                'Yes',
+                '',
+                '',
+                '',
+                'Nagaon',
+                'Assam',
+                '01-04-2025',
+                '30-06-2025',
+                'Yes',
+                'Yes',
+            ],
         ];
         $xml = '<?xml version="1.0" encoding="UTF-8"?>'
             . '<?mso-application progid="Excel.Sheet"?>'
@@ -643,6 +831,91 @@ if (!function_exists('training_partner_ensure_schema')) {
         return null;
     }
 
+    function training_partner_header_map(array $labels): ?array
+    {
+        $map = [
+            'name' => null,
+            'mobile' => null,
+            'certified' => null,
+            'placed' => null,
+            'course_name' => null,
+            'partner_name' => null,
+            'course_start' => null,
+            'course_end' => null,
+            'batch_no' => null,
+            'nielit_reg_no' => null,
+            'father_name' => null,
+            'category' => null,
+            'gender' => null,
+            'aadhaar' => null,
+            'apaar_id' => null,
+            'religion' => null,
+            'communication_address' => null,
+            'currently_employed' => null,
+            'venue_address' => null,
+            'hq_accr_number' => null,
+            'district' => null,
+            'state' => null,
+        ];
+        foreach ($labels as $index => $label) {
+            if ($label === '') {
+                continue;
+            }
+            $isFather = strpos($label, 'father') !== false;
+            $isEmployed = strpos($label, 'employ') !== false;
+            $isInstitute = strpos($label, 'institute') !== false;
+            $isVenue = strpos($label, 'venue') !== false;
+            $isName = in_array($label, ['studentname', 'nameofcandidate', 'candidatename', 'student', 'name'], true)
+                || strpos($label, 'nameofcandidate') !== false;
+            if ($isName && !$isFather && !$isEmployed && !$isInstitute && strpos($label, 'partner') === false && strpos($label, 'course') === false) {
+                $map['name'] = $index;
+            } elseif ($isFather) {
+                $map['father_name'] = $index;
+            } elseif (strpos($label, 'watsapp') !== false || strpos($label, 'whatsapp') !== false || in_array($label, ['mobile', 'phone', 'mobileno', 'contactno'], true)) {
+                $map['mobile'] = $index;
+            } elseif ($label === 'certified') {
+                $map['certified'] = $index;
+            } elseif ($label === 'placed') {
+                $map['placed'] = $index;
+            } elseif (in_array($label, ['coursename', 'course'], true) || ($label !== 'coursestartdate' && $label !== 'courseenddate' && strpos($label, 'coursename') === 0)) {
+                $map['course_name'] = $index;
+            } elseif ($isVenue || strpos($label, 'trainingvenue') !== false) {
+                $map['venue_address'] = $index;
+            } elseif (in_array($label, ['nameofinstitute', 'trainngpartnername', 'trainingpartnername', 'trainingpartner', 'partnername', 'institutename', 'institute'], true) || strpos($label, 'trainingpartner') !== false || strpos($label, 'trainngpartner') !== false) {
+                $map['partner_name'] = $index;
+            } elseif (in_array($label, ['coursestartdate', 'coursestartingdate', 'startdate', 'startingdate', 'coursestart', 'batchstartdate', 'fromdate'], true)) {
+                $map['course_start'] = $index;
+            } elseif (in_array($label, ['courseenddate', 'courseendingdate', 'enddate', 'endingdate', 'courseend', 'batchenddate', 'todate'], true)) {
+                $map['course_end'] = $index;
+            } elseif ($label === 'batchno' || $label === 'batchnumber' || $label === 'batch') {
+                $map['batch_no'] = $index;
+            } elseif (strpos($label, 'nielitreg') !== false || strpos($label, 'nielitregistration') !== false) {
+                $map['nielit_reg_no'] = $index;
+            } elseif (strpos($label, 'category') === 0) {
+                $map['category'] = $index;
+            } elseif (strpos($label, 'gender') === 0) {
+                $map['gender'] = $index;
+            } elseif (strpos($label, 'aadhaar') !== false || strpos($label, 'aadhar') !== false || $label === 'uid') {
+                $map['aadhaar'] = $index;
+            } elseif (strpos($label, 'apaar') !== false) {
+                $map['apaar_id'] = $index;
+            } elseif (strpos($label, 'religion') === 0) {
+                $map['religion'] = $index;
+            } elseif (strpos($label, 'communication') !== false || strpos($label, 'address') === 0) {
+                $map['communication_address'] = $index;
+            } elseif ($isEmployed) {
+                $map['currently_employed'] = $index;
+            } elseif (strpos($label, 'hqaccr') !== false || strpos($label, 'hqacc') !== false || strpos($label, 'accreditation') !== false) {
+                $map['hq_accr_number'] = $index;
+            } elseif ($label === 'district' || $label === 'districtname' || strpos($label, 'district') === 0) {
+                $map['district'] = $index;
+            } elseif ($label === 'state' || $label === 'statename') {
+                $map['state'] = $index;
+            }
+        }
+        return $map['name'] === null ? null : $map;
+    }
+
     function training_partner_rows_from_matrix(array $matrix): array
     {
         $records = [];
@@ -650,82 +923,51 @@ if (!function_exists('training_partner_ensure_schema')) {
             return $records;
         }
         $headerIndex = null;
-        $nameCol = null;
-        $mobileCol = null;
-        $certifiedCol = null;
-        $placedCol = null;
-        $courseCol = null;
-        $partnerCol = null;
-        $startCol = null;
-        $endCol = null;
+        $map = null;
         $scanUntil = min(count($matrix), 25);
         for ($rowIndex = 0; $rowIndex < $scanUntil; $rowIndex++) {
             $labels = array_map('training_partner_header_label', $matrix[$rowIndex]);
-            $foundName = null;
-            $foundMobile = null;
-            $foundCertified = null;
-            $foundPlaced = null;
-            $foundCourse = null;
-            $foundPartner = null;
-            $foundStart = null;
-            $foundEnd = null;
-            foreach ($labels as $index => $label) {
-                if ($label === '') {
-                    continue;
-                }
-                $isName = in_array($label, ['studentname', 'nameofcandidate', 'candidatename', 'student', 'name'], true)
-                    || (strpos($label, 'nameofcandidate') !== false);
-                $isFather = strpos($label, 'father') !== false;
-                $isEmployed = strpos($label, 'employ') !== false;
-                if ($isName && !$isFather && !$isEmployed && strpos($label, 'institute') === false && strpos($label, 'partner') === false && strpos($label, 'course') === false) {
-                    $foundName = $index;
-                } elseif (strpos($label, 'watsapp') !== false || strpos($label, 'whatsapp') !== false || in_array($label, ['mobile', 'phone', 'mobileno', 'contactno'], true)) {
-                    $foundMobile = $index;
-                } elseif ($label === 'certified') {
-                    $foundCertified = $index;
-                } elseif ($label === 'placed') {
-                    $foundPlaced = $index;
-                } elseif (in_array($label, ['coursename', 'course'], true)) {
-                    $foundCourse = $index;
-                } elseif (in_array($label, ['nameofinstitute', 'trainngpartnername', 'trainingpartnername', 'trainingpartner', 'partnername', 'institutename', 'institute'], true) || strpos($label, 'trainingpartner') !== false || strpos($label, 'trainngpartner') !== false) {
-                    $foundPartner = $index;
-                } elseif (in_array($label, ['coursestartdate', 'coursestartingdate', 'startdate', 'startingdate', 'coursestart', 'batchstartdate', 'fromdate'], true)) {
-                    $foundStart = $index;
-                } elseif (in_array($label, ['courseenddate', 'courseendingdate', 'enddate', 'endingdate', 'courseend', 'batchenddate', 'todate'], true)) {
-                    $foundEnd = $index;
-                }
-            }
-            if ($foundName !== null) {
+            $found = training_partner_header_map($labels);
+            if ($found !== null) {
                 $headerIndex = $rowIndex;
-                $nameCol = $foundName;
-                $mobileCol = $foundMobile;
-                $certifiedCol = $foundCertified;
-                $placedCol = $foundPlaced;
-                $courseCol = $foundCourse;
-                $partnerCol = $foundPartner;
-                $startCol = $foundStart;
-                $endCol = $foundEnd;
+                $map = $found;
                 break;
             }
         }
-        if ($headerIndex === null || $nameCol === null) {
+        if ($headerIndex === null || $map === null) {
             return $records;
         }
+        $detailKeys = array_keys(training_partner_detail_fields());
         for ($i = $headerIndex + 1; $i < count($matrix); $i++) {
             $row = $matrix[$i];
-            $name = trim((string) ($row[$nameCol] ?? ''));
+            $name = trim((string) ($row[$map['name']] ?? ''));
             if ($name === '' || strcasecmp($name, 'name of candidate') === 0 || strcasecmp($name, 'student name') === 0) {
                 continue;
             }
+            if (preg_match('/^\d+$/', $name) && trim((string) ($row[$map['father_name'] ?? -1] ?? '')) === '' && trim((string) ($row[$map['course_name'] ?? -1] ?? '')) === '') {
+                continue;
+            }
+            $details = ['_present' => []];
+            foreach ($detailKeys as $field) {
+                $column = $map[$field] ?? null;
+                if ($column === null) {
+                    $details[$field] = $field === 'currently_employed' ? 0 : '';
+                    continue;
+                }
+                $details['_present'][$field] = true;
+                $cell = trim((string) ($row[$column] ?? ''));
+                $details[$field] = $field === 'currently_employed' ? training_partner_sheet_flag($cell) : $cell;
+            }
             $records[] = [
                 'name' => $name,
-                'mobile' => $mobileCol === null ? '' : trim((string) ($row[$mobileCol] ?? '')),
-                'course_name' => $courseCol === null ? '' : trim((string) ($row[$courseCol] ?? '')),
-                'partner_name' => $partnerCol === null ? '' : trim((string) ($row[$partnerCol] ?? '')),
-                'course_start' => $startCol === null ? null : training_partner_parse_date($row[$startCol] ?? ''),
-                'course_end' => $endCol === null ? null : training_partner_parse_date($row[$endCol] ?? ''),
-                'certified' => $certifiedCol === null ? 0 : training_partner_sheet_flag($row[$certifiedCol] ?? ''),
-                'placed' => $placedCol === null ? 0 : training_partner_sheet_flag($row[$placedCol] ?? ''),
+                'mobile' => $map['mobile'] === null ? '' : trim((string) ($row[$map['mobile']] ?? '')),
+                'course_name' => $map['course_name'] === null ? '' : trim((string) ($row[$map['course_name']] ?? '')),
+                'partner_name' => $map['partner_name'] === null ? '' : trim((string) ($row[$map['partner_name']] ?? '')),
+                'course_start' => $map['course_start'] === null ? null : training_partner_parse_date($row[$map['course_start']] ?? ''),
+                'course_end' => $map['course_end'] === null ? null : training_partner_parse_date($row[$map['course_end']] ?? ''),
+                'certified' => $map['certified'] === null ? 0 : training_partner_sheet_flag($row[$map['certified']] ?? ''),
+                'placed' => $map['placed'] === null ? 0 : training_partner_sheet_flag($row[$map['placed']] ?? ''),
+                'details' => $details,
             ];
         }
         return $records;
@@ -948,7 +1190,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 (int) $record['placed'],
                 (string) ($record['course_name'] ?? ''),
                 $record['course_start'] ?? $defaultStart,
-                $record['course_end'] ?? $defaultEnd
+                $record['course_end'] ?? $defaultEnd,
+                is_array($record['details'] ?? null) ? $record['details'] : []
             );
             if (!empty($result['ok'])) {
                 $saved++;
