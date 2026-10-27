@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../includes/admin_assets.php';
 require_once __DIR__ . '/../includes/theme_loader.php';
 require_once __DIR__ . '/../includes/session_manager.php';
+require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -165,8 +166,8 @@ $has_created_by = ($col_check && $col_check->num_rows > 0);
 if ($is_course_coordinator && $admin_id && $has_created_by) {
     $stmt = $conn->prepare("SELECT b.*, 
         (SELECT COUNT(*) FROM students WHERE students.batch_id = b.id) as student_count
-        FROM batches b WHERE b.course_id = ? AND b.created_by = ? ORDER BY b.id DESC");
-    $stmt->bind_param("ii", $course_id, $admin_id);
+        FROM batches b WHERE b.course_id = ? AND " . batch_assignment_coordinator_sql($conn, 'b') . " ORDER BY b.id DESC");
+    $stmt->bind_param("iii", $course_id, $admin_id, $admin_id);
 } else {
     $stmt = $conn->prepare("SELECT b.*,
         (SELECT COUNT(*) FROM students WHERE students.batch_id = b.id) as student_count

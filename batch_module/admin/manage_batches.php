@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../../includes/session_manager.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
+require_once __DIR__ . '/../../includes/batch_assignment_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login.php");
@@ -243,10 +244,10 @@ if ($can_see_all_batches) {
                     CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
                     FROM batches b 
                     LEFT JOIN courses c ON b.course_id = c.id 
-                    WHERE b.created_by = ?
+                    WHERE " . batch_assignment_coordinator_sql($conn, 'b') . "
                     ORDER BY b.created_at DESC";
     $stmt = $conn->prepare($batches_sql);
-    $stmt->bind_param("i", $current_admin_id);
+    $stmt->bind_param("ii", $current_admin_id, $current_admin_id);
     $stmt->execute();
     $batches_result = $stmt->get_result();
 }
@@ -267,10 +268,10 @@ if (!$batches_result) {
                         0 as is_locked
                         FROM batches b 
                         LEFT JOIN courses c ON b.course_id = c.id 
-                        WHERE b.created_by = ?
+                        WHERE " . batch_assignment_coordinator_sql($conn, 'b') . "
                         ORDER BY b.created_at DESC";
         $stmt = $conn->prepare($batches_sql);
-        $stmt->bind_param("i", $current_admin_id);
+        $stmt->bind_param("ii", $current_admin_id, $current_admin_id);
         $stmt->execute();
         $batches_result = $stmt->get_result();
     }

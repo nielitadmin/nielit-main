@@ -306,7 +306,7 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <!-- Admin & Management Dropdown (Master Admin Only) -->
         <?php if ($is_master_admin): ?>
         <div class="nav-item has-dropdown">
-            <button type="button" class="nav-link <?php echo in_array($current_page, ['add_admin.php', 'manage_admins.php', 'manage_course_assignments.php', 'view_otp_logs.php', 'manage_api_keys.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
+            <button type="button" class="nav-link <?php echo in_array($current_page, ['add_admin.php', 'manage_admins.php', 'manage_course_assignments.php', 'manage_batch_assignments.php', 'view_otp_logs.php', 'manage_api_keys.php'], true) ? 'active' : ''; ?>" onclick="toggleDropdown(this)">
                 <i class="fas fa-users-cog"></i> Admin & Management
                 <i class="fas fa-chevron-down dropdown-icon"></i>
             </button>
@@ -319,6 +319,9 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 </a>
                 <a href="<?php echo app_url('admin/manage_course_assignments'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_course_assignments.php') ? 'active' : ''; ?>">
                     <i class="fas fa-user-tie"></i> Course Assignments
+                </a>
+                <a href="<?php echo app_url('admin/manage_batch_assignments'); ?>" class="dropdown-item <?php echo ($current_page === 'manage_batch_assignments.php') ? 'active' : ''; ?>">
+                    <i class="fas fa-layer-group"></i> Batch Assignments
                 </a>
                 <a href="<?php echo app_url('admin/view_otp_logs'); ?>" class="dropdown-item <?php echo ($current_page === 'view_otp_logs.php') ? 'active' : ''; ?>">
                     <i class="fas fa-list-alt"></i> OTP Logs

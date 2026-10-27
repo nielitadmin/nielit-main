@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/student_form_helpers.php';
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
 require_once __DIR__ . '/../batch_module/includes/batch_functions.php';
+require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 
 // Enable error reporting for debugging (remove in production)
 // ini_set('display_errors', 1);
@@ -664,9 +665,9 @@ function loadBatches($conn, $is_course_coordinator, $admin_id, $has_created_by_c
                                 FROM batches b
                                 LEFT JOIN courses c ON b.course_id = c.id
                                 LEFT JOIN schemes s ON s.id = b.scheme_id
-                                WHERE LOWER(TRIM(b.status)) = 'active' AND b.created_by = ?
+                                WHERE LOWER(TRIM(b.status)) = 'active' AND " . batch_assignment_coordinator_sql($conn, 'b') . "
                                 ORDER BY b.batch_name");
-        $stmt->bind_param("i", $admin_id);
+        $stmt->bind_param("ii", $admin_id, $admin_id);
         $stmt->execute();
         return $stmt->get_result();
     }
