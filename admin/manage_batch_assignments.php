@@ -22,7 +22,7 @@ batch_assignment_ensure_schema($conn);
 $active_theme = loadActiveTheme($conn);
 
 $coordinators_result = $conn->query("SELECT id, username, email FROM admin WHERE role = 'course_coordinator' AND is_active = 1 ORDER BY username");
-$batches_result = $conn->query("SELECT b.id, b.batch_name, b.batch_code, b.status, COALESCE(c.course_name, '') AS course_name
+$batches_result = $conn->query("SELECT b.id, b.batch_name, b.batch_code, COALESCE(c.course_name, '') AS course_name
     FROM batches b
     LEFT JOIN courses c ON b.course_id = c.id
     ORDER BY c.course_name, b.batch_name");
@@ -48,7 +48,17 @@ if ($batches_result) {
     while ($row = $batches_result->fetch_assoc()) {
         $batches[] = $row;
     }
+} elseif ($conn->error) {
+    $fallback = $conn->query("SELECT id, batch_name, batch_code FROM batches ORDER BY batch_name");
+    if ($fallback) {
+        while ($row = $fallback->fetch_assoc()) {
+            $row['course_name'] = '';
+            $row['status'] = '';
+            $batches[] = $row;
+        }
+    }
 }
+$selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -222,9 +232,10 @@ if ($batches_result) {
                     </div>
                     <div class="table-responsive">
                         <div id="assignments-table-container">
-                            <div class="text-center py-4">
-                                <i class="fas fa-spinner fa-spin fa-2x text-primary"></i>
-                                <p class="mt-2">Loading assignments...</p>
+                            <div class="empty-state">
+                                <i class="fas fa-clipboard-list"></i>
+                                <h5>No Batch Assignments Found</h5>
+                                <p>Use Assign Batches to give a coordinator access to a batch.</p>
                             </div>
                         </div>
                     </div>
@@ -253,14 +264,14 @@ if ($batches_result) {
                 <h5 class="modal-title">Assign Batches to Coordinator</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <form id="assignBatchesForm">
+            <form id="assignBatchesForm" method="post" action="">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Select Course Coordinator *</label>
                         <select name="admin_id" class="form-select" required id="coordinatorSelect">
                             <option value="">-- Select Coordinator --</option>
                             <?php foreach ($coordinators as $c): ?>
-                                <option value="<?php echo (int) $c['id']; ?>">
+                                <option value="<?php echo (int) $c['id']; ?>" <?php echo $selected_admin_id === (int) $c['id'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($c['username']); ?> (<?php echo htmlspecialchars($c['email']); ?>)
                                 </option>
                             <?php endforeach; ?>
@@ -269,11 +280,9 @@ if ($batches_result) {
                     <div class="mb-3">
                         <label class="form-label">Select Batches to Assign *</label>
                         <div id="batchesContainer">
-                            <div class="text-muted text-center py-3" id="selectCoordinatorFirst">
-                                <i class="fas fa-arrow-up"></i> Please select a coordinator first
-                            </div>
+                            <div class="text-muted text-center py-3" id="selectCoordinatorFirst" style="display:none;"></div>
                             <?php foreach ($batches as $batch): ?>
-                                <div class="form-check mb-2 batch-option" data-batch-id="<?php echo (int) $batch['id']; ?>" style="display:none;">
+                                <div class="form-check mb-2 batch-option" data-batch-id="<?php echo (int) $batch['id']; ?>">
                                     <input class="form-check-input" type="checkbox" name="batch_ids[]" value="<?php echo (int) $batch['id']; ?>" id="batch_<?php echo (int) $batch['id']; ?>">
                                     <label class="form-check-label" for="batch_<?php echo (int) $batch['id']; ?>">
                                         <strong><?php echo htmlspecialchars($batch['batch_name']); ?></strong>
@@ -331,22 +340,24 @@ function loadBatchesForCoordinator(adminId) {
     var options = document.querySelectorAll('.batch-option');
     var taken = assignedByAdmin[String(adminId)] || [];
     var visible = 0;
+    if (!options.length) {
+        hint.style.display = 'block';
+        hint.innerHTML = 'No batches have been created yet.';
+        return;
+    }
     options.forEach(function (option) {
         var input = option.querySelector('input');
-        input.checked = false;
         var id = parseInt(option.getAttribute('data-batch-id'), 10);
-        var show = !!adminId && taken.indexOf(id) === -1;
+        var show = !adminId || taken.indexOf(id) === -1;
         option.style.display = show ? '' : 'none';
+        if (!show && input) {
+            input.checked = false;
+        }
         if (show) {
             visible++;
         }
     });
-    if (!adminId) {
-        hint.style.display = 'block';
-        hint.innerHTML = '<i class="fas fa-arrow-up"></i> Please select a coordinator first';
-        return;
-    }
-    if (visible === 0) {
+    if (adminId && visible === 0) {
         hint.style.display = 'block';
         hint.innerHTML = '<i class="fas fa-check"></i> Every batch is already assigned to this coordinator';
         return;
@@ -415,6 +426,7 @@ function refreshAssignments() {
         .then(function (data) {
             if (!data.success) {
                 toast('error', data.message || 'Could not load assignments');
+                renderAssignments([]);
                 return;
             }
             renderAssignments(data.assignments || []);
@@ -448,6 +460,13 @@ function removeAssignment(id) {
 document.getElementById('coordinatorSelect').addEventListener('change', function () {
     loadBatchesForCoordinator(this.value);
 });
+var assignModal = document.getElementById('assignBatchesModal');
+if (assignModal) {
+    assignModal.addEventListener('shown.bs.modal', function () {
+        loadBatchesForCoordinator(document.getElementById('coordinatorSelect').value);
+    });
+}
+loadBatchesForCoordinator(document.getElementById('coordinatorSelect').value);
 
 document.getElementById('assignBatchesForm').addEventListener('submit', function (event) {
     event.preventDefault();
