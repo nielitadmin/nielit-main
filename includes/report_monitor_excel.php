@@ -253,8 +253,10 @@ function report_monitor_send_excel(array $ctx): void
     $qSums = ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0];
     foreach (($ctx['social_summary'] ?? []) as $categoryRow) {
         $key = (string) ($categoryRow['key'] ?? '');
-        foreach (['Q1', 'Q2', 'Q3', 'Q4'] as $q) {
-            $qSums[$q] += (int) ($categoryRow[$q] ?? 0);
+        if ($key !== 'pwd') {
+            foreach (['Q1', 'Q2', 'Q3', 'Q4'] as $q) {
+                $qSums[$q] += (int) ($categoryRow[$q] ?? 0);
+            }
         }
         $socialRows[] = [
             '_style' => 'Group',

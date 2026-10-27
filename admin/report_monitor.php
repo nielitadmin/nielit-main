@@ -347,12 +347,22 @@ $socialCategoryAdmissionTargets = report_monitor_get_social_category_targets(
 );
 $socialCategoryQuarterTargetSummary = report_monitor_apply_category_targets(
     $socialCategoryQuarterSummary,
-    $socialCategoryAdmissionTargets
+    $socialCategoryAdmissionTargets,
+    ['pwd']
 );
 $socialCategoryQuarterSummary = $socialCategoryQuarterTargetSummary['rows'];
 $socialCategoryQuarterGrandTotal = $socialCategoryQuarterTargetSummary['grand_total'];
 $socialCategoryQuarterGrandTarget = $socialCategoryQuarterTargetSummary['grand_target'];
 $socialCategoryQuarterGrandAchievement = $socialCategoryQuarterTargetSummary['grand_achievement_pct'];
+$socialCategoryQuarterSums = ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0];
+foreach ($socialCategoryQuarterSummary as $socialSumRow) {
+    if (($socialSumRow['key'] ?? '') === 'pwd') {
+        continue;
+    }
+    foreach (['Q1', 'Q2', 'Q3', 'Q4'] as $socialQuarterKey) {
+        $socialCategoryQuarterSums[$socialQuarterKey] += (int) ($socialSumRow[$socialQuarterKey] ?? 0);
+    }
+}
 
 $internshipCourseSummary = report_monitor_get_internship_course_quarter_summary(
     $conn,
@@ -2380,6 +2390,7 @@ Q4 (Jan–Mar)
         <div>
             <strong>Social Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
             <span class="badge bg-secondary ms-2">General / OBC / SC / ST / EWS / PWD</span>
+            <div class="text-muted small">PWD students are already counted in General, OBC, SC, ST, or EWS. The PWD row is a separate list and is not added again to the total.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button"
@@ -2523,10 +2534,10 @@ Q4 (Jan–Mar)
                             <span class="text-muted fw-normal">Not set</span>
                         <?php endif; ?>
                     </th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q1'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q2'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q3'))); ?></th>
-                    <th class="text-end"><?php echo number_format(array_sum(array_column($socialCategoryQuarterSummary, 'Q4'))); ?></th>
+                    <th class="text-end"><?php echo number_format($socialCategoryQuarterSums['Q1']); ?></th>
+                    <th class="text-end"><?php echo number_format($socialCategoryQuarterSums['Q2']); ?></th>
+                    <th class="text-end"><?php echo number_format($socialCategoryQuarterSums['Q3']); ?></th>
+                    <th class="text-end"><?php echo number_format($socialCategoryQuarterSums['Q4']); ?></th>
                     <th class="text-end fw-bold"><?php echo number_format($socialCategoryQuarterGrandTotal); ?></th>
                     <th class="text-end fw-bold">
                         <?php echo $socialCategoryQuarterGrandAchievement !== null ? number_format($socialCategoryQuarterGrandAchievement, 1) . '%' : '—'; ?>

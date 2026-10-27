@@ -3263,9 +3263,10 @@ if (!function_exists('get_report_monitor_category_groups')) {
         );
     }
 
-    function report_monitor_apply_category_targets(array $summaryRows, array $targetsMap) {
+    function report_monitor_apply_category_targets(array $summaryRows, array $targetsMap, array $excludeFromGrand = []) {
         $grandTotal = 0;
         $grandTarget = 0;
+        $excludeFromGrand = array_fill_keys($excludeFromGrand, true);
 
         foreach ($summaryRows as &$row) {
             $key = (string) ($row['key'] ?? '');
@@ -3276,6 +3277,9 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $row['achievement_pct'] = $target > 0 ? round(($total / $target) * 100, 1) : null;
             $row['remaining'] = $target > 0 ? max(0, $target - $total) : null;
 
+            if (isset($excludeFromGrand[$key])) {
+                continue;
+            }
             $grandTotal += $total;
             $grandTarget += $target;
         }
