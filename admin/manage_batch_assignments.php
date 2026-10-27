@@ -21,21 +21,24 @@ require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 batch_assignment_ensure_schema($conn);
 $active_theme = loadActiveTheme($conn);
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['batch_ids'])) {
+    $saved = batch_assignment_save($conn, (int) ($_POST['admin_id'] ?? 0), (array) $_POST['batch_ids']);
+    $_SESSION['batch_assignment_flash'] = $saved['message'] ?? '';
+    $_SESSION['batch_assignment_flash_type'] = $saved['type'] ?? 'info';
+    header('Location: manage_batch_assignments.php');
+    exit();
+}
+$assignmentFlash = $_SESSION['batch_assignment_flash'] ?? '';
+$assignmentFlashType = $_SESSION['batch_assignment_flash_type'] ?? 'info';
+unset($_SESSION['batch_assignment_flash'], $_SESSION['batch_assignment_flash_type']);
+$savedAssignments = batch_assignment_rows($conn);
+
 $coordinators_result = $conn->query("SELECT id, username, email FROM admin WHERE role = 'course_coordinator' AND is_active = 1 ORDER BY username");
 $batches_result = $conn->query("SELECT b.id, b.batch_name, b.batch_code, COALESCE(c.course_name, '') AS course_name
     FROM batches b
     LEFT JOIN courses c ON b.course_id = c.id
     ORDER BY c.course_name, b.batch_name");
-$stats_result = $conn->query("SELECT
-    COUNT(DISTINCT admin_id) AS total_coordinators_with_assignments,
-    COUNT(id) AS total_assignments,
-    COUNT(DISTINCT batch_id) AS total_batches_assigned
-    FROM admin_batch_assignments WHERE is_active = 1");
-$stats = $stats_result ? $stats_result->fetch_assoc() : [
-    'total_coordinators_with_assignments' => 0,
-    'total_assignments' => 0,
-    'total_batches_assigned' => 0,
-];
+$stats = batch_assignment_stats($conn);
 
 $coordinators = [];
 if ($coordinators_result) {
@@ -184,6 +187,11 @@ $selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
         </div>
         <div class="admin-main">
             <div class="content-body">
+                <?php if ($assignmentFlash !== ''): ?>
+                <div class="alert alert-<?php echo $assignmentFlashType === 'error' ? 'danger' : ($assignmentFlashType === 'warning' ? 'warning' : 'success'); ?>">
+                    <?php echo htmlspecialchars($assignmentFlash); ?>
+                </div>
+                <?php endif; ?>
                 <div class="row mb-4">
                     <div class="col-md-4 mb-3">
                         <div class="stats-card">
@@ -232,11 +240,52 @@ $selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
                     </div>
                     <div class="table-responsive">
                         <div id="assignments-table-container">
+                            <?php if (!$savedAssignments): ?>
                             <div class="empty-state">
                                 <i class="fas fa-clipboard-list"></i>
                                 <h5>No Batch Assignments Found</h5>
                                 <p>Use Assign Batches to give a coordinator access to a batch.</p>
                             </div>
+                            <?php else: ?>
+                            <table class="table">
+                                <thead>
+                                <tr>
+                                    <th>Coordinator</th>
+                                    <th>Batch</th>
+                                    <th>Course</th>
+                                    <th>Type</th>
+                                    <th>Assigned By</th>
+                                    <th>Assigned Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($savedAssignments as $savedRow): ?>
+                                <tr>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($savedRow['admin_name']); ?></strong><br>
+                                        <small class="text-muted"><?php echo htmlspecialchars($savedRow['admin_email']); ?></small>
+                                    </td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($savedRow['batch_name']); ?></strong>
+                                        <?php if (!empty($savedRow['batch_code'])): ?>
+                                            <span class="badge bg-secondary"><?php echo htmlspecialchars($savedRow['batch_code']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($savedRow['course_name'] ?: '—'); ?></td>
+                                    <td><span class="badge-modern badge-manual"><?php echo htmlspecialchars($savedRow['assignment_type'] ?: 'Manual'); ?></span></td>
+                                    <td><?php echo htmlspecialchars($savedRow['assigned_by_name'] ?: 'System'); ?></td>
+                                    <td><?php echo htmlspecialchars($savedRow['assigned_at'] ?: ''); ?></td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeAssignment(<?php echo (int) $savedRow['id']; ?>)">
+                                            <i class="fas fa-times"></i> Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -426,7 +475,6 @@ function refreshAssignments() {
         .then(function (data) {
             if (!data.success) {
                 toast('error', data.message || 'Could not load assignments');
-                renderAssignments([]);
                 return;
             }
             renderAssignments(data.assignments || []);
