@@ -63,7 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) ($_POST['fy_year'] ?? 0),
             (string) ($_POST['quarter'] ?? ''),
             isset($_POST['is_certified']) ? 1 : 0,
-            isset($_POST['is_placed']) ? 1 : 0
+            isset($_POST['is_placed']) ? 1 : 0,
+            (string) ($_POST['course_name'] ?? ''),
+            training_partner_parse_date($_POST['course_start_date'] ?? ''),
+            training_partner_parse_date($_POST['course_end_date'] ?? '')
         );
         $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
@@ -79,9 +82,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int) ($_POST['partner_id'] ?? 0),
                 (int) ($_POST['scheme_id'] ?? 0),
                 (int) ($_POST['fy_year'] ?? 0),
-                (string) ($_POST['quarter'] ?? '')
+                (string) ($_POST['quarter'] ?? ''),
+                training_partner_parse_date($_POST['course_start_date'] ?? ''),
+                training_partner_parse_date($_POST['course_end_date'] ?? '')
             );
-            $success = !empty($result['ok']) ? ((int) $result['saved'] . ' students uploaded for this scheme and training partner.') : '';
+            if (!empty($result['ok'])) {
+                $success = (int) $result['saved'] . ' students uploaded';
+                if ((int) ($result['sheets'] ?? 0) > 1) {
+                    $success .= ' from ' . (int) $result['sheets'] . ' sheets';
+                }
+                if ((int) ($result['partners_created'] ?? 0) > 0) {
+                    $success .= '. ' . (int) $result['partners_created'] . ' training partners were added from the sheet';
+                }
+                $success .= '.';
+            } else {
+                $success = '';
+            }
             $error = !empty($result['ok']) ? '' : (string) ($result['error'] ?? 'Could not read the Excel file.');
         }
     } elseif ($action === 'delete_student') {
@@ -336,6 +352,20 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Student name</label>
                             <input class="form-control" name="student_name" required>
                         </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Course name</label>
+                                <input class="form-control" name="course_name" placeholder="Optional">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Course starting date</label>
+                                <input class="form-control" type="date" name="course_start_date">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Course ending date</label>
+                                <input class="form-control" type="date" name="course_end_date">
+                            </div>
+                        </div>
                         <div class="mb-3">
                             <label class="form-check-label me-3"><input type="checkbox" name="is_certified" value="1"> Certified</label>
                             <label class="form-check-label"><input type="checkbox" name="is_placed" value="1"> Placed</label>
@@ -345,7 +375,7 @@ $active_theme = loadActiveTheme($conn);
                     <hr>
                     <h2>Upload students from Excel</h2>
                     <div class="alert alert-info">
-                        Reminder: choose the scheme, training partner, year, and quarter here. The Excel sheet only needs four columns: <strong>Student name</strong>, <strong>Mobile</strong>, <strong>Certified</strong>, <strong>Placed</strong>. Use Yes or No in the last two columns. Uploaded students are kept in their own table and are not added to All Students.
+                        Choose the scheme, year, and quarter here. A workbook with several sheets is read sheet by sheet. Columns that are recognised: <strong>Student name</strong> or <strong>Name of candidate</strong>, <strong>Mobile</strong> or WhatsApp number, <strong>Course name</strong>, <strong>Course start date</strong>, <strong>Course end date</strong>, and <strong>Training partner</strong> or <strong>Name of Institute</strong>. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
                         <a href="training_partners.php?download=student_template">Download the Excel template</a>.
                     </div>
                     <form method="post" enctype="multipart/form-data">
@@ -362,8 +392,8 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Training partner for this project</label>
-                                <select class="form-select" name="partner_id" required>
-                                    <option value="">Select training partner</option>
+                                <select class="form-select" name="partner_id">
+                                    <option value="0">Use the partner named in the Excel sheet</option>
                                     <?php foreach ($partners as $partner): ?>
                                         <option value="<?php echo (int) $partner['id']; ?>"><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
                                     <?php endforeach; ?>
@@ -392,16 +422,30 @@ $active_theme = loadActiveTheme($conn);
                                 <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
                             </div>
                         </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Course starting date</label>
+                                <input class="form-control" type="date" name="course_start_date">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Course ending date</label>
+                                <input class="form-control" type="date" name="course_end_date">
+                            </div>
+                        </div>
                         <button class="btn btn-primary" type="submit">Upload students</button>
                     </form>
                 <?php endif; ?>
                 <?php if ($students): ?>
-                    <div class="table-responsive mt-3">
+                    <p class="text-muted mt-3 mb-0">Showing the latest <?php echo count($students); ?> student records.</p>
+                    <div class="table-responsive mt-2">
                         <table class="tp-table">
                             <thead>
                                 <tr>
                                     <th>Scheme / project</th>
                                     <th>Training partner</th>
+                                    <th>Course</th>
+                                    <th>Start</th>
+                                    <th>End</th>
                                     <th>Quarter</th>
                                     <th>Student</th>
                                     <th>Certified</th>
@@ -414,6 +458,9 @@ $active_theme = loadActiveTheme($conn);
                                 <tr>
                                     <td><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
                                     <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($student['course_name'] ?? '') !== '' ? (string) $student['course_name'] : '—'); ?></td>
+                                    <td><?php echo !empty($student['course_start_date']) ? htmlspecialchars(date('d M Y', strtotime((string) $student['course_start_date']))) : '—'; ?></td>
+                                    <td><?php echo !empty($student['course_end_date']) ? htmlspecialchars(date('d M Y', strtotime((string) $student['course_end_date']))) : '—'; ?></td>
                                     <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
                                     <td>
                                         <?php echo htmlspecialchars((string) $student['student_name']); ?>
