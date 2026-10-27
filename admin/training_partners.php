@@ -21,6 +21,8 @@ if (($_GET['download'] ?? '') === 'student_template') {
 $success = '';
 $error = '';
 $showStudents = (($_GET['students'] ?? '') === '1');
+$filterScheme = 0;
+$filterPartner = 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
@@ -90,6 +92,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
             if (!empty($result['ok'])) {
                 $showStudents = true;
+                $filterScheme = (int) ($_POST['scheme_id'] ?? 0);
+                $filterPartner = (int) ($_POST['partner_id'] ?? 0);
                 $success = (int) $result['saved'] . ' students uploaded';
                 if ((int) ($result['sheets'] ?? 0) > 1) {
                     $success .= ' from ' . (int) $result['sheets'] . ' sheets';
@@ -105,6 +109,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'update_student_status') {
         $showStudents = true;
+        $filterScheme = (int) ($_POST['filter_scheme_id'] ?? 0);
+        $filterPartner = (int) ($_POST['filter_partner_id'] ?? 0);
         $updated = training_partner_update_student_status(
             $conn,
             (int) ($_POST['student_record_id'] ?? 0),
@@ -117,6 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'delete_student') {
         $showStudents = true;
+        $filterScheme = (int) ($_POST['filter_scheme_id'] ?? 0);
+        $filterPartner = (int) ($_POST['filter_partner_id'] ?? 0);
         $success = training_partner_delete_student($conn, (int) ($_POST['student_record_id'] ?? 0))
             ? 'Student record removed.'
             : '';
@@ -182,11 +190,17 @@ $active_theme = loadActiveTheme($conn);
         .tp-table th, .tp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
         .tp-table th { font-size: 12px; text-transform: uppercase; color: #64748b; white-space: nowrap; }
         .tp-note { color: #475569; margin: 8px 0 18px; }
-        .tp-student-scroll { overflow: auto; max-height: 70vh; border: 1px solid #e2e8f0; border-radius: 10px; }
+        .admin-content { min-width: 0; overflow-x: hidden; }
+        .tp-page, .tp-card { min-width: 0; max-width: 100%; }
+        .tp-student-scroll { width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: auto; max-height: 70vh; border: 1px solid #e2e8f0; border-radius: 10px; }
         .tp-student-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
-        .tp-student-table th, .tp-student-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; background: #fff; font-size: 13px; }
+        .tp-student-table th, .tp-student-table td { box-sizing: border-box; padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; background: #fff; font-size: 13px; }
         .tp-student-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; font-size: 11px; text-transform: uppercase; color: #64748b; }
         .tp-student-table td.tp-wrap { white-space: normal; min-width: 220px; max-width: 320px; }
+        .tp-student-table .tp-freeze { position: sticky; z-index: 3; background: #fff; }
+        .tp-student-table thead .tp-freeze { z-index: 5; background: #f8fafc; }
+        .tp-freeze-sl { left: 0; width: 76px; min-width: 76px; max-width: 76px; }
+        .tp-freeze-name { left: 76px; min-width: 180px; box-shadow: 4px 0 6px rgba(15, 23, 42, 0.08); }
         .tp-flag-form { display: flex; align-items: center; gap: 12px; margin: 0; }
         .tp-flag-form label { margin: 0; white-space: nowrap; font-weight: 600; }
     </style>
@@ -529,13 +543,39 @@ $active_theme = loadActiveTheme($conn);
                         (<?php echo count($students); ?>)
                     </button>
                     <div id="tpStudentList" class="mt-3" <?php echo $showStudents ? '' : 'hidden'; ?>>
-                        <p class="text-muted mb-2">Tick Certified or Placed for one candidate, then click Update on that row.</p>
-                        <div class="tp-student-scroll">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="tpFilterScheme">Scheme / project</label>
+                                <select class="form-select" id="tpFilterScheme">
+                                    <option value="">Select scheme or project</option>
+                                    <?php foreach ($schemes as $scheme): ?>
+                                        <option value="<?php echo (int) $scheme['id']; ?>" <?php echo $filterScheme === (int) $scheme['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $scheme['scheme_name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="tpFilterPartner">Institute</label>
+                                <select class="form-select" id="tpFilterPartner">
+                                    <option value="">Select institute</option>
+                                    <?php foreach ($partners as $partner): ?>
+                                        <option value="<?php echo (int) $partner['id']; ?>" <?php echo $filterPartner === (int) $partner['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars((string) $partner['partner_name']); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-muted mb-2" id="tpFilterHint">Select the scheme or project and the institute. Only those student records are shown.</p>
+                        <p class="text-muted mb-2" id="tpFilterEmpty" hidden>No student records for that scheme and institute.</p>
+                        <p class="text-muted mb-2" id="tpFilterHelp" hidden>Scroll sideways to see the full record. The student name stays on the left. Tick Certified or Placed, then click Update on that row.</p>
+                        <div class="tp-student-scroll" id="tpStudentScroll" hidden>
                             <table class="tp-student-table">
                                 <thead>
                                     <tr>
-                                        <th>Sl. No.</th>
-                                        <th>Candidate</th>
+                                        <th class="tp-freeze tp-freeze-sl">Sl. No.</th>
+                                        <th class="tp-freeze tp-freeze-name">Candidate</th>
                                         <th>Father</th>
                                         <th>WhatsApp</th>
                                         <th>Batch</th>
@@ -561,11 +601,11 @@ $active_theme = loadActiveTheme($conn);
                                         <th></th>
                                     </tr>
                                 </thead>
-                                <tbody>
+                                <tbody id="tpStudentBody">
                                 <?php foreach ($students as $studentIndex => $student): ?>
-                                    <tr>
-                                        <td><?php echo (int) $studentIndex + 1; ?></td>
-                                        <td><?php echo htmlspecialchars((string) $student['student_name']); ?></td>
+                                    <tr data-scheme="<?php echo (int) $student['scheme_id']; ?>" data-partner="<?php echo (int) $student['partner_id']; ?>" hidden>
+                                        <td class="tp-freeze tp-freeze-sl tp-sl"><?php echo (int) $studentIndex + 1; ?></td>
+                                        <td class="tp-freeze tp-freeze-name"><?php echo htmlspecialchars((string) $student['student_name']); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['father_name'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['mobile'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['batch_no'] ?? '')); ?></td>
@@ -592,6 +632,8 @@ $active_theme = loadActiveTheme($conn);
                                                 <input type="hidden" name="action" value="update_student_status">
                                                 <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
                                                 <input type="hidden" name="show_students" value="1">
+                                                <input type="hidden" name="filter_scheme_id" class="tp-keep-scheme" value="<?php echo $filterScheme; ?>">
+                                                <input type="hidden" name="filter_partner_id" class="tp-keep-partner" value="<?php echo $filterPartner; ?>">
                                                 <label><input type="checkbox" name="is_certified" value="1" <?php echo (int) $student['is_certified'] === 1 ? 'checked' : ''; ?>> Certified</label>
                                                 <label><input type="checkbox" name="is_placed" value="1" <?php echo (int) $student['is_placed'] === 1 ? 'checked' : ''; ?>> Placed</label>
                                                 <button class="btn btn-sm btn-primary" type="submit">Update</button>
@@ -602,6 +644,8 @@ $active_theme = loadActiveTheme($conn);
                                                 <input type="hidden" name="action" value="delete_student">
                                                 <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
                                                 <input type="hidden" name="show_students" value="1">
+                                                <input type="hidden" name="filter_scheme_id" class="tp-keep-scheme" value="<?php echo $filterScheme; ?>">
+                                                <input type="hidden" name="filter_partner_id" class="tp-keep-partner" value="<?php echo $filterPartner; ?>">
                                                 <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
                                             </form>
                                         </td>
@@ -623,6 +667,29 @@ $active_theme = loadActiveTheme($conn);
                             this.setAttribute('aria-expanded', open ? 'true' : 'false');
                             document.getElementById('tpToggleStudentsLabel').textContent = open ? 'Hide student list' : 'Show student list';
                         });
+                        function tpApplyStudentFilter() {
+                            var scheme = document.getElementById('tpFilterScheme').value;
+                            var partner = document.getElementById('tpFilterPartner').value;
+                            var ready = scheme !== '' && partner !== '';
+                            var shown = 0;
+                            document.querySelectorAll('#tpStudentBody tr').forEach(function (row) {
+                                var match = ready && row.getAttribute('data-scheme') === scheme && row.getAttribute('data-partner') === partner;
+                                row.hidden = !match;
+                                if (match) {
+                                    shown += 1;
+                                    row.querySelector('.tp-sl').textContent = String(shown);
+                                }
+                            });
+                            document.querySelectorAll('.tp-keep-scheme').forEach(function (input) { input.value = scheme; });
+                            document.querySelectorAll('.tp-keep-partner').forEach(function (input) { input.value = partner; });
+                            document.getElementById('tpFilterHint').hidden = ready;
+                            document.getElementById('tpFilterEmpty').hidden = !ready || shown > 0;
+                            document.getElementById('tpFilterHelp').hidden = shown === 0;
+                            document.getElementById('tpStudentScroll').hidden = shown === 0;
+                        }
+                        document.getElementById('tpFilterScheme').addEventListener('change', tpApplyStudentFilter);
+                        document.getElementById('tpFilterPartner').addEventListener('change', tpApplyStudentFilter);
+                        tpApplyStudentFilter();
                     </script>
                 <?php else: ?>
                     <p class="text-muted mt-3 mb-0">No student records yet. Upload a sheet or add a candidate to open the student list.</p>
