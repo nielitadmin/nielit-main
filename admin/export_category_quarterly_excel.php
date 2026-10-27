@@ -79,14 +79,15 @@ echo '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schem
 echo '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>';
 echo '<table border="1" cellpadding="4" cellspacing="0">';
 
-echo '<tr><td colspan="10" style="font-weight:bold;font-size:16px;text-align:center;">Category Quarterly Admissions Summary</td></tr>';
-echo '<tr><td colspan="10" style="text-align:center;">' . htmlspecialchars($reportScopeTitleLabel) . ' FY - ' . htmlspecialchars($selectedFyFullLabel) . '</td></tr>';
-echo '<tr><td colspan="10" style="text-align:center;">Centre: ' . htmlspecialchars($selectedCentreName) . ' | Generated: ' . date('d M Y, h:i A') . '</td></tr>';
-echo '<tr><td colspan="10"></td></tr>';
+echo '<tr><td colspan="11" style="font-weight:bold;font-size:16px;text-align:center;">Category Quarterly Admissions Summary</td></tr>';
+echo '<tr><td colspan="11" style="text-align:center;">' . htmlspecialchars($reportScopeTitleLabel) . ' FY - ' . htmlspecialchars($selectedFyFullLabel) . '</td></tr>';
+echo '<tr><td colspan="11" style="text-align:center;">Centre: ' . htmlspecialchars($selectedCentreName) . ' | Generated: ' . date('d M Y, h:i A') . '</td></tr>';
+echo '<tr><td colspan="11"></td></tr>';
 
 echo '<tr style="font-weight:bold;background:#f1f5f9;">';
 echo '<td>Category</td>';
 echo '<td>Schemes</td>';
+echo '<td>Faculty</td>';
 echo '<td>Start Date – End Date</td>';
 echo '<td>Target</td>';
 echo '<td>Q1</td>';
@@ -107,6 +108,7 @@ foreach ($categoryQuarterSummary as $categoryRow) {
     echo '<td>' . htmlspecialchars((string) ($categoryRow['label'] ?? '')) . '</td>';
     echo '<td>—</td>';
     echo '<td>—</td>';
+    echo '<td>—</td>';
     echo '<td>' . ($target > 0 ? number_format($target) : 'Not set') . '</td>';
     echo '<td>' . number_format((int) ($categoryRow['Q1'] ?? 0)) . '</td>';
     echo '<td>' . number_format((int) ($categoryRow['Q2'] ?? 0)) . '</td>';
@@ -124,6 +126,7 @@ foreach ($categoryQuarterSummary as $categoryRow) {
         echo '<tr>';
         echo '<td>&nbsp;&nbsp;&nbsp;↳ ' . htmlspecialchars($courseLabel) . '</td>';
         echo '<td>' . htmlspecialchars((string) ($courseRow['scheme_names'] ?? '—')) . '</td>';
+        echo '<td>' . htmlspecialchars((string) ($courseRow['faculty_names'] ?? '—')) . '</td>';
         echo '<td>' . htmlspecialchars((string) ($courseRow['batch_period_label'] ?? '—')) . '</td>';
         echo '<td>—</td>';
         echo '<td>' . number_format((int) ($courseRow['Q1'] ?? 0)) . '</td>';
@@ -138,6 +141,7 @@ foreach ($categoryQuarterSummary as $categoryRow) {
 
 echo '<tr style="font-weight:bold;background:#f8fafc;">';
 echo '<td>Grand Total</td>';
+echo '<td></td>';
 echo '<td></td>';
 echo '<td></td>';
 echo '<td>' . ($categoryQuarterGrandTarget > 0 ? number_format((int) $categoryQuarterGrandTarget) : 'Not set') . '</td>';

@@ -176,7 +176,7 @@ function report_monitor_send_excel(array $ctx): void
     $categoryRows = [
         ['_style' => 'Title', 'Category Quarterly Admissions', $scope, 'FY - ' . $fyLabel],
         [],
-        ['_style' => 'Header', 'Sl No.', 'Type', 'Category / Course', 'Schemes', 'Start Date – End Date', 'Target', 'Q1', 'Q2', 'Q3', 'Q4', 'Total', 'Achievement'],
+        ['_style' => 'Header', 'Sl No.', 'Type', 'Category / Course', 'Schemes', 'Faculty', 'Start Date – End Date', 'Target', 'Q1', 'Q2', 'Q3', 'Q4', 'Total', 'Achievement'],
     ];
     $sl = 1;
     $qSums = ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0];
@@ -190,6 +190,7 @@ function report_monitor_send_excel(array $ctx): void
             $sl++,
             'Category',
             (string) ($categoryRow['label'] ?? ''),
+            '—',
             '—',
             '—',
             report_monitor_excel_target($categoryRow['target'] ?? 0),
@@ -210,6 +211,7 @@ function report_monitor_send_excel(array $ctx): void
                 'Course',
                 $label,
                 (string) ($courseRow['scheme_names'] ?? '—'),
+                (string) ($courseRow['faculty_names'] ?? '—'),
                 (string) ($courseRow['batch_period_label'] ?? '—'),
                 '—',
                 (int) ($courseRow['Q1'] ?? 0),
@@ -225,6 +227,7 @@ function report_monitor_send_excel(array $ctx): void
         '_style' => 'Header',
         '',
         'Grand Total',
+        '',
         '',
         '',
         '',
@@ -244,7 +247,7 @@ function report_monitor_send_excel(array $ctx): void
     $socialRows = [
         ['_style' => 'Title', 'Social Category Quarterly Admissions', $scope, 'FY - ' . $fyLabel],
         [],
-        ['_style' => 'Header', 'Sl No.', 'Type', 'Social Category / Course', 'Schemes', 'Start Date – End Date', 'Target', 'Q1', 'Q2', 'Q3', 'Q4', 'Total', 'Achievement'],
+        ['_style' => 'Header', 'Sl No.', 'Type', 'Social Category / Course', 'Schemes', 'Faculty', 'Start Date – End Date', 'Target', 'Q1', 'Q2', 'Q3', 'Q4', 'Total', 'Achievement'],
     ];
     $sl = 1;
     $qSums = ['Q1' => 0, 'Q2' => 0, 'Q3' => 0, 'Q4' => 0];
@@ -258,6 +261,7 @@ function report_monitor_send_excel(array $ctx): void
             $sl++,
             'Category',
             (string) ($categoryRow['label'] ?? ''),
+            '—',
             '—',
             '—',
             report_monitor_excel_target($categoryRow['target'] ?? 0),
@@ -278,6 +282,7 @@ function report_monitor_send_excel(array $ctx): void
                 'Course',
                 $label,
                 (string) ($courseRow['scheme_names'] ?? '—'),
+                (string) ($courseRow['faculty_names'] ?? '—'),
                 (string) ($courseRow['batch_period_label'] ?? '—'),
                 '—',
                 (int) ($courseRow['Q1'] ?? 0),
@@ -293,6 +298,7 @@ function report_monitor_send_excel(array $ctx): void
         '_style' => 'Header',
         '',
         'Grand Total',
+        '',
         '',
         '',
         '',

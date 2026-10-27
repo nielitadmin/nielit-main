@@ -2254,6 +2254,7 @@ Q4 (Jan–Mar)
                     <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Category</th>
                     <th>Schemes</th>
+                    <th>Faculty</th>
                     <th>Start Date – End Date</th>
                     <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
@@ -2302,6 +2303,7 @@ Q4 (Jan–Mar)
                         </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
+                        <td class="text-muted">—</td>
                         <td class="text-end">
                             <?php if (($categoryRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($categoryRow['target']); ?>
@@ -2331,6 +2333,7 @@ Q4 (Jan–Mar)
                             <?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
@@ -2347,6 +2350,7 @@ Q4 (Jan–Mar)
                 <tr>
                     <th></th>
                     <th>Grand Total</th>
+                    <th></th>
                     <th></th>
                     <th></th>
                     <th class="text-end fw-bold">
@@ -2413,6 +2417,7 @@ Q4 (Jan–Mar)
                     <th class="text-center" style="width:70px;">Sl No.</th>
                     <th>Social Category</th>
                     <th>Schemes</th>
+                    <th>Faculty</th>
                     <th>Start Date – End Date</th>
                     <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
@@ -2461,6 +2466,7 @@ Q4 (Jan–Mar)
                         </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
+                        <td class="text-muted">—</td>
                         <td class="text-end">
                             <?php if (($socialRow['target'] ?? 0) > 0): ?>
                                 <?php echo number_format($socialRow['target']); ?>
@@ -2490,6 +2496,7 @@ Q4 (Jan–Mar)
                             <?php endif; ?>
                         </td>
                         <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></td>
                         <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
@@ -2506,6 +2513,7 @@ Q4 (Jan–Mar)
                 <tr>
                     <th></th>
                     <th>Grand Total</th>
+                    <th></th>
                     <th></th>
                     <th></th>
                     <th class="text-end fw-bold">

@@ -954,6 +954,53 @@ if (!function_exists('get_report_monitor_category_groups')) {
         )";
     }
 
+    function report_monitor_unique_faculty_label($raw): string {
+        $parts = preg_split('/\s*,\s*/', trim((string) $raw)) ?: [];
+        $seen = [];
+        $names = [];
+        foreach ($parts as $part) {
+            $part = trim((string) $part);
+            if ($part === '' || $part === '0' || $part === '—') {
+                continue;
+            }
+            $key = strtolower($part);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $names[] = $part;
+        }
+        if (!$names) {
+            return '—';
+        }
+        sort($names, SORT_FLAG_CASE | SORT_STRING);
+        return implode(', ', $names);
+    }
+
+    function report_monitor_course_faculty_select_sql($conn, $batchAlias = 'b') {
+        $alias = preg_replace('/[^A-Za-z0-9_]/', '', (string) $batchAlias);
+        if ($alias === '') {
+            $alias = 'b';
+        }
+        $hasFacultyLink = report_monitor_table_exists($conn, 'batch_faculty') && report_monitor_table_exists($conn, 'faculty');
+        $hasCoordinator = report_monitor_column_exists($conn, 'batches', 'batch_coordinator');
+        $expr = "''";
+        if ($hasFacultyLink) {
+            $expr = "NULLIF((
+                SELECT GROUP_CONCAT(DISTINCT f.name ORDER BY f.name SEPARATOR ', ')
+                FROM batch_faculty bf
+                INNER JOIN faculty f ON f.id = bf.faculty_id
+                WHERE bf.batch_id = {$alias}.id
+            ), '')";
+            if ($hasCoordinator) {
+                $expr = "COALESCE({$expr}, NULLIF(TRIM({$alias}.batch_coordinator), ''), NULLIF(TRIM({$alias}.batch_coordinator), '0'))";
+            }
+        } elseif ($hasCoordinator) {
+            $expr = "COALESCE(NULLIF(TRIM({$alias}.batch_coordinator), ''), NULLIF(TRIM({$alias}.batch_coordinator), '0'))";
+        }
+        return "GROUP_CONCAT(DISTINCT NULLIF(TRIM({$expr}), '') SEPARATOR ', ')";
+    }
+
     function report_monitor_get_course_stats($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []) {
         $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
         $activeCondition = report_monitor_student_active_sql('s');
@@ -1392,10 +1439,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
         $schemeSelect = $hasSchemes
             ? "GROUP_CONCAT(DISTINCT NULLIF(TRIM(s.scheme_name), '') ORDER BY s.scheme_name SEPARATOR ', ')"
             : "''";
+        $facultySelect = report_monitor_course_faculty_select_sql($conn, 'b');
 
         $sql = "SELECT
                     c.id AS course_id,
                     {$schemeSelect} AS scheme_names,
+                    {$facultySelect} AS faculty_names,
                     MIN({$batchStartExpr}) AS batch_start,
                     MAX({$batchEndExpr}) AS batch_end
                 FROM batches b
@@ -1423,6 +1472,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
             $schemeNames = trim((string) ($row['scheme_names'] ?? ''));
             $metaMap[$courseId] = [
                 'scheme_names' => $schemeNames !== '' ? $schemeNames : '—',
+                'faculty_names' => report_monitor_unique_faculty_label($row['faculty_names'] ?? ''),
                 'batch_start' => $row['batch_start'] ?? null,
                 'batch_end' => $row['batch_end'] ?? null,
                 'batch_period_label' => report_monitor_format_batch_period_label(
@@ -1551,9 +1601,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 $courseId = (int) ($courseRow['course_id'] ?? 0);
                 $meta = $courseBatchMeta[$courseId] ?? [
                     'scheme_names' => '—',
+                    'faculty_names' => '—',
                     'batch_period_label' => '—',
                 ];
                 $grouped[$categoryKey][$index]['scheme_names'] = $meta['scheme_names'];
+                $grouped[$categoryKey][$index]['faculty_names'] = $meta['faculty_names'];
                 $grouped[$categoryKey][$index]['batch_period_label'] = $meta['batch_period_label'];
             }
         }
@@ -3104,9 +3156,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 $courseId = (int) ($courseRow['course_id'] ?? 0);
                 $meta = $courseBatchMeta[$courseId] ?? [
                     'scheme_names' => '—',
+                    'faculty_names' => '—',
                     'batch_period_label' => '—',
                 ];
                 $grouped[$socialKey][$index]['scheme_names'] = $meta['scheme_names'];
+                $grouped[$socialKey][$index]['faculty_names'] = $meta['faculty_names'];
                 $grouped[$socialKey][$index]['batch_period_label'] = $meta['batch_period_label'];
             }
         }
