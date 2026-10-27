@@ -291,7 +291,7 @@ $selected_admin_id = (int) ($_GET['admin_id'] ?? 0);
                                     <td><?php echo htmlspecialchars($savedRow['assigned_by_name'] ?: 'System'); ?></td>
                                     <td><?php echo htmlspecialchars($savedRow['assigned_at'] ?: ''); ?></td>
                                     <td>
-                                        <form method="post" action="" class="d-inline" onsubmit="return confirm('Remove this batch assignment?');">
+                                        <form method="post" action="manage_batch_assignments.php" class="d-inline">
                                             <input type="hidden" name="remove_assignment_id" value="<?php echo (int) $savedRow['id']; ?>">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                                 <i class="fas fa-times"></i> Remove
@@ -461,7 +461,7 @@ function renderAssignments(assignments) {
             + '<td><span class="badge-modern badge-manual">' + escapeHtml(row.assignment_type || 'Manual') + '</span></td>'
             + '<td>' + escapeHtml(row.assigned_by_name || 'System') + '</td>'
             + '<td>' + dateText + '</td>'
-            + '<td><form method="post" action="" class="d-inline" onsubmit="return confirm(\'Remove this batch assignment?\');"><input type="hidden" name="remove_assignment_id" value="' + parseInt(row.id, 10) + '"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Remove</button></form></td>'
+            + '<td><form method="post" action="manage_batch_assignments.php" class="d-inline"><input type="hidden" name="remove_assignment_id" value="' + parseInt(row.id, 10) + '"><button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i> Remove</button></form></td>'
             + '</tr>';
     });
     html += '</tbody></table>';
