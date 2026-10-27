@@ -31,6 +31,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             course_name VARCHAR(180) NOT NULL DEFAULT '',
             course_start_date DATE NULL,
             course_end_date DATE NULL,
+            exam_date DATE NULL,
             KEY idx_tp_student_period (figure_month),
             KEY idx_tp_student_partner (partner_id, scheme_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
@@ -49,6 +50,9 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         if (!isset($studentColumns['course_end_date'])) {
             $conn->query('ALTER TABLE training_partner_students ADD COLUMN course_end_date DATE NULL AFTER course_start_date');
+        }
+        if (!isset($studentColumns['exam_date'])) {
+            $conn->query('ALTER TABLE training_partner_students ADD COLUMN exam_date DATE NULL AFTER course_end_date');
         }
         foreach (training_partner_detail_fields() as $field => $kind) {
             if (isset($studentColumns[$field])) {
@@ -503,7 +507,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = []): array
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = [], ?string $examDate = null, bool $saveExamDate = false): array
     {
         training_partner_ensure_schema($conn);
         $name = trim($name);
@@ -519,6 +523,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $placed = $placed === 1 ? 1 : 0;
         $courseStart = $courseStart !== null && $courseStart !== '' ? $courseStart : null;
         $courseEnd = $courseEnd !== null && $courseEnd !== '' ? $courseEnd : null;
+        $examDate = $examDate !== null && $examDate !== '' ? $examDate : null;
         $figureMonth = training_partner_figure_month_from_course($courseStart, $courseEnd);
         $present = is_array($details['_present'] ?? null) ? $details['_present'] : [];
         $existing = $conn->prepare('SELECT id FROM training_partner_students WHERE partner_id = ? AND scheme_id = ? AND student_name = ? AND mobile = ? ORDER BY id DESC LIMIT 1');
@@ -531,6 +536,11 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $sets = ['course_name = ?', 'course_start_date = ?', 'course_end_date = ?', 'figure_month = ?', 'is_certified = ?', 'is_placed = ?'];
                 $types = 'ssssii';
                 $values = [$courseName, $courseStart, $courseEnd, $figureMonth, $certified, $placed];
+                if ($saveExamDate) {
+                    $sets[] = 'exam_date = ?';
+                    $types .= 's';
+                    $values[] = $examDate;
+                }
                 foreach (training_partner_detail_fields() as $field => $kind) {
                     if (empty($present[$field])) {
                         continue;
@@ -545,9 +555,9 @@ if (!function_exists('training_partner_ensure_schema')) {
                 return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
-        $columns = ['partner_id', 'scheme_id', 'course_name', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'is_certified', 'is_placed'];
-        $types = 'iissssssii';
-        $values = [$partnerId, $schemeId, $courseName, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $certified, $placed];
+        $columns = ['partner_id', 'scheme_id', 'course_name', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
+        $types = 'iisssssssii';
+        $values = [$partnerId, $schemeId, $courseName, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $examDate, $certified, $placed];
         foreach (training_partner_detail_fields() as $field => $kind) {
             $columns[] = '`' . $field . '`';
             $types .= $kind === 'int' ? 'i' : 's';
@@ -600,7 +610,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             return 'st.`' . $field . '`';
         }, array_keys(training_partner_detail_fields())));
         $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.student_name, st.mobile, st.figure_month,
-                       st.course_start_date, st.course_end_date, st.is_certified, st.is_placed, {$detailSelect},
+                       st.course_start_date, st.course_end_date, st.exam_date, st.is_certified, st.is_placed, {$detailSelect},
                        p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
                 FROM training_partner_students st
                 INNER JOIN training_partners p ON p.id = st.partner_id
@@ -714,6 +724,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'State',
                 'Course start date',
                 'Course end date',
+                'Exam date',
                 'Certified',
                 'Placed',
             ],
@@ -739,6 +750,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'Assam',
                 '01-04-2025',
                 '30-06-2025',
+                '15-06-2025',
                 'Yes',
                 'No',
             ],
@@ -764,6 +776,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'Assam',
                 '01-04-2025',
                 '30-06-2025',
+                '20-06-2025',
                 'Yes',
                 'Yes',
             ],
@@ -832,6 +845,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             'partner_name' => null,
             'course_start' => null,
             'course_end' => null,
+            'exam_date' => null,
             'batch_no' => null,
             'nielit_reg_no' => null,
             'father_name' => null,
@@ -875,6 +889,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $map['partner_name'] = $index;
             } elseif (in_array($label, ['coursestartdate', 'coursestartingdate', 'startdate', 'startingdate', 'coursestart', 'batchstartdate', 'fromdate'], true)) {
                 $map['course_start'] = $index;
+            } elseif (strpos($label, 'exam') !== false) {
+                $map['exam_date'] = $index;
             } elseif (in_array($label, ['courseenddate', 'courseendingdate', 'enddate', 'endingdate', 'courseend', 'batchenddate', 'todate'], true)) {
                 $map['course_end'] = $index;
             } elseif ($label === 'batchno' || $label === 'batchnumber' || $label === 'batch') {
@@ -955,6 +971,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'partner_name' => $map['partner_name'] === null ? '' : trim((string) ($row[$map['partner_name']] ?? '')),
                 'course_start' => $map['course_start'] === null ? null : training_partner_parse_date($row[$map['course_start']] ?? ''),
                 'course_end' => $map['course_end'] === null ? null : training_partner_parse_date($row[$map['course_end']] ?? ''),
+                'exam_date' => $map['exam_date'] === null ? null : training_partner_parse_date($row[$map['exam_date']] ?? ''),
+                'has_exam_date' => $map['exam_date'] !== null,
                 'certified' => $map['certified'] === null ? 0 : training_partner_sheet_flag($row[$map['certified']] ?? ''),
                 'placed' => $map['placed'] === null ? 0 : training_partner_sheet_flag($row[$map['placed']] ?? ''),
                 'details' => $details,
@@ -1110,7 +1128,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $sheets;
     }
 
-    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null): array
+    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null): array
     {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $sheets = [];
@@ -1138,6 +1156,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         $defaultStart = training_partner_parse_date($courseStart);
         $defaultEnd = training_partner_parse_date($courseEnd);
+        $defaultExam = training_partner_parse_date($examDate);
         $saved = 0;
         $skipped = 0;
         $partnersCreated = 0;
@@ -1179,7 +1198,9 @@ if (!function_exists('training_partner_ensure_schema')) {
                 (string) ($record['course_name'] ?? ''),
                 $record['course_start'] ?? $defaultStart,
                 $record['course_end'] ?? $defaultEnd,
-                is_array($record['details'] ?? null) ? $record['details'] : []
+                is_array($record['details'] ?? null) ? $record['details'] : [],
+                !empty($record['has_exam_date']) ? ($record['exam_date'] ?? $defaultExam) : $defaultExam,
+                !empty($record['has_exam_date']) || $defaultExam !== null
             );
             if (!empty($result['ok'])) {
                 $saved++;

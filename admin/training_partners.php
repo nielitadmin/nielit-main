@@ -55,7 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (string) ($_POST['course_name'] ?? ''),
             training_partner_parse_date($_POST['course_start_date'] ?? ''),
             training_partner_parse_date($_POST['course_end_date'] ?? ''),
-            training_partner_details_from_request($_POST)
+            training_partner_details_from_request($_POST),
+            training_partner_parse_date($_POST['exam_date'] ?? ''),
+            true
         );
         $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
@@ -71,7 +73,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int) ($_POST['partner_id'] ?? 0),
                 (int) ($_POST['scheme_id'] ?? 0),
                 training_partner_parse_date($_POST['course_start_date'] ?? ''),
-                training_partner_parse_date($_POST['course_end_date'] ?? '')
+                training_partner_parse_date($_POST['course_end_date'] ?? ''),
+                training_partner_parse_date($_POST['exam_date'] ?? '')
             );
             if (!empty($result['ok'])) {
                 $showStudents = true;
@@ -297,6 +300,10 @@ $active_theme = loadActiveTheme($conn);
                                 <label class="form-label">Course ending date</label>
                                 <input class="form-control" type="date" name="course_end_date">
                             </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Exam date</label>
+                                <input class="form-control" type="date" name="exam_date">
+                            </div>
                         </div>
                         <div class="row">
                             <div class="col-md-4 mb-3">
@@ -362,7 +369,7 @@ $active_theme = loadActiveTheme($conn);
                     <hr>
                     <h2>Upload students from Excel</h2>
                     <div class="alert alert-info">
-                        Choose the scheme here. A workbook with several sheets is read sheet by sheet. The template includes Sl. No., Batch No, Course Name, NIELIT Registration No., Name of candidate, Father's Name, Category, Gender, Aadhaar Card, APAAR ID, Religion, WhatsApp number, communication address, currently employed, Name of Institute, training venue address, HQ Accr number, District, and State. Course start date and course end date decide which report period the student belongs to. Certified and Placed are read when those columns are present. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
+                        Choose the scheme here. A workbook with several sheets is read sheet by sheet. The template includes Sl. No., Batch No, Course Name, NIELIT Registration No., Name of candidate, Father's Name, Category, Gender, Aadhaar Card, APAAR ID, Religion, WhatsApp number, communication address, currently employed, Name of Institute, training venue address, HQ Accr number, District, and State. Course start date, course end date, and exam date are read when those columns are present. The course dates decide which report period the student belongs to. Certified and Placed are read when those columns are present. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
                         <a href="training_partners.php?download=student_template">Download the Excel template</a>.
                     </div>
                     <form method="post" enctype="multipart/form-data">
@@ -401,6 +408,10 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Course ending date</label>
                                 <input class="form-control" type="date" name="course_end_date">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Exam date</label>
+                                <input class="form-control" type="date" name="exam_date">
                             </div>
                         </div>
                         <button class="btn btn-primary" type="submit">Upload students</button>
@@ -451,6 +462,7 @@ $active_theme = loadActiveTheme($conn);
                                         <th>Course</th>
                                         <th>Start</th>
                                         <th>End</th>
+                                        <th>Exam date</th>
                                         <th>Institute</th>
                                         <th>Scheme / project</th>
                                         <th>NIELIT reg.</th>
@@ -480,6 +492,7 @@ $active_theme = loadActiveTheme($conn);
                                         <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show_date($student['exam_date'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
                                         <td class="tp-wrap"><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
