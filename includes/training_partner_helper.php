@@ -222,6 +222,32 @@ if (!function_exists('training_partner_ensure_schema')) {
         ];
     }
 
+    function training_partner_figure_month_from_course(?string $courseStart, ?string $courseEnd): string
+    {
+        $date = $courseStart ?: $courseEnd;
+        $time = $date ? strtotime($date) : false;
+        if ($time === false) {
+            return date('Y-m-01');
+        }
+        return date('Y-m-01', $time);
+    }
+
+    function training_partner_course_overlaps(?string $courseStart, ?string $courseEnd, string $rangeStart, string $rangeNext): bool
+    {
+        $start = ($courseStart !== null && $courseStart !== '' && $courseStart !== '0000-00-00') ? $courseStart : null;
+        $end = ($courseEnd !== null && $courseEnd !== '' && $courseEnd !== '0000-00-00') ? $courseEnd : null;
+        if ($start === null && $end === null) {
+            return false;
+        }
+        if ($start === null) {
+            return $end >= $rangeStart && $end < $rangeNext;
+        }
+        if ($end === null) {
+            $end = $start;
+        }
+        return $start < $rangeNext && $end >= $rangeStart;
+    }
+
     function training_partner_save_figure(mysqli $conn, int $partnerId, int $fyYear, string $quarter, int $enrolled, int $certified, int $placed, int $replaceId = 0): array
     {
         training_partner_ensure_schema($conn);
@@ -297,83 +323,57 @@ if (!function_exists('training_partner_ensure_schema')) {
         if ($start === '' || $next === '') {
             return [];
         }
-        $sql = "SELECT p.id, p.partner_name, p.partner_code,
-                       COALESCE(SUM(f.enrolled), 0) AS enrolled,
-                       COALESCE(SUM(f.certified), 0) AS certified,
-                       COALESCE(SUM(f.placed), 0) AS placed
-                FROM training_partners p
-                INNER JOIN training_partner_figures f ON f.partner_id = p.id
-                WHERE p.is_active = 1
-                  AND f.figure_month >= ? AND f.figure_month < ?";
-        $types = 'ss';
-        $values = [$start, $next];
-        if ($centreId > 0) {
-            $sql .= ' AND p.centre_id = ?';
-            $types .= 'i';
-            $values[] = $centreId;
-        }
-        $sql .= ' GROUP BY p.id, p.partner_name, p.partner_code
-                  ORDER BY p.partner_name ASC';
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
-            return [];
-        }
-        $stmt->bind_param($types, ...$values);
-        $stmt->execute();
-        $result = $stmt->get_result();
         $rows = [];
-        if ($result) {
-            while ($row = $result->fetch_assoc()) {
-                $rows[] = [
-                    'id' => (int) $row['id'],
-                    'scheme_name' => '',
-                    'partner_name' => (string) $row['partner_name'],
-                    'partner_code' => (string) $row['partner_code'],
-                    'enrolled' => (int) $row['enrolled'],
-                    'certified' => (int) $row['certified'],
-                    'placed' => (int) $row['placed'],
-                ];
-            }
-        }
-        $stmt->close();
-
         $studentSql = "SELECT p.id, p.partner_name, p.partner_code,
                               COALESCE(sc.scheme_name, '') AS scheme_name,
-                              SUM(st.is_certified) AS certified,
-                              SUM(st.is_placed) AS placed
+                              st.course_start_date, st.course_end_date, st.is_certified, st.is_placed
                        FROM training_partner_students st
                        INNER JOIN training_partners p ON p.id = st.partner_id
                        LEFT JOIN schemes sc ON sc.id = st.scheme_id
                        WHERE p.is_active = 1
-                         AND st.figure_month >= ? AND st.figure_month < ?";
-        $studentTypes = 'ss';
-        $studentValues = [$start, $next];
+                         AND (
+                            (st.course_start_date IS NOT NULL AND st.course_start_date <> '0000-00-00' AND st.course_start_date < ?
+                                AND (st.course_end_date IS NULL OR st.course_end_date = '0000-00-00' OR st.course_end_date >= ?))
+                            OR ((st.course_start_date IS NULL OR st.course_start_date = '0000-00-00')
+                                AND st.course_end_date >= ? AND st.course_end_date < ?)
+                         )";
+        $studentTypes = 'ssss';
+        $studentValues = [$next, $start, $start, $next];
         if ($centreId > 0) {
             $studentSql .= ' AND p.centre_id = ?';
             $studentTypes .= 'i';
             $studentValues[] = $centreId;
         }
-        $studentSql .= ' GROUP BY p.id, p.partner_name, p.partner_code, sc.scheme_name
-                         ORDER BY sc.scheme_name ASC, p.partner_name ASC';
+        $studentSql .= ' ORDER BY sc.scheme_name ASC, p.partner_name ASC, st.id ASC';
         $studentStmt = $conn->prepare($studentSql);
         if ($studentStmt) {
             $studentStmt->bind_param($studentTypes, ...$studentValues);
             $studentStmt->execute();
             $studentResult = $studentStmt->get_result();
+            $grouped = [];
             if ($studentResult) {
                 while ($row = $studentResult->fetch_assoc()) {
-                    $rows[] = [
-                        'id' => (int) $row['id'],
-                        'scheme_name' => (string) $row['scheme_name'],
-                        'partner_name' => (string) $row['partner_name'],
-                        'partner_code' => (string) $row['partner_code'],
-                        'enrolled' => 0,
-                        'certified' => (int) $row['certified'],
-                        'placed' => (int) $row['placed'],
-                    ];
+                    if (!training_partner_course_overlaps($row['course_start_date'] ?? null, $row['course_end_date'] ?? null, $start, $next)) {
+                        continue;
+                    }
+                    $key = (int) $row['id'] . '|' . (string) $row['scheme_name'];
+                    if (!isset($grouped[$key])) {
+                        $grouped[$key] = [
+                            'id' => (int) $row['id'],
+                            'scheme_name' => (string) $row['scheme_name'],
+                            'partner_name' => (string) $row['partner_name'],
+                            'partner_code' => (string) $row['partner_code'],
+                            'enrolled' => 0,
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $grouped[$key]['certified'] += (int) $row['is_certified'];
+                    $grouped[$key]['placed'] += (int) $row['is_placed'];
                 }
             }
             $studentStmt->close();
+            $rows = array_values($grouped);
         }
         return $rows;
     }
@@ -503,34 +503,34 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $fyYear, string $quarter, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = []): array
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = []): array
     {
         training_partner_ensure_schema($conn);
         $name = trim($name);
         $mobile = trim($mobile);
         $courseName = trim($courseName);
-        $figureMonth = training_partner_quarter_start($fyYear, strtoupper(trim($quarter)));
         if ($schemeId <= 0) {
             return ['ok' => false, 'error' => 'Choose the scheme or project first.'];
         }
-        if ($partnerId <= 0 || $figureMonth === '' || $name === '') {
-            return ['ok' => false, 'error' => 'Choose the training partner, quarter, and student name.'];
+        if ($partnerId <= 0 || $name === '') {
+            return ['ok' => false, 'error' => 'Choose the training partner and student name.'];
         }
         $certified = $certified === 1 ? 1 : 0;
         $placed = $placed === 1 ? 1 : 0;
         $courseStart = $courseStart !== null && $courseStart !== '' ? $courseStart : null;
         $courseEnd = $courseEnd !== null && $courseEnd !== '' ? $courseEnd : null;
+        $figureMonth = training_partner_figure_month_from_course($courseStart, $courseEnd);
         $present = is_array($details['_present'] ?? null) ? $details['_present'] : [];
-        $existing = $conn->prepare('SELECT id FROM training_partner_students WHERE partner_id = ? AND scheme_id = ? AND student_name = ? AND mobile = ? AND figure_month = ? LIMIT 1');
+        $existing = $conn->prepare('SELECT id FROM training_partner_students WHERE partner_id = ? AND scheme_id = ? AND student_name = ? AND mobile = ? ORDER BY id DESC LIMIT 1');
         if ($existing) {
-            $existing->bind_param('iisss', $partnerId, $schemeId, $name, $mobile, $figureMonth);
+            $existing->bind_param('iiss', $partnerId, $schemeId, $name, $mobile);
             $existing->execute();
             $found = $existing->get_result()->fetch_assoc();
             $existing->close();
             if ($found) {
-                $sets = ['course_name = ?', 'course_start_date = ?', 'course_end_date = ?', 'is_certified = ?', 'is_placed = ?'];
-                $types = 'sssii';
-                $values = [$courseName, $courseStart, $courseEnd, $certified, $placed];
+                $sets = ['course_name = ?', 'course_start_date = ?', 'course_end_date = ?', 'figure_month = ?', 'is_certified = ?', 'is_placed = ?'];
+                $types = 'ssssii';
+                $values = [$courseName, $courseStart, $courseEnd, $figureMonth, $certified, $placed];
                 foreach (training_partner_detail_fields() as $field => $kind) {
                     if (empty($present[$field])) {
                         continue;
@@ -637,80 +637,52 @@ if (!function_exists('training_partner_ensure_schema')) {
         $next = date('Y-m-d', strtotime($last . ' +1 month'));
         $certified = $emptyCertified;
         $placed = $emptyPlaced;
-        $quarterTotals = [];
-        $figureStmt = $conn->prepare('SELECT f.figure_month, SUM(f.certified) AS certified, SUM(f.placed) AS placed
-            FROM training_partner_figures f
-            INNER JOIN training_partners p ON p.id = f.partner_id
-            WHERE p.is_active = 1 AND f.figure_month >= ? AND f.figure_month < ?'
-            . ($centreId > 0 ? ' AND p.centre_id = ?' : '')
-            . ' GROUP BY f.figure_month');
-        if (!$figureStmt) {
+        $studentSql = 'SELECT st.course_start_date, st.course_end_date, st.is_certified, st.is_placed
+            FROM training_partner_students st
+            INNER JOIN training_partners p ON p.id = st.partner_id
+            WHERE p.is_active = 1
+              AND (
+                (st.course_start_date IS NOT NULL AND st.course_start_date <> \'0000-00-00\' AND st.course_start_date < ?
+                    AND (st.course_end_date IS NULL OR st.course_end_date = \'0000-00-00\' OR st.course_end_date >= ?))
+                OR ((st.course_start_date IS NULL OR st.course_start_date = \'0000-00-00\')
+                    AND st.course_end_date >= ? AND st.course_end_date < ?)
+              )'
+            . ($centreId > 0 ? ' AND p.centre_id = ?' : '');
+        $studentStmt = $conn->prepare($studentSql);
+        if (!$studentStmt) {
             return ['certified' => $certified, 'placed' => $placed];
         }
         if ($centreId > 0) {
-            $figureStmt->bind_param('ssi', $start, $next, $centreId);
+            $studentStmt->bind_param('ssssi', $next, $start, $start, $next, $centreId);
         } else {
-            $figureStmt->bind_param('ss', $start, $next);
+            $studentStmt->bind_param('ssss', $next, $start, $start, $next);
         }
-        $figureStmt->execute();
-        $figureResult = $figureStmt->get_result();
-        if ($figureResult) {
-            while ($row = $figureResult->fetch_assoc()) {
-                $info = training_partner_quarter_from_date((string) $row['figure_month']);
-                $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
-                $quarterTotals[$key] = [
-                    'certified' => (int) $row['certified'],
-                    'placed' => (int) $row['placed'],
-                ];
+        $studentStmt->execute();
+        $studentResult = $studentStmt->get_result();
+        $students = [];
+        if ($studentResult) {
+            while ($row = $studentResult->fetch_assoc()) {
+                $students[] = $row;
             }
         }
-        $figureStmt->close();
-
-        $studentStmt = $conn->prepare('SELECT st.figure_month, SUM(st.is_certified) AS certified, SUM(st.is_placed) AS placed
-            FROM training_partner_students st
-            INNER JOIN training_partners p ON p.id = st.partner_id
-            WHERE p.is_active = 1 AND st.figure_month >= ? AND st.figure_month < ?'
-            . ($centreId > 0 ? ' AND p.centre_id = ?' : '')
-            . ' GROUP BY st.figure_month');
-        if ($studentStmt) {
-            if ($centreId > 0) {
-                $studentStmt->bind_param('ssi', $start, $next, $centreId);
-            } else {
-                $studentStmt->bind_param('ss', $start, $next);
-            }
-            $studentStmt->execute();
-            $studentResult = $studentStmt->get_result();
-            if ($studentResult) {
-                while ($row = $studentResult->fetch_assoc()) {
-                    $info = training_partner_quarter_from_date((string) $row['figure_month']);
-                    $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
-                    if (!isset($quarterTotals[$key])) {
-                        $quarterTotals[$key] = ['certified' => 0, 'placed' => 0];
-                    }
-                    $quarterTotals[$key]['certified'] += (int) $row['certified'];
-                    $quarterTotals[$key]['placed'] += (int) $row['placed'];
-                }
-            }
-            $studentStmt->close();
-        }
-
-        $indexesByQuarter = [];
+        $studentStmt->close();
         foreach ($monthKeys as $index => $monthKey) {
-            $info = training_partner_quarter_from_date($monthKey . '-01');
-            $key = (int) $info['fy'] . '-' . (string) $info['quarter'];
-            $indexesByQuarter[$key][] = $index;
-        }
-        foreach ($indexesByQuarter as $key => $indexes) {
-            if (!isset($quarterTotals[$key])) {
-                continue;
+            $monthStart = $monthKey . '-01';
+            $monthNext = date('Y-m-d', strtotime($monthStart . ' +1 month'));
+            $monthCertified = 0;
+            $monthPlaced = 0;
+            foreach ($students as $student) {
+                if (!training_partner_course_overlaps($student['course_start_date'] ?? null, $student['course_end_date'] ?? null, $monthStart, $monthNext)) {
+                    continue;
+                }
+                $monthCertified += (int) $student['is_certified'];
+                $monthPlaced += (int) $student['is_placed'];
             }
-            foreach ($indexes as $index) {
-                if ((int) $quarterTotals[$key]['certified'] > 0) {
-                    $certified[$index] = (int) $quarterTotals[$key]['certified'];
-                }
-                if ((int) $quarterTotals[$key]['placed'] > 0) {
-                    $placed[$index] = (int) $quarterTotals[$key]['placed'];
-                }
+            if ($monthCertified > 0) {
+                $certified[$index] = $monthCertified;
+            }
+            if ($monthPlaced > 0) {
+                $placed[$index] = $monthPlaced;
             }
         }
 
@@ -1138,7 +1110,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $sheets;
     }
 
-    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, int $fyYear, string $quarter, ?string $courseStart = null, ?string $courseEnd = null): array
+    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null): array
     {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $sheets = [];
@@ -1202,8 +1174,6 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $schemeId,
                 $record['name'],
                 $record['mobile'],
-                $fyYear,
-                $quarter,
                 (int) $record['certified'],
                 (int) $record['placed'],
                 (string) ($record['course_name'] ?? ''),
@@ -1216,7 +1186,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             }
         }
         if ($saved === 0) {
-            return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Choose the scheme and quarter, and make sure each row has a training partner.', 'saved' => 0, 'skipped' => $skipped];
+            return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Choose the scheme, and make sure each row has a training partner.', 'saved' => 0, 'skipped' => $skipped];
         }
         return ['ok' => true, 'saved' => $saved, 'skipped' => $skipped, 'partners_created' => $partnersCreated, 'sheets' => count($sheets)];
     }

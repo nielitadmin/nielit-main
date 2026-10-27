@@ -43,19 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($success === '') {
             $error = 'Could not remove the training partner.';
         }
-    } elseif ($action === 'save_figure') {
-        $result = training_partner_save_figure(
-            $conn,
-            (int) ($_POST['partner_id'] ?? 0),
-            (int) ($_POST['fy_year'] ?? 0),
-            (string) ($_POST['quarter'] ?? ''),
-            0,
-            (int) ($_POST['certified'] ?? 0),
-            (int) ($_POST['placed'] ?? 0),
-            (int) ($_POST['figure_id'] ?? 0)
-        );
-        $success = $result['ok'] ? 'Quarter figures saved. Saving the same partner and quarter again updates those numbers.' : '';
-        $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the figures.');
     } elseif ($action === 'save_student') {
         $result = training_partner_save_student(
             $conn,
@@ -63,8 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             (int) ($_POST['scheme_id'] ?? 0),
             (string) ($_POST['student_name'] ?? ''),
             (string) ($_POST['mobile'] ?? ''),
-            (int) ($_POST['fy_year'] ?? 0),
-            (string) ($_POST['quarter'] ?? ''),
             isset($_POST['is_certified']) ? 1 : 0,
             isset($_POST['is_placed']) ? 1 : 0,
             (string) ($_POST['course_name'] ?? ''),
@@ -85,8 +70,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string) ($file['name'] ?? ''),
                 (int) ($_POST['partner_id'] ?? 0),
                 (int) ($_POST['scheme_id'] ?? 0),
-                (int) ($_POST['fy_year'] ?? 0),
-                (string) ($_POST['quarter'] ?? ''),
                 training_partner_parse_date($_POST['course_start_date'] ?? ''),
                 training_partner_parse_date($_POST['course_end_date'] ?? '')
             );
@@ -131,13 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($success === '') {
             $error = 'Could not remove that student record.';
         }
-    } elseif ($action === 'delete_figure') {
-        $success = training_partner_delete_figure($conn, (int) ($_POST['figure_id'] ?? 0))
-            ? 'Figure row removed.'
-            : '';
-        if ($success === '') {
-            $error = 'Could not remove that figure row.';
-        }
     }
 }
 
@@ -145,7 +121,6 @@ $schemes = training_partner_schemes($conn);
 $students = training_partner_students_list($conn);
 $partners = training_partner_list($conn);
 $centres = training_partner_centres($conn);
-$figures = training_partner_figures_list($conn);
 $editId = (int) ($_GET['edit'] ?? 0);
 $editPartner = null;
 foreach ($partners as $partner) {
@@ -153,22 +128,6 @@ foreach ($partners as $partner) {
         $editPartner = $partner;
         break;
     }
-}
-$editFigure = null;
-$editFigureId = (int) ($_GET['figure'] ?? 0);
-foreach ($figures as $figure) {
-    if ((int) $figure['id'] === $editFigureId) {
-        $editFigure = $figure;
-        break;
-    }
-}
-$currentQuarter = training_partner_current_quarter();
-$figureQuarter = $editFigure
-    ? training_partner_quarter_from_date((string) $editFigure['figure_month'])
-    : $currentQuarter;
-$fyChoices = [];
-for ($fy = (int) date('Y') + 1; $fy >= (int) date('Y') - 6; $fy--) {
-    $fyChoices[] = $fy;
 }
 $page_title = 'Training Partner Figures';
 $active_theme = loadActiveTheme($conn);
@@ -211,7 +170,7 @@ $active_theme = loadActiveTheme($conn);
     <main class="admin-content">
         <div class="tp-page">
             <h1>Training Partner Figures</h1>
-            <p class="tp-note">Choose the scheme or project first, then the training partner, and add each student. Tick Certified or Placed. Report Monitor counts those students on the certified and placed lines for that quarter.</p>
+            <p class="tp-note">Choose the scheme or project first, then the training partner, and add each student. Tick Certified or Placed. Report Monitor counts a student when the course start and end dates fall in the selected period.</p>
             <?php if ($success !== ''): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
@@ -272,59 +231,6 @@ $active_theme = loadActiveTheme($conn);
                         </table>
                     <?php endif; ?>
                 </div>
-                <div class="tp-card">
-                    <h2><?php echo $editFigure ? 'Update quarter figures' : 'Quarter figures'; ?></h2>
-                    <?php if (!$partners): ?>
-                        <p class="text-muted">Add a training partner first.</p>
-                    <?php else: ?>
-                        <form method="post">
-                            <input type="hidden" name="action" value="save_figure">
-                            <input type="hidden" name="figure_id" value="<?php echo (int) ($editFigure['id'] ?? 0); ?>">
-                            <div class="mb-3">
-                                <label class="form-label">Training partner</label>
-                                <select class="form-select" name="partner_id" required>
-                                    <?php foreach ($partners as $partner): ?>
-                                        <option value="<?php echo (int) $partner['id']; ?>" <?php echo ((int) ($editFigure['partner_id'] ?? 0) === (int) $partner['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars((string) $partner['partner_name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="row">
-                                <div class="col-6 mb-3">
-                                    <label class="form-label">Financial year</label>
-                                    <select class="form-select" name="fy_year" required>
-                                        <?php foreach ($fyChoices as $fy): ?>
-                                            <?php $endShort = substr((string) ($fy + 1), -2); ?>
-                                            <option value="<?php echo $fy; ?>" <?php echo ((int) $figureQuarter['fy'] === $fy) ? 'selected' : ''; ?>>
-                                                FY <?php echo $fy . '-' . $endShort; ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <label class="form-label">Quarter</label>
-                                    <select class="form-select" name="quarter" required>
-                                        <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
-                                            <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($figureQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>>
-                                                <?php echo htmlspecialchars($quarterLabel); ?>
-                                            </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-6 mb-3">
-                                    <label class="form-label">Certified</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="certified" value="<?php echo (int) ($editFigure['certified'] ?? 0); ?>" required>
-                                </div>
-                                <div class="col-6 mb-3">
-                                    <label class="form-label">Placed</label>
-                                    <input class="form-control" type="number" min="0" step="1" name="placed" value="<?php echo (int) ($editFigure['placed'] ?? 0); ?>" required>
-                                </div>
-                            </div>
-                            <button class="btn btn-primary" type="submit"><?php echo $editFigure ? 'Update figures' : 'Save figures'; ?></button>
-                        </form>
-                    <?php endif; ?>
-                </div>
             </div>
             <div class="tp-card mt-3">
                 <h2>Add a student record</h2>
@@ -359,27 +265,6 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Financial year</label>
-                                <select class="form-select" name="fy_year" required>
-                                    <?php foreach ($fyChoices as $fy): ?>
-                                        <?php $endShort = substr((string) ($fy + 1), -2); ?>
-                                        <option value="<?php echo $fy; ?>" <?php echo ((int) $currentQuarter['fy'] === $fy) ? 'selected' : ''; ?>>
-                                            FY <?php echo $fy . '-' . $endShort; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Quarter</label>
-                                <select class="form-select" name="quarter" required>
-                                    <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
-                                        <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($currentQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($quarterLabel); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">WhatsApp / mobile</label>
                                 <input class="form-control" name="mobile" maxlength="20" placeholder="Optional">
@@ -477,7 +362,7 @@ $active_theme = loadActiveTheme($conn);
                     <hr>
                     <h2>Upload students from Excel</h2>
                     <div class="alert alert-info">
-                        Choose the scheme, year, and quarter here. A workbook with several sheets is read sheet by sheet. The template now includes Sl. No., Batch No, Course Name, NIELIT Registration No., Name of candidate, Father's Name, Category, Gender, Aadhaar Card, APAAR ID, Religion, WhatsApp number, communication address, currently employed, Name of Institute, training venue address, HQ Accr number, District, and State. Course start date, course end date, Certified, and Placed are still read when those columns are present. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
+                        Choose the scheme here. A workbook with several sheets is read sheet by sheet. The template includes Sl. No., Batch No, Course Name, NIELIT Registration No., Name of candidate, Father's Name, Category, Gender, Aadhaar Card, APAAR ID, Religion, WhatsApp number, communication address, currently employed, Name of Institute, training venue address, HQ Accr number, District, and State. Course start date and course end date decide which report period the student belongs to. Certified and Placed are read when those columns are present. If the sheet already names the institute, leave the partner below blank and those partners are created automatically. Dates entered here are used when a row has no dates of its own. Uploaded students stay in this list and are not added to All Students.
                         <a href="training_partners.php?download=student_template">Download the Excel template</a>.
                     </div>
                     <form method="post" enctype="multipart/form-data">
@@ -503,22 +388,6 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Financial year</label>
-                                <select class="form-select" name="fy_year" required>
-                                    <?php foreach ($fyChoices as $fy): ?>
-                                        <option value="<?php echo $fy; ?>" <?php echo ((int) $currentQuarter['fy'] === $fy) ? 'selected' : ''; ?>>FY <?php echo $fy . '-' . substr((string) ($fy + 1), -2); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Quarter</label>
-                                <select class="form-select" name="quarter" required>
-                                    <?php foreach (training_partner_quarter_options() as $quarterCode => $quarterLabel): ?>
-                                        <option value="<?php echo htmlspecialchars($quarterCode); ?>" <?php echo (($currentQuarter['quarter'] ?? '') === $quarterCode) ? 'selected' : ''; ?>><?php echo htmlspecialchars($quarterLabel); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Excel file</label>
                                 <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
@@ -582,7 +451,6 @@ $active_theme = loadActiveTheme($conn);
                                         <th>Course</th>
                                         <th>Start</th>
                                         <th>End</th>
-                                        <th>Quarter</th>
                                         <th>Institute</th>
                                         <th>Scheme / project</th>
                                         <th>NIELIT reg.</th>
@@ -612,7 +480,6 @@ $active_theme = loadActiveTheme($conn);
                                         <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
-                                        <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
                                         <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
                                         <td class="tp-wrap"><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
@@ -693,44 +560,6 @@ $active_theme = loadActiveTheme($conn);
                     </script>
                 <?php else: ?>
                     <p class="text-muted mt-3 mb-0">No student records yet. Upload a sheet or add a candidate to open the student list.</p>
-                <?php endif; ?>
-            </div>
-            <div class="tp-card mt-3">
-                <h2>Saved figures</h2>
-                <?php if (!$figures): ?>
-                    <p class="text-muted mb-0">No figures saved yet.</p>
-                <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="tp-table">
-                            <thead>
-                                <tr>
-                                    <th>Quarter</th>
-                                    <th>Partner</th>
-                                    <th>Certified</th>
-                                    <th>Placed</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($figures as $figure): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $figure['figure_month'])['label']); ?></td>
-                                    <td><?php echo htmlspecialchars((string) $figure['partner_name']); ?></td>
-                                    <td><?php echo number_format((int) $figure['certified']); ?></td>
-                                    <td><?php echo number_format((int) $figure['placed']); ?></td>
-                                    <td>
-                                        <a href="training_partners.php?figure=<?php echo (int) $figure['id']; ?>">Update</a>
-                                        <form method="post" onsubmit="return confirm('Remove this quarter?');">
-                                            <input type="hidden" name="action" value="delete_figure">
-                                            <input type="hidden" name="figure_id" value="<?php echo (int) $figure['id']; ?>">
-                                            <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
                 <?php endif; ?>
             </div>
         </div>
