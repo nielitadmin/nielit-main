@@ -20,6 +20,7 @@ if (($_GET['download'] ?? '') === 'student_template') {
 }
 $success = '';
 $error = '';
+$showStudents = (($_GET['students'] ?? '') === '1');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
@@ -88,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 training_partner_parse_date($_POST['course_end_date'] ?? '')
             );
             if (!empty($result['ok'])) {
+                $showStudents = true;
                 $success = (int) $result['saved'] . ' students uploaded';
                 if ((int) ($result['sheets'] ?? 0) > 1) {
                     $success .= ' from ' . (int) $result['sheets'] . ' sheets';
@@ -101,7 +103,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $error = !empty($result['ok']) ? '' : (string) ($result['error'] ?? 'Could not read the Excel file.');
         }
+    } elseif ($action === 'update_student_status') {
+        $showStudents = true;
+        $updated = training_partner_update_student_status(
+            $conn,
+            (int) ($_POST['student_record_id'] ?? 0),
+            isset($_POST['is_certified']) ? 1 : 0,
+            isset($_POST['is_placed']) ? 1 : 0
+        );
+        $success = $updated ? 'Certified and placement updated for that candidate.' : '';
+        if ($success === '') {
+            $error = 'Could not update certified and placement for that candidate.';
+        }
     } elseif ($action === 'delete_student') {
+        $showStudents = true;
         $success = training_partner_delete_student($conn, (int) ($_POST['student_record_id'] ?? 0))
             ? 'Student record removed.'
             : '';
@@ -165,8 +180,15 @@ $active_theme = loadActiveTheme($conn);
         .tp-card .form-label { font-weight: 600; }
         .tp-table { width: 100%; border-collapse: collapse; }
         .tp-table th, .tp-table td { padding: 8px 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
-        .tp-table th { font-size: 12px; text-transform: uppercase; color: #64748b; }
+        .tp-table th { font-size: 12px; text-transform: uppercase; color: #64748b; white-space: nowrap; }
         .tp-note { color: #475569; margin: 8px 0 18px; }
+        .tp-student-scroll { overflow: auto; max-height: 70vh; border: 1px solid #e2e8f0; border-radius: 10px; }
+        .tp-student-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
+        .tp-student-table th, .tp-student-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; white-space: nowrap; background: #fff; font-size: 13px; }
+        .tp-student-table th { position: sticky; top: 0; z-index: 2; background: #f8fafc; font-size: 11px; text-transform: uppercase; color: #64748b; }
+        .tp-student-table td.tp-wrap { white-space: normal; min-width: 220px; max-width: 320px; }
+        .tp-flag-form { display: flex; align-items: center; gap: 12px; margin: 0; }
+        .tp-flag-form label { margin: 0; white-space: nowrap; font-weight: 600; }
     </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
@@ -502,80 +524,108 @@ $active_theme = loadActiveTheme($conn);
                     </form>
                 <?php endif; ?>
                 <?php if ($students): ?>
-                    <p class="text-muted mt-3 mb-0">Showing the latest <?php echo count($students); ?> student records.</p>
-                    <div class="table-responsive mt-2">
-                        <table class="tp-table">
-                            <thead>
-                                <tr>
-                                    <th>Scheme / project</th>
-                                    <th>Institute</th>
-                                    <th>Batch</th>
-                                    <th>Course</th>
-                                    <th>Start</th>
-                                    <th>End</th>
-                                    <th>Quarter</th>
-                                    <th>Candidate</th>
-                                    <th>Father</th>
-                                    <th>NIELIT reg.</th>
-                                    <th>Category</th>
-                                    <th>Gender</th>
-                                    <th>Aadhaar</th>
-                                    <th>APAAR</th>
-                                    <th>Religion</th>
-                                    <th>Address</th>
-                                    <th>District</th>
-                                    <th>State</th>
-                                    <th>Venue</th>
-                                    <th>HQ Accr</th>
-                                    <th>Employed</th>
-                                    <th>Certified</th>
-                                    <th>Placed</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($students as $student): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
-                                    <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['batch_no'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
-                                    <td>
-                                        <?php echo htmlspecialchars((string) $student['student_name']); ?>
-                                        <?php if ((string) $student['mobile'] !== ''): ?>
-                                            <div class="text-muted small"><?php echo htmlspecialchars((string) $student['mobile']); ?></div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['father_name'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['category'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['gender'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['aadhaar'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['apaar_id'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['religion'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['communication_address'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['district'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['state'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['venue_address'] ?? '')); ?></td>
-                                    <td><?php echo htmlspecialchars(training_partner_show($student['hq_accr_number'] ?? '')); ?></td>
-                                    <td><?php echo (int) ($student['currently_employed'] ?? 0) === 1 ? 'Yes' : 'No'; ?></td>
-                                    <td><?php echo (int) $student['is_certified'] === 1 ? 'Yes' : 'No'; ?></td>
-                                    <td><?php echo (int) $student['is_placed'] === 1 ? 'Yes' : 'No'; ?></td>
-                                    <td>
-                                        <form method="post" onsubmit="return confirm('Remove this student record?');">
-                                            <input type="hidden" name="action" value="delete_student">
-                                            <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
-                                            <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                    <button class="btn btn-warning mt-3" type="button" id="tpToggleStudents" aria-expanded="<?php echo $showStudents ? 'true' : 'false'; ?>">
+                        <span id="tpToggleStudentsLabel"><?php echo $showStudents ? 'Hide student list' : 'Show student list'; ?></span>
+                        (<?php echo count($students); ?>)
+                    </button>
+                    <div id="tpStudentList" class="mt-3" <?php echo $showStudents ? '' : 'hidden'; ?>>
+                        <p class="text-muted mb-2">Tick Certified or Placed for one candidate, then click Update on that row.</p>
+                        <div class="tp-student-scroll">
+                            <table class="tp-student-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sl. No.</th>
+                                        <th>Candidate</th>
+                                        <th>Father</th>
+                                        <th>WhatsApp</th>
+                                        <th>Batch</th>
+                                        <th>Course</th>
+                                        <th>Start</th>
+                                        <th>End</th>
+                                        <th>Quarter</th>
+                                        <th>Institute</th>
+                                        <th>Scheme / project</th>
+                                        <th>NIELIT reg.</th>
+                                        <th>Category</th>
+                                        <th>Gender</th>
+                                        <th>Aadhaar</th>
+                                        <th>APAAR</th>
+                                        <th>Religion</th>
+                                        <th>Address</th>
+                                        <th>District</th>
+                                        <th>State</th>
+                                        <th>Venue</th>
+                                        <th>HQ Accr</th>
+                                        <th>Employed</th>
+                                        <th>Certified / placed</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($students as $studentIndex => $student): ?>
+                                    <tr>
+                                        <td><?php echo (int) $studentIndex + 1; ?></td>
+                                        <td><?php echo htmlspecialchars((string) $student['student_name']); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['father_name'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['mobile'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['batch_no'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_quarter_from_date((string) $student['figure_month'])['label']); ?></td>
+                                        <td><?php echo htmlspecialchars((string) $student['partner_name']); ?></td>
+                                        <td class="tp-wrap"><?php echo htmlspecialchars((string) $student['scheme_name']); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['category'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['gender'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['aadhaar'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['apaar_id'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['religion'] ?? '')); ?></td>
+                                        <td class="tp-wrap"><?php echo htmlspecialchars(training_partner_show($student['communication_address'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['district'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['state'] ?? '')); ?></td>
+                                        <td class="tp-wrap"><?php echo htmlspecialchars(training_partner_show($student['venue_address'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show($student['hq_accr_number'] ?? '')); ?></td>
+                                        <td><?php echo (int) ($student['currently_employed'] ?? 0) === 1 ? 'Yes' : 'No'; ?></td>
+                                        <td>
+                                            <form method="post" class="tp-flag-form">
+                                                <input type="hidden" name="action" value="update_student_status">
+                                                <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
+                                                <input type="hidden" name="show_students" value="1">
+                                                <label><input type="checkbox" name="is_certified" value="1" <?php echo (int) $student['is_certified'] === 1 ? 'checked' : ''; ?>> Certified</label>
+                                                <label><input type="checkbox" name="is_placed" value="1" <?php echo (int) $student['is_placed'] === 1 ? 'checked' : ''; ?>> Placed</label>
+                                                <button class="btn btn-sm btn-primary" type="submit">Update</button>
+                                            </form>
+                                        </td>
+                                        <td>
+                                            <form method="post" onsubmit="return confirm('Remove this student record?');">
+                                                <input type="hidden" name="action" value="delete_student">
+                                                <input type="hidden" name="student_record_id" value="<?php echo (int) $student['id']; ?>">
+                                                <input type="hidden" name="show_students" value="1">
+                                                <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+                    <script>
+                        document.getElementById('tpToggleStudents').addEventListener('click', function () {
+                            var list = document.getElementById('tpStudentList');
+                            var open = list.hasAttribute('hidden');
+                            if (open) {
+                                list.removeAttribute('hidden');
+                            } else {
+                                list.setAttribute('hidden', 'hidden');
+                            }
+                            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+                            document.getElementById('tpToggleStudentsLabel').textContent = open ? 'Hide student list' : 'Show student list';
+                        });
+                    </script>
+                <?php else: ?>
+                    <p class="text-muted mt-3 mb-0">No student records yet. Upload a sheet or add a candidate to open the student list.</p>
                 <?php endif; ?>
             </div>
             <div class="tp-card mt-3">

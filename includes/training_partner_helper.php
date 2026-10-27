@@ -562,6 +562,24 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
     }
 
+    function training_partner_update_student_status(mysqli $conn, int $id, int $certified, int $placed): bool
+    {
+        training_partner_ensure_schema($conn);
+        if ($id <= 0) {
+            return false;
+        }
+        $certified = $certified === 1 ? 1 : 0;
+        $placed = $placed === 1 ? 1 : 0;
+        $stmt = $conn->prepare('UPDATE training_partner_students SET is_certified = ?, is_placed = ? WHERE id = ?');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('iii', $certified, $placed, $id);
+        $ok = $stmt->execute() && $stmt->affected_rows >= 0;
+        $stmt->close();
+        return $ok;
+    }
+
     function training_partner_delete_student(mysqli $conn, int $id): bool
     {
         training_partner_ensure_schema($conn);
@@ -588,8 +606,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 INNER JOIN training_partners p ON p.id = st.partner_id
                 LEFT JOIN schemes sc ON sc.id = st.scheme_id
                 WHERE p.is_active = 1
-                ORDER BY st.id DESC
-                LIMIT 200";
+                ORDER BY st.id ASC
+                LIMIT 1000";
         $result = $conn->query($sql);
         $rows = [];
         if ($result) {
