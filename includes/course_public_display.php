@@ -12,6 +12,30 @@ if (!function_exists('ensureCourseProjectLevelColumn')) {
         $sql = "ALTER TABLE courses ADD COLUMN project_level_label VARCHAR(255) DEFAULT NULL";
         $conn->query($sql);
     }
+
+    function ensureCourseDeliveryColumns(mysqli $conn): void
+    {
+        $campus = $conn->query("SHOW COLUMNS FROM courses LIKE 'campus_type'");
+        if (!$campus || $campus->num_rows === 0) {
+            $conn->query("ALTER TABLE courses ADD COLUMN campus_type VARCHAR(20) NOT NULL DEFAULT ''");
+        }
+        $mode = $conn->query("SHOW COLUMNS FROM courses LIKE 'delivery_mode'");
+        if (!$mode || $mode->num_rows === 0) {
+            $conn->query("ALTER TABLE courses ADD COLUMN delivery_mode VARCHAR(20) NOT NULL DEFAULT ''");
+        }
+    }
+
+    function courseCampusType($value): string
+    {
+        $value = strtolower(trim((string) $value));
+        return in_array($value, ['on_campus', 'off_campus'], true) ? $value : '';
+    }
+
+    function courseDeliveryMode($value): string
+    {
+        $value = strtolower(trim((string) $value));
+        return in_array($value, ['online', 'offline', 'hybrid'], true) ? $value : '';
+    }
 }
 
 if (!function_exists('formatCourseFeeValue')) {

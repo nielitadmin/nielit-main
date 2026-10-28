@@ -75,6 +75,7 @@ $registration_form_column_exists = $registration_form_column_check && $registrat
 
 $course = [];
 ensureCourseProjectLevelColumn($conn);
+ensureCourseDeliveryColumns($conn);
 payment_gateway_ensure_schema($conn);
 
 if (isset($_GET['id'])) {
@@ -186,6 +187,8 @@ if (isset($_POST['update_course'])) {
     $course_coordinator = $_POST['course_coordinator'];
     $training_center    = $_POST['training_center'];
     $centre_id          = !empty($_POST['centre_id']) ? intval($_POST['centre_id']) : null;
+    $campus_type        = courseCampusType($_POST['campus_type'] ?? '');
+    $delivery_mode      = courseDeliveryMode($_POST['delivery_mode'] ?? '');
     $link_published     = isset($_POST['link_published']) ? 1 : 0;
     // Automatically set enrollment_status based on closing date
     $today = date('Y-m-d');
@@ -300,12 +303,14 @@ if (isset($_POST['update_course'])) {
             registration_form = ?,
             is_nsqf = ?,
             course_description = ?,
-            project_level_label = ?
+            project_level_label = ?,
+            campus_type = ?,
+            delivery_mode = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("sssssssssssssssssiisssissi",
+            $stmt->bind_param("sssssssssssssssssiisssisssi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -331,6 +336,8 @@ if (isset($_POST['update_course'])) {
                 $is_nsqf,                  // 22 i
                 $course_description,       // 23 s
                 $project_level_label,      // 24 s
+                $campus_type,
+                $delivery_mode,
                 $course_id                 // 25 i
             );
         } else {
@@ -366,12 +373,14 @@ if (isset($_POST['update_course'])) {
             registration_form = ?,
             is_nsqf = ?,
             course_description = ?,
-            project_level_label = ?
+            project_level_label = ?,
+            campus_type = ?,
+            delivery_mode = ?
             WHERE id = ?";
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("sssssssssssssssssiississi",
+            $stmt->bind_param("sssssssssssssssssiississsi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
@@ -396,6 +405,8 @@ if (isset($_POST['update_course'])) {
                 $is_nsqf,              // 21 i
                 $course_description,   // 22 s
                 $project_level_label,  // 23 s
+                $campus_type,
+                $delivery_mode,
                 $course_id             // 24 i
             );
         } else {
@@ -675,6 +686,26 @@ $active_theme = loadActiveTheme($conn);
                                 ?>
                             </select>
                             <input type="hidden" name="training_center" value="<?php echo htmlspecialchars($course['training_center'] ?? ''); ?>">
+                        </div>
+                        <?php $savedCampus = courseCampusType($course['campus_type'] ?? ''); ?>
+                        <?php $savedMode = courseDeliveryMode($course['delivery_mode'] ?? ''); ?>
+                        <div class="form-group">
+                            <label class="form-label">Campus *</label>
+                            <select class="form-select" name="campus_type" id="edit_campus_type" required onchange="toggleEditCourseMode()">
+                                <option value="">Select campus</option>
+                                <option value="on_campus" <?php echo $savedCampus === 'on_campus' ? 'selected' : ''; ?>>On campus</option>
+                                <option value="off_campus" <?php echo $savedCampus === 'off_campus' ? 'selected' : ''; ?>>Off campus</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="edit_delivery_mode_wrap" style="<?php echo $savedCampus === '' ? 'display:none;' : ''; ?>">
+                            <label class="form-label">Mode *</label>
+                            <select class="form-select" name="delivery_mode" id="edit_delivery_mode" <?php echo $savedCampus === '' ? '' : 'required'; ?>>
+                                <option value="">Select mode</option>
+                                <option value="online" <?php echo $savedMode === 'online' ? 'selected' : ''; ?>>Online</option>
+                                <option value="offline" <?php echo $savedMode === 'offline' ? 'selected' : ''; ?>>Offline</option>
+                                <option value="hybrid" <?php echo $savedMode === 'hybrid' ? 'selected' : ''; ?>>Hybrid</option>
+                            </select>
+                            <small class="text-muted">Choose Online, Offline, or Hybrid after you select on campus or off campus.</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Start Date *</label>
@@ -1157,6 +1188,20 @@ $active_theme = loadActiveTheme($conn);
 #editSchemeList .scheme-centre-option.is-shown { display: flex; }
 </style>
 <script>
+function toggleEditCourseMode() {
+    var campus = document.getElementById('edit_campus_type');
+    var wrap = document.getElementById('edit_delivery_mode_wrap');
+    var mode = document.getElementById('edit_delivery_mode');
+    if (!campus || !wrap || !mode) {
+        return;
+    }
+    var show = campus.value !== '';
+    wrap.style.display = show ? '' : 'none';
+    mode.required = show;
+    if (!show) {
+        mode.value = '';
+    }
+}
 function filterEditCourseSchemes() {
     var select = document.getElementById('edit_training_centre');
     var root = document.getElementById('editSchemeList');

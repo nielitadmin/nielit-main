@@ -298,19 +298,22 @@ if (isset($_POST['add_course'])) {
     require_once __DIR__ . '/../includes/course_category_options.php';
     $conn->query("ALTER TABLE courses ADD COLUMN IF NOT EXISTS course_description TEXT DEFAULT NULL");
     ensureCourseProjectLevelColumn($conn);
+    ensureCourseDeliveryColumns($conn);
     ensure_course_sub_category_column($conn);
+    $campus_type = courseCampusType($_POST['campus_type'] ?? '');
+    $delivery_mode = courseDeliveryMode($_POST['delivery_mode'] ?? '');
 
     $insert_sql = "INSERT INTO courses (
         course_name, course_code, course_abbreviation, eligibility, duration, training_fees, category, course_sub_category,
         start_date, end_date, description_url, description_pdf, apply_link, course_coordinator,
-        training_center, is_nsqf, link_published, course_description, project_level_label, registration_token
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        training_center, is_nsqf, link_published, course_description, project_level_label, campus_type, delivery_mode, registration_token
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $stmt = $conn->prepare($insert_sql);
-    $stmt->bind_param("sssssssssssssssiisss", 
+    $stmt->bind_param("sssssssssssssssiisssss", 
         $course_name, $course_code, $course_abbreviation, $eligibility, $duration, $training_fees, $category, $nsqf_type,
         $start_date, $end_date, $description_url, $description_pdf, $apply_link, $course_coordinator,
-        $training_center, $is_nsqf, $link_published, $course_description, $project_level_label, $registration_token
+        $training_center, $is_nsqf, $link_published, $course_description, $project_level_label, $campus_type, $delivery_mode, $registration_token
     );
 
     if ($stmt->execute()) {
@@ -2645,6 +2648,29 @@ $dashboard_payload = [
                                 <?php endif; ?>
                             </div>
                         </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Campus <span class="required">*</span></label>
+                            <select class="form-select" name="campus_type" id="add_campus_type_dash" required onchange="toggleAddCourseMode()">
+                                <option value="">Select campus</option>
+                                <option value="on_campus">On campus</option>
+                                <option value="off_campus">Off campus</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="add_delivery_mode_wrap" style="display:none;">
+                            <label class="form-label">Mode <span class="required">*</span></label>
+                            <select class="form-select" name="delivery_mode" id="add_delivery_mode_dash">
+                                <option value="">Select mode</option>
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                                <option value="hybrid">Hybrid</option>
+                            </select>
+                            <div class="form-help">
+                                <i class="fas fa-laptop"></i>
+                                Choose how this course is delivered after you select on campus or off campus
+                            </div>
+                        </div>
                         
                         <div class="form-group">
                             <label class="form-label">Start Date <span class="required">*</span></label>
@@ -2866,6 +2892,21 @@ function generateShortToken(length = 8) {
 }
 
 // Generate Apply Link for Dashboard (Token-based like edit_course.php)
+function toggleAddCourseMode() {
+    var campus = document.getElementById('add_campus_type_dash');
+    var wrap = document.getElementById('add_delivery_mode_wrap');
+    var mode = document.getElementById('add_delivery_mode_dash');
+    if (!campus || !wrap || !mode) {
+        return;
+    }
+    var show = campus.value !== '';
+    wrap.style.display = show ? '' : 'none';
+    mode.required = show;
+    if (!show) {
+        mode.value = '';
+    }
+}
+
 function filterAddCourseSchemes() {
     var select = document.getElementById('add_training_center_dash');
     var root = document.getElementById('addCourseModal');
