@@ -310,7 +310,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("sssssssssssssssssiisssisssi",
+            $stmt->bind_param("sssssssssssssssssiisssissssi",
                 $course_name,              // 1  s
                 $course_code,              // 2  s
                 $course_abbreviation,      // 3  s
@@ -380,7 +380,7 @@ if (isset($_POST['update_course'])) {
 
         $stmt = $conn->prepare($update_sql);
         if ($stmt) {
-            $stmt->bind_param("sssssssssssssssssiississsi",
+            $stmt->bind_param("sssssssssssssssssiississssi",
                 $course_name,          // 1  s
                 $course_code,          // 2  s
                 $course_abbreviation,  // 3  s
