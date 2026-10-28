@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['admin']) || $_SESSION['admin_role'] !== 'nsqf_course_manager') {
+if (!isset($_SESSION['admin']) || !in_array($_SESSION['admin_role'], ['nsqf_course_manager', 'master_admin'], true)) {
     header('Location: login.php');
     exit();
 }
@@ -57,12 +57,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $nsqf_type = normalize_course_sub_category($_POST['nsqf_type']);
         $eligibility = trim($_POST['eligibility']);
         
-        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, nsqf_type=?, eligibility=? WHERE id=? AND created_by=?");
+        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET course_name=?, category=?, nsqf_type=?, eligibility=? WHERE id=?");
         
         if ($stmt === false) {
             $error = "Error: Could not prepare statement. " . $conn->error;
         } else {
-            $stmt->bind_param("ssssii", $course_name, $category, $nsqf_type, $eligibility, $id, $_SESSION['admin_id']);
+            $stmt->bind_param("ssssi", $course_name, $category, $nsqf_type, $eligibility, $id);
             
             if ($stmt->execute()) {
                 $success = "Template updated successfully!";
@@ -76,12 +76,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'delete') {
         $id = intval($_POST['template_id']);
         
-        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET is_active=0 WHERE id=? AND created_by=?");
+        $stmt = $conn->prepare("UPDATE nsqf_course_templates SET is_active=0 WHERE id=?");
         
         if ($stmt === false) {
             $error = "Error: Could not prepare statement. " . $conn->error;
         } else {
-            $stmt->bind_param("ii", $id, $_SESSION['admin_id']);
+            $stmt->bind_param("i", $id);
             
             if ($stmt->execute()) {
                 $success = "Template deactivated successfully!";
@@ -93,8 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Fetch templates created by current NSQF manager
-$templates_query = "SELECT * FROM nsqf_course_templates WHERE created_by = ? AND is_active = 1 ORDER BY created_at DESC";
+// Fetch all active NSQF course templates
+$templates_query = "SELECT * FROM nsqf_course_templates WHERE is_active = 1 ORDER BY created_at DESC";
 $stmt = $conn->prepare($templates_query);
 
 if ($stmt === false) {
@@ -109,7 +109,6 @@ if ($stmt === false) {
     }
 }
 
-$stmt->bind_param("i", $_SESSION['admin_id']);
 $stmt->execute();
 $templates = $stmt->get_result();
 ?>
@@ -153,7 +152,7 @@ $templates = $stmt->get_result();
 
             <div class="card">
                 <div class="card-header">
-                    <span><i class="fas fa-list"></i> Your NSQF Courses</span>
+                    <span><i class="fas fa-list"></i> All NSQF Courses</span>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
