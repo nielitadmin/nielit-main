@@ -2653,22 +2653,26 @@ $dashboard_payload = [
                             <label class="form-label">Campus <span class="required">*</span></label>
                             <select class="form-select" name="campus_type" id="add_campus_type_dash" required onchange="toggleAddCourseMode()">
                                 <option value="">Select campus</option>
-                                <option value="on_campus">On campus</option>
-                                <option value="off_campus">Off campus</option>
+                                <option value="on_campus">On campus (run by NIELIT)</option>
+                                <option value="off_campus">Off campus (run by a partner)</option>
                             </select>
+                            <div class="form-help">
+                                <i class="fas fa-info-circle"></i>
+                                On campus means the course is run by NIELIT. Off campus means the course is run by a training partner.
+                            </div>
                         </div>
 
                         <div class="form-group" id="add_delivery_mode_wrap" style="display:none;">
                             <label class="form-label">Mode <span class="required">*</span></label>
                             <select class="form-select" name="delivery_mode" id="add_delivery_mode_dash">
                                 <option value="">Select mode</option>
-                                <option value="online">Online</option>
-                                <option value="offline">Offline</option>
-                                <option value="hybrid">Hybrid</option>
+                                <option value="online">Online (classes held online)</option>
+                                <option value="offline">Offline (classes held in person)</option>
+                                <option value="hybrid">Hybrid (online and in person)</option>
                             </select>
                             <div class="form-help">
                                 <i class="fas fa-laptop"></i>
-                                Choose how this course is delivered after you select on campus or off campus
+                                Online means classes are held online. Offline means classes are held in person. Hybrid means classes are held both online and in person.
                             </div>
                         </div>
                         

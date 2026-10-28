@@ -693,19 +693,20 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Campus *</label>
                             <select class="form-select" name="campus_type" id="edit_campus_type" required onchange="toggleEditCourseMode()">
                                 <option value="">Select campus</option>
-                                <option value="on_campus" <?php echo $savedCampus === 'on_campus' ? 'selected' : ''; ?>>On campus</option>
-                                <option value="off_campus" <?php echo $savedCampus === 'off_campus' ? 'selected' : ''; ?>>Off campus</option>
+                                <option value="on_campus" <?php echo $savedCampus === 'on_campus' ? 'selected' : ''; ?>>On campus (run by NIELIT)</option>
+                                <option value="off_campus" <?php echo $savedCampus === 'off_campus' ? 'selected' : ''; ?>>Off campus (run by a partner)</option>
                             </select>
+                            <small class="text-muted">On campus means the course is run by NIELIT. Off campus means the course is run by a training partner.</small>
                         </div>
                         <div class="form-group" id="edit_delivery_mode_wrap" style="<?php echo $savedCampus === '' ? 'display:none;' : ''; ?>">
                             <label class="form-label">Mode *</label>
                             <select class="form-select" name="delivery_mode" id="edit_delivery_mode" <?php echo $savedCampus === '' ? '' : 'required'; ?>>
                                 <option value="">Select mode</option>
-                                <option value="online" <?php echo $savedMode === 'online' ? 'selected' : ''; ?>>Online</option>
-                                <option value="offline" <?php echo $savedMode === 'offline' ? 'selected' : ''; ?>>Offline</option>
-                                <option value="hybrid" <?php echo $savedMode === 'hybrid' ? 'selected' : ''; ?>>Hybrid</option>
+                                <option value="online" <?php echo $savedMode === 'online' ? 'selected' : ''; ?>>Online (classes held online)</option>
+                                <option value="offline" <?php echo $savedMode === 'offline' ? 'selected' : ''; ?>>Offline (classes held in person)</option>
+                                <option value="hybrid" <?php echo $savedMode === 'hybrid' ? 'selected' : ''; ?>>Hybrid (online and in person)</option>
                             </select>
-                            <small class="text-muted">Choose Online, Offline, or Hybrid after you select on campus or off campus.</small>
+                            <small class="text-muted">Online means classes are held online. Offline means classes are held in person. Hybrid means classes are held both online and in person.</small>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Start Date *</label>
