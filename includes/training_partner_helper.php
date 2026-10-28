@@ -29,6 +29,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             is_placed TINYINT(1) NOT NULL DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             course_name VARCHAR(180) NOT NULL DEFAULT '',
+            course_category VARCHAR(180) NOT NULL DEFAULT '',
             course_start_date DATE NULL,
             course_end_date DATE NULL,
             exam_date DATE NULL,
@@ -44,6 +45,9 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         if (!isset($studentColumns['course_name'])) {
             $conn->query("ALTER TABLE training_partner_students ADD COLUMN course_name VARCHAR(180) NOT NULL DEFAULT '' AFTER scheme_id");
+        }
+        if (!isset($studentColumns['course_category'])) {
+            $conn->query("ALTER TABLE training_partner_students ADD COLUMN course_category VARCHAR(180) NOT NULL DEFAULT '' AFTER course_name");
         }
         if (!isset($studentColumns['course_start_date'])) {
             $conn->query('ALTER TABLE training_partner_students ADD COLUMN course_start_date DATE NULL AFTER figure_month');
@@ -85,6 +89,16 @@ if (!function_exists('training_partner_ensure_schema')) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 
+        function training_partner_course_categories(): array
+    {
+        return [
+            'Skill Based (Long Term) Courses (> 500 hrs)',
+            'Skill Based (Short Term) Courses (90-500 hrs)',
+            'Short Term / Digital Competency Courses (<= 90 hrs)',
+            'Degree / Diploma / Postgraduate Courses',
+            'NIELIT HQ Digital Literacy Courses (CCC / ECC / BCC / ACC)',
+        ];
+    }
     function training_partner_centres(mysqli $conn): array
     {
         $rows = [];
@@ -551,12 +565,13 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = [], ?string $examDate = null, bool $saveExamDate = false): array
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = [], ?string $examDate = null, bool $saveExamDate = false, string $courseCategory = ''): array
     {
         training_partner_ensure_schema($conn);
         $name = trim($name);
         $mobile = trim($mobile);
         $courseName = trim($courseName);
+        $courseCategory = trim($courseCategory);
         if ($schemeId <= 0) {
             return ['ok' => false, 'error' => 'Choose the scheme or project first.'];
         }
@@ -577,9 +592,9 @@ if (!function_exists('training_partner_ensure_schema')) {
             $found = $existing->get_result()->fetch_assoc();
             $existing->close();
             if ($found) {
-                $sets = ['course_name = ?', 'course_start_date = ?', 'course_end_date = ?', 'figure_month = ?', 'is_certified = ?', 'is_placed = ?'];
-                $types = 'ssssii';
-                $values = [$courseName, $courseStart, $courseEnd, $figureMonth, $certified, $placed];
+                $sets = ['course_name = ?', 'course_category = ?', 'course_start_date = ?', 'course_end_date = ?', 'figure_month = ?', 'is_certified = ?', 'is_placed = ?'];
+                $types = 'sssssii';
+                $values = [$courseName, $courseCategory, $courseStart, $courseEnd, $figureMonth, $certified, $placed];
                 if ($saveExamDate) {
                     $sets[] = 'exam_date = ?';
                     $types .= 's';
@@ -599,9 +614,9 @@ if (!function_exists('training_partner_ensure_schema')) {
                 return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
-        $columns = ['partner_id', 'scheme_id', 'course_name', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
-        $types = 'iisssssssii';
-        $values = [$partnerId, $schemeId, $courseName, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $examDate, $certified, $placed];
+        $columns = ['partner_id', 'scheme_id', 'course_name', 'course_category', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
+        $types = 'iissssssssii';
+        $values = [$partnerId, $schemeId, $courseName, $courseCategory, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $examDate, $certified, $placed];
         foreach (training_partner_detail_fields() as $field => $kind) {
             $columns[] = '`' . $field . '`';
             $types .= $kind === 'int' ? 'i' : 's';
@@ -653,7 +668,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $detailSelect = implode(', ', array_map(static function ($field) {
             return 'st.`' . $field . '`';
         }, array_keys(training_partner_detail_fields())));
-        $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.student_name, st.mobile, st.figure_month,
+        $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.course_category, st.student_name, st.mobile, st.figure_month,
                        st.course_start_date, st.course_end_date, st.exam_date, st.is_certified, st.is_placed, {$detailSelect},
                        p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
                 FROM training_partner_students st
@@ -750,6 +765,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'Sl. No.',
                 'Batch No',
                 'Course Name',
+                'Course Category',
                 'NIELIT Registration No. (NIELIT Portal)',
                 'Name of candidate',
                 'Father\'s Name',
@@ -776,6 +792,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 '1',
                 'B-2025-01',
                 'Certified Data Entry and Office Assistant',
+                'Short Term / Digital Competency Courses (<= 90 hrs)',
                 'NL123456',
                 'Anita Das',
                 'Ramesh Das',
@@ -802,6 +819,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 '2',
                 'B-2025-01',
                 'Certified Web Developer',
+                'Skill Based (Short Term) Courses (90-500 hrs)',
                 '',
                 'Ravi Kumar',
                 'Suresh Kumar',
@@ -886,6 +904,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             'certified' => null,
             'placed' => null,
             'course_name' => null,
+            'course_category' => null,
             'partner_name' => null,
             'course_start' => null,
             'course_end' => null,
@@ -941,6 +960,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $map['batch_no'] = $index;
             } elseif (strpos($label, 'nielitreg') !== false || strpos($label, 'nielitregistration') !== false) {
                 $map['nielit_reg_no'] = $index;
+            } elseif (in_array($label, ['coursecategory', 'categorycourse', 'trainingcategory', 'schemecategory'], true) || strpos($label, 'coursecat') !== false) {
+                $map['course_category'] = $index;
             } elseif (strpos($label, 'category') === 0) {
                 $map['category'] = $index;
             } elseif (strpos($label, 'gender') === 0) {
@@ -1012,6 +1033,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 'name' => $name,
                 'mobile' => $map['mobile'] === null ? '' : trim((string) ($row[$map['mobile']] ?? '')),
                 'course_name' => $map['course_name'] === null ? '' : trim((string) ($row[$map['course_name']] ?? '')),
+                'course_category' => $map['course_category'] === null ? '' : trim((string) ($row[$map['course_category']] ?? '')),
                 'partner_name' => $map['partner_name'] === null ? '' : trim((string) ($row[$map['partner_name']] ?? '')),
                 'course_start' => $map['course_start'] === null ? null : training_partner_parse_date($row[$map['course_start']] ?? ''),
                 'course_end' => $map['course_end'] === null ? null : training_partner_parse_date($row[$map['course_end']] ?? ''),
@@ -1172,7 +1194,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $sheets;
     }
 
-    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null): array
+    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null, ?string $defaultCourseCategory = null): array
     {
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $sheets = [];
@@ -1231,6 +1253,10 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $skipped++;
                 continue;
             }
+            $rowCourseCategory = trim((string) ($record['course_category'] ?? ''));
+            if ($rowCourseCategory === '' && $defaultCourseCategory !== null && $defaultCourseCategory !== '') {
+                $rowCourseCategory = trim($defaultCourseCategory);
+            }
             $result = training_partner_save_student(
                 $conn,
                 $rowPartnerId,
@@ -1244,7 +1270,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $record['course_end'] ?? $defaultEnd,
                 is_array($record['details'] ?? null) ? $record['details'] : [],
                 !empty($record['has_exam_date']) ? ($record['exam_date'] ?? $defaultExam) : $defaultExam,
-                !empty($record['has_exam_date']) || $defaultExam !== null
+                !empty($record['has_exam_date']) || $defaultExam !== null,
+                $rowCourseCategory
             );
             if (!empty($result['ok'])) {
                 $saved++;

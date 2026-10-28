@@ -71,6 +71,7 @@ if (!function_exists('get_report_monitor_category_groups')) {
                     'NIELIT HQ Digital Literacy (CCC/ECC/BCC/ACC)',
                     "NIELIT HQ's Digital Literacy Courses (CCC / ECC / CCCP / BCC / ACC)",
                     'NIELIT HQ Digital Literacy Courses (CCC/ECC/BCC/ACC)',
+                    'NIELIT HQ Digital Literacy Courses (CCC / ECC / BCC / ACC)',
                 ],
             ],
             'govt_corporate' => [
@@ -116,10 +117,13 @@ if (!function_exists('get_report_monitor_category_groups')) {
         if ($raw === '') {
             return 'uncategorized';
         }
+        if (strpos($upper, 'NIELIT HQ') !== false || strpos($upper, 'DIGITAL LITERACY') !== false || strpos($upper, 'CCC') !== false || strpos($upper, 'ECC') !== false || strpos($upper, 'BCC') !== false || strpos($upper, 'ACC') !== false) {
+            return 'nielit_literacy';
+        }
         if (strpos($upper, 'LONG TERM') !== false || strpos($upper, 'LONG TERM NSQF') !== false) {
             return 'long_term_skill';
         }
-        if (strpos($upper, 'SHORT TERM') !== false && strpos($upper, 'DIGITAL') === false) {
+        if (strpos($upper, 'SHORT TERM') !== false && strpos($upper, 'DIGITAL') === false && strpos($upper, '<= 90') === false && strpos($upper, '<=90') === false) {
             return 'short_term_skill';
         }
         if (strpos($upper, 'DIGITAL') !== false || strpos($upper, '<= 90') !== false || strpos($upper, '<=90') !== false) {
@@ -130,9 +134,6 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
         if (strpos($upper, 'DEGREE') !== false || strpos($upper, 'DIPLOMA') !== false || strpos($upper, 'POSTGRADUATE') !== false || strpos($upper, ' PG') !== false) {
             return 'degree_diploma';
-        }
-        if (strpos($upper, 'NIELIT HQ') !== false || strpos($upper, 'CCC') !== false || strpos($upper, 'ECC') !== false || strpos($upper, 'BCC') !== false) {
-            return 'nielit_literacy';
         }
         if (strpos($upper, 'GOVT') !== false || strpos($upper, 'CORPORATE') !== false) {
             return 'govt_corporate';
@@ -3195,6 +3196,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
+        report_monitor_merge_training_partner_social_category_course_summary($conn, $grouped, $quarters, $centreId);
+
         return $grouped;
     }
 
@@ -4401,16 +4404,31 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
     TRAINING PARTNER & SCHEME REPORT MONITOR INTEGRATION
     ==================================================*/
 
-    function report_monitor_resolve_training_partner_course_category($conn, string $courseName): array {
+    function report_monitor_resolve_training_partner_course_category($conn, string $courseName, string $explicitCategory = ''): array {
         static $cache = [];
         $name = trim($courseName);
-        $cacheKey = strtolower($name);
+        $explicitCat = trim($explicitCategory);
+        $cacheKey = strtolower($name) . '|' . strtolower($explicitCat);
         if (isset($cache[$cacheKey])) {
             return $cache[$cacheKey];
         }
         
+        // 0. If explicit category is provided, resolve directly using report monitor category base
+        if ($explicitCat !== '') {
+            $catKey = report_monitor_resolve_category_group_base($explicitCat);
+            if ($catKey !== 'uncategorized') {
+                return $cache[$cacheKey] = [
+                    'category_key' => $catKey,
+                    'course_id' => 0,
+                    'course_name' => $name !== '' ? $name : 'Training Partner Course',
+                    'course_code' => '',
+                    'duration' => '',
+                ];
+            }
+        }
+        
         // 1. Try matching with courses table
-        if ($name !== '' && report_monitor_table_exists($conn, 'courses')) {
+        if ($conn instanceof mysqli && $name !== '' && report_monitor_table_exists($conn, 'courses')) {
             $safeName = $conn->real_escape_string($name);
             $res = $conn->query("SELECT id, category, duration, course_name, course_code FROM courses 
                                  WHERE LOWER(TRIM(course_name)) = LOWER('{$safeName}') 
@@ -4430,7 +4448,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
         
         // 2. Try matching with nsqf_course_templates
-        if ($name !== '' && report_monitor_table_exists($conn, 'nsqf_course_templates')) {
+        if ($conn instanceof mysqli && $name !== '' && report_monitor_table_exists($conn, 'nsqf_course_templates')) {
             $safeName = $conn->real_escape_string($name);
             $res = $conn->query("SELECT id, category, course_name FROM nsqf_course_templates 
                                  WHERE LOWER(TRIM(course_name)) = LOWER('{$safeName}') 
@@ -4450,13 +4468,13 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         // 3. Fallback based on text heuristics
         $lower = strtolower($name);
         if (preg_match('/\b(ccc|bcc|ecc|acc|digital literacy)\b/i', $lower)) {
-            $catKey = 'digital_lit';
-        } elseif (preg_match('/\b(o level|a level|b level|chmt|>500|long term)\b/i', $lower)) {
+            $catKey = 'nielit_literacy';
+        } elseif (preg_match('/(> ?500|\bo level\b|\ba level\b|\bb level\b|\bchmt\b|\blong term\b)/i', $lower)) {
             $catKey = 'long_term_skill';
-        } elseif (preg_match('/\b(<=90|<= 90|<90|short term|competency)\b/i', $lower)) {
+        } elseif (preg_match('/(<= ?90|< ?90|\bshort term\b|\bcompetency\b)/i', $lower)) {
             $catKey = 'digital_competency';
         } elseif (preg_match('/\b(degree|diploma|pg|b\.tech|m\.tech|mca)\b/i', $lower)) {
-            $catKey = 'degree_diploma_pg';
+            $catKey = 'degree_diploma';
         } else {
             $catKey = 'short_term_skill';
         }
@@ -4491,6 +4509,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
         
         $sql = "SELECT st.course_name,
+                       COALESCE(st.course_category, '') AS course_category,
                        {$quarterCase} AS quarter_key,
                        COUNT(*) AS total
                 FROM training_partner_students st
@@ -4499,7 +4518,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                   AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
                   AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
                   {$centreCondition}
-                GROUP BY st.course_name, quarter_key";
+                GROUP BY st.course_name, course_category, quarter_key";
         
         $res = $conn->query($sql);
         if ($res) {
@@ -4508,7 +4527,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
                     continue;
                 }
-                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) ($r['course_name'] ?? ''));
+                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) ($r['course_name'] ?? ''), (string) ($r['course_category'] ?? ''));
                 $catKey = $resolved['category_key'];
                 if (!isset($rows[$catKey])) {
                     $catKey = 'short_term_skill';
@@ -4586,6 +4605,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         $sql = "SELECT st.partner_id,
                        st.scheme_id,
                        COALESCE(NULLIF(TRIM(st.course_name), ''), 'Training Partner Program') AS course_name,
+                       COALESCE(st.course_category, '') AS course_category,
                        COALESCE(NULLIF(TRIM(p.partner_name), ''), 'Training Partner') AS partner_name,
                        COALESCE(p.partner_code, '') AS partner_code,
                        {$schemeSelect} AS scheme_name,
@@ -4602,7 +4622,7 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                   AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
                   AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
                   {$centreCondition}
-                GROUP BY st.partner_id, st.scheme_id, course_name, partner_name, partner_code, scheme_name, centre_name, quarter_key";
+                GROUP BY st.partner_id, st.scheme_id, course_name, course_category, partner_name, partner_code, scheme_name, centre_name, quarter_key";
                 
         $res = $conn->query($sql);
         if ($res) {
@@ -4611,13 +4631,13 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
                     continue;
                 }
-                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) $r['course_name']);
+                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) $r['course_name'], (string) ($r['course_category'] ?? ''));
                 $catKey = $resolved['category_key'];
                 if (!isset($grouped[$catKey])) {
                     $grouped[$catKey] = [];
                 }
                 
-                $itemKey = 'tp_' . $r['partner_id'] . '_' . md5($r['course_name'] . '|' . $r['scheme_name']);
+                $itemKey = 'tp_' . $r['partner_id'] . '_' . md5($r['course_name'] . '|' . $r['course_category'] . '|' . $r['scheme_name']);
                 if (!isset($grouped[$catKey][$itemKey])) {
                     $displayName = $r['course_name'];
                     if ($r['partner_name'] !== '') {
@@ -4634,6 +4654,8 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                         'scheme_names' => $r['scheme_name'],
                         'faculty_names' => $r['partner_name'],
                         'batch_period_label' => report_monitor_format_batch_period_label($r['min_start_date'], $r['max_end_date']),
+                        'is_training_partner' => true,
+                        'partner_name' => $r['partner_name'],
                         'Q1' => 0,
                         'Q2' => 0,
                         'Q3' => 0,
@@ -4692,6 +4714,90 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                     $rows[$idx][$q] += $cnt;
                     $rows[$idx]['total'] += $cnt;
                 }
+            }
+        }
+    }
+
+    
+    function report_monitor_merge_training_partner_social_category_course_summary($conn, array &$grouped, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+        
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+        
+        $centreCondition = $centreId > 0 ? " AND p.centre_id = " . (int)$centreId : "";
+        $hasSchemes = report_monitor_table_exists($conn, 'schemes');
+        $schemeJoin = $hasSchemes ? "LEFT JOIN schemes sc ON sc.id = st.scheme_id" : "";
+        $schemeSelect = $hasSchemes ? "COALESCE(NULLIF(TRIM(sc.scheme_name), ''), '—')" : "'—'";
+        
+        $sql = "SELECT st.partner_id,
+                       st.scheme_id,
+                       COALESCE(NULLIF(TRIM(st.course_name), ''), 'Training Partner Program') AS course_name,
+                       COALESCE(NULLIF(TRIM(p.partner_name), ''), 'Training Partner') AS partner_name,
+                       COALESCE(p.partner_code, '') AS partner_code,
+                       COALESCE(NULLIF(TRIM(st.category), ''), 'General') AS raw_social_category,
+                       {$schemeSelect} AS scheme_name,
+                       COALESCE(cen.name, 'All Centres') AS centre_name,
+                       MIN(NULLIF(st.course_start_date, '0000-00-00')) AS min_start_date,
+                       MAX(NULLIF(st.course_end_date, '0000-00-00')) AS max_end_date,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                {$schemeJoin}
+                LEFT JOIN centres cen ON cen.id = p.centre_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY st.partner_id, st.scheme_id, course_name, partner_name, partner_code, raw_social_category, scheme_name, centre_name, quarter_key";
+                
+        $res = $conn->query($sql);
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $quarter = $r['quarter_key'];
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) continue;
+                $socialKey = report_monitor_resolve_social_category_key($r['raw_social_category']);
+                if (!isset($grouped[$socialKey])) {
+                    $grouped[$socialKey] = [];
+                }
+                $itemKey = 'tp_' . $r['partner_id'] . '_' . md5($r['course_name'] . '|' . $r['scheme_name']);
+                if (!isset($grouped[$socialKey][$itemKey])) {
+                    $displayName = $r['course_name'];
+                    if ($r['partner_name'] !== '') {
+                        $displayName .= ' (' . $r['partner_name'] . ')';
+                    }
+                    $grouped[$socialKey][$itemKey] = [
+                        'course_id' => $itemKey,
+                        'course_name' => $displayName,
+                        'course_code' => $r['partner_code'] !== '' ? $r['partner_code'] : 'TP',
+                        'centre_name' => $r['centre_name'],
+                        'duration' => '',
+                        'raw_category_group' => $socialKey,
+                        'report_category_group' => $socialKey,
+                        'scheme_names' => $r['scheme_name'],
+                        'faculty_names' => $r['partner_name'],
+                        'batch_period_label' => report_monitor_format_batch_period_label($r['min_start_date'], $r['max_end_date']),
+                        'is_training_partner' => true,
+                        'partner_name' => $r['partner_name'],
+                        'Q1' => 0,
+                        'Q2' => 0,
+                        'Q3' => 0,
+                        'Q4' => 0,
+                        'total' => 0,
+                    ];
+                }
+                $count = (int) $r['total'];
+                $grouped[$socialKey][$itemKey][$quarter] += $count;
+                $grouped[$socialKey][$itemKey]['total'] += $count;
             }
         }
     }

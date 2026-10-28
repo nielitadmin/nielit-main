@@ -2403,13 +2403,28 @@ Q4 (Jan–Mar)
                         <td class="text-center text-muted">—</td>
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
-                            <?php echo htmlspecialchars($courseRow['course_name']); ?>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-warning text-dark me-1" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
+                            <?php endif; ?>
+                            <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
                             <?php if (!empty($courseRow['course_code'])): ?>
                                 <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
-                        <td><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></td>
+                        <td>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-info-subtle text-dark border" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
@@ -2567,13 +2582,28 @@ Q4 (Jan–Mar)
                         <td class="text-center text-muted">—</td>
                         <td class="ps-4">
                             <span class="text-muted me-1">↳</span>
-                            <?php echo htmlspecialchars($courseRow['course_name']); ?>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-warning text-dark me-1" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
+                            <?php endif; ?>
+                            <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
                             <?php if (!empty($courseRow['course_code'])): ?>
                                 <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></td>
-                        <td><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></td>
+                        <td>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                <span class="badge bg-info-subtle text-dark border" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>

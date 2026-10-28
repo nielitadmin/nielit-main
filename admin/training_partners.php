@@ -57,7 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             training_partner_parse_date($_POST['course_end_date'] ?? ''),
             training_partner_details_from_request($_POST),
             training_partner_parse_date($_POST['exam_date'] ?? ''),
-            true
+            true,
+            (string) ($_POST['course_category'] ?? '')
         );
         $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
@@ -74,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (int) ($_POST['scheme_id'] ?? 0),
                 training_partner_parse_date($_POST['course_start_date'] ?? ''),
                 training_partner_parse_date($_POST['course_end_date'] ?? ''),
-                training_partner_parse_date($_POST['exam_date'] ?? '')
+                training_partner_parse_date($_POST['exam_date'] ?? ''),
+                (string) ($_POST['course_category'] ?? '')
             );
             if (!empty($result['ok'])) {
                 $showStudents = true;
@@ -293,16 +295,25 @@ $active_theme = loadActiveTheme($conn);
                                 <input class="form-control" name="course_name" placeholder="Optional">
                             </div>
                             <div class="col-md-4 mb-3">
-                                <label class="form-label">Course starting date</label>
-                                <input class="form-control" type="date" name="course_start_date">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Course ending date</label>
-                                <input class="form-control" type="date" name="course_end_date">
+                                <label class="form-label">Course category</label>
+                                <select class="form-select" name="course_category">
+                                    <option value="">Select course category</option>
+                                    <?php foreach (training_partner_course_categories() as $catOpt): ?>
+                                        <option value="<?php echo htmlspecialchars($catOpt); ?>"><?php echo htmlspecialchars($catOpt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                             <div class="col-md-4 mb-3">
                                 <label class="form-label">Exam date</label>
                                 <input class="form-control" type="date" name="exam_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Course starting date</label>
+                                <input class="form-control" type="date" name="course_start_date">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Course ending date</label>
+                                <input class="form-control" type="date" name="course_end_date">
                             </div>
                         </div>
                         <div class="row">
@@ -395,9 +406,18 @@ $active_theme = loadActiveTheme($conn);
                             </div>
                         </div>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
+                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Excel file</label>
                                 <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Course category (Default)</label>
+                                <select class="form-select" name="course_category">
+                                    <option value="">Auto-detect / from Excel column</option>
+                                    <?php foreach (training_partner_course_categories() as $catOpt): ?>
+                                        <option value="<?php echo htmlspecialchars($catOpt); ?>"><?php echo htmlspecialchars($catOpt); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
                         <div class="row">
@@ -460,6 +480,7 @@ $active_theme = loadActiveTheme($conn);
                                         <th>WhatsApp</th>
                                         <th>Batch</th>
                                         <th>Course</th>
+                                        <th>Course category</th>
                                         <th>Start</th>
                                         <th>End</th>
                                         <th>Exam date</th>
@@ -490,6 +511,7 @@ $active_theme = loadActiveTheme($conn);
                                         <td><?php echo htmlspecialchars(training_partner_show($student['mobile'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['batch_no'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['course_name'] ?? '')); ?></td>
+                                        <td><span class="badge bg-light text-dark border"><?php echo htmlspecialchars(training_partner_show($student['course_category'] ?? '')); ?></span></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_start_date'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['course_end_date'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show_date($student['exam_date'] ?? '')); ?></td>
