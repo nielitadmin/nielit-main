@@ -6,6 +6,9 @@ require_once __DIR__ . '/../../includes/url_helper.php';
 require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../../includes/theme_loader.php';
+require_once __DIR__ . '/../../includes/institute_branding.php';
+require_once __DIR__ . '/../includes/scheme_centres_helper.php';
+scheme_centres_ensure($conn);
 
 // Check if the admin is logged in
 if (!isset($_SESSION['admin'])) {
@@ -66,6 +69,7 @@ if (isset($_POST['update_scheme'])) {
     $stmt->bind_param("ssssssisssi", $scheme_name, $scheme_code, $description, $sponsor_agency, $start_date, $end_date, $physical_target, $project_incharge_name, $target_beneficiary, $status, $scheme_id);
     
     if ($stmt->execute()) {
+        scheme_centres_save($conn, (int) $scheme_id, $_POST['centre_ids'] ?? []);
         $_SESSION['message'] = "Scheme updated successfully!";
         $_SESSION['message_type'] = "success";
         header("Location: manage_schemes.php");
@@ -108,6 +112,14 @@ if ($scheme_result->num_rows == 0) {
 }
 
 $scheme = $scheme_result->fetch_assoc();
+$selectedCentreIds = scheme_centres_for_scheme($conn, (int) $scheme_id);
+$centres = [];
+$centresResult = $conn->query('SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name ASC');
+if ($centresResult) {
+    while ($centreRow = $centresResult->fetch_assoc()) {
+        $centres[] = $centreRow;
+    }
+}
 
 // Load active theme
 $active_theme = loadActiveTheme($conn);
@@ -258,6 +270,27 @@ $courses_result = $stmt->get_result();
                         </div>
                     </div>
                     
+                    <div class="form-group">
+                        <label class="form-label">Training centres</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px;">
+                            <?php if ($centres): ?>
+                                <?php foreach ($centres as $centre): ?>
+                                    <?php $centreId = (int) $centre['id']; ?>
+                                    <label style="display: flex; align-items: center; margin-right: 15px;">
+                                        <input type="checkbox" name="centre_ids[]" value="<?php echo $centreId; ?>" <?php echo in_array($centreId, $selectedCentreIds, true) ? 'checked' : ''; ?> style="margin-right: 5px;">
+                                        <?php echo htmlspecialchars(normalize_nielit_centre_name((string) $centre['name'])); ?>
+                                        <?php if ((string) ($centre['code'] ?? '') !== ''): ?>
+                                            <span style="color: #64748b; margin-left: 4px;">(<?php echo htmlspecialchars((string) $centre['code']); ?>)</span>
+                                        <?php endif; ?>
+                                    </label>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <span style="color: #64748b;">No active training centres found.</span>
+                            <?php endif; ?>
+                        </div>
+                        <small style="color: #64748b;">A new course shows this scheme only when its training centre is selected here.</small>
+                    </div>
+
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="submit" name="update_scheme" class="btn btn-primary">
                             <i class="fas fa-save"></i> Update Scheme

@@ -15,6 +15,8 @@ require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/support_ticket_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
+require_once __DIR__ . '/../schemes_module/includes/scheme_centres_helper.php';
+scheme_centres_ensure($conn);
 ensureCourseRequiredDocumentsColumn($conn);
 
 if (!isset($_SESSION['admin'])) {
@@ -1052,6 +1054,8 @@ $dashboard_payload = [
             margin-top: 0.5rem;
         }
         
+        #addCourseModal .scheme-centre-option { display: none !important; }
+        #addCourseModal .scheme-centre-option.is-shown { display: flex !important; }
         .checkbox-item {
             display: flex;
             align-items: center;
@@ -2620,11 +2624,11 @@ $dashboard_payload = [
                         
                         <div class="form-group">
                             <label class="form-label">Training Centre <span class="required">*</span></label>
-                            <select class="form-select" name="training_center" required>
+                            <select class="form-select" name="training_center" id="add_training_center_dash" required onchange="filterAddCourseSchemes()">
                                 <option value="">-- Select Training Centre --</option>
                                 <?php if (!empty($centres)): ?>
                                     <?php foreach ($centres as $centre): ?>
-                                        <option value="<?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?>">
+                                        <option value="<?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?>" data-centre-id="<?= (int) $centre['id'] ?>">
                                             <?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)
                                         </option>
                                     <?php endforeach; ?>
@@ -2711,15 +2715,17 @@ $dashboard_payload = [
                             <i class="fas fa-project-diagram"></i> Associated Schemes/Projects
                         </label>
                         <?php
-                        // Fetch all active schemes for add course form
+                        $schemeCentreMap = scheme_centres_map($conn);
                         $schemes_query_add = "SELECT * FROM schemes WHERE status = 'Active' ORDER BY scheme_name";
                         $schemes_result_add = $conn->query($schemes_query_add);
                         ?>
                         
-                        <div class="checkbox-group">
+                        <p class="scheme-centre-hint" id="addSchemeCentreHint" style="color:#64748b; margin-bottom: 8px;">Select a training centre to see the schemes and projects for that centre.</p>
+                        <div class="checkbox-group" id="addSchemeList">
                             <?php if ($schemes_result_add && $schemes_result_add->num_rows > 0): ?>
                                 <?php while ($scheme = $schemes_result_add->fetch_assoc()): ?>
-                                    <label class="checkbox-item">
+                                    <?php $linkedCentres = $schemeCentreMap[(int) $scheme['id']] ?? []; ?>
+                                    <label class="checkbox-item scheme-centre-option" data-centres="<?php echo htmlspecialchars(implode(',', $linkedCentres)); ?>">
                                         <input type="checkbox" name="schemes[]" value="<?php echo $scheme['id']; ?>">
                                         <span style="font-weight: 500;"><?php echo htmlspecialchars($scheme['scheme_name']); ?></span>
                                         <span style="color: #6c757d; font-size: 12px;">(<?php echo htmlspecialchars($scheme['scheme_code']); ?>)</span>
@@ -2734,7 +2740,7 @@ $dashboard_payload = [
                         </div>
                         <div class="form-help">
                             <i class="fas fa-check-square"></i>
-                            Select one or more schemes/projects for this course
+                            Select one or more schemes or projects linked to the chosen training centre
                         </div>
                     </div>
                     
@@ -2860,6 +2866,41 @@ function generateShortToken(length = 8) {
 }
 
 // Generate Apply Link for Dashboard (Token-based like edit_course.php)
+function filterAddCourseSchemes() {
+    var select = document.getElementById('add_training_center_dash');
+    var root = document.getElementById('addCourseModal');
+    if (!select || !root) {
+        return;
+    }
+    var option = select.options[select.selectedIndex];
+    var centreId = option ? (option.getAttribute('data-centre-id') || '') : '';
+    var shown = 0;
+    root.querySelectorAll('.scheme-centre-option').forEach(function (label) {
+        var ids = (label.getAttribute('data-centres') || '').split(',').filter(Boolean);
+        var box = label.querySelector('input[type="checkbox"]');
+        var match = centreId !== '' && ids.indexOf(centreId) !== -1;
+        label.classList.toggle('is-shown', match);
+        if (!match && box) {
+            box.checked = false;
+        }
+        if (match) {
+            shown += 1;
+        }
+    });
+    var hint = document.getElementById('addSchemeCentreHint');
+    if (hint) {
+        if (centreId === '') {
+            hint.textContent = 'Select a training centre to see the schemes and projects for that centre.';
+            hint.hidden = false;
+        } else if (shown === 0) {
+            hint.textContent = 'No schemes or projects are linked to this training centre. Open the scheme and tick this centre.';
+            hint.hidden = false;
+        } else {
+            hint.hidden = true;
+        }
+    }
+}
+
 function generateApplyLinkDash() {
     const courseNameInput = document.getElementById('add_course_name_dash');
     const linkInput = document.getElementById('add_apply_link_dash');

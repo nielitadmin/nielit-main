@@ -16,6 +16,8 @@ require_once __DIR__ . '/../includes/workshop_registration_helper.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
+require_once __DIR__ . '/../schemes_module/includes/scheme_centres_helper.php';
+scheme_centres_ensure($conn);
 ensureCourseRequiredDocumentsColumn($conn);
 
 // Function to generate short token
@@ -659,7 +661,7 @@ $active_theme = loadActiveTheme($conn);
                         </div>
                         <div class="form-group">
                             <label class="form-label">Training Centre *</label>
-                            <select class="form-select" name="centre_id" required>
+                            <select class="form-select" name="centre_id" id="edit_training_centre" required onchange="filterEditCourseSchemes()">
                                 <option value="">--Select Training Centre--</option>
                                 <?php
                                 $centres_query = "SELECT id, name, code FROM centres WHERE is_active = 1 ORDER BY name";
@@ -712,6 +714,7 @@ $active_theme = loadActiveTheme($conn);
                             <i class="fas fa-project-diagram"></i> Schemes/Projects
                         </label>
                         <?php
+                        $schemeCentreMap = scheme_centres_map($conn);
                         $schemes_query = "SELECT * FROM schemes WHERE status = 'Active' ORDER BY scheme_name";
                         $schemes_result = $conn->query($schemes_query);
                         
@@ -732,10 +735,12 @@ $active_theme = loadActiveTheme($conn);
                         }
                         ?>
                         
-                        <div style="background: #f8f9fa; padding: 16px; border-radius: 6px; border: 1px solid #dee2e6;">
+                        <p class="scheme-centre-hint" id="editSchemeCentreHint" style="color:#64748b; margin-bottom: 8px;">Select a training centre to see the schemes and projects for that centre.</p>
+                        <div id="editSchemeList" style="background: #f8f9fa; padding: 16px; border-radius: 6px; border: 1px solid #dee2e6;">
                             <?php if ($schemes_result && $schemes_result->num_rows > 0): ?>
                                 <?php while ($scheme = $schemes_result->fetch_assoc()): ?>
-                                    <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
+                                    <?php $linkedCentres = $schemeCentreMap[(int) $scheme['id']] ?? []; ?>
+                                    <label class="scheme-centre-option" data-centres="<?php echo htmlspecialchars(implode(',', $linkedCentres)); ?>" style="align-items: center; gap: 8px; margin-bottom: 8px; cursor: pointer;">
                                         <input type="checkbox" 
                                                name="schemes[]" 
                                                class="course-scheme-checkbox"
@@ -1147,6 +1152,44 @@ $active_theme = loadActiveTheme($conn);
     </main>
 </div>
 
+<style>
+#editSchemeList .scheme-centre-option { display: none; }
+#editSchemeList .scheme-centre-option.is-shown { display: flex; }
+</style>
+<script>
+function filterEditCourseSchemes() {
+    var select = document.getElementById('edit_training_centre');
+    var root = document.getElementById('editSchemeList');
+    if (!select || !root) {
+        return;
+    }
+    var centreId = select.value || '';
+    var shown = 0;
+    root.querySelectorAll('.scheme-centre-option').forEach(function (label) {
+        var ids = (label.getAttribute('data-centres') || '').split(',').filter(Boolean);
+        var box = label.querySelector('input[type="checkbox"]');
+        var match = centreId !== '' && ids.indexOf(centreId) !== -1;
+        var keepChecked = box && box.checked && centreId !== '';
+        label.classList.toggle('is-shown', match || keepChecked);
+        if (match || keepChecked) {
+            shown += 1;
+        }
+    });
+    var hint = document.getElementById('editSchemeCentreHint');
+    if (hint) {
+        if (centreId === '') {
+            hint.textContent = 'Select a training centre to see the schemes and projects for that centre.';
+            hint.hidden = false;
+        } else if (shown === 0) {
+            hint.textContent = 'No schemes or projects are linked to this training centre. Open the scheme and tick this centre.';
+            hint.hidden = false;
+        } else {
+            hint.hidden = true;
+        }
+    }
+}
+document.addEventListener('DOMContentLoaded', filterEditCourseSchemes);
+</script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js?v=<?php echo time(); ?>"></script>
 <script>
 // Modern Confirm Dialog
