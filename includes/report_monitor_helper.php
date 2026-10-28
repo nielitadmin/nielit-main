@@ -1400,6 +1400,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
+        report_monitor_merge_training_partner_category_summary($conn, $rows, $quarters, $centreId);
+
         return report_monitor_filter_category_summary_rows(array_values($rows));
     }
 
@@ -1633,6 +1635,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 $grouped[$categoryKey][$index]['batch_period_label'] = $meta['batch_period_label'];
             }
         }
+
+        report_monitor_merge_training_partner_course_quarter_summary($conn, $grouped, $quarters, $centreId);
 
         return report_monitor_filter_category_course_summary($grouped);
     }
@@ -3056,6 +3060,8 @@ if (!function_exists('get_report_monitor_category_groups')) {
             }
         }
 
+        report_monitor_merge_training_partner_social_category_summary($conn, $rows, $quarters, $centreId);
+
         return array_values($rows);
     }
 
@@ -3772,6 +3778,8 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
             }
         }
 
+        report_monitor_merge_training_partner_gender_summary($conn, $rows, $quarters, $centreId);
+
         return array_values($rows);
     }
 
@@ -4387,3 +4395,624 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
     }
 }
 
+
+
+    /*==================================================
+    TRAINING PARTNER & SCHEME REPORT MONITOR INTEGRATION
+    ==================================================*/
+
+    function report_monitor_resolve_training_partner_course_category($conn, string $courseName): array {
+        static $cache = [];
+        $name = trim($courseName);
+        $cacheKey = strtolower($name);
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+        
+        // 1. Try matching with courses table
+        if ($name !== '' && report_monitor_table_exists($conn, 'courses')) {
+            $safeName = $conn->real_escape_string($name);
+            $res = $conn->query("SELECT id, category, duration, course_name, course_code FROM courses 
+                                 WHERE LOWER(TRIM(course_name)) = LOWER('{$safeName}') 
+                                    OR LOWER(TRIM(course_abbreviation)) = LOWER('{$safeName}') 
+                                    OR LOWER(TRIM(course_code)) = LOWER('{$safeName}')
+                                 LIMIT 1");
+            if ($res && ($row = $res->fetch_assoc())) {
+                $catKey = report_monitor_resolve_category_group($row['category'], $row['duration'] ?? null, $conn, (int) $row['id']);
+                return $cache[$cacheKey] = [
+                    'category_key' => $catKey,
+                    'course_id' => (int) $row['id'],
+                    'course_name' => (string) $row['course_name'],
+                    'course_code' => (string) ($row['course_code'] ?? ''),
+                    'duration' => (string) ($row['duration'] ?? ''),
+                ];
+            }
+        }
+        
+        // 2. Try matching with nsqf_course_templates
+        if ($name !== '' && report_monitor_table_exists($conn, 'nsqf_course_templates')) {
+            $safeName = $conn->real_escape_string($name);
+            $res = $conn->query("SELECT id, category, course_name FROM nsqf_course_templates 
+                                 WHERE LOWER(TRIM(course_name)) = LOWER('{$safeName}') 
+                                 LIMIT 1");
+            if ($res && ($row = $res->fetch_assoc())) {
+                $catKey = report_monitor_resolve_category_group($row['category'], null, $conn, 0);
+                return $cache[$cacheKey] = [
+                    'category_key' => $catKey,
+                    'course_id' => 0,
+                    'course_name' => (string) $row['course_name'],
+                    'course_code' => '',
+                    'duration' => '',
+                ];
+            }
+        }
+        
+        // 3. Fallback based on text heuristics
+        $lower = strtolower($name);
+        if (preg_match('/\b(ccc|bcc|ecc|acc|digital literacy)\b/i', $lower)) {
+            $catKey = 'digital_lit';
+        } elseif (preg_match('/\b(o level|a level|b level|chmt|>500|long term)\b/i', $lower)) {
+            $catKey = 'long_term_skill';
+        } elseif (preg_match('/\b(<=90|<= 90|<90|short term|competency)\b/i', $lower)) {
+            $catKey = 'digital_competency';
+        } elseif (preg_match('/\b(degree|diploma|pg|b\.tech|m\.tech|mca)\b/i', $lower)) {
+            $catKey = 'degree_diploma_pg';
+        } else {
+            $catKey = 'short_term_skill';
+        }
+        
+        return $cache[$cacheKey] = [
+            'category_key' => $catKey,
+            'course_id' => 0,
+            'course_name' => $name !== '' ? $name : 'Training Partner Course',
+            'course_code' => '',
+            'duration' => '',
+        ];
+    }
+
+    function report_monitor_merge_training_partner_category_summary($conn, array &$rows, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+        
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+        
+        $centreCondition = "";
+        if ($centreId > 0) {
+            $centreCondition = " AND p.centre_id = " . (int) $centreId;
+        }
+        
+        $sql = "SELECT st.course_name,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY st.course_name, quarter_key";
+        
+        $res = $conn->query($sql);
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $quarter = $r['quarter_key'];
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) ($r['course_name'] ?? ''));
+                $catKey = $resolved['category_key'];
+                if (!isset($rows[$catKey])) {
+                    $catKey = 'short_term_skill';
+                }
+                $count = (int) $r['total'];
+                $rows[$catKey][$quarter] += $count;
+                $rows[$catKey]['total'] += $count;
+            }
+        }
+        
+        // Also include training_partner_figures if entered directly
+        if (report_monitor_table_exists($conn, 'training_partner_figures')) {
+            $figQuarterCase = "CASE\n";
+            foreach ($quarters as $quarterKey => $range) {
+                $figQuarterCase .= " WHEN f.figure_month >= '" . $conn->real_escape_string($range['start_date']) . "' AND f.figure_month < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+            }
+            $figQuarterCase .= " ELSE '' END";
+            
+            $figSql = "SELECT f.partner_id, {$figQuarterCase} AS quarter_key, SUM(f.enrolled) AS total_enrolled
+                       FROM training_partner_figures f
+                       INNER JOIN training_partners p ON p.id = f.partner_id
+                       WHERE p.is_active = 1
+                         AND f.figure_month >= '{$conn->real_escape_string($fyStart)}'
+                         AND f.figure_month < '{$conn->real_escape_string($fyEnd)}'
+                         {$centreCondition}
+                       GROUP BY f.partner_id, quarter_key";
+            $figRes = $conn->query($figSql);
+            if ($figRes) {
+                while ($fr = $figRes->fetch_assoc()) {
+                    $q = $fr['quarter_key'];
+                    if (!in_array($q, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                        continue;
+                    }
+                    $checkStudents = $conn->query("SELECT 1 FROM training_partner_students st 
+                        WHERE st.partner_id = " . (int)$fr['partner_id'] . " 
+                          AND {$studentDateExpr} >= '{$conn->real_escape_string($quarters[$q]['start_date'])}' 
+                          AND {$studentDateExpr} < '{$conn->real_escape_string($quarters[$q]['next_start'])}' LIMIT 1");
+                    if ($checkStudents && $checkStudents->num_rows > 0) {
+                        continue;
+                    }
+                    $enrolledCount = (int) $fr['total_enrolled'];
+                    if ($enrolledCount > 0) {
+                        $rows['short_term_skill'][$q] += $enrolledCount;
+                        $rows['short_term_skill']['total'] += $enrolledCount;
+                    }
+                }
+            }
+        }
+    }
+
+    function report_monitor_merge_training_partner_course_quarter_summary($conn, array &$grouped, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+        
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+        
+        $centreCondition = "";
+        if ($centreId > 0) {
+            $centreCondition = " AND p.centre_id = " . (int) $centreId;
+        }
+        
+        $hasSchemes = report_monitor_table_exists($conn, 'schemes');
+        $schemeJoin = $hasSchemes ? "LEFT JOIN schemes sc ON sc.id = st.scheme_id" : "";
+        $schemeSelect = $hasSchemes ? "COALESCE(NULLIF(TRIM(sc.scheme_name), ''), '—')" : "'—'";
+        
+        $sql = "SELECT st.partner_id,
+                       st.scheme_id,
+                       COALESCE(NULLIF(TRIM(st.course_name), ''), 'Training Partner Program') AS course_name,
+                       COALESCE(NULLIF(TRIM(p.partner_name), ''), 'Training Partner') AS partner_name,
+                       COALESCE(p.partner_code, '') AS partner_code,
+                       {$schemeSelect} AS scheme_name,
+                       COALESCE(cen.name, 'All Centres') AS centre_name,
+                       MIN(NULLIF(st.course_start_date, '0000-00-00')) AS min_start_date,
+                       MAX(NULLIF(st.course_end_date, '0000-00-00')) AS max_end_date,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                {$schemeJoin}
+                LEFT JOIN centres cen ON cen.id = p.centre_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY st.partner_id, st.scheme_id, course_name, partner_name, partner_code, scheme_name, centre_name, quarter_key";
+                
+        $res = $conn->query($sql);
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $quarter = $r['quarter_key'];
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $resolved = report_monitor_resolve_training_partner_course_category($conn, (string) $r['course_name']);
+                $catKey = $resolved['category_key'];
+                if (!isset($grouped[$catKey])) {
+                    $grouped[$catKey] = [];
+                }
+                
+                $itemKey = 'tp_' . $r['partner_id'] . '_' . md5($r['course_name'] . '|' . $r['scheme_name']);
+                if (!isset($grouped[$catKey][$itemKey])) {
+                    $displayName = $r['course_name'];
+                    if ($r['partner_name'] !== '') {
+                        $displayName .= ' (' . $r['partner_name'] . ')';
+                    }
+                    $grouped[$catKey][$itemKey] = [
+                        'course_id' => $itemKey,
+                        'course_name' => $displayName,
+                        'course_code' => $r['partner_code'] !== '' ? $r['partner_code'] : 'TP',
+                        'centre_name' => $r['centre_name'],
+                        'duration' => $resolved['duration'] ?? '',
+                        'raw_category_group' => $catKey,
+                        'report_category_group' => $catKey,
+                        'scheme_names' => $r['scheme_name'],
+                        'faculty_names' => $r['partner_name'],
+                        'batch_period_label' => report_monitor_format_batch_period_label($r['min_start_date'], $r['max_end_date']),
+                        'Q1' => 0,
+                        'Q2' => 0,
+                        'Q3' => 0,
+                        'Q4' => 0,
+                        'total' => 0,
+                    ];
+                }
+                
+                $count = (int) $r['total'];
+                $grouped[$catKey][$itemKey][$quarter] += $count;
+                $grouped[$catKey][$itemKey]['total'] += $count;
+            }
+        }
+    }
+
+    function report_monitor_merge_training_partner_social_category_summary($conn, array &$rows, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+        
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+        
+        $centreCondition = $centreId > 0 ? " AND p.centre_id = " . (int)$centreId : "";
+        
+        $sql = "SELECT COALESCE(NULLIF(TRIM(st.category), ''), 'General') AS raw_category,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY raw_category, quarter_key";
+                
+        $res = $conn->query($sql);
+        if ($res) {
+            $map = [];
+            foreach ($rows as $idx => $row) {
+                $map[$row['key']] = $idx;
+            }
+            while ($r = $res->fetch_assoc()) {
+                $q = $r['quarter_key'];
+                if (!in_array($q, ['Q1', 'Q2', 'Q3', 'Q4'], true)) continue;
+                $socialKey = report_monitor_resolve_social_category_key($r['raw_category']);
+                if (isset($map[$socialKey])) {
+                    $idx = $map[$socialKey];
+                    $cnt = (int) $r['total'];
+                    $rows[$idx][$q] += $cnt;
+                    $rows[$idx]['total'] += $cnt;
+                }
+            }
+        }
+    }
+
+    function report_monitor_merge_training_partner_gender_summary($conn, array &$rows, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+        
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+        
+        $centreCondition = $centreId > 0 ? " AND p.centre_id = " . (int)$centreId : "";
+        
+        $sql = "SELECT COALESCE(NULLIF(TRIM(st.gender), ''), 'male') AS raw_gender,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY raw_gender, quarter_key";
+                
+        $res = $conn->query($sql);
+        if ($res) {
+            $map = [];
+            foreach ($rows as $idx => $row) {
+                $map[$row['key']] = $idx;
+            }
+            while ($r = $res->fetch_assoc()) {
+                $q = $r['quarter_key'];
+                if (!in_array($q, ['Q1', 'Q2', 'Q3', 'Q4'], true)) continue;
+                $genderKey = report_monitor_normalize_gender_key($r['raw_gender']);
+                if (isset($map[$genderKey])) {
+                    $idx = $map[$genderKey];
+                    $cnt = (int) $r['total'];
+                    $rows[$idx][$q] += $cnt;
+                    $rows[$idx]['total'] += $cnt;
+                }
+            }
+        }
+    }
+
+    function report_monitor_get_scheme_period_monthly_by_centre($conn, array $courseIds = [], int $centreId = 0, array $monthFilter = [], array $graphMonths = []): array {
+        $axis = report_monitor_build_graph_month_axis($graphMonths);
+        $labels = $axis['labels'];
+        $monthKeys = $axis['month_keys'];
+        if (empty($monthKeys)) {
+            return ['labels' => [], 'series' => [], 'scope' => 'all', 'admissions_total' => 0];
+        }
+        
+        $totalAdmissions = array_fill_keys($monthKeys, 0);
+        $totalCertified = array_fill_keys($monthKeys, 0);
+        $totalPlaced = array_fill_keys($monthKeys, 0);
+        $schemesSeries = [];
+        
+        // 1. Training Partner Students
+        if (report_monitor_table_exists($conn, 'training_partner_students') && report_monitor_table_exists($conn, 'training_partners')) {
+            $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+            $centreCond = $centreId > 0 ? " AND p.centre_id = " . (int)$centreId : "";
+            $hasSchemes = report_monitor_table_exists($conn, 'schemes');
+            $schemeJoin = $hasSchemes ? "LEFT JOIN schemes sc ON sc.id = st.scheme_id" : "";
+            $schemeNameSelect = $hasSchemes ? "COALESCE(NULLIF(TRIM(sc.scheme_name), ''), 'Training Partner Scheme')" : "'Training Partner Scheme'";
+            
+            $sql = "SELECT DATE_FORMAT({$studentDateExpr}, '%Y-%m') AS month_key,
+                           {$schemeNameSelect} AS scheme_name,
+                           COUNT(*) AS enrolled_count,
+                           SUM(CASE WHEN st.is_certified = 1 THEN 1 ELSE 0 END) AS certified_count,
+                           SUM(CASE WHEN st.is_placed = 1 THEN 1 ELSE 0 END) AS placed_count
+                    FROM training_partner_students st
+                    INNER JOIN training_partners p ON p.id = st.partner_id
+                    {$schemeJoin}
+                    WHERE p.is_active = 1
+                      {$centreCond}
+                    GROUP BY month_key, scheme_name";
+            $res = $conn->query($sql);
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $mk = $r['month_key'];
+                    if (!isset($totalAdmissions[$mk])) continue;
+                    $schemeName = $r['scheme_name'];
+                    if (!isset($schemesSeries[$schemeName])) {
+                        $schemesSeries[$schemeName] = array_fill_keys($monthKeys, 0);
+                    }
+                    $enrolled = (int)$r['enrolled_count'];
+                    $certified = (int)$r['certified_count'];
+                    $placed = (int)$r['placed_count'];
+                    
+                    $schemesSeries[$schemeName][$mk] += $enrolled;
+                    $totalAdmissions[$mk] += $enrolled;
+                    $totalCertified[$mk] += $certified;
+                    $totalPlaced[$mk] += $placed;
+                }
+            }
+        }
+        
+        // 2. Training Partner Figures
+        if (report_monitor_table_exists($conn, 'training_partner_figures')) {
+            $centreCond = $centreId > 0 ? " AND p.centre_id = " . (int)$centreId : "";
+            $figSql = "SELECT DATE_FORMAT(f.figure_month, '%Y-%m') AS month_key,
+                              p.partner_name,
+                              SUM(f.enrolled) AS enrolled_count,
+                              SUM(f.certified) AS certified_count,
+                              SUM(f.placed) AS placed_count
+                       FROM training_partner_figures f
+                       INNER JOIN training_partners p ON p.id = f.partner_id
+                       WHERE p.is_active = 1 {$centreCond}
+                       GROUP BY month_key, p.partner_name";
+            $res = $conn->query($figSql);
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $mk = $r['month_key'];
+                    if (!isset($totalAdmissions[$mk])) continue;
+                    $pName = $r['partner_name'];
+                    if (!isset($schemesSeries[$pName])) {
+                        $schemesSeries[$pName] = array_fill_keys($monthKeys, 0);
+                    }
+                    $enrolled = (int)$r['enrolled_count'];
+                    $certified = (int)$r['certified_count'];
+                    $placed = (int)$r['placed_count'];
+                    
+                    $schemesSeries[$pName][$mk] += $enrolled;
+                    $totalAdmissions[$mk] += $enrolled;
+                    $totalCertified[$mk] += $certified;
+                    $totalPlaced[$mk] += $placed;
+                }
+            }
+        }
+        
+        // 3. Batches under Schemes
+        if (report_monitor_table_exists($conn, 'batches') && report_monitor_table_exists($conn, 'schemes')) {
+            $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+            $batchStartExpr = report_monitor_batch_start_sql('b');
+            $batchSql = "SELECT DATE_FORMAT({$batchStartExpr}, '%Y-%m') AS month_key,
+                                COALESCE(NULLIF(TRIM(sc.scheme_name), ''), 'Scheme Batch') AS scheme_name,
+                                COUNT(DISTINCT s.id) AS admissions_count
+                         FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
+                         INNER JOIN schemes sc ON sc.id = b.scheme_id
+                         LEFT JOIN batch_students bs ON bs.batch_id = b.id
+                         LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                         WHERE b.status != 'Cancelled'
+                           {$scopeFilter['sql']}
+                         GROUP BY month_key, scheme_name";
+            $types = $scopeFilter['types'];
+            $values = $scopeFilter['values'];
+            $result = report_monitor_bind_and_execute($conn, $batchSql, $types, $values);
+            if ($result) {
+                while ($r = $result->fetch_assoc()) {
+                    $mk = $r['month_key'];
+                    if (!isset($totalAdmissions[$mk])) continue;
+                    $sName = $r['scheme_name'];
+                    if (!isset($schemesSeries[$sName])) {
+                        $schemesSeries[$sName] = array_fill_keys($monthKeys, 0);
+                    }
+                    $adm = (int) $r['admissions_count'];
+                    $schemesSeries[$sName][$mk] += $adm;
+                    $totalAdmissions[$mk] += $adm;
+                }
+            }
+        }
+        
+        $series = [];
+        $totalLabel = $centreId > 0 ? (report_monitor_get_centre_name($conn, $centreId) ?: 'Centre ' . $centreId) : 'Total Project / Scheme';
+        $series[] = [
+            'key' => 'total',
+            'label' => $totalLabel,
+            'data' => array_values($totalAdmissions),
+            'is_total' => true
+        ];
+        
+        foreach ($schemesSeries as $sName => $sMap) {
+            $vals = array_values($sMap);
+            if (array_sum($vals) > 0 || count($schemesSeries) <= 5) {
+                $series[] = [
+                    'key' => 'scheme_' . md5($sName),
+                    'label' => $sName,
+                    'data' => $vals,
+                    'is_total' => false
+                ];
+            }
+        }
+        
+        return [
+            'labels' => $labels,
+            'series' => $series,
+            'scope' => $centreId > 0 ? 'single' : 'all',
+            'certified' => array_values($totalCertified),
+            'placed' => array_values($totalPlaced),
+            'admissions_total' => array_sum($totalAdmissions),
+            'certified_total' => array_sum($totalCertified),
+            'placed_total' => array_sum($totalPlaced)
+        ];
+    }
+
+    function report_monitor_get_scheme_centre_stats($conn, array $courseIds = [], int $centreId = 0, array $monthFilter = []): array {
+        $activeCentres = report_monitor_get_centres_list($conn);
+        $stats = [];
+        foreach ($activeCentres as $cen) {
+            $cid = (int) ($cen['id'] ?? 0);
+            $stats[$cid] = [
+                'centre_id' => $cid,
+                'centre_name' => (string) ($cen['name'] ?? ''),
+                'admissions' => 0,
+                'certified' => 0,
+                'placed' => 0,
+            ];
+        }
+        
+        // 1. Training Partner Students
+        if (report_monitor_table_exists($conn, 'training_partner_students') && report_monitor_table_exists($conn, 'training_partners')) {
+            $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+            $dateCond = "";
+            if (!empty($monthFilter['active']) && !empty($monthFilter['start']) && !empty($monthFilter['next_start'])) {
+                $dateCond = " AND {$studentDateExpr} >= '{$conn->real_escape_string($monthFilter['start'])}' AND {$studentDateExpr} < '{$conn->real_escape_string($monthFilter['next_start'])}'";
+            }
+            $sql = "SELECT p.centre_id,
+                           COUNT(*) AS enrolled_count,
+                           SUM(CASE WHEN st.is_certified = 1 THEN 1 ELSE 0 END) AS certified_count,
+                           SUM(CASE WHEN st.is_placed = 1 THEN 1 ELSE 0 END) AS placed_count
+                    FROM training_partner_students st
+                    INNER JOIN training_partners p ON p.id = st.partner_id
+                    WHERE p.is_active = 1 {$dateCond}
+                    GROUP BY p.centre_id";
+            $res = $conn->query($sql);
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $cid = (int) $r['centre_id'];
+                    if (!isset($stats[$cid])) {
+                        $stats[$cid] = [
+                            'centre_id' => $cid,
+                            'centre_name' => $cid > 0 ? (report_monitor_get_centre_name($conn, $cid) ?: 'Centre ' . $cid) : 'All Centres (TP)',
+                            'admissions' => 0,
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $stats[$cid]['admissions'] += (int) $r['enrolled_count'];
+                    $stats[$cid]['certified'] += (int) $r['certified_count'];
+                    $stats[$cid]['placed'] += (int) $r['placed_count'];
+                }
+            }
+        }
+        
+        // 2. Training partner figures
+        if (report_monitor_table_exists($conn, 'training_partner_figures') && report_monitor_table_exists($conn, 'training_partners')) {
+            $dateCond = "";
+            if (!empty($monthFilter['active']) && !empty($monthFilter['start']) && !empty($monthFilter['next_start'])) {
+                $dateCond = " AND f.figure_month >= '{$conn->real_escape_string($monthFilter['start'])}' AND f.figure_month < '{$conn->real_escape_string($monthFilter['next_start'])}'";
+            }
+            $figSql = "SELECT p.centre_id,
+                              SUM(f.enrolled) AS enrolled_count,
+                              SUM(f.certified) AS certified_count,
+                              SUM(f.placed) AS placed_count
+                       FROM training_partner_figures f
+                       INNER JOIN training_partners p ON p.id = f.partner_id
+                       WHERE p.is_active = 1 {$dateCond}
+                       GROUP BY p.centre_id";
+            $res = $conn->query($figSql);
+            if ($res) {
+                while ($r = $res->fetch_assoc()) {
+                    $cid = (int) $r['centre_id'];
+                    if (!isset($stats[$cid])) {
+                        $stats[$cid] = [
+                            'centre_id' => $cid,
+                            'centre_name' => $cid > 0 ? (report_monitor_get_centre_name($conn, $cid) ?: 'Centre ' . $cid) : 'All Centres (TP)',
+                            'admissions' => 0,
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $stats[$cid]['admissions'] += (int) $r['enrolled_count'];
+                    $stats[$cid]['certified'] += (int) $r['certified_count'];
+                    $stats[$cid]['placed'] += (int) $r['placed_count'];
+                }
+            }
+        }
+        
+        // 3. Batches with schemes
+        if (report_monitor_table_exists($conn, 'batches') && report_monitor_table_exists($conn, 'schemes')) {
+            $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+            $batchStartExpr = report_monitor_batch_start_sql('b');
+            $dateCond = "";
+            if (!empty($monthFilter['active']) && !empty($monthFilter['start']) && !empty($monthFilter['next_start'])) {
+                $dateCond = " AND {$batchStartExpr} >= '{$conn->real_escape_string($monthFilter['start'])}' AND {$batchStartExpr} < '{$conn->real_escape_string($monthFilter['next_start'])}'";
+            }
+            $batchSql = "SELECT COALESCE(c.centre_id, 0) AS centre_id,
+                                COUNT(DISTINCT s.id) AS admissions_count
+                         FROM batches b
+                         INNER JOIN courses c ON c.id = b.course_id
+                         INNER JOIN schemes sc ON sc.id = b.scheme_id
+                         LEFT JOIN batch_students bs ON bs.batch_id = b.id
+                         LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                         WHERE b.status != 'Cancelled'
+                           {$dateCond}
+                           {$scopeFilter['sql']}
+                         GROUP BY centre_id";
+            $types = $scopeFilter['types'];
+            $values = $scopeFilter['values'];
+            $result = report_monitor_bind_and_execute($conn, $batchSql, $types, $values);
+            if ($result) {
+                while ($r = $result->fetch_assoc()) {
+                    $cid = (int) $r['centre_id'];
+                    if (isset($stats[$cid])) {
+                        $stats[$cid]['admissions'] += (int) $r['admissions_count'];
+                    }
+                }
+            }
+        }
+        
+        if ($centreId > 0) {
+            return isset($stats[$centreId]) ? [$stats[$centreId]] : [];
+        }
+        
+        return array_values($stats);
+    }

@@ -244,13 +244,29 @@ $genderSocialCategoryQuarterSummary = report_monitor_get_gender_social_category_
 $trainingPartnerRows = training_partner_report_rows($conn, $monthFilter, $centreId);
 $trainingPartnerTrend = training_partner_trend_points($conn, $quarterRange['graph_months'] ?? [], $centreId);
 $trainingPartnerRows = array_values(array_filter($trainingPartnerRows, static function (array $row): bool {
-    return (int) $row['certified'] > 0 || (int) $row['placed'] > 0;
+    return (int) ($row['enrolled'] ?? 0) > 0 || (int) $row['certified'] > 0 || (int) $row['placed'] > 0;
 }));
-$trainingPartnerTotals = ['certified' => 0, 'placed' => 0];
+$trainingPartnerTotals = ['enrolled' => 0, 'certified' => 0, 'placed' => 0];
 foreach ($trainingPartnerRows as $trainingPartnerRow) {
+    $trainingPartnerTotals['enrolled'] += (int) ($trainingPartnerRow['enrolled'] ?? 0);
     $trainingPartnerTotals['certified'] += (int) $trainingPartnerRow['certified'];
     $trainingPartnerTotals['placed'] += (int) $trainingPartnerRow['placed'];
 }
+
+$schemeMonthlyByCentre = report_monitor_get_scheme_period_monthly_by_centre(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter,
+    $quarterRange['graph_months'] ?? []
+);
+
+$schemeCentreStats = report_monitor_get_scheme_centre_stats(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter
+);
 
 $certifiedPlacedCentreStats = report_monitor_get_certified_placed_centre_stats(
     $conn,
@@ -601,6 +617,8 @@ $reportPayload=[
     'batchMonthlyByCentre'=>$batchMonthlyByCentre,
 
     'trainingPartnerTrend'=>$trainingPartnerTrend,
+    'schemeMonthlyByCentre'=>$schemeMonthlyByCentre,
+    'schemeCentreStats'=>$schemeCentreStats,
 
     'centreStats'=>$centreStats,
 
@@ -1882,6 +1900,51 @@ Q4 (Jan–Mar)
 <div class="row mb-4">
     <div class="col-lg-8 mb-4">
         <div class="card chart-card">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                    <strong>Project / Scheme Trend</strong>
+                    <small class="text-muted ms-2">
+                        <?php
+                        $schemeTrendAdmissionsTotal = (int) ($schemeMonthlyByCentre['admissions_total'] ?? 0);
+                        $schemeTrendIsSingle = (($schemeMonthlyByCentre['scope'] ?? '') === 'single') || $centreId > 0;
+                        echo htmlspecialchars($monthScopeLabel);
+                        if ($schemeTrendIsSingle) {
+                            echo ' · ' . htmlspecialchars($selectedCentreName);
+                            echo ' · ' . number_format($schemeTrendAdmissionsTotal) . ' scheme admissions';
+                        } else {
+                            echo ' · Total + per scheme / partner · ' . number_format($schemeTrendAdmissionsTotal) . ' scheme admissions';
+                        }
+                        echo ' · training partner figures';
+                        ?>
+                    </small>
+                </div>
+                <?php if (empty($isPublicReportView)): ?>
+                    <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">
+                        <i class="fas fa-handshake me-1"></i> Training Partners
+                    </a>
+                <?php endif; ?>
+            </div>
+            <div class="card-body">
+                <canvas id="schemeMonthlyChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4 mb-4">
+        <div class="card chart-card">
+            <div class="card-header">
+                <strong>Centre Wise Report (Project / Scheme)</strong>
+                <small class="text-muted ms-2"><?php echo htmlspecialchars($fyCalendarScopeLabel); ?> · bar</small>
+            </div>
+            <div class="card-body">
+                <canvas id="schemeCentreChart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-lg-8 mb-4">
+        <div class="card chart-card">
             <div class="card-header">
                 <strong>Certified Trend</strong>
                 <small class="text-muted ms-2">
@@ -1959,6 +2022,7 @@ Q4 (Jan–Mar)
                                 <tr>
                                     <th>Scheme / project</th>
                                     <th>Training partner</th>
+                                    <th class="text-end">Enrolled</th>
                                     <th class="text-end">Certified</th>
                                     <th class="text-end">Placed</th>
                                 </tr>
@@ -1973,6 +2037,7 @@ Q4 (Jan–Mar)
                                             <span class="text-muted small"><?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?></span>
                                         <?php endif; ?>
                                     </td>
+                                    <td class="text-end"><?php echo number_format((int) ($trainingPartnerRow['enrolled'] ?? 0)); ?></td>
                                     <td class="text-end"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
                                     <td class="text-end"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
                                 </tr>
@@ -1981,6 +2046,7 @@ Q4 (Jan–Mar)
                             <tfoot>
                                 <tr>
                                     <th colspan="2">Total</th>
+                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
                                     <th class="text-end"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
                                 </tr>
@@ -4078,6 +4144,160 @@ new Chart(centreCanvas, {
     })
 });
 
+}
+
+/*==================================================
+PROJECT / SCHEME TREND & CENTRE WISE CHARTS
+==================================================*/
+const schemeCanvas = document.getElementById('schemeMonthlyChart');
+if (schemeCanvas) {
+    const schemeTrendPalette = ['#0f172a', '#ea580c', '#2563eb', '#16a34a', '#a855f7', '#0891b2', '#db2777', '#65a30d'];
+    const schemeTrendData = reportPayload.schemeMonthlyByCentre || { labels: [], series: [] };
+    const schemeLabels = (schemeTrendData.labels || []).slice();
+    let schemeDatasets = [];
+
+    if (schemeTrendData.series && schemeTrendData.series.length) {
+        schemeDatasets = schemeTrendData.series.map(function(series, index) {
+            const isTotal = series.is_total === true || series.key === 'total';
+            const color = schemeTrendPalette[index % schemeTrendPalette.length];
+            const dataVals = isTotal ? series.data : reportMonitorVisibleSeries(series.data);
+            return {
+                label: series.label,
+                data: dataVals,
+                borderColor: color,
+                backgroundColor: color + '22',
+                fill: isTotal,
+                borderWidth: isTotal ? 3 : 2,
+                tension: 0.35,
+                pointRadius: isTotal ? 4 : 3,
+                pointHoverRadius: isTotal ? 6 : 4,
+                spanGaps: false
+            };
+        });
+    }
+
+    if (schemeTrendData.certified && reportMonitorHasTrendValue(schemeTrendData.certified)) {
+        schemeDatasets.push({
+            label: 'Scheme / TP Certified',
+            data: schemeTrendData.certified,
+            borderColor: '#16a34a',
+            backgroundColor: '#16a34a22',
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.3,
+            pointRadius: 4
+        });
+    }
+    if (schemeTrendData.placed && reportMonitorHasTrendValue(schemeTrendData.placed)) {
+        schemeDatasets.push({
+            label: 'Scheme / TP Placed',
+            data: schemeTrendData.placed,
+            borderColor: '#2563eb',
+            backgroundColor: '#2563eb22',
+            borderDash: [4, 4],
+            fill: false,
+            tension: 0.3,
+            pointRadius: 4
+        });
+    }
+
+    const schemeTrendChart = new Chart(schemeCanvas, {
+        type: 'line',
+        plugins: [travelingDots],
+        data: {
+            labels: schemeLabels,
+            datasets: schemeDatasets
+        },
+        options: reportMonitorChartOptions({
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { usePointStyle: true, boxWidth: 10 }
+                }
+            },
+            scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, suggestedMax: 1, ticks: { precision: 0 } }
+            }
+        })
+    });
+    reportMonitorAnimateChart(schemeTrendChart);
+}
+
+const schemeCentreCanvas = document.getElementById('schemeCentreChart');
+if (schemeCentreCanvas) {
+    const schemeCentreStats = reportPayload.schemeCentreStats || [];
+    const scCentreLabels = schemeCentreStats.map(function(r) { return r.centre_name; });
+    const scAdmCounts = schemeCentreStats.map(function(r) { return Number(r.admissions) || 0; });
+    const scCertCounts = schemeCentreStats.map(function(r) { return Number(r.certified) || 0; });
+    const scPlCounts = schemeCentreStats.map(function(r) { return Number(r.placed) || 0; });
+    const scSingleBar = reportPayload.singleCentre === true || schemeCentreStats.length <= 1;
+
+    let scChartData;
+    if (scSingleBar) {
+        scChartData = {
+            labels: ['Admissions', 'Certified', 'Placed'],
+            datasets: [{
+                label: (schemeCentreStats[0] && schemeCentreStats[0].centre_name) ? schemeCentreStats[0].centre_name : 'Project / Scheme',
+                data: [scAdmCounts[0] || 0, scCertCounts[0] || 0, scPlCounts[0] || 0],
+                backgroundColor: ['#ea580c', '#16a34a', '#2563eb'],
+                borderRadius: 4
+            }]
+        };
+    } else {
+        scChartData = {
+            labels: scCentreLabels,
+            datasets: [
+                {
+                    label: 'Admissions',
+                    data: scAdmCounts,
+                    backgroundColor: '#ea580c',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Certified',
+                    data: scCertCounts,
+                    backgroundColor: '#16a34a',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Placed',
+                    data: scPlCounts,
+                    backgroundColor: '#2563eb',
+                    borderRadius: 4
+                }
+            ]
+        };
+    }
+
+    const scMaxVal = Math.max(0, ...scAdmCounts, ...scCertCounts, ...scPlCounts);
+    new Chart(schemeCentreCanvas, {
+        type: 'bar',
+        data: scChartData,
+        options: reportMonitorChartOptions({
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    display: !scSingleBar || scChartData.datasets.length > 1
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { maxRotation: 45, minRotation: 0, autoSkip: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: Math.max(scMaxVal, 1),
+                    ticks: { precision: 0, stepSize: 1 }
+                }
+            }
+        })
+    });
 }
 
 /*==================================================

@@ -330,7 +330,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $rows = [];
         $studentSql = "SELECT p.id, p.partner_name, p.partner_code,
                               COALESCE(sc.scheme_name, '') AS scheme_name,
-                              st.course_start_date, st.course_end_date, st.is_certified, st.is_placed
+                              st.course_start_date, st.course_end_date, st.figure_month, st.is_certified, st.is_placed
                        FROM training_partner_students st
                        INNER JOIN training_partners p ON p.id = st.partner_id
                        LEFT JOIN schemes sc ON sc.id = st.scheme_id
@@ -340,9 +340,12 @@ if (!function_exists('training_partner_ensure_schema')) {
                                 AND (st.course_end_date IS NULL OR st.course_end_date = '0000-00-00' OR st.course_end_date >= ?))
                             OR ((st.course_start_date IS NULL OR st.course_start_date = '0000-00-00')
                                 AND st.course_end_date >= ? AND st.course_end_date < ?)
+                            OR ((st.course_start_date IS NULL OR st.course_start_date = '0000-00-00')
+                                AND (st.course_end_date IS NULL OR st.course_end_date = '0000-00-00')
+                                AND st.figure_month >= ? AND st.figure_month < ?)
                          )";
-        $studentTypes = 'ssss';
-        $studentValues = [$next, $start, $start, $next];
+        $studentTypes = 'ssssss';
+        $studentValues = [$next, $start, $start, $next, $start, $next];
         if ($centreId > 0) {
             $studentSql .= ' AND p.centre_id = ?';
             $studentTypes .= 'i';
@@ -350,14 +353,16 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         $studentSql .= ' ORDER BY sc.scheme_name ASC, p.partner_name ASC, st.id ASC';
         $studentStmt = $conn->prepare($studentSql);
+        $grouped = [];
         if ($studentStmt) {
             $studentStmt->bind_param($studentTypes, ...$studentValues);
             $studentStmt->execute();
             $studentResult = $studentStmt->get_result();
-            $grouped = [];
             if ($studentResult) {
                 while ($row = $studentResult->fetch_assoc()) {
-                    if (!training_partner_course_overlaps($row['course_start_date'] ?? null, $row['course_end_date'] ?? null, $start, $next)) {
+                    $cStart = ($row['course_start_date'] !== null && $row['course_start_date'] !== '' && $row['course_start_date'] !== '0000-00-00') ? $row['course_start_date'] : ($row['figure_month'] ?? null);
+                    $cEnd = ($row['course_end_date'] !== null && $row['course_end_date'] !== '' && $row['course_end_date'] !== '0000-00-00') ? $row['course_end_date'] : $cStart;
+                    if (!training_partner_course_overlaps($cStart, $cEnd, $start, $next)) {
                         continue;
                     }
                     $key = (int) $row['id'] . '|' . (string) $row['scheme_name'];
@@ -372,14 +377,53 @@ if (!function_exists('training_partner_ensure_schema')) {
                             'placed' => 0,
                         ];
                     }
+                    $grouped[$key]['enrolled']++;
                     $grouped[$key]['certified'] += (int) $row['is_certified'];
                     $grouped[$key]['placed'] += (int) $row['is_placed'];
                 }
             }
             $studentStmt->close();
-            $rows = array_values($grouped);
         }
-        return $rows;
+
+        // Also merge training_partner_figures if entered
+        $figSql = "SELECT p.id, p.partner_name, p.partner_code, f.enrolled, f.certified, f.placed
+                   FROM training_partner_figures f
+                   INNER JOIN training_partners p ON p.id = f.partner_id
+                   WHERE p.is_active = 1 AND f.figure_month >= ? AND f.figure_month < ?";
+        $figTypes = 'ss';
+        $figValues = [$start, $next];
+        if ($centreId > 0) {
+            $figSql .= ' AND p.centre_id = ?';
+            $figTypes .= 'i';
+            $figValues[] = $centreId;
+        }
+        $figStmt = $conn->prepare($figSql);
+        if ($figStmt) {
+            $figStmt->bind_param($figTypes, ...$figValues);
+            $figStmt->execute();
+            $figRes = $figStmt->get_result();
+            if ($figRes) {
+                while ($frow = $figRes->fetch_assoc()) {
+                    $fkey = (int) $frow['id'] . '|figures';
+                    if (!isset($grouped[$fkey])) {
+                        $grouped[$fkey] = [
+                            'id' => (int) $frow['id'],
+                            'scheme_name' => 'Training Partner Figures',
+                            'partner_name' => (string) $frow['partner_name'],
+                            'partner_code' => (string) $frow['partner_code'],
+                            'enrolled' => 0,
+                            'certified' => 0,
+                            'placed' => 0,
+                        ];
+                    }
+                    $grouped[$fkey]['enrolled'] += (int) $frow['enrolled'];
+                    $grouped[$fkey]['certified'] += (int) $frow['certified'];
+                    $grouped[$fkey]['placed'] += (int) $frow['placed'];
+                }
+            }
+            $figStmt->close();
+        }
+        return array_values($grouped);
     }
 
     function training_partner_schemes(mysqli $conn): array
