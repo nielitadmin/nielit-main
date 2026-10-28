@@ -662,12 +662,13 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_students_list(mysqli $conn): array
+    function training_partner_students_list(mysqli $conn, int $limit = 0): array
     {
         training_partner_ensure_schema($conn);
         $detailSelect = implode(', ', array_map(static function ($field) {
             return 'st.`' . $field . '`';
         }, array_keys(training_partner_detail_fields())));
+        $limitClause = $limit > 0 ? ' LIMIT ' . (int) $limit : '';
         $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.course_category, st.student_name, st.mobile, st.figure_month,
                        st.course_start_date, st.course_end_date, st.exam_date, st.is_certified, st.is_placed, {$detailSelect},
                        p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
@@ -675,8 +676,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 INNER JOIN training_partners p ON p.id = st.partner_id
                 LEFT JOIN schemes sc ON sc.id = st.scheme_id
                 WHERE p.is_active = 1
-                ORDER BY st.id ASC
-                LIMIT 1000";
+                ORDER BY st.id ASC{$limitClause}";
         $result = $conn->query($sql);
         $rows = [];
         if ($result) {
