@@ -1196,6 +1196,8 @@ if (!function_exists('training_partner_ensure_schema')) {
 
     function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null, ?string $defaultCourseCategory = null): array
     {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(600);
         $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
         $sheets = [];
         if ($ext === 'csv') {

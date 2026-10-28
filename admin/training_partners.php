@@ -25,7 +25,14 @@ $filterScheme = 0;
 $filterPartner = 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $action = (string) ($_POST['action'] ?? '');
+    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 0) {
+        $uploadedMb = round(((int) $_SERVER['CONTENT_LENGTH']) / (1024 * 1024), 1);
+        $maxPost = ini_get('post_max_size') ?: '64M';
+        $error = "The uploaded file is too large (" . $uploadedMb . " MB). The server maximum allowed upload size is " . $maxPost . ". A 2,000-student spreadsheet with text data only is usually under 1 MB. Please save your file as CSV or clean XLSX without photos/images and try again.";
+        $action = '';
+    } else {
+        $action = (string) ($_POST['action'] ?? '');
+    }
     if ($action === 'save_partner') {
         $result = training_partner_save(
             $conn,
@@ -65,7 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'upload_students') {
         $file = $_FILES['student_sheet'] ?? null;
         if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            $error = 'Choose an Excel file to upload.';
+            $errCode = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+            if ($errCode === UPLOAD_ERR_INI_SIZE || $errCode === UPLOAD_ERR_FORM_SIZE) {
+                $maxUpload = ini_get('upload_max_filesize') ?: '128M';
+                $error = "The uploaded file exceeds the server limit of " . $maxUpload . ". A sheet with 2,000 candidates should be under 1 MB. If it has photos or scanned IDs, please export as CSV or clean XLSX without images and upload.";
+            } else {
+                $error = 'Choose an Excel file to upload.';
+            }
         } else {
             $result = training_partner_import_students(
                 $conn,
@@ -409,6 +422,7 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Excel file</label>
                                 <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
+                                <div class="form-text">Max upload size: <?php echo htmlspecialchars((string) ini_get('upload_max_filesize')); ?>. Tip: A 2,000-row spreadsheet without photos is usually under 1 MB. Save as <strong>.csv</strong> or clean <strong>.xlsx</strong>.</div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Course category (Default)</label>
