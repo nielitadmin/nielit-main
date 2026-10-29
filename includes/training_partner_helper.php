@@ -58,6 +58,13 @@ if (!function_exists('training_partner_ensure_schema')) {
         if (!isset($studentColumns['exam_date'])) {
             $conn->query('ALTER TABLE training_partner_students ADD COLUMN exam_date DATE NULL AFTER course_end_date');
         }
+        // Auto-heal any mismatched end date where the year is earlier than course_start_date
+        $conn->query("UPDATE training_partner_students 
+                      SET course_end_date = CONCAT(YEAR(course_start_date), SUBSTRING(course_end_date, 5))
+                      WHERE course_start_date IS NOT NULL 
+                        AND course_end_date IS NOT NULL 
+                        AND course_end_date < course_start_date 
+                        AND YEAR(course_end_date) < YEAR(course_start_date)");
         foreach (training_partner_detail_fields() as $field => $kind) {
             if (isset($studentColumns[$field])) {
                 continue;
@@ -603,6 +610,14 @@ if (!function_exists('training_partner_ensure_schema')) {
         $placed = $placed === 1 ? 1 : 0;
         $courseStart = $courseStart !== null && $courseStart !== '' ? $courseStart : null;
         $courseEnd = $courseEnd !== null && $courseEnd !== '' ? $courseEnd : null;
+        if ($courseStart !== null && $courseEnd !== null && $courseEnd < $courseStart) {
+            $sYear = (int) substr($courseStart, 0, 4);
+            $eYear = (int) substr($courseEnd, 0, 4);
+            if ($eYear < $sYear) {
+                $adjustedEnd = $sYear . substr($courseEnd, 4);
+                $courseEnd = ($adjustedEnd >= $courseStart) ? $adjustedEnd : $courseStart;
+            }
+        }
         $examDate = $examDate !== null && $examDate !== '' ? $examDate : null;
         $figureMonth = training_partner_figure_month_from_course($courseStart, $courseEnd);
         $present = is_array($details['_present'] ?? null) ? $details['_present'] : [];
