@@ -1735,7 +1735,7 @@ Q4 (Jan–Mar)
 
                 <div class="kpi-value">
 
-                    <?php echo number_format(empty($isPublicReportView) ? $kpiAdmissionWithPartners : $kpiAdmission);?>
+                    <?php echo number_format($kpiAdmissionWithPartners);?>
 
                 </div>
 
@@ -1745,13 +1745,11 @@ Q4 (Jan–Mar)
 
                 </small>
 
-                <?php if (empty($isPublicReportView)): ?>
                 <small class="d-block mt-1">
 
                     Training partner figures: <?php echo number_format($kpiTrainingPartnerFigures); ?>
 
                 </small>
-                <?php endif; ?>
 
             </div>
 
