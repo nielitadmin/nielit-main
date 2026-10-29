@@ -13,6 +13,7 @@ require_once __DIR__ . '/includes/student_record_inspector.php';
 require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
 require_once __DIR__ . '/includes/student_inspector_directory.php';
+require_once __DIR__ . '/includes/student_inspector_list_import.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
@@ -39,6 +40,26 @@ $canManageEnrollment = true;
 $assignCoursesList = inspectorGetCoursesForAssign($conn);
 $flashMessage = '';
 $flashType = 'success';
+
+if (isset($_GET['student_list_template'])) {
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="student_list_template.csv"');
+    echo "Name,Mobile,Email,Father name,Gender\n";
+    echo "Ramesh Kumar,,,,\n";
+    echo "Sita Das,9876543210,,Ram Das,Female\n";
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_student_list'])) {
+    $importResult = inspectorImportStudentList($conn, $_POST, $_FILES);
+    $_SESSION['inspector_flash'] = [
+        'message' => $importResult['message'],
+        'type' => $importResult['type'],
+    ];
+    $_SESSION['inspector_import_rows'] = $importResult['rows'];
+    header('Location: check_student_exists.php');
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // If OCR text is posted from client-side Tesseract.js, parse it and redirect
@@ -334,6 +355,11 @@ if (!empty($_SESSION['inspector_flash'])) {
     $flashType = $_SESSION['inspector_flash']['type'] ?? 'success';
     unset($_SESSION['inspector_flash']);
 }
+$importRows = [];
+if (!empty($_SESSION['inspector_import_rows']) && is_array($_SESSION['inspector_import_rows'])) {
+    $importRows = $_SESSION['inspector_import_rows'];
+    unset($_SESSION['inspector_import_rows']);
+}
 
 $searchCriteria = inspectorCriteriaFromRequest(array_merge($_GET, $_POST));
 $aadhar = $searchCriteria['aadhar'];
@@ -599,6 +625,8 @@ $active_theme = loadActiveTheme($conn);
             </div>
         </form>
     </div>
+
+    <?php include __DIR__ . '/includes/student_inspector_list_import_ui.php'; ?>
 
     <?php if ($canManageEnrollment): ?>
     <?php include __DIR__ . '/includes/student_inspector_roster_ui.php'; ?>
