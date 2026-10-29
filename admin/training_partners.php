@@ -65,7 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             training_partner_details_from_request($_POST),
             training_partner_parse_date($_POST['exam_date'] ?? ''),
             true,
-            (string) ($_POST['course_category'] ?? '')
+            (string) ($_POST['course_category'] ?? ''),
+            'manual',
+            'Manual Entry'
         );
         $success = $result['ok'] ? 'Student record saved under that scheme and training partner.' : '';
         $error = $result['ok'] ? '' : (string) ($result['error'] ?? 'Could not save the student record.');
@@ -114,14 +116,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $success .= '.';
 
                 $dupList = is_array($result['duplicate_list'] ?? null) ? $result['duplicate_list'] : [];
+                $batchId = (string) ($result['batch_id'] ?? '');
+                $fileName = (string) ($result['file_name'] ?? ($file['name'] ?? 'Excel sheet'));
                 $_SESSION['last_tp_upload'] = [
                     'time' => time(),
+                    'batch_id' => $batchId,
                     'count' => $uniqueCount,
                     'total_rows' => $totalRows,
                     'duplicates_count' => $dupInSheet,
                     'duplicate_list' => $dupList,
                     'scheme_id' => $filterScheme,
-                    'file_name' => (string) ($file['name'] ?? 'Excel sheet'),
+                    'file_name' => $fileName,
                     'saved_ids' => $result['saved_ids'] ?? []
                 ];
                 $uploadDuplicates = $dupList;
@@ -189,6 +194,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = "No recent upload session found to undo. You can use the Undo by Scheme tool below.";
         }
+    } elseif ($action === 'undo_by_batch') {
+        $batchId = trim((string) ($_POST['undo_batch_id'] ?? ''));
+        $res = training_partner_delete_students_by_batch($conn, $batchId);
+        if (!empty($res['ok'])) {
+            $delCount = (int) ($res['deleted'] ?? 0);
+            if (!empty($_SESSION['last_tp_upload']['batch_id']) && $_SESSION['last_tp_upload']['batch_id'] === $batchId) {
+                unset($_SESSION['last_tp_upload']);
+            }
+            $success = "Successfully removed {$delCount} candidates from that specific upload file / batch. Other files and manual entries remain completely safe.";
+            $showStudents = false;
+        } else {
+            $error = (string) ($res['error'] ?? 'Could not remove candidates for that upload batch.');
+        }
     } elseif ($action === 'undo_by_scheme') {
         $schemeId = (int) ($_POST['undo_scheme_id'] ?? 0);
         $res = training_partner_delete_students_by_scheme($conn, $schemeId);
@@ -218,6 +236,7 @@ $students = training_partner_students_list($conn);
 $partners = training_partner_list($conn);
 $centres = training_partner_centres($conn);
 $schemeStudentCounts = training_partner_student_counts_by_scheme($conn);
+$uploadBatches = training_partner_upload_batches($conn);
 $editId = (int) ($_GET['edit'] ?? 0);
 $editPartner = null;
 foreach ($partners as $partner) {
@@ -747,14 +766,46 @@ $active_theme = loadActiveTheme($conn);
                         </div>
                         <div class="card-body py-3">
                             <p class="small text-muted mb-3">
-                                If you made a mistake with dates, categories, or need to re-upload your Excel sheet from scratch, use the options below:
+                                If you uploaded multiple Excel sheets under a scheme, you can remove <strong>just that specific file</strong> without touching other spreadsheets or manual entries:
                             </p>
+                            
+                            <!-- Option 1: By Specific Upload File or Manual Entries -->
+                            <div class="p-3 mb-3 bg-light rounded border">
+                                <form method="post" onsubmit="return confirm('Are you sure you want to remove candidates from this specific upload file? Other uploaded spreadsheets in this scheme will remain safe.');">
+                                    <input type="hidden" name="action" value="undo_by_batch">
+                                    <label class="form-label small fw-bold text-dark mb-1">
+                                        <i class="fas fa-file-excel text-success me-1"></i> Option 1: Remove by Specific Uploaded File / Batch
+                                    </label>
+                                    <div class="input-group">
+                                        <select class="form-select form-select-sm" name="undo_batch_id" required>
+                                            <option value="">Select specific uploaded file / batch to remove...</option>
+                                            <?php foreach ($uploadBatches as $bRow): ?>
+                                                <option value="<?php echo htmlspecialchars($bRow['upload_batch_id']); ?>">
+                                                    <?php echo htmlspecialchars($bRow['file_name']); ?> &bull; <?php echo htmlspecialchars($bRow['scheme_name']); ?> (<?php echo number_format((int) $bRow['total_students']); ?> candidates)
+                                                    <?php if ($bRow['upload_batch_id'] === 'manual'): ?>
+                                                        [Manual Entries]
+                                                    <?php else: ?>
+                                                        &mdash; <?php echo date('d M Y, h:i A', strtotime($bRow['last_uploaded'])); ?>
+                                                    <?php endif; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button class="btn btn-sm btn-danger" type="submit">
+                                            <i class="fas fa-trash-alt me-1"></i> Remove File Candidates
+                                        </button>
+                                    </div>
+                                    <div class="form-text mt-1 text-muted small">
+                                        Safely removes only the candidates from the chosen Excel or CSV file. All other files in the scheme remain untouched.
+                                    </div>
+                                </form>
+                            </div>
+
                             <div class="row g-3">
                                 <div class="col-lg-7 border-lg-end">
-                                    <form method="post" onsubmit="return confirm('Are you sure you want to remove all candidates under this scheme? You can re-upload your sheet immediately.');">
+                                    <form method="post" onsubmit="return confirm('Are you sure you want to remove all candidates under this entire scheme (including all files uploaded for it)?');">
                                         <input type="hidden" name="action" value="undo_by_scheme">
                                         <label class="form-label small fw-semibold text-secondary">
-                                            <i class="fas fa-filter me-1"></i> Option 1: Remove candidates by Scheme / Project
+                                            <i class="fas fa-folder-minus me-1"></i> Option 2: Remove All Candidates under Scheme / Project
                                         </label>
                                         <div class="input-group">
                                             <select class="form-select form-select-sm" name="undo_scheme_id" required>
@@ -766,19 +817,19 @@ $active_theme = loadActiveTheme($conn);
                                                 <?php endforeach; ?>
                                             </select>
                                             <button class="btn btn-sm btn-outline-danger" type="submit">
-                                                <i class="fas fa-trash-alt me-1"></i> Remove Scheme Students
+                                                <i class="fas fa-trash-alt me-1"></i> Remove Scheme
                                             </button>
                                         </div>
                                     </form>
                                 </div>
                                 <div class="col-lg-5 d-flex flex-column justify-content-end">
-                                    <form method="post" onsubmit="return confirm('DANGER: This will delete ALL <?php echo count($students); ?> uploaded training partner students so you can start completely clean. Are you sure?');">
+                                    <form method="post" onsubmit="return confirm('DANGER: This will delete ALL <?php echo count($students); ?> uploaded training partner students across all schemes and files. Are you sure?');">
                                         <input type="hidden" name="action" value="undo_all_students">
                                         <label class="form-label small fw-semibold text-danger">
-                                            <i class="fas fa-bomb me-1"></i> Option 2: Reset / Clear All Candidates
+                                            <i class="fas fa-bomb me-1"></i> Option 3: Reset All Uploaded Students
                                         </label>
-                                        <button class="btn btn-sm btn-danger w-100" type="submit" <?php echo empty($students) ? 'disabled' : ''; ?>>
-                                            <i class="fas fa-trash me-1"></i> Delete All Uploaded Students (<?php echo count($students); ?>)
+                                        <button class="btn btn-sm btn-outline-danger w-100" type="submit" <?php echo empty($students) ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-trash me-1"></i> Delete All Candidates (<?php echo count($students); ?>)
                                         </button>
                                     </form>
                                 </div>

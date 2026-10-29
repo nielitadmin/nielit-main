@@ -58,6 +58,18 @@ if (!function_exists('training_partner_ensure_schema')) {
         if (!isset($studentColumns['exam_date'])) {
             $conn->query('ALTER TABLE training_partner_students ADD COLUMN exam_date DATE NULL AFTER course_end_date');
         }
+        if (!isset($studentColumns['upload_batch_id'])) {
+            $conn->query("ALTER TABLE training_partner_students ADD COLUMN upload_batch_id VARCHAR(64) NOT NULL DEFAULT '' AFTER scheme_id");
+            $conn->query("ALTER TABLE training_partner_students ADD INDEX idx_tp_batch_id (upload_batch_id)");
+        }
+        if (!isset($studentColumns['upload_file_name'])) {
+            $conn->query("ALTER TABLE training_partner_students ADD COLUMN upload_file_name VARCHAR(255) NOT NULL DEFAULT '' AFTER upload_batch_id");
+        }
+        // Backfill existing records that have no upload_file_name
+        $conn->query("UPDATE training_partner_students 
+                      SET upload_batch_id = CONCAT('batch_', DATE_FORMAT(created_at, '%Y%m%d_%H')),
+                          upload_file_name = 'Spreadsheet Upload'
+                      WHERE upload_batch_id = '' OR upload_file_name = ''");
         // Auto-heal any mismatched end date where the year is earlier than course_start_date
         $conn->query("UPDATE training_partner_students 
                       SET course_end_date = CONCAT(YEAR(course_start_date), SUBSTRING(course_end_date, 5))
@@ -593,7 +605,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $ok;
     }
 
-    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = [], ?string $examDate = null, bool $saveExamDate = false, string $courseCategory = ''): array
+    function training_partner_save_student(mysqli $conn, int $partnerId, int $schemeId, string $name, string $mobile, int $certified, int $placed, string $courseName = '', ?string $courseStart = null, ?string $courseEnd = null, array $details = [], ?string $examDate = null, bool $saveExamDate = false, string $courseCategory = '', string $uploadBatchId = '', string $uploadFileName = ''): array
     {
         training_partner_ensure_schema($conn);
         $name = trim($name);
@@ -636,6 +648,16 @@ if (!function_exists('training_partner_ensure_schema')) {
                     $types .= 's';
                     $values[] = $examDate;
                 }
+                if ($uploadBatchId !== '') {
+                    $sets[] = 'upload_batch_id = ?';
+                    $types .= 's';
+                    $values[] = $uploadBatchId;
+                }
+                if ($uploadFileName !== '') {
+                    $sets[] = 'upload_file_name = ?';
+                    $types .= 's';
+                    $values[] = $uploadFileName;
+                }
                 foreach (training_partner_detail_fields() as $field => $kind) {
                     if (empty($present[$field])) {
                         continue;
@@ -651,9 +673,9 @@ if (!function_exists('training_partner_ensure_schema')) {
                 return $ok ? ['ok' => true, 'id' => $studentId, 'is_update' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
-        $columns = ['partner_id', 'scheme_id', 'course_name', 'course_category', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
-        $types = 'iissssssssii';
-        $values = [$partnerId, $schemeId, $courseName, $courseCategory, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $examDate, $certified, $placed];
+        $columns = ['partner_id', 'scheme_id', 'upload_batch_id', 'upload_file_name', 'course_name', 'course_category', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
+        $types = 'iissssssssssii';
+        $values = [$partnerId, $schemeId, $uploadBatchId, $uploadFileName, $courseName, $courseCategory, $name, $mobile, $figureMonth, $courseStart, $courseEnd, $examDate, $certified, $placed];
         foreach (training_partner_detail_fields() as $field => $kind) {
             $columns[] = '`' . $field . '`';
             $types .= $kind === 'int' ? 'i' : 's';
@@ -698,6 +720,49 @@ if (!function_exists('training_partner_ensure_schema')) {
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
+    }
+
+    function training_partner_upload_batches(mysqli $conn): array
+    {
+        training_partner_ensure_schema($conn);
+        $sql = "SELECT st.upload_batch_id,
+                       COALESCE(NULLIF(st.upload_file_name, ''), 'Spreadsheet Upload') AS file_name,
+                       sc.id AS scheme_id,
+                       COALESCE(sc.scheme_name, 'Unknown Scheme') AS scheme_name,
+                       MIN(st.created_at) AS first_uploaded,
+                       MAX(st.created_at) AS last_uploaded,
+                       COUNT(st.id) AS total_students
+                FROM training_partner_students st
+                LEFT JOIN schemes sc ON sc.id = st.scheme_id
+                WHERE st.upload_batch_id <> ''
+                GROUP BY st.upload_batch_id, file_name, sc.id, sc.scheme_name
+                ORDER BY last_uploaded DESC";
+        $res = $conn->query($sql);
+        $rows = [];
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        }
+        return $rows;
+    }
+
+    function training_partner_delete_students_by_batch(mysqli $conn, string $batchId): array
+    {
+        training_partner_ensure_schema($conn);
+        $batchId = trim($batchId);
+        if ($batchId === '') {
+            return ['ok' => false, 'error' => 'Select an upload batch to remove.'];
+        }
+        $stmt = $conn->prepare('DELETE FROM training_partner_students WHERE upload_batch_id = ?');
+        if (!$stmt) {
+            return ['ok' => false, 'error' => $conn->error];
+        }
+        $stmt->bind_param('s', $batchId);
+        $ok = $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return ['ok' => (bool) $ok, 'deleted' => $affected];
     }
 
     function training_partner_delete_students_by_scheme(mysqli $conn, int $schemeId): array
@@ -1361,6 +1426,8 @@ if (!function_exists('training_partner_ensure_schema')) {
         $defaultStart = training_partner_parse_date($courseStart);
         $defaultEnd = training_partner_parse_date($courseEnd);
         $defaultExam = training_partner_parse_date($examDate);
+        $batchId = 'batch_' . gmdate('Ymd_His') . '_' . substr(md5($originalName . microtime(true)), 0, 6);
+        $fileName = basename($originalName);
         $saved = 0;
         $inserted = 0;
         $updated = 0;
@@ -1415,7 +1482,9 @@ if (!function_exists('training_partner_ensure_schema')) {
                 is_array($record['details'] ?? null) ? $record['details'] : [],
                 ($overrideSheetDates && $defaultExam !== null) ? $defaultExam : (!empty($record['has_exam_date']) ? ($record['exam_date'] ?? $defaultExam) : $defaultExam),
                 $overrideSheetDates || !empty($record['has_exam_date']) || $defaultExam !== null,
-                $rowCourseCategory
+                $rowCourseCategory,
+                $batchId,
+                $fileName
             );
             if (!empty($result['ok'])) {
                 $saved++;
@@ -1456,7 +1525,9 @@ if (!function_exists('training_partner_ensure_schema')) {
             'skipped' => $skipped,
             'partners_created' => $partnersCreated,
             'sheets' => count($sheets),
-            'saved_ids' => $savedIds
+            'saved_ids' => $savedIds,
+            'batch_id' => $batchId,
+            'file_name' => $fileName
         ];
     }
 }
