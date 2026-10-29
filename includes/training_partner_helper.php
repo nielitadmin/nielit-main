@@ -106,6 +106,19 @@ if (!function_exists('training_partner_ensure_schema')) {
             UNIQUE KEY uq_tp_month (partner_id, figure_month),
             KEY idx_tp_month (figure_month)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // Auto-heal duplicate candidate Aadhaar numbers that were truncated by Excel scientific notation
+        $knownDuplicates = [
+            'KIRAN KUMAR MANDAL' => '282714569227',
+            'ROJALINI BEHERA' => '592392915768',
+            'MADHURI NAIK' => '873336311350',
+            'BAISAKHI BHOI' => '808009367028',
+            'SRABANI SETHY' => '608039715806',
+            'SUBHAMAYEE SETHIA' => '377732797552',
+        ];
+        foreach ($knownDuplicates as $candName => $fullAadhaar) {
+            $conn->query("UPDATE training_partner_students SET aadhaar = '{$fullAadhaar}' WHERE student_name = '{$candName}' AND (aadhaar = '' OR LENGTH(aadhaar) < 12)");
+        }
     }
 
         function training_partner_course_categories(): array
@@ -574,6 +587,29 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $time ? date('d M Y', $time) : $text;
     }
 
+    function training_partner_show_aadhaar($value, string $candName = ''): string
+    {
+        $val = trim((string) $value);
+        if ($val === '' || $val === '0') {
+            return '-';
+        }
+        static $known = [
+            'KIRAN KUMAR MANDAL' => '282714569227',
+            'ROJALINI BEHERA' => '592392915768',
+            'MADHURI NAIK' => '873336311350',
+            'BAISAKHI BHOI' => '808009367028',
+            'SRABANI SETHY' => '608039715806',
+            'SUBHAMAYEE SETHIA' => '377732797552',
+        ];
+        if (strlen($val) < 12 && $candName !== '' && isset($known[$candName])) {
+            $val = $known[$candName];
+        }
+        if (strlen($val) === 12 && ctype_digit($val)) {
+            return substr($val, 0, 4) . ' ' . substr($val, 4, 4) . ' ' . substr($val, 8, 4);
+        }
+        return $val;
+    }
+
     function training_partner_detail_value(string $field, array $details)
     {
         $kind = training_partner_detail_fields()[$field] ?? 'string';
@@ -582,8 +618,17 @@ if (!function_exists('training_partner_ensure_schema')) {
         }
         $value = trim((string) ($details[$field] ?? ''));
         if ($field === 'aadhaar') {
+            if (preg_match('/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)$/', $value)) {
+                $value = number_format((float) $value, 0, '', '');
+            }
             $digits = preg_replace('/\D+/', '', $value);
             return $digits !== '' ? $digits : $value;
+        }
+        if ($field === 'apaar_id') {
+            if (preg_match('/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)$/', $value)) {
+                return number_format((float) $value, 0, '', '');
+            }
+            return $value;
         }
         return $value;
     }
@@ -1266,7 +1311,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             return $matrix;
         }
         while (($row = fgetcsv($handle)) !== false) {
-            $matrix[] = $row;
+            $matrix[] = array_map('training_partner_plain_number', $row);
         }
         fclose($handle);
         return $matrix;
@@ -1290,14 +1335,21 @@ if (!function_exists('training_partner_ensure_schema')) {
     function training_partner_plain_number(string $value): string
     {
         $value = trim($value);
-        if ($value === '' || !is_numeric($value)) {
+        if ($value === '') {
+            return $value;
+        }
+        if (preg_match('/^[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)$/', $value)) {
+            $num = (float) $value;
+            return number_format($num, 0, '', '');
+        }
+        if (!is_numeric($value)) {
             return $value;
         }
         $number = (float) $value;
         if (abs($number) >= 1000000000) {
             return number_format($number, 0, '', '');
         }
-        if (floor($number) == $number) {
+        if (floor($number) == $number && abs($number) < PHP_INT_MAX) {
             return (string) (int) $number;
         }
         return $value;

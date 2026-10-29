@@ -421,8 +421,11 @@ $active_theme = loadActiveTheme($conn);
                                                 <td><?php echo $dIdx + 1; ?></td>
                                                 <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
                                                 <td>
-                                                    <?php if ($aadhaarVal !== '' && $aadhaarVal !== '-'): ?>
-                                                        <span class="badge bg-light text-dark border font-monospace"><?php echo htmlspecialchars($aadhaarVal); ?></span>
+                                                    <?php 
+                                                        $dispAadhaar = training_partner_show_aadhaar($aadhaarVal, (string) ($dup['name'] ?? ''));
+                                                    ?>
+                                                    <?php if ($dispAadhaar !== '-'): ?>
+                                                        <span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6"><?php echo htmlspecialchars($dispAadhaar); ?></span>
                                                     <?php else: ?>
                                                         <span class="text-muted">—</span>
                                                     <?php endif; ?>
@@ -501,8 +504,11 @@ $active_theme = loadActiveTheme($conn);
                                                 <td><?php echo $dIdx + 1; ?></td>
                                                 <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
                                                 <td>
-                                                    <?php if ($aadhaarVal !== '' && $aadhaarVal !== '-'): ?>
-                                                        <span class="badge bg-light text-dark border font-monospace"><?php echo htmlspecialchars($aadhaarVal); ?></span>
+                                                    <?php 
+                                                        $dispAadhaar = training_partner_show_aadhaar($aadhaarVal, (string) ($dup['name'] ?? ''));
+                                                    ?>
+                                                    <?php if ($dispAadhaar !== '-'): ?>
+                                                        <span class="badge bg-light text-dark border font-monospace px-2 py-1 fs-6"><?php echo htmlspecialchars($dispAadhaar); ?></span>
                                                     <?php else: ?>
                                                         <span class="text-muted">—</span>
                                                     <?php endif; ?>
@@ -1021,7 +1027,7 @@ $active_theme = loadActiveTheme($conn);
                                         <td><?php echo htmlspecialchars(training_partner_show($student['nielit_reg_no'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['category'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['gender'] ?? '')); ?></td>
-                                        <td><?php echo htmlspecialchars(training_partner_show($student['aadhaar'] ?? '')); ?></td>
+                                        <td><?php echo htmlspecialchars(training_partner_show_aadhaar($student['aadhaar'] ?? '', $student['student_name'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['apaar_id'] ?? '')); ?></td>
                                         <td><?php echo htmlspecialchars(training_partner_show($student['religion'] ?? '')); ?></td>
                                         <td class="tp-wrap"><?php echo htmlspecialchars(training_partner_show($student['communication_address'] ?? '')); ?></td>
