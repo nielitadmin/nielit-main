@@ -41,7 +41,7 @@ if (!function_exists('inspectorStudentListEntryRow')) {
             'graduation_certificate', 'caste_certificate', 'registration_date',
         ];
         $html = '<tr class="inspector-student-entry">';
-        $html .= '<td class="list-sl">' . $serial . '</td>';
+        $html .= '<td class="list-sl col-sl">' . $serial . '</td>';
         $html .= '<td class="col-name"><input type="text" class="form-control form-control-sm" name="list_name[]" maxlength="255"></td>';
         foreach ($order as $field) {
             if (isset($selects[$field])) {
@@ -100,7 +100,7 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
     }
 }
 ?>
-<div class="page-card p-4 mb-4 border border-primary">
+<div class="page-card student-list-card p-4 mb-4 border border-primary">
     <h2 class="h5 mb-2"><i class="fas fa-file-upload text-primary"></i> Add students from a list</h2>
     <p class="text-muted small mb-3">
         Fill one row per student, or upload a sheet with the same columns. A student name is enough.
@@ -108,11 +108,18 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
         Course and scheme are the ones selected above.
     </p>
     <style>
-        .student-list-scroll { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .admin-content { min-width: 0; }
+        .student-list-card { min-width: 0; max-width: 100%; overflow: hidden; }
+        #inspector-student-list-form { min-width: 0; max-width: 100%; }
+        .student-list-scroll { width: 100%; max-width: 100%; overflow-x: scroll; overflow-y: hidden; border: 1px solid #e2e8f0; border-radius: 8px; }
         .student-list-grid { min-width: 3200px; margin-bottom: 0; }
-        .student-list-grid th { position: sticky; top: 0; background: #0f172a; color: #fff; font-size: 0.75rem; white-space: nowrap; }
-        .student-list-grid td { min-width: 140px; vertical-align: top; }
+        .student-list-grid th { background: #0f172a; color: #fff; font-size: 0.75rem; white-space: nowrap; }
+        .student-list-grid td { min-width: 140px; vertical-align: top; background: #fff; }
         .student-list-grid td.col-name { min-width: 180px; }
+        .student-list-grid .col-sl { min-width: 48px; width: 48px; position: sticky; left: 0; z-index: 2; }
+        .student-list-grid .col-name { position: sticky; left: 48px; z-index: 2; box-shadow: 4px 0 6px rgba(15, 23, 42, 0.08); }
+        .student-list-grid thead .col-sl,
+        .student-list-grid thead .col-name { z-index: 3; background: #0f172a; }
         .student-list-grid input, .student-list-grid select { min-width: 120px; }
     </style>
     <form method="POST" action="check_student_exists.php" enctype="multipart/form-data" id="inspector-student-list-form">
@@ -145,16 +152,20 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
                 <small class="text-muted">Shown only when the course is linked to a scheme or project.</small>
             </div>
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
                     <label class="form-label mb-0">Student details</label>
-                    <button type="button" class="btn btn-sm btn-outline-primary" id="inspector_add_student_row">Add another student</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="inspector_scroll_left"><i class="fas fa-arrow-left"></i> Scroll left</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="inspector_scroll_right">Scroll right <i class="fas fa-arrow-right"></i></button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="inspector_add_student_row">Add another student</button>
+                    </div>
                 </div>
-                <div class="student-list-scroll">
+                <div class="student-list-scroll" id="inspector_student_scroll">
                     <table class="table table-sm table-bordered student-list-grid">
                         <thead>
                             <tr>
-                                <th>Sl.</th>
-                                <th>Student name</th>
+                                <th class="col-sl">Sl.</th>
+                                <th class="col-name">Student name</th>
                                 <th>Father name</th>
                                 <th>Mother name</th>
                                 <th>Date of birth</th>
@@ -188,7 +199,7 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
                         </tbody>
                     </table>
                 </div>
-                <small class="text-muted">Leave a row blank if you are not using it. Scroll sideways to reach every column.</small>
+                <small class="text-muted">Leave a row blank if you are not using it. Use Scroll left and Scroll right to reach every column. The student name stays in place.</small>
             </div>
             <div class="col-lg-6">
                 <label class="form-label">Or upload Excel / CSV</label>
@@ -260,6 +271,21 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
     course.addEventListener('change', fillSchemes);
     fillSchemes();
 
+    var scroller = document.getElementById('inspector_student_scroll');
+    var scrollLeftBtn = document.getElementById('inspector_scroll_left');
+    var scrollRightBtn = document.getElementById('inspector_scroll_right');
+    function scrollColumns(direction) {
+        if (!scroller) {
+            return;
+        }
+        scroller.scrollBy({ left: direction * 420, behavior: 'smooth' });
+    }
+    if (scrollLeftBtn) {
+        scrollLeftBtn.addEventListener('click', function () { scrollColumns(-1); });
+    }
+    if (scrollRightBtn) {
+        scrollRightBtn.addEventListener('click', function () { scrollColumns(1); });
+    }
     var addBtn = document.getElementById('inspector_add_student_row');
     var body = document.getElementById('inspector_student_rows');
     function numberRows() {
