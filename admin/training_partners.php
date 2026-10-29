@@ -113,13 +113,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $success .= '.';
 
+                $dupList = is_array($result['duplicate_list'] ?? null) ? $result['duplicate_list'] : [];
                 $_SESSION['last_tp_upload'] = [
                     'time' => time(),
-                    'count' => (int) $result['saved'],
+                    'count' => $uniqueCount,
+                    'total_rows' => $totalRows,
+                    'duplicates_count' => $dupInSheet,
+                    'duplicate_list' => $dupList,
                     'scheme_id' => $filterScheme,
                     'file_name' => (string) ($file['name'] ?? 'Excel sheet'),
                     'saved_ids' => $result['saved_ids'] ?? []
                 ];
+                $uploadDuplicates = $dupList;
+                $uploadTotalRows = $totalRows;
+                $uploadUniqueCount = $uniqueCount;
+                $uploadDupCount = $dupInSheet;
             } else {
                 $success = '';
             }
@@ -218,6 +226,13 @@ foreach ($partners as $partner) {
         break;
     }
 }
+$lastUpload = $_SESSION['last_tp_upload'] ?? null;
+if (!isset($uploadDuplicates) && is_array($lastUpload)) {
+    $uploadDuplicates = $lastUpload['duplicate_list'] ?? [];
+    $uploadTotalRows = $lastUpload['total_rows'] ?? ($lastUpload['count'] ?? 0);
+    $uploadUniqueCount = $lastUpload['count'] ?? 0;
+    $uploadDupCount = $lastUpload['duplicates_count'] ?? count($uploadDuplicates);
+}
 $page_title = 'Training Partner Figures';
 $active_theme = loadActiveTheme($conn);
 ?>
@@ -261,33 +276,128 @@ $active_theme = loadActiveTheme($conn);
             <h1>Training Partner Figures</h1>
             <p class="tp-note">Choose the scheme or project first, then the training partner, and add each student. Tick Certified or Placed. Report Monitor counts a student when the course start and end dates fall in the selected period.</p>
             <?php if ($success !== ''): ?>
-                <div class="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <i class="fas fa-check-circle me-1"></i>
-                        <span><?php echo htmlspecialchars($success); ?></span>
+                <div class="alert alert-success shadow-sm mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <div class="fw-bold mb-1">
+                                <i class="fas fa-check-circle me-1 text-success"></i> <?php echo htmlspecialchars($success); ?>
+                            </div>
+                            <?php if (!empty($uploadTotalRows)): ?>
+                                <div class="small text-secondary">
+                                    <strong><?php echo number_format($uploadTotalRows); ?></strong> rows read &bull;
+                                    <strong class="text-success"><?php echo number_format($uploadUniqueCount); ?> unique candidates saved</strong>
+                                    <?php if (!empty($uploadDupCount)): ?>
+                                        &bull; <span class="badge bg-warning text-dark"><?php echo (int) $uploadDupCount; ?> duplicate candidate rows merged</span>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php if (!empty($_SESSION['last_tp_upload'])): ?>
+                            <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
+                                <input type="hidden" name="action" value="undo_last_upload">
+                                <button type="submit" class="btn btn-sm btn-outline-danger bg-white">
+                                    <i class="fas fa-undo me-1"></i> Undo this upload
+                                </button>
+                            </form>
+                        <?php endif; ?>
                     </div>
-                    <?php if (!empty($_SESSION['last_tp_upload'])): ?>
-                        <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
-                            <input type="hidden" name="action" value="undo_last_upload">
-                            <button type="submit" class="btn btn-sm btn-outline-danger bg-white">
-                                <i class="fas fa-undo me-1"></i> Undo this upload
+                    <?php if (!empty($uploadDuplicates)): ?>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="small fw-semibold text-secondary">
+                                <i class="fas fa-copy me-1"></i> <?php echo count($uploadDuplicates); ?> Duplicate Candidate Rows in Spreadsheet (Merged):
+                            </span>
+                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpDuplicateListCollapse" aria-expanded="false" aria-controls="tpDuplicateListCollapse">
+                                View <?php echo count($uploadDuplicates); ?> duplicate candidates <i class="fas fa-chevron-down ms-1"></i>
                             </button>
-                        </form>
+                        </div>
+                        <div class="collapse mt-2" id="tpDuplicateListCollapse">
+                            <div class="table-responsive bg-white rounded border">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Candidate Name</th>
+                                            <th>Mobile / WhatsApp</th>
+                                            <th>Training Partner / Institute</th>
+                                            <th>Course</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): ?>
+                                            <tr>
+                                                <td><?php echo $dIdx + 1; ?></td>
+                                                <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['mobile'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['partner'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['course'] ?? '—')); ?></td>
+                                                <td><span class="badge bg-info-subtle text-dark border">Merged into existing</span></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     <?php endif; ?>
                 </div>
             <?php elseif (!empty($_SESSION['last_tp_upload'])): ?>
-                <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
-                    <div>
-                        <i class="fas fa-info-circle me-1"></i>
-                        Last upload: <strong><?php echo (int) $_SESSION['last_tp_upload']['count']; ?> candidates</strong>
-                        from <em><?php echo htmlspecialchars($_SESSION['last_tp_upload']['file_name']); ?></em>
+                <div class="alert alert-info shadow-sm mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Last upload: <strong><?php echo (int) $_SESSION['last_tp_upload']['count']; ?> unique candidates</strong>
+                            from <em><?php echo htmlspecialchars($_SESSION['last_tp_upload']['file_name']); ?></em>
+                            <?php if (!empty($_SESSION['last_tp_upload']['duplicates_count'])): ?>
+                                <span class="badge bg-warning text-dark ms-1"><?php echo (int) $_SESSION['last_tp_upload']['duplicates_count']; ?> duplicates merged</span>
+                            <?php endif; ?>
+                        </div>
+                        <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
+                            <input type="hidden" name="action" value="undo_last_upload">
+                            <button type="submit" class="btn btn-sm btn-danger">
+                                <i class="fas fa-undo me-1"></i> Undo Last Upload
+                            </button>
+                        </form>
                     </div>
-                    <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
-                        <input type="hidden" name="action" value="undo_last_upload">
-                        <button type="submit" class="btn btn-sm btn-danger">
-                            <i class="fas fa-undo me-1"></i> Undo Last Upload
-                        </button>
-                    </form>
+                    <?php if (!empty($uploadDuplicates)): ?>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <span class="small fw-semibold text-secondary">
+                                <i class="fas fa-copy me-1"></i> <?php echo count($uploadDuplicates); ?> Duplicate Candidate Rows in Spreadsheet:
+                            </span>
+                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpLastDuplicateListCollapse" aria-expanded="false" aria-controls="tpLastDuplicateListCollapse">
+                                View duplicate candidates <i class="fas fa-chevron-down ms-1"></i>
+                            </button>
+                        </div>
+                        <div class="collapse mt-2" id="tpLastDuplicateListCollapse">
+                            <div class="table-responsive bg-white rounded border">
+                                <table class="table table-sm table-striped mb-0 small">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Candidate Name</th>
+                                            <th>Mobile / WhatsApp</th>
+                                            <th>Training Partner / Institute</th>
+                                            <th>Course</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): ?>
+                                            <tr>
+                                                <td><?php echo $dIdx + 1; ?></td>
+                                                <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['mobile'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['partner'] ?? '—')); ?></td>
+                                                <td><?php echo htmlspecialchars((string) ($dup['course'] ?? '—')); ?></td>
+                                                <td><span class="badge bg-info-subtle text-dark border">Merged into existing</span></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endif; ?>
             <?php if ($error !== ''): ?>

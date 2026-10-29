@@ -1370,6 +1370,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $partnerIds = [];
         $savedIds = [];
         $uniqueSavedMap = [];
+        $duplicateDetails = [];
         foreach ($records as $record) {
             $rowPartnerId = $partnerId;
             $partnerName = trim((string) ($record['partner_name'] ?? ''));
@@ -1430,6 +1431,12 @@ if (!function_exists('training_partner_ensure_schema')) {
                         }
                     } else {
                         $duplicatesInSheet++;
+                        $duplicateDetails[] = [
+                            'name' => (string) $record['name'],
+                            'mobile' => (string) $record['mobile'],
+                            'partner' => (string) ($record['partner_name'] ?? $partnerName),
+                            'course' => (string) ($record['course_name'] ?? '')
+                        ];
                     }
                 }
             }
@@ -1445,6 +1452,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             'inserted' => $inserted,
             'updated' => $updated,
             'duplicates_in_sheet' => $duplicatesInSheet,
+            'duplicate_list' => $duplicateDetails,
             'skipped' => $skipped,
             'partners_created' => $partnersCreated,
             'sheets' => count($sheets),
