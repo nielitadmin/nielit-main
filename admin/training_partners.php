@@ -97,7 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $showStudents = true;
                 $filterScheme = (int) ($_POST['scheme_id'] ?? 0);
                 $filterPartner = (int) ($_POST['partner_id'] ?? 0);
-                $success = (int) $result['saved'] . ' students uploaded';
+                $uniqueCount = (int) ($result['saved'] ?? 0);
+                $totalRows = (int) ($result['total_rows'] ?? $uniqueCount);
+                $dupInSheet = (int) ($result['duplicates_in_sheet'] ?? 0);
+                if ($dupInSheet > 0) {
+                    $success = number_format($uniqueCount) . ' unique students saved (' . number_format($totalRows) . ' rows in sheet; ' . number_format($dupInSheet) . ' duplicate candidate rows merged)';
+                } else {
+                    $success = number_format($uniqueCount) . ' students uploaded';
+                }
                 if ((int) ($result['sheets'] ?? 0) > 1) {
                     $success .= ' from ' . (int) $result['sheets'] . ' sheets';
                 }

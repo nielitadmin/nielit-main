@@ -648,7 +648,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $values[] = (int) $found['id'];
                 $ok = training_partner_execute($conn, 'UPDATE training_partner_students SET ' . implode(', ', $sets) . ' WHERE id = ?', $types, $values);
                 $studentId = (int) $found['id'];
-                return $ok ? ['ok' => true, 'id' => $studentId] : ['ok' => false, 'error' => 'Could not save the student record.'];
+                return $ok ? ['ok' => true, 'id' => $studentId, 'is_update' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
         $columns = ['partner_id', 'scheme_id', 'course_name', 'course_category', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
@@ -666,7 +666,7 @@ if (!function_exists('training_partner_ensure_schema')) {
             $values
         );
         $studentId = $ok ? (int) $conn->insert_id : 0;
-        return $ok ? ['ok' => true, 'id' => $studentId] : ['ok' => false, 'error' => 'Could not save the student record.'];
+        return $ok ? ['ok' => true, 'id' => $studentId, 'is_update' => false] : ['ok' => false, 'error' => 'Could not save the student record.'];
     }
 
     function training_partner_update_student_status(mysqli $conn, int $id, int $certified, int $placed): bool
@@ -1362,10 +1362,14 @@ if (!function_exists('training_partner_ensure_schema')) {
         $defaultEnd = training_partner_parse_date($courseEnd);
         $defaultExam = training_partner_parse_date($examDate);
         $saved = 0;
+        $inserted = 0;
+        $updated = 0;
+        $duplicatesInSheet = 0;
         $skipped = 0;
         $partnersCreated = 0;
         $partnerIds = [];
         $savedIds = [];
+        $uniqueSavedMap = [];
         foreach ($records as $record) {
             $rowPartnerId = $partnerId;
             $partnerName = trim((string) ($record['partner_name'] ?? ''));
@@ -1414,14 +1418,37 @@ if (!function_exists('training_partner_ensure_schema')) {
             );
             if (!empty($result['ok'])) {
                 $saved++;
-                if (!empty($result['id'])) {
-                    $savedIds[] = (int) $result['id'];
+                $stId = (int) ($result['id'] ?? 0);
+                if ($stId > 0) {
+                    if (!isset($uniqueSavedMap[$stId])) {
+                        $uniqueSavedMap[$stId] = true;
+                        $savedIds[] = $stId;
+                        if (!empty($result['is_update'])) {
+                            $updated++;
+                        } else {
+                            $inserted++;
+                        }
+                    } else {
+                        $duplicatesInSheet++;
+                    }
                 }
             }
         }
         if ($saved === 0) {
             return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Choose the scheme, and make sure each row has a training partner.', 'saved' => 0, 'skipped' => $skipped];
         }
-        return ['ok' => true, 'saved' => $saved, 'skipped' => $skipped, 'partners_created' => $partnersCreated, 'sheets' => count($sheets), 'saved_ids' => $savedIds];
+        return [
+            'ok' => true,
+            'total_rows' => count($records),
+            'unique_count' => count($uniqueSavedMap),
+            'saved' => count($uniqueSavedMap),
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'duplicates_in_sheet' => $duplicatesInSheet,
+            'skipped' => $skipped,
+            'partners_created' => $partnersCreated,
+            'sheets' => count($sheets),
+            'saved_ids' => $savedIds
+        ];
     }
 }
