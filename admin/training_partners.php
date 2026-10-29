@@ -105,6 +105,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $success .= '. ' . (int) $result['partners_created'] . ' training partners were added from the sheet';
                 }
                 $success .= '.';
+
+                $_SESSION['last_tp_upload'] = [
+                    'time' => time(),
+                    'count' => (int) $result['saved'],
+                    'scheme_id' => $filterScheme,
+                    'file_name' => (string) ($file['name'] ?? 'Excel sheet'),
+                    'saved_ids' => $result['saved_ids'] ?? []
+                ];
             } else {
                 $success = '';
             }
@@ -147,6 +155,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($success === '') {
             $error = 'Could not remove that student record.';
         }
+    } elseif ($action === 'undo_last_upload') {
+        $lastUpload = $_SESSION['last_tp_upload'] ?? null;
+        if (is_array($lastUpload)) {
+            $ids = $lastUpload['saved_ids'] ?? [];
+            if (!empty($ids)) {
+                $res = training_partner_delete_students_by_ids($conn, $ids);
+                $delCount = (int) ($res['deleted'] ?? 0);
+            } elseif (!empty($lastUpload['scheme_id'])) {
+                $res = training_partner_delete_students_by_scheme($conn, (int) $lastUpload['scheme_id']);
+                $delCount = (int) ($res['deleted'] ?? 0);
+            } else {
+                $delCount = 0;
+            }
+            unset($_SESSION['last_tp_upload']);
+            $success = "Upload undone: successfully removed {$delCount} uploaded students. You can now re-upload your Excel sheet.";
+            $showStudents = false;
+        } else {
+            $error = "No recent upload session found to undo. You can use the Undo by Scheme tool below.";
+        }
+    } elseif ($action === 'undo_by_scheme') {
+        $schemeId = (int) ($_POST['undo_scheme_id'] ?? 0);
+        $res = training_partner_delete_students_by_scheme($conn, $schemeId);
+        if (!empty($res['ok'])) {
+            $delCount = (int) ($res['deleted'] ?? 0);
+            unset($_SESSION['last_tp_upload']);
+            $success = "Successfully removed {$delCount} student records under that scheme. You can now re-upload cleanly.";
+            $showStudents = false;
+        } else {
+            $error = (string) ($res['error'] ?? 'Could not remove student records for this scheme.');
+        }
+    } elseif ($action === 'undo_all_students') {
+        $res = training_partner_delete_all_students($conn);
+        if (!empty($res['ok'])) {
+            $delCount = (int) ($res['deleted'] ?? 0);
+            unset($_SESSION['last_tp_upload']);
+            $success = "Successfully reset all training partner students (removed {$delCount} records). You can now re-upload your Excel sheets from scratch.";
+            $showStudents = false;
+        } else {
+            $error = (string) ($res['error'] ?? 'Could not reset student records.');
+        }
     }
 }
 
@@ -154,6 +202,7 @@ $schemes = training_partner_schemes($conn);
 $students = training_partner_students_list($conn);
 $partners = training_partner_list($conn);
 $centres = training_partner_centres($conn);
+$schemeStudentCounts = training_partner_student_counts_by_scheme($conn);
 $editId = (int) ($_GET['edit'] ?? 0);
 $editPartner = null;
 foreach ($partners as $partner) {
@@ -205,7 +254,34 @@ $active_theme = loadActiveTheme($conn);
             <h1>Training Partner Figures</h1>
             <p class="tp-note">Choose the scheme or project first, then the training partner, and add each student. Tick Certified or Placed. Report Monitor counts a student when the course start and end dates fall in the selected period.</p>
             <?php if ($success !== ''): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
+                <div class="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <i class="fas fa-check-circle me-1"></i>
+                        <span><?php echo htmlspecialchars($success); ?></span>
+                    </div>
+                    <?php if (!empty($_SESSION['last_tp_upload'])): ?>
+                        <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
+                            <input type="hidden" name="action" value="undo_last_upload">
+                            <button type="submit" class="btn btn-sm btn-outline-danger bg-white">
+                                <i class="fas fa-undo me-1"></i> Undo this upload
+                            </button>
+                        </form>
+                    <?php endif; ?>
+                </div>
+            <?php elseif (!empty($_SESSION['last_tp_upload'])): ?>
+                <div class="alert alert-info d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+                    <div>
+                        <i class="fas fa-info-circle me-1"></i>
+                        Last upload: <strong><?php echo (int) $_SESSION['last_tp_upload']['count']; ?> candidates</strong>
+                        from <em><?php echo htmlspecialchars($_SESSION['last_tp_upload']['file_name']); ?></em>
+                    </div>
+                    <form method="post" class="m-0" onsubmit="return confirm('Undo this upload and remove the uploaded students from the database?');">
+                        <input type="hidden" name="action" value="undo_last_upload">
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="fas fa-undo me-1"></i> Undo Last Upload
+                        </button>
+                    </form>
+                </div>
             <?php endif; ?>
             <?php if ($error !== ''): ?>
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
@@ -541,6 +617,54 @@ $active_theme = loadActiveTheme($conn);
                                         </button>
                                     </div>
                                 </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card mt-3 border border-danger-subtle shadow-sm bg-white">
+                        <div class="card-header bg-danger-subtle d-flex justify-content-between align-items-center py-2 flex-wrap gap-2">
+                            <strong class="text-danger">
+                                <i class="fas fa-undo me-1"></i> Undo / Reset Uploaded Spreadsheet Candidates
+                            </strong>
+                            <span class="badge bg-danger"><?php echo count($students); ?> total candidates in list</span>
+                        </div>
+                        <div class="card-body py-3">
+                            <p class="small text-muted mb-3">
+                                If you made a mistake with dates, categories, or need to re-upload your Excel sheet from scratch, use the options below:
+                            </p>
+                            <div class="row g-3">
+                                <div class="col-lg-7 border-lg-end">
+                                    <form method="post" onsubmit="return confirm('Are you sure you want to remove all candidates under this scheme? You can re-upload your sheet immediately.');">
+                                        <input type="hidden" name="action" value="undo_by_scheme">
+                                        <label class="form-label small fw-semibold text-secondary">
+                                            <i class="fas fa-filter me-1"></i> Option 1: Remove candidates by Scheme / Project
+                                        </label>
+                                        <div class="input-group">
+                                            <select class="form-select form-select-sm" name="undo_scheme_id" required>
+                                                <option value="">Select scheme to remove...</option>
+                                                <?php foreach ($schemeStudentCounts as $scRow): ?>
+                                                    <option value="<?php echo (int) $scRow['id']; ?>">
+                                                        <?php echo htmlspecialchars((string) $scRow['scheme_name']); ?> (<?php echo number_format((int) $scRow['total_students']); ?> candidates)
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button class="btn btn-sm btn-outline-danger" type="submit">
+                                                <i class="fas fa-trash-alt me-1"></i> Remove Scheme Students
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="col-lg-5 d-flex flex-column justify-content-end">
+                                    <form method="post" onsubmit="return confirm('DANGER: This will delete ALL <?php echo count($students); ?> uploaded training partner students so you can start completely clean. Are you sure?');">
+                                        <input type="hidden" name="action" value="undo_all_students">
+                                        <label class="form-label small fw-semibold text-danger">
+                                            <i class="fas fa-bomb me-1"></i> Option 2: Reset / Clear All Candidates
+                                        </label>
+                                        <button class="btn btn-sm btn-danger w-100" type="submit" <?php echo empty($students) ? 'disabled' : ''; ?>>
+                                            <i class="fas fa-trash me-1"></i> Delete All Uploaded Students (<?php echo count($students); ?>)
+                                        </button>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -632,7 +632,8 @@ if (!function_exists('training_partner_ensure_schema')) {
                 $types .= 'i';
                 $values[] = (int) $found['id'];
                 $ok = training_partner_execute($conn, 'UPDATE training_partner_students SET ' . implode(', ', $sets) . ' WHERE id = ?', $types, $values);
-                return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
+                $studentId = (int) $found['id'];
+                return $ok ? ['ok' => true, 'id' => $studentId] : ['ok' => false, 'error' => 'Could not save the student record.'];
             }
         }
         $columns = ['partner_id', 'scheme_id', 'course_name', 'course_category', 'student_name', 'mobile', 'figure_month', 'course_start_date', 'course_end_date', 'exam_date', 'is_certified', 'is_placed'];
@@ -649,7 +650,8 @@ if (!function_exists('training_partner_ensure_schema')) {
             $types,
             $values
         );
-        return $ok ? ['ok' => true] : ['ok' => false, 'error' => 'Could not save the student record.'];
+        $studentId = $ok ? (int) $conn->insert_id : 0;
+        return $ok ? ['ok' => true, 'id' => $studentId] : ['ok' => false, 'error' => 'Could not save the student record.'];
     }
 
     function training_partner_update_student_status(mysqli $conn, int $id, int $certified, int $placed): bool
@@ -681,6 +683,63 @@ if (!function_exists('training_partner_ensure_schema')) {
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
+    }
+
+    function training_partner_delete_students_by_scheme(mysqli $conn, int $schemeId): array
+    {
+        training_partner_ensure_schema($conn);
+        if ($schemeId <= 0) {
+            return ['ok' => false, 'error' => 'Select a valid scheme / project.'];
+        }
+        $stmt = $conn->prepare('DELETE FROM training_partner_students WHERE scheme_id = ?');
+        if (!$stmt) {
+            return ['ok' => false, 'error' => $conn->error];
+        }
+        $stmt->bind_param('i', $schemeId);
+        $ok = $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return ['ok' => $ok, 'deleted' => $affected];
+    }
+
+    function training_partner_delete_students_by_ids(mysqli $conn, array $ids): array
+    {
+        training_partner_ensure_schema($conn);
+        $intIds = array_values(array_filter(array_map('intval', $ids), static function ($v) { return $v > 0; }));
+        if ($intIds === []) {
+            return ['ok' => false, 'error' => 'No valid student records provided.'];
+        }
+        $inClause = implode(',', $intIds);
+        $ok = $conn->query("DELETE FROM training_partner_students WHERE id IN ({$inClause})");
+        $affected = $ok ? $conn->affected_rows : 0;
+        return ['ok' => (bool) $ok, 'deleted' => $affected];
+    }
+
+    function training_partner_delete_all_students(mysqli $conn): array
+    {
+        training_partner_ensure_schema($conn);
+        $ok = $conn->query("DELETE FROM training_partner_students");
+        $affected = $ok ? $conn->affected_rows : 0;
+        return ['ok' => (bool) $ok, 'deleted' => $affected];
+    }
+
+    function training_partner_student_counts_by_scheme(mysqli $conn): array
+    {
+        training_partner_ensure_schema($conn);
+        $sql = "SELECT sc.id, COALESCE(sc.scheme_name, 'Unassigned Scheme') AS scheme_name, COUNT(st.id) AS total_students
+                FROM training_partner_students st
+                LEFT JOIN schemes sc ON sc.id = st.scheme_id
+                GROUP BY sc.id, sc.scheme_name
+                HAVING total_students > 0
+                ORDER BY total_students DESC";
+        $res = $conn->query($sql);
+        $rows = [];
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        }
+        return $rows;
     }
 
     function training_partner_students_list(mysqli $conn, int $limit = 0): array
@@ -1291,6 +1350,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $skipped = 0;
         $partnersCreated = 0;
         $partnerIds = [];
+        $savedIds = [];
         foreach ($records as $record) {
             $rowPartnerId = $partnerId;
             $partnerName = trim((string) ($record['partner_name'] ?? ''));
@@ -1339,11 +1399,14 @@ if (!function_exists('training_partner_ensure_schema')) {
             );
             if (!empty($result['ok'])) {
                 $saved++;
+                if (!empty($result['id'])) {
+                    $savedIds[] = (int) $result['id'];
+                }
             }
         }
         if ($saved === 0) {
             return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Choose the scheme, and make sure each row has a training partner.', 'saved' => 0, 'skipped' => $skipped];
         }
-        return ['ok' => true, 'saved' => $saved, 'skipped' => $skipped, 'partners_created' => $partnersCreated, 'sheets' => count($sheets)];
+        return ['ok' => true, 'saved' => $saved, 'skipped' => $skipped, 'partners_created' => $partnersCreated, 'sheets' => count($sheets), 'saved_ids' => $savedIds];
     }
 }
