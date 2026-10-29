@@ -1739,9 +1739,9 @@ Q4 (Jan–Mar)
 
                 </div>
 
-                <small>
+                <small class="d-block">
 
-                    Students in Batch
+                    Students in Batch: <?php echo number_format($kpiAdmission); ?>
 
                 </small>
 
