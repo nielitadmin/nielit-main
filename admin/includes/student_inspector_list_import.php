@@ -409,6 +409,35 @@ if (!function_exists('inspectorListMatricesFromUpload')) {
     }
 }
 
+if (!function_exists('inspectorListBlankToNull')) {
+    function inspectorListBlankToNull($value): ?string
+    {
+        $value = trim((string) $value);
+        return $value === '' ? null : $value;
+    }
+}
+
+if (!function_exists('inspectorListAllowBlankStudentFields')) {
+    function inspectorListAllowBlankStudentFields(mysqli $conn): void
+    {
+        foreach (['dob', 'email', 'aadhar', 'mobile', 'apaar_id'] as $column) {
+            $safeColumn = preg_replace('/[^a-z_]/', '', $column);
+            $check = $conn->query("SHOW COLUMNS FROM students LIKE '" . $conn->real_escape_string($safeColumn) . "'");
+            if (!$check || !($info = $check->fetch_assoc())) {
+                continue;
+            }
+            if (strtoupper((string) ($info['Null'] ?? '')) === 'YES') {
+                continue;
+            }
+            $type = (string) ($info['Type'] ?? '');
+            if ($type === '') {
+                continue;
+            }
+            $conn->query('ALTER TABLE students MODIFY `' . $safeColumn . '` ' . $type . ' NULL');
+        }
+    }
+}
+
 if (!function_exists('inspectorListAllocateStudentId')) {
     function inspectorListAllocateStudentId(mysqli $conn, int $courseId): ?string
     {
@@ -554,6 +583,7 @@ if (!function_exists('inspectorImportStudentList')) {
             return ['message' => 'A single upload can add up to 1000 students. Split the list and try again.', 'type' => 'warning', 'rows' => []];
         }
 
+        inspectorListAllowBlankStudentFields($conn);
         $hasScheme = hasSchemeEnrollmentColumns($conn);
         $courseName = (string) $course['course_name'];
         $trainingCenter = trim((string) ($course['training_center'] ?? ''));
@@ -606,8 +636,8 @@ if (!function_exists('inspectorImportStudentList')) {
 
         foreach ($records as $record) {
             $name = $record['name'];
-            $mobile = $record['mobile'];
-            $email = $record['email'];
+            $mobile = inspectorListBlankToNull($record['mobile']);
+            $email = inspectorListBlankToNull($record['email']);
             $father = $record['father_name'];
             $mother = $record['mother_name'];
             $dob = training_partner_parse_date($record['dob']);
@@ -634,15 +664,15 @@ if (!function_exists('inspectorImportStudentList')) {
             if ($registrationDate === null || $registrationDate === '') {
                 $registrationDate = date('Y-m-d');
             }
-            $aadhar = $record['aadhar'];
+            $aadhar = inspectorListBlankToNull($record['aadhar']);
             $givenId = trim($record['student_id']);
 
-            if ($mobile !== '' && isset($seenMobile[$mobile])) {
+            if ($mobile !== null && $mobile !== '' && isset($seenMobile[$mobile])) {
                 $skipped++;
                 $rows[] = ['name' => $name, 'student_id' => '', 'mobile' => $mobile, 'result' => 'Skipped. This mobile is repeated in the list.'];
                 continue;
             }
-            if ($aadhar !== '' && isset($seenAadhar[$aadhar])) {
+            if ($aadhar !== null && $aadhar !== '' && isset($seenAadhar[$aadhar])) {
                 $skipped++;
                 $rows[] = ['name' => $name, 'student_id' => '', 'mobile' => $mobile, 'result' => 'Skipped. This Aadhaar is repeated in the list.'];
                 continue;
@@ -671,7 +701,7 @@ if (!function_exists('inspectorImportStudentList')) {
                 continue;
             }
 
-            if ($aadhar !== '' && function_exists('isAadharEnrolledInCourseScheme') && isAadharEnrolledInCourseScheme($conn, $aadhar, $courseId, $schemeId)) {
+            if ($aadhar !== null && $aadhar !== '' && function_exists('isAadharEnrolledInCourseScheme') && isAadharEnrolledInCourseScheme($conn, $aadhar, $courseId, $schemeId)) {
                 $skipped++;
                 $rows[] = ['name' => $name, 'student_id' => $studentId, 'mobile' => $mobile, 'result' => 'Skipped. This Aadhaar is already in the selected course.'];
                 continue;
@@ -720,14 +750,14 @@ if (!function_exists('inspectorImportStudentList')) {
             if ($multiCourse && $recordId > 0) {
                 $accountId = is_array($account) ? (int) ($account['id'] ?? 0) : 0;
                 if ($accountId <= 0) {
-                    $accountAadhar = $aadhar !== '' ? $aadhar : inspectorListPlaceholderAadhar($conn, $studentId);
+                    $accountAadhar = ($aadhar !== null && $aadhar !== '') ? $aadhar : inspectorListPlaceholderAadhar($conn, $studentId);
                     if ($accountAadhar !== '') {
                         $accountId = (int) createStudentAccount($conn, [
                             'student_id' => $studentId,
                             'aadhar' => $accountAadhar,
                             'name' => $name,
-                            'email' => $email,
-                            'mobile' => $mobile,
+                            'email' => $email ?? '',
+                            'mobile' => $mobile ?? '',
                             'password' => $passwordHash,
                             'dob' => $dob,
                             'gender' => $gender,
@@ -740,10 +770,10 @@ if (!function_exists('inspectorImportStudentList')) {
                 }
             }
 
-            if ($mobile !== '') {
+            if ($mobile !== null && $mobile !== '') {
                 $seenMobile[$mobile] = true;
             }
-            if ($aadhar !== '') {
+            if ($aadhar !== null && $aadhar !== '') {
                 $seenAadhar[$aadhar] = true;
             }
             $added++;
@@ -763,8 +793,13 @@ if (!function_exists('inspectorImportStudentList')) {
         }
 
         if ($added === 0) {
+            $reason = trim((string) ($rows[0]['result'] ?? ''));
+            $message = 'No students were added.';
+            if ($reason !== '') {
+                $message .= ' ' . $reason;
+            }
             return [
-                'message' => 'No students were added. ' . $skipped . ' row' . ($skipped === 1 ? ' was' : 's were') . ' skipped.',
+                'message' => $message,
                 'type' => 'warning',
                 'rows' => $rows,
             ];
