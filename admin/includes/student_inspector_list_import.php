@@ -11,7 +11,7 @@ if (!function_exists('inspectorListHeaderKey')) {
     function inspectorListHeaderKey($cell): string
     {
         $text = strtolower(trim((string) $cell));
-        return (string) preg_replace('/[^a-z]/', '', $text);
+        return (string) preg_replace('/[^a-z0-9]/', '', $text);
     }
 }
 
@@ -62,13 +62,182 @@ if (!function_exists('inspectorListBlankRecord')) {
     {
         return [
             'name' => '',
+            'father_name' => '',
+            'mother_name' => '',
+            'dob' => '',
+            'age' => '',
+            'gender' => '',
+            'marital_status' => '',
             'mobile' => '',
             'email' => '',
-            'father_name' => '',
-            'gender' => '',
             'aadhar' => '',
+            'apaar_id' => '',
+            'nationality' => '',
+            'religion' => '',
+            'category' => '',
+            'pwd_status' => '',
+            'position' => '',
+            'address' => '',
+            'city' => '',
+            'state' => '',
+            'pincode' => '',
+            'college_name' => '',
+            'tenth_marksheet' => '',
+            'twelfth_marksheet' => '',
+            'graduation_certificate' => '',
+            'caste_certificate' => '',
+            'registration_date' => '',
             'student_id' => '',
         ];
+    }
+}
+
+if (!function_exists('inspectorListHeaderField')) {
+    function inspectorListHeaderField(string $label): ?string
+    {
+        if (inspectorListIsNameHeader($label)) {
+            return 'name';
+        }
+        if (strpos($label, 'father') !== false) {
+            return 'father_name';
+        }
+        if (strpos($label, 'mother') !== false) {
+            return 'mother_name';
+        }
+        if ($label === 'dob' || strpos($label, 'dateofbirth') !== false || strpos($label, 'birthdate') !== false) {
+            return 'dob';
+        }
+        if ($label === 'age') {
+            return 'age';
+        }
+        if (strpos($label, 'marital') !== false) {
+            return 'marital_status';
+        }
+        if (strpos($label, '10th') !== false || strpos($label, 'tenth') !== false) {
+            return 'tenth_marksheet';
+        }
+        if (strpos($label, '12th') !== false || strpos($label, 'twelfth') !== false) {
+            return 'twelfth_marksheet';
+        }
+        if (strpos($label, 'graduation') !== false) {
+            return 'graduation_certificate';
+        }
+        if (strpos($label, 'caste') !== false) {
+            return 'caste_certificate';
+        }
+        if (strpos($label, 'registrationdate') !== false) {
+            return 'registration_date';
+        }
+        if (strpos($label, 'email') !== false) {
+            return 'email';
+        }
+        if (strpos($label, 'aadhaar') !== false || strpos($label, 'aadhar') !== false) {
+            return 'aadhar';
+        }
+        if (strpos($label, 'apaar') !== false) {
+            return 'apaar_id';
+        }
+        if (strpos($label, 'nationality') !== false) {
+            return 'nationality';
+        }
+        if (strpos($label, 'religion') !== false) {
+            return 'religion';
+        }
+        if (strpos($label, 'pwd') !== false || strpos($label, 'disabilit') !== false) {
+            return 'pwd_status';
+        }
+        if (strpos($label, 'category') !== false) {
+            return 'category';
+        }
+        if (strpos($label, 'position') !== false || strpos($label, 'occupation') !== false) {
+            return 'position';
+        }
+        if (strpos($label, 'pincode') !== false || $label === 'pin') {
+            return 'pincode';
+        }
+        if ($label === 'city' || strpos($label, 'city') === 0) {
+            return 'city';
+        }
+        if ($label === 'state' || strpos($label, 'state') === 0) {
+            return 'state';
+        }
+        if (strpos($label, 'address') !== false) {
+            return 'address';
+        }
+        if (strpos($label, 'college') !== false || strpos($label, 'education') !== false) {
+            return 'college_name';
+        }
+        if (strpos($label, 'gender') === 0) {
+            return 'gender';
+        }
+        if (strpos($label, 'studentid') !== false) {
+            return 'student_id';
+        }
+        if (strpos($label, 'whatsapp') !== false || strpos($label, 'watsapp') !== false || in_array($label, ['mobile', 'phone', 'mobileno', 'contactno', 'contact'], true)) {
+            return 'mobile';
+        }
+        return null;
+    }
+}
+
+if (!function_exists('inspectorListAssignField')) {
+    function inspectorListAssignField(array $record, string $field, string $raw): array
+    {
+        $raw = trim($raw);
+        if ($field === 'mobile') {
+            $digits = inspectorListDigits($raw);
+            $record['mobile'] = strlen($digits) >= 10 ? substr($digits, -10) : '';
+        } elseif ($field === 'aadhar') {
+            $digits = inspectorListDigits($raw);
+            $record['aadhar'] = strlen($digits) === 12 ? $digits : '';
+        } elseif ($field === 'gender') {
+            $record['gender'] = inspectorListNormalizeGender($raw);
+        } elseif ($field === 'email') {
+            $record['email'] = filter_var($raw, FILTER_VALIDATE_EMAIL) ? $raw : '';
+        } elseif ($field === 'age') {
+            $record['age'] = preg_match('/^\d{1,3}$/', inspectorListDigits($raw)) ? inspectorListDigits($raw) : '';
+        } elseif ($field === 'pwd_status') {
+            $flag = strtolower($raw);
+            if (in_array($flag, ['y', 'yes', '1', 'true'], true)) {
+                $record['pwd_status'] = 'Yes';
+            } elseif (in_array($flag, ['n', 'no', '0', 'false'], true)) {
+                $record['pwd_status'] = 'No';
+            } else {
+                $record['pwd_status'] = $raw;
+            }
+        } elseif (isset($record[$field])) {
+            $record[$field] = $raw;
+        }
+        return $record;
+    }
+}
+
+if (!function_exists('inspectorListRecordsFromPost')) {
+    function inspectorListRecordsFromPost(array $post): array
+    {
+        $names = $post['list_name'] ?? null;
+        if (!is_array($names)) {
+            return [];
+        }
+        $fields = array_keys(inspectorListBlankRecord());
+        $records = [];
+        foreach ($names as $index => $name) {
+            $record = inspectorListBlankRecord();
+            $record['name'] = trim((string) $name);
+            if ($record['name'] === '') {
+                continue;
+            }
+            foreach ($fields as $field) {
+                if ($field === 'name') {
+                    continue;
+                }
+                $bag = $post['list_' . $field] ?? [];
+                $raw = is_array($bag) ? (string) ($bag[$index] ?? '') : '';
+                $record = inspectorListAssignField($record, $field, $raw);
+            }
+            $records[] = $record;
+        }
+        return $records;
     }
 }
 
@@ -162,33 +331,14 @@ if (!function_exists('inspectorListRecordsFromMatrix')) {
         $scanUntil = min(count($matrix), 25);
         for ($rowIndex = 0; $rowIndex < $scanUntil; $rowIndex++) {
             $labels = array_map('inspectorListHeaderKey', $matrix[$rowIndex]);
-            $found = [
-                'name' => null,
-                'mobile' => null,
-                'email' => null,
-                'father_name' => null,
-                'gender' => null,
-                'aadhar' => null,
-                'student_id' => null,
-            ];
+            $found = [];
             foreach ($labels as $index => $label) {
-                if (inspectorListIsNameHeader($label)) {
-                    $found['name'] = $index;
-                } elseif (strpos($label, 'father') !== false) {
-                    $found['father_name'] = $index;
-                } elseif (strpos($label, 'email') !== false) {
-                    $found['email'] = $index;
-                } elseif (strpos($label, 'aadhaar') !== false || strpos($label, 'aadhar') !== false) {
-                    $found['aadhar'] = $index;
-                } elseif (strpos($label, 'gender') === 0) {
-                    $found['gender'] = $index;
-                } elseif (strpos($label, 'studentid') !== false) {
-                    $found['student_id'] = $index;
-                } elseif (strpos($label, 'whatsapp') !== false || strpos($label, 'watsapp') !== false || in_array($label, ['mobile', 'phone', 'mobileno', 'contactno', 'contact'], true)) {
-                    $found['mobile'] = $index;
+                $field = inspectorListHeaderField($label);
+                if ($field !== null && !isset($found[$field])) {
+                    $found[$field] = $index;
                 }
             }
-            if ($found['name'] !== null) {
+            if (isset($found['name'])) {
                 $headerIndex = $rowIndex;
                 $map = $found;
                 break;
@@ -200,36 +350,11 @@ if (!function_exists('inspectorListRecordsFromMatrix')) {
             for ($i = $headerIndex + 1; $i < count($matrix); $i++) {
                 $row = $matrix[$i];
                 $record = inspectorListBlankRecord();
-                $record['name'] = trim((string) ($row[$map['name']] ?? ''));
-                if ($map['mobile'] !== null) {
-                    $digits = inspectorListDigits((string) ($row[$map['mobile']] ?? ''));
-                    if (strlen($digits) >= 10) {
-                        $record['mobile'] = substr($digits, -10);
-                    }
-                }
-                if ($map['email'] !== null) {
-                    $record['email'] = trim((string) ($row[$map['email']] ?? ''));
-                }
-                if ($map['father_name'] !== null) {
-                    $record['father_name'] = trim((string) ($row[$map['father_name']] ?? ''));
-                }
-                if ($map['gender'] !== null) {
-                    $record['gender'] = inspectorListNormalizeGender((string) ($row[$map['gender']] ?? ''));
-                }
-                if ($map['aadhar'] !== null) {
-                    $digits = inspectorListDigits((string) ($row[$map['aadhar']] ?? ''));
-                    if (strlen($digits) === 12) {
-                        $record['aadhar'] = $digits;
-                    }
-                }
-                if ($map['student_id'] !== null) {
-                    $record['student_id'] = trim((string) ($row[$map['student_id']] ?? ''));
+                foreach ($map as $field => $index) {
+                    $record = inspectorListAssignField($record, $field, (string) ($row[$index] ?? ''));
                 }
                 if ($record['name'] === '' || preg_match('/^\d+$/', $record['name'])) {
                     continue;
-                }
-                if ($record['email'] !== '' && !filter_var($record['email'], FILTER_VALIDATE_EMAIL)) {
-                    $record['email'] = '';
                 }
                 $records[] = $record;
             }
@@ -407,7 +532,10 @@ if (!function_exists('inspectorImportStudentList')) {
             return ['message' => 'That scheme is not linked to the selected course.', 'type' => 'warning', 'rows' => []];
         }
 
-        $records = inspectorListRecordsFromText((string) ($post['student_list_text'] ?? ''));
+        $records = inspectorListRecordsFromPost($post);
+        foreach (inspectorListRecordsFromText((string) ($post['student_list_text'] ?? '')) as $typedRecord) {
+            $records[] = $typedRecord;
+        }
         $upload = inspectorListMatricesFromUpload($files['student_list_file'] ?? []);
         if (!empty($upload['error'])) {
             return ['message' => (string) $upload['error'], 'type' => 'danger', 'rows' => []];
@@ -433,33 +561,36 @@ if (!function_exists('inspectorImportStudentList')) {
             $trainingCenter = 'NIELIT BHUBANESWAR';
         }
         $status = 'active';
-        $mother = '';
-        $dob = null;
-        $age = 0;
-        $religion = 'Other';
-        $marital = 'Single';
-        $category = '';
-        $nationality = 'Indian';
-        $position = 'Student';
-        $state = '';
-        $city = '';
-        $pincode = '';
-        $address = '';
-        $college = '';
-        $education = '{"source":"student_list_import"}';
         $passport = '';
         $aadharDoc = '';
+        $optionalColumns = [
+            'apaar_id' => 'apaar_id',
+            'pwd_status' => 'pwd_status',
+            'tenth_marksheet_doc' => 'tenth_marksheet',
+            'twelfth_marksheet_doc' => 'twelfth_marksheet',
+            'graduation_certificate_doc' => 'graduation_certificate',
+            'caste_certificate_doc' => 'caste_certificate',
+        ];
+        $presentOptional = [];
+        foreach ($optionalColumns as $column => $field) {
+            $columnCheck = $conn->query("SHOW COLUMNS FROM students LIKE '" . $conn->real_escape_string($column) . "'");
+            if ($columnCheck && $columnCheck->num_rows > 0) {
+                $presentOptional[$column] = $field;
+            }
+        }
 
         $schemeSql = $hasScheme ? ', scheme_id' : '';
         $schemeVal = $hasScheme ? ', ?' : '';
+        $optionalSql = $presentOptional === [] ? '' : ', ' . implode(', ', array_keys($presentOptional));
+        $optionalVal = $presentOptional === [] ? '' : ', ' . implode(', ', array_fill(0, count($presentOptional), '?'));
         $sql = "INSERT INTO students (
             course, course_id, training_center, name, father_name, mother_name,
             dob, age, mobile, aadhar, gender, religion, marital_status,
             category, nationality, email, position,
             state, city, pincode, address, college_name, education_details,
-            passport_photo, aadhar_card_doc, student_id, password, status{$schemeSql}, registration_date
+            passport_photo, aadhar_card_doc, student_id, password, status{$optionalSql}{$schemeSql}, registration_date
         ) VALUES (
-            ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?{$schemeVal}, NOW()
+            ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?{$optionalVal}{$schemeVal}, ?
         )";
         $insert = $conn->prepare($sql);
         if (!$insert) {
@@ -478,7 +609,31 @@ if (!function_exists('inspectorImportStudentList')) {
             $mobile = $record['mobile'];
             $email = $record['email'];
             $father = $record['father_name'];
+            $mother = $record['mother_name'];
+            $dob = training_partner_parse_date($record['dob']);
+            $age = ($record['age'] !== '' && ctype_digit($record['age'])) ? (int) $record['age'] : 0;
+            if ($age <= 0 && $dob !== null) {
+                $born = DateTime::createFromFormat('Y-m-d', $dob);
+                if ($born instanceof DateTime) {
+                    $age = (int) $born->diff(new DateTime('today'))->y;
+                }
+            }
             $gender = $record['gender'] !== '' ? $record['gender'] : 'Other';
+            $religion = $record['religion'] !== '' ? $record['religion'] : 'Other';
+            $marital = $record['marital_status'] !== '' ? $record['marital_status'] : 'Single';
+            $category = $record['category'];
+            $nationality = $record['nationality'] !== '' ? $record['nationality'] : 'Indian';
+            $position = $record['position'] !== '' ? $record['position'] : 'Student';
+            $state = $record['state'];
+            $city = $record['city'];
+            $pincode = $record['pincode'];
+            $address = $record['address'];
+            $college = $record['college_name'];
+            $education = json_encode(['source' => 'student_list_import', 'education' => $college]);
+            $registrationDate = training_partner_parse_date($record['registration_date']);
+            if ($registrationDate === null || $registrationDate === '') {
+                $registrationDate = date('Y-m-d');
+            }
             $aadhar = $record['aadhar'];
             $givenId = trim($record['student_id']);
 
@@ -537,10 +692,20 @@ if (!function_exists('inspectorImportStudentList')) {
                 $state, $city, $pincode, $address, $college, $education,
                 $passport, $aadharDoc, $studentId, $passwordHash, $status,
             ];
+            foreach ($presentOptional as $field) {
+                $bindTypes .= 's';
+                if ($field === 'pwd_status') {
+                    $bindArgs[] = $record['pwd_status'] !== '' ? $record['pwd_status'] : 'No';
+                } else {
+                    $bindArgs[] = (string) ($record[$field] ?? '');
+                }
+            }
             if ($hasScheme) {
                 $bindTypes .= 'i';
                 $bindArgs[] = $schemeId;
             }
+            $bindTypes .= 's';
+            $bindArgs[] = $registrationDate;
             $insert->bind_param($bindTypes, ...$bindArgs);
             if (!$insert->execute()) {
                 $skipped++;
@@ -564,7 +729,7 @@ if (!function_exists('inspectorImportStudentList')) {
                             'email' => $email,
                             'mobile' => $mobile,
                             'password' => $passwordHash,
-                            'dob' => null,
+                            'dob' => $dob,
                             'gender' => $gender,
                         ]);
                     }

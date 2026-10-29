@@ -44,9 +44,8 @@ $flashType = 'success';
 if (isset($_GET['student_list_template'])) {
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="student_list_template.csv"');
-    echo "Name,Mobile,Email,Father name,Gender\n";
-    echo "Ramesh Kumar,,,,\n";
-    echo "Sita Das,9876543210,,Ram Das,Female\n";
+    echo "Sl. No.,Student Name,Father Name,Mother Name,Date of Birth,Age,Gender,Marital Status,Mobile,Email,Aadhaar,APAAR ID,Nationality,Religion,Category,PWD Status,Position,Address,City,State,Pincode,College / Education,10th Marksheet,12th Marksheet,Graduation Certificate,Caste Certificate,Registration Date\n";
+    echo "1,Ramesh Kumar,,,,,,,,,,,,Indian,,,,,Student,,,,,,,\n";
     exit();
 }
 

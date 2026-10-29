@@ -2,6 +2,72 @@
 /** @var mysqli $conn */
 /** @var array<int, array<string, string>> $importRows */
 
+if (!function_exists('inspectorStudentListEntryRow')) {
+    function inspectorStudentListEntryRow(int $serial): string
+    {
+        $selects = [
+            'gender' => ['' => 'Select', 'Male' => 'Male', 'Female' => 'Female', 'Other' => 'Other'],
+            'marital_status' => ['' => 'Select', 'Single' => 'Single', 'Married' => 'Married'],
+            'nationality' => ['' => 'Select', 'Indian' => 'Indian', 'Foreign' => 'Foreign'],
+            'religion' => ['' => 'Select', 'Hindu' => 'Hindu', 'Muslim' => 'Muslim', 'Christian' => 'Christian', 'Sikh' => 'Sikh', 'Other' => 'Other'],
+            'category' => ['' => 'Select', 'General' => 'General', 'OBC' => 'OBC', 'SC' => 'SC', 'ST' => 'ST', 'EWS' => 'EWS'],
+            'pwd_status' => ['' => 'Select', 'No' => 'No', 'Yes' => 'Yes'],
+            'position' => ['' => 'Select', 'Student' => 'Student', 'Researcher' => 'Researcher', 'Faculty' => 'Faculty', 'Industrial' => 'Industrial', 'Services Holder' => 'Services Holder'],
+        ];
+        $textFields = [
+            'father_name' => 'text',
+            'mother_name' => 'text',
+            'dob' => 'date',
+            'age' => 'number',
+            'mobile' => 'text',
+            'email' => 'email',
+            'aadhar' => 'text',
+            'apaar_id' => 'text',
+            'address' => 'text',
+            'city' => 'text',
+            'state' => 'text',
+            'pincode' => 'text',
+            'college_name' => 'text',
+            'tenth_marksheet' => 'text',
+            'twelfth_marksheet' => 'text',
+            'graduation_certificate' => 'text',
+            'caste_certificate' => 'text',
+            'registration_date' => 'date',
+        ];
+        $order = [
+            'father_name', 'mother_name', 'dob', 'age', 'gender', 'marital_status', 'mobile', 'email',
+            'aadhar', 'apaar_id', 'nationality', 'religion', 'category', 'pwd_status', 'position',
+            'address', 'city', 'state', 'pincode', 'college_name', 'tenth_marksheet', 'twelfth_marksheet',
+            'graduation_certificate', 'caste_certificate', 'registration_date',
+        ];
+        $html = '<tr class="inspector-student-entry">';
+        $html .= '<td class="list-sl">' . $serial . '</td>';
+        $html .= '<td class="col-name"><input type="text" class="form-control form-control-sm" name="list_name[]" maxlength="255"></td>';
+        foreach ($order as $field) {
+            if (isset($selects[$field])) {
+                $html .= '<td><select class="form-select form-select-sm" name="list_' . $field . '[]">';
+                foreach ($selects[$field] as $value => $label) {
+                    $html .= '<option value="' . htmlspecialchars($value) . '">' . htmlspecialchars($label) . '</option>';
+                }
+                $html .= '</select></td>';
+            } else {
+                $type = $textFields[$field];
+                $extra = $type === 'number' ? ' min="0" max="120"' : '';
+                if ($field === 'aadhar') {
+                    $extra .= ' maxlength="12"';
+                }
+                if ($field === 'mobile') {
+                    $extra .= ' maxlength="15"';
+                }
+                $html .= '<td><input type="' . $type . '" class="form-control form-control-sm" name="list_' . $field . '[]"' . $extra . '></td>';
+            }
+        }
+        $html .= '<td><button type="button" class="btn btn-sm btn-outline-danger inspector-remove-student-row">Remove</button></td>';
+        $html .= '</tr>';
+        return $html;
+    }
+}
+
 $listCourses = [];
 $courseResult = $conn->query('SELECT id, course_name, course_code, course_abbreviation FROM courses ORDER BY course_name');
 if ($courseResult) {
@@ -37,10 +103,18 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
 <div class="page-card p-4 mb-4 border border-primary">
     <h2 class="h5 mb-2"><i class="fas fa-file-upload text-primary"></i> Add students from a list</h2>
     <p class="text-muted small mb-3">
-        Type names or upload an Excel sheet. A name is enough when that is all you have.
+        Fill one row per student, or upload a sheet with the same columns. A student name is enough.
         Each new student gets an ID such as <code>NIELIT/<?php echo date('Y'); ?>/COURSE/0001</code>.
-        Mobile, email, father's name, gender, and Aadhaar are saved when the list includes them.
+        Course and scheme are the ones selected above.
     </p>
+    <style>
+        .student-list-scroll { overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; }
+        .student-list-grid { min-width: 3200px; margin-bottom: 0; }
+        .student-list-grid th { position: sticky; top: 0; background: #0f172a; color: #fff; font-size: 0.75rem; white-space: nowrap; }
+        .student-list-grid td { min-width: 140px; vertical-align: top; }
+        .student-list-grid td.col-name { min-width: 180px; }
+        .student-list-grid input, .student-list-grid select { min-width: 120px; }
+    </style>
     <form method="POST" action="check_student_exists.php" enctype="multipart/form-data" id="inspector-student-list-form">
         <input type="hidden" name="import_student_list" value="1">
         <div class="row g-3">
@@ -70,16 +144,57 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
                 </select>
                 <small class="text-muted">Shown only when the course is linked to a scheme or project.</small>
             </div>
-            <div class="col-lg-6">
-                <label class="form-label">Type the student list</label>
-                <textarea name="student_list_text" class="form-control" rows="8" placeholder="Ramesh Kumar&#10;Sita Das, 9876543210&#10;Amit Kumar, 9876500000, amit@email.com"></textarea>
-                <small class="text-muted">One student per line. A name is enough. You can also add mobile and email after a comma.</small>
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="form-label mb-0">Student details</label>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="inspector_add_student_row">Add another student</button>
+                </div>
+                <div class="student-list-scroll">
+                    <table class="table table-sm table-bordered student-list-grid">
+                        <thead>
+                            <tr>
+                                <th>Sl.</th>
+                                <th>Student name</th>
+                                <th>Father name</th>
+                                <th>Mother name</th>
+                                <th>Date of birth</th>
+                                <th>Age</th>
+                                <th>Gender</th>
+                                <th>Marital status</th>
+                                <th>Mobile</th>
+                                <th>Email</th>
+                                <th>Aadhaar</th>
+                                <th>APAAR ID</th>
+                                <th>Nationality</th>
+                                <th>Religion</th>
+                                <th>Category</th>
+                                <th>PWD status</th>
+                                <th>Position</th>
+                                <th>Address</th>
+                                <th>City</th>
+                                <th>State</th>
+                                <th>Pincode</th>
+                                <th>College / education</th>
+                                <th>10th marksheet</th>
+                                <th>12th marksheet</th>
+                                <th>Graduation certificate</th>
+                                <th>Caste certificate</th>
+                                <th>Registration date</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="inspector_student_rows">
+                            <?php echo inspectorStudentListEntryRow(1); ?>
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted">Leave a row blank if you are not using it. Scroll sideways to reach every column.</small>
             </div>
             <div class="col-lg-6">
                 <label class="form-label">Or upload Excel / CSV</label>
                 <input type="file" name="student_list_file" class="form-control" accept=".xlsx,.xls,.csv">
                 <small class="text-muted d-block mt-2">
-                    A sheet with only names is accepted. If the file has headings, use Name, Mobile, Email, Father name, or Gender.
+                    Use the same column names as the table. A sheet with only student names is still accepted.
                     <a href="check_student_exists.php?student_list_template=1">Download a sample sheet</a>.
                 </small>
             </div>
@@ -144,5 +259,61 @@ if ($schemeTable && $schemeTable->num_rows > 0) {
     }
     course.addEventListener('change', fillSchemes);
     fillSchemes();
+
+    var addBtn = document.getElementById('inspector_add_student_row');
+    var body = document.getElementById('inspector_student_rows');
+    function numberRows() {
+        if (!body) {
+            return;
+        }
+        var rows = body.querySelectorAll('.inspector-student-entry');
+        rows.forEach(function (row, index) {
+            var cell = row.querySelector('.list-sl');
+            if (cell) {
+                cell.textContent = String(index + 1);
+            }
+        });
+    }
+    if (addBtn && body) {
+        addBtn.addEventListener('click', function () {
+            var first = body.querySelector('.inspector-student-entry');
+            if (!first) {
+                return;
+            }
+            var copy = first.cloneNode(true);
+            copy.querySelectorAll('input, select').forEach(function (field) {
+                if (field.tagName === 'SELECT') {
+                    field.selectedIndex = 0;
+                } else {
+                    field.value = '';
+                }
+            });
+            body.appendChild(copy);
+            numberRows();
+        });
+        body.addEventListener('click', function (event) {
+            var button = event.target.closest('.inspector-remove-student-row');
+            if (!button) {
+                return;
+            }
+            var rows = body.querySelectorAll('.inspector-student-entry');
+            var row = button.closest('.inspector-student-entry');
+            if (!row) {
+                return;
+            }
+            if (rows.length === 1) {
+                row.querySelectorAll('input, select').forEach(function (field) {
+                    if (field.tagName === 'SELECT') {
+                        field.selectedIndex = 0;
+                    } else {
+                        field.value = '';
+                    }
+                });
+                return;
+            }
+            row.remove();
+            numberRows();
+        });
+    }
 })();
 </script>
