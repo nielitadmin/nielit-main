@@ -1539,6 +1539,7 @@ if (!function_exists('training_partner_ensure_schema')) {
                         $duplicateDetails[] = [
                             'name' => (string) $record['name'],
                             'mobile' => (string) $record['mobile'],
+                            'aadhaar' => (string) ($record['details']['aadhaar'] ?? ''),
                             'partner' => (string) ($record['partner_name'] ?? $partnerName),
                             'course' => (string) ($record['course_name'] ?? '')
                         ];

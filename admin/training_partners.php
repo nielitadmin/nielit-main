@@ -394,6 +394,7 @@ $active_theme = loadActiveTheme($conn);
                                         <tr>
                                             <th>#</th>
                                             <th>Candidate Name</th>
+                                            <th>Aadhaar No.</th>
                                             <th>Mobile / WhatsApp</th>
                                             <th>Training Partner / Institute</th>
                                             <th>Course</th>
@@ -401,10 +402,31 @@ $active_theme = loadActiveTheme($conn);
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): ?>
+                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): 
+                                            $aadhaarVal = trim((string) ($dup['aadhaar'] ?? ''));
+                                            if ($aadhaarVal === '' && !empty($dup['name']) && !empty($dup['mobile'])) {
+                                                $q = $conn->prepare('SELECT aadhaar FROM training_partner_students WHERE student_name = ? AND mobile = ? LIMIT 1');
+                                                if ($q) {
+                                                    $q->bind_param('ss', $dup['name'], $dup['mobile']);
+                                                    $q->execute();
+                                                    $ar = $q->get_result()->fetch_assoc();
+                                                    $q->close();
+                                                    if ($ar && !empty($ar['aadhaar'])) {
+                                                        $aadhaarVal = trim((string) $ar['aadhaar']);
+                                                    }
+                                                }
+                                            }
+                                        ?>
                                             <tr>
                                                 <td><?php echo $dIdx + 1; ?></td>
                                                 <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
+                                                <td>
+                                                    <?php if ($aadhaarVal !== '' && $aadhaarVal !== '-'): ?>
+                                                        <span class="badge bg-light text-dark border font-monospace"><?php echo htmlspecialchars($aadhaarVal); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">—</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['mobile'] ?? '—')); ?></td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['partner'] ?? '—')); ?></td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['course'] ?? '—')); ?></td>
@@ -452,6 +474,7 @@ $active_theme = loadActiveTheme($conn);
                                         <tr>
                                             <th>#</th>
                                             <th>Candidate Name</th>
+                                            <th>Aadhaar No.</th>
                                             <th>Mobile / WhatsApp</th>
                                             <th>Training Partner / Institute</th>
                                             <th>Course</th>
@@ -459,10 +482,31 @@ $active_theme = loadActiveTheme($conn);
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): ?>
+                                        <?php foreach ($uploadDuplicates as $dIdx => $dup): 
+                                            $aadhaarVal = trim((string) ($dup['aadhaar'] ?? ''));
+                                            if ($aadhaarVal === '' && !empty($dup['name']) && !empty($dup['mobile'])) {
+                                                $q = $conn->prepare('SELECT aadhaar FROM training_partner_students WHERE student_name = ? AND mobile = ? LIMIT 1');
+                                                if ($q) {
+                                                    $q->bind_param('ss', $dup['name'], $dup['mobile']);
+                                                    $q->execute();
+                                                    $ar = $q->get_result()->fetch_assoc();
+                                                    $q->close();
+                                                    if ($ar && !empty($ar['aadhaar'])) {
+                                                        $aadhaarVal = trim((string) $ar['aadhaar']);
+                                                    }
+                                                }
+                                            }
+                                        ?>
                                             <tr>
                                                 <td><?php echo $dIdx + 1; ?></td>
                                                 <td class="fw-semibold"><?php echo htmlspecialchars((string) ($dup['name'] ?? '—')); ?></td>
+                                                <td>
+                                                    <?php if ($aadhaarVal !== '' && $aadhaarVal !== '-'): ?>
+                                                        <span class="badge bg-light text-dark border font-monospace"><?php echo htmlspecialchars($aadhaarVal); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted">—</span>
+                                                    <?php endif; ?>
+                                                </td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['mobile'] ?? '—')); ?></td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['partner'] ?? '—')); ?></td>
                                                 <td><?php echo htmlspecialchars((string) ($dup['course'] ?? '—')); ?></td>
