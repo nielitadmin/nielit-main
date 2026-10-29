@@ -1999,59 +1999,92 @@ Q4 (Jan–Mar)
 <?php if ($trainingPartnerRows !== [] || empty($isPublicReportView)): ?>
 <div class="row mb-4">
     <div class="col-lg-12">
-        <div class="card chart-card">
+        <div class="card tp-figures-card shadow-sm" style="border:none; border-radius:15px;">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <strong>Training Partner Figures</strong>
                     <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · enrolled, certified, placed</small>
+                    <?php if (!empty($trainingPartnerRows)): ?>
+                        <span class="badge bg-secondary ms-2"><?php echo number_format(count($trainingPartnerRows)); ?> partners</span>
+                    <?php endif; ?>
                 </div>
-                <?php if (empty($isPublicReportView)): ?>
-                    <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">Enter figures</a>
-                <?php endif; ?>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <?php if (!empty($trainingPartnerRows)): ?>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="tpFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-filter me-1"></i> <span id="tpFilterLabel">Top 10 Partners</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="tpFilterDropdown">
+                                <li><a class="dropdown-item active tp-filter-opt" href="javascript:void(0)" data-filter="top10">Top 10 by Enrolled</a></li>
+                                <li><a class="dropdown-item tp-filter-opt" href="javascript:void(0)" data-filter="all">All Partners (<?php echo count($trainingPartnerRows); ?>)</a></li>
+                                <li><a class="dropdown-item tp-filter-opt" href="javascript:void(0)" data-filter="top5">Top 5 Partners</a></li>
+                                <li><a class="dropdown-item tp-filter-opt" href="javascript:void(0)" data-filter="certified">With Certified Students</a></li>
+                                <li><a class="dropdown-item tp-filter-opt" href="javascript:void(0)" data-filter="placed">With Placed Students</a></li>
+                            </ul>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="tpDetailsToggle" aria-expanded="false" aria-controls="tpDetailsContainer">
+                            <i class="fas fa-chevron-down me-1" id="tpDetailsToggleIcon"></i> <span id="tpDetailsToggleLabel">Show Details</span>
+                        </button>
+                    <?php endif; ?>
+                    <?php if (empty($isPublicReportView)): ?>
+                        <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">
+                            <i class="fas fa-cog me-1"></i> Enter figures
+                        </a>
+                    <?php endif; ?>
+                </div>
             </div>
-            <div class="card-body">
+            <div class="card-body" style="height: auto !important; min-height: auto !important;">
                 <?php if ($trainingPartnerRows === []): ?>
                     <div class="report-chart-empty">No training partner figures for this period.</div>
                 <?php else: ?>
-                    <div style="position: relative; height: <?php echo max(340, min(800, count($trainingPartnerRows) * 36)); ?>px;">
+                    <div id="tpChartContainer" style="position: relative; height: 350px;">
                         <canvas id="trainingPartnerChart"></canvas>
                     </div>
-                    <div class="table-responsive mt-3">
-                        <table class="table table-sm mb-0">
-                            <thead>
-                                <tr>
-                                    <th>Scheme / project</th>
-                                    <th>Training partner</th>
-                                    <th class="text-end">Enrolled</th>
-                                    <th class="text-end">Certified</th>
-                                    <th class="text-end">Placed</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            <?php foreach ($trainingPartnerRows as $trainingPartnerRow): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars((string) ($trainingPartnerRow['scheme_name'] ?? '')) !== '' ? htmlspecialchars((string) $trainingPartnerRow['scheme_name']) : '—'; ?></td>
-                                    <td>
-                                        <strong><?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?></strong>
-                                        <?php if ($trainingPartnerRow['partner_code'] !== ''): ?>
-                                            <span class="text-muted small">(<?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?>)</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td class="text-end fw-semibold text-primary"><?php echo number_format((int) ($trainingPartnerRow['enrolled'] ?? 0)); ?></td>
-                                    <td class="text-end fw-semibold text-success"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
-                                    <td class="text-end fw-semibold text-warning"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <th colspan="2">Total</th>
-                                    <th class="text-end fw-bold text-primary"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
-                                    <th class="text-end fw-bold text-success"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
-                                    <th class="text-end fw-bold text-warning"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
-                                </tr>
-                            </tfoot>
-                        </table>
+                    
+                    <div id="tpDetailsContainer" class="d-none mt-4 pt-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0 fw-semibold text-secondary">
+                                <i class="fas fa-list-alt me-1"></i> Training Partner Breakdown Table
+                            </h6>
+                            <small class="text-muted">Full list of training partners and candidate figures</small>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Scheme / project</th>
+                                        <th>Training partner</th>
+                                        <th class="text-end">Enrolled</th>
+                                        <th class="text-end">Certified</th>
+                                        <th class="text-end">Placed</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($trainingPartnerRows as $trainingPartnerRow): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars((string) ($trainingPartnerRow['scheme_name'] ?? '')) !== '' ? htmlspecialchars((string) $trainingPartnerRow['scheme_name']) : '—'; ?></td>
+                                        <td>
+                                            <strong><?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?></strong>
+                                            <?php if ($trainingPartnerRow['partner_code'] !== ''): ?>
+                                                <span class="text-muted small">(<?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?>)</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-end fw-semibold text-primary"><?php echo number_format((int) ($trainingPartnerRow['enrolled'] ?? 0)); ?></td>
+                                        <td class="text-end fw-semibold text-success"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
+                                        <td class="text-end fw-semibold text-warning"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr>
+                                        <th colspan="2">Total</th>
+                                        <th class="text-end fw-bold text-primary"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
+                                        <th class="text-end fw-bold text-success"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
+                                        <th class="text-end fw-bold text-warning"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
                     </div>
                     <script>
                     document.addEventListener('DOMContentLoaded', function () {
@@ -2059,20 +2092,39 @@ Q4 (Jan–Mar)
                         if (!canvas || typeof Chart === 'undefined') {
                             return;
                         }
-                        var rows = <?php echo json_encode($trainingPartnerRows, JSON_UNESCAPED_UNICODE); ?>;
-                        new Chart(canvas, {
-                            type: 'bar',
-                            data: {
+                        var rawRows = <?php echo json_encode($trainingPartnerRows, JSON_UNESCAPED_UNICODE); ?>;
+                        var allRows = rawRows.slice().sort(function (a, b) {
+                            return Number(b.enrolled || 0) - Number(a.enrolled || 0);
+                        });
+                        var activeFilter = 'top10';
+                        var chartContainer = document.getElementById('tpChartContainer');
+
+                        function getFilteredRows() {
+                            if (activeFilter === 'top10') return allRows.slice(0, 10);
+                            if (activeFilter === 'top5') return allRows.slice(0, 5);
+                            if (activeFilter === 'certified') return allRows.filter(function (r) { return Number(r.certified || 0) > 0; });
+                            if (activeFilter === 'placed') return allRows.filter(function (r) { return Number(r.placed || 0) > 0; });
+                            return allRows;
+                        }
+
+                        function makeChartData(rows) {
+                            return {
                                 labels: rows.map(function (row) {
                                     var name = row.partner_name || 'Partner';
-                                    return name.length > 30 ? name.substring(0, 28) + '…' : name;
+                                    return name.length > 28 ? name.substring(0, 26) + '…' : name;
                                 }),
                                 datasets: [
-                                    { label: 'Enrolled', data: rows.map(function (row) { return Number(row.enrolled || 0); }), backgroundColor: '#3b82f6' },
-                                    { label: 'Certified', data: rows.map(function (row) { return Number(row.certified || 0); }), backgroundColor: '#16a34a' },
-                                    { label: 'Placed', data: rows.map(function (row) { return Number(row.placed || 0); }), backgroundColor: '#f59e0b' }
+                                    { label: 'Enrolled', data: rows.map(function (r) { return Number(r.enrolled || 0); }), backgroundColor: '#2563eb' },
+                                    { label: 'Certified', data: rows.map(function (r) { return Number(r.certified || 0); }), backgroundColor: '#16a34a' },
+                                    { label: 'Placed', data: rows.map(function (r) { return Number(r.placed || 0); }), backgroundColor: '#f59e0b' }
                                 ]
-                            },
+                            };
+                        }
+
+                        var currentRows = getFilteredRows();
+                        var tpChart = new Chart(canvas, {
+                            type: 'bar',
+                            data: makeChartData(currentRows),
                             options: {
                                 indexAxis: 'y',
                                 responsive: true,
@@ -2084,12 +2136,12 @@ Q4 (Jan–Mar)
                                             title: function (items) {
                                                 if (!items.length) return '';
                                                 var idx = items[0].dataIndex;
-                                                return rows[idx].partner_name || '';
+                                                return currentRows[idx] ? currentRows[idx].partner_name : '';
                                             },
                                             afterTitle: function (items) {
                                                 if (!items.length) return '';
                                                 var idx = items[0].dataIndex;
-                                                return rows[idx].scheme_name ? 'Scheme: ' + rows[idx].scheme_name : '';
+                                                return currentRows[idx] && currentRows[idx].scheme_name ? 'Scheme: ' + currentRows[idx].scheme_name : '';
                                             }
                                         }
                                     }
@@ -2100,13 +2152,59 @@ Q4 (Jan–Mar)
                                         ticks: { precision: 0 }
                                     },
                                     y: {
-                                        ticks: {
-                                            autoSkip: false
-                                        }
+                                        ticks: { autoSkip: false }
                                     }
                                 }
                             }
                         });
+
+                        // Dropdown Filter Handler
+                        document.querySelectorAll('.tp-filter-opt').forEach(function (opt) {
+                            opt.addEventListener('click', function (e) {
+                                e.preventDefault();
+                                document.querySelectorAll('.tp-filter-opt').forEach(function (o) { o.classList.remove('active'); });
+                                this.classList.add('active');
+                                activeFilter = this.getAttribute('data-filter') || 'top10';
+                                var labelEl = document.getElementById('tpFilterLabel');
+                                if (labelEl) labelEl.textContent = this.textContent;
+
+                                currentRows = getFilteredRows();
+                                if (chartContainer) {
+                                    var dynamicH = Math.max(300, Math.min(800, currentRows.length * 36));
+                                    chartContainer.style.height = dynamicH + 'px';
+                                }
+                                tpChart.data = makeChartData(currentRows);
+                                tpChart.update();
+                            });
+                        });
+
+                        // Show Details Toggle
+                        var detailsToggleBtn = document.getElementById('tpDetailsToggle');
+                        var detailsContainer = document.getElementById('tpDetailsContainer');
+                        var detailsIcon = document.getElementById('tpDetailsToggleIcon');
+                        var detailsLabel = document.getElementById('tpDetailsToggleLabel');
+                        if (detailsToggleBtn && detailsContainer) {
+                            detailsToggleBtn.addEventListener('click', function () {
+                                var isHidden = detailsContainer.classList.contains('d-none');
+                                if (isHidden) {
+                                    detailsContainer.classList.remove('d-none');
+                                    if (detailsLabel) detailsLabel.textContent = 'Hide Details';
+                                    if (detailsIcon) {
+                                        detailsIcon.classList.remove('fa-chevron-down');
+                                        detailsIcon.classList.add('fa-chevron-up');
+                                    }
+                                    this.setAttribute('aria-expanded', 'true');
+                                } else {
+                                    detailsContainer.classList.add('d-none');
+                                    if (detailsLabel) detailsLabel.textContent = 'Show Details';
+                                    if (detailsIcon) {
+                                        detailsIcon.classList.remove('fa-chevron-up');
+                                        detailsIcon.classList.add('fa-chevron-down');
+                                    }
+                                    this.setAttribute('aria-expanded', 'false');
+                                }
+                            });
+                        }
                     });
                     </script>
                 <?php endif; ?>
