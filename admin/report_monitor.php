@@ -616,7 +616,7 @@ $reportPayload=[
 
     'batchMonthlyByCentre'=>$batchMonthlyByCentre,
 
-    'trainingPartnerTrend'=>$trainingPartnerTrend,
+    'trainingPartnerTrend'=> !empty($isPublicReportView) ? ['certified' => [], 'placed' => []] : $trainingPartnerTrend,
     'schemeMonthlyByCentre'=>$schemeMonthlyByCentre,
     'schemeCentreStats'=>$schemeCentreStats,
 
@@ -1840,7 +1840,9 @@ Q4 (Jan–Mar)
                     } else {
                         echo ' · Total + per centre · ' . number_format($trendAdmissionsTotal) . ' admissions';
                     }
-                    echo ' · training partner certified and placed';
+                    if (empty($isPublicReportView)) {
+                        echo ' · training partner certified and placed';
+                    }
                     ?>
 
                 </small>
@@ -1914,7 +1916,9 @@ Q4 (Jan–Mar)
                         } else {
                             echo ' · Total + per scheme / partner · ' . number_format($schemeTrendAdmissionsTotal) . ' scheme admissions';
                         }
-                        echo ' · training partner figures';
+                        if (empty($isPublicReportView)) {
+                            echo ' · training partner figures';
+                        }
                         ?>
                     </small>
                 </div>
@@ -1996,7 +2000,7 @@ Q4 (Jan–Mar)
     </div>
 </div>
 
-<?php if ($trainingPartnerRows !== [] || empty($isPublicReportView)): ?>
+<?php if (empty($isPublicReportView)): ?>
 <div class="row mb-4">
     <div class="col-lg-12">
         <div class="card tp-figures-card shadow-sm" style="border:none; border-radius:15px;">
