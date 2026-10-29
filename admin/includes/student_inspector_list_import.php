@@ -680,7 +680,7 @@ if (!function_exists('inspectorImportStudentList')) {
 
             $studentId = '';
             $account = null;
-            if ($aadhar !== '' && function_exists('findAccountByAadhar')) {
+            if ($aadhar !== null && $aadhar !== '' && function_exists('findAccountByAadhar')) {
                 $account = findAccountByAadhar($conn, $aadhar);
             }
             if (is_array($account) && !empty($account['student_id'])) {
