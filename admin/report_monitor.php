@@ -581,6 +581,9 @@ foreach ($categoryStats as $row) {
 
 }
 
+$kpiTrainingPartnerFigures = (int) ($trainingPartnerTotals['enrolled'] ?? 0);
+$kpiAdmissionWithPartners = $kpiAdmission + $kpiTrainingPartnerFigures;
+
 $kpiBatches = (int) ($overallStats['total_batches'] ?? 0);
 
 $kpiCompleted = $overallStats['completed_batches'] ?? 0;
@@ -1732,7 +1735,7 @@ Q4 (Jan–Mar)
 
                 <div class="kpi-value">
 
-                    <?php echo number_format($kpiAdmission);?>
+                    <?php echo number_format(empty($isPublicReportView) ? $kpiAdmissionWithPartners : $kpiAdmission);?>
 
                 </div>
 
@@ -1741,6 +1744,14 @@ Q4 (Jan–Mar)
                     Students in Batch
 
                 </small>
+
+                <?php if (empty($isPublicReportView)): ?>
+                <small class="d-block mt-1">
+
+                    Training partner figures: <?php echo number_format($kpiTrainingPartnerFigures); ?>
+
+                </small>
+                <?php endif; ?>
 
             </div>
 
