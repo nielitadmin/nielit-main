@@ -669,12 +669,12 @@ $active_theme = loadActiveTheme($conn);
                         </div>
                     </div>
                 <?php endif; ?>
+                <button class="btn btn-warning mt-3" type="button" id="tpToggleStudents" aria-expanded="<?php echo $showStudents ? 'true' : 'false'; ?>">
+                    <span id="tpToggleStudentsLabel"><?php echo $showStudents ? 'Hide student list' : 'Show student list'; ?></span>
+                    (<?php echo count($students); ?>)
+                </button>
+                <div id="tpStudentList" class="mt-3" <?php echo $showStudents ? '' : 'hidden'; ?>>
                 <?php if ($students): ?>
-                    <button class="btn btn-warning mt-3" type="button" id="tpToggleStudents" aria-expanded="<?php echo $showStudents ? 'true' : 'false'; ?>">
-                        <span id="tpToggleStudentsLabel"><?php echo $showStudents ? 'Hide student list' : 'Show student list'; ?></span>
-                        (<?php echo count($students); ?>)
-                    </button>
-                    <div id="tpStudentList" class="mt-3" <?php echo $showStudents ? '' : 'hidden'; ?>>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="tpFilterScheme">Scheme / project</label>
@@ -830,8 +830,29 @@ $active_theme = loadActiveTheme($conn);
                         tpApplyStudentFilter();
                     </script>
                 <?php else: ?>
-                    <p class="text-muted mt-3 mb-0">No student records yet. Upload a sheet or add a candidate to open the student list.</p>
+                    <div class="alert alert-light border text-muted my-2">
+                        <i class="fas fa-info-circle me-1"></i> No student records in the list yet. Upload an Excel sheet above to view candidates.
+                    </div>
                 <?php endif; ?>
+                </div>
+                <script>
+                    var toggleBtn = document.getElementById('tpToggleStudents');
+                    if (toggleBtn) {
+                        toggleBtn.addEventListener('click', function () {
+                            var list = document.getElementById('tpStudentList');
+                            if (!list) return;
+                            var open = list.hasAttribute('hidden');
+                            if (open) {
+                                list.removeAttribute('hidden');
+                            } else {
+                                list.setAttribute('hidden', '');
+                            }
+                            this.setAttribute('aria-expanded', open ? 'true' : 'false');
+                            var lbl = document.getElementById('tpToggleStudentsLabel');
+                            if (lbl) lbl.textContent = open ? 'Hide student list' : 'Show student list';
+                        });
+                    }
+                </script>
             </div>
         </div>
     </main>
