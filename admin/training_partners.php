@@ -223,30 +223,50 @@ $active_theme = loadActiveTheme($conn);
                         <button class="btn btn-primary" type="submit">Save partner</button>
                     </form>
                     <?php if ($partners): ?>
-                        <table class="tp-table mt-3">
-                            <thead><tr><th>Partner</th><th>Centre</th><th></th></tr></thead>
-                            <tbody>
-                            <?php foreach ($partners as $partner): ?>
-                                <tr>
-                                    <td>
-                                        <?php echo htmlspecialchars((string) $partner['partner_name']); ?>
-                                        <?php if ((string) $partner['partner_code'] !== ''): ?>
-                                            <div class="text-muted small"><?php echo htmlspecialchars((string) $partner['partner_code']); ?></div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?php echo (int) $partner['centre_id'] > 0 ? htmlspecialchars(normalize_nielit_centre_name((string) $partner['centre_name'])) : 'All centres'; ?></td>
-                                    <td>
-                                        <a href="training_partners.php?edit=<?php echo (int) $partner['id']; ?>">Edit</a>
-                                        <form method="post" style="display:inline" onsubmit="return confirm('Remove this training partner?');">
-                                            <input type="hidden" name="action" value="delete_partner">
-                                            <input type="hidden" name="partner_id" value="<?php echo (int) $partner['id']; ?>">
-                                            <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                        <div class="table-responsive mt-3">
+                            <table class="tp-table">
+                                <thead>
+                                    <tr>
+                                        <th>Partner</th>
+                                        <th>Centre</th>
+                                        <th class="text-center">Students Trained</th>
+                                        <th class="text-center">Certified</th>
+                                        <th class="text-center">Placed</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($partners as $partner): ?>
+                                    <tr>
+                                        <td>
+                                            <strong><?php echo htmlspecialchars((string) $partner['partner_name']); ?></strong>
+                                            <?php if ((string) $partner['partner_code'] !== ''): ?>
+                                                <div class="text-muted small"><?php echo htmlspecialchars((string) $partner['partner_code']); ?></div>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?php echo (int) $partner['centre_id'] > 0 ? htmlspecialchars(normalize_nielit_centre_name((string) $partner['centre_name'])) : 'All centres'; ?></td>
+                                        <td class="text-center">
+                                            <span class="badge bg-primary fs-6 px-2 py-1"><?php echo number_format((int) ($partner['student_count'] ?? 0)); ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-success fs-6 px-2 py-1"><?php echo number_format((int) ($partner['certified_count'] ?? 0)); ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info text-dark fs-6 px-2 py-1"><?php echo number_format((int) ($partner['placed_count'] ?? 0)); ?></span>
+                                        </td>
+                                        <td>
+                                            <a href="training_partners.php?edit=<?php echo (int) $partner['id']; ?>" class="btn btn-sm btn-outline-secondary me-1">Edit</a>
+                                            <form method="post" style="display:inline" onsubmit="return confirm('Remove this training partner?');">
+                                                <input type="hidden" name="action" value="delete_partner">
+                                                <input type="hidden" name="partner_id" value="<?php echo (int) $partner['id']; ?>">
+                                                <button class="btn btn-link btn-sm text-danger" type="submit">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -461,7 +481,7 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="tpFilterScheme">Scheme / project</label>
                                 <select class="form-select" id="tpFilterScheme">
-                                    <option value="">Select scheme or project</option>
+                                    <option value="">All schemes / projects</option>
                                     <?php foreach ($schemes as $scheme): ?>
                                         <option value="<?php echo (int) $scheme['id']; ?>" <?php echo $filterScheme === (int) $scheme['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars((string) $scheme['scheme_name']); ?>
@@ -472,7 +492,7 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-md-6 mb-3">
                                 <label class="form-label" for="tpFilterPartner">Institute</label>
                                 <select class="form-select" id="tpFilterPartner">
-                                    <option value="">Select institute</option>
+                                    <option value="">All institutes</option>
                                     <?php foreach ($partners as $partner): ?>
                                         <option value="<?php echo (int) $partner['id']; ?>" <?php echo $filterPartner === (int) $partner['id'] ? 'selected' : ''; ?>>
                                             <?php echo htmlspecialchars((string) $partner['partner_name']); ?>
@@ -586,22 +606,26 @@ $active_theme = loadActiveTheme($conn);
                         function tpApplyStudentFilter() {
                             var scheme = document.getElementById('tpFilterScheme').value;
                             var partner = document.getElementById('tpFilterPartner').value;
-                            var ready = scheme !== '' && partner !== '';
                             var shown = 0;
                             document.querySelectorAll('#tpStudentBody tr').forEach(function (row) {
-                                var match = ready && row.getAttribute('data-scheme') === scheme && row.getAttribute('data-partner') === partner;
+                                var rowScheme = row.getAttribute('data-scheme');
+                                var rowPartner = row.getAttribute('data-partner');
+                                var matchScheme = (scheme === '' || rowScheme === scheme);
+                                var matchPartner = (partner === '' || rowPartner === partner);
+                                var match = matchScheme && matchPartner;
                                 row.hidden = !match;
                                 if (match) {
                                     shown += 1;
-                                    row.querySelector('.tp-sl').textContent = String(shown);
+                                    var sl = row.querySelector('.tp-sl');
+                                    if (sl) sl.textContent = String(shown);
                                 }
                             });
                             document.querySelectorAll('.tp-keep-scheme').forEach(function (input) { input.value = scheme; });
                             document.querySelectorAll('.tp-keep-partner').forEach(function (input) { input.value = partner; });
-                            document.getElementById('tpFilterHint').hidden = ready;
-                            document.getElementById('tpFilterEmpty').hidden = !ready || shown > 0;
-                            document.getElementById('tpFilterHelp').hidden = shown === 0;
-                            document.getElementById('tpStudentScroll').hidden = shown === 0;
+                            document.getElementById('tpFilterHint').hidden = true;
+                            document.getElementById('tpFilterEmpty').hidden = (shown > 0);
+                            document.getElementById('tpFilterHelp').hidden = (shown === 0);
+                            document.getElementById('tpStudentScroll').hidden = (shown === 0);
                         }
                         document.getElementById('tpFilterScheme').addEventListener('change', tpApplyStudentFilter);
                         document.getElementById('tpFilterPartner').addEventListener('change', tpApplyStudentFilter);

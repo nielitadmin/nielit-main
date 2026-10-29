@@ -118,10 +118,15 @@ if (!function_exists('training_partner_ensure_schema')) {
     {
         training_partner_ensure_schema($conn);
         $sql = "SELECT p.id, p.partner_name, p.partner_code, p.centre_id, p.is_active,
-                       COALESCE(c.name, '') AS centre_name
+                       COALESCE(c.name, '') AS centre_name,
+                       COUNT(st.id) AS student_count,
+                       SUM(CASE WHEN st.is_certified = 1 THEN 1 ELSE 0 END) AS certified_count,
+                       SUM(CASE WHEN st.is_placed = 1 THEN 1 ELSE 0 END) AS placed_count
                 FROM training_partners p
                 LEFT JOIN centres c ON c.id = p.centre_id
+                LEFT JOIN training_partner_students st ON st.partner_id = p.id
                 " . ($activeOnly ? 'WHERE p.is_active = 1 ' : '') . "
+                GROUP BY p.id, p.partner_name, p.partner_code, p.centre_id, p.is_active, c.name
                 ORDER BY p.partner_name ASC";
         $result = $conn->query($sql);
         $rows = [];
@@ -129,6 +134,22 @@ if (!function_exists('training_partner_ensure_schema')) {
             while ($row = $result->fetch_assoc()) {
                 $rows[] = $row;
             }
+        }
+        $figRes = $conn->query("SELECT partner_id, SUM(enrolled) AS fig_enrolled, SUM(certified) AS fig_certified, SUM(placed) AS fig_placed FROM training_partner_figures GROUP BY partner_id");
+        if ($figRes) {
+            $figMap = [];
+            while ($fr = $figRes->fetch_assoc()) {
+                $figMap[(int)$fr['partner_id']] = $fr;
+            }
+            foreach ($rows as &$r) {
+                $pid = (int) $r['id'];
+                if ((int) ($r['student_count'] ?? 0) === 0 && isset($figMap[$pid])) {
+                    $r['student_count'] = (int) $figMap[$pid]['fig_enrolled'];
+                    $r['certified_count'] = (int) $figMap[$pid]['fig_certified'];
+                    $r['placed_count'] = (int) $figMap[$pid]['fig_placed'];
+                }
+            }
+            unset($r);
         }
         return $rows;
     }
@@ -671,11 +692,11 @@ if (!function_exists('training_partner_ensure_schema')) {
         $limitClause = $limit > 0 ? ' LIMIT ' . (int) $limit : '';
         $sql = "SELECT st.id, st.partner_id, st.scheme_id, st.course_name, st.course_category, st.student_name, st.mobile, st.figure_month,
                        st.course_start_date, st.course_end_date, st.exam_date, st.is_certified, st.is_placed, {$detailSelect},
-                       p.partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
+                       COALESCE(p.partner_name, 'Unassigned Partner') AS partner_name, COALESCE(sc.scheme_name, '') AS scheme_name, COALESCE(sc.scheme_code, '') AS scheme_code
                 FROM training_partner_students st
-                INNER JOIN training_partners p ON p.id = st.partner_id
+                LEFT JOIN training_partners p ON p.id = st.partner_id
                 LEFT JOIN schemes sc ON sc.id = st.scheme_id
-                WHERE p.is_active = 1
+                WHERE (p.id IS NULL OR p.is_active = 1)
                 ORDER BY st.id ASC{$limitClause}";
         $result = $conn->query($sql);
         $rows = [];

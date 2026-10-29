@@ -2003,7 +2003,7 @@ Q4 (Jan–Mar)
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                     <strong>Training Partner Figures</strong>
-                    <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · certified, placed</small>
+                    <small class="text-muted ms-2"><?php echo htmlspecialchars($monthScopeLabel); ?> · enrolled, certified, placed</small>
                 </div>
                 <?php if (empty($isPublicReportView)): ?>
                     <a class="btn btn-sm btn-outline-primary" href="<?php echo htmlspecialchars(app_url('admin/training_partners')); ?>">Enter figures</a>
@@ -2013,7 +2013,7 @@ Q4 (Jan–Mar)
                 <?php if ($trainingPartnerRows === []): ?>
                     <div class="report-chart-empty">No training partner figures for this period.</div>
                 <?php else: ?>
-                    <div style="height: 320px;">
+                    <div style="position: relative; height: <?php echo max(340, min(800, count($trainingPartnerRows) * 36)); ?>px;">
                         <canvas id="trainingPartnerChart"></canvas>
                     </div>
                     <div class="table-responsive mt-3">
@@ -2032,23 +2032,23 @@ Q4 (Jan–Mar)
                                 <tr>
                                     <td><?php echo htmlspecialchars((string) ($trainingPartnerRow['scheme_name'] ?? '')) !== '' ? htmlspecialchars((string) $trainingPartnerRow['scheme_name']) : '—'; ?></td>
                                     <td>
-                                        <?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?>
+                                        <strong><?php echo htmlspecialchars($trainingPartnerRow['partner_name']); ?></strong>
                                         <?php if ($trainingPartnerRow['partner_code'] !== ''): ?>
-                                            <span class="text-muted small"><?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?></span>
+                                            <span class="text-muted small">(<?php echo htmlspecialchars($trainingPartnerRow['partner_code']); ?>)</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td class="text-end"><?php echo number_format((int) ($trainingPartnerRow['enrolled'] ?? 0)); ?></td>
-                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
-                                    <td class="text-end"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
+                                    <td class="text-end fw-semibold text-primary"><?php echo number_format((int) ($trainingPartnerRow['enrolled'] ?? 0)); ?></td>
+                                    <td class="text-end fw-semibold text-success"><?php echo number_format($trainingPartnerRow['certified']); ?></td>
+                                    <td class="text-end fw-semibold text-warning"><?php echo number_format($trainingPartnerRow['placed']); ?></td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>
                             <tfoot>
                                 <tr>
                                     <th colspan="2">Total</th>
-                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
-                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
-                                    <th class="text-end"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
+                                    <th class="text-end fw-bold text-primary"><?php echo number_format($trainingPartnerTotals['enrolled']); ?></th>
+                                    <th class="text-end fw-bold text-success"><?php echo number_format($trainingPartnerTotals['certified']); ?></th>
+                                    <th class="text-end fw-bold text-warning"><?php echo number_format($trainingPartnerTotals['placed']); ?></th>
                                 </tr>
                             </tfoot>
                         </table>
@@ -2064,18 +2064,47 @@ Q4 (Jan–Mar)
                             type: 'bar',
                             data: {
                                 labels: rows.map(function (row) {
-                                    return row.scheme_name ? row.scheme_name + ' · ' + row.partner_name : row.partner_name;
+                                    var name = row.partner_name || 'Partner';
+                                    return name.length > 30 ? name.substring(0, 28) + '…' : name;
                                 }),
                                 datasets: [
-                                    { label: 'Certified', data: rows.map(function (row) { return row.certified; }), backgroundColor: '#16a34a' },
-                                    { label: 'Placed', data: rows.map(function (row) { return row.placed; }), backgroundColor: '#0f172a' }
+                                    { label: 'Enrolled', data: rows.map(function (row) { return Number(row.enrolled || 0); }), backgroundColor: '#3b82f6' },
+                                    { label: 'Certified', data: rows.map(function (row) { return Number(row.certified || 0); }), backgroundColor: '#16a34a' },
+                                    { label: 'Placed', data: rows.map(function (row) { return Number(row.placed || 0); }), backgroundColor: '#f59e0b' }
                                 ]
                             },
                             options: {
+                                indexAxis: 'y',
                                 responsive: true,
                                 maintainAspectRatio: false,
-                                plugins: { legend: { position: 'bottom' } },
-                                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+                                plugins: {
+                                    legend: { position: 'top' },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: function (items) {
+                                                if (!items.length) return '';
+                                                var idx = items[0].dataIndex;
+                                                return rows[idx].partner_name || '';
+                                            },
+                                            afterTitle: function (items) {
+                                                if (!items.length) return '';
+                                                var idx = items[0].dataIndex;
+                                                return rows[idx].scheme_name ? 'Scheme: ' + rows[idx].scheme_name : '';
+                                            }
+                                        }
+                                    }
+                                },
+                                scales: {
+                                    x: {
+                                        beginAtZero: true,
+                                        ticks: { precision: 0 }
+                                    },
+                                    y: {
+                                        ticks: {
+                                            autoSkip: false
+                                        }
+                                    }
+                                }
                             }
                         });
                     });
