@@ -822,6 +822,42 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $rows;
     }
 
+    function training_partner_student_counts_by_partner(mysqli $conn): array
+    {
+        training_partner_ensure_schema($conn);
+        $sql = "SELECT p.id, COALESCE(p.partner_name, 'Unassigned Partner') AS partner_name, COUNT(st.id) AS total_students
+                FROM training_partner_students st
+                LEFT JOIN training_partners p ON p.id = st.partner_id
+                GROUP BY p.id, p.partner_name
+                HAVING total_students > 0
+                ORDER BY total_students DESC";
+        $res = $conn->query($sql);
+        $rows = [];
+        if ($res) {
+            while ($r = $res->fetch_assoc()) {
+                $rows[] = $r;
+            }
+        }
+        return $rows;
+    }
+
+    function training_partner_delete_students_by_partner(mysqli $conn, int $partnerId): array
+    {
+        training_partner_ensure_schema($conn);
+        if ($partnerId <= 0) {
+            return ['ok' => false, 'error' => 'Select a valid training partner.'];
+        }
+        $stmt = $conn->prepare('DELETE FROM training_partner_students WHERE partner_id = ?');
+        if (!$stmt) {
+            return ['ok' => false, 'error' => $conn->error];
+        }
+        $stmt->bind_param('i', $partnerId);
+        $ok = $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return ['ok' => (bool) $ok, 'deleted' => $affected];
+    }
+
     function training_partner_students_list(mysqli $conn, int $limit = 0): array
     {
         training_partner_ensure_schema($conn);

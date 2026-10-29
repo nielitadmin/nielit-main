@@ -207,6 +207,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = (string) ($res['error'] ?? 'Could not remove candidates for that upload batch.');
         }
+    } elseif ($action === 'undo_by_partner') {
+        $partnerId = (int) ($_POST['undo_partner_id'] ?? 0);
+        $res = training_partner_delete_students_by_partner($conn, $partnerId);
+        if (!empty($res['ok'])) {
+            $delCount = (int) ($res['deleted'] ?? 0);
+            unset($_SESSION['last_tp_upload']);
+            $success = "Successfully removed {$delCount} student records under that training partner. You can now re-upload for that partner cleanly.";
+            $showStudents = false;
+        } else {
+            $error = (string) ($res['error'] ?? 'Could not remove student records for this partner.');
+        }
     } elseif ($action === 'undo_by_scheme') {
         $schemeId = (int) ($_POST['undo_scheme_id'] ?? 0);
         $res = training_partner_delete_students_by_scheme($conn, $schemeId);
@@ -236,6 +247,7 @@ $students = training_partner_students_list($conn);
 $partners = training_partner_list($conn);
 $centres = training_partner_centres($conn);
 $schemeStudentCounts = training_partner_student_counts_by_scheme($conn);
+$partnerStudentCounts = training_partner_student_counts_by_partner($conn);
 $uploadBatches = training_partner_upload_batches($conn);
 $editId = (int) ($_GET['edit'] ?? 0);
 $editPartner = null;
@@ -805,7 +817,7 @@ $active_theme = loadActiveTheme($conn);
                                     <form method="post" onsubmit="return confirm('Are you sure you want to remove all candidates under this entire scheme (including all files uploaded for it)?');">
                                         <input type="hidden" name="action" value="undo_by_scheme">
                                         <label class="form-label small fw-semibold text-secondary">
-                                            <i class="fas fa-folder-minus me-1"></i> Option 2: Remove All Candidates under Scheme / Project
+                                            <i class="fas fa-folder-minus me-1"></i> Option 3: Remove All Candidates under Scheme / Project
                                         </label>
                                         <div class="input-group">
                                             <select class="form-select form-select-sm" name="undo_scheme_id" required>
@@ -826,7 +838,7 @@ $active_theme = loadActiveTheme($conn);
                                     <form method="post" onsubmit="return confirm('DANGER: This will delete ALL <?php echo count($students); ?> uploaded training partner students across all schemes and files. Are you sure?');">
                                         <input type="hidden" name="action" value="undo_all_students">
                                         <label class="form-label small fw-semibold text-danger">
-                                            <i class="fas fa-bomb me-1"></i> Option 3: Reset All Uploaded Students
+                                            <i class="fas fa-bomb me-1"></i> Option 4: Reset All Uploaded Students
                                         </label>
                                         <button class="btn btn-sm btn-outline-danger w-100" type="submit" <?php echo empty($students) ? 'disabled' : ''; ?>>
                                             <i class="fas fa-trash me-1"></i> Delete All Candidates (<?php echo count($students); ?>)
@@ -958,44 +970,239 @@ $active_theme = loadActiveTheme($conn);
                         </div>
                     </div>
                     <script>
-                        document.getElementById('tpToggleStudents').addEventListener('click', function () {
+                        (function() {
+                            // 1. Student List Toggle
+                            var toggleBtn = document.getElementById('tpToggleStudents');
                             var list = document.getElementById('tpStudentList');
-                            var open = list.hasAttribute('hidden');
-                            if (open) {
-                                list.removeAttribute('hidden');
-                            } else {
-                                list.setAttribute('hidden', 'hidden');
+                            if (toggleBtn && list) {
+                                toggleBtn.addEventListener('click', function () {
+                                    var open = list.hasAttribute('hidden');
+                                    if (open) {
+                                        list.removeAttribute('hidden');
+                                    } else {
+                                        list.setAttribute('hidden', 'hidden');
+                                    }
+                                    toggleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                                    var lbl = document.getElementById('tpToggleStudentsLabel');
+                                    if (lbl) lbl.textContent = open ? 'Hide student list' : 'Show student list';
+                                });
                             }
-                            this.setAttribute('aria-expanded', open ? 'true' : 'false');
-                            document.getElementById('tpToggleStudentsLabel').textContent = open ? 'Hide student list' : 'Show student list';
-                        });
-                        function tpApplyStudentFilter() {
-                            var scheme = document.getElementById('tpFilterScheme').value;
-                            var partner = document.getElementById('tpFilterPartner').value;
-                            var shown = 0;
-                            document.querySelectorAll('#tpStudentBody tr').forEach(function (row) {
-                                var rowScheme = row.getAttribute('data-scheme');
-                                var rowPartner = row.getAttribute('data-partner');
-                                var matchScheme = (scheme === '' || rowScheme === scheme);
-                                var matchPartner = (partner === '' || rowPartner === partner);
-                                var match = matchScheme && matchPartner;
-                                row.hidden = !match;
-                                if (match) {
-                                    shown += 1;
-                                    var sl = row.querySelector('.tp-sl');
-                                    if (sl) sl.textContent = String(shown);
+
+                            // 2. Training Partner Quick Select Dropdown (Left Card)
+                            var partnerSelect = document.getElementById('tpPartnerQuickSelect');
+                            var clearBtn = document.getElementById('tpClearPartnerFilter');
+                            var card = document.getElementById('tpSelectedPartnerCard');
+                            var cardName = document.getElementById('tpCardPartnerName');
+                            var cardCode = document.getElementById('tpCardPartnerCode');
+                            var cardCentre = document.getElementById('tpCardPartnerCentre');
+                            var cardTrained = document.getElementById('tpCardTrained');
+                            var cardCert = document.getElementById('tpCardCertified');
+                            var cardPlaced = document.getElementById('tpCardPlaced');
+                            var cardEdit = document.getElementById('tpCardEditLink');
+                            var cardViewStudents = document.getElementById('tpCardViewStudentsBtn');
+                            var tableRows = document.querySelectorAll('#tpPartnersTable tbody tr');
+                            var toggleTableBtn = document.getElementById('tpTogglePartnersTableBtn');
+                            var tableWrap = document.getElementById('tpPartnersTableWrap');
+                            var toggleTableLabel = document.getElementById('tpTogglePartnersTableLabel');
+
+                            if (toggleTableBtn && tableWrap) {
+                                toggleTableBtn.addEventListener('click', function() {
+                                    var hidden = (tableWrap.style.display === 'none');
+                                    tableWrap.style.display = hidden ? '' : 'none';
+                                    if (toggleTableLabel) toggleTableLabel.textContent = hidden ? 'Collapse Table' : 'Expand Table';
+                                });
+                            }
+
+                            function filterPartnerTable(selectedId) {
+                                if (!tableRows.length) return;
+                                if (!selectedId) {
+                                    tableRows.forEach(function(tr) { tr.style.display = ''; });
+                                    if (card) card.style.display = 'none';
+                                    if (clearBtn) clearBtn.style.display = 'none';
+                                    return;
                                 }
-                            });
-                            document.querySelectorAll('.tp-keep-scheme').forEach(function (input) { input.value = scheme; });
-                            document.querySelectorAll('.tp-keep-partner').forEach(function (input) { input.value = partner; });
-                            document.getElementById('tpFilterHint').hidden = true;
-                            document.getElementById('tpFilterEmpty').hidden = (shown > 0);
-                            document.getElementById('tpFilterHelp').hidden = (shown === 0);
-                            document.getElementById('tpStudentScroll').hidden = (shown === 0);
-                        }
-                        document.getElementById('tpFilterScheme').addEventListener('change', tpApplyStudentFilter);
-                        document.getElementById('tpFilterPartner').addEventListener('change', tpApplyStudentFilter);
-                        tpApplyStudentFilter();
+                                var matched = false;
+                                tableRows.forEach(function(tr) {
+                                    var rId = tr.getAttribute('data-partner-row-id');
+                                    if (rId === String(selectedId)) {
+                                        tr.style.display = '';
+                                        matched = true;
+                                    } else {
+                                        tr.style.display = 'none';
+                                    }
+                                });
+                                if (partnerSelect) {
+                                    var opt = partnerSelect.options[partnerSelect.selectedIndex];
+                                    if (opt && opt.value) {
+                                        if (cardName) cardName.textContent = opt.getAttribute('data-name') || '';
+                                        if (cardCode) cardCode.textContent = opt.getAttribute('data-code') || '—';
+                                        if (cardCentre) cardCentre.textContent = opt.getAttribute('data-centre') || 'All centres';
+                                        if (cardTrained) cardTrained.textContent = Number(opt.getAttribute('data-students') || 0).toLocaleString();
+                                        if (cardCert) cardCert.textContent = Number(opt.getAttribute('data-cert') || 0).toLocaleString();
+                                        if (cardPlaced) cardPlaced.textContent = Number(opt.getAttribute('data-placed') || 0).toLocaleString();
+                                        if (cardEdit) cardEdit.href = 'training_partners.php?edit=' + opt.value;
+                                        if (card) card.style.display = 'block';
+                                        if (clearBtn) clearBtn.style.display = '';
+                                    }
+                                }
+                            }
+
+                            if (partnerSelect) {
+                                partnerSelect.addEventListener('change', function() {
+                                    filterPartnerTable(this.value);
+                                });
+                            }
+                            if (clearBtn) {
+                                clearBtn.addEventListener('click', function() {
+                                    if (partnerSelect) partnerSelect.value = '';
+                                    filterPartnerTable('');
+                                });
+                            }
+
+                            // View Students from Partner card
+                            if (cardViewStudents) {
+                                cardViewStudents.addEventListener('click', function() {
+                                    var pId = partnerSelect ? partnerSelect.value : '';
+                                    if (!pId) return;
+                                    if (list && list.hasAttribute('hidden')) {
+                                        list.removeAttribute('hidden');
+                                        if (toggleBtn) {
+                                            toggleBtn.setAttribute('aria-expanded', 'true');
+                                            var lbl = document.getElementById('tpToggleStudentsLabel');
+                                            if (lbl) lbl.textContent = 'Hide student list';
+                                        }
+                                    }
+                                    var filterPartner = document.getElementById('tpFilterPartner');
+                                    if (filterPartner) {
+                                        filterPartner.value = pId;
+                                        tpApplyStudentFilter();
+                                    }
+                                    list.scrollIntoView({ behavior: 'smooth' });
+                                });
+                            }
+
+                            // 3. Student Filter & Dynamic Partner Dropdown
+                            // Cache original partner options
+                            var origPartnerOptions = [];
+                            var studentPartnerSelect = document.getElementById('tpFilterPartner');
+                            if (studentPartnerSelect) {
+                                Array.from(studentPartnerSelect.options).forEach(function(o, idx) {
+                                    if (idx > 0) {
+                                        origPartnerOptions.push({
+                                            value: o.value,
+                                            name: o.getAttribute('data-name') || o.textContent.replace(/\s*\([0-9,]+\s*candidates\)/i, '').trim(),
+                                            total: parseInt(o.getAttribute('data-partner-total') || '0', 10)
+                                        });
+                                    }
+                                });
+                            }
+
+                            function updatePartnerDropdownForScheme(selectedScheme) {
+                                if (!studentPartnerSelect) return;
+                                var currentVal = studentPartnerSelect.value;
+                                
+                                // Count students per partner under selectedScheme
+                                var partnerCounts = {};
+                                var partnerSet = new Set();
+                                var totalSchemeStudents = 0;
+                                document.querySelectorAll('#tpStudentBody tr').forEach(function (row) {
+                                    var rowScheme = row.getAttribute('data-scheme');
+                                    var rowPartner = row.getAttribute('data-partner');
+                                    if (selectedScheme === '' || rowScheme === selectedScheme) {
+                                        totalSchemeStudents++;
+                                        partnerCounts[rowPartner] = (partnerCounts[rowPartner] || 0) + 1;
+                                        partnerSet.add(rowPartner);
+                                    }
+                                });
+
+                                // Clear and rebuild options
+                                studentPartnerSelect.innerHTML = '';
+                                var topOpt = document.createElement('option');
+                                topOpt.value = '';
+                                if (selectedScheme === '') {
+                                    topOpt.textContent = 'All training partners / institutes (' + totalSchemeStudents.toLocaleString() + ' candidates)';
+                                } else {
+                                    topOpt.textContent = 'All partners in this scheme (' + totalSchemeStudents.toLocaleString() + ' candidates)';
+                                }
+                                studentPartnerSelect.appendChild(topOpt);
+
+                                var activePartnersCount = 0;
+                                origPartnerOptions.forEach(function(p) {
+                                    var count = partnerCounts[p.value] || 0;
+                                    if (selectedScheme === '' || count > 0) {
+                                        activePartnersCount++;
+                                        var opt = document.createElement('option');
+                                        opt.value = p.value;
+                                        opt.textContent = p.name + ' (' + count.toLocaleString() + ' candidates)';
+                                        if (p.value === currentVal) {
+                                            opt.selected = true;
+                                        }
+                                        studentPartnerSelect.appendChild(opt);
+                                    }
+                                });
+
+                                var badge = document.getElementById('tpPartnerCountIndicator');
+                                if (badge) {
+                                    badge.textContent = activePartnersCount + ' partner' + (activePartnersCount === 1 ? '' : 's');
+                                }
+                            }
+
+                            window.tpApplyStudentFilter = function() {
+                                var schemeElem = document.getElementById('tpFilterScheme');
+                                var partnerElem = document.getElementById('tpFilterPartner');
+                                if (!schemeElem || !partnerElem) return;
+
+                                var scheme = schemeElem.value;
+                                var partner = partnerElem.value;
+                                var shown = 0;
+
+                                document.querySelectorAll('#tpStudentBody tr').forEach(function (row) {
+                                    var rowScheme = row.getAttribute('data-scheme');
+                                    var rowPartner = row.getAttribute('data-partner');
+                                    var matchScheme = (scheme === '' || rowScheme === scheme);
+                                    var matchPartner = (partner === '' || rowPartner === partner);
+                                    var match = matchScheme && matchPartner;
+                                    row.hidden = !match;
+                                    if (match) {
+                                        shown += 1;
+                                        var sl = row.querySelector('.tp-sl');
+                                        if (sl) sl.textContent = String(shown);
+                                    }
+                                });
+
+                                document.querySelectorAll('.tp-keep-scheme').forEach(function (input) { input.value = scheme; });
+                                document.querySelectorAll('.tp-keep-partner').forEach(function (input) { input.value = partner; });
+                                
+                                var hint = document.getElementById('tpFilterHint');
+                                if (hint) hint.hidden = true;
+                                var empty = document.getElementById('tpFilterEmpty');
+                                if (empty) empty.hidden = (shown > 0);
+                                var help = document.getElementById('tpFilterHelp');
+                                if (help) help.hidden = (shown === 0);
+                                var scroll = document.getElementById('tpStudentScroll');
+                                if (scroll) scroll.hidden = (shown === 0);
+                            };
+
+                            var schemeFilterElem = document.getElementById('tpFilterScheme');
+                            if (schemeFilterElem) {
+                                schemeFilterElem.addEventListener('change', function() {
+                                    updatePartnerDropdownForScheme(this.value);
+                                    tpApplyStudentFilter();
+                                });
+                            }
+
+                            if (studentPartnerSelect) {
+                                studentPartnerSelect.addEventListener('change', function() {
+                                    tpApplyStudentFilter();
+                                });
+                            }
+
+                            // Initialize
+                            if (schemeFilterElem) {
+                                updatePartnerDropdownForScheme(schemeFilterElem.value);
+                            }
+                            tpApplyStudentFilter();
+                        })();
                     </script>
                 <?php else: ?>
                     <div class="alert alert-light border text-muted my-2">
@@ -1003,24 +1210,6 @@ $active_theme = loadActiveTheme($conn);
                     </div>
                 <?php endif; ?>
                 </div>
-                <script>
-                    var toggleBtn = document.getElementById('tpToggleStudents');
-                    if (toggleBtn) {
-                        toggleBtn.addEventListener('click', function () {
-                            var list = document.getElementById('tpStudentList');
-                            if (!list) return;
-                            var open = list.hasAttribute('hidden');
-                            if (open) {
-                                list.removeAttribute('hidden');
-                            } else {
-                                list.setAttribute('hidden', '');
-                            }
-                            this.setAttribute('aria-expanded', open ? 'true' : 'false');
-                            var lbl = document.getElementById('tpToggleStudentsLabel');
-                            if (lbl) lbl.textContent = open ? 'Hide student list' : 'Show student list';
-                        });
-                    }
-                </script>
             </div>
         </div>
     </main>
