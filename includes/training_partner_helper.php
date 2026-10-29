@@ -907,7 +907,22 @@ if (!function_exists('training_partner_ensure_schema')) {
             }
             return null;
         }
-        foreach (['Y-m-d', 'd-m-Y', 'd/m/Y', 'd.m.Y', 'd-M-Y', 'j-M-Y', 'd M Y'] as $format) {
+        foreach ([
+            'Y-m-d',
+            'd-m-Y',
+            'd/m/Y',
+            'm/d/Y',
+            'n/j/Y',
+            'j/n/Y',
+            'm-d-Y',
+            'n-j-Y',
+            'd.m.Y',
+            'm.d.Y',
+            'd-M-Y',
+            'j-M-Y',
+            'd M Y',
+            'Y/m/d'
+        ] as $format) {
             $parsed = DateTime::createFromFormat('!' . $format, $text);
             $errors = DateTime::getLastErrors();
             if ($parsed instanceof DateTime && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
@@ -1215,7 +1230,33 @@ if (!function_exists('training_partner_ensure_schema')) {
         return $sheets;
     }
 
-    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null, ?string $defaultCourseCategory = null): array
+    function training_partner_bulk_update_scheme_dates(mysqli $conn, int $schemeId, ?string $courseStart, ?string $courseEnd, ?string $examDate = null): array
+    {
+        if ($schemeId <= 0) {
+            return ['ok' => false, 'error' => 'Select a valid scheme / project.'];
+        }
+        $figureMonth = training_partner_figure_month_from_course($courseStart, $courseEnd);
+        $hasExam = ($examDate !== null && $examDate !== '');
+        $sql = "UPDATE training_partner_students 
+                SET course_start_date = ?, course_end_date = ?, figure_month = ?" .
+                ($hasExam ? ", exam_date = ?" : "") .
+                " WHERE scheme_id = ?";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return ['ok' => false, 'error' => $conn->error];
+        }
+        if ($hasExam) {
+            $stmt->bind_param('ssssi', $courseStart, $courseEnd, $figureMonth, $examDate, $schemeId);
+        } else {
+            $stmt->bind_param('sssi', $courseStart, $courseEnd, $figureMonth, $schemeId);
+        }
+        $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+        return ['ok' => true, 'updated' => $affected];
+    }
+
+    function training_partner_import_students(mysqli $conn, string $path, string $originalName, int $partnerId, int $schemeId, ?string $courseStart = null, ?string $courseEnd = null, ?string $examDate = null, ?string $defaultCourseCategory = null, bool $overrideSheetDates = false): array
     {
         @ini_set('memory_limit', '1024M');
         @set_time_limit(600);
@@ -1289,11 +1330,11 @@ if (!function_exists('training_partner_ensure_schema')) {
                 (int) $record['certified'],
                 (int) $record['placed'],
                 (string) ($record['course_name'] ?? ''),
-                $record['course_start'] ?? $defaultStart,
-                $record['course_end'] ?? $defaultEnd,
+                ($overrideSheetDates && $defaultStart !== null) ? $defaultStart : ($record['course_start'] ?? $defaultStart),
+                ($overrideSheetDates && $defaultEnd !== null) ? $defaultEnd : ($record['course_end'] ?? $defaultEnd),
                 is_array($record['details'] ?? null) ? $record['details'] : [],
-                !empty($record['has_exam_date']) ? ($record['exam_date'] ?? $defaultExam) : $defaultExam,
-                !empty($record['has_exam_date']) || $defaultExam !== null,
+                ($overrideSheetDates && $defaultExam !== null) ? $defaultExam : (!empty($record['has_exam_date']) ? ($record['exam_date'] ?? $defaultExam) : $defaultExam),
+                $overrideSheetDates || !empty($record['has_exam_date']) || $defaultExam !== null,
                 $rowCourseCategory
             );
             if (!empty($result['ok'])) {

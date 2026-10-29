@@ -80,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Choose an Excel file to upload.';
             }
         } else {
+            $overrideDates = !empty($_POST['override_sheet_dates']);
             $result = training_partner_import_students(
                 $conn,
                 (string) $file['tmp_name'],
@@ -89,7 +90,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 training_partner_parse_date($_POST['course_start_date'] ?? ''),
                 training_partner_parse_date($_POST['course_end_date'] ?? ''),
                 training_partner_parse_date($_POST['exam_date'] ?? ''),
-                (string) ($_POST['course_category'] ?? '')
+                (string) ($_POST['course_category'] ?? ''),
+                $overrideDates
             );
             if (!empty($result['ok'])) {
                 $showStudents = true;
@@ -121,6 +123,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success = $updated ? 'Certified and placement updated for that candidate.' : '';
         if ($success === '') {
             $error = 'Could not update certified and placement for that candidate.';
+        }
+    } elseif ($action === 'bulk_update_scheme_dates') {
+        $showStudents = true;
+        $bulkSchemeId = (int) ($_POST['bulk_scheme_id'] ?? 0);
+        $sStart = training_partner_parse_date($_POST['bulk_start_date'] ?? '');
+        $sEnd = training_partner_parse_date($_POST['bulk_end_date'] ?? '');
+        $sExam = training_partner_parse_date($_POST['bulk_exam_date'] ?? '');
+        $result = training_partner_bulk_update_scheme_dates($conn, $bulkSchemeId, $sStart, $sEnd, $sExam);
+        if (!empty($result['ok'])) {
+            $filterScheme = $bulkSchemeId;
+            $success = "Successfully updated dates for " . (int) $result['updated'] . " students under that scheme.";
+        } else {
+            $error = (string) ($result['error'] ?? 'Could not update scheme dates.');
         }
     } elseif ($action === 'delete_student') {
         $showStudents = true;
@@ -467,9 +482,68 @@ $active_theme = loadActiveTheme($conn);
                                 <label class="form-label">Exam date</label>
                                 <input class="form-control" type="date" name="exam_date">
                             </div>
+                            <div class="col-12 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="override_sheet_dates" value="1" id="overrideSheetDates">
+                                    <label class="form-check-label" for="overrideSheetDates">
+                                        <strong>Override dates in spreadsheet with the dates above</strong> (e.g. to assign all candidates to FY 2026-2027)
+                                    </label>
+                                </div>
+                            </div>
                         </div>
                         <button class="btn btn-primary" type="submit">Upload students</button>
                     </form>
+
+                    <div class="card mt-4 border-0 shadow-sm bg-light">
+                        <div class="card-body py-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-semibold text-secondary">
+                                    <i class="fas fa-calendar-alt me-1 text-primary"></i> Batch Date Tool / Assign Financial Year
+                                </h6>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tpBatchDateCollapse" aria-expanded="false" aria-controls="tpBatchDateCollapse">
+                                    Adjust Existing Scheme Dates
+                                </button>
+                            </div>
+                            <div class="collapse mt-3" id="tpBatchDateCollapse">
+                                <form method="post">
+                                    <input type="hidden" name="action" value="bulk_update_scheme_dates">
+                                    <p class="text-muted small mb-2">
+                                        If students were uploaded with dates from another year (e.g. 2025) and you want them to count in <strong>FY 2026-2027</strong> in Report Monitor, select the scheme and set the dates below:
+                                    </p>
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Scheme / project</label>
+                                            <select class="form-select form-select-sm" name="bulk_scheme_id" required>
+                                                <option value="">Select scheme</option>
+                                                <?php foreach ($schemes as $scheme): ?>
+                                                    <option value="<?php echo (int) $scheme['id']; ?>"><?php echo htmlspecialchars((string) $scheme['scheme_name']); ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Course Start Date</label>
+                                            <input class="form-control form-control-sm" type="date" name="bulk_start_date" id="bulkStartDate" required>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">Course End Date</label>
+                                            <input class="form-control form-control-sm" type="date" name="bulk_end_date" id="bulkEndDate">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button class="btn btn-sm btn-primary w-100" type="submit">Update Dates</button>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none me-3" onclick="document.getElementById('bulkStartDate').value='2026-06-01'; document.getElementById('bulkEndDate').value='2026-11-30';">
+                                            <i class="fas fa-magic me-1"></i> Quick Fill FY 2026-2027 (Jun–Nov 2026)
+                                        </button>
+                                        <button type="button" class="btn btn-link btn-sm p-0 text-decoration-none" onclick="document.getElementById('bulkStartDate').value='2025-06-01'; document.getElementById('bulkEndDate').value='2025-11-30';">
+                                            <i class="fas fa-undo me-1"></i> Quick Fill FY 2025-2026
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 <?php endif; ?>
                 <?php if ($students): ?>
                     <button class="btn btn-warning mt-3" type="button" id="tpToggleStudents" aria-expanded="<?php echo $showStudents ? 'true' : 'false'; ?>">
