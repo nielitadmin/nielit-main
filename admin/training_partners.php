@@ -298,6 +298,47 @@ $active_theme = loadActiveTheme($conn);
         .tp-flag-form { display: flex; align-items: center; gap: 12px; margin: 0; }
         .tp-flag-form label { margin: 0; white-space: nowrap; font-weight: 600; }
     </style>
+    <script>
+        function tpToggleCollapseManual(targetId, btn) {
+            var el = document.getElementById(targetId);
+            if (!el) return;
+            var isHidden = !el.classList.contains('show') && (el.style.display === '' || el.style.display === 'none');
+            if (isHidden) {
+                el.classList.add('show');
+                el.style.display = 'block';
+                if (btn) {
+                    btn.setAttribute('aria-expanded', 'true');
+                    var ch = btn.querySelector('.fa-chevron-down');
+                    if (ch) {
+                        ch.classList.remove('fa-chevron-down');
+                        ch.classList.add('fa-chevron-up');
+                    }
+                    var txt = btn.querySelector('.tp-btn-text');
+                    if (txt) {
+                        if (!txt.getAttribute('data-orig-text')) {
+                            txt.setAttribute('data-orig-text', txt.textContent);
+                        }
+                        txt.textContent = 'Hide duplicate candidates';
+                    }
+                }
+            } else {
+                el.classList.remove('show');
+                el.style.display = 'none';
+                if (btn) {
+                    btn.setAttribute('aria-expanded', 'false');
+                    var ch = btn.querySelector('.fa-chevron-up');
+                    if (ch) {
+                        ch.classList.remove('fa-chevron-up');
+                        ch.classList.add('fa-chevron-down');
+                    }
+                    var txt = btn.querySelector('.tp-btn-text');
+                    if (txt && txt.getAttribute('data-orig-text')) {
+                        txt.textContent = txt.getAttribute('data-orig-text');
+                    }
+                }
+            }
+        }
+    </script>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 <div class="admin-wrapper">
@@ -338,7 +379,7 @@ $active_theme = loadActiveTheme($conn);
                             <span class="small fw-semibold text-secondary">
                                 <i class="fas fa-copy me-1"></i> <?php echo count($uploadDuplicates); ?> Duplicate Candidate Rows in Spreadsheet (Merged):
                             </span>
-                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpDuplicateListCollapse" aria-expanded="false" aria-controls="tpDuplicateListCollapse">
+                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpDuplicateListCollapse" aria-expanded="false" aria-controls="tpDuplicateListCollapse" onclick="tpToggleCollapseManual('tpDuplicateListCollapse', this);">
                                 View <?php echo count($uploadDuplicates); ?> duplicate candidates <i class="fas fa-chevron-down ms-1"></i>
                             </button>
                         </div>
@@ -396,7 +437,7 @@ $active_theme = loadActiveTheme($conn);
                             <span class="small fw-semibold text-secondary">
                                 <i class="fas fa-copy me-1"></i> <?php echo count($uploadDuplicates); ?> Duplicate Candidate Rows in Spreadsheet:
                             </span>
-                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpLastDuplicateListCollapse" aria-expanded="false" aria-controls="tpLastDuplicateListCollapse">
+                            <button class="btn btn-sm btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#tpLastDuplicateListCollapse" aria-expanded="false" aria-controls="tpLastDuplicateListCollapse" onclick="tpToggleCollapseManual('tpLastDuplicateListCollapse', this);">
                                 View duplicate candidates <i class="fas fa-chevron-down ms-1"></i>
                             </button>
                         </div>
@@ -724,7 +765,7 @@ $active_theme = loadActiveTheme($conn);
                                 <h6 class="mb-0 fw-semibold text-secondary">
                                     <i class="fas fa-calendar-alt me-1 text-primary"></i> Batch Date Tool / Assign Financial Year
                                 </h6>
-                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tpBatchDateCollapse" aria-expanded="false" aria-controls="tpBatchDateCollapse">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tpBatchDateCollapse" aria-expanded="false" aria-controls="tpBatchDateCollapse" onclick="tpToggleCollapseManual('tpBatchDateCollapse', this);">
                                     Adjust Existing Scheme Dates
                                 </button>
                             </div>
@@ -1214,5 +1255,17 @@ $active_theme = loadActiveTheme($conn);
         </div>
     </main>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Universal collapse listener as fallback
+    document.addEventListener('click', function(e) {
+        var btn = e.target.closest('[data-bs-toggle="collapse"]');
+        if (!btn) return;
+        var targetSelector = btn.getAttribute('data-bs-target') || btn.getAttribute('href');
+        if (!targetSelector) return;
+        var targetId = targetSelector.replace('#', '');
+        tpToggleCollapseManual(targetId, btn);
+    });
+</script>
 </body>
 </html>
