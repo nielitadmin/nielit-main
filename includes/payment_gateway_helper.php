@@ -261,6 +261,39 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         ];
     }
 
+    /** Display rupees without .00 when the amount is a whole number. */
+    function payment_money_display(float $amount, bool $preferWhole = true): string
+    {
+        if ($preferWhole && abs($amount - round($amount)) < 0.001) {
+            return number_format((int) round($amount), 0);
+        }
+        return number_format($amount, 2);
+    }
+
+    /** One-line breakdown for students (whole-rupee checkout). */
+    function payment_online_fee_breakdown_text(array $row): string
+    {
+        $receive = (int) ($row['receive_amount'] ?? 0);
+        $platform = (float) ($row['platform_fee'] ?? 0);
+        $total = (float) ($row['amount'] ?? 0);
+        if ($total <= 0 && $receive > 0) {
+            $charge = payment_charge_from_receive($receive);
+            $total = (float) $charge['total'];
+            $platform = (float) $charge['platform_fee'];
+            $receive = (int) $charge['receive'];
+        }
+        $pct = rtrim(rtrim(number_format(payment_platform_percent(), 1), '0'), '.');
+        return 'Pay ₹' . payment_money_display($total)
+            . ' (course fee ₹' . payment_money_display((float) $receive)
+            . ' + platform ₹' . payment_money_display($platform)
+            . ', ' . $pct . '% rounded to whole rupees)';
+    }
+
+    function payment_online_fee_settlement_note(): string
+    {
+        return 'After payment, Razorpay deducts a small gateway fee and GST from the total. Net settlement in the bank is slightly lower than the amount you pay here; your money receipt shows the full amount paid.';
+    }
+
     function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $receiveAmount): void
     {
         if ($courseId <= 0) {
@@ -289,11 +322,12 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             <label class="form-check-label" for="<?php echo htmlspecialchars($checkboxId); ?>">Accept online payment for this course</label>
         </div>
         <div id="<?php echo htmlspecialchars($panelId); ?>" class="online-pay-panel" style="display:<?php echo $checked ? 'block' : 'none'; ?>; margin-top:10px; padding:12px 14px; border:1px solid #c9d7ea; border-radius:8px; background:#f4f8fc;">
-            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Amount you want to receive (whole rupees only)</label>
-            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="10" autocomplete="off" style="max-width:220px;">
+            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Course fee for the centre (whole rupees you want to receive)</label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="100" autocomplete="off" style="max-width:220px;">
             <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:8px; font-size:13px;">
-                Example: institute receives ₹10 → student pays a round ₹11 (2.4% is rounded up into the platform line).
+                Example: enter 100 → student pays ₹103 (course ₹100 + platform ₹3; 2.4% rounded up to whole rupees).
             </div>
+            <p class="text-muted small mb-0 mt-2"><?php echo htmlspecialchars(payment_online_fee_settlement_note()); ?></p>
         </div>
         <?php
     }
@@ -330,13 +364,13 @@ if (!function_exists('payment_gateway_ensure_schema')) {
                 var percent = parseFloat(preview.getAttribute('data-percent') || '2.4');
                 var receive = parseInt(digits, 10);
                 if (!receive) {
-                    preview.textContent = 'Example: institute receives ₹10 → student pays round ₹11 (2.4% platform rounded to whole rupees).';
+                    preview.textContent = 'Example: enter 100 → student pays ₹103 (course ₹100 + platform ₹3).';
                     return;
                 }
                 var totalExact = receive * (1 + percent / 100);
                 var total = Math.ceil(totalExact - 1e-9);
                 var fee = total - receive;
-                preview.textContent = 'Institute receives ' + money(receive) + '. Platform fee (2.4%, whole rupees) ' + money(fee) + '. Student pays ' + money(total) + ' (round figure).';
+                preview.textContent = 'Centre receives ₹' + receive + '. Student pays ₹' + total + ' (platform ₹' + fee + ', ' + percent + '% rounded to whole rupees).';
             }
             document.querySelectorAll('.online-pay-toggle').forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () { refresh(checkbox); });
@@ -1062,6 +1096,11 @@ if (!function_exists('payment_gateway_ensure_schema')) {
                 'platform_percent' => (float) ($offer['platform_percent'] ?? payment_platform_percent()),
                 'paid' => $alreadyPaid,
                 'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
+            'breakdown_text' => payment_online_fee_breakdown_text([
+                'amount' => $onlineAmount,
+                'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
+                'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
+            ]),
             ];
         }
         return $onlineFeeCourses;

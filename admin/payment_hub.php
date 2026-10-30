@@ -141,8 +141,8 @@ $ready = payment_hub_is_ready();
     </form>
 
     <div class="alert alert-light border mt-4 small">
-        <strong>Test a fee payment:</strong> Enable a course for online payment, log in as a student → Fee Details → Pay via Payment Portal.
-        After Razorpay test payment, the student should return paid and see the hub money receipt.
+        <strong>Online course fee model:</strong> Enter the <em>centre course fee</em> in whole rupees on each course (e.g. 100). Students pay a round total (e.g. ₹103 = ₹100 course + ₹3 platform; 2.4% rounded up). Razorpay gateway charges reduce net bank settlement slightly — see the payment hub register.
+        <br><strong>Test:</strong> Enable online payment on a course, log in as a student → Fee Details → Pay via Payment Portal. After payment, the student sees a money receipt on the hub.
     </div>
 </div>
 </body>

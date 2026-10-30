@@ -207,20 +207,23 @@ include 'includes/header.php';
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
-                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th><th>Receipt</th></tr></thead>
+                            <thead><tr><th>Course</th><th>You pay</th><th>Paid</th><th>Status</th><th>Receipt</th></tr></thead>
                             <tbody>
                             <?php foreach ($dashboardOnlineFees as $df):
                                 $dashInv = payment_student_latest_paid_invoice_row($conn, $student_id, (int) $df['course_id']);
                             ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($df['course_name']); ?></td>
-                                    <td>₹<?php echo number_format((float) $df['amount'], 2); ?></td>
-                                    <td>₹<?php echo number_format((float) $df['paid'], 2); ?></td>
+                                    <td title="<?php echo htmlspecialchars((string) ($df['breakdown_text'] ?? '')); ?>">
+                                        ₹<?php echo payment_money_display((float) $df['amount']); ?>
+                                        <span class="text-muted small d-block">Centre ₹<?php echo payment_money_display((float) $df['receive_amount']); ?></span>
+                                    </td>
+                                    <td>₹<?php echo payment_money_display((float) $df['paid']); ?></td>
                                     <td>
                                         <?php if ($df['due'] <= 0): ?>
                                             <span class="badge bg-success">Paid</span>
                                         <?php else: ?>
-                                            <span class="badge bg-warning text-dark">Due ₹<?php echo number_format((float) $df['due'], 2); ?></span>
+                                            <span class="badge bg-warning text-dark">Due ₹<?php echo payment_money_display((float) $df['due']); ?></span>
                                         <?php endif; ?>
                                     </td>
                                     <td>
