@@ -235,15 +235,29 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return (int) $text;
     }
 
+    /**
+     * NIELIT online fee: 2.4% on the institute receive amount, but the student pays a whole rupee total
+     * (e.g. ₹10 course → ₹11 collected, ₹1 platform) so registers and receipts stay in round rupees.
+     */
     function payment_charge_from_receive(int $receive): array
     {
         $percent = payment_platform_percent();
-        $fee = round($receive * $percent / 100, 2);
+        if ($receive <= 0) {
+            return [
+                'receive' => 0,
+                'platform_percent' => $percent,
+                'platform_fee' => 0.0,
+                'total' => 0.0,
+            ];
+        }
+        $totalExact = $receive * (1 + $percent / 100);
+        $total = (int) ceil($totalExact - 1e-9);
+        $fee = $total - $receive;
         return [
             'receive' => $receive,
             'platform_percent' => $percent,
-            'platform_fee' => $fee,
-            'total' => round($receive + $fee, 2),
+            'platform_fee' => (float) $fee,
+            'total' => (float) $total,
         ];
     }
 
@@ -278,7 +292,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Amount you want to receive (whole rupees only)</label>
             <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="10" autocomplete="off" style="max-width:220px;">
             <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:8px; font-size:13px;">
-                Example: ₹10 + <?php echo htmlspecialchars((string) $percent); ?>% = ₹10.24 shown to the student.
+                Example: institute receives ₹10 → student pays a round ₹11 (2.4% is rounded up into the platform line).
             </div>
         </div>
         <?php
@@ -316,12 +330,13 @@ if (!function_exists('payment_gateway_ensure_schema')) {
                 var percent = parseFloat(preview.getAttribute('data-percent') || '2.4');
                 var receive = parseInt(digits, 10);
                 if (!receive) {
-                    preview.textContent = 'Example: ₹10 + ' + percent + '% = ₹10.24. That ₹10.24 is what the student sees.';
+                    preview.textContent = 'Example: institute receives ₹10 → student pays round ₹11 (2.4% platform rounded to whole rupees).';
                     return;
                 }
-                var fee = Math.round(receive * percent) / 100;
-                var total = Math.round((receive + fee) * 100) / 100;
-                preview.textContent = 'You receive ' + money(receive) + '. Platform fee ' + percent + '% is ' + money(fee) + '. Student pays ' + money(total) + '.';
+                var totalExact = receive * (1 + percent / 100);
+                var total = Math.ceil(totalExact - 1e-9);
+                var fee = total - receive;
+                preview.textContent = 'Institute receives ' + money(receive) + '. Platform fee (2.4%, whole rupees) ' + money(fee) + '. Student pays ' + money(total) + ' (round figure).';
             }
             document.querySelectorAll('.online-pay-toggle').forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () { refresh(checkbox); });

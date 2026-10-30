@@ -70,7 +70,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
         </div>
     </form>
     <p class="small text-secondary mb-0 mt-2">Showing <?php echo count($rows); ?> of <?php echo (int) $total; ?> matching rows (max 200 on screen; export includes up to 5000).</p>
-    <p class="small text-secondary mb-0"><strong>Collected</strong> = payer total · <strong>Institute</strong> = course/centre fee portion · <strong>Platform</strong> = NIELIT online fee · <strong>Bank (est.)</strong> = institute/centre fee for bank books (e.g. ₹10 on a ₹10.24 payment). Razorpay pays the linked account <em>net</em> of gateway charges (Collected − Razorpay fee − GST); see Details for that figure.</p>
+    <p class="small text-secondary mb-0"><strong>Collected</strong> = round rupees the student paid · <strong>Institute</strong> = course/centre fee (whole ₹, e.g. ₹10) · <strong>Platform</strong> = NIELIT 2.4% rounded to whole rupees on top · <strong>Bank (est.)</strong> = same as institute for accounts · <strong>Razorpay</strong> column = gateway fee + GST (~1.5%+GST on collected, not 2.4%) · Details shows Razorpay net settlement.</p>
 </div>
 
 <div class="hub-card-panel">

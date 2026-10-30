@@ -5,16 +5,29 @@ function hub_platform_percent_default(): float
     return 2.4;
 }
 
-/** Infer institute receive + platform fee from gross collected (MIS 2.4% model). */
+/** Infer institute receive + platform fee from gross collected (whole-rupee checkout when possible). */
 function hub_payment_infer_platform_split(int $amountPaise, ?float $percent = null): array
 {
     $percent = $percent ?? hub_platform_percent_default();
     if ($amountPaise <= 0) {
         return ['fee_receive_paise' => 0, 'platform_fee_paise' => 0, 'platform_percent' => $percent];
     }
-    $total = $amountPaise / 100.0;
-    $receive = round($total / (1 + $percent / 100), 2);
-    $platform = round($total - $receive, 2);
+    $collectedRupees = $amountPaise / 100;
+    if (fmod($collectedRupees, 1.0) < 0.001) {
+        $total = (int) round($collectedRupees);
+        for ($receive = $total; $receive >= 0; $receive--) {
+            $expectedTotal = (int) ceil($receive * (1 + $percent / 100) - 1e-9);
+            if ($expectedTotal === $total) {
+                return [
+                    'fee_receive_paise' => $receive * 100,
+                    'platform_fee_paise' => ($total - $receive) * 100,
+                    'platform_percent' => $percent,
+                ];
+            }
+        }
+    }
+    $receive = round($collectedRupees / (1 + $percent / 100), 2);
+    $platform = round($collectedRupees - $receive, 2);
     return [
         'fee_receive_paise' => (int) round($receive * 100),
         'platform_fee_paise' => (int) round($platform * 100),
