@@ -195,23 +195,4 @@ function hub_schema_seed_defaults(mysqli $conn): void
             $stmt->close();
         }
     }
-
-    if (is_array($hub_secrets)) {
-        $keys = [
-            'razorpay_mode' => (string) ($hub_secrets['razorpay_mode'] ?? 'test'),
-            'razorpay_key_id' => (string) ($hub_secrets['razorpay_key_id'] ?? ''),
-            'razorpay_key_secret' => (string) ($hub_secrets['razorpay_key_secret'] ?? ''),
-            'razorpay_webhook_secret' => (string) ($hub_secrets['razorpay_webhook_secret'] ?? ''),
-        ];
-        foreach ($keys as $k => $v) {
-            if ($v === '') {
-                continue;
-            }
-            $existing = hub_setting_get($conn, $k);
-            if ($existing === null) {
-                hub_setting_set($conn, $k, $v);
-            }
-        }
-        hub_razorpay_sync_from_secrets($conn, $hub_secrets);
-    }
 }

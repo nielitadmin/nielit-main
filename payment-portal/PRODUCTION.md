@@ -20,9 +20,7 @@
    Copy from `config/database.example.php` and use your real password.
 
 4. Create **`config/secrets.php`** from `config/secrets.example.php`:
-   - Strong `admin_password`
-   - Razorpay **live** or **test** keys
-   - Webhook secret from Razorpay dashboard
+   - Strong `admin_password` for the first staff login (seeded once into `hub_admin_users`).
 
 5. **Deploy code** — git pull or upload the `payment-portal/` tree.  
    Do **not** overwrite `config/database.php` or `config/secrets.php` on the server when updating.
@@ -31,11 +29,14 @@
    - https://payment.nielitbhubaneswar.in/
    - https://payment.nielitbhubaneswar.in/admin/login.php
 
-7. **Razorpay webhook** (Dashboard → Webhooks):
+7. **Admin → Gateway** — enter Razorpay **Key ID**, **Key secret**, **webhook secret**, and test/live mode.  
+   This is the **only** place Razorpay credentials are stored. Run **Test Razorpay connection** after saving.
+
+8. **Razorpay webhook** (Dashboard → Webhooks):
    - URL: `https://payment.nielitbhubaneswar.in/api/v1/razorpay/webhook.php`
    - Events: `payment.captured`, `payment.failed`, `refund.processed`
 
-8. **Admin → Sources** — copy the **MIS shared secret** into MIS when you integrate Phase 2.
+9. **Admin → Sources** — copy the **MIS shared secret** into MIS when you integrate Phase 2.
 
 ## 2. How URLs are chosen
 
@@ -68,7 +69,7 @@ Override with environment variables `HUB_APP_URL` or `HUB_ENV` if your host supp
 |-------------|--------|
 | **Layout** | Fixed left sidebar (268px); main content and footer sit to the right—no overlap with sidebar or quick-link cards. |
 | **First visit** | Blue **Complete setup** banner until Razorpay keys + webhook secret are saved. |
-| **Gateway** | Admin → **Gateway** — Razorpay Key ID, secret, webhook secret (or put keys in `secrets.php`; they sync when DB fields are empty). |
+| **Gateway** | Admin → **Gateway** only — Razorpay Key ID, Key secret, webhook secret, test/live mode (database; not `secrets.php`). |
 | **Sources** | Admin → **Sources** — add a source per website (code, return URLs, secret); unlimited sites |
 | **Payments** | Filters (date, source, centre, status, search) + **Export CSV** for accounts |
 | **Legacy import** | Admin → **Legacy import** — CSV of old MIS paid rows into the hub register |

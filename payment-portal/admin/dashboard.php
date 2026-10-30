@@ -147,8 +147,12 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
         <div class="hub-card-panel mb-3">
             <h2 class="h6 text-uppercase text-secondary fw-semibold">Razorpay gateway</h2>
             <?php if ($gatewayOk): ?>
-                <p class="mb-2"><span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ready to accept payments</span></p>
-                <p class="small text-secondary mb-2">Mode: <strong><?php echo htmlspecialchars($cfg['mode']); ?></strong></p>
+                <p class="mb-2"><span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Keys saved</span></p>
+                <p class="small text-secondary mb-2">Mode: <strong><?php echo htmlspecialchars($cfg['mode']); ?></strong>
+                    · Key: <code class="user-select-all"><?php echo htmlspecialchars($cfg['key_id'] !== '' ? $cfg['key_id'] : '—'); ?></code></p>
+                <?php if ($setup['gateway_mode_warning'] !== null): ?>
+                    <p class="small text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i><?php echo htmlspecialchars($setup['gateway_mode_warning']); ?></p>
+                <?php endif; ?>
                 <?php if (!$setup['webhook_ready']): ?>
                     <p class="small text-warning mb-2"><i class="bi bi-info-circle me-1"></i>Add webhook secret for automatic status updates.</p>
                 <?php endif; ?>

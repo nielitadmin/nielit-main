@@ -84,8 +84,9 @@ $ready = payment_hub_is_ready();
 
     <div class="hub-link-card mt-3">
         <h2 class="h6 fw-bold">Payment hub (staff register)</h2>
-        <p class="small text-muted mb-2">Open the hub admin to copy the MIS shared secret, configure Razorpay, and view payments.</p>
+        <p class="small text-muted mb-2">Open the hub admin to copy the MIS shared secret and view payments. Configure Razorpay under <strong>Gateway</strong> on the hub (single place for all API keys).</p>
         <a class="btn btn-outline-primary btn-sm me-2" href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/dashboard.php')); ?>" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Open payment hub admin</a>
+        <a class="btn btn-outline-primary btn-sm me-2" href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/gateway.php')); ?>" target="_blank" rel="noopener"><i class="fas fa-key"></i> Hub Razorpay Gateway</a>
         <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars($portalPublic . '/'); ?>" target="_blank" rel="noopener">Public landing page</a>
         <?php if ($ready): ?>
             <span class="badge bg-success ms-2">MIS integration active</span>

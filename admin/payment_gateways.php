@@ -111,9 +111,9 @@ $active_theme = loadActiveTheme($conn);
 
     <?php if (payment_hub_is_ready()): ?>
         <div class="alert alert-info mt-3 mb-0">
-            <strong>Central payment portal is active.</strong> Configure it under
-            <a href="<?php echo htmlspecialchars(APP_URL . '/admin/payment_hub.php'); ?>">Central Payment Portal</a>.
-            Local Razorpay keys below are not used for course fees while the hub is on.
+            <strong>Central payment portal is active.</strong> Course fees use Razorpay keys on the hub only —
+            <a href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/gateway.php')); ?>" target="_blank" rel="noopener">Payment hub → Gateway</a>
+            (not the Razorpay fields below).
         </div>
     <?php else: ?>
         <div class="alert alert-secondary mt-3 small mb-0">

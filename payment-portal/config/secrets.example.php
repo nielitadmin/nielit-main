@@ -1,13 +1,12 @@
 <?php
 
 /**
- * Copy to secrets.php (not committed). Razorpay + bootstrap admin.
+ * Copy to secrets.php (not committed). Used only to seed the first hub staff login.
+ *
+ * Razorpay Key ID, Key secret, and webhook secret are NOT stored here.
+ * Configure them in Admin → Gateway (saved in the hub database).
  */
 return [
     'admin_username' => 'hubadmin',
     'admin_password' => 'ChangeMeOnFirstLogin!',
-    'razorpay_mode' => 'test',
-    'razorpay_key_id' => '',
-    'razorpay_key_secret' => '',
-    'razorpay_webhook_secret' => '',
 ];

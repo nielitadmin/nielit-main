@@ -11,9 +11,11 @@ Separate app from MIS. Own database (`nielit_payments`). Razorpay keys live only
    CREATE DATABASE nielit_payments CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    ```
 2. Copy `config/database.example.php` → `config/database.php` and adjust credentials.
-3. Copy `config/secrets.example.php` → `config/secrets.php` and set admin password + Razorpay test keys.
-4. Open `http://localhost/public_html/payment-portal/` — schema runs on first request.
-5. Admin: `http://localhost/public_html/payment-portal/admin/login.php`
+3. Copy `config/secrets.example.php` → `config/secrets.php` and set a strong **admin password** (first login only).
+4. Open the site once; tables are created automatically.
+5. Configure Razorpay under **Admin → Gateway** (single source for all API keys).
+6. Open `http://localhost/public_html/payment-portal/` — schema runs on first request.
+7. Admin: `http://localhost/public_html/payment-portal/admin/login.php`
 
 ## Production
 
@@ -22,7 +24,7 @@ See **`PRODUCTION.md`** for Hostinger/cPanel steps.
 1. Point subdomain **`payment.nielitbhubaneswar.in`** document root to this **`payment-portal/`** folder.
 2. Create MySQL DB + user (e.g. `u664913565_payment`) in cPanel.
 3. Add **`config/database.php`** and **`config/secrets.php`** on the server (never commit them).
-4. Visit https://payment.nielitbhubaneswar.in/ once to create tables.
+4. Visit https://payment.nielitbhubaneswar.in/ once to create tables, then **Admin → Gateway** for Razorpay keys.
 
 `config/app.php` detects the production hostname and sets `HUB_APP_URL` to `https://payment.nielitbhubaneswar.in` automatically.
 

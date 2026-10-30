@@ -41,42 +41,6 @@ function hub_razorpay_ready(mysqli $conn): bool
     return $c['key_id'] !== '' && $c['key_secret'] !== '';
 }
 
-/**
- * Copy Razorpay values from secrets.php into hub_settings when DB fields are still empty.
- */
-function hub_razorpay_sync_from_secrets(mysqli $conn, array $secrets): void
-{
-    hub_razorpay_import_from_secrets($conn, $secrets, false);
-}
-
-/**
- * @return int Number of settings written
- */
-function hub_razorpay_import_from_secrets(mysqli $conn, array $secrets, bool $overwrite): int
-{
-    $pairs = [
-        'razorpay_mode' => 'razorpay_mode',
-        'razorpay_key_id' => 'razorpay_key_id',
-        'razorpay_key_secret' => 'razorpay_key_secret',
-        'razorpay_webhook_secret' => 'razorpay_webhook_secret',
-    ];
-    $written = 0;
-    foreach ($pairs as $settingKey => $secretKey) {
-        $fromSecret = trim((string) ($secrets[$secretKey] ?? ''));
-        if ($fromSecret === '') {
-            continue;
-        }
-        $current = hub_setting_get($conn, $settingKey);
-        if (!$overwrite && $current !== null && $current !== '') {
-            continue;
-        }
-        if (hub_setting_set($conn, $settingKey, $fromSecret)) {
-            $written++;
-        }
-    }
-    return $written;
-}
-
 /** Warn when hub “mode” does not match Razorpay Key ID prefix (common auth failure). */
 function hub_razorpay_mode_key_warning(string $mode, string $keyId): ?string
 {
@@ -108,13 +72,15 @@ function hub_setup_status(mysqli $conn): array
     }
     $cfg = hub_razorpay_config($conn);
     $webhookOk = trim((string) ($cfg['webhook_secret'] ?? '')) !== '';
+    $modeWarning = hub_razorpay_mode_key_warning($cfg['mode'], $cfg['key_id']);
 
     return [
         'gateway_ready' => $gateway,
         'sources_ready' => $sourceCount > 0,
         'source_count' => $sourceCount,
         'webhook_ready' => $webhookOk,
-        'complete' => $gateway && $sourceCount > 0,
+        'gateway_mode_warning' => $modeWarning,
+        'complete' => $gateway && $sourceCount > 0 && $webhookOk && $modeWarning === null,
     ];
 }
 
