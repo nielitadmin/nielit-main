@@ -41,7 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$cfg = hub_smtp_config($hub_conn);
+$cfg = hub_smtp_form_config($hub_conn);
 $ready = hub_smtp_ready($hub_conn);
 
 hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP login');
@@ -51,6 +51,13 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
     <div class="alert alert-<?php echo $messageType; ?> alert-dismissible fade show py-2" role="alert">
         <?php echo htmlspecialchars($message); ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+<?php endif; ?>
+
+<?php if (!empty($cfg['using_defaults']) && !$ready): ?>
+    <div class="alert alert-info py-2 small mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        Suggested <strong>Hostinger / NIELIT</strong> values are shown below. Click each field to edit, add your mailbox <strong>SMTP password</strong>, then <strong>Save SMTP settings</strong>.
     </div>
 <?php endif; ?>
 
@@ -65,23 +72,23 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                     <span class="badge text-bg-warning"><i class="bi bi-exclamation-triangle me-1"></i>Not configured</span>
                 <?php endif; ?>
             </div>
-            <p class="text-secondary small mb-4">Configure your SMTP server to send OTP emails for admin login. Common options: Gmail, Outlook, SendGrid, Mailgun, or your own mail server.</p>
+            <p class="text-secondary small mb-4">Used for admin OTP login emails. On Hostinger, create <code>admin@nielitbhubaneswar.in</code> (or your sending address) in hPanel → Emails, then use that account’s SMTP password here.</p>
 
             <form method="post" class="vstack gap-3">
                 <input type="hidden" name="form_action" value="save_smtp">
                 <div class="row g-3">
                     <div class="col-md-8">
                         <label class="form-label">SMTP host</label>
-                        <input class="form-control" type="text" name="smtp_host" value="<?php echo htmlspecialchars($cfg['host']); ?>" placeholder="smtp.gmail.com">
+                        <input class="form-control bg-white" type="text" name="smtp_host" value="<?php echo htmlspecialchars($cfg['host']); ?>" placeholder="smtp.hostinger.com" required>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Port</label>
-                        <input class="form-control" type="number" name="smtp_port" value="<?php echo (int) $cfg['port']; ?>" placeholder="587">
+                        <input class="form-control bg-white" type="number" name="smtp_port" value="<?php echo (int) $cfg['port']; ?>" placeholder="587" required>
                     </div>
                 </div>
                 <div>
                     <label class="form-label">Encryption</label>
-                    <select class="form-select" name="smtp_encryption">
+                    <select class="form-select bg-white" name="smtp_encryption">
                         <option value="tls" <?php echo $cfg['encryption'] === 'tls' ? 'selected' : ''; ?>>TLS (port 587) — recommended</option>
                         <option value="ssl" <?php echo $cfg['encryption'] === 'ssl' ? 'selected' : ''; ?>>SSL (port 465)</option>
                         <option value="none" <?php echo $cfg['encryption'] === 'none' ? 'selected' : ''; ?>>None (port 25)</option>
@@ -89,23 +96,25 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                 </div>
                 <div>
                     <label class="form-label">SMTP username</label>
-                    <input class="form-control" type="text" name="smtp_username" value="<?php echo htmlspecialchars($cfg['username']); ?>" placeholder="your-email@gmail.com" autocomplete="off">
+                    <input class="form-control bg-white" type="text" name="smtp_username" value="<?php echo htmlspecialchars($cfg['username']); ?>" placeholder="admin@nielitbhubaneswar.in" autocomplete="off" required>
                 </div>
                 <div>
                     <label class="form-label">SMTP password</label>
-                    <input class="form-control" type="password" name="smtp_password" placeholder="<?php echo $cfg['password'] !== '' ? '••••••••  (saved — leave blank to keep)' : 'App password or SMTP password'; ?>" autocomplete="new-password">
-                    <?php if ($cfg['host'] !== '' && stripos($cfg['host'], 'gmail') !== false): ?>
+                    <input class="form-control bg-white" type="password" name="smtp_password" placeholder="<?php echo $cfg['password'] !== '' ? '••••••••  (saved — leave blank to keep)' : 'Email account password or Gmail App Password'; ?>" autocomplete="new-password" <?php echo $cfg['password'] === '' ? 'required' : ''; ?>>
+                    <?php if (stripos($cfg['host'], 'gmail') !== false): ?>
                         <div class="form-text"><i class="bi bi-info-circle me-1"></i>For Gmail, use an <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">App Password</a>, not your regular password.</div>
+                    <?php elseif (stripos($cfg['host'], 'hostinger') !== false): ?>
+                        <div class="form-text"><i class="bi bi-info-circle me-1"></i>Use the password for this mailbox from Hostinger → Emails (not your hPanel login).</div>
                     <?php endif; ?>
                 </div>
                 <hr class="my-1">
                 <div>
                     <label class="form-label">From email</label>
-                    <input class="form-control" type="email" name="smtp_from_email" value="<?php echo htmlspecialchars($cfg['from_email']); ?>" placeholder="noreply@nielitbhubaneswar.in">
+                    <input class="form-control bg-white" type="email" name="smtp_from_email" value="<?php echo htmlspecialchars($cfg['from_email']); ?>" placeholder="admin@nielitbhubaneswar.in" required>
                 </div>
                 <div>
                     <label class="form-label">From name</label>
-                    <input class="form-control" type="text" name="smtp_from_name" value="<?php echo htmlspecialchars($cfg['from_name']); ?>" placeholder="NIELIT Payment Hub">
+                    <input class="form-control bg-white" type="text" name="smtp_from_name" value="<?php echo htmlspecialchars($cfg['from_name']); ?>" placeholder="NIELIT Payment Hub" required>
                 </div>
                 <button class="btn btn-primary w-100" type="submit">
                     <i class="bi bi-floppy me-1"></i>Save SMTP settings
@@ -120,13 +129,13 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                 <input type="hidden" name="form_action" value="test_email">
                 <div>
                     <label class="form-label">Recipient email</label>
-                    <input class="form-control" type="email" name="test_email" required placeholder="test@example.com">
+                    <input class="form-control bg-white" type="email" name="test_email" required placeholder="you@gmail.com" value="<?php echo htmlspecialchars((string) ($_POST['test_email'] ?? '')); ?>">
                 </div>
-                <button class="btn btn-outline-success w-100" type="submit" <?php echo !$ready ? 'disabled' : ''; ?>>
+                <button class="btn btn-outline-success w-100" type="submit" <?php echo !$ready ? 'disabled title="Save SMTP settings first"' : ''; ?>>
                     <i class="bi bi-envelope-check me-1"></i>Send test
                 </button>
                 <?php if (!$ready): ?>
-                    <p class="small text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Save SMTP settings first to send a test.</p>
+                    <p class="small text-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Enter SMTP password and click <strong>Save SMTP settings</strong>, then send a test.</p>
                 <?php endif; ?>
             </form>
         </div>
@@ -135,6 +144,11 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
             <h3 class="h6 text-uppercase text-secondary fw-semibold">Quick setup guides</h3>
             <div class="vstack gap-2 small">
                 <div class="p-2 bg-light rounded">
+                    <strong>Hostinger (NIELIT)</strong><br>
+                    Host: <code>smtp.hostinger.com</code> · Port: <code>587</code> · TLS<br>
+                    Username: full address e.g. <code>admin@nielitbhubaneswar.in</code>
+                </div>
+                <div class="p-2 bg-light rounded">
                     <strong>Gmail</strong><br>
                     Host: <code>smtp.gmail.com</code> · Port: <code>587</code> · TLS<br>
                     Use <a href="https://support.google.com/accounts/answer/185833" target="_blank" rel="noopener">App Password</a>
@@ -142,11 +156,6 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                 <div class="p-2 bg-light rounded">
                     <strong>Outlook / Office 365</strong><br>
                     Host: <code>smtp.office365.com</code> · Port: <code>587</code> · TLS
-                </div>
-                <div class="p-2 bg-light rounded">
-                    <strong>SendGrid</strong><br>
-                    Host: <code>smtp.sendgrid.net</code> · Port: <code>587</code> · TLS<br>
-                    Username: <code>apikey</code>
                 </div>
             </div>
         </div>

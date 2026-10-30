@@ -19,6 +19,95 @@ function hub_smtp_config(mysqli $conn): array
     ];
 }
 
+/** Suggested SMTP values (Hostinger / NIELIT) when nothing saved yet — override via secrets.php on the server. */
+function hub_smtp_install_defaults(): array
+{
+    global $hub_secrets;
+
+    $defaults = [
+        'host'       => 'smtp.hostinger.com',
+        'port'       => 587,
+        'username'   => 'admin@nielitbhubaneswar.in',
+        'from_email' => 'admin@nielitbhubaneswar.in',
+        'from_name'  => defined('HUB_APP_NAME') ? HUB_APP_NAME : 'NIELIT Bhubaneswar Payment Portal',
+        'encryption' => 'tls',
+    ];
+
+    if (!is_array($hub_secrets)) {
+        return $defaults;
+    }
+
+    $map = [
+        'host'       => 'smtp_host',
+        'port'       => 'smtp_port',
+        'username'   => 'smtp_username',
+        'from_email' => 'smtp_from_email',
+        'from_name'  => 'smtp_from_name',
+        'encryption' => 'smtp_encryption',
+    ];
+    foreach ($map as $key => $secretKey) {
+        $v = trim((string) ($hub_secrets[$secretKey] ?? ''));
+        if ($v === '') {
+            continue;
+        }
+        if ($key === 'port') {
+            $defaults['port'] = (int) $v;
+        } else {
+            $defaults[$key] = $v;
+        }
+    }
+
+    return $defaults;
+}
+
+/** Values for the admin SMTP form (saved settings, else install defaults). */
+function hub_smtp_form_config(mysqli $conn): array
+{
+    $saved = hub_smtp_config($conn);
+    $install = hub_smtp_install_defaults();
+    $usingDefaults = trim($saved['host']) === '';
+
+    return [
+        'host'       => $saved['host'] !== '' ? $saved['host'] : $install['host'],
+        'port'       => $saved['host'] !== '' ? $saved['port'] : $install['port'],
+        'username'   => $saved['username'] !== '' ? $saved['username'] : $install['username'],
+        'password'   => $saved['password'],
+        'from_email' => $saved['from_email'] !== '' ? $saved['from_email'] : $install['from_email'],
+        'from_name'  => $saved['from_name'] !== '' ? $saved['from_name'] : $install['from_name'],
+        'encryption' => $saved['encryption'] !== '' ? $saved['encryption'] : $install['encryption'],
+        'using_defaults' => $usingDefaults,
+    ];
+}
+
+/**
+ * One-time seed from config/secrets.php when smtp_host and smtp_password are set on the server.
+ */
+function hub_smtp_seed_from_secrets(mysqli $conn): void
+{
+    global $hub_secrets;
+    if (!is_array($hub_secrets)) {
+        return;
+    }
+    if (trim((string) (hub_setting_get($conn, 'smtp_host') ?: '')) !== '') {
+        return;
+    }
+
+    $host = trim((string) ($hub_secrets['smtp_host'] ?? ''));
+    $pass = (string) ($hub_secrets['smtp_password'] ?? '');
+    if ($host === '' || $pass === '') {
+        return;
+    }
+
+    $install = hub_smtp_install_defaults();
+    hub_setting_set($conn, 'smtp_host', $host);
+    hub_setting_set($conn, 'smtp_port', (string) ($hub_secrets['smtp_port'] ?? (string) $install['port']));
+    hub_setting_set($conn, 'smtp_username', trim((string) ($hub_secrets['smtp_username'] ?? $install['username'])));
+    hub_setting_set($conn, 'smtp_password', $pass);
+    hub_setting_set($conn, 'smtp_from_email', trim((string) ($hub_secrets['smtp_from_email'] ?? $install['from_email'])));
+    hub_setting_set($conn, 'smtp_from_name', trim((string) ($hub_secrets['smtp_from_name'] ?? $install['from_name'])));
+    hub_setting_set($conn, 'smtp_encryption', trim((string) ($hub_secrets['smtp_encryption'] ?? $install['encryption'])));
+}
+
 function hub_smtp_ready(mysqli $conn): bool
 {
     $c = hub_smtp_config($conn);
