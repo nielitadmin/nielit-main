@@ -17,7 +17,14 @@ Separate app from MIS. Own database (`nielit_payments`). Razorpay keys live only
 
 ## Production
 
-Point the subdomain document root to this `payment-portal/` folder. Set `HUB_APP_URL` in `config/app.php` to `https://payment.nielitbhubaneswar.in`.
+See **`PRODUCTION.md`** for Hostinger/cPanel steps.
+
+1. Point subdomain **`payment.nielitbhubaneswar.in`** document root to this **`payment-portal/`** folder.
+2. Create MySQL DB + user (e.g. `u664913565_payment`) in cPanel.
+3. Add **`config/database.php`** and **`config/secrets.php`** on the server (never commit them).
+4. Visit https://payment.nielitbhubaneswar.in/ once to create tables.
+
+`config/app.php` detects the production hostname and sets `HUB_APP_URL` to `https://payment.nielitbhubaneswar.in` automatically.
 
 ## API (Phase 1)
 

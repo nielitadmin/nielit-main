@@ -7,10 +7,23 @@ if (!defined('HUB_APP_LOADED')) {
 define('HUB_APP_NAME', 'NIELIT Bhubaneswar Payment Portal');
 define('HUB_INVOICE_PREFIX', 'NIELIT-BBSR');
 
-// Local XAMPP path; production: https://payment.nielitbhubaneswar.in
-define('HUB_APP_URL', getenv('HUB_APP_URL') ?: 'http://localhost/public_html/payment-portal');
+$hubHttpHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$hubIsProduction = (strpos($hubHttpHost, 'payment.nielitbhubaneswar.in') !== false);
 
-define('HUB_ENV', getenv('HUB_ENV') ?: 'development');
+if (getenv('HUB_APP_URL')) {
+    define('HUB_APP_URL', rtrim((string) getenv('HUB_APP_URL'), '/'));
+} elseif ($hubIsProduction) {
+    define('HUB_APP_URL', 'https://payment.nielitbhubaneswar.in');
+} else {
+    define('HUB_APP_URL', 'http://localhost/public_html/payment-portal');
+}
+
+if (getenv('HUB_ENV')) {
+    define('HUB_ENV', (string) getenv('HUB_ENV'));
+} else {
+    define('HUB_ENV', $hubIsProduction ? 'production' : 'development');
+}
+
 define('HUB_CHECKOUT_TTL_MINUTES', 30);
 
 if (HUB_ENV === 'development') {
