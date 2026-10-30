@@ -11,14 +11,33 @@ if (hub_admin_logged_in()) {
 // Clean up expired OTPs periodically
 hub_admin_otp_cleanup($hub_conn);
 
+$mode = (string) ($_GET['mode'] ?? 'otp'); // 'otp' or 'password'
 $step = 'email'; // 'email' or 'otp'
 $error = '';
 $success = '';
 $email = '';
 $adminId = 0;
 
+// Handle Password Login (Fallback for initial setup)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'password_login') {
+    $mode = 'password';
+    $user = trim((string) ($_POST['username'] ?? ''));
+    $pass = (string) ($_POST['password'] ?? '');
+
+    if ($user === '' || $pass === '') {
+        $error = 'Please enter both username and password.';
+    } else {
+        if (hub_admin_login($hub_conn, $user, $pass)) {
+            header('Location: ' . hub_url('admin/dashboard.php'));
+            exit;
+        }
+        $error = 'Invalid username or password.';
+    }
+}
+
 // Handle OTP verification (Step 2)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'verify_otp') {
+    $mode = 'otp';
     $adminId = (int) ($_POST['admin_id'] ?? 0);
     $otpCode = trim((string) ($_POST['otp_code'] ?? ''));
     $email = trim((string) ($_POST['email'] ?? ''));
@@ -37,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Handle email submission (Step 1)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'send_otp') {
+    $mode = 'otp';
     $email = trim(strtolower((string) ($_POST['email'] ?? '')));
 
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -52,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     $success = 'A 6-digit code has been sent to your email.';
                     $step = 'otp';
                 } else {
-                    $error = 'Could not send the OTP email. Please check SMTP settings or try again.';
+                    $error = 'Could not send the OTP email. Please ensure SMTP is configured or use password login.';
                 }
             } else {
                 $error = 'Could not generate OTP. Please try again.';
@@ -80,7 +100,31 @@ hub_auth_layout_start('Sign in');
         </ul>
     </div>
     <div class="hub-auth-form-wrap">
-        <?php if ($step === 'email'): ?>
+        <?php if ($mode === 'password'): ?>
+            <!-- Fallback Username + Password login -->
+            <h2 class="h4 fw-bold mb-1">Staff sign in</h2>
+            <p class="text-secondary small mb-4">Sign in using your username and password</p>
+            <?php if ($error !== ''): ?>
+                <div class="alert alert-danger py-2"><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            <form method="post" class="vstack gap-3">
+                <input type="hidden" name="action" value="password_login">
+                <div>
+                    <label class="form-label">Username</label>
+                    <input class="form-control form-control-lg" name="username" required autocomplete="username" placeholder="hubadmin">
+                </div>
+                <div>
+                    <label class="form-label">Password</label>
+                    <input class="form-control form-control-lg" type="password" name="password" required autocomplete="current-password">
+                </div>
+                <button class="btn btn-primary btn-lg w-100" type="submit">Sign in to dashboard</button>
+            </form>
+            <p class="text-center mt-4 mb-0 small">
+                <a href="<?php echo hub_asset('admin/login.php'); ?>"><i class="bi bi-envelope me-1"></i>Sign in with Email OTP instead</a>
+            </p>
+
+        <?php elseif ($step === 'email'): ?>
+            <!-- OTP Step 1: Request OTP -->
             <h2 class="h4 fw-bold mb-1">Staff sign in</h2>
             <p class="text-secondary small mb-4">Enter your registered email to receive a one-time passcode</p>
             <?php if ($error !== ''): ?>
@@ -98,7 +142,14 @@ hub_auth_layout_start('Sign in');
                     <i class="bi bi-envelope me-2"></i>Send OTP code
                 </button>
             </form>
+            <p class="text-center mt-4 mb-0 small">
+                <a href="<?php echo hub_asset('admin/login.php?mode=password'); ?>" class="text-secondary">
+                    <i class="bi bi-key me-1"></i>Sign in with password
+                </a>
+            </p>
+
         <?php else: ?>
+            <!-- OTP Step 2: Verify OTP -->
             <h2 class="h4 fw-bold mb-1">Enter verification code</h2>
             <p class="text-secondary small mb-2">We sent a 6-digit code to <strong><?php echo htmlspecialchars($email); ?></strong></p>
             <?php if ($success !== ''): ?>
@@ -136,6 +187,7 @@ hub_auth_layout_start('Sign in');
                 </a>
             </p>
         <?php endif; ?>
+
         <p class="text-center mt-4 mb-0 small"><a href="<?php echo hub_asset('/'); ?>">← Back to portal home</a></p>
     </div>
 </div>
