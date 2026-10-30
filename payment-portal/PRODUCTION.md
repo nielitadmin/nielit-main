@@ -25,6 +25,9 @@
 5. **Deploy code** — git pull or upload the `payment-portal/` tree.  
    Do **not** overwrite `config/database.php` or `config/secrets.php` on the server when updating.
 
+   **OTP / SMTP email** uses PHPMailer from **`../libraries/PHPMailer`** (same folder as the main MIS site).  
+   On Hostinger, ensure `public_html/libraries/PHPMailer` exists next to the `payment-portal` folder.
+
 6. Open once in the browser (creates tables automatically):
    - https://payment.nielitbhubaneswar.in/
    - https://payment.nielitbhubaneswar.in/admin/login.php

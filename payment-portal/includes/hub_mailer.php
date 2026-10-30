@@ -42,9 +42,9 @@ function hub_smtp_mis_constants(): ?array
     return [
         'host'       => (string) SMTP_HOST,
         'port'       => defined('SMTP_PORT') ? (int) SMTP_PORT : ($encryption === 'ssl' ? 465 : 587),
-        'username'   => (string) SMTP_USERNAME,
+        'username'   => hub_smtp_normalize_mailbox((string) SMTP_USERNAME),
         'password'   => defined('SMTP_PASSWORD') ? (string) SMTP_PASSWORD : '',
-        'from_email' => defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : (string) SMTP_USERNAME,
+        'from_email' => hub_smtp_normalize_mailbox(defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : (string) SMTP_USERNAME),
         'from_name'  => defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar',
         'encryption' => $encryption,
     ];
@@ -166,27 +166,235 @@ function hub_smtp_seed_from_mis(mysqli $conn): void
 
 function hub_smtp_ready(mysqli $conn): bool
 {
-    $c = hub_smtp_config($conn);
+    $c = hub_smtp_apply_identity(hub_smtp_config($conn));
     return $c['host'] !== '' && $c['username'] !== '' && $c['password'] !== '' && $c['from_email'] !== '';
 }
 
+/** Fix legacy noreplay@ typo and align From with SMTP login (required on Hostinger). */
+function hub_smtp_normalize_mailbox(string $email): string
+{
+    $email = strtolower(trim($email));
+    if ($email === 'noreplay@nielitbhubaneswar.in') {
+        return 'noreply@nielitbhubaneswar.in';
+    }
+    return $email;
+}
+
+function hub_smtp_apply_identity(array $cfg): array
+{
+    $cfg['username'] = hub_smtp_normalize_mailbox((string) $cfg['username']);
+    $cfg['from_email'] = hub_smtp_normalize_mailbox((string) $cfg['from_email']);
+    if ($cfg['from_email'] === '' && $cfg['username'] !== '') {
+        $cfg['from_email'] = $cfg['username'];
+    }
+    if ($cfg['username'] !== '' && $cfg['from_email'] !== $cfg['username']) {
+        $cfg['from_email'] = $cfg['username'];
+    }
+    return $cfg;
+}
+
+function hub_smtp_migrate_settings(mysqli $conn): void
+{
+    $from = hub_setting_get($conn, 'smtp_from_email');
+    if ($from !== null && hub_smtp_normalize_mailbox((string) $from) !== strtolower(trim((string) $from))) {
+        hub_setting_set($conn, 'smtp_from_email', hub_smtp_normalize_mailbox((string) $from));
+    }
+    $user = hub_setting_get($conn, 'smtp_username');
+    if ($user !== null && hub_smtp_normalize_mailbox((string) $user) !== strtolower(trim((string) $user))) {
+        hub_setting_set($conn, 'smtp_username', hub_smtp_normalize_mailbox((string) $user));
+    }
+}
+
+function hub_mail_last_error(): string
+{
+    return (string) ($GLOBALS['hub_last_mail_error'] ?? '');
+}
+
+function hub_is_hostinger_host(): bool
+{
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host !== '' && strpos($host, 'nielitbhubaneswar.in') !== false) {
+        return true;
+    }
+    $docRoot = str_replace('\\', '/', (string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
+    return $docRoot !== '' && (strpos($docRoot, '/home/u') === 0 || strpos($docRoot, '/domains/') !== false);
+}
+
+function hub_phpmailer_bootstrap(): bool
+{
+    static $loaded = null;
+    if ($loaded !== null) {
+        return $loaded;
+    }
+    $root = dirname(__DIR__, 2);
+    $base = $root . '/libraries/PHPMailer/src/';
+    if (!is_file($base . 'PHPMailer.php')) {
+        $loaded = false;
+        return false;
+    }
+    require_once $base . 'Exception.php';
+    require_once $base . 'PHPMailer.php';
+    require_once $base . 'SMTP.php';
+    $loaded = true;
+    return true;
+}
+
+/** @return list<array{label:string,host:string,port:int,encryption:string,auth:bool}> */
+function hub_smtp_delivery_profiles(array $cfg): array
+{
+    $host = $cfg['host'] !== '' ? $cfg['host'] : 'smtp.hostinger.com';
+    $port = (int) $cfg['port'];
+    $enc = strtolower((string) $cfg['encryption']);
+    if ($port <= 0) {
+        $port = $enc === 'ssl' ? 465 : 587;
+    }
+
+    $profiles = [
+        [
+            'label' => $host . ':' . $port . '/' . $enc,
+            'host' => $host,
+            'port' => $port,
+            'encryption' => $enc,
+            'auth' => true,
+        ],
+    ];
+
+    if (!($port === 587 && in_array($enc, ['tls', 'starttls'], true))) {
+        $profiles[] = [
+            'label' => $host . ':587/tls',
+            'host' => $host,
+            'port' => 587,
+            'encryption' => 'tls',
+            'auth' => true,
+        ];
+    }
+    if (!($port === 465 && in_array($enc, ['ssl', 'smtps'], true))) {
+        $profiles[] = [
+            'label' => $host . ':465/ssl',
+            'host' => $host,
+            'port' => 465,
+            'encryption' => 'ssl',
+            'auth' => true,
+        ];
+    }
+
+    if (hub_is_hostinger_host()) {
+        $profiles[] = [
+            'label' => 'localhost:587/tls+auth',
+            'host' => 'localhost',
+            'port' => 587,
+            'encryption' => 'tls',
+            'auth' => true,
+        ];
+        $profiles[] = [
+            'label' => 'localhost:465/ssl+auth',
+            'host' => 'localhost',
+            'port' => 465,
+            'encryption' => 'ssl',
+            'auth' => true,
+        ];
+    }
+
+    $unique = [];
+    foreach ($profiles as $p) {
+        $unique[$p['label']] = $p;
+    }
+    return array_values($unique);
+}
+
+function hub_phpmailer_configure(\PHPMailer\PHPMailer\PHPMailer $mail, array $cfg, array $profile): void
+{
+    $enc = strtolower((string) ($profile['encryption'] ?? 'tls'));
+    $port = (int) ($profile['port'] ?? 587);
+    if ($enc === 'ssl' || $enc === 'smtps') {
+        $secure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+    } elseif ($enc === 'tls' || $enc === 'starttls') {
+        $secure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+    } elseif ($port === 465) {
+        $secure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+    } else {
+        $secure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+    }
+
+    $mail->isSMTP();
+    $mail->Host = (string) ($profile['host'] ?? $cfg['host']);
+    $mail->Port = $port;
+    $mail->SMTPSecure = $secure;
+    $mail->SMTPAuth = true;
+    $mail->Username = $cfg['username'];
+    $mail->Password = $cfg['password'];
+    $mail->Timeout = 15;
+    $mail->CharSet = 'UTF-8';
+    $mail->SMTPAutoTLS = ($secure !== \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS);
+
+    $fromEmail = $cfg['from_email'];
+    $fromName = $cfg['from_name'];
+    $mail->setFrom($fromEmail, $fromName, true);
+    $mail->Sender = $fromEmail;
+    if (strpos($fromEmail, '@') !== false) {
+        $mail->Hostname = strtolower(substr(strrchr($fromEmail, '@'), 1));
+    }
+}
+
 /**
- * Send an email via SMTP using PHP's mail() as fallback, or the built-in
- * socket-based SMTP client if configured.
+ * @return array{ok:bool,error:string,profile:string}
+ */
+function hub_send_via_phpmailer(array $cfg, string $to, string $subject, string $htmlBody): array
+{
+    $errors = [];
+    foreach (hub_smtp_delivery_profiles($cfg) as $profile) {
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        try {
+            hub_phpmailer_configure($mail, $cfg, $profile);
+            $mail->addAddress($to);
+            $mail->Subject = $subject;
+            $mail->isHTML(true);
+            $mail->Body = $htmlBody;
+            $mail->AltBody = strip_tags($htmlBody);
+            $mail->send();
+            return ['ok' => true, 'error' => '', 'profile' => $profile['label']];
+        } catch (Throwable $e) {
+            $info = trim((string) ($mail->ErrorInfo ?: $e->getMessage()));
+            $errors[] = $profile['label'] . ': ' . $info;
+            error_log('Hub mail failed via ' . $profile['label'] . ': ' . $info);
+        }
+    }
+    return ['ok' => false, 'error' => implode(' | ', $errors), 'profile' => ''];
+}
+
+/**
+ * Send an email via PHPMailer (when available) or socket SMTP.
  */
 function hub_send_email(mysqli $conn, string $to, string $subject, string $htmlBody): bool
 {
-    $cfg = hub_smtp_config($conn);
+    $GLOBALS['hub_last_mail_error'] = '';
+    $cfg = hub_smtp_apply_identity(hub_smtp_config($conn));
 
     if ($cfg['host'] === '' || $cfg['username'] === '' || $cfg['password'] === '') {
-        // Fallback to PHP mail()
         $headers = "MIME-Version: 1.0\r\n";
         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
         $headers .= "From: " . $cfg['from_name'] . " <" . ($cfg['from_email'] ?: 'noreply@localhost') . ">\r\n";
-        return @mail($to, $subject, $htmlBody, $headers);
+        $ok = @mail($to, $subject, $htmlBody, $headers);
+        if (!$ok) {
+            $GLOBALS['hub_last_mail_error'] = 'PHP mail() failed. Configure SMTP below.';
+        }
+        return $ok;
     }
 
-    return hub_smtp_send($cfg, $to, $subject, $htmlBody);
+    if (hub_phpmailer_bootstrap()) {
+        $result = hub_send_via_phpmailer($cfg, $to, $subject, $htmlBody);
+        if ($result['ok']) {
+            return true;
+        }
+        $GLOBALS['hub_last_mail_error'] = $result['error'];
+        return false;
+    }
+
+    $ok = hub_smtp_send($cfg, $to, $subject, $htmlBody);
+    if (!$ok && hub_mail_last_error() === '') {
+        $GLOBALS['hub_last_mail_error'] = 'SMTP send failed. Deploy PHPMailer (libraries/PHPMailer) or check server error log.';
+    }
+    return $ok;
 }
 
 /**
@@ -194,6 +402,7 @@ function hub_send_email(mysqli $conn, string $to, string $subject, string $htmlB
  */
 function hub_smtp_send(array $cfg, string $to, string $subject, string $htmlBody): bool
 {
+    $cfg = hub_smtp_apply_identity($cfg);
     $host = $cfg['host'];
     $port = $cfg['port'];
     $user = $cfg['username'];
@@ -201,6 +410,8 @@ function hub_smtp_send(array $cfg, string $to, string $subject, string $htmlBody
     $fromEmail = $cfg['from_email'];
     $fromName = $cfg['from_name'];
     $encryption = $cfg['encryption'];
+
+    $GLOBALS['hub_last_mail_error'] = '';
 
     $connectHost = $host;
     if ($encryption === 'ssl') {
@@ -211,7 +422,9 @@ function hub_smtp_send(array $cfg, string $to, string $subject, string $htmlBody
     $errstr = '';
     $smtp = @fsockopen($connectHost, $port, $errno, $errstr, 15);
     if (!$smtp) {
-        error_log("SMTP connect failed: {$errstr} ({$errno})");
+        $msg = "SMTP connect failed: {$errstr} ({$errno})";
+        error_log($msg);
+        $GLOBALS['hub_last_mail_error'] = $msg;
         return false;
     }
 
@@ -244,6 +457,7 @@ function hub_smtp_send(array $cfg, string $to, string $subject, string $htmlBody
     if (strpos($authResp, '235') === false) {
         fclose($smtp);
         error_log('SMTP AUTH failed: ' . $authResp);
+        $GLOBALS['hub_last_mail_error'] = 'SMTP authentication failed. Check username/password and that From email matches the mailbox.';
         return false;
     }
 

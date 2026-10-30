@@ -12,14 +12,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_smtp') {
         hub_setting_set($hub_conn, 'smtp_host', trim((string) ($_POST['smtp_host'] ?? '')));
         hub_setting_set($hub_conn, 'smtp_port', trim((string) ($_POST['smtp_port'] ?? '465')));
-        hub_setting_set($hub_conn, 'smtp_username', trim((string) ($_POST['smtp_username'] ?? '')));
+        hub_setting_set($hub_conn, 'smtp_username', hub_smtp_normalize_mailbox((string) ($_POST['smtp_username'] ?? '')));
         $pass = (string) ($_POST['smtp_password'] ?? '');
         if ($pass !== '') {
             hub_setting_set($hub_conn, 'smtp_password', $pass);
         }
-        hub_setting_set($hub_conn, 'smtp_from_email', trim((string) ($_POST['smtp_from_email'] ?? '')));
+        $from = hub_smtp_normalize_mailbox((string) ($_POST['smtp_from_email'] ?? ''));
+        $user = hub_smtp_normalize_mailbox((string) ($_POST['smtp_username'] ?? ''));
+        if ($from === '' && $user !== '') {
+            $from = $user;
+        }
+        if ($user !== '' && $from !== $user) {
+            $from = $user;
+        }
+        hub_setting_set($hub_conn, 'smtp_from_email', $from);
         hub_setting_set($hub_conn, 'smtp_from_name', trim((string) ($_POST['smtp_from_name'] ?? '')));
-        hub_setting_set($hub_conn, 'smtp_encryption', trim((string) ($_POST['smtp_encryption'] ?? 'tls')));
+        hub_setting_set($hub_conn, 'smtp_encryption', trim((string) ($_POST['smtp_encryption'] ?? 'ssl')));
         $message = 'SMTP settings saved.';
     }
 
@@ -31,7 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (hub_send_email($hub_conn, $testTo, 'SMTP Test — ' . $appName, $testHtml)) {
                 $message = 'Test email sent to ' . htmlspecialchars($testTo) . '. Check your inbox.';
             } else {
-                $message = 'Failed to send test email. Check your SMTP settings and server logs.';
+                $detail = hub_mail_last_error();
+                $message = 'Failed to send test email.' . ($detail !== '' ? ' ' . $detail : ' Check SMTP settings and server logs.');
                 $messageType = 'danger';
             }
         } else {
@@ -111,7 +120,8 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                 <hr class="my-1">
                 <div>
                     <label class="form-label">From email</label>
-                    <input class="form-control bg-white" type="email" name="smtp_from_email" value="<?php echo htmlspecialchars($cfg['from_email']); ?>" placeholder="admin@nielitbhubaneswar.in" required>
+                    <input class="form-control bg-white" type="email" name="smtp_from_email" value="<?php echo htmlspecialchars(hub_smtp_normalize_mailbox($cfg['from_email'])); ?>" placeholder="noreply@nielitbhubaneswar.in" required>
+                    <div class="form-text">Must match the mailbox username on Hostinger (e.g. <code>noreply@</code>, not <code>noreplay@</code>).</div>
                 </div>
                 <div>
                     <label class="form-label">From name</label>
