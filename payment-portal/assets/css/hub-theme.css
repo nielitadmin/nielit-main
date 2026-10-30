@@ -117,6 +117,10 @@ body {
     margin-bottom: 0.35rem;
 }
 
+.hub-event-list li {
+    margin-bottom: 0.35rem;
+}
+
 .hub-sidebar-nav {
     display: flex;
     flex-direction: column;

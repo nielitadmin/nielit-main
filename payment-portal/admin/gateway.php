@@ -53,17 +53,19 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
     </div>
     <div class="table-responsive hub-table-wrap">
         <table class="table table-sm align-middle mb-0">
-            <thead><tr><th>Setting</th><th>Status</th><th>Saved value</th></tr></thead>
+            <thead><tr><th>Setting</th><th>Status</th><th>Saved value</th><th class="text-end">Action</th></tr></thead>
             <tbody>
                 <tr>
                     <td class="fw-semibold">Mode</td>
                     <td><span class="badge text-bg-light border"><?php echo hub_gateway_field_status($cfg['mode']) === 'set' ? 'Set' : 'Default'; ?></span></td>
                     <td><code><?php echo htmlspecialchars($cfg['mode']); ?></code></td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="#hubGatewayEdit">Change</a></td>
                 </tr>
                 <tr>
                     <td class="fw-semibold">Key ID</td>
                     <td><?php echo hub_gateway_field_status($cfg['key_id']) === 'set' ? '<span class="badge text-bg-success">Set</span>' : '<span class="badge text-bg-danger">Missing</span>'; ?></td>
                     <td><code class="user-select-all"><?php echo $cfg['key_id'] !== '' ? htmlspecialchars($cfg['key_id']) : '—'; ?></code></td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary hub-reenter" data-target="razorpay_key_id">Re-enter</button></td>
                 </tr>
                 <tr>
                     <td class="fw-semibold">Key secret</td>
@@ -76,6 +78,7 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
                             <span class="text-secondary">— not saved —</span>
                         <?php endif; ?>
                     </td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary hub-reenter" data-target="razorpay_key_secret" data-replace="1">Re-enter</button></td>
                 </tr>
                 <tr>
                     <td class="fw-semibold">Webhook secret</td>
@@ -88,11 +91,13 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
                             <span class="text-secondary">— not saved — paste same secret as Razorpay webhook —</span>
                         <?php endif; ?>
                     </td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-primary hub-reenter" data-target="razorpay_webhook_secret" data-replace="1">Re-enter</button></td>
                 </tr>
                 <tr>
                     <td class="fw-semibold">Webhook URL</td>
                     <td><span class="badge text-bg-light border">Fixed</span></td>
                     <td><code class="user-select-all"><?php echo htmlspecialchars($webhookUrl); ?></code></td>
+                    <td class="text-end"><button type="button" class="btn btn-sm btn-outline-secondary hub-copy-btn" data-copy="<?php echo htmlspecialchars($webhookUrl, ENT_QUOTES, 'UTF-8'); ?>">Copy</button></td>
                 </tr>
             </tbody>
         </table>
@@ -106,7 +111,7 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
 </div>
 <?php endif; ?>
 
-<div class="row g-3">
+<div class="row g-3" id="hubGatewayEdit">
     <div class="col-lg-7">
         <div class="hub-card-panel">
             <h2 class="h6 fw-bold mb-2">Edit settings</h2>
@@ -129,7 +134,7 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
                 </div>
                 <div class="col-12">
                     <label class="form-label">Key ID</label>
-                    <input class="form-control font-monospace" name="razorpay_key_id" value="<?php echo htmlspecialchars($cfg['key_id']); ?>" autocomplete="off">
+                    <input class="form-control font-monospace" id="razorpay_key_id" name="razorpay_key_id" value="<?php echo htmlspecialchars($cfg['key_id']); ?>" autocomplete="off">
                 </div>
                 <div class="col-12">
                     <label class="form-label d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -170,10 +175,10 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             <h2 class="h6 text-uppercase text-secondary">Webhook URL (Razorpay Dashboard)</h2>
             <code class="hub-secret-box d-block mb-3 user-select-all"><?php echo htmlspecialchars($webhookUrl); ?></code>
             <p class="small text-secondary mb-2">Subscribe to events:</p>
-            <ul class="list-unstyled small mb-0">
-                <li><code>payment.captured</code></li>
-                <li><code>payment.failed</code></li>
-                <li><code>refund.processed</code></li>
+            <ul class="list-unstyled small mb-0 hub-event-list">
+                <li><span class="badge text-bg-light border font-monospace">payment.captured</span></li>
+                <li><span class="badge text-bg-light border font-monospace">payment.failed</span></li>
+                <li><span class="badge text-bg-light border font-monospace">refund.processed</span></li>
             </ul>
         </div>
     </div>
@@ -214,6 +219,34 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             el.type = 'text';
             el.focus();
             el.placeholder = 'Paste new value, then Save settings';
+            document.getElementById('hubGatewayEdit').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+    document.querySelectorAll('.hub-reenter').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id = btn.getAttribute('data-target');
+            var el = document.getElementById(id);
+            document.getElementById('hubGatewayEdit').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (!el) return;
+            if (btn.getAttribute('data-replace') === '1') {
+                el.value = '';
+                el.type = 'text';
+                el.focus();
+                el.placeholder = 'Paste new value, then Save settings';
+            } else {
+                el.focus();
+                el.select();
+            }
+        });
+    });
+    document.querySelectorAll('.hub-copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var text = btn.getAttribute('data-copy') || '';
+            if (text && navigator.clipboard) {
+                navigator.clipboard.writeText(text);
+                btn.textContent = 'Copied';
+                setTimeout(function () { btn.textContent = 'Copy'; }, 1500);
+            }
         });
     });
 })();
