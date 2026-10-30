@@ -121,7 +121,7 @@ function hub_admin_layout_end(): void
 </div>
 <div class="offcanvas offcanvas-start hub-sidebar-offcanvas" tabindex="-1" id="hubSidebarMobile">
     <div class="offcanvas-header">
-        <h5 class="offcanvas-title">Payment Hub</h5>
+        <h5 class="offcanvas-title"><?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></h5>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body p-0">

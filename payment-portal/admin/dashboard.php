@@ -5,10 +5,45 @@ hub_admin_require();
 
 $stats = hub_dashboard_stats($hub_conn);
 $recent = hub_dashboard_recent_payments($hub_conn, 8);
-$gatewayOk = hub_razorpay_ready($hub_conn);
+$setup = hub_setup_status($hub_conn);
+$gatewayOk = $setup['gateway_ready'];
+$cfg = hub_razorpay_config($hub_conn);
 
-hub_admin_layout_start('Dashboard', 'dashboard', 'Live overview of collections and gateway health');
+hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and gateway status');
 ?>
+<?php if (!$setup['complete']): ?>
+<div class="alert alert-info border-0 shadow-sm mb-4 hub-setup-banner">
+    <div class="d-flex flex-wrap align-items-start gap-3">
+        <span class="hub-setup-icon flex-shrink-0"><i class="bi bi-list-check"></i></span>
+        <div class="flex-grow-1">
+            <h2 class="h6 fw-bold mb-2">Complete setup (this is normal for a new portal)</h2>
+            <p class="small mb-3 mb-md-2 text-secondary">Nothing is broken—finish these steps to accept live payments.</p>
+            <ol class="small mb-0 ps-3 hub-setup-steps">
+                <li class="<?php echo $gatewayOk ? 'text-success' : ''; ?>">
+                    <?php if ($gatewayOk): ?><i class="bi bi-check-circle-fill me-1"></i><?php endif; ?>
+                    <strong>Razorpay keys</strong> — <?php echo $gatewayOk ? 'Configured' : 'Add Key ID and secret under Gateway'; ?>
+                    <?php if (!$gatewayOk): ?>
+                        <a class="ms-1" href="<?php echo hub_asset('admin/gateway.php'); ?>">Open Gateway</a>
+                    <?php endif; ?>
+                </li>
+                <li class="<?php echo $setup['webhook_ready'] ? 'text-success' : ''; ?>">
+                    <?php if ($setup['webhook_ready']): ?><i class="bi bi-check-circle-fill me-1"></i><?php endif; ?>
+                    <strong>Webhook secret</strong> — match Razorpay Dashboard → Webhooks
+                    <?php if (!$setup['webhook_ready']): ?>
+                        <a class="ms-1" href="<?php echo hub_asset('admin/gateway.php'); ?>">Add in Gateway</a>
+                    <?php endif; ?>
+                </li>
+                <li class="<?php echo $setup['sources_ready'] ? 'text-success' : ''; ?>">
+                    <?php if ($setup['sources_ready']): ?><i class="bi bi-check-circle-fill me-1"></i><?php endif; ?>
+                    <strong>Source secrets</strong> — <?php echo $setup['sources_ready'] ? (int) $setup['source_count'] . ' portal(s) registered' : 'Copy shared secrets into MIS / partner sites'; ?>
+                    <a class="ms-1" href="<?php echo hub_asset('admin/sources.php'); ?>">View Sources</a>
+                </li>
+            </ol>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3">
         <div class="hub-card-panel hub-kpi">
@@ -60,11 +95,13 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Live overview of collections a
                             <td class="small"><?php echo htmlspecialchars((string) ($r['paid_at'] ?? $r['created_at'])); ?></td>
                             <td><span class="badge text-bg-light border"><?php echo htmlspecialchars((string) $r['source_code']); ?></span></td>
                             <td><?php echo hub_money_paise((int) $r['amount_paise']); ?></td>
-                            <td><?php echo hub_status_badge((string) $r['status']); ?></td>
+                            <td><?php echo hub_status_badge((string) $r['status']); ?>
+                                <a class="small ms-1" href="<?php echo hub_asset('admin/payment.php?id=' . (int) $r['id']); ?>">View</a>
+                            </td>
                         </tr>
                     <?php endforeach; ?>
                     <?php if ($recent === []): ?>
-                        <tr><td colspan="4" class="text-center text-secondary py-4">No payments recorded yet.</td></tr>
+                        <tr><td colspan="4" class="text-center text-secondary py-4">No payments yet—transactions appear here after the first successful checkout.</td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
@@ -73,21 +110,27 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Live overview of collections a
     </div>
     <div class="col-lg-4">
         <div class="hub-card-panel mb-3">
-            <h2 class="h6 text-uppercase text-secondary fw-semibold">Gateway</h2>
+            <h2 class="h6 text-uppercase text-secondary fw-semibold">Razorpay gateway</h2>
             <?php if ($gatewayOk): ?>
-                <p class="mb-2"><span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Razorpay configured</span></p>
-                <p class="small text-secondary mb-0">Mode: <?php echo htmlspecialchars(hub_razorpay_config($hub_conn)['mode']); ?></p>
+                <p class="mb-2"><span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ready to accept payments</span></p>
+                <p class="small text-secondary mb-2">Mode: <strong><?php echo htmlspecialchars($cfg['mode']); ?></strong></p>
+                <?php if (!$setup['webhook_ready']): ?>
+                    <p class="small text-warning mb-2"><i class="bi bi-info-circle me-1"></i>Add webhook secret for automatic status updates.</p>
+                <?php endif; ?>
+                <a class="btn btn-outline-primary btn-sm w-100" href="<?php echo hub_asset('admin/gateway.php'); ?>">Manage keys</a>
             <?php else: ?>
-                <p class="mb-3"><span class="badge text-bg-warning text-dark"><i class="bi bi-exclamation-triangle me-1"></i>Not configured</span></p>
-                <a class="btn btn-primary w-100" href="<?php echo hub_asset('admin/gateway.php'); ?>">Add API keys</a>
+                <p class="small text-secondary mb-2">Keys are not saved yet. This is expected until you connect your Razorpay account.</p>
+                <p class="mb-3"><span class="badge text-bg-light border text-dark"><i class="bi bi-plug me-1"></i>Setup required</span></p>
+                <a class="btn btn-primary w-100" href="<?php echo hub_asset('admin/gateway.php'); ?>"><i class="bi bi-shield-lock me-1"></i> Configure Razorpay</a>
             <?php endif; ?>
         </div>
         <div class="hub-card-panel">
             <h2 class="h6 text-uppercase text-secondary fw-semibold">Quick links</h2>
             <div class="d-grid gap-2">
-                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/sources.php'); ?>"><i class="bi bi-key me-2"></i>MIS / mock secrets</a>
-                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/outcomes.php'); ?>"><i class="bi bi-journal-text me-2"></i>Outcome reference</a>
-                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('/'); ?>" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-2"></i>Public portal page</a>
+                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/sources.php'); ?>"><i class="bi bi-boxes me-2"></i>Portal source secrets</a>
+                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/gateway.php'); ?>"><i class="bi bi-credit-card me-2"></i>Razorpay &amp; webhook</a>
+                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/outcomes.php'); ?>"><i class="bi bi-journal-text me-2"></i>Status codes reference</a>
+                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('/'); ?>" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-2"></i>Public landing page</a>
             </div>
         </div>
     </div>

@@ -209,5 +209,6 @@ function hub_schema_seed_defaults(mysqli $conn): void
                 hub_setting_set($conn, $k, $v);
             }
         }
+        hub_razorpay_sync_from_secrets($conn, $hub_secrets);
     }
 }

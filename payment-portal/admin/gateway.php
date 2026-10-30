@@ -21,6 +21,13 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
 ?>
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
 
+<?php if (!hub_razorpay_ready($hub_conn)): ?>
+<div class="alert alert-light border mb-4">
+    <strong>First-time setup.</strong> Enter Razorpay Key ID and Key secret from your Razorpay Dashboard.
+    You can also put them in <code>config/secrets.php</code> on the server—they sync here when the database fields are empty.
+</div>
+<?php endif; ?>
+
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="hub-card-panel">
