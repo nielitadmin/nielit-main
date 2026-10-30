@@ -34,13 +34,20 @@ if (!is_array($payer)) {
 }
 
 $orderId = (string) ($checkout['razorpay_order_id'] ?? '');
+$checkoutOrderError = '';
 if ($orderId === '' && hub_razorpay_ready($hub_conn)) {
     $order = hub_razorpay_create_order($hub_conn, $checkout);
     if (!empty($order['ok'])) {
         $orderId = (string) ($order['data']['id'] ?? '');
-        hub_checkout_mark($hub_conn, (int) $checkout['id'], 'attempted', $orderId);
-        $checkout['razorpay_order_id'] = $orderId;
-        $checkout['status'] = 'attempted';
+        if ($orderId !== '') {
+            hub_checkout_mark($hub_conn, (int) $checkout['id'], 'attempted', $orderId);
+            $checkout['razorpay_order_id'] = $orderId;
+            $checkout['status'] = 'attempted';
+        } else {
+            $checkoutOrderError = 'Razorpay did not return an order id.';
+        }
+    } else {
+        $checkoutOrderError = trim((string) ($order['error'] ?? 'Unknown error'));
     }
 }
 
@@ -66,7 +73,14 @@ hub_public_layout_start('Pay — ' . (string) $checkout['purpose'], 'hero');
             <?php if (!hub_razorpay_ready($hub_conn)): ?>
                 <div class="alert alert-warning mb-0">Razorpay is not configured on this portal yet.</div>
             <?php elseif ($orderId === ''): ?>
-                <div class="alert alert-danger mb-0">Could not start checkout. Try again later.</div>
+                <div class="alert alert-danger mb-0">
+                    <strong>Could not start checkout.</strong>
+                    <?php if ($checkoutOrderError !== ''): ?>
+                        <span class="d-block small mt-1"><?php echo htmlspecialchars($checkoutOrderError); ?></span>
+                    <?php else: ?>
+                        <span class="d-block small mt-1">Try again in a moment. If this continues, ask the portal admin to run <strong>Test Razorpay connection</strong> under Gateway settings.</span>
+                    <?php endif; ?>
+                </div>
             <?php else: ?>
                 <button type="button" class="btn btn-primary btn-lg w-100" id="payBtn">
                     <i class="bi bi-shield-lock me-2"></i>Proceed to Razorpay

@@ -28,10 +28,10 @@ function hub_setting_set(mysqli $conn, string $key, string $value): bool
 function hub_razorpay_config(mysqli $conn): array
 {
     return [
-        'mode' => hub_setting_get($conn, 'razorpay_mode') ?: 'test',
-        'key_id' => hub_setting_get($conn, 'razorpay_key_id') ?: '',
-        'key_secret' => hub_setting_get($conn, 'razorpay_key_secret') ?: '',
-        'webhook_secret' => hub_setting_get($conn, 'razorpay_webhook_secret') ?: '',
+        'mode' => trim((string) (hub_setting_get($conn, 'razorpay_mode') ?: 'test')),
+        'key_id' => trim((string) (hub_setting_get($conn, 'razorpay_key_id') ?: '')),
+        'key_secret' => trim((string) (hub_setting_get($conn, 'razorpay_key_secret') ?: '')),
+        'webhook_secret' => trim((string) (hub_setting_get($conn, 'razorpay_webhook_secret') ?: '')),
     ];
 }
 
