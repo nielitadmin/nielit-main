@@ -1,0 +1,15 @@
+.hub-page { font-family: system-ui, sans-serif; background: #f4f6f8; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.hub-card { background: #fff; border-radius: 12px; padding: 28px 32px; max-width: 520px; width: 100%; box-shadow: 0 8px 32px rgba(0,0,0,.08); }
+.hub-kicker { text-transform: uppercase; letter-spacing: .08em; font-size: 12px; color: #666; margin: 0 0 8px; }
+.hub-muted { color: #555; line-height: 1.5; }
+.hub-muted.small { font-size: 13px; }
+.hub-error { color: #b00020; }
+.hub-btn { background: #0b5cab; color: #fff; border: 0; padding: 12px 20px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; margin-top: 16px; }
+.hub-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; margin: 20px 0; }
+.hub-dl dt { color: #666; margin: 0; }
+.hub-dl dd { margin: 0; font-weight: 600; }
+.hub-links { padding-left: 20px; }
+.hub-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.hub-table th, .hub-table td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+.hub-admin-nav { margin-bottom: 20px; }
+.hub-admin-nav a { margin-right: 12px; }
