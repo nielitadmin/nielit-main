@@ -83,6 +83,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } else {
             $overrideDates = !empty($_POST['override_sheet_dates']);
+            @ini_set('memory_limit', '1024M');
+            @set_time_limit(600);
+            if (session_status() === PHP_SESSION_ACTIVE) {
+                session_write_close();
+            }
             $result = training_partner_import_students(
                 $conn,
                 (string) $file['tmp_name'],
@@ -95,6 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 (string) ($_POST['course_category'] ?? ''),
                 $overrideDates
             );
+            if (session_status() !== PHP_SESSION_ACTIVE) {
+                session_start();
+            }
             if (!empty($result['ok'])) {
                 $showStudents = true;
                 $filterScheme = (int) ($_POST['scheme_id'] ?? 0);
@@ -776,7 +784,7 @@ $active_theme = loadActiveTheme($conn);
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Excel file</label>
                                 <input class="form-control" type="file" name="student_sheet" accept=".xlsx,.xls,.csv" required>
-                                <div class="form-text">Max upload size: <?php echo htmlspecialchars((string) ini_get('upload_max_filesize')); ?>. Tip: A 2,000-row spreadsheet without photos is usually under 1 MB. Save as <strong>.csv</strong> or clean <strong>.xlsx</strong>.</div>
+                                <div class="form-text">Max upload size: <?php echo htmlspecialchars((string) ini_get('upload_max_filesize')); ?>. Tip: A 2,000-row spreadsheet without photos is usually under 1 MB. Save as <strong>.csv</strong> or clean <strong>.xlsx</strong>. If you see <strong>503 Service Unavailable</strong>, the host stopped the request (file too large, too many sheets/rows, or server timeout)—try a smaller file or upload in parts.</div>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Course category (Default)</label>

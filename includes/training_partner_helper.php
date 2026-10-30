@@ -65,18 +65,28 @@ if (!function_exists('training_partner_ensure_schema')) {
         if (!isset($studentColumns['upload_file_name'])) {
             $conn->query("ALTER TABLE training_partner_students ADD COLUMN upload_file_name VARCHAR(255) NOT NULL DEFAULT '' AFTER upload_batch_id");
         }
-        // Backfill existing records that have no upload_file_name
-        $conn->query("UPDATE training_partner_students 
-                      SET upload_batch_id = CONCAT('batch_', DATE_FORMAT(created_at, '%Y%m%d_%H')),
-                          upload_file_name = 'Spreadsheet Upload'
-                      WHERE upload_batch_id = '' OR upload_file_name = ''");
-        // Auto-heal any mismatched end date where the year is earlier than course_start_date
-        $conn->query("UPDATE training_partner_students 
-                      SET course_end_date = CONCAT(YEAR(course_start_date), SUBSTRING(course_end_date, 5))
+        // Backfill existing records that have no upload_file_name (only when needed)
+        $needsBackfill = $conn->query("SELECT 1 FROM training_partner_students WHERE upload_batch_id = '' OR upload_file_name = '' LIMIT 1");
+        if ($needsBackfill && $needsBackfill->num_rows > 0) {
+            $conn->query("UPDATE training_partner_students 
+                          SET upload_batch_id = CONCAT('batch_', DATE_FORMAT(created_at, '%Y%m%d_%H')),
+                              upload_file_name = 'Spreadsheet Upload'
+                          WHERE upload_batch_id = '' OR upload_file_name = ''");
+        }
+        // Auto-heal mismatched end dates (only when needed)
+        $needsEndHeal = $conn->query("SELECT 1 FROM training_partner_students 
                       WHERE course_start_date IS NOT NULL 
                         AND course_end_date IS NOT NULL 
                         AND course_end_date < course_start_date 
-                        AND YEAR(course_end_date) < YEAR(course_start_date)");
+                        AND YEAR(course_end_date) < YEAR(course_start_date) LIMIT 1");
+        if ($needsEndHeal && $needsEndHeal->num_rows > 0) {
+            $conn->query("UPDATE training_partner_students 
+                          SET course_end_date = CONCAT(YEAR(course_start_date), SUBSTRING(course_end_date, 5))
+                          WHERE course_start_date IS NOT NULL 
+                            AND course_end_date IS NOT NULL 
+                            AND course_end_date < course_start_date 
+                            AND YEAR(course_end_date) < YEAR(course_start_date)");
+        }
         foreach (training_partner_detail_fields() as $field => $kind) {
             if (isset($studentColumns[$field])) {
                 continue;
@@ -1543,6 +1553,7 @@ if (!function_exists('training_partner_ensure_schema')) {
         $savedIds = [];
         $uniqueSavedMap = [];
         $duplicateDetails = [];
+        $conn->begin_transaction();
         foreach ($records as $record) {
             $rowPartnerId = $partnerId;
             $partnerName = trim((string) ($record['partner_name'] ?? ''));
@@ -1617,8 +1628,10 @@ if (!function_exists('training_partner_ensure_schema')) {
             }
         }
         if ($saved === 0) {
+            $conn->rollback();
             return ['ok' => false, 'error' => 'The sheet was read, but no student could be saved. Choose the scheme, and make sure each row has a training partner.', 'saved' => 0, 'skipped' => $skipped];
         }
+        $conn->commit();
         return [
             'ok' => true,
             'total_rows' => count($records),
