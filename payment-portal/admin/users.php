@@ -201,7 +201,9 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
     </div>
 </div>
 
-<?php foreach ($users as $u): ?>
+<?php
+ob_start();
+foreach ($users as $u): ?>
 <div class="modal fade" id="editUser<?php echo (int) $u['id']; ?>" tabindex="-1" aria-labelledby="editUserLabel<?php echo (int) $u['id']; ?>" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -219,7 +221,7 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
                     </div>
                     <div>
                         <label class="form-label" for="editEmail<?php echo (int) $u['id']; ?>">Email <span class="text-danger">*</span></label>
-                        <input class="form-control" type="email" name="email" id="editEmail<?php echo (int) $u['id']; ?>"
+                        <input class="form-control bg-white" type="email" name="email" id="editEmail<?php echo (int) $u['id']; ?>"
                                value="<?php echo htmlspecialchars((string) ($u['email'] ?? '')); ?>"
                                placeholder="admin@nielitbhubaneswar.in" required autocomplete="email">
                         <div class="form-text">Required for email OTP sign-in on the login page.</div>
@@ -237,28 +239,25 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
                         <label class="form-check-label" for="active<?php echo (int) $u['id']; ?>">Active</label>
                     </div>
                 </div>
-                <div class="modal-footer flex-column align-items-stretch gap-2">
-                    <div class="d-flex gap-2 w-100">
-                        <button type="button" class="btn btn-light flex-grow-1" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-check-lg me-1"></i>Save changes</button>
-                    </div>
-                    <div class="border-top pt-3">
-                        <p class="small text-secondary mb-2">Reset password (for fallback login):</p>
-                        <div class="input-group">
-                            <input class="form-control form-control-sm" type="password" name="new_password" form="resetForm<?php echo (int) $u['id']; ?>" placeholder="New password" minlength="6">
-                            <button class="btn btn-outline-warning btn-sm" type="submit" form="resetForm<?php echo (int) $u['id']; ?>">Reset</button>
-                        </div>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
                 </div>
             </form>
-            <form method="post" id="resetForm<?php echo (int) $u['id']; ?>" class="d-none">
+            <form method="post" class="modal-body border-top pt-0">
                 <input type="hidden" name="form_action" value="reset_password">
                 <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
+                <p class="small text-secondary mb-2">Reset password (for fallback login):</p>
+                <div class="input-group">
+                    <input class="form-control form-control-sm bg-white" type="password" name="new_password" placeholder="New password" required minlength="6" autocomplete="new-password">
+                    <button class="btn btn-outline-warning btn-sm" type="submit">Reset</button>
+                </div>
             </form>
         </div>
     </div>
 </div>
-<?php endforeach; ?>
-
 <?php
+endforeach;
+hub_admin_body_portal(ob_get_clean());
+
 hub_admin_layout_end();

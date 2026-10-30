@@ -41,6 +41,15 @@ function hub_brand_mark_html(string $class = 'hub-brand-logo'): string
     return '<img class="' . htmlspecialchars($class) . '" src="' . htmlspecialchars(hub_brand_logo_url()) . '" alt="' . htmlspecialchars($alt) . '" width="48" height="48" loading="eager" decoding="async">';
 }
 
+/** HTML appended before closing body (Bootstrap modals must not sit inside .hub-main). */
+function hub_admin_body_portal(string $html): void
+{
+    if (!isset($GLOBALS['hub_admin_body_portals'])) {
+        $GLOBALS['hub_admin_body_portals'] = '';
+    }
+    $GLOBALS['hub_admin_body_portals'] .= $html;
+}
+
 function hub_admin_nav_items(): array
 {
     $items = [
@@ -64,6 +73,7 @@ function hub_admin_nav_items(): array
 
 function hub_admin_layout_start(string $pageTitle, string $activeNav = 'dashboard', ?string $subtitle = null): void
 {
+    $GLOBALS['hub_admin_body_portals'] = '';
     hub_admin_session_start();
     $user = (string) ($_SESSION['hub_admin_user'] ?? 'Admin');
     $nav = hub_admin_nav_items();
@@ -131,6 +141,11 @@ function hub_admin_layout_end(): void
         </footer>
     </div>
 </div>
+<?php
+    if (!empty($GLOBALS['hub_admin_body_portals'])) {
+        echo $GLOBALS['hub_admin_body_portals'];
+    }
+?>
 <div class="offcanvas offcanvas-start hub-sidebar-offcanvas" tabindex="-1" id="hubSidebarMobile">
     <div class="offcanvas-header">
         <h5 class="offcanvas-title"><?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></h5>
