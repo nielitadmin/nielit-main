@@ -40,6 +40,7 @@ $payer = json_decode((string) ($payment['payer_json'] ?? ''), true);
 if (!is_array($payer)) {
     $payer = [];
 }
+$invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_secret'];
 
 hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['source_reference']);
 ?>
@@ -58,7 +59,14 @@ hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Amount</span><strong><?php echo hub_money_paise((int) $payment['amount_paise']); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refunded</span><?php echo hub_money_paise((int) $payment['refunded_amount_paise']); ?></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refundable</span><strong class="text-primary"><?php echo hub_money_paise($refundable); ?></strong></li>
-                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Invoice</span><code><?php echo htmlspecialchars((string) ($payment['invoice_number'] ?? '—')); ?></code></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Invoice</span>
+                    <?php if (!empty($payment['invoice_number'])): ?>
+                        <span><code><?php echo htmlspecialchars((string) $payment['invoice_number']); ?></code>
+                        <a class="small ms-1" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . $paymentId . '&sig=' . urlencode(hub_invoice_public_signature($paymentId, $invoiceSecret))); ?>">View / PDF</a></span>
+                    <?php else: ?>
+                        <code>—</code>
+                    <?php endif; ?>
+                </li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Razorpay</span><small class="font-monospace"><?php echo htmlspecialchars((string) ($payment['razorpay_payment_id'] ?? '—')); ?></small></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Payer</span><?php echo htmlspecialchars((string) ($payer['name'] ?? '—')); ?></li>
                 <?php if ($checkout): ?>

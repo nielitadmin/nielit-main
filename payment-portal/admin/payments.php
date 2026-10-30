@@ -12,6 +12,7 @@ if ($result) {
 }
 
 hub_admin_layout_start('Payments', 'payments', 'Search, view details, and issue refunds');
+$invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_secret'];
 ?>
 <div class="hub-card-panel">
     <div class="hub-table-wrap">
@@ -34,7 +35,13 @@ hub_admin_layout_start('Payments', 'payments', 'Search, view details, and issue 
                     <td><span class="badge text-bg-light border"><?php echo htmlspecialchars((string) $r['source_code']); ?></span></td>
                     <td class="font-monospace small"><?php echo htmlspecialchars((string) $r['source_reference']); ?></td>
                     <td><?php echo hub_money_paise((int) $r['amount_paise']); ?></td>
-                    <td class="small"><?php echo htmlspecialchars((string) ($r['invoice_number'] ?? '—')); ?></td>
+                    <td class="small">
+                        <?php if (!empty($r['invoice_number'])): ?>
+                            <a target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . (int) $r['id'] . '&sig=' . urlencode(hub_invoice_public_signature((int) $r['id'], $invoiceSecret))); ?>"><?php echo htmlspecialchars((string) $r['invoice_number']); ?></a>
+                        <?php else: ?>
+                            —
+                        <?php endif; ?>
+                    </td>
                     <td><?php echo hub_status_badge((string) $r['status']); ?></td>
                     <td><a class="btn btn-sm btn-outline-primary" href="<?php echo hub_asset('admin/payment.php?id=' . (int) $r['id']); ?>">Details</a></td>
                 </tr>

@@ -46,6 +46,7 @@ function hub_admin_nav_items(): array
     return [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'bi-speedometer2', 'href' => 'admin/dashboard.php'],
         'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card-2-front', 'href' => 'admin/payments.php'],
+        'invoices' => ['label' => 'Invoice template', 'icon' => 'bi-receipt-cutoff', 'href' => 'admin/invoice_template.php'],
         'outcomes' => ['label' => 'Outcomes', 'icon' => 'bi-diagram-3', 'href' => 'admin/outcomes.php'],
         'sources' => ['label' => 'Sources', 'icon' => 'bi-boxes', 'href' => 'admin/sources.php'],
         'gateway' => ['label' => 'Gateway', 'icon' => 'bi-shield-lock', 'href' => 'admin/gateway.php'],
