@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../../includes/bootstrap.php';
+require_once __DIR__ . '/../../../includes/bootstrap.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     hub_json_response(['ok' => false, 'error' => 'POST required'], 405);

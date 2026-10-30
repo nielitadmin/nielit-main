@@ -55,6 +55,8 @@ Override with environment variables `HUB_APP_URL` or `HUB_ENV` if your host supp
 | DB error | Fix `config/database.php` or create DB in cPanel |
 | Razorpay | Admin → Gateway |
 
+**HTTP 500 after editing `database.php`:** Line 1 must be exactly `<?php` (not `k?php` or missing `?`). Save as UTF-8 without BOM.
+
 ## 4. Security
 
 - `config/database.php` and `config/secrets.php` are **gitignored** — keep them only on the server.

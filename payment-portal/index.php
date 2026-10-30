@@ -1,6 +1,6 @@
 <?php
 
-require_once __DIR__ . '/../includes/bootstrap.php';
+require_once __DIR__ . '/includes/bootstrap.php';
 
 hub_public_layout_start(HUB_APP_NAME, 'hero');
 ?>
