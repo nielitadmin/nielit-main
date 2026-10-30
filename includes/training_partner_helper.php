@@ -1141,12 +1141,29 @@ if (!function_exists('training_partner_ensure_schema')) {
             'd-M-Y',
             'j-M-Y',
             'd M Y',
-            'Y/m/d'
+            'd F Y',
+            'j F Y',
+            'Y/m/d',
         ] as $format) {
             $parsed = DateTime::createFromFormat('!' . $format, $text);
             $errors = DateTime::getLastErrors();
             if ($parsed instanceof DateTime && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
                 return $parsed->format('Y-m-d');
+            }
+        }
+        // Month-year exam labels, e.g. Aug-25 → first day of that month
+        if (preg_match('/^([A-Za-z]{3,9})[\s\-\/\.]+(\d{2}|\d{4})$/', $text, $parts)) {
+            $year = (int) $parts[2];
+            if ($year < 100) {
+                $year += 2000;
+            }
+            $monthToken = $parts[1];
+            foreach (['M', 'F'] as $monthFormat) {
+                $parsed = DateTime::createFromFormat('!' . $monthFormat . '-Y-d', $monthToken . '-' . $year . '-01');
+                $errors = DateTime::getLastErrors();
+                if ($parsed instanceof DateTime && ($errors['warning_count'] ?? 0) === 0 && ($errors['error_count'] ?? 0) === 0) {
+                    return $parsed->format('Y-m-d');
+                }
             }
         }
         return null;
