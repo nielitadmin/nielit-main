@@ -9,6 +9,6 @@
 return [
     'admin_username' => 'hubadmin',
     'admin_password' => 'ChangeMeOnFirstLogin!',
-    /** Optional: applied to hubadmin when email column was empty (OTP login). */
-    'admin_email' => '',
+    /** Applied to hubadmin when email is empty (OTP login). Override in secrets.php on the server. */
+    'admin_email' => 'admin@nielitbhubaneswar.in',
 ];

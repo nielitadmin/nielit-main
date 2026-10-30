@@ -114,7 +114,13 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
                                     <strong><?php echo htmlspecialchars((string) $u['username']); ?></strong>
                                 </div>
                             </td>
-                            <td class="small"><?php echo htmlspecialchars((string) ($u['email'] ?: '—')); ?></td>
+                            <td class="small">
+                                <?php if (trim((string) ($u['email'] ?? '')) === ''): ?>
+                                    <span class="text-danger">Not set — OTP login disabled</span>
+                                <?php else: ?>
+                                    <?php echo htmlspecialchars((string) $u['email']); ?>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($u['role'] === 'superadmin'): ?>
                                     <span class="badge text-bg-warning"><i class="bi bi-star-fill me-1"></i>Superadmin</span>
@@ -158,8 +164,15 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
                                             <input type="hidden" name="form_action" value="update">
                                             <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
                                             <div>
-                                                <label class="form-label">Email</label>
-                                                <input class="form-control" type="email" name="email" value="<?php echo htmlspecialchars((string) ($u['email'] ?? '')); ?>" required>
+                                                <label class="form-label">Username</label>
+                                                <input class="form-control" type="text" value="<?php echo htmlspecialchars((string) $u['username']); ?>" disabled>
+                                            </div>
+                                            <div>
+                                                <label class="form-label">Email <span class="text-danger">*</span></label>
+                                                <input class="form-control" type="email" name="email"
+                                                       value="<?php echo htmlspecialchars((string) ($u['email'] ?? '')); ?>"
+                                                       placeholder="admin@nielitbhubaneswar.in" required autocomplete="email">
+                                                <div class="form-text">Required for email OTP sign-in on the login page.</div>
                                             </div>
                                             <div>
                                                 <label class="form-label">Role</label>

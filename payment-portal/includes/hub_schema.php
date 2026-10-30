@@ -212,18 +212,23 @@ function hub_schema_migrate_columns(mysqli $conn): void
 /**
  * Upgrades legacy hub staff rows so the first hubadmin can open Admin users / SMTP.
  */
+function hub_schema_default_admin_email(): string
+{
+    global $hub_secrets;
+    if (is_array($hub_secrets)) {
+        $fromSecrets = trim((string) ($hub_secrets['admin_email'] ?? ''));
+        if ($fromSecrets !== '' && filter_var($fromSecrets, FILTER_VALIDATE_EMAIL)) {
+            return $fromSecrets;
+        }
+    }
+    return 'admin@nielitbhubaneswar.in';
+}
+
 function hub_schema_migrate_admin_users(mysqli $conn): void
 {
     $conn->query("UPDATE hub_admin_users SET role = 'superadmin' WHERE username = 'hubadmin' AND role = 'admin'");
 
-    global $hub_secrets;
-    if (!is_array($hub_secrets)) {
-        return;
-    }
-    $email = trim((string) ($hub_secrets['admin_email'] ?? ''));
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return;
-    }
+    $email = hub_schema_default_admin_email();
     $stmt = $conn->prepare("UPDATE hub_admin_users SET email = ? WHERE username = 'hubadmin' AND email = '' LIMIT 1");
     if (!$stmt) {
         return;
@@ -262,6 +267,9 @@ function hub_schema_seed_defaults(mysqli $conn): void
         $user = (string) ($hub_secrets['admin_username'] ?? 'hubadmin');
         $pass = (string) ($hub_secrets['admin_password'] ?? 'ChangeMeOnFirstLogin!');
         $email = (string) ($hub_secrets['admin_email'] ?? '');
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $email = hub_schema_default_admin_email();
+        }
         $hash = password_hash($pass, PASSWORD_DEFAULT);
         $role = 'superadmin';
         $stmt = $conn->prepare('INSERT INTO hub_admin_users (username, email, password_hash, role) VALUES (?, ?, ?, ?)');
