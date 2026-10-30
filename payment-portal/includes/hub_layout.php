@@ -114,8 +114,10 @@ function hub_admin_layout_end(): void
 {
     ?>
         </main>
-        <footer class="hub-footer text-center text-secondary small py-3">
-            <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · Secure gateway &amp; invoice control
+        <footer class="hub-footer">
+            <div class="container-fluid py-3 text-center text-secondary small">
+                <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · Secure gateway &amp; invoice control
+            </div>
         </footer>
     </div>
 </div>

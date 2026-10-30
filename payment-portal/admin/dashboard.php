@@ -79,7 +79,7 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
     </div>
 </div>
 
-<div class="row g-3">
+<div class="row g-3 align-items-start">
     <div class="col-lg-8">
         <div class="hub-card-panel">
             <div class="d-flex justify-content-between align-items-center mb-3">

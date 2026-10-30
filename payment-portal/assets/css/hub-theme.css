@@ -25,11 +25,13 @@ body {
     margin: 0;
     background: var(--hub-bg);
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .hub-admin-shell {
     display: flex;
     min-height: 100vh;
+    min-height: 100dvh;
 }
 
 .hub-sidebar {
@@ -40,10 +42,14 @@ body {
     display: flex;
     flex-direction: column;
     padding: 1.25rem 1rem;
-    position: sticky;
+    position: fixed;
+    left: 0;
     top: 0;
     height: 100vh;
-    z-index: 100;
+    height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 200;
 }
 
 .hub-sidebar-brand {
@@ -150,8 +156,15 @@ body {
 .hub-main {
     flex: 1;
     min-width: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    margin-left: var(--hub-sidebar-width);
+    width: calc(100% - var(--hub-sidebar-width));
     display: flex;
     flex-direction: column;
+    background: var(--hub-bg);
+    position: relative;
+    z-index: 1;
 }
 
 .hub-topbar {
@@ -203,12 +216,18 @@ body {
 }
 
 .hub-content {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 1.5rem;
 }
 
 .hub-footer {
+    flex-shrink: 0;
     background: var(--hub-surface);
     border-top: 1px solid var(--hub-border);
+    margin-top: auto;
+    position: relative;
+    z-index: 2;
 }
 
 .hub-card-panel {
@@ -217,6 +236,9 @@ body {
     border: 1px solid var(--hub-border);
     box-shadow: var(--hub-shadow);
     padding: 1.35rem 1.5rem;
+}
+
+.hub-card-panel.hub-card-stretch {
     height: 100%;
 }
 
@@ -403,6 +425,11 @@ body {
 @media (max-width: 991.98px) {
     .hub-sidebar {
         display: none;
+    }
+
+    .hub-main {
+        margin-left: 0;
+        width: 100%;
     }
 
     .hub-auth-grid {

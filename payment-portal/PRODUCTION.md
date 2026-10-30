@@ -61,3 +61,14 @@ Override with environment variables `HUB_APP_URL` or `HUB_ENV` if your host supp
 
 - `config/database.php` and `config/secrets.php` are **gitignored** — keep them only on the server.
 - Use **HTTPS** only in production (Hostinger usually provides SSL for the subdomain).
+
+## 5. Admin dashboard (layout & setup)
+
+| Requirement | Detail |
+|-------------|--------|
+| **Layout** | Fixed left sidebar (268px); main content and footer sit to the right—no overlap with sidebar or quick-link cards. |
+| **First visit** | Blue **Complete setup** banner until Razorpay keys + webhook secret are saved. |
+| **Gateway** | Admin → **Gateway** — Razorpay Key ID, secret, webhook secret (or put keys in `secrets.php`; they sync when DB fields are empty). |
+| **Sources** | Admin → **Sources** — shared secrets for `mis`, `mock`, etc. |
+| **Staff login** | Default bootstrap user from `secrets.php` (first DB seed only); change password after login. |
+| **Assets** | Deploy `assets/css/hub-theme.css` after UI updates; hard-refresh (Ctrl+F5). |
