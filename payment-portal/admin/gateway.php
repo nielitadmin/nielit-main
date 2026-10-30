@@ -132,33 +132,33 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
                         <option value="live" <?php echo $cfg['mode'] === 'live' ? 'selected' : ''; ?>>Live</option>
                     </select>
                 </div>
-                <div class="col-12">
+                <div class="col-12 hub-field-wrap">
                     <label class="form-label">Key ID</label>
-                    <input class="form-control font-monospace" id="razorpay_key_id" name="razorpay_key_id" value="<?php echo htmlspecialchars($cfg['key_id']); ?>" autocomplete="off">
+                    <input class="form-control font-monospace" id="razorpay_key_id" name="razorpay_key_id" value="<?php echo htmlspecialchars($cfg['key_id']); ?>" autocomplete="off" spellcheck="false">
                 </div>
-                <div class="col-12">
+                <div class="col-12 hub-field-wrap">
                     <label class="form-label d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <span>Key secret <?php echo $cfg['key_secret'] !== '' ? '<span class="badge text-bg-light border fw-normal">saved</span>' : '<span class="badge text-bg-danger fw-normal">missing</span>'; ?></span>
                         <span>
-                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_key_secret">Show while typing</button>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_key_secret">Mask while typing</button>
                             <button type="button" class="btn btn-link btn-sm p-0 hub-focus-replace" data-target="razorpay_key_secret">Enter new value</button>
                         </span>
                     </label>
-                    <input class="form-control font-monospace hub-form-secret" id="razorpay_key_secret" type="password" name="razorpay_key_secret" value="" autocomplete="new-password" placeholder="Leave empty to keep current — or paste new API key secret">
+                    <input class="form-control font-monospace hub-form-secret" id="razorpay_key_secret" type="text" name="razorpay_key_secret" value="" autocomplete="off" spellcheck="false" placeholder="Leave empty to keep current — or paste new API key secret">
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" name="clear_key_secret" value="1" id="clear_key_secret">
                         <label class="form-check-label text-danger" for="clear_key_secret">Clear saved key secret (remove from hub)</label>
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-12 hub-field-wrap">
                     <label class="form-label d-flex flex-wrap justify-content-between align-items-center gap-2">
                         <span>Webhook secret <?php echo $cfg['webhook_secret'] !== '' ? '<span class="badge text-bg-light border fw-normal">saved</span>' : '<span class="badge text-bg-warning text-dark fw-normal">not set</span>'; ?></span>
                         <span>
-                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_webhook_secret">Show while typing</button>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_webhook_secret">Mask while typing</button>
                             <button type="button" class="btn btn-link btn-sm p-0 hub-focus-replace" data-target="razorpay_webhook_secret">Enter new value</button>
                         </span>
                     </label>
-                    <input class="form-control font-monospace hub-form-secret" id="razorpay_webhook_secret" type="password" name="razorpay_webhook_secret" value="" autocomplete="new-password" placeholder="Leave empty to keep current — or paste webhook secret (same as Razorpay)">
+                    <input class="form-control font-monospace hub-form-secret" id="razorpay_webhook_secret" type="text" name="razorpay_webhook_secret" value="" autocomplete="off" spellcheck="false" placeholder="Leave empty to keep current — or paste webhook secret (same as Razorpay)">
                     <div class="form-check mt-2">
                         <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
                         <label class="form-check-label text-danger" for="clear_webhook_secret">Clear saved webhook secret</label>
@@ -185,6 +185,23 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
 </div>
 <script>
 (function () {
+    function hubFocusField(el) {
+        if (!el) return;
+        el.focus();
+        var len = el.value.length;
+        if (typeof el.setSelectionRange === 'function') {
+            el.setSelectionRange(len, len);
+        }
+    }
+
+    function hubMarkEditing(el) {
+        if (!el) return;
+        var wrap = el.closest('.hub-field-wrap');
+        if (wrap) {
+            wrap.classList.add('hub-field-editing');
+        }
+    }
+
     document.querySelectorAll('.hub-secret-toggle').forEach(function (btn) {
         btn.addEventListener('click', function () {
             var code = btn.previousElementSibling;
@@ -206,9 +223,10 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
         btn.addEventListener('click', function () {
             var el = document.getElementById(btn.getAttribute('data-target'));
             if (!el) return;
-            var show = el.type === 'password';
-            el.type = show ? 'text' : 'password';
-            btn.textContent = show ? 'Hide while typing' : 'Show while typing';
+            var mask = el.type === 'text';
+            el.type = mask ? 'password' : 'text';
+            btn.textContent = mask ? 'Show while typing' : 'Mask while typing';
+            hubFocusField(el);
         });
     });
     document.querySelectorAll('.hub-focus-replace').forEach(function (btn) {
@@ -217,8 +235,10 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             if (!el) return;
             el.value = '';
             el.type = 'text';
-            el.focus();
+            btn.textContent = 'Mask while typing';
             el.placeholder = 'Paste new value, then Save settings';
+            hubMarkEditing(el);
+            hubFocusField(el);
             document.getElementById('hubGatewayEdit').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     });
@@ -231,11 +251,12 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             if (btn.getAttribute('data-replace') === '1') {
                 el.value = '';
                 el.type = 'text';
-                el.focus();
                 el.placeholder = 'Paste new value, then Save settings';
+                hubMarkEditing(el);
+                hubFocusField(el);
             } else {
-                el.focus();
-                el.select();
+                hubMarkEditing(el);
+                hubFocusField(el);
             }
         });
     });

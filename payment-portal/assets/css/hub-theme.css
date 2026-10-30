@@ -222,7 +222,21 @@ body {
 .hub-content {
     flex: 1 1 auto;
     min-height: 0;
-    padding-bottom: 1.5rem;
+    padding-bottom: 2rem;
+    width: 100%;
+}
+
+#hubGatewayEdit {
+    scroll-margin-top: 5.5rem;
+}
+
+.hub-field-editing .form-control {
+    border-color: #0ea5e9;
+    box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.12);
+}
+
+.hub-field-wrap .form-control:focus {
+    border-color: #0ea5e9;
 }
 
 .hub-footer {
