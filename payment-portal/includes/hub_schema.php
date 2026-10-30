@@ -34,6 +34,17 @@ function hub_schema_ensure(mysqli $conn): void
         UNIQUE KEY uq_hub_admin_user (username)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+    $conn->query("CREATE TABLE IF NOT EXISTS hub_admin_otp (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        admin_id INT NOT NULL,
+        otp_code CHAR(6) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        is_used TINYINT(1) NOT NULL DEFAULT 0,
+        KEY idx_hub_otp_admin (admin_id),
+        KEY idx_hub_otp_expires (expires_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
     $conn->query("CREATE TABLE IF NOT EXISTS hub_checkouts (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         token CHAR(64) NOT NULL,
@@ -179,6 +190,21 @@ function hub_schema_migrate_columns(mysqli $conn): void
     if (!isset($cols['settlement_paise'])) {
         $conn->query('ALTER TABLE hub_payments ADD COLUMN settlement_paise INT NOT NULL DEFAULT 0 AFTER razorpay_tax_paise');
     }
+
+    // Migrate hub_admin_users columns
+    $adminCols = [];
+    $res2 = $conn->query('SHOW COLUMNS FROM hub_admin_users');
+    if ($res2) {
+        while ($c = $res2->fetch_assoc()) {
+            $adminCols[$c['Field']] = true;
+        }
+    }
+    if (!isset($adminCols['email'])) {
+        $conn->query("ALTER TABLE hub_admin_users ADD COLUMN email VARCHAR(180) NOT NULL DEFAULT '' AFTER username");
+    }
+    if (!isset($adminCols['role'])) {
+        $conn->query("ALTER TABLE hub_admin_users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin' AFTER password_hash");
+    }
 }
 
 function hub_schema_seed_defaults(mysqli $conn): void
@@ -209,10 +235,12 @@ function hub_schema_seed_defaults(mysqli $conn): void
     if ($ar && (int) $ar['c'] === 0 && is_array($hub_secrets)) {
         $user = (string) ($hub_secrets['admin_username'] ?? 'hubadmin');
         $pass = (string) ($hub_secrets['admin_password'] ?? 'ChangeMeOnFirstLogin!');
+        $email = (string) ($hub_secrets['admin_email'] ?? '');
         $hash = password_hash($pass, PASSWORD_DEFAULT);
-        $stmt = $conn->prepare('INSERT INTO hub_admin_users (username, password_hash) VALUES (?, ?)');
+        $role = 'superadmin';
+        $stmt = $conn->prepare('INSERT INTO hub_admin_users (username, email, password_hash, role) VALUES (?, ?, ?, ?)');
         if ($stmt) {
-            $stmt->bind_param('ss', $user, $hash);
+            $stmt->bind_param('ssss', $user, $email, $hash, $role);
             $stmt->execute();
             $stmt->close();
         }

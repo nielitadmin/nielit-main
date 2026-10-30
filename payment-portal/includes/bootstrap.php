@@ -32,6 +32,7 @@ require_once __DIR__ . '/hub_invoice_layout.php';
 require_once __DIR__ . '/hub_invoice_template.php';
 require_once __DIR__ . '/hub_refund.php';
 require_once __DIR__ . '/hub_webhook_handlers.php';
+require_once __DIR__ . '/hub_mailer.php';
 require_once __DIR__ . '/hub_admin_auth.php';
 require_once __DIR__ . '/hub_dashboard_stats.php';
 require_once __DIR__ . '/hub_payment_register.php';

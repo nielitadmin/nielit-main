@@ -43,7 +43,7 @@ function hub_brand_mark_html(string $class = 'hub-brand-logo'): string
 
 function hub_admin_nav_items(): array
 {
-    return [
+    $items = [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'bi-speedometer2', 'href' => 'admin/dashboard.php'],
         'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card-2-front', 'href' => 'admin/payments.php'],
         'invoices' => ['label' => 'Receipt designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
@@ -53,6 +53,13 @@ function hub_admin_nav_items(): array
         'sources' => ['label' => 'Sources', 'icon' => 'bi-boxes', 'href' => 'admin/sources.php'],
         'gateway' => ['label' => 'Gateway', 'icon' => 'bi-shield-lock', 'href' => 'admin/gateway.php'],
     ];
+    // Superadmin-only navigation items
+    hub_admin_session_start();
+    if (($_SESSION['hub_admin_role'] ?? '') === 'superadmin') {
+        $items['users'] = ['label' => 'Admin users', 'icon' => 'bi-people', 'href' => 'admin/users.php'];
+        $items['smtp'] = ['label' => 'SMTP / Email', 'icon' => 'bi-envelope-at', 'href' => 'admin/smtp.php'];
+    }
+    return $items;
 }
 
 function hub_admin_layout_start(string $pageTitle, string $activeNav = 'dashboard', ?string $subtitle = null): void
