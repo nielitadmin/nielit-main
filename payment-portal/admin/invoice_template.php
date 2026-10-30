@@ -6,7 +6,7 @@ hub_admin_require();
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     hub_invoice_template_save($hub_conn, $_POST);
-    $msg = 'Invoice template saved.';
+    $msg = 'Money receipt letterhead saved.';
 }
 
 $tpl = hub_invoice_template_get($hub_conn);
@@ -16,7 +16,7 @@ if ($q && ($r = $q->fetch_assoc())) {
     $samplePaymentId = (int) $r['id'];
 }
 
-hub_admin_layout_start('Invoice template', 'invoices', 'Letterhead, GST fields, and receipt wording');
+hub_admin_layout_start('Money receipt letterhead', 'invoice_settings', 'Organisation details and receipt wording (not a tax invoice)');
 ?>
 <div class="mb-3">
     <a class="btn btn-outline-primary btn-sm" href="<?php echo hub_asset('admin/invoice_designer.php'); ?>"><i class="bi bi-magic me-1"></i> Open drag &amp; drop designer</a>
@@ -52,7 +52,7 @@ hub_admin_layout_start('Invoice template', 'invoices', 'Letterhead, GST fields, 
                     <input class="form-control" name="invoice_org_phone" value="<?php echo htmlspecialchars((string) $tpl['invoice_org_phone']); ?>">
                 </div>
                 <div class="col-12">
-                    <label class="form-label">Email on invoice</label>
+                    <label class="form-label">Email on receipt</label>
                     <input class="form-control" type="email" name="invoice_org_email" value="<?php echo htmlspecialchars((string) $tpl['invoice_org_email']); ?>">
                 </div>
                 <div class="col-12">
@@ -74,9 +74,9 @@ hub_admin_layout_start('Invoice template', 'invoices', 'Letterhead, GST fields, 
     <div class="col-lg-5">
         <div class="hub-card-panel mb-3">
             <h2 class="h6 text-uppercase text-secondary">Preview</h2>
-            <p class="small text-secondary">Opens the latest paid invoice using the current template.</p>
+            <p class="small text-secondary">Opens the latest paid money receipt using the current template.</p>
             <?php if ($samplePaymentId > 0): ?>
-                <a class="btn btn-outline-primary w-100 mb-2" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . $samplePaymentId . '&sig=' . urlencode(hub_invoice_public_signature($samplePaymentId, (string) $tpl['invoice_public_secret']))); ?>"><i class="bi bi-eye me-1"></i> Preview sample invoice</a>
+                <a class="btn btn-outline-primary w-100 mb-2" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . $samplePaymentId . '&sig=' . urlencode(hub_invoice_public_signature($samplePaymentId, (string) $tpl['invoice_public_secret']))); ?>"><i class="bi bi-eye me-1"></i> Preview sample receipt</a>
             <?php else: ?>
                 <p class="small text-secondary mb-0">No paid payments yet — complete a test payment to preview.</p>
             <?php endif; ?>

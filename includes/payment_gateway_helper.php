@@ -431,7 +431,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice <?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></title>
+    <title>Money Receipt <?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></title>
     <style>
         body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
         h1 { margin-bottom: 0; }
@@ -443,12 +443,12 @@ if (!function_exists('payment_gateway_ensure_schema')) {
     </style>
 </head>
 <body>
-    <button class="no-print" onclick="window.print()">Print invoice</button>
+    <button class="no-print" onclick="window.print()">Print money receipt</button>
     <div class="box">
-        <h1>Fee invoice</h1>
+        <h1>Money receipt</h1>
         <p style="color:#64748b;">NIELIT Bhubaneswar</p>
         <table>
-            <tr><td>Invoice</td><td><strong><?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></strong></td></tr>
+            <tr><td>Receipt no.</td><td><strong><?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></strong></td></tr>
             <tr><td>Student</td><td><?php echo htmlspecialchars((string) ($row['name'] ?? $studentCode)); ?> (<?php echo htmlspecialchars($studentCode); ?>)</td></tr>
             <tr><td>Course</td><td><?php echo htmlspecialchars((string) ($row['course_name'] ?? '')); ?></td></tr>
             <tr><td>Amount paid</td><td><strong>₹<?php echo number_format((float) ($row['amount'] ?? 0), 2); ?></strong></td></tr>

@@ -6,8 +6,8 @@ if (!defined('HUB_APP_LOADED')) {
 
 define('HUB_APP_NAME', 'NIELIT Bhubaneswar Payment Portal');
 define('HUB_BRAND_SHORT', 'NIELIT Payment Hub');
-define('HUB_TAGLINE', 'Secure online fees for NIELIT Bhubaneswar—student MIS, mock tests, and partner portals checkout here with one gateway, GST-ready invoices, and a full refund record.');
-define('HUB_TAGLINE_AUTH', 'Staff-only control centre for Razorpay, invoice numbering, and refunds across every connected portal.');
+define('HUB_TAGLINE', 'Secure online fees for NIELIT Bhubaneswar—student MIS, mock tests, and partner portals checkout here with one gateway, money receipts, and a full refund record.');
+define('HUB_TAGLINE_AUTH', 'Staff-only control centre for Razorpay, money receipt numbering, and refunds across every connected portal.');
 define('HUB_INVOICE_PREFIX', 'NIELIT-BBSR');
 
 $hubHttpHost = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));

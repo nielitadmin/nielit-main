@@ -46,8 +46,8 @@ function hub_admin_nav_items(): array
     return [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'bi-speedometer2', 'href' => 'admin/dashboard.php'],
         'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card-2-front', 'href' => 'admin/payments.php'],
-        'invoices' => ['label' => 'Invoice designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
-        'invoice_settings' => ['label' => 'Invoice & GST', 'icon' => 'bi-receipt', 'href' => 'admin/invoice_template.php'],
+        'invoices' => ['label' => 'Receipt designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
+        'invoice_settings' => ['label' => 'Receipt letterhead', 'icon' => 'bi-receipt', 'href' => 'admin/invoice_template.php'],
         'legacy' => ['label' => 'Legacy import', 'icon' => 'bi-clock-history', 'href' => 'admin/legacy_import.php'],
         'outcomes' => ['label' => 'Outcomes', 'icon' => 'bi-diagram-3', 'href' => 'admin/outcomes.php'],
         'sources' => ['label' => 'Sources', 'icon' => 'bi-boxes', 'href' => 'admin/sources.php'],
@@ -119,7 +119,7 @@ function hub_admin_layout_end(): void
         </main>
         <footer class="hub-footer">
             <div class="container-fluid py-3 text-center text-secondary small">
-                <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · Secure gateway &amp; invoice control
+                <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · Secure gateway &amp; money receipt control
             </div>
         </footer>
     </div>

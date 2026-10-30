@@ -207,7 +207,7 @@ include 'includes/header.php';
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
-                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th><th>Invoice</th></tr></thead>
+                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th><th>Receipt</th></tr></thead>
                             <tbody>
                             <?php foreach ($dashboardOnlineFees as $df):
                                 $dashInv = payment_student_latest_paid_invoice_row($conn, $student_id, (int) $df['course_id']);

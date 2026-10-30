@@ -86,7 +86,7 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
     $orgHeader = ob_get_clean();
 
     ob_start();
-    ?><strong>Bill to</strong><br>
+    ?><strong>Received from</strong><br>
     <?php echo htmlspecialchars((string) ($payer['name'] ?? 'Payer')); ?><br>
     <?php if (!empty($payer['email'])): ?><?php echo htmlspecialchars((string) $payer['email']); ?><br><?php endif; ?>
     <?php if (!empty($payer['phone'])): ?><?php echo htmlspecialchars((string) $payer['phone']); ?><br><?php endif; ?>
@@ -105,24 +105,11 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
 
     ob_start();
     ?>
-    <table style="width:100%;border-collapse:collapse;font-size:inherit;">
-        <thead><tr>
-            <th style="border:1px solid #e2e8f0;padding:6px;text-align:left;background:#f8fafc;">Description</th>
-            <th style="border:1px solid #e2e8f0;padding:6px;text-align:left;background:#f8fafc;">Source</th>
-            <th style="border:1px solid #e2e8f0;padding:6px;text-align:right;background:#f8fafc;">INR</th>
-        </tr></thead>
-        <tbody><tr>
-            <td style="border:1px solid #e2e8f0;padding:6px;"><strong><?php echo htmlspecialchars((string) ($payment['purpose'] ?? 'Online fee')); ?></strong>
-            <?php if (trim((string) ($payment['description'] ?? '')) !== ''): ?><br><span style="color:#64748b;"><?php echo htmlspecialchars((string) $payment['description']); ?></span><?php endif; ?></td>
-            <td style="border:1px solid #e2e8f0;padding:6px;"><?php echo htmlspecialchars((string) ($payment['source_name'] ?? $payment['source_code'] ?? '')); ?></td>
-            <td style="border:1px solid #e2e8f0;padding:6px;text-align:right;"><strong><?php echo number_format($amount / 100, 2); ?></strong></td>
-        </tr></tbody>
-        <tfoot><tr>
-            <td colspan="2" style="border:1px solid #e2e8f0;padding:6px;text-align:right;"><strong>Total</strong></td>
-            <td style="border:1px solid #e2e8f0;padding:6px;text-align:right;"><strong>₹ <?php echo number_format($amount / 100, 2); ?></strong></td>
-        </tr></tfoot>
-    </table>
-    <?php if ($showGst): ?><p style="color:#64748b;font-size:0.9em;margin:6px 0 0;">GST breakup — configure with accounts.</p><?php endif; ?>
+    <p style="margin:0 0 8px;">Received from <strong><?php echo htmlspecialchars((string) ($payer['name'] ?? 'Payer')); ?></strong></p>
+    <p style="margin:0 0 8px;">Amount: <strong>₹ <?php echo number_format($amount / 100, 2); ?></strong> (<?php echo htmlspecialchars(hub_inr_amount_in_words($amount)); ?>)</p>
+    <p style="margin:0 0 8px;">Towards: <strong><?php echo htmlspecialchars(hub_payment_purpose_label($payment)); ?></strong></p>
+    <p style="margin:0 0 12px;">Mode: <strong><?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?></strong></p>
+    <?php echo hub_receipt_payment_table_html($payment); ?>
     <?php
     $lineItems = ob_get_clean();
 
@@ -137,7 +124,7 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
 
     ob_start();
     ?>
-    <strong>Payment</strong><br>
+    <strong>Payment (online)</strong><br>
     Status: <?php echo htmlspecialchars(strtoupper((string) ($payment['status'] ?? ''))); ?><br>
     Paid: <?php echo htmlspecialchars(hub_invoice_format_ist((string) ($payment['paid_at'] ?? ''))); ?><br>
     Razorpay: <?php echo htmlspecialchars((string) ($payment['razorpay_payment_id'] ?? '—')); ?><br>
@@ -147,8 +134,8 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
 
     return [
         'org_header' => $orgHeader,
-        'title' => (string) $tpl['invoice_title'],
-        'invoice_number' => (string) ($payment['invoice_number'] ?? ''),
+        'title' => (string) ($tpl['invoice_title'] ?: hub_money_receipt_label()),
+        'invoice_number' => hub_receipt_number_label() . ' ' . (string) ($payment['invoice_number'] ?? ''),
         'payer_block' => $payerBlock,
         'issuer_block' => $issuerBlock,
         'line_items' => $lineItems,
@@ -210,7 +197,7 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Invoice <?php echo $invoiceNo; ?></title>
+    <title><?php echo htmlspecialchars(hub_money_receipt_label()); ?> <?php echo $invoiceNo; ?></title>
     <link href="<?php echo hub_asset('assets/css/hub-invoice.css'); ?>" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
@@ -241,10 +228,10 @@ function hub_invoice_palette(): array
         ['type' => 'logo', 'label' => 'NIELIT logo'],
         ['type' => 'data', 'key' => 'org_header', 'label' => 'Organisation header'],
         ['type' => 'data', 'key' => 'title', 'label' => 'Document title'],
-        ['type' => 'data', 'key' => 'invoice_number', 'label' => 'Invoice number'],
-        ['type' => 'data', 'key' => 'payer_block', 'label' => 'Bill to'],
-        ['type' => 'data', 'key' => 'issuer_block', 'label' => 'Issuer / address'],
-        ['type' => 'data', 'key' => 'line_items', 'label' => 'Fee table'],
+        ['type' => 'data', 'key' => 'invoice_number', 'label' => 'Receipt number'],
+        ['type' => 'data', 'key' => 'payer_block', 'label' => 'Received from'],
+        ['type' => 'data', 'key' => 'issuer_block', 'label' => 'Office / address'],
+        ['type' => 'data', 'key' => 'line_items', 'label' => 'Receipt body & payment table'],
         ['type' => 'data', 'key' => 'context_block', 'label' => 'Course / details'],
         ['type' => 'data', 'key' => 'payment_meta', 'label' => 'Payment info'],
         ['type' => 'data', 'key' => 'footer', 'label' => 'Footer note'],

@@ -2,9 +2,9 @@
 
 **Site:** `https://payment.nielitbhubaneswar.in`  
 **Gateway:** Razorpay, used only by this portal  
-**Purpose:** One place for every online payment, invoice, and receipt across the MIS, mock test site, and any later NIELIT Bhubaneswar website.
+**Purpose:** One place for every online payment and **money receipt** across the MIS, mock test site, and any later NIELIT Bhubaneswar website.
 
-This is possible. It is a payment hub. Each website asks the hub to collect money. The hub opens Razorpay, stores the result, issues one invoice series, and sends the person back to the website that started the payment.
+This is possible. It is a payment hub. Each website asks the hub to collect money. The hub opens Razorpay, stores the result, issues one **receipt number** series, and sends the person back to the website that started the payment.
 
 The current MIS already collects some course fees itself. `includes/payment_gateway_helper.php` creates Razorpay orders and stores them in `online_course_payments`. The student page `student/fees.php` opens Razorpay Checkout directly. That direct path is what this portal replaces. After the hub is live, MIS and the other sites stop holding Razorpay keys.
 
@@ -19,7 +19,7 @@ The payment site owns all of the following:
 - Opening the Razorpay checkout page.
 - Checking the Razorpay signature when the payer returns.
 - Receiving the Razorpay webhook, which is the final proof that money was captured.
-- One invoice number series for every website.
+- One **money receipt** number series for every website (stored as `invoice_number` in the database for compatibility).
 - A record of which website started the payment, who paid, what it was for, the amount, the status, and the Razorpay ids.
 - The receipt the payer and the office can open later.
 - A register the accounts office can filter by website, centre, date, course, and status.
@@ -66,7 +66,7 @@ Razorpay checkout (card, UPI, netbanking)
         v
 Portal verifies the signature and waits for the webhook
         |
-        | 5. Portal writes the invoice and marks the payment paid
+        | 5. Portal issues the money receipt and marks the payment paid
         | 6. Portal tells the source website
         v
 Payer returns to MIS or mock test, which unlocks the service
@@ -90,7 +90,7 @@ The payer should see the NIELIT payment page before Razorpay, with the purpose, 
 6. The portal creates the Razorpay order and opens checkout. The Razorpay order notes store the portal payment id, source code, and source reference. Those notes are how a later search answers “this Razorpay payment came from MIS, for this student, for this course.”
 7. After Razorpay, the portal verifies `order_id|payment_id` with the Key Secret. A matching signature means Razorpay sent that response. It is not yet the accounts record.
 8. The Razorpay webhook `payment.captured` is the record that money was captured. The portal marks the payment **paid** only after that event, or after a server-side fetch of the payment from Razorpay if the webhook is delayed.
-9. The portal assigns the invoice number, stores the receipt, and notifies the source site.
+9. The portal assigns the receipt number, stores the record, and notifies the source site.
 10. The browser returns to the source site’s success URL. That site asks the portal for the status, then unlocks the course or mock test. It does not trust the browser alone.
 
 If the payer closes the window after paying, the webhook still marks the payment paid and notifies the source site. The student can open the receipt from the payment portal later.
@@ -162,10 +162,10 @@ One row per successful or failed attempt.
 | Razorpay payment id | `pay_...` |
 | method | UPI, card, netbanking |
 | status | `paid` |
-| invoice number | `NIELIT-BBSR-2026-27-000184` |
+| receipt number (`invoice_number` in API) | `NIELIT-BBSR-2026-27-000184` |
 | paid at | date and time |
 
-### Invoice
+### Money receipt (not a tax invoice)
 
 Issued only when status becomes `paid`. One number is never reused.
 
@@ -177,22 +177,20 @@ Example: `NIELIT-BBSR-2026-27-000184`
 
 The financial year follows the office year already used on Report Monitor, April to March. April 2026 through March 2027 is `2026-27`.
 
-The invoice PDF shows:
+The printable money receipt shows:
 
-- NIELIT Bhubaneswar name, address, and GST details if the accounts office supplies them
-- invoice number and date
-- payer name and id
-- which website collected the fee (`MIS`, `Mock test`)
-- purpose, course or test name, centre
-- amount, and tax breakup when the accounts office defines it
-- Razorpay payment id
-- “Received through the NIELIT Bhubaneswar payment portal”
+- NIELIT Bhubaneswar name, address, and GSTIN if supplied on the letterhead
+- receipt number and date
+- received from (payer name and id)
+- amount in figures and words, purpose, mode of payment (online)
+- TRN/UTR (Razorpay payment id), bank line, institute vs platform charge breakdown
+- authorised signatory line and footer note
 
-A credit note, if a refund is issued, uses a separate series `NIELIT-BBSR-CN-2026-27-000012` and points at the original invoice. The original invoice is not deleted.
+A credit note, if a refund is issued, uses a separate series `NIELIT-BBSR-CN-2026-27-000012` and points at the original receipt number. The original receipt is not deleted.
 
 ### Webhook log
 
-Every Razorpay webhook is stored with its event id. The same event id is ignored the second time, so a repeated webhook cannot create a second invoice.
+Every Razorpay webhook is stored with its event id. The same event id is ignored the second time, so a repeated webhook cannot create a second receipt.
 
 ---
 
@@ -201,11 +199,11 @@ Every Razorpay webhook is stored with its event id. The same event id is ignored
 Staff sign in on `payment.nielitbhubaneswar.in`. Suggested screens:
 
 1. **Today.** Count and sum of paid, failed, and pending payments, split by website.
-2. **Payments.** Filter by date, website, centre, status, payer name, student id, Razorpay payment id, or invoice number.
-3. **Invoice.** Open or download the PDF. The same link can be sent to the payer.
+2. **Payments.** Filter by date, website, centre, status, payer name, student id, Razorpay payment id, or receipt number.
+3. **Money receipt.** Open or print the PDF. The same signed link can be sent to the payer (`/pay/receipt.php` or `/pay/invoice.php`).
 4. **Sources.** Add one entry per integrating website (code, display name, allowed return URL prefixes, shared secret). Edit, deactivate, or rotate secrets without touching Razorpay keys. MIS and mock are seeded on first install only.
 5. **Gateway.** The **only** Razorpay configuration: Key ID, Key Secret, webhook secret, and test or live mode, saved in the hub database via this screen (not in `secrets.php` or MIS). After changes, use **Test Razorpay connection**.
-6. **Export.** CSV of the filtered register for Tally or the accounts workbook. Columns: invoice number, date, source, reference, payer, purpose, centre, amount, method, Razorpay payment id, status.
+6. **Export.** CSV of the filtered register for Tally or the accounts workbook. Columns include receipt number, date, source, reference, payer, purpose, centre, amount, method, Razorpay payment id, status.
 
 This register answers the two questions in the request:
 

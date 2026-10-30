@@ -14,11 +14,12 @@ if (!is_file($dbPath)) {
 }
 require_once $dbPath;
 
+require_once __DIR__ . '/hub_settings.php';
+require_once __DIR__ . '/hub_receipt.php';
 require_once __DIR__ . '/hub_schema.php';
 require_once __DIR__ . '/hub_signature.php';
 require_once __DIR__ . '/hub_financial_year.php';
 require_once __DIR__ . '/hub_source.php';
-require_once __DIR__ . '/hub_settings.php';
 require_once __DIR__ . '/hub_checkout.php';
 require_once __DIR__ . '/hub_razorpay.php';
 require_once __DIR__ . '/hub_outcomes.php';

@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'layout') {
         $json = (string) ($_POST['invoice_layout_json'] ?? '');
         if (hub_invoice_layout_save($hub_conn, $json)) {
-            $msg = 'Invoice layout saved. New invoices use this design.';
+            $msg = 'Receipt layout saved. New payments use this design.';
         } else {
             $error = 'Could not save layout — invalid JSON.';
         }
@@ -28,7 +28,7 @@ if ($q && ($r = $q->fetch_assoc())) {
     $samplePaymentId = (int) $r['id'];
 }
 
-hub_admin_layout_start('Invoice designer', 'invoices', 'Drag and drop blocks like Canva — save layout for all PDF invoices');
+hub_admin_layout_start('Receipt designer', 'invoices', 'Drag and drop blocks — layout for printable money receipts');
 ?>
 <link href="<?php echo hub_asset('assets/css/hub-invoice-designer.css'); ?>" rel="stylesheet">
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
@@ -37,7 +37,7 @@ hub_admin_layout_start('Invoice designer', 'invoices', 'Drag and drop blocks lik
 <div class="d-flex flex-wrap gap-2 mb-3">
     <a class="btn btn-outline-secondary btn-sm" href="<?php echo hub_asset('admin/invoice_template.php'); ?>"><i class="bi bi-text-left me-1"></i> Letterhead text &amp; GST</a>
     <?php if ($samplePaymentId > 0): ?>
-        <a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . $samplePaymentId . '&sig=' . urlencode(hub_invoice_public_signature($samplePaymentId, (string) $tpl['invoice_public_secret']))); ?>"><i class="bi bi-eye me-1"></i> Preview live invoice</a>
+        <a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . $samplePaymentId . '&sig=' . urlencode(hub_invoice_public_signature($samplePaymentId, (string) $tpl['invoice_public_secret']))); ?>"><i class="bi bi-eye me-1"></i> Preview live receipt</a>
     <?php endif; ?>
 </div>
 

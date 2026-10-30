@@ -189,6 +189,55 @@
     color: #64748b;
 }
 
+.hub-money-receipt-sheet {
+    border-top: 4px solid #eab308;
+}
+
+.hub-receipt-body {
+    margin-bottom: 20px;
+    line-height: 1.6;
+}
+
+.hub-receipt-line {
+    margin: 0 0 10px;
+}
+
+.hub-receipt-line .label {
+    color: #64748b;
+    margin-right: 6px;
+}
+
+.hub-receipt-bank-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+}
+
+.hub-receipt-bank-table th,
+.hub-receipt-bank-table td {
+    border: 1px solid #cbd5e1;
+    padding: 8px 10px;
+    vertical-align: top;
+    font-size: 0.85rem;
+}
+
+.hub-receipt-bank-table thead th {
+    background: #fef9c3;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-size: 0.72rem;
+}
+
+.hub-receipt-table-note {
+    margin: 0 0 20px;
+}
+
+.hub-receipt-signatory {
+    margin-top: 32px;
+    text-align: right;
+    min-height: 48px;
+}
+
 @media print {
     .no-print {
         display: none !important;

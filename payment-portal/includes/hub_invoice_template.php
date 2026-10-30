@@ -9,8 +9,8 @@ function hub_invoice_template_defaults(): array
         'invoice_org_gstin' => '',
         'invoice_org_phone' => '',
         'invoice_org_email' => 'admin@nielitbhubaneswar.in',
-        'invoice_title' => 'Fee receipt / Tax invoice',
-        'invoice_footer' => 'Received through the NIELIT Bhubaneswar payment portal. This is a computer-generated document.',
+        'invoice_title' => 'Money Receipt',
+        'invoice_footer' => 'Computer-generated money receipt. Payment received through the NIELIT Bhubaneswar online payment portal.',
         'invoice_show_gst' => '0',
         'invoice_public_secret' => '',
     ];
@@ -141,91 +141,76 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     $status = (string) ($payment['status'] ?? '');
     $logoUrl = hub_brand_logo_url();
     $showGst = ($tpl['invoice_show_gst'] ?? '0') === '1';
+    $payerName = (string) ($payer['name'] ?? 'Payer');
+    $purposeLabel = hub_payment_purpose_label($payment);
+    $amountWords = hub_inr_amount_in_words($amount);
+    $paidLabel = hub_receipt_paid_datetime_label((string) ($payment['paid_at'] ?? ''));
+    $paidDateOnly = hub_receipt_paid_date_only((string) ($payment['paid_at'] ?? ''));
+    $modeLabel = hub_receipt_payment_mode_label($payment);
+    $docTitle = (string) ($tpl['invoice_title'] ?? hub_money_receipt_label());
+    if ($docTitle === '') {
+        $docTitle = hub_money_receipt_label();
+    }
     ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Invoice <?php echo htmlspecialchars($invoiceNo); ?></title>
+    <title><?php echo htmlspecialchars($docTitle); ?> <?php echo htmlspecialchars($invoiceNo); ?></title>
     <link href="<?php echo hub_asset('assets/css/hub-invoice.css'); ?>" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 </head>
-<body class="hub-invoice-doc">
+<body class="hub-invoice-doc hub-money-receipt-doc">
 <?php if ($allowPrint): ?>
 <div class="hub-invoice-toolbar no-print">
     <button type="button" class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
-<article class="hub-invoice-sheet">
+<article class="hub-invoice-sheet hub-money-receipt-sheet">
     <header class="hub-invoice-head">
         <div class="hub-invoice-brand">
             <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT" width="64" height="64">
             <div>
                 <p class="org-name"><?php echo htmlspecialchars((string) $tpl['invoice_org_name']); ?></p>
                 <p class="org-unit"><?php echo htmlspecialchars((string) $tpl['invoice_org_unit']); ?></p>
+                <p class="org-address pre-line small muted"><?php echo htmlspecialchars((string) $tpl['invoice_org_address']); ?></p>
+                <?php if (trim((string) $tpl['invoice_org_gstin']) !== ''): ?>
+                    <p class="small"><strong>GSTIN:</strong> <?php echo htmlspecialchars((string) $tpl['invoice_org_gstin']); ?></p>
+                <?php endif; ?>
             </div>
         </div>
         <div class="hub-invoice-meta">
-            <h1><?php echo htmlspecialchars((string) $tpl['invoice_title']); ?></h1>
-            <p class="inv-no"><?php echo htmlspecialchars($invoiceNo); ?></p>
+            <h1><?php echo htmlspecialchars($docTitle); ?></h1>
+            <p class="inv-no"><?php echo htmlspecialchars(hub_receipt_number_label()); ?> <?php echo htmlspecialchars($invoiceNo); ?></p>
+            <p class="small muted">Date: <?php echo htmlspecialchars($paidDateOnly); ?></p>
         </div>
     </header>
-    <div class="hub-invoice-grid">
-        <section>
-            <h2>Bill to</h2>
-            <p class="strong"><?php echo htmlspecialchars((string) ($payer['name'] ?? 'Payer')); ?></p>
-            <?php if (!empty($payer['email'])): ?><p><?php echo htmlspecialchars((string) $payer['email']); ?></p><?php endif; ?>
-            <?php if (!empty($payer['phone'])): ?><p><?php echo htmlspecialchars((string) $payer['phone']); ?></p><?php endif; ?>
-            <?php if (!empty($payer['student_id'])): ?><p>ID: <?php echo htmlspecialchars((string) $payer['student_id']); ?></p><?php endif; ?>
-        </section>
-        <section>
-            <h2>Issuer</h2>
-            <p class="pre-line"><?php echo htmlspecialchars((string) $tpl['invoice_org_address']); ?></p>
-            <?php if (trim((string) $tpl['invoice_org_gstin']) !== ''): ?>
-                <p>GSTIN: <?php echo htmlspecialchars((string) $tpl['invoice_org_gstin']); ?></p>
+
+    <section class="hub-receipt-body">
+        <p class="hub-receipt-line"><span class="label">Received from</span> <strong><?php echo htmlspecialchars($payerName); ?></strong>
+            <?php if (!empty($payer['student_id'])): ?>
+                <span class="muted"> (<?php echo htmlspecialchars((string) $payer['student_id']); ?>)</span>
             <?php endif; ?>
-            <?php if (trim((string) $tpl['invoice_org_phone']) !== ''): ?>
-                <p>Phone: <?php echo htmlspecialchars((string) $tpl['invoice_org_phone']); ?></p>
-            <?php endif; ?>
-            <p><?php echo htmlspecialchars((string) $tpl['invoice_org_email']); ?></p>
-        </section>
-    </div>
-    <table class="hub-invoice-table">
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th>Source</th>
-                <th class="text-end">Amount (INR)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>
-                    <strong><?php echo htmlspecialchars((string) ($payment['purpose'] ?? 'Online fee')); ?></strong>
-                    <?php if (trim((string) ($payment['description'] ?? '')) !== ''): ?>
-                        <br><span class="muted"><?php echo htmlspecialchars((string) $payment['description']); ?></span>
-                    <?php endif; ?>
-                </td>
-                <td><?php echo htmlspecialchars((string) ($payment['source_name'] ?? $payment['source_code'] ?? '')); ?></td>
-                <td class="text-end strong"><?php echo number_format($amount / 100, 2); ?></td>
-            </tr>
-        </tbody>
-        <tfoot>
-            <tr>
-                <td colspan="2" class="text-end strong">Total</td>
-                <td class="text-end strong">₹ <?php echo number_format($amount / 100, 2); ?></td>
-            </tr>
-            <?php if ($showGst): ?>
-            <tr>
-                <td colspan="3" class="muted small">GST breakup to be configured by accounts — enable after rates are supplied.</td>
-            </tr>
-            <?php endif; ?>
-        </tfoot>
-    </table>
+        </p>
+        <?php if (!empty($payer['email']) || !empty($payer['phone'])): ?>
+            <p class="hub-receipt-line muted small">
+                <?php if (!empty($payer['email'])): ?><?php echo htmlspecialchars((string) $payer['email']); ?><?php endif; ?>
+                <?php if (!empty($payer['email']) && !empty($payer['phone'])): ?> · <?php endif; ?>
+                <?php if (!empty($payer['phone'])): ?><?php echo htmlspecialchars((string) $payer['phone']); ?><?php endif; ?>
+            </p>
+        <?php endif; ?>
+        <p class="hub-receipt-line">an amount of <strong>Rs. <?php echo number_format($amount / 100, 2); ?></strong></p>
+        <p class="hub-receipt-line muted">(in words: <?php echo htmlspecialchars($amountWords); ?>)</p>
+        <p class="hub-receipt-line">towards <strong><?php echo htmlspecialchars($purposeLabel); ?></strong></p>
+        <p class="hub-receipt-line">Mode of payment: <strong><?php echo htmlspecialchars($modeLabel); ?></strong></p>
+    </section>
+
+    <?php echo hub_receipt_payment_table_html($payment); ?>
+
     <?php if ($contextLines !== []): ?>
     <section class="hub-invoice-context">
-        <h2>Details</h2>
+        <h2>Reference details</h2>
         <dl>
             <?php foreach ($contextLines as $line): ?>
                 <dt><?php echo htmlspecialchars($line['label']); ?></dt>
@@ -234,22 +219,30 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
         </dl>
     </section>
     <?php endif; ?>
+
     <section class="hub-invoice-payment-meta">
         <dl>
-            <dt>Payment status</dt>
+            <dt>Transaction status</dt>
             <dd><?php echo htmlspecialchars(strtoupper($status)); ?></dd>
             <dt>Paid on (IST)</dt>
-            <dd><?php echo htmlspecialchars(hub_invoice_format_ist((string) ($payment['paid_at'] ?? ''))); ?></dd>
-            <dt>Razorpay payment ID</dt>
-            <dd class="mono"><?php echo htmlspecialchars((string) ($payment['razorpay_payment_id'] ?? '—')); ?></dd>
-            <dt>Reference</dt>
-            <dd class="mono"><?php echo htmlspecialchars((string) ($payment['source_reference'] ?? '')); ?></dd>
+            <dd><?php echo htmlspecialchars($paidLabel); ?></dd>
+            <dt>Portal reference</dt>
+            <dd class="mono"><?php echo htmlspecialchars((string) ($payment['source_reference'] ?? '—')); ?></dd>
             <?php if ($checkout): ?>
             <dt>Checkout token</dt>
             <dd class="mono small"><?php echo htmlspecialchars((string) ($checkout['token'] ?? '')); ?></dd>
             <?php endif; ?>
+            <?php if ($showGst): ?>
+            <dt>GST note</dt>
+            <dd class="muted small">GST breakup for accounts — configure rates when required.</dd>
+            <?php endif; ?>
         </dl>
     </section>
+
+    <div class="hub-receipt-signatory">
+        <p class="muted small">Authorised Signatory</p>
+    </div>
+
     <footer class="hub-invoice-foot">
         <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
     </footer>

@@ -26,7 +26,7 @@ if ($stmt) {
 }
 if (!$row) {
     http_response_code(404);
-    echo 'Invoice not found.';
+    echo 'Money receipt not found.';
     exit;
 }
 

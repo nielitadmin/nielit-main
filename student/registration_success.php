@@ -503,7 +503,7 @@ unset(
                             <?php echo htmlspecialchars($online_payment_course !== '' ? $online_payment_course : 'This course'); ?>
                             has an online fee of <strong>₹<?php echo number_format($online_payment_amount, 2); ?></strong>
                             (₹<?php echo number_format($online_payment_receive, 0); ?> + 2.4% platform fee ₹<?php echo number_format($online_payment_platform_fee, 2); ?>).
-                            Log in to the student portal and open Fee Details to pay. Your invoice appears there after the payment succeeds.
+                            Log in to the student portal and open Fee Details to pay. Your money receipt appears there after the payment succeeds.
                         </p>
                     </div>
                     <?php endif; ?>

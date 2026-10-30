@@ -126,9 +126,9 @@ $ready = payment_hub_is_ready();
             <input class="form-control mono" type="password" name="shared_secret" autocomplete="new-password" placeholder="<?php echo $hasSecret ? 'Saved — leave blank to keep' : 'Paste secret here'; ?>">
         </div>
         <div class="mb-3">
-            <label class="form-label">Invoice public secret (optional)</label>
-            <input class="form-control mono" type="password" name="invoice_public_secret" autocomplete="new-password" placeholder="<?php echo trim((string) ($cfg['invoice_public_secret'] ?? '')) !== '' ? 'Saved — leave blank to keep' : 'From hub Invoice & GST'; ?>">
-            <div class="form-text">Lets “View invoice” open the hub PDF for students.</div>
+            <label class="form-label">Receipt public secret (optional)</label>
+            <input class="form-control mono" type="password" name="invoice_public_secret" autocomplete="new-password" placeholder="<?php echo trim((string) ($cfg['invoice_public_secret'] ?? '')) !== '' ? 'Saved — leave blank to keep' : 'From hub Receipt letterhead'; ?>">
+            <div class="form-text">Lets “View receipt” open the hub money receipt for students.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-primary">Save settings</button>
@@ -142,7 +142,7 @@ $ready = payment_hub_is_ready();
 
     <div class="alert alert-light border mt-4 small">
         <strong>Test a fee payment:</strong> Enable a course for online payment, log in as a student → Fee Details → Pay via Payment Portal.
-        After Razorpay test payment, the student should return paid and see the hub invoice.
+        After Razorpay test payment, the student should return paid and see the hub money receipt.
     </div>
 </div>
 </body>

@@ -124,7 +124,7 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
         return;
     }
     fputcsv($out, [
-        'invoice_number',
+        'receipt_number',
         'date',
         'source',
         'reference',

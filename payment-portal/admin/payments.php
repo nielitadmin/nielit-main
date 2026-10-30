@@ -61,7 +61,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
         </div>
         <div class="col-md-4">
             <label class="form-label small mb-0">Search</label>
-            <input class="form-control form-control-sm" name="q" placeholder="Name, student id, invoice, Razorpay id, reference…" value="<?php echo htmlspecialchars($filters['q']); ?>">
+            <input class="form-control form-control-sm" name="q" placeholder="Name, student id, receipt no., Razorpay id, reference…" value="<?php echo htmlspecialchars($filters['q']); ?>">
         </div>
         <div class="col-md-4 d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-sm btn-primary">Apply filters</button>
@@ -89,7 +89,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                     <th class="text-end">Platform</th>
                     <th class="text-end">Razorpay</th>
                     <th class="text-end">Bank (est.)</th>
-                    <th>Invoice</th>
+                    <th>Receipt</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
