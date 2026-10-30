@@ -2,6 +2,10 @@
 
 require_once __DIR__ . '/../../../includes/bootstrap.php';
 
+if ($_SERVER['REQUEST_METHOD'] === 'GET' || $_SERVER['REQUEST_METHOD'] === 'HEAD') {
+    hub_json_response(['ok' => true, 'service' => 'nielit-payment-hub-webhook']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     hub_json_response(['ok' => false, 'error' => 'POST required'], 405);
 }
@@ -10,8 +14,7 @@ $raw = hub_read_raw_body();
 $sig = (string) ($_SERVER['HTTP_X_RAZORPAY_SIGNATURE'] ?? '');
 
 if (!hub_razorpay_verify_webhook($hub_conn, $raw, $sig)) {
-    http_response_code(400);
-    hub_json_response(['ok' => false, 'error' => 'invalid webhook signature']);
+    hub_json_response(['ok' => false, 'error' => 'invalid webhook signature'], 400);
 }
 
 $payload = json_decode($raw, true);
