@@ -9,4 +9,6 @@
 return [
     'admin_username' => 'hubadmin',
     'admin_password' => 'ChangeMeOnFirstLogin!',
+    /** Optional: applied to hubadmin when email column was empty (OTP login). */
+    'admin_email' => '',
 ];

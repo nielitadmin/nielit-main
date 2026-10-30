@@ -205,6 +205,32 @@ function hub_schema_migrate_columns(mysqli $conn): void
     if (!isset($adminCols['role'])) {
         $conn->query("ALTER TABLE hub_admin_users ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'admin' AFTER password_hash");
     }
+
+    hub_schema_migrate_admin_users($conn);
+}
+
+/**
+ * Upgrades legacy hub staff rows so the first hubadmin can open Admin users / SMTP.
+ */
+function hub_schema_migrate_admin_users(mysqli $conn): void
+{
+    $conn->query("UPDATE hub_admin_users SET role = 'superadmin' WHERE username = 'hubadmin' AND role = 'admin'");
+
+    global $hub_secrets;
+    if (!is_array($hub_secrets)) {
+        return;
+    }
+    $email = trim((string) ($hub_secrets['admin_email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+    $stmt = $conn->prepare("UPDATE hub_admin_users SET email = ? WHERE username = 'hubadmin' AND email = '' LIMIT 1");
+    if (!$stmt) {
+        return;
+    }
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $stmt->close();
 }
 
 function hub_schema_seed_defaults(mysqli $conn): void
