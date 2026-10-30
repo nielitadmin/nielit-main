@@ -25,6 +25,7 @@ require_once __DIR__ . '/hub_razorpay.php';
 require_once __DIR__ . '/hub_outcomes.php';
 require_once __DIR__ . '/hub_payment.php';
 require_once __DIR__ . '/hub_payment_amounts.php';
+require_once __DIR__ . '/hub_centre.php';
 require_once __DIR__ . '/hub_notify.php';
 require_once __DIR__ . '/hub_invoice.php';
 require_once __DIR__ . '/hub_invoice_layout.php';

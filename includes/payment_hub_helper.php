@@ -264,6 +264,26 @@ if (!function_exists('payment_hub_config')) {
         ], null);
     }
 
+    function payment_hub_checkout_centre_name(string $studentCode = ''): string
+    {
+        if ($studentCode !== '' && preg_match('/NIELIT\/\d{4}\/([A-Za-z]+)\//', $studentCode, $m)) {
+            $code = strtoupper((string) $m[1]);
+            if ($code === 'BBSR' || $code === 'BBS') {
+                return 'Bhubaneswar';
+            }
+            if ($code !== '') {
+                return $code;
+            }
+        }
+        if (function_exists('getDefaultCentreCode')) {
+            $code = strtoupper((string) getDefaultCentreCode());
+            if ($code === 'BBSR' || $code === 'BBS') {
+                return 'Bhubaneswar';
+            }
+        }
+        return 'Bhubaneswar';
+    }
+
     function payment_hub_start_checkout(
         mysqli $conn,
         string $studentCode,
@@ -313,7 +333,8 @@ if (!function_exists('payment_hub_config')) {
                 'external_id' => $studentCode,
             ],
             'context' => [
-                'centre' => defined('STUDENT_ID_CENTRE_CODE') ? 'Bhubaneswar' : '',
+                'centre' => payment_hub_checkout_centre_name($studentCode),
+                'course' => $courseName,
                 'course_id' => $courseId,
                 'scheme' => '',
                 'fee_receive_paise' => $receivePaise,

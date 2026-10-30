@@ -113,7 +113,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                             <br><span class="text-secondary"><?php echo htmlspecialchars(hub_payment_payer_field($r, 'external_id')); ?></span>
                         <?php endif; ?>
                     </td>
-                    <td class="small"><?php echo htmlspecialchars(hub_payment_context_field($r, 'centre', '—')); ?></td>
+                    <td class="small"><?php echo htmlspecialchars(hub_payment_centre_label($r)); ?></td>
                     <td class="text-end fw-semibold"><?php echo hub_money_paise($bd['collected_paise']); ?></td>
                     <td class="text-end small"><?php echo hub_money_paise($bd['fee_receive_paise']); ?></td>
                     <td class="text-end small" title="NIELIT online platform fee"><?php echo hub_money_paise($bd['platform_fee_paise']); ?></td>

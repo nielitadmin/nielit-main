@@ -71,6 +71,8 @@ function hub_checkout_create_from_request(mysqli $conn, array $source, array $pa
         $context = [];
     }
 
+    $context = hub_checkout_normalize_context($context, $payer);
+
     $token = hub_checkout_token_new();
     $ttl = (int) HUB_CHECKOUT_TTL_MINUTES;
     $expires = gmdate('Y-m-d H:i:s', time() + ($ttl * 60));

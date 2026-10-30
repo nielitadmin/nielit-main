@@ -161,7 +161,7 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
             hub_payment_payer_field($r, 'external_id'),
             (string) ($r['purpose'] ?? ''),
             (string) ($r['description'] ?? ''),
-            hub_payment_context_field($r, 'centre'),
+            hub_payment_centre_label($r),
             number_format($bd['collected_paise'] / 100, 2, '.', ''),
             number_format($bd['fee_receive_paise'] / 100, 2, '.', ''),
             number_format($bd['platform_fee_paise'] / 100, 2, '.', ''),

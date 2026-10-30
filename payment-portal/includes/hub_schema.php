@@ -146,6 +146,7 @@ function hub_schema_ensure(mysqli $conn): void
 
     hub_schema_seed_defaults($conn);
     hub_receipt_migrate_template_wording($conn);
+    hub_schema_backfill_payment_centre($conn);
 }
 
 function hub_schema_migrate_columns(mysqli $conn): void
