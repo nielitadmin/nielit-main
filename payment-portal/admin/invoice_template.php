@@ -18,6 +18,9 @@ if ($q && ($r = $q->fetch_assoc())) {
 
 hub_admin_layout_start('Invoice template', 'invoices', 'Letterhead, GST fields, and receipt wording');
 ?>
+<div class="mb-3">
+    <a class="btn btn-outline-primary btn-sm" href="<?php echo hub_asset('admin/invoice_designer.php'); ?>"><i class="bi bi-magic me-1"></i> Open drag &amp; drop designer</a>
+</div>
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
 
 <div class="row g-3">

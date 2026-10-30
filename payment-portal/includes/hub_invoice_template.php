@@ -119,6 +119,12 @@ function hub_invoice_format_ist(?string $datetime): string
 
 function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint = true): void
 {
+    $layout = hub_invoice_layout_get($conn);
+    if ($layout !== null) {
+        hub_invoice_render_layout_html($conn, $payment, $layout, $allowPrint);
+        return;
+    }
+
     $checkout = hub_checkout_for_payment($conn, $payment);
     $tpl = hub_invoice_template_get($conn);
     $payer = json_decode((string) ($payment['payer_json'] ?? ''), true);

@@ -129,7 +129,7 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
             <div class="d-grid gap-2">
                 <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/sources.php'); ?>"><i class="bi bi-boxes me-2"></i>Portal source secrets</a>
                 <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/gateway.php'); ?>"><i class="bi bi-credit-card me-2"></i>Razorpay &amp; webhook</a>
-                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/invoice_template.php'); ?>"><i class="bi bi-receipt-cutoff me-2"></i>Invoice template</a>
+                <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('admin/invoice_designer.php'); ?>"><i class="bi bi-magic me-2"></i>Invoice designer</a>
                 <a class="btn btn-outline-secondary btn-sm text-start" href="<?php echo hub_asset('/'); ?>" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-2"></i>Public landing page</a>
             </div>
         </div>
