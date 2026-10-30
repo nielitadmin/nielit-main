@@ -12,6 +12,8 @@ if (!isset($_SESSION['admin']) || ($_SESSION['admin_role'] ?? '') !== 'master_ad
     exit();
 }
 
+require_once __DIR__ . '/../includes/payment_hub_helper.php';
+
 payment_gateway_ensure_schema($conn);
 $success_message = '';
 $error_message = '';
@@ -105,6 +107,19 @@ $active_theme = loadActiveTheme($conn);
     <?php endif; ?>
     <?php if ($error_message !== ''): ?>
         <div class="alert alert-danger mt-3"><?php echo htmlspecialchars($error_message); ?></div>
+    <?php endif; ?>
+
+    <?php if (payment_hub_is_ready()): ?>
+        <div class="alert alert-info mt-3">
+            <strong>Central payment portal is active.</strong> Course fees using Razorpay are redirected to
+            <code>payment.nielitbhubaneswar.in</code>. Razorpay keys here are not used for those fees. Configure the hub in
+            <code>config/payment_hub.php</code> (see <code>config/payment_hub.example.php</code>).
+        </div>
+    <?php else: ?>
+        <div class="alert alert-secondary mt-3 small mb-0">
+            To collect course fees through the central portal instead of local Razorpay keys, copy
+            <code>config/payment_hub.example.php</code> to <code>config/payment_hub.php</code>, set <code>enabled</code> and the MIS shared secret from the payment hub Admin → Sources.
+        </div>
     <?php endif; ?>
 
     <form method="post">

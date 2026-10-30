@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 hub_admin_require();
 
 $stats = hub_dashboard_stats($hub_conn);
+$bySource = hub_dashboard_today_by_source($hub_conn);
 $recent = hub_dashboard_recent_payments($hub_conn, 8);
 $setup = hub_setup_status($hub_conn);
 $gatewayOk = $setup['gateway_ready'];
@@ -76,6 +77,40 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
             <div class="hub-kpi-value"><?php echo (int) $stats['open_checkouts']; ?></div>
             <small class="text-secondary">Awaiting payer</small>
         </div>
+    </div>
+</div>
+
+<div class="hub-card-panel mb-4">
+    <h2 class="h5 mb-3">Today by website</h2>
+    <div class="hub-table-wrap">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>Source</th>
+                    <th class="text-end">Paid (count)</th>
+                    <th class="text-end">Paid amount</th>
+                    <th class="text-end">Failed today</th>
+                    <th class="text-end">Pending checkouts</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($bySource as $row): ?>
+                <tr>
+                    <td>
+                        <strong><?php echo htmlspecialchars((string) $row['display_name']); ?></strong>
+                        <code class="ms-1 small"><?php echo htmlspecialchars((string) $row['code']); ?></code>
+                    </td>
+                    <td class="text-end"><?php echo (int) $row['paid_count']; ?></td>
+                    <td class="text-end"><?php echo hub_money_paise((int) $row['paid_amount']); ?></td>
+                    <td class="text-end"><?php echo (int) $row['failed_count']; ?></td>
+                    <td class="text-end"><?php echo (int) $row['pending_count']; ?> <?php if ((int) $row['pending_amount'] > 0): ?><span class="text-secondary">(<?php echo hub_money_paise((int) $row['pending_amount']); ?>)</span><?php endif; ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if ($bySource === []): ?>
+                <tr><td colspan="5" class="text-secondary text-center py-3">Register a source under Sources to see splits here.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 </div>
 

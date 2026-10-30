@@ -3,6 +3,8 @@
  * Online course fees: gateway settings, Razorpay orders, and paid invoices.
  */
 
+require_once __DIR__ . '/payment_hub_helper.php';
+
 if (!function_exists('payment_gateway_ensure_schema')) {
     function payment_gateway_ensure_schema($conn): void
     {
@@ -41,6 +43,20 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             KEY idx_online_pay_student (student_code, course_id),
             KEY idx_online_pay_order (gateway_order_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $payCols = [];
+        $payColRes = $conn->query('SHOW COLUMNS FROM online_course_payments');
+        if ($payColRes) {
+            while ($pc = $payColRes->fetch_assoc()) {
+                $payCols[$pc['Field']] = true;
+            }
+        }
+        if (!isset($payCols['hub_payment_id'])) {
+            $conn->query('ALTER TABLE online_course_payments ADD COLUMN hub_payment_id BIGINT NULL DEFAULT NULL AFTER gateway_payment_id');
+        }
+        if (!isset($payCols['hub_invoice_number'])) {
+            $conn->query('ALTER TABLE online_course_payments ADD COLUMN hub_invoice_number VARCHAR(64) NULL DEFAULT NULL AFTER hub_payment_id');
+        }
 
         $col = $conn->query("SHOW COLUMNS FROM courses LIKE 'online_payment_enabled'");
         if ($col && $col->num_rows === 0) {
@@ -752,6 +768,10 @@ if (!function_exists('payment_gateway_ensure_schema')) {
 
     function payment_start_checkout(mysqli $conn, string $provider, string $studentCode, int $recordId, int $courseId, string $studentName, string $email, string $phone): array
     {
+        if ($provider === 'razorpay' && payment_hub_is_ready()) {
+            return payment_hub_start_checkout($conn, $studentCode, $recordId, $courseId, $studentName, $email, $phone);
+        }
+
         if ($provider === 'razorpay') {
             $order = payment_create_razorpay_order($conn, $studentCode, $recordId, $courseId, $studentName, $email, $phone);
             if (!empty($order['ok'])) {
@@ -924,6 +944,10 @@ if (!function_exists('payment_gateway_ensure_schema')) {
 
     function payment_finish_return(mysqli $conn, array $request): array
     {
+        if (trim((string) ($request['hub_token'] ?? '')) !== '') {
+            return payment_hub_finish_return($conn, $request);
+        }
+
         $provider = strtolower(trim((string) ($request['gateway'] ?? '')));
         $gateway = payment_gateway_get($conn, $provider);
         if (!$gateway) {

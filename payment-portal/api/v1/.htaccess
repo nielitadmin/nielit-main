@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteRule ^checkout/?$ checkout.php [L,QSA]
+RewriteRule ^payment_status/?$ payment_status.php [L,QSA]

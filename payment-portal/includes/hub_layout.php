@@ -47,6 +47,8 @@ function hub_admin_nav_items(): array
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'bi-speedometer2', 'href' => 'admin/dashboard.php'],
         'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card-2-front', 'href' => 'admin/payments.php'],
         'invoices' => ['label' => 'Invoice designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
+        'invoice_settings' => ['label' => 'Invoice & GST', 'icon' => 'bi-receipt', 'href' => 'admin/invoice_template.php'],
+        'legacy' => ['label' => 'Legacy import', 'icon' => 'bi-clock-history', 'href' => 'admin/legacy_import.php'],
         'outcomes' => ['label' => 'Outcomes', 'icon' => 'bi-diagram-3', 'href' => 'admin/outcomes.php'],
         'sources' => ['label' => 'Sources', 'icon' => 'bi-boxes', 'href' => 'admin/sources.php'],
         'gateway' => ['label' => 'Gateway', 'icon' => 'bi-shield-lock', 'href' => 'admin/gateway.php'],

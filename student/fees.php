@@ -111,7 +111,8 @@ foreach ($student_enrollment_rows as $erow) {
 }
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
 $onlineGateways = payment_gateway_active_list($conn);
-$onlineGatewayReady = !empty($onlineGateways);
+$onlineHubReady = payment_hub_is_ready();
+$onlineGatewayReady = $onlineHubReady || !empty($onlineGateways);
 if (count($payment_records) === 0) {
     foreach ($onlineInvoices as $invoiceRow) {
         $total_paid += (float) $invoiceRow['amount'];

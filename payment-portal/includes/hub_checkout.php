@@ -163,6 +163,7 @@ function hub_payment_status_payload(mysqli $conn, array $checkout): array
         'currency' => $checkout['currency'],
         'payment_status' => $paid['status'] ?? null,
         'payment_status_label' => $paid ? hub_payment_status_label((string) $paid['status']) : null,
+        'hub_payment_id' => $paid ? (int) ($paid['id'] ?? 0) : null,
         'invoice_number' => $paid['invoice_number'] ?? null,
         'razorpay_payment_id' => $paid['razorpay_payment_id'] ?? null,
         'razorpay_order_id' => $checkout['razorpay_order_id'] ?? null,

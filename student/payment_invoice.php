@@ -30,4 +30,17 @@ if (!$row) {
     exit;
 }
 
+require_once __DIR__ . '/../includes/payment_hub_helper.php';
+if (($row['gateway'] ?? '') === 'payment_hub' && (int) ($row['hub_payment_id'] ?? 0) > 0) {
+    $hubCfg = payment_hub_config();
+    $invSecret = trim((string) ($hubCfg['invoice_public_secret'] ?? ''));
+    if ($invSecret !== '') {
+        $hubPayId = (int) $row['hub_payment_id'];
+        $sig = hash_hmac('sha256', 'hub-invoice:' . $hubPayId, $invSecret);
+        $url = rtrim((string) $hubCfg['api_base'], '/') . '/pay/invoice.php?id=' . $hubPayId . '&sig=' . rawurlencode($sig);
+        header('Location: ' . $url);
+        exit;
+    }
+}
+
 payment_render_invoice_page($row, $studentCode);

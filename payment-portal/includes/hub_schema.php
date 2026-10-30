@@ -154,6 +154,9 @@ function hub_schema_migrate_columns(mysqli $conn): void
     if (!isset($cols['refunded_amount_paise'])) {
         $conn->query('ALTER TABLE hub_payments ADD COLUMN refunded_amount_paise INT NOT NULL DEFAULT 0 AFTER paid_at');
     }
+    if (!isset($cols['is_legacy'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN is_legacy TINYINT(1) NOT NULL DEFAULT 0 AFTER refunded_amount_paise');
+    }
 }
 
 function hub_schema_seed_defaults(mysqli $conn): void

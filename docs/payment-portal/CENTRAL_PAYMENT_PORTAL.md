@@ -268,17 +268,19 @@ Refunds should be started from the portal so the credit note and the source webs
 
 **Code location (this repo):** `payment-portal/` — deploy as document root for `payment.nielitbhubaneswar.in`.
 
-**Implemented in portal code:** checkout + pay flow, webhooks (`payment.captured`, `payment.failed`, `refund.processed`), refunds with credit notes, admin outcomes guide, signed notify events for paid / failed / cancelled / refunded / partial_refund.
+**Implemented in portal code:** checkout + pay flow, webhooks (`payment.captured`, `payment.failed`, `refund.processed`), refunds with credit notes, admin outcomes guide, signed notify events for paid / failed / cancelled / refunded / partial_refund, **dynamic Sources**, **Payments filters + CSV export**, **dashboard today-by-website**, **legacy CSV import**, **Invoice & GST settings** + designer, API aliases `/api/v1/checkout` and `/api/v1/payment_status` (Apache rewrite).
 
 - Host `payment.nielitbhubaneswar.in`.
 - Tables for sources, checkouts, payments, invoices, and webhook events.
-- Signed `POST /api/v1/checkout`.
+- Signed `POST /api/v1/checkout` (also `checkout.php`).
 - Pay page and Razorpay checkout.
 - Webhook and invoice PDF.
 - Admin list and invoice view.
 - Test mode with Razorpay test keys.
 
 ### Phase 2. MIS
+
+**Implemented in MIS code (enable via `config/payment_hub.php` from `config/payment_hub.example.php`):** hub checkout redirect from course fees, signed `api/payment_hub_notify.php`, return handling via `student/payment_return.php` + portal status API, `online_course_payments.hub_payment_id` / `hub_invoice_number`. Direct Razorpay on fees is skipped when the hub config is enabled.
 
 - Replace the direct Razorpay button on course fees.
 - Notify endpoint and return page.
@@ -293,10 +295,10 @@ Refunds should be started from the portal so the credit note and the source webs
 
 ### Phase 4. Accounts
 
-- CSV export.
-- GST fields on the invoice if required.
-- Legacy import of MIS payments already stored in `online_course_payments`.
-- Refund and credit note.
+- CSV export. **Done** (Admin → Payments → Export CSV).
+- GST fields on the invoice if required. **Done** (Admin → Invoice & GST + designer).
+- Legacy import of MIS payments already stored in `online_course_payments`. **Done** (Admin → Legacy import CSV).
+- Refund and credit note. **Done** (portal refunds + webhook `refund.processed`).
 
 Do not turn off the current MIS Razorpay button until Phase 2 has passed a live payment.
 

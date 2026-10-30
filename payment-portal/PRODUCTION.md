@@ -70,5 +70,8 @@ Override with environment variables `HUB_APP_URL` or `HUB_ENV` if your host supp
 | **First visit** | Blue **Complete setup** banner until Razorpay keys + webhook secret are saved. |
 | **Gateway** | Admin → **Gateway** — Razorpay Key ID, secret, webhook secret (or put keys in `secrets.php`; they sync when DB fields are empty). |
 | **Sources** | Admin → **Sources** — add a source per website (code, return URLs, secret); unlimited sites |
+| **Payments** | Filters (date, source, centre, status, search) + **Export CSV** for accounts |
+| **Legacy import** | Admin → **Legacy import** — CSV of old MIS paid rows into the hub register |
+| **Invoice & GST** | Admin → **Invoice & GST** — org address, GSTIN, show GST line; **Invoice designer** for layout |
 | **Staff login** | Default bootstrap user from `secrets.php` (first DB seed only); change password after login. |
 | **Assets** | Deploy `assets/css/hub-theme.css` after UI updates; hard-refresh (Ctrl+F5). |
