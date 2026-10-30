@@ -7,12 +7,19 @@ $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     hub_setting_set($hub_conn, 'razorpay_mode', trim((string) ($_POST['razorpay_mode'] ?? 'test')));
     hub_setting_set($hub_conn, 'razorpay_key_id', trim((string) ($_POST['razorpay_key_id'] ?? '')));
-    if (trim((string) ($_POST['razorpay_key_secret'] ?? '')) !== '') {
+
+    if (!empty($_POST['clear_key_secret'])) {
+        hub_setting_set($hub_conn, 'razorpay_key_secret', '');
+    } elseif (trim((string) ($_POST['razorpay_key_secret'] ?? '')) !== '') {
         hub_setting_set($hub_conn, 'razorpay_key_secret', trim((string) $_POST['razorpay_key_secret']));
     }
-    if (trim((string) ($_POST['razorpay_webhook_secret'] ?? '')) !== '') {
+
+    if (!empty($_POST['clear_webhook_secret'])) {
+        hub_setting_set($hub_conn, 'razorpay_webhook_secret', '');
+    } elseif (trim((string) ($_POST['razorpay_webhook_secret'] ?? '')) !== '') {
         hub_setting_set($hub_conn, 'razorpay_webhook_secret', trim((string) $_POST['razorpay_webhook_secret']));
     }
+
     $msg = 'Gateway settings saved.';
 }
 $cfg = hub_razorpay_config($hub_conn);
@@ -102,8 +109,17 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="hub-card-panel">
-            <h2 class="h6 fw-bold mb-3">Edit settings</h2>
-            <form method="post" class="row g-3">
+            <h2 class="h6 fw-bold mb-2">Edit settings</h2>
+            <div class="alert alert-light border small py-2 mb-3">
+                <strong>How to update:</strong>
+                <ul class="mb-0 ps-3">
+                    <li><strong>Key ID / Mode</strong> — change in the fields below, then Save.</li>
+                    <li><strong>Key secret or webhook secret</strong> — type the <em>new</em> value below and Save (leave empty to keep the current saved value).</li>
+                    <li><strong>Remove a secret</strong> — tick <em>Clear saved…</em>, then Save.</li>
+                    <li>After Razorpay <strong>Regenerate</strong> keys, update <strong>both</strong> Key ID and Key secret here.</li>
+                </ul>
+            </div>
+            <form method="post" class="row g-3" id="hubGatewayForm">
                 <div class="col-md-6">
                     <label class="form-label">Mode</label>
                     <select class="form-select" name="razorpay_mode">
@@ -116,19 +132,32 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
                     <input class="form-control font-monospace" name="razorpay_key_id" value="<?php echo htmlspecialchars($cfg['key_id']); ?>" autocomplete="off">
                 </div>
                 <div class="col-12">
-                    <label class="form-label d-flex justify-content-between align-items-center">
-                        <span>Key secret</span>
-                        <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_key_secret">Show in form</button>
+                    <label class="form-label d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <span>Key secret <?php echo $cfg['key_secret'] !== '' ? '<span class="badge text-bg-light border fw-normal">saved</span>' : '<span class="badge text-bg-danger fw-normal">missing</span>'; ?></span>
+                        <span>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_key_secret">Show while typing</button>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-focus-replace" data-target="razorpay_key_secret">Enter new value</button>
+                        </span>
                     </label>
-                    <input class="form-control font-monospace hub-form-secret" id="razorpay_key_secret" type="password" name="razorpay_key_secret" value="<?php echo htmlspecialchars($cfg['key_secret']); ?>" autocomplete="off" placeholder="<?php echo $cfg['key_secret'] === '' ? 'Paste API key secret from Razorpay' : ''; ?>">
-                    <div class="form-text">Saved value is loaded; clear the field and save only if you want to wipe it (not recommended).</div>
+                    <input class="form-control font-monospace hub-form-secret" id="razorpay_key_secret" type="password" name="razorpay_key_secret" value="" autocomplete="new-password" placeholder="Leave empty to keep current — or paste new API key secret">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="clear_key_secret" value="1" id="clear_key_secret">
+                        <label class="form-check-label text-danger" for="clear_key_secret">Clear saved key secret (remove from hub)</label>
+                    </div>
                 </div>
                 <div class="col-12">
-                    <label class="form-label d-flex justify-content-between align-items-center">
-                        <span>Webhook secret</span>
-                        <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_webhook_secret">Show in form</button>
+                    <label class="form-label d-flex flex-wrap justify-content-between align-items-center gap-2">
+                        <span>Webhook secret <?php echo $cfg['webhook_secret'] !== '' ? '<span class="badge text-bg-light border fw-normal">saved</span>' : '<span class="badge text-bg-warning text-dark fw-normal">not set</span>'; ?></span>
+                        <span>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-form-secret-toggle" data-target="razorpay_webhook_secret">Show while typing</button>
+                            <button type="button" class="btn btn-link btn-sm p-0 hub-focus-replace" data-target="razorpay_webhook_secret">Enter new value</button>
+                        </span>
                     </label>
-                    <input class="form-control font-monospace hub-form-secret" id="razorpay_webhook_secret" type="password" name="razorpay_webhook_secret" value="<?php echo htmlspecialchars($cfg['webhook_secret']); ?>" autocomplete="off" placeholder="<?php echo $cfg['webhook_secret'] === '' ? 'Same as Razorpay webhook secret' : ''; ?>">
+                    <input class="form-control font-monospace hub-form-secret" id="razorpay_webhook_secret" type="password" name="razorpay_webhook_secret" value="" autocomplete="new-password" placeholder="Leave empty to keep current — or paste webhook secret (same as Razorpay)">
+                    <div class="form-check mt-2">
+                        <input class="form-check-input" type="checkbox" name="clear_webhook_secret" value="1" id="clear_webhook_secret">
+                        <label class="form-check-label text-danger" for="clear_webhook_secret">Clear saved webhook secret</label>
+                    </div>
                 </div>
                 <div class="col-12">
                     <button class="btn btn-primary" type="submit"><i class="bi bi-save me-1"></i> Save settings</button>
@@ -174,7 +203,17 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             if (!el) return;
             var show = el.type === 'password';
             el.type = show ? 'text' : 'password';
-            btn.textContent = show ? 'Hide in form' : 'Show in form';
+            btn.textContent = show ? 'Hide while typing' : 'Show while typing';
+        });
+    });
+    document.querySelectorAll('.hub-focus-replace').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var el = document.getElementById(btn.getAttribute('data-target'));
+            if (!el) return;
+            el.value = '';
+            el.type = 'text';
+            el.focus();
+            el.placeholder = 'Paste new value, then Save settings';
         });
     });
 })();
