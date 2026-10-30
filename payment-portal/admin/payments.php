@@ -70,7 +70,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
         </div>
     </form>
     <p class="small text-secondary mb-0 mt-2">Showing <?php echo count($rows); ?> of <?php echo (int) $total; ?> matching rows (max 200 on screen; export includes up to 5000).</p>
-    <p class="small text-secondary mb-0"><strong>Collected</strong> = payer total · <strong>Institute</strong> = course/fee portion · <strong>Platform</strong> = NIELIT online fee · <strong>Bank (est.)</strong> = collected minus Razorpay fee &amp; GST (per Razorpay).</p>
+    <p class="small text-secondary mb-0"><strong>Collected</strong> = payer total · <strong>Institute</strong> = course/centre fee portion · <strong>Platform</strong> = NIELIT online fee · <strong>Bank (est.)</strong> = institute/centre fee for bank books (e.g. ₹10 on a ₹10.24 payment). Razorpay pays the linked account <em>net</em> of gateway charges (Collected − Razorpay fee − GST); see Details for that figure.</p>
 </div>
 
 <div class="hub-card-panel">
@@ -127,8 +127,8 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                             <span class="text-secondary">—</span>
                         <?php endif; ?>
                     </td>
-                    <td class="text-end small">
-                        <?php echo $bd['settlement_paise'] > 0 ? hub_money_paise($bd['settlement_paise']) : '<span class="text-secondary">—</span>'; ?>
+                    <td class="text-end small" title="Institute/centre course fee for accounts">
+                        <?php echo hub_money_paise($bd['centre_bank_paise']); ?>
                     </td>
                     <td class="small">
                         <?php if (!empty($r['invoice_number'])): ?>

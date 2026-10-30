@@ -137,6 +137,8 @@ function hub_payment_breakdown(array $row): array
     if ($settlement <= 0 && $collected > 0 && ($rzpFee > 0 || $rzpTax > 0)) {
         $settlement = max(0, $collected - $rzpFee - $rzpTax);
     }
+    /** Course/centre fee for accounts (same as institute split; not Razorpay net). */
+    $centreBankPaise = $feeReceive;
 
     return [
         'purpose_label' => hub_payment_purpose_label($row),
@@ -149,6 +151,8 @@ function hub_payment_breakdown(array $row): array
         'razorpay_fee_paise' => $rzpFee,
         'razorpay_tax_paise' => $rzpTax,
         'settlement_paise' => $settlement,
+        'razorpay_net_settlement_paise' => $settlement,
+        'centre_bank_paise' => $centreBankPaise,
         'has_razorpay_fees' => $rzpFee > 0 || $rzpTax > 0 || $settlement > 0,
     ];
 }
