@@ -87,7 +87,11 @@ if (payment_hub_is_ready()) {
 $total_paid = payment_student_total_paid_reconciled($conn, (string) $student_id, $payment_records);
 $balance = max(0, $course_fees - $total_paid);
 
-$onlineFeeCourses = payment_student_build_online_fee_courses($conn, (string) $student_id, $student_enrollment_rows);
+$onlineEnrollmentRows = payment_student_enrollment_rows_for_online_fees(
+    $student_enrollments ?? [],
+    $student_enrollment_rows
+);
+$onlineFeeCourses = payment_student_build_online_fee_courses($conn, (string) $student_id, $onlineEnrollmentRows);
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
 $onlinePaymentHistory = payment_student_online_payment_history($conn, (string) $student_id, 25);
 $onlineGateways = payment_gateway_active_list($conn);
@@ -110,6 +114,8 @@ $displayBalance = $usesOnlineFeePanel ? $onlineDueTotal : $balance;
 $displayBalanceLabel = $usesOnlineFeePanel
     ? ($onlineDueTotal > 0 ? 'Online fee due' : 'Online fees paid')
     : ($balance > 0 ? 'Balance due' : 'Fully paid');
+$structureFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
+$structureFeeLabel = $usesOnlineFeePanel ? 'Online course fee (Payment Portal)' : 'Course Fee';
 
 $page_title = "Fee Details";
 include 'includes/header.php';
@@ -175,6 +181,48 @@ include 'includes/header.php';
         </div>
     </div>
 
+    <?php if (!empty($onlineInvoices)): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="fas fa-file-invoice"></i> Your invoices</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Invoice no.</th>
+                                    <th>Course</th>
+                                    <th>Paid on</th>
+                                    <th>Amount</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($onlineInvoices as $inv): ?>
+                                <tr>
+                                    <td class="font-monospace small"><?php echo htmlspecialchars((string) ($inv['invoice_number'] ?? '')); ?></td>
+                                    <td><?php echo htmlspecialchars((string) ($inv['course_name'] ?? '')); ?></td>
+                                    <td class="small"><?php echo !empty($inv['paid_at']) ? htmlspecialchars(date('d M Y, h:i A', strtotime((string) $inv['paid_at']))) : '—'; ?></td>
+                                    <td><strong>₹<?php echo number_format((float) ($inv['amount'] ?? 0), 2); ?></strong></td>
+                                    <td>
+                                        <a class="btn btn-sm btn-success" href="payment_invoice.php?id=<?php echo (int) $inv['id']; ?>">
+                                            <i class="fas fa-external-link-alt"></i> View invoice
+                                        </a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php if (count($enrollment_fee_rows) > 1): ?>
     <div class="row mb-4">
         <div class="col-12">
@@ -229,8 +277,8 @@ include 'includes/header.php';
                             <td><?php echo htmlspecialchars($duration); ?></td>
                         </tr>
                         <tr>
-                            <th>Course Fee</th>
-                            <td><strong>₹<?php echo number_format($course_fees, 2); ?></strong></td>
+                            <th><?php echo htmlspecialchars($structureFeeLabel); ?></th>
+                            <td><strong>₹<?php echo number_format($structureFeeTotal, 2); ?></strong></td>
                         </tr>
                         <tr>
                             <th>Registration Fee</th>
@@ -242,7 +290,7 @@ include 'includes/header.php';
                         </tr>
                         <tr class="border-top">
                             <th>Total Payable</th>
-                            <td><strong class="text-primary">₹<?php echo number_format($course_fees, 2); ?></strong></td>
+                            <td><strong class="text-primary">₹<?php echo number_format($structureFeeTotal, 2); ?></strong></td>
                         </tr>
                     </table>
                 </div>
@@ -273,20 +321,15 @@ include 'includes/header.php';
                             </text>
                         </svg>
                     </div>
-                    <?php if ($displayBalance > 0 || !empty($onlineFeeCourses)): ?>
+                    <?php if (!empty($onlineFeeCourses)): ?>
                         <?php if ($displayBalance > 0): ?>
                         <div class="alert alert-warning">
                             <i class="fas fa-info-circle"></i>
-                            <?php if ($usesOnlineFeePanel): ?>
-                                Online course fee due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
-                            <?php else: ?>
-                                Balance due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
-                            <?php endif; ?>
+                            Online course fee due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
                         </div>
-                        <?php elseif ($usesOnlineFeePanel): ?>
+                        <?php else: ?>
                         <div class="alert alert-success"><i class="fas fa-check-circle"></i> Your online course fee is paid.</div>
                         <?php endif; ?>
-                        <?php if (!empty($onlineFeeCourses)): ?>
                             <?php if ($onlineHubReady): ?>
                                 <div class="alert alert-info text-start small mb-3">
                                     Online course fees are collected on the
@@ -304,6 +347,13 @@ include 'includes/header.php';
                                         · Paid ₹<?php echo number_format($onlineCourse['paid'], 2); ?></div>
                                     <?php if ($onlineCourse['due'] <= 0): ?>
                                         <span class="badge bg-success mt-2">Paid</span>
+                                        <?php
+                                        $paidInv = payment_student_latest_paid_invoice_row($conn, (string) $student_id, (int) $onlineCourse['course_id']);
+                                        if ($paidInv): ?>
+                                            <a class="btn btn-sm btn-outline-success ms-2 mt-2" href="payment_invoice.php?id=<?php echo (int) $paidInv['id']; ?>">
+                                                <i class="fas fa-file-invoice"></i> View invoice
+                                            </a>
+                                        <?php endif; ?>
                                     <?php elseif ($onlineGatewayReady): ?>
                                         <div class="d-flex flex-wrap gap-2 mt-2">
                                             <?php if ($onlineHubReady): ?>
@@ -334,12 +384,22 @@ include 'includes/header.php';
                                 </div>
                             <?php endforeach; ?>
                             <div id="coursePaymentMessage" class="small mt-2"></div>
-                        <?php else: ?>
+                    <?php elseif ($displayBalance > 0): ?>
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle"></i>
+                            Balance due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
+                        </div>
                         <a href="make_payment.php" class="btn btn-primary">
                             <i class="fas fa-credit-card"></i> Make Payment
                         </a>
-                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            All fees paid! Thank you.
+                        </div>
+                    <?php endif; ?>
 
+                        <?php if (!empty($onlineFeeCourses) || $displayBalance > 0): ?>
                         <?php
                         $qrFile = __DIR__ . '/../uploads/payment_qr.png';
                         if (file_exists($qrFile)): ?>
@@ -348,13 +408,9 @@ include 'includes/header.php';
                             <img src="<?php echo APP_URL; ?>/uploads/payment_qr.png" alt="Payment QR" style="max-width:240px;" class="img-fluid mx-auto">
                         </div>
                         <?php endif; ?>
+                        <?php endif; ?>
 
-                    <?php else: ?>
-                        <div class="alert alert-success">
-                            <i class="fas fa-check-circle"></i> 
-                            All fees paid! Thank you.
-                        </div>
-                    <?php endif; ?>
+                    <?php /* payment status card ends */ ?>
                 </div>
             </div>
         </div>

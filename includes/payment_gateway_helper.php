@@ -1134,4 +1134,47 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             $stmt->close();
         }
     }
+
+    /**
+     * Prefer multi-course enrollments (student_enrollments); fall back to students table rows.
+     */
+    function payment_student_enrollment_rows_for_online_fees(array $studentEnrollments, array $studentEnrollmentRows): array
+    {
+        $out = [];
+        $seen = [];
+        foreach ($studentEnrollments as $enr) {
+            $courseId = (int) ($enr['course_id'] ?? 0);
+            if ($courseId <= 0 || isset($seen[$courseId])) {
+                continue;
+            }
+            $seen[$courseId] = true;
+            $out[] = [
+                'course_id' => $courseId,
+                'id' => (int) ($enr['student_record_id'] ?? $enr['id'] ?? 0),
+                'course_name' => (string) ($enr['course_name'] ?? ''),
+            ];
+        }
+        if ($out !== []) {
+            return $out;
+        }
+        foreach ($studentEnrollmentRows as $erow) {
+            $courseId = (int) ($erow['course_id'] ?? 0);
+            if ($courseId <= 0 || isset($seen[$courseId])) {
+                continue;
+            }
+            $seen[$courseId] = true;
+            $out[] = [
+                'course_id' => $courseId,
+                'id' => (int) ($erow['id'] ?? 0),
+                'course_name' => (string) ($erow['course_name'] ?? $erow['course'] ?? ''),
+            ];
+        }
+        return $out;
+    }
+
+    function payment_student_latest_paid_invoice_row(mysqli $conn, string $studentCode, int $courseId): ?array
+    {
+        $rows = payment_student_course_invoices($conn, $studentCode, $courseId);
+        return $rows !== [] ? $rows[0] : null;
+    }
 }

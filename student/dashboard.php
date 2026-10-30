@@ -91,14 +91,7 @@ foreach ($enrollments as $enr) {
 $show_pending_notice = ($student_status === 'pending' || $has_pending_enrollment) && !$has_active_enrollment;
 
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
-$dashboardEnrollmentRows = [];
-foreach ($enrollments as $enr) {
-    $dashboardEnrollmentRows[] = [
-        'course_id' => (int) ($enr['course_id'] ?? 0),
-        'id' => (int) ($enr['student_record_id'] ?? $enr['id'] ?? 0),
-        'course_name' => (string) ($enr['course_name'] ?? ''),
-    ];
-}
+$dashboardEnrollmentRows = payment_student_enrollment_rows_for_online_fees($enrollments, []);
 payment_student_expire_stale_online_attempts($conn, $student_id);
 if (payment_hub_is_ready()) {
     payment_hub_sync_student_attempts($conn, $student_id);
@@ -214,9 +207,11 @@ include 'includes/header.php';
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-hover mb-0 align-middle">
-                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th></tr></thead>
+                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th><th>Invoice</th></tr></thead>
                             <tbody>
-                            <?php foreach ($dashboardOnlineFees as $df): ?>
+                            <?php foreach ($dashboardOnlineFees as $df):
+                                $dashInv = payment_student_latest_paid_invoice_row($conn, $student_id, (int) $df['course_id']);
+                            ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($df['course_name']); ?></td>
                                     <td>₹<?php echo number_format((float) $df['amount'], 2); ?></td>
@@ -226,6 +221,13 @@ include 'includes/header.php';
                                             <span class="badge bg-success">Paid</span>
                                         <?php else: ?>
                                             <span class="badge bg-warning text-dark">Due ₹<?php echo number_format((float) $df['due'], 2); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($dashInv): ?>
+                                            <a class="btn btn-sm btn-outline-success" href="payment_invoice.php?id=<?php echo (int) $dashInv['id']; ?>">View</a>
+                                        <?php else: ?>
+                                            <span class="text-muted small">—</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
