@@ -33,7 +33,7 @@ function hub_invoice_next_number(mysqli $conn, ?DateTime $when = null): string
     return sprintf('%s-%s-%06d', HUB_INVOICE_PREFIX, $fy, $next);
 }
 
-function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $orderId, string $paymentId, ?string $method = null): array
+function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $orderId, string $paymentId, ?string $method = null, ?array $razorpayEntity = null): array
 {
     $dup = $conn->prepare("SELECT * FROM hub_payments WHERE checkout_id = ? AND status = 'paid' LIMIT 1");
     if ($dup) {
@@ -44,6 +44,9 @@ function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $order
         $dup->close();
         if ($existingPay) {
             hub_checkout_mark($conn, (int) $checkout['id'], 'paid', $orderId);
+            if ((int) ($existingPay['razorpay_fee_paise'] ?? 0) === 0 && trim((string) ($existingPay['razorpay_payment_id'] ?? '')) !== '') {
+                hub_payment_refresh_razorpay_fees($conn, (int) $existingPay['id']);
+            }
             return ['ok' => true, 'payment' => $existingPay, 'duplicate' => true];
         }
     }
@@ -63,6 +66,32 @@ function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $order
         }
     }
 
+    $split = hub_payment_amounts_from_checkout($checkout);
+    $feeReceive = (int) $split['fee_receive_paise'];
+    $platformFee = (int) $split['platform_fee_paise'];
+    $rzpFee = 0;
+    $rzpTax = 0;
+    $settlement = 0;
+    if (is_array($razorpayEntity)) {
+        $rzpFee = (int) ($razorpayEntity['fee'] ?? 0);
+        $rzpTax = (int) ($razorpayEntity['tax'] ?? 0);
+        $gross = (int) ($razorpayEntity['amount'] ?? $checkout['amount_paise']);
+        $settlement = max(0, $gross - $rzpFee - $rzpTax);
+        if ($method === null || $method === '') {
+            $method = (string) ($razorpayEntity['method'] ?? '');
+        }
+    } elseif ($paymentId !== '') {
+        $fetched = hub_payment_fetch_razorpay_fees($conn, $paymentId);
+        if (!empty($fetched['ok'])) {
+            $rzpFee = (int) $fetched['razorpay_fee_paise'];
+            $rzpTax = (int) $fetched['razorpay_tax_paise'];
+            $settlement = (int) $fetched['settlement_paise'];
+            if ($method === null || $method === '') {
+                $method = (string) ($fetched['payment_method'] ?? '');
+            }
+        }
+    }
+
     $invoiceNo = hub_invoice_next_number($conn);
     $paidAt = gmdate('Y-m-d H:i:s', time() + 19800);
     $fy = hub_financial_year();
@@ -70,8 +99,8 @@ function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $order
     $conn->begin_transaction();
     hub_checkout_mark($conn, (int) $checkout['id'], 'paid', $orderId);
 
-    $stmt = $conn->prepare("INSERT INTO hub_payments (checkout_id, source_id, source_reference, amount_paise, currency, purpose, description, payer_json, context_json, status, razorpay_order_id, razorpay_payment_id, payment_method, invoice_number, paid_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?)");
+    $stmt = $conn->prepare("INSERT INTO hub_payments (checkout_id, source_id, source_reference, amount_paise, currency, purpose, description, payer_json, context_json, status, razorpay_order_id, razorpay_payment_id, payment_method, invoice_number, paid_at, fee_receive_paise, platform_fee_paise, razorpay_fee_paise, razorpay_tax_paise, settlement_paise)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'paid', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     if (!$stmt) {
         $conn->rollback();
         return ['ok' => false, 'error' => 'payment insert failed'];
@@ -87,7 +116,7 @@ function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $order
     $contextJson = (string) $checkout['context_json'];
     $method = $method ?? '';
     $stmt->bind_param(
-        'iisissssssssss',
+        'iisissssssssssiiiii',
         $cid,
         $sid,
         $ref,
@@ -101,7 +130,12 @@ function hub_mark_paid_from_capture(mysqli $conn, array $checkout, string $order
         $paymentId,
         $method,
         $invoiceNo,
-        $paidAt
+        $paidAt,
+        $feeReceive,
+        $platformFee,
+        $rzpFee,
+        $rzpTax,
+        $settlement
     );
     if (!$stmt->execute()) {
         $stmt->close();

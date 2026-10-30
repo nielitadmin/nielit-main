@@ -13,6 +13,11 @@ if (!$payment) {
     exit('Payment not found.');
 }
 
+if ((int) ($payment['razorpay_fee_paise'] ?? 0) === 0 && trim((string) ($payment['razorpay_payment_id'] ?? '')) !== '') {
+    hub_payment_refresh_razorpay_fees($hub_conn, $paymentId);
+    $payment = hub_payment_find($hub_conn, $paymentId) ?? $payment;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refund') {
     $amountRupees = trim((string) ($_POST['amount'] ?? ''));
     $amountPaise = null;
@@ -40,6 +45,7 @@ $payer = json_decode((string) ($payment['payer_json'] ?? ''), true);
 if (!is_array($payer)) {
     $payer = [];
 }
+$breakdown = hub_payment_breakdown($payment);
 $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_secret'];
 
 hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['source_reference']);
@@ -55,8 +61,14 @@ hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['
                 <?php echo hub_status_badge((string) $payment['status']); ?>
             </div>
             <ul class="list-group list-group-flush">
+                <li class="list-group-item px-0"><span class="text-secondary small">Purpose</span><br><strong><?php echo htmlspecialchars($breakdown['purpose_label']); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Source</span><strong><?php echo htmlspecialchars((string) $payment['source_code']); ?></strong></li>
-                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Amount</span><strong><?php echo hub_money_paise((int) $payment['amount_paise']); ?></strong></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Collected from payer</span><strong><?php echo hub_money_paise($breakdown['collected_paise']); ?></strong></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Institute / course fee</span><?php echo hub_money_paise($breakdown['fee_receive_paise']); ?></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Platform fee (<?php echo htmlspecialchars(number_format($breakdown['platform_percent'], 1)); ?>%)</span><?php echo hub_money_paise($breakdown['platform_fee_paise']); ?></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Razorpay processing fee</span><?php echo $breakdown['razorpay_fee_paise'] > 0 ? hub_money_paise($breakdown['razorpay_fee_paise']) : '—'; ?></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">GST on Razorpay fee</span><?php echo $breakdown['razorpay_tax_paise'] > 0 ? hub_money_paise($breakdown['razorpay_tax_paise']) : '—'; ?></li>
+                <li class="list-group-item d-flex justify-content-between px-0 border-bottom-0"><span class="text-secondary">Est. bank settlement</span><strong class="text-success"><?php echo $breakdown['settlement_paise'] > 0 ? hub_money_paise($breakdown['settlement_paise']) : '—'; ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refunded</span><?php echo hub_money_paise((int) $payment['refunded_amount_paise']); ?></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refundable</span><strong class="text-primary"><?php echo hub_money_paise($refundable); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Invoice</span>

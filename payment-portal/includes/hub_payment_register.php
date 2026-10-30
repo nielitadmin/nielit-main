@@ -132,14 +132,21 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
         'payer_email',
         'payer_external_id',
         'purpose',
+        'description',
         'centre',
-        'amount_inr',
+        'collected_inr',
+        'institute_fee_inr',
+        'platform_fee_inr',
+        'razorpay_fee_inr',
+        'razorpay_gst_inr',
+        'bank_settlement_inr',
         'method',
         'razorpay_payment_id',
         'status',
         'legacy',
     ]);
     foreach ($rows as $r) {
+        $bd = hub_payment_breakdown($r);
         $date = (string) ($r['paid_at'] ?? $r['created_at'] ?? '');
         if ($date !== '') {
             $date = substr($date, 0, 10);
@@ -153,8 +160,14 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
             hub_payment_payer_field($r, 'email'),
             hub_payment_payer_field($r, 'external_id'),
             (string) ($r['purpose'] ?? ''),
+            (string) ($r['description'] ?? ''),
             hub_payment_context_field($r, 'centre'),
-            number_format(((int) ($r['amount_paise'] ?? 0)) / 100, 2, '.', ''),
+            number_format($bd['collected_paise'] / 100, 2, '.', ''),
+            number_format($bd['fee_receive_paise'] / 100, 2, '.', ''),
+            number_format($bd['platform_fee_paise'] / 100, 2, '.', ''),
+            number_format($bd['razorpay_fee_paise'] / 100, 2, '.', ''),
+            number_format($bd['razorpay_tax_paise'] / 100, 2, '.', ''),
+            number_format($bd['settlement_paise'] / 100, 2, '.', ''),
             (string) ($r['payment_method'] ?? ''),
             (string) ($r['razorpay_payment_id'] ?? ''),
             (string) ($r['status'] ?? ''),

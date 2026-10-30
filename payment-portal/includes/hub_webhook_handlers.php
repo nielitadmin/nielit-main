@@ -42,7 +42,7 @@ function hub_webhook_process(mysqli $conn, array $payload): void
         }
         $checkout = hub_checkout_by_order_id($conn, $orderId);
         if ($checkout) {
-            hub_mark_paid_from_capture($conn, $checkout, $orderId, $paymentId, $method);
+            hub_mark_paid_from_capture($conn, $checkout, $orderId, $paymentId, $method, $entity);
         }
         return;
     }

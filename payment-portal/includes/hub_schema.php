@@ -73,6 +73,11 @@ function hub_schema_ensure(mysqli $conn): void
         payment_method VARCHAR(40) DEFAULT NULL,
         invoice_number VARCHAR(64) DEFAULT NULL,
         paid_at DATETIME DEFAULT NULL,
+        fee_receive_paise INT NOT NULL DEFAULT 0,
+        platform_fee_paise INT NOT NULL DEFAULT 0,
+        razorpay_fee_paise INT NOT NULL DEFAULT 0,
+        razorpay_tax_paise INT NOT NULL DEFAULT 0,
+        settlement_paise INT NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         KEY idx_hub_pay_source (source_id, source_reference),
         KEY idx_hub_pay_invoice (invoice_number),
@@ -156,6 +161,21 @@ function hub_schema_migrate_columns(mysqli $conn): void
     }
     if (!isset($cols['is_legacy'])) {
         $conn->query('ALTER TABLE hub_payments ADD COLUMN is_legacy TINYINT(1) NOT NULL DEFAULT 0 AFTER refunded_amount_paise');
+    }
+    if (!isset($cols['fee_receive_paise'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN fee_receive_paise INT NOT NULL DEFAULT 0 AFTER is_legacy');
+    }
+    if (!isset($cols['platform_fee_paise'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN platform_fee_paise INT NOT NULL DEFAULT 0 AFTER fee_receive_paise');
+    }
+    if (!isset($cols['razorpay_fee_paise'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN razorpay_fee_paise INT NOT NULL DEFAULT 0 AFTER platform_fee_paise');
+    }
+    if (!isset($cols['razorpay_tax_paise'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN razorpay_tax_paise INT NOT NULL DEFAULT 0 AFTER razorpay_fee_paise');
+    }
+    if (!isset($cols['settlement_paise'])) {
+        $conn->query('ALTER TABLE hub_payments ADD COLUMN settlement_paise INT NOT NULL DEFAULT 0 AFTER razorpay_tax_paise');
     }
 }
 

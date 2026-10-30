@@ -8,6 +8,17 @@ $sources = hub_source_list($hub_conn);
 $statuses = hub_payment_statuses();
 $rows = hub_payments_search($hub_conn, $filters, 200, 0);
 $total = hub_payments_count($hub_conn, $filters);
+foreach ($rows as $idx => $row) {
+    if ($idx >= 25) {
+        break;
+    }
+    if ((int) ($row['razorpay_fee_paise'] ?? 0) === 0 && trim((string) ($row['razorpay_payment_id'] ?? '')) !== '') {
+        hub_payment_refresh_razorpay_fees($hub_conn, (int) $row['id']);
+    }
+}
+if ($rows !== []) {
+    $rows = hub_payments_search($hub_conn, $filters, 200, 0);
+}
 
 $query = $_GET;
 $query['export'] = '1';
@@ -59,6 +70,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
         </div>
     </form>
     <p class="small text-secondary mb-0 mt-2">Showing <?php echo count($rows); ?> of <?php echo (int) $total; ?> matching rows (max 200 on screen; export includes up to 5000).</p>
+    <p class="small text-secondary mb-0"><strong>Collected</strong> = payer total · <strong>Institute</strong> = course/fee portion · <strong>Platform</strong> = NIELIT online fee · <strong>Bank (est.)</strong> = collected minus Razorpay fee &amp; GST (per Razorpay).</p>
 </div>
 
 <div class="hub-card-panel">
@@ -69,9 +81,14 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                     <th>Date</th>
                     <th>Source</th>
                     <th>Reference</th>
+                    <th>Purpose / item</th>
                     <th>Payer</th>
                     <th>Centre</th>
-                    <th>Amount</th>
+                    <th class="text-end">Collected</th>
+                    <th class="text-end">Institute</th>
+                    <th class="text-end">Platform</th>
+                    <th class="text-end">Razorpay</th>
+                    <th class="text-end">Bank (est.)</th>
                     <th>Invoice</th>
                     <th>Status</th>
                     <th></th>
@@ -79,10 +96,17 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
             </thead>
             <tbody>
             <?php foreach ($rows as $r): ?>
+                <?php $bd = hub_payment_breakdown($r); ?>
                 <tr>
                     <td class="small"><?php echo htmlspecialchars((string) ($r['paid_at'] ?? $r['created_at'])); ?></td>
                     <td><span class="badge text-bg-light border"><?php echo htmlspecialchars((string) $r['source_code']); ?></span></td>
                     <td class="font-monospace small"><?php echo htmlspecialchars((string) $r['source_reference']); ?></td>
+                    <td class="small">
+                        <strong><?php echo htmlspecialchars($bd['purpose']); ?></strong>
+                        <?php if ($bd['description'] !== '' && strcasecmp($bd['description'], $bd['purpose']) !== 0): ?>
+                            <br><span class="text-secondary"><?php echo htmlspecialchars($bd['description']); ?></span>
+                        <?php endif; ?>
+                    </td>
                     <td class="small">
                         <?php echo htmlspecialchars(hub_payment_payer_field($r, 'name')); ?>
                         <?php if (hub_payment_payer_field($r, 'external_id') !== ''): ?>
@@ -90,7 +114,22 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                         <?php endif; ?>
                     </td>
                     <td class="small"><?php echo htmlspecialchars(hub_payment_context_field($r, 'centre', '—')); ?></td>
-                    <td><?php echo hub_money_paise((int) $r['amount_paise']); ?></td>
+                    <td class="text-end fw-semibold"><?php echo hub_money_paise($bd['collected_paise']); ?></td>
+                    <td class="text-end small"><?php echo hub_money_paise($bd['fee_receive_paise']); ?></td>
+                    <td class="text-end small" title="NIELIT online platform fee"><?php echo hub_money_paise($bd['platform_fee_paise']); ?></td>
+                    <td class="text-end small">
+                        <?php if ($bd['has_razorpay_fees']): ?>
+                            <?php echo hub_money_paise($bd['razorpay_fee_paise']); ?>
+                            <?php if ($bd['razorpay_tax_paise'] > 0): ?>
+                                <br><span class="text-secondary">+GST <?php echo hub_money_paise($bd['razorpay_tax_paise']); ?></span>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <span class="text-secondary">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td class="text-end small">
+                        <?php echo $bd['settlement_paise'] > 0 ? hub_money_paise($bd['settlement_paise']) : '<span class="text-secondary">—</span>'; ?>
+                    </td>
                     <td class="small">
                         <?php if (!empty($r['invoice_number'])): ?>
                             <a target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . (int) $r['id'] . '&sig=' . urlencode(hub_invoice_public_signature((int) $r['id'], $invoiceSecret))); ?>"><?php echo htmlspecialchars((string) $r['invoice_number']); ?></a>
@@ -103,7 +142,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                 </tr>
             <?php endforeach; ?>
             <?php if ($rows === []): ?>
-                <tr><td colspan="9" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
+                <tr><td colspan="14" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
