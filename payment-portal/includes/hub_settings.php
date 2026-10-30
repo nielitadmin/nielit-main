@@ -83,3 +83,16 @@ function hub_setup_status(mysqli $conn): array
         'complete' => $gateway && $sourceCount > 0,
     ];
 }
+
+function hub_gateway_mask_secret(string $value): string
+{
+    $value = trim($value);
+    $len = strlen($value);
+    if ($len === 0) {
+        return '—';
+    }
+    if ($len <= 6) {
+        return str_repeat('•', $len) . ' (' . $len . ' chars)';
+    }
+    return substr($value, 0, 4) . str_repeat('•', min(14, $len - 8)) . substr($value, -4) . ' (' . $len . ' chars)';
+}
