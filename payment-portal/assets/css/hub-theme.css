@@ -288,6 +288,14 @@ body {
     font-size: 2rem;
 }
 
+.hub-auth-hero .hub-brand-logo {
+    width: 56px;
+    max-height: 56px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 6px;
+}
+
 .hub-auth-form-wrap {
     background: #fff;
     padding: 2.5rem 2rem;
@@ -320,7 +328,17 @@ body {
     text-decoration: none;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.65rem;
+}
+
+.hub-btn-glow {
+    box-shadow: 0 4px 20px rgba(14, 165, 233, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hub-btn-glow:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 28px rgba(14, 165, 233, 0.45);
 }
 
 .hub-pay-card {

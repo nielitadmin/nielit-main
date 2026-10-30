@@ -5,7 +5,22 @@ function hub_asset(string $path): string
     return htmlspecialchars(hub_url(ltrim($path, '/')));
 }
 
-function hub_layout_assets(): void
+function hub_brand_logo_url(): string
+{
+    return hub_url('assets/images/nielit-logo.png');
+}
+
+function hub_layout_head_meta(string $pageTitle): void
+{
+    $description = defined('HUB_TAGLINE') ? HUB_TAGLINE : 'NIELIT Bhubaneswar central payment portal';
+    ?>
+    <meta name="description" content="<?php echo htmlspecialchars($description); ?>">
+    <link rel="icon" href="<?php echo hub_asset('assets/images/favicon.svg'); ?>" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="<?php echo hub_asset('assets/images/nielit-logo.png'); ?>">
+    <?php
+}
+
+function hub_layout_assets(bool $landingExtras = false): void
 {
     ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,6 +30,15 @@ function hub_layout_assets(): void
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="<?php echo hub_asset('assets/css/hub-theme.css'); ?>" rel="stylesheet">
     <?php
+    if ($landingExtras) {
+        echo '<link href="' . hub_asset('assets/css/hub-landing.css') . '" rel="stylesheet">' . "\n";
+    }
+}
+
+function hub_brand_mark_html(string $class = 'hub-brand-logo'): string
+{
+    $alt = defined('HUB_BRAND_SHORT') ? HUB_BRAND_SHORT : 'NIELIT Payment Hub';
+    return '<img class="' . htmlspecialchars($class) . '" src="' . htmlspecialchars(hub_brand_logo_url()) . '" alt="' . htmlspecialchars($alt) . '" width="48" height="48" loading="eager" decoding="async">';
 }
 
 function hub_admin_nav_items(): array
@@ -39,14 +63,14 @@ function hub_admin_layout_start(string $pageTitle, string $activeNav = 'dashboar
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo htmlspecialchars($pageTitle); ?> — NIELIT Payment Hub</title>
-    <?php hub_layout_assets(); ?>
+    <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></title>
+    <?php hub_layout_head_meta($pageTitle); hub_layout_assets(); ?>
 </head>
 <body class="hub-admin-body">
 <div class="hub-admin-shell">
     <aside class="hub-sidebar" id="hubSidebar">
         <div class="hub-sidebar-brand">
-            <span class="hub-brand-mark"><i class="bi bi-wallet2"></i></span>
+            <span class="hub-brand-mark"><?php echo hub_brand_mark_html('hub-brand-logo'); ?></span>
             <div>
                 <strong>Payment Hub</strong>
                 <small>NIELIT Bhubaneswar</small>
@@ -91,7 +115,7 @@ function hub_admin_layout_end(): void
     ?>
         </main>
         <footer class="hub-footer text-center text-secondary small py-3">
-            Central payment portal · Razorpay keys stored here only
+            <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · Secure gateway &amp; invoice control
         </footer>
     </div>
 </div>
@@ -125,8 +149,8 @@ function hub_auth_layout_start(string $pageTitle = 'Sign in'): void
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo htmlspecialchars($pageTitle); ?> — NIELIT Payment Hub</title>
-    <?php hub_layout_assets(); ?>
+    <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></title>
+    <?php hub_layout_head_meta($pageTitle); hub_layout_assets(); ?>
 </head>
 <body class="hub-auth-body">
     <?php
@@ -141,7 +165,7 @@ function hub_auth_layout_end(): void
     <?php
 }
 
-function hub_public_layout_start(string $pageTitle, string $variant = 'default'): void
+function hub_public_layout_start(string $pageTitle, string $variant = 'default', bool $isLanding = false): void
 {
     ?>
 <!DOCTYPE html>
@@ -149,17 +173,20 @@ function hub_public_layout_start(string $pageTitle, string $variant = 'default')
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?php echo htmlspecialchars($pageTitle); ?></title>
-    <?php hub_layout_assets(); ?>
+    <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></title>
+    <?php hub_layout_head_meta($pageTitle); hub_layout_assets($isLanding); ?>
 </head>
-<body class="hub-public-body hub-public-<?php echo htmlspecialchars($variant); ?>">
+<body class="hub-public-body hub-public-<?php echo htmlspecialchars($variant); ?><?php echo $isLanding ? ' hub-landing-page' : ''; ?>">
     <?php
 }
 
-function hub_public_layout_end(): void
+function hub_public_layout_end(bool $isLanding = false): void
 {
     ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<?php if ($isLanding): ?>
+<script src="<?php echo hub_asset('assets/js/hub-landing.js'); ?>"></script>
+<?php endif; ?>
 </body>
 </html>
     <?php

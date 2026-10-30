@@ -12,7 +12,7 @@ foreach ($sources as $s) {
     }
 }
 
-hub_admin_layout_start('Registered sources', 'sources', 'MIS, mock test, and future websites');
+hub_admin_layout_start('Registered sources', 'sources', 'Portals that send signed checkouts to this hub');
 ?>
 <p class="text-secondary mb-4">Copy each shared secret into the integrating site. Sign checkout API requests with HMAC-SHA256.</p>
 <div class="row g-3">

@@ -17,9 +17,10 @@ hub_auth_layout_start('Sign in');
 ?>
 <div class="hub-auth-grid">
     <div class="hub-auth-hero">
+        <div class="mb-3"><?php echo hub_brand_mark_html('hub-brand-logo'); ?></div>
         <p class="text-uppercase small fw-semibold opacity-75 mb-2">NIELIT Bhubaneswar</p>
-        <h1>Central payment hub</h1>
-        <p class="opacity-90 mt-3">One secure place for MIS, mock test, and future sites to collect fees. Razorpay keys and invoices live here only.</p>
+        <h1><?php echo htmlspecialchars(HUB_BRAND_SHORT); ?></h1>
+        <p class="opacity-90 mt-3"><?php echo htmlspecialchars(HUB_TAGLINE_AUTH); ?></p>
         <ul class="list-unstyled mt-4 small opacity-85">
             <li class="mb-2"><i class="bi bi-shield-check me-2"></i>Signed checkout API</li>
             <li class="mb-2"><i class="bi bi-receipt me-2"></i>Unified invoice series</li>
