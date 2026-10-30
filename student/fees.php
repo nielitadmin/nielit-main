@@ -112,6 +112,7 @@ foreach ($student_enrollment_rows as $erow) {
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
 $onlineGateways = payment_gateway_active_list($conn);
 $onlineHubReady = payment_hub_is_ready();
+$hubCfg = payment_hub_config();
 $onlineGatewayReady = $onlineHubReady || !empty($onlineGateways);
 if (count($payment_records) === 0) {
     foreach ($onlineInvoices as $invoiceRow) {
@@ -126,7 +127,14 @@ include 'includes/header.php';
 
 <div class="container py-4">
     <?php if (!empty($_GET['paid'])): ?>
-        <div class="alert alert-success">Payment received. Your invoice is listed below.</div>
+        <div class="alert alert-success">
+            Payment received successfully.
+            <?php if (!empty($_GET['invoice_id'])): ?>
+                <a class="alert-link" href="payment_invoice.php?id=<?php echo (int) $_GET['invoice_id']; ?>">View your invoice</a>
+            <?php else: ?>
+                Your invoice appears in the list below.
+            <?php endif; ?>
+        </div>
     <?php elseif (!empty($_GET['pay_error'])): ?>
         <div class="alert alert-danger"><?php echo htmlspecialchars((string) $_GET['pay_error']); ?></div>
     <?php endif; ?>
@@ -281,6 +289,13 @@ include 'includes/header.php';
                             You have a pending balance of <strong>₹<?php echo number_format(max(0, $balance), 2); ?></strong>
                         </div>
                         <?php if (!empty($onlineFeeCourses)): ?>
+                            <?php if ($onlineHubReady): ?>
+                                <div class="alert alert-info text-start small mb-3">
+                                    Online course fees are collected on the
+                                    <a href="<?php echo htmlspecialchars(payment_hub_public_url($hubCfg)); ?>" target="_blank" rel="noopener">NIELIT Payment Portal</a>
+                                    (secure Razorpay checkout). You will return here after payment.
+                                </div>
+                            <?php endif; ?>
                             <?php foreach ($onlineFeeCourses as $onlineCourse): ?>
                                 <div class="border rounded p-3 mb-2 text-start">
                                     <strong><?php echo htmlspecialchars($onlineCourse['course_name']); ?></strong>
@@ -293,6 +308,16 @@ include 'includes/header.php';
                                         <span class="badge bg-success mt-2">Paid</span>
                                     <?php elseif ($onlineGatewayReady): ?>
                                         <div class="d-flex flex-wrap gap-2 mt-2">
+                                            <?php if ($onlineHubReady): ?>
+                                                <button type="button"
+                                                        class="btn btn-primary btn-sm pay-course-fee"
+                                                        data-gateway="razorpay"
+                                                        data-course-id="<?php echo (int) $onlineCourse['course_id']; ?>"
+                                                        data-record-id="<?php echo (int) $onlineCourse['record_id']; ?>">
+                                                    <i class="fas fa-shield-alt"></i>
+                                                    Pay ₹<?php echo number_format($onlineCourse['due'], 2); ?> via Payment Portal
+                                                </button>
+                                            <?php else: ?>
                                             <?php foreach ($onlineGateways as $gatewayOption): ?>
                                                 <button type="button"
                                                         class="btn btn-primary btn-sm pay-course-fee"
@@ -303,6 +328,7 @@ include 'includes/header.php';
                                                     Pay ₹<?php echo number_format($onlineCourse['due'], 2); ?> with <?php echo htmlspecialchars((string) $gatewayOption['name']); ?>
                                                 </button>
                                             <?php endforeach; ?>
+                                            <?php endif; ?>
                                         </div>
                                     <?php else: ?>
                                         <div class="small text-muted mt-2">Online payment is not open yet. Please contact the centre.</div>

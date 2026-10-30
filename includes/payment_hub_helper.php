@@ -1,26 +1,193 @@
 <?php
 
+if (!function_exists('payment_hub_ensure_schema')) {
+    function payment_hub_ensure_schema(mysqli $conn): void
+    {
+        static $done = false;
+        if ($done || !($conn instanceof mysqli)) {
+            return;
+        }
+        $done = true;
+        $conn->query("CREATE TABLE IF NOT EXISTS payment_hub_settings (
+            id TINYINT UNSIGNED NOT NULL PRIMARY KEY DEFAULT 1,
+            is_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            api_base VARCHAR(255) NOT NULL DEFAULT 'https://payment.nielitbhubaneswar.in',
+            source_code VARCHAR(32) NOT NULL DEFAULT 'mis',
+            shared_secret VARCHAR(255) NOT NULL DEFAULT '',
+            invoice_public_secret VARCHAR(255) NOT NULL DEFAULT '',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $conn->query('INSERT IGNORE INTO payment_hub_settings (id) VALUES (1)');
+    }
+
+    function payment_hub_default_api_base(): string
+    {
+        if (defined('APP_URL') && defined('APP_ENV') && APP_ENV === 'development') {
+            $localPortal = dirname(__DIR__) . '/payment-portal/index.php';
+            if (is_file($localPortal)) {
+                return rtrim((string) APP_URL, '/') . '/payment-portal';
+            }
+        }
+        return 'https://payment.nielitbhubaneswar.in';
+    }
+
+    function payment_hub_load_db_row(mysqli $conn): ?array
+    {
+        payment_hub_ensure_schema($conn);
+        $result = $conn->query('SELECT * FROM payment_hub_settings WHERE id = 1 LIMIT 1');
+        $row = $result ? $result->fetch_assoc() : null;
+        return $row ?: null;
+    }
+
+    function payment_hub_save_settings(mysqli $conn, array $input): bool
+    {
+        payment_hub_ensure_schema($conn);
+        $enabled = !empty($input['enabled']) ? 1 : 0;
+        $apiBase = rtrim(trim((string) ($input['api_base'] ?? '')), '/');
+        if ($apiBase === '') {
+            $apiBase = payment_hub_default_api_base();
+        }
+        $source = strtolower(trim((string) ($input['source'] ?? 'mis')));
+        if ($source === '') {
+            $source = 'mis';
+        }
+        $secret = trim((string) ($input['shared_secret'] ?? ''));
+        $invoiceSecret = trim((string) ($input['invoice_public_secret'] ?? ''));
+
+        if ($secret === '') {
+            $existing = payment_hub_load_db_row($conn);
+            $secret = trim((string) ($existing['shared_secret'] ?? ''));
+        }
+        if ($invoiceSecret === '' && !empty($input['keep_invoice_secret'])) {
+            $existing = payment_hub_load_db_row($conn);
+            $invoiceSecret = trim((string) ($existing['invoice_public_secret'] ?? ''));
+        }
+
+        $stmt = $conn->prepare('UPDATE payment_hub_settings SET is_enabled = ?, api_base = ?, source_code = ?, shared_secret = ?, invoice_public_secret = ? WHERE id = 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('issss', $enabled, $apiBase, $source, $secret, $invoiceSecret);
+        $ok = $stmt->execute();
+        $stmt->close();
+        if ($ok) {
+            $GLOBALS['payment_hub_config_bust'] = true;
+        }
+        return $ok;
+    }
+
+    function payment_hub_public_url(?array $cfg = null): string
+    {
+        $cfg = $cfg ?? payment_hub_config();
+        return rtrim((string) ($cfg['api_base'] ?? payment_hub_default_api_base()), '/');
+    }
+
+    function payment_hub_admin_url(string $path = 'admin/dashboard.php'): string
+    {
+        return payment_hub_public_url() . '/' . ltrim($path, '/');
+    }
+
+    function payment_hub_integration_urls(): array
+    {
+        $base = defined('APP_URL') ? rtrim((string) APP_URL, '/') : '';
+        return [
+            'notify_url' => $base . '/api/payment_hub_notify.php',
+            'return_url' => $base . '/student/payment_return.php',
+            'checkout_api' => payment_hub_checkout_url(payment_hub_public_url()),
+        ];
+    }
+
+    function payment_hub_test_connection(array $cfg): array
+    {
+        if (!function_exists('payment_http')) {
+            return ['ok' => false, 'error' => 'HTTP client unavailable'];
+        }
+        $checkoutUrl = payment_hub_checkout_url((string) ($cfg['api_base'] ?? ''));
+        $response = payment_http('POST', $checkoutUrl, ['Content-Type: application/json'], '{}');
+        $code = (int) ($response['code'] ?? 0);
+        if (in_array($code, [400, 401, 403, 422], true)) {
+            return ['ok' => true, 'message' => 'Checkout API responded (HTTP ' . $code . '). Portal URL and route look correct.'];
+        }
+        if ($code >= 200 && $code < 300) {
+            return ['ok' => true, 'message' => 'Checkout API returned HTTP ' . $code . '.'];
+        }
+        if ($code === 0) {
+            return ['ok' => false, 'error' => 'Could not reach the portal. Check api_base URL and SSL from this server.'];
+        }
+        return ['ok' => false, 'error' => 'Unexpected response HTTP ' . $code . ' from checkout API.'];
+    }
+
+    function payment_hub_import_file_config(mysqli $conn): void
+    {
+        $row = payment_hub_load_db_row($conn);
+        if (!$row || trim((string) ($row['shared_secret'] ?? '')) !== '') {
+            return;
+        }
+        $path = __DIR__ . '/../config/payment_hub.php';
+        if (!is_file($path)) {
+            return;
+        }
+        $file = require $path;
+        if (!is_array($file) || trim((string) ($file['shared_secret'] ?? '')) === '') {
+            return;
+        }
+        payment_hub_save_settings($conn, [
+            'enabled' => !empty($file['enabled']),
+            'api_base' => (string) ($file['api_base'] ?? payment_hub_default_api_base()),
+            'source' => (string) ($file['source'] ?? 'mis'),
+            'shared_secret' => (string) $file['shared_secret'],
+            'invoice_public_secret' => (string) ($file['invoice_public_secret'] ?? ''),
+        ]);
+    }
+}
+
 if (!function_exists('payment_hub_config')) {
     function payment_hub_config(): array
     {
         static $cached = null;
+        if (!empty($GLOBALS['payment_hub_config_bust'])) {
+            $cached = null;
+            unset($GLOBALS['payment_hub_config_bust']);
+        }
         if ($cached !== null) {
             return $cached;
         }
         $defaults = [
             'enabled' => false,
-            'api_base' => 'https://payment.nielitbhubaneswar.in',
+            'api_base' => payment_hub_default_api_base(),
             'source' => 'mis',
             'shared_secret' => '',
             'invoice_public_secret' => '',
         ];
-        $path = __DIR__ . '/../config/payment_hub.php';
-        if (!is_file($path)) {
-            $cached = $defaults;
-            return $cached;
+
+        global $conn;
+        if (isset($conn) && $conn instanceof mysqli) {
+            payment_hub_import_file_config($conn);
+            $row = payment_hub_load_db_row($conn);
+            if ($row) {
+                $cached = [
+                    'enabled' => (int) ($row['is_enabled'] ?? 0) === 1,
+                    'api_base' => rtrim((string) ($row['api_base'] ?: $defaults['api_base']), '/'),
+                    'source' => (string) ($row['source_code'] ?? 'mis'),
+                    'shared_secret' => (string) ($row['shared_secret'] ?? ''),
+                    'invoice_public_secret' => (string) ($row['invoice_public_secret'] ?? ''),
+                ];
+                return $cached;
+            }
         }
-        $loaded = require $path;
-        $cached = is_array($loaded) ? array_merge($defaults, $loaded) : $defaults;
+
+        $path = __DIR__ . '/../config/payment_hub.php';
+        if (is_file($path)) {
+            $loaded = require $path;
+            if (is_array($loaded)) {
+                $cached = array_merge($defaults, $loaded);
+                if (!empty($cached['api_base'])) {
+                    $cached['api_base'] = rtrim((string) $cached['api_base'], '/');
+                }
+                return $cached;
+            }
+        }
+        $cached = $defaults;
         return $cached;
     }
 
@@ -177,9 +344,7 @@ if (!function_exists('payment_hub_config')) {
         $hubPaymentId = (int) ($payload['payment_id'] ?? 0);
         $invoice = trim((string) ($payload['invoice_number'] ?? ''));
         $rzp = trim((string) ($payload['razorpay_payment_id'] ?? ''));
-        if ($invoice === '') {
-            $invoice = null;
-        }
+        $invoiceVal = $invoice !== '' ? $invoice : null;
         $update = $conn->prepare("UPDATE online_course_payments
             SET status = 'paid', paid_at = NOW(), gateway_payment_id = ?, invoice_number = COALESCE(?, invoice_number),
                 hub_payment_id = ?, hub_invoice_number = ?
@@ -188,7 +353,8 @@ if (!function_exists('payment_hub_config')) {
             return ['ok' => false, 'error' => 'Could not update local payment.'];
         }
         $id = (int) $row['id'];
-        $update->bind_param('ssisi', $rzp, $invoice, $hubPaymentId, $invoice, $id);
+        $hubInv = $invoiceVal ?? '';
+        $update->bind_param('ssisi', $rzp, $invoiceVal, $hubPaymentId, $hubInv, $id);
         $update->execute();
         $update->close();
 
@@ -224,7 +390,7 @@ if (!function_exists('payment_hub_config')) {
         }
 
         $statusUrl = payment_hub_status_url((string) $cfg['api_base'], $token);
-        $response = payment_hub_http_get_signed($statusUrl, (string) $cfg['shared_secret']);
+        $response = payment_http('GET', $statusUrl, [], null);
         $status = $response['body']['status'] ?? null;
         if (!is_array($status)) {
             return ['ok' => false, 'error' => 'Could not confirm payment with the portal.'];

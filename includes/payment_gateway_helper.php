@@ -58,6 +58,8 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             $conn->query('ALTER TABLE online_course_payments ADD COLUMN hub_invoice_number VARCHAR(64) NULL DEFAULT NULL AFTER hub_payment_id');
         }
 
+        payment_hub_ensure_schema($conn);
+
         $col = $conn->query("SHOW COLUMNS FROM courses LIKE 'online_payment_enabled'");
         if ($col && $col->num_rows === 0) {
             $conn->query("ALTER TABLE courses ADD COLUMN online_payment_enabled TINYINT(1) NOT NULL DEFAULT 0");

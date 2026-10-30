@@ -110,15 +110,15 @@ $active_theme = loadActiveTheme($conn);
     <?php endif; ?>
 
     <?php if (payment_hub_is_ready()): ?>
-        <div class="alert alert-info mt-3">
-            <strong>Central payment portal is active.</strong> Course fees using Razorpay are redirected to
-            <code>payment.nielitbhubaneswar.in</code>. Razorpay keys here are not used for those fees. Configure the hub in
-            <code>config/payment_hub.php</code> (see <code>config/payment_hub.example.php</code>).
+        <div class="alert alert-info mt-3 mb-0">
+            <strong>Central payment portal is active.</strong> Configure it under
+            <a href="<?php echo htmlspecialchars(APP_URL . '/admin/payment_hub.php'); ?>">Central Payment Portal</a>.
+            Local Razorpay keys below are not used for course fees while the hub is on.
         </div>
     <?php else: ?>
         <div class="alert alert-secondary mt-3 small mb-0">
-            To collect course fees through the central portal instead of local Razorpay keys, copy
-            <code>config/payment_hub.example.php</code> to <code>config/payment_hub.php</code>, set <code>enabled</code> and the MIS shared secret from the payment hub Admin → Sources.
+            To collect course fees on <code>payment.nielitbhubaneswar.in</code>, open
+            <a href="<?php echo htmlspecialchars(APP_URL . '/admin/payment_hub.php'); ?>">Central Payment Portal</a> and enable the integration.
         </div>
     <?php endif; ?>
 
