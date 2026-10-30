@@ -69,6 +69,6 @@ Override with environment variables `HUB_APP_URL` or `HUB_ENV` if your host supp
 | **Layout** | Fixed left sidebar (268px); main content and footer sit to the right—no overlap with sidebar or quick-link cards. |
 | **First visit** | Blue **Complete setup** banner until Razorpay keys + webhook secret are saved. |
 | **Gateway** | Admin → **Gateway** — Razorpay Key ID, secret, webhook secret (or put keys in `secrets.php`; they sync when DB fields are empty). |
-| **Sources** | Admin → **Sources** — shared secrets for `mis`, `mock`, etc. |
+| **Sources** | Admin → **Sources** — add a source per website (code, return URLs, secret); unlimited sites |
 | **Staff login** | Default bootstrap user from `secrets.php` (first DB seed only); change password after login. |
 | **Assets** | Deploy `assets/css/hub-theme.css` after UI updates; hard-refresh (Ctrl+F5). |

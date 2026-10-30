@@ -203,7 +203,7 @@ Staff sign in on `payment.nielitbhubaneswar.in`. Suggested screens:
 1. **Today.** Count and sum of paid, failed, and pending payments, split by website.
 2. **Payments.** Filter by date, website, centre, status, payer name, student id, Razorpay payment id, or invoice number.
 3. **Invoice.** Open or download the PDF. The same link can be sent to the payer.
-4. **Sources.** Register MIS, mock test, and later sites. Rotate the shared secret without showing the Razorpay secret.
+4. **Sources.** Add one entry per integrating website (code, display name, allowed return URL prefixes, shared secret). Edit, deactivate, or rotate secrets without touching Razorpay keys. MIS and mock are seeded on first install only.
 5. **Gateway.** Razorpay Key ID, Key Secret, webhook secret, and test or live mode. Only a small set of accounts staff can open this screen.
 6. **Export.** CSV of the filtered register for Tally or the accounts workbook. Columns: invoice number, date, source, reference, payer, purpose, centre, amount, method, Razorpay payment id, status.
 
