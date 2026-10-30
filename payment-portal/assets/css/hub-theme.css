@@ -318,6 +318,15 @@ body {
     background: #f8fafc;
 }
 
+/* Modals rendered outside overflow:hidden wrappers must stack above admin chrome */
+.hub-admin-body .modal-backdrop {
+    z-index: 1040;
+}
+
+.hub-admin-body .modal {
+    z-index: 1050;
+}
+
 .hub-badge {
     font-weight: 500;
     font-size: 0.75rem;

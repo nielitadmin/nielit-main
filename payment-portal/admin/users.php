@@ -150,60 +150,6 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
                                 <?php endif; ?>
                             </td>
                         </tr>
-
-                        <!-- Edit Modal -->
-                        <div class="modal fade" id="editUser<?php echo (int) $u['id']; ?>" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <form method="post">
-                                        <div class="modal-header">
-                                            <h5 class="modal-title">Edit — <?php echo htmlspecialchars((string) $u['username']); ?></h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                        </div>
-                                        <div class="modal-body vstack gap-3">
-                                            <input type="hidden" name="form_action" value="update">
-                                            <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
-                                            <div>
-                                                <label class="form-label">Username</label>
-                                                <input class="form-control" type="text" value="<?php echo htmlspecialchars((string) $u['username']); ?>" disabled>
-                                            </div>
-                                            <div>
-                                                <label class="form-label">Email <span class="text-danger">*</span></label>
-                                                <input class="form-control" type="email" name="email"
-                                                       value="<?php echo htmlspecialchars((string) ($u['email'] ?? '')); ?>"
-                                                       placeholder="admin@nielitbhubaneswar.in" required autocomplete="email">
-                                                <div class="form-text">Required for email OTP sign-in on the login page.</div>
-                                            </div>
-                                            <div>
-                                                <label class="form-label">Role</label>
-                                                <select class="form-select" name="role">
-                                                    <option value="admin" <?php echo $u['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                                                    <option value="superadmin" <?php echo $u['role'] === 'superadmin' ? 'selected' : ''; ?>>Superadmin</option>
-                                                </select>
-                                            </div>
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="is_active" id="active<?php echo (int) $u['id']; ?>"
-                                                       <?php echo (int) $u['is_active'] ? 'checked' : ''; ?>>
-                                                <label class="form-check-label" for="active<?php echo (int) $u['id']; ?>">Active</label>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                                            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save changes</button>
-                                        </div>
-                                    </form>
-                                    <div class="modal-body border-top">
-                                        <p class="small text-secondary mb-2">Reset password (for fallback login):</p>
-                                        <form method="post" class="input-group">
-                                            <input type="hidden" name="form_action" value="reset_password">
-                                            <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
-                                            <input class="form-control form-control-sm" type="password" name="new_password" placeholder="New password" required minlength="6">
-                                            <button class="btn btn-outline-warning btn-sm" type="submit">Reset</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     <?php endforeach; ?>
                     </tbody>
                 </table>
@@ -254,5 +200,65 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
         </div>
     </div>
 </div>
+
+<?php foreach ($users as $u): ?>
+<div class="modal fade" id="editUser<?php echo (int) $u['id']; ?>" tabindex="-1" aria-labelledby="editUserLabel<?php echo (int) $u['id']; ?>" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editUserLabel<?php echo (int) $u['id']; ?>">Edit — <?php echo htmlspecialchars((string) $u['username']); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body vstack gap-3">
+                    <input type="hidden" name="form_action" value="update">
+                    <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
+                    <div>
+                        <label class="form-label text-secondary">Username</label>
+                        <p class="form-control-plaintext fw-semibold mb-0 pt-0"><?php echo htmlspecialchars((string) $u['username']); ?></p>
+                    </div>
+                    <div>
+                        <label class="form-label" for="editEmail<?php echo (int) $u['id']; ?>">Email <span class="text-danger">*</span></label>
+                        <input class="form-control" type="email" name="email" id="editEmail<?php echo (int) $u['id']; ?>"
+                               value="<?php echo htmlspecialchars((string) ($u['email'] ?? '')); ?>"
+                               placeholder="admin@nielitbhubaneswar.in" required autocomplete="email">
+                        <div class="form-text">Required for email OTP sign-in on the login page.</div>
+                    </div>
+                    <div>
+                        <label class="form-label" for="editRole<?php echo (int) $u['id']; ?>">Role</label>
+                        <select class="form-select" name="role" id="editRole<?php echo (int) $u['id']; ?>">
+                            <option value="admin" <?php echo $u['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                            <option value="superadmin" <?php echo $u['role'] === 'superadmin' ? 'selected' : ''; ?>>Superadmin</option>
+                        </select>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="is_active" id="active<?php echo (int) $u['id']; ?>"
+                               <?php echo (int) $u['is_active'] ? 'checked' : ''; ?>>
+                        <label class="form-check-label" for="active<?php echo (int) $u['id']; ?>">Active</label>
+                    </div>
+                </div>
+                <div class="modal-footer flex-column align-items-stretch gap-2">
+                    <div class="d-flex gap-2 w-100">
+                        <button type="button" class="btn btn-light flex-grow-1" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-check-lg me-1"></i>Save changes</button>
+                    </div>
+                    <div class="border-top pt-3">
+                        <p class="small text-secondary mb-2">Reset password (for fallback login):</p>
+                        <div class="input-group">
+                            <input class="form-control form-control-sm" type="password" name="new_password" form="resetForm<?php echo (int) $u['id']; ?>" placeholder="New password" minlength="6">
+                            <button class="btn btn-outline-warning btn-sm" type="submit" form="resetForm<?php echo (int) $u['id']; ?>">Reset</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <form method="post" id="resetForm<?php echo (int) $u['id']; ?>" class="d-none">
+                <input type="hidden" name="form_action" value="reset_password">
+                <input type="hidden" name="user_id" value="<?php echo (int) $u['id']; ?>">
+            </form>
+        </div>
+    </div>
+</div>
+<?php endforeach; ?>
+
 <?php
 hub_admin_layout_end();
