@@ -77,6 +77,9 @@ hub_public_layout_start('Pay — ' . (string) $checkout['purpose'], 'hero');
                     <strong>Could not start checkout.</strong>
                     <?php if ($checkoutOrderError !== ''): ?>
                         <span class="d-block small mt-1"><?php echo htmlspecialchars($checkoutOrderError); ?></span>
+                        <?php if (stripos($checkoutOrderError, 'auth') !== false): ?>
+                            <span class="d-block small mt-2">Portal admin: fix <strong>Key ID</strong> and <strong>Key secret</strong> under Payment hub → Gateway (must be a matching pair from Razorpay).</span>
+                        <?php endif; ?>
                     <?php else: ?>
                         <span class="d-block small mt-1">Try again in a moment. If this continues, ask the portal admin to run <strong>Test Razorpay connection</strong> under Gateway settings.</span>
                     <?php endif; ?>

@@ -46,22 +46,56 @@ function hub_razorpay_ready(mysqli $conn): bool
  */
 function hub_razorpay_sync_from_secrets(mysqli $conn, array $secrets): void
 {
+    hub_razorpay_import_from_secrets($conn, $secrets, false);
+}
+
+/**
+ * @return int Number of settings written
+ */
+function hub_razorpay_import_from_secrets(mysqli $conn, array $secrets, bool $overwrite): int
+{
     $pairs = [
         'razorpay_mode' => 'razorpay_mode',
         'razorpay_key_id' => 'razorpay_key_id',
         'razorpay_key_secret' => 'razorpay_key_secret',
         'razorpay_webhook_secret' => 'razorpay_webhook_secret',
     ];
+    $written = 0;
     foreach ($pairs as $settingKey => $secretKey) {
         $fromSecret = trim((string) ($secrets[$secretKey] ?? ''));
         if ($fromSecret === '') {
             continue;
         }
         $current = hub_setting_get($conn, $settingKey);
-        if ($current === null || $current === '') {
-            hub_setting_set($conn, $settingKey, $fromSecret);
+        if (!$overwrite && $current !== null && $current !== '') {
+            continue;
+        }
+        if (hub_setting_set($conn, $settingKey, $fromSecret)) {
+            $written++;
         }
     }
+    return $written;
+}
+
+/** Warn when hub “mode” does not match Razorpay Key ID prefix (common auth failure). */
+function hub_razorpay_mode_key_warning(string $mode, string $keyId): ?string
+{
+    $keyId = trim($keyId);
+    if ($keyId === '') {
+        return null;
+    }
+    $testKey = stripos($keyId, 'rzp_test_') === 0;
+    $liveKey = stripos($keyId, 'rzp_live_') === 0;
+    if ($mode === 'live' && $testKey) {
+        return 'Mode is Live but Key ID is a test key (rzp_test_…). Use Live API keys from Razorpay, or set Mode to Test.';
+    }
+    if ($mode === 'test' && $liveKey) {
+        return 'Mode is Test but Key ID is a live key (rzp_live_…). Use Test API keys, or set Mode to Live for real payments.';
+    }
+    if (!$testKey && !$liveKey) {
+        return 'Key ID should start with rzp_test_ or rzp_live_. Check for typos or extra spaces.';
+    }
+    return null;
 }
 
 function hub_setup_status(mysqli $conn): array

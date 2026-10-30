@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/bootstrap.php';
 hub_admin_require();
 
 $msg = '';
+$msgLevel = 'success';
 $testResult = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_razorpay'])) {
     if (!hub_razorpay_ready($hub_conn)) {
@@ -14,14 +15,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_razorpay'])) {
             $testResult['order_id'] = (string) ($testResult['data']['id'] ?? '');
         }
     }
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['sync_razorpay_secrets'])) {
+    if (!is_array($hub_secrets)) {
+        $msg = 'config/secrets.php is not available.';
+        $msgLevel = 'danger';
+    } else {
+        $written = hub_razorpay_import_from_secrets($hub_conn, $hub_secrets, true);
+        if ($written > 0) {
+            $msg = 'Imported ' . $written . ' Razorpay setting(s) from config/secrets.php. Run Test Razorpay connection.';
+        } else {
+            $msg = 'No Razorpay keys in config/secrets.php — add razorpay_key_id and razorpay_key_secret on the server, or paste keys below.';
+            $msgLevel = 'warning';
+        }
+    }
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $beforeSave = hub_razorpay_config($hub_conn);
+    $newKeyId = trim((string) ($_POST['razorpay_key_id'] ?? ''));
+    $newSecret = trim((string) ($_POST['razorpay_key_secret'] ?? ''));
+
     hub_setting_set($hub_conn, 'razorpay_mode', trim((string) ($_POST['razorpay_mode'] ?? 'test')));
-    hub_setting_set($hub_conn, 'razorpay_key_id', trim((string) ($_POST['razorpay_key_id'] ?? '')));
+    hub_setting_set($hub_conn, 'razorpay_key_id', $newKeyId);
 
     if (!empty($_POST['clear_key_secret'])) {
         hub_setting_set($hub_conn, 'razorpay_key_secret', '');
-    } elseif (trim((string) ($_POST['razorpay_key_secret'] ?? '')) !== '') {
-        hub_setting_set($hub_conn, 'razorpay_key_secret', trim((string) $_POST['razorpay_key_secret']));
+    } elseif ($newSecret !== '') {
+        hub_setting_set($hub_conn, 'razorpay_key_secret', $newSecret);
     }
 
     if (!empty($_POST['clear_webhook_secret'])) {
@@ -31,9 +49,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['test_razorpay'])) {
     }
 
     $msg = 'Gateway settings saved.';
+    if ($newKeyId !== $beforeSave['key_id'] && $newSecret === '' && empty($_POST['clear_key_secret'])) {
+        $msg = 'Saved, but Key ID changed without a new key secret. Razorpay will show “Authentication failed” until you paste the matching secret from the same API key pair and save again.';
+        $msgLevel = 'warning';
+    }
 }
 $cfg = hub_razorpay_config($hub_conn);
 $ready = hub_razorpay_ready($hub_conn);
+$modeKeyWarning = hub_razorpay_mode_key_warning($cfg['mode'], $cfg['key_id']);
 $webhookUrl = hub_url('api/v1/razorpay/webhook.php');
 
 function hub_gateway_field_status(string $value): string
@@ -47,12 +70,20 @@ function hub_gateway_field_status(string $value): string
 
 hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook configuration');
 ?>
-<?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
+<?php if ($msg !== ''): ?><div class="alert alert-<?php echo $msgLevel === 'warning' ? 'warning' : ($msgLevel === 'danger' ? 'danger' : 'success'); ?>"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
+<?php if ($modeKeyWarning !== null): ?>
+    <div class="alert alert-warning"><strong>Key / mode mismatch.</strong> <?php echo htmlspecialchars($modeKeyWarning); ?></div>
+<?php endif; ?>
 <?php if (is_array($testResult)): ?>
     <?php if (!empty($testResult['ok'])): ?>
         <div class="alert alert-success">Razorpay connection OK. Test order created<?php echo !empty($testResult['order_id']) ? ' (<code>' . htmlspecialchars($testResult['order_id']) . '</code>)' : ''; ?> — you can ignore it in the Razorpay dashboard.</div>
     <?php else: ?>
-        <div class="alert alert-danger"><strong>Razorpay test failed.</strong> <?php echo htmlspecialchars((string) ($testResult['error'] ?? 'Unknown error')); ?></div>
+        <div class="alert alert-danger">
+            <strong>Razorpay test failed.</strong> <?php echo htmlspecialchars((string) ($testResult['error'] ?? 'Unknown error')); ?>
+            <?php if (stripos((string) ($testResult['error'] ?? ''), 'auth') !== false): ?>
+                <p class="small mb-0 mt-2">Open Razorpay Dashboard → <strong>Settings → API Keys</strong>, copy <strong>Key ID</strong> and <strong>Key secret</strong> from the same row (both test or both live). Paste both here — leaving key secret empty keeps an old secret and causes this error.</p>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 <?php endif; ?>
 
@@ -68,6 +99,10 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'API keys and webhook conf
             <form method="post" class="d-inline">
                 <input type="hidden" name="test_razorpay" value="1">
                 <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-lightning me-1"></i>Test Razorpay connection</button>
+            </form>
+            <form method="post" class="d-inline" onsubmit="return confirm('Overwrite hub Razorpay settings from config/secrets.php on this server?');">
+                <input type="hidden" name="sync_razorpay_secrets" value="1">
+                <button type="submit" class="btn btn-sm btn-outline-secondary">Import from secrets.php</button>
             </form>
         <?php else: ?>
             <span class="badge text-bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>API keys incomplete</span>
