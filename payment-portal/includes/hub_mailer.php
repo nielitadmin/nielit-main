@@ -10,12 +10,43 @@ function hub_smtp_config(mysqli $conn): array
 {
     return [
         'host'       => (string) (hub_setting_get($conn, 'smtp_host') ?: ''),
-        'port'       => (int) (hub_setting_get($conn, 'smtp_port') ?: 587),
+        'port'       => (int) (hub_setting_get($conn, 'smtp_port') ?: 465),
         'username'   => (string) (hub_setting_get($conn, 'smtp_username') ?: ''),
         'password'   => (string) (hub_setting_get($conn, 'smtp_password') ?: ''),
         'from_email' => (string) (hub_setting_get($conn, 'smtp_from_email') ?: ''),
         'from_name'  => (string) (hub_setting_get($conn, 'smtp_from_name') ?: HUB_APP_NAME),
-        'encryption' => (string) (hub_setting_get($conn, 'smtp_encryption') ?: 'tls'),
+        'encryption' => (string) (hub_setting_get($conn, 'smtp_encryption') ?: 'ssl'),
+    ];
+}
+
+/** Path to MIS config/email.php when payment-portal sits inside the main repo. */
+function hub_smtp_mis_email_config_path(): string
+{
+    return dirname(__DIR__, 2) . '/config/email.php';
+}
+
+/** Read SMTP constants from MIS email.php (not committed; server-only). */
+function hub_smtp_mis_constants(): ?array
+{
+    $path = hub_smtp_mis_email_config_path();
+    if (!is_file($path)) {
+        return null;
+    }
+    require_once $path;
+    if (!defined('SMTP_HOST') || !defined('SMTP_USERNAME')) {
+        return null;
+    }
+    $secure = defined('SMTP_SECURE') ? strtolower((string) SMTP_SECURE) : 'ssl';
+    $encryption = $secure === 'tls' ? 'tls' : ($secure === 'ssl' ? 'ssl' : 'none');
+
+    return [
+        'host'       => (string) SMTP_HOST,
+        'port'       => defined('SMTP_PORT') ? (int) SMTP_PORT : ($encryption === 'ssl' ? 465 : 587),
+        'username'   => (string) SMTP_USERNAME,
+        'password'   => defined('SMTP_PASSWORD') ? (string) SMTP_PASSWORD : '',
+        'from_email' => defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : (string) SMTP_USERNAME,
+        'from_name'  => defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : 'NIELIT Bhubaneswar',
+        'encryption' => $encryption,
     ];
 }
 
@@ -26,12 +57,17 @@ function hub_smtp_install_defaults(): array
 
     $defaults = [
         'host'       => 'smtp.hostinger.com',
-        'port'       => 587,
-        'username'   => 'admin@nielitbhubaneswar.in',
-        'from_email' => 'admin@nielitbhubaneswar.in',
-        'from_name'  => defined('HUB_APP_NAME') ? HUB_APP_NAME : 'NIELIT Bhubaneswar Payment Portal',
-        'encryption' => 'tls',
+        'port'       => 465,
+        'username'   => 'noreply@nielitbhubaneswar.in',
+        'from_email' => 'noreply@nielitbhubaneswar.in',
+        'from_name'  => 'NIELIT Bhubaneswar',
+        'encryption' => 'ssl',
     ];
+
+    $mis = hub_smtp_mis_constants();
+    if ($mis !== null) {
+        $defaults = array_merge($defaults, array_intersect_key($mis, $defaults));
+    }
 
     if (!is_array($hub_secrets)) {
         return $defaults;
@@ -95,6 +131,7 @@ function hub_smtp_seed_from_secrets(mysqli $conn): void
     $host = trim((string) ($hub_secrets['smtp_host'] ?? ''));
     $pass = (string) ($hub_secrets['smtp_password'] ?? '');
     if ($host === '' || $pass === '') {
+        hub_smtp_seed_from_mis($conn);
         return;
     }
 
@@ -106,6 +143,25 @@ function hub_smtp_seed_from_secrets(mysqli $conn): void
     hub_setting_set($conn, 'smtp_from_email', trim((string) ($hub_secrets['smtp_from_email'] ?? $install['from_email'])));
     hub_setting_set($conn, 'smtp_from_name', trim((string) ($hub_secrets['smtp_from_name'] ?? $install['from_name'])));
     hub_setting_set($conn, 'smtp_encryption', trim((string) ($hub_secrets['smtp_encryption'] ?? $install['encryption'])));
+}
+
+/** One-time import from MIS ../config/email.php when hub SMTP is empty. */
+function hub_smtp_seed_from_mis(mysqli $conn): void
+{
+    if (trim((string) (hub_setting_get($conn, 'smtp_host') ?: '')) !== '') {
+        return;
+    }
+    $mis = hub_smtp_mis_constants();
+    if ($mis === null || $mis['host'] === '' || $mis['password'] === '') {
+        return;
+    }
+    hub_setting_set($conn, 'smtp_host', $mis['host']);
+    hub_setting_set($conn, 'smtp_port', (string) $mis['port']);
+    hub_setting_set($conn, 'smtp_username', $mis['username']);
+    hub_setting_set($conn, 'smtp_password', $mis['password']);
+    hub_setting_set($conn, 'smtp_from_email', $mis['from_email']);
+    hub_setting_set($conn, 'smtp_from_name', $mis['from_name']);
+    hub_setting_set($conn, 'smtp_encryption', $mis['encryption']);
 }
 
 function hub_smtp_ready(mysqli $conn): bool

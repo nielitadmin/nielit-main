@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'save_smtp') {
         hub_setting_set($hub_conn, 'smtp_host', trim((string) ($_POST['smtp_host'] ?? '')));
-        hub_setting_set($hub_conn, 'smtp_port', trim((string) ($_POST['smtp_port'] ?? '587')));
+        hub_setting_set($hub_conn, 'smtp_port', trim((string) ($_POST['smtp_port'] ?? '465')));
         hub_setting_set($hub_conn, 'smtp_username', trim((string) ($_POST['smtp_username'] ?? '')));
         $pass = (string) ($_POST['smtp_password'] ?? '');
         if ($pass !== '') {
@@ -83,13 +83,14 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Port</label>
-                        <input class="form-control bg-white" type="number" name="smtp_port" value="<?php echo (int) $cfg['port']; ?>" placeholder="587" required>
+                        <input class="form-control bg-white" type="number" name="smtp_port" value="<?php echo (int) $cfg['port']; ?>" placeholder="465" required>
                     </div>
                 </div>
                 <div>
                     <label class="form-label">Encryption</label>
                     <select class="form-select bg-white" name="smtp_encryption">
-                        <option value="tls" <?php echo $cfg['encryption'] === 'tls' ? 'selected' : ''; ?>>TLS (port 587) — recommended</option>
+                        <option value="ssl" <?php echo $cfg['encryption'] === 'ssl' ? 'selected' : ''; ?>>SSL (port 465) — Hostinger</option>
+                        <option value="tls" <?php echo $cfg['encryption'] === 'tls' ? 'selected' : ''; ?>>TLS (port 587)</option>
                         <option value="ssl" <?php echo $cfg['encryption'] === 'ssl' ? 'selected' : ''; ?>>SSL (port 465)</option>
                         <option value="none" <?php echo $cfg['encryption'] === 'none' ? 'selected' : ''; ?>>None (port 25)</option>
                     </select>
@@ -145,8 +146,8 @@ hub_admin_layout_start('SMTP settings', 'smtp', 'Email configuration for OTP log
             <div class="vstack gap-2 small">
                 <div class="p-2 bg-light rounded">
                     <strong>Hostinger (NIELIT)</strong><br>
-                    Host: <code>smtp.hostinger.com</code> · Port: <code>587</code> · TLS<br>
-                    Username: full address e.g. <code>admin@nielitbhubaneswar.in</code>
+                    Host: <code>smtp.hostinger.com</code> · Port: <code>465</code> · SSL<br>
+                    Username: full address e.g. <code>noreply@nielitbhubaneswar.in</code>
                 </div>
                 <div class="p-2 bg-light rounded">
                     <strong>Gmail</strong><br>
