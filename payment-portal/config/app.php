@@ -8,7 +8,7 @@ define('HUB_APP_NAME', 'NIELIT Bhubaneswar Payment Portal');
 define('HUB_INVOICE_PREFIX', 'NIELIT-BBSR');
 
 // Local XAMPP path; production: https://payment.nielitbhubaneswar.in
-define('HUB_APP_URL', getenv('HUB_APP_URL') ?: 'http://localhost/public_html/payment');
+define('HUB_APP_URL', getenv('HUB_APP_URL') ?: 'http://localhost/public_html/payment-portal');
 
 define('HUB_ENV', getenv('HUB_ENV') ?: 'development');
 define('HUB_CHECKOUT_TTL_MINUTES', 30);

@@ -266,7 +266,7 @@ Refunds should be started from the portal so the credit note and the source webs
 
 ### Phase 1. Portal foundation
 
-**Code location (this repo):** `payment/` — deploy as document root for `payment.nielitbhubaneswar.in`.
+**Code location (this repo):** `payment-portal/` — deploy as document root for `payment.nielitbhubaneswar.in`.
 
 **Implemented in portal code:** checkout + pay flow, webhooks (`payment.captured`, `payment.failed`, `refund.processed`), refunds with credit notes, admin outcomes guide, signed notify events for paid / failed / cancelled / refunded / partial_refund.
 

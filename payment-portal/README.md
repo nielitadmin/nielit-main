@@ -12,12 +12,12 @@ Separate app from MIS. Own database (`nielit_payments`). Razorpay keys live only
    ```
 2. Copy `config/database.example.php` → `config/database.php` and adjust credentials.
 3. Copy `config/secrets.example.php` → `config/secrets.php` and set admin password + Razorpay test keys.
-4. Open `http://localhost/public_html/payment/` — schema runs on first request.
-5. Admin: `http://localhost/public_html/payment/admin/login.php`
+4. Open `http://localhost/public_html/payment-portal/` — schema runs on first request.
+5. Admin: `http://localhost/public_html/payment-portal/admin/login.php`
 
 ## Production
 
-Point the subdomain document root to this `payment/` folder (or `payment/public` if you split later). Set `APP_URL` in `config/app.php` to `https://payment.nielitbhubaneswar.in`.
+Point the subdomain document root to this `payment-portal/` folder. Set `HUB_APP_URL` in `config/app.php` to `https://payment.nielitbhubaneswar.in`.
 
 ## API (Phase 1)
 
