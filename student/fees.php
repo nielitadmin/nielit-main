@@ -78,48 +78,38 @@ if ($stmt_payments) {
 if ($course_fees <= 0) {
     $course_fees = (float)($student['fees'] ?? 0);
 }
-$balance = $course_fees - $total_paid;
 
-$onlineFeeCourses = [];
-$seenOnlineCourse = [];
-foreach ($student_enrollment_rows as $erow) {
-    $onlineCourseId = (int) ($erow['course_id'] ?? 0);
-    if ($onlineCourseId <= 0 || isset($seenOnlineCourse[$onlineCourseId])) {
-        continue;
-    }
-    $offer = payment_course_offer($conn, $onlineCourseId);
-    if (empty($offer['enabled'])) {
-        continue;
-    }
-    $onlineAmount = (float) $offer['amount'];
-    if ($onlineAmount <= 0) {
-        continue;
-    }
-    $seenOnlineCourse[$onlineCourseId] = true;
-    $alreadyPaid = payment_student_paid_amount($conn, (string) $student_id, $onlineCourseId);
-    $onlineFeeCourses[] = [
-        'course_id' => $onlineCourseId,
-        'record_id' => (int) ($erow['id'] ?? 0),
-        'course_name' => (string) ($erow['course_name'] ?? 'Course'),
-        'amount' => $onlineAmount,
-        'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
-        'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
-        'platform_percent' => (float) ($offer['platform_percent'] ?? payment_platform_percent()),
-        'paid' => $alreadyPaid,
-        'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
-    ];
+payment_student_expire_stale_online_attempts($conn, (string) $student_id);
+if (payment_hub_is_ready()) {
+    payment_hub_sync_student_attempts($conn, (string) $student_id);
 }
+
+$total_paid = payment_student_total_paid_reconciled($conn, (string) $student_id, $payment_records);
+$balance = max(0, $course_fees - $total_paid);
+
+$onlineFeeCourses = payment_student_build_online_fee_courses($conn, (string) $student_id, $student_enrollment_rows);
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
+$onlinePaymentHistory = payment_student_online_payment_history($conn, (string) $student_id, 25);
 $onlineGateways = payment_gateway_active_list($conn);
 $onlineHubReady = payment_hub_is_ready();
 $hubCfg = payment_hub_config();
 $onlineGatewayReady = $onlineHubReady || !empty($onlineGateways);
-if (count($payment_records) === 0) {
-    foreach ($onlineInvoices as $invoiceRow) {
-        $total_paid += (float) $invoiceRow['amount'];
-    }
-    $balance = $course_fees - $total_paid;
+
+$onlineDueTotal = 0;
+$onlinePaidTotal = 0;
+$onlineFeeTotal = 0;
+foreach ($onlineFeeCourses as $oc) {
+    $onlineDueTotal += (float) $oc['due'];
+    $onlinePaidTotal += (float) $oc['paid'];
+    $onlineFeeTotal += (float) $oc['amount'];
 }
+$usesOnlineFeePanel = $onlineFeeCourses !== [];
+$displayFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
+$displayPaid = $usesOnlineFeePanel ? $onlinePaidTotal : $total_paid;
+$displayBalance = $usesOnlineFeePanel ? $onlineDueTotal : $balance;
+$displayBalanceLabel = $usesOnlineFeePanel
+    ? ($onlineDueTotal > 0 ? 'Online fee due' : 'Online fees paid')
+    : ($balance > 0 ? 'Balance due' : 'Fully paid');
 
 $page_title = "Fee Details";
 include 'includes/header.php';
@@ -154,8 +144,8 @@ include 'includes/header.php';
                     <i class="fas fa-file-invoice-dollar"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>₹<?php echo number_format($course_fees, 2); ?></h3>
-                    <p><?php echo count($enrollment_fee_rows) > 1 ? 'Total Fees (All Courses)' : 'Total Course Fee'; ?></p>
+                    <h3>₹<?php echo number_format($displayFeeTotal, 2); ?></h3>
+                    <p><?php echo $usesOnlineFeePanel ? 'Online course fee' : (count($enrollment_fee_rows) > 1 ? 'Total Fees (All Courses)' : 'Total Course Fee'); ?></p>
                 </div>
             </div>
         </div>
@@ -166,20 +156,20 @@ include 'includes/header.php';
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>₹<?php echo number_format($total_paid, 2); ?></h3>
-                    <p>Amount Paid</p>
+                    <h3>₹<?php echo number_format($displayPaid, 2); ?></h3>
+                    <p>Amount paid<?php echo $usesOnlineFeePanel ? ' (online)' : ''; ?></p>
                 </div>
             </div>
         </div>
 
         <div class="col-md-4 mb-3">
-            <div class="stat-card <?php echo $balance > 0 ? 'bg-warning-gradient' : 'bg-info-gradient'; ?>">
+            <div class="stat-card <?php echo $displayBalance > 0 ? 'bg-warning-gradient' : 'bg-info-gradient'; ?>">
                 <div class="stat-icon">
-                    <i class="fas fa-<?php echo $balance > 0 ? 'exclamation-circle' : 'check-double'; ?>"></i>
+                    <i class="fas fa-<?php echo $displayBalance > 0 ? 'exclamation-circle' : 'check-double'; ?>"></i>
                 </div>
                 <div class="stat-content">
-                    <h3>₹<?php echo number_format($balance, 2); ?></h3>
-                    <p><?php echo $balance > 0 ? 'Balance Due' : 'Fully Paid'; ?></p>
+                    <h3>₹<?php echo number_format($displayBalance, 2); ?></h3>
+                    <p><?php echo htmlspecialchars($displayBalanceLabel); ?></p>
                 </div>
             </div>
         </div>
@@ -266,7 +256,7 @@ include 'includes/header.php';
                 </div>
                 <div class="card-body text-center">
                     <?php
-                    $payment_percentage = $course_fees > 0 ? round(($total_paid / $course_fees) * 100, 1) : 0;
+                    $payment_percentage = $displayFeeTotal > 0 ? round(($displayPaid / $displayFeeTotal) * 100, 1) : ($displayBalance <= 0 ? 100 : 0);
                     ?>
                     <div class="mb-3">
                         <svg width="200" height="200">
@@ -283,11 +273,19 @@ include 'includes/header.php';
                             </text>
                         </svg>
                     </div>
-                    <?php if ($balance > 0 || !empty($onlineFeeCourses)): ?>
+                    <?php if ($displayBalance > 0 || !empty($onlineFeeCourses)): ?>
+                        <?php if ($displayBalance > 0): ?>
                         <div class="alert alert-warning">
-                            <i class="fas fa-info-circle"></i> 
-                            You have a pending balance of <strong>₹<?php echo number_format(max(0, $balance), 2); ?></strong>
+                            <i class="fas fa-info-circle"></i>
+                            <?php if ($usesOnlineFeePanel): ?>
+                                Online course fee due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
+                            <?php else: ?>
+                                Balance due: <strong>₹<?php echo number_format($displayBalance, 2); ?></strong>
+                            <?php endif; ?>
                         </div>
+                        <?php elseif ($usesOnlineFeePanel): ?>
+                        <div class="alert alert-success"><i class="fas fa-check-circle"></i> Your online course fee is paid.</div>
+                        <?php endif; ?>
                         <?php if (!empty($onlineFeeCourses)): ?>
                             <?php if ($onlineHubReady): ?>
                                 <div class="alert alert-info text-start small mb-3">
@@ -370,7 +368,54 @@ include 'includes/header.php';
                     <h5 class="mb-0"><i class="fas fa-history"></i> Payment History</h5>
                 </div>
                 <div class="card-body">
+                    <?php if (!empty($onlinePaymentHistory)): ?>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Online payments (Payment Portal)</h6>
+                        <div class="table-responsive mb-4">
+                            <table class="table table-hover align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Course</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                        <th>Invoice</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($onlinePaymentHistory as $op):
+                                    $meta = payment_student_online_status_meta((string) ($op['status'] ?? ''));
+                                    $dt = (string) ($op['paid_at'] ?? $op['created_at'] ?? '');
+                                    $token = trim((string) ($op['gateway_order_id'] ?? ''));
+                                    $canResume = ($op['status'] ?? '') === 'created' && $token !== '' && $token !== 'pending' && $onlineHubReady;
+                                ?>
+                                    <tr>
+                                        <td class="small"><?php echo $dt !== '' ? htmlspecialchars(date('d M Y, h:i A', strtotime($dt))) : '—'; ?></td>
+                                        <td><?php echo htmlspecialchars((string) ($op['course_name'] ?? 'Course')); ?></td>
+                                        <td><strong>₹<?php echo number_format((float) ($op['amount'] ?? 0), 2); ?></strong></td>
+                                        <td>
+                                            <span class="badge bg-<?php echo htmlspecialchars($meta['class']); ?>">
+                                                <i class="fas fa-<?php echo htmlspecialchars($meta['icon']); ?>"></i>
+                                                <?php echo htmlspecialchars($meta['label']); ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php if (($op['status'] ?? '') === 'paid'): ?>
+                                                <a class="btn btn-sm btn-outline-primary" href="payment_invoice.php?id=<?php echo (int) $op['id']; ?>">View invoice</a>
+                                            <?php elseif ($canResume): ?>
+                                                <a class="btn btn-sm btn-warning" href="<?php echo htmlspecialchars(payment_hub_pay_url($hubCfg, $token)); ?>">Continue payment</a>
+                                            <?php else: ?>
+                                                <span class="text-muted small">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (count($payment_records) > 0): ?>
+                        <h6 class="text-muted text-uppercase small fw-bold mb-2">Other payments</h6>
                         <div class="table-responsive">
                             <table class="table table-hover">
                                 <thead>
@@ -391,7 +436,7 @@ include 'includes/header.php';
                                         <td><?php echo htmlspecialchars($payment['payment_mode'] ?? 'Online'); ?></td>
                                         <td><strong>₹<?php echo number_format($payment['amount'], 2); ?></strong></td>
                                         <td>
-                                            <span class="badge badge-success">
+                                            <span class="badge bg-success">
                                                 <i class="fas fa-check"></i> Paid
                                             </span>
                                         </td>
@@ -406,38 +451,11 @@ include 'includes/header.php';
                                 </tbody>
                             </table>
                         </div>
-                    <?php elseif (empty($onlineInvoices)): ?>
+                    <?php elseif (empty($onlinePaymentHistory)): ?>
                         <div class="text-center py-5">
                             <i class="fas fa-receipt fa-4x text-muted mb-3"></i>
-                            <h5 class="text-muted">No payment records found</h5>
-                            <p class="text-muted">Your payment history will appear here.</p>
-                        </div>
-                    <?php endif; ?>
-                    <?php if (!empty($onlineInvoices)): ?>
-                        <h6 class="mt-4">Invoices</h6>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Invoice</th>
-                                        <th>Course</th>
-                                        <th>Paid on</th>
-                                        <th>Amount</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                <?php foreach ($onlineInvoices as $invoice): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars((string) $invoice['invoice_number']); ?></td>
-                                        <td><?php echo htmlspecialchars((string) $invoice['course_name']); ?></td>
-                                        <td><?php echo htmlspecialchars((string) $invoice['paid_at']); ?></td>
-                                        <td>₹<?php echo number_format((float) $invoice['amount'], 2); ?></td>
-                                        <td><a class="btn btn-sm btn-outline-primary" href="payment_invoice.php?id=<?php echo (int) $invoice['id']; ?>">View invoice</a></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                                </tbody>
-                            </table>
+                            <h5 class="text-muted">No payment records yet</h5>
+                            <p class="text-muted">When you pay course fees online, they will appear here with status Paid or Awaiting payment.</p>
                         </div>
                     <?php endif; ?>
                 </div>

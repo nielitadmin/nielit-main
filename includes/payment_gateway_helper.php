@@ -1016,4 +1016,122 @@ if (!function_exists('payment_gateway_ensure_schema')) {
 
         return ['ok' => false, 'error' => 'Payment could not be confirmed.'];
     }
+
+    function payment_student_build_online_fee_courses(mysqli $conn, string $studentCode, array $enrollmentRows): array
+    {
+        payment_gateway_ensure_schema($conn);
+        $onlineFeeCourses = [];
+        $seenOnlineCourse = [];
+        foreach ($enrollmentRows as $erow) {
+            $onlineCourseId = (int) ($erow['course_id'] ?? 0);
+            if ($onlineCourseId <= 0 || isset($seenOnlineCourse[$onlineCourseId])) {
+                continue;
+            }
+            $offer = payment_course_offer($conn, $onlineCourseId);
+            if (empty($offer['enabled'])) {
+                continue;
+            }
+            $onlineAmount = (float) $offer['amount'];
+            if ($onlineAmount <= 0) {
+                continue;
+            }
+            $seenOnlineCourse[$onlineCourseId] = true;
+            $alreadyPaid = payment_student_paid_amount($conn, $studentCode, $onlineCourseId);
+            $onlineFeeCourses[] = [
+                'course_id' => $onlineCourseId,
+                'record_id' => (int) ($erow['id'] ?? 0),
+                'course_name' => (string) ($erow['course_name'] ?? 'Course'),
+                'amount' => $onlineAmount,
+                'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
+                'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
+                'platform_percent' => (float) ($offer['platform_percent'] ?? payment_platform_percent()),
+                'paid' => $alreadyPaid,
+                'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
+            ];
+        }
+        return $onlineFeeCourses;
+    }
+
+    function payment_student_total_paid_reconciled(mysqli $conn, string $studentCode, array $paymentRecords): float
+    {
+        $total = 0.0;
+        $seenTx = [];
+        foreach ($paymentRecords as $p) {
+            $total += (float) ($p['amount'] ?? 0);
+            $tx = trim((string) ($p['transaction_id'] ?? ''));
+            if ($tx !== '') {
+                $seenTx[$tx] = true;
+            }
+        }
+        payment_gateway_ensure_schema($conn);
+        $stmt = $conn->prepare("SELECT amount, gateway_payment_id, invoice_number, hub_payment_id
+            FROM online_course_payments WHERE student_code = ? AND status = 'paid'");
+        if (!$stmt) {
+            return $total;
+        }
+        $stmt->bind_param('s', $studentCode);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $tx = trim((string) ($row['gateway_payment_id'] ?? ''));
+            if ($tx === '' && (int) ($row['hub_payment_id'] ?? 0) > 0) {
+                $tx = 'hub-' . (int) $row['hub_payment_id'];
+            }
+            if ($tx === '') {
+                $tx = 'inv-' . trim((string) ($row['invoice_number'] ?? ''));
+            }
+            if ($tx !== '' && isset($seenTx[$tx])) {
+                continue;
+            }
+            if ($tx !== '') {
+                $seenTx[$tx] = true;
+            }
+            $total += (float) ($row['amount'] ?? 0);
+        }
+        $stmt->close();
+        return $total;
+    }
+
+    function payment_student_online_payment_history(mysqli $conn, string $studentCode, int $limit = 30): array
+    {
+        payment_gateway_ensure_schema($conn);
+        $limit = max(1, min(100, $limit));
+        $stmt = $conn->prepare("SELECT * FROM online_course_payments
+            WHERE student_code = ? ORDER BY id DESC LIMIT " . $limit);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('s', $studentCode);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        return $rows ?: [];
+    }
+
+    function payment_student_online_status_meta(string $status): array
+    {
+        $status = strtolower(trim($status));
+        $map = [
+            'paid' => ['label' => 'Paid', 'class' => 'success', 'icon' => 'check-circle'],
+            'created' => ['label' => 'Awaiting payment', 'class' => 'warning', 'icon' => 'hourglass-half'],
+            'failed' => ['label' => 'Failed', 'class' => 'danger', 'icon' => 'times-circle'],
+            'expired' => ['label' => 'Expired', 'class' => 'secondary', 'icon' => 'clock'],
+        ];
+        return $map[$status] ?? ['label' => ucfirst($status ?: 'Unknown'), 'class' => 'secondary', 'icon' => 'info-circle'];
+    }
+
+    function payment_student_expire_stale_online_attempts(mysqli $conn, string $studentCode, int $minutes = 45): void
+    {
+        payment_gateway_ensure_schema($conn);
+        $minutes = max(15, min(180, $minutes));
+        $stmt = $conn->prepare("UPDATE online_course_payments
+            SET status = 'expired'
+            WHERE student_code = ? AND status = 'created'
+            AND created_at < DATE_SUB(NOW(), INTERVAL ? MINUTE)");
+        if ($stmt) {
+            $stmt->bind_param('si', $studentCode, $minutes);
+            $stmt->execute();
+            $stmt->close();
+        }
+    }
 }

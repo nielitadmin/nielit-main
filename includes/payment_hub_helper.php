@@ -345,16 +345,17 @@ if (!function_exists('payment_hub_config')) {
         $invoice = trim((string) ($payload['invoice_number'] ?? ''));
         $rzp = trim((string) ($payload['razorpay_payment_id'] ?? ''));
         $invoiceVal = $invoice !== '' ? $invoice : null;
+        $hubInv = $invoice !== '' ? $invoice : null;
         $update = $conn->prepare("UPDATE online_course_payments
             SET status = 'paid', paid_at = NOW(), gateway_payment_id = ?, invoice_number = COALESCE(?, invoice_number),
-                hub_payment_id = ?, hub_invoice_number = ?
+                hub_payment_id = ?, hub_invoice_number = COALESCE(?, hub_invoice_number)
             WHERE id = ? AND status <> 'paid'");
         if (!$update) {
             return ['ok' => false, 'error' => 'Could not update local payment.'];
         }
         $id = (int) $row['id'];
-        $hubInv = $invoiceVal ?? '';
-        $update->bind_param('ssisi', $rzp, $invoiceVal, $hubPaymentId, $hubInv, $id);
+        $hubInvBind = $hubInv ?? '';
+        $update->bind_param('ssisi', $rzp, $invoiceVal, $hubPaymentId, $hubInvBind, $id);
         $update->execute();
         $update->close();
 
@@ -409,5 +410,53 @@ if (!function_exists('payment_hub_config')) {
             'invoice_number' => (string) ($status['invoice_number'] ?? $request['hub_invoice'] ?? ''),
             'razorpay_payment_id' => (string) ($status['razorpay_payment_id'] ?? ''),
         ]);
+    }
+
+    function payment_hub_pay_url(array $cfg, string $token): string
+    {
+        $token = preg_replace('/[^a-f0-9]/', '', strtolower($token));
+        if (strlen($token) !== 64) {
+            return payment_hub_public_url($cfg);
+        }
+        return payment_hub_public_url($cfg) . '/pay/?token=' . rawurlencode($token);
+    }
+
+    function payment_hub_sync_student_attempts(mysqli $conn, string $studentCode): void
+    {
+        if (!payment_hub_is_ready()) {
+            return;
+        }
+        payment_gateway_ensure_schema($conn);
+        $cfg = payment_hub_config();
+        $stmt = $conn->prepare("SELECT * FROM online_course_payments
+            WHERE student_code = ? AND gateway = 'payment_hub' AND status = 'created'
+            AND gateway_order_id IS NOT NULL AND gateway_order_id <> '' AND gateway_order_id <> 'pending'
+            ORDER BY id DESC LIMIT 5");
+        if (!$stmt) {
+            return;
+        }
+        $stmt->bind_param('s', $studentCode);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        foreach ($rows as $row) {
+            $token = trim((string) ($row['gateway_order_id'] ?? ''));
+            if ($token === '') {
+                continue;
+            }
+            $statusUrl = payment_hub_status_url((string) $cfg['api_base'], $token);
+            $response = payment_http('GET', $statusUrl, [], null);
+            $status = $response['body']['status'] ?? null;
+            if (!is_array($status)) {
+                continue;
+            }
+            if ((string) ($status['payment_status'] ?? '') === 'paid') {
+                payment_hub_apply_paid_row($conn, $row, [
+                    'payment_id' => (int) ($status['hub_payment_id'] ?? 0),
+                    'invoice_number' => (string) ($status['invoice_number'] ?? ''),
+                    'razorpay_payment_id' => (string) ($status['razorpay_payment_id'] ?? ''),
+                ]);
+            }
+        }
     }
 }

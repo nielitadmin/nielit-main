@@ -90,6 +90,21 @@ foreach ($enrollments as $enr) {
 }
 $show_pending_notice = ($student_status === 'pending' || $has_pending_enrollment) && !$has_active_enrollment;
 
+require_once __DIR__ . '/../includes/payment_gateway_helper.php';
+$dashboardEnrollmentRows = [];
+foreach ($enrollments as $enr) {
+    $dashboardEnrollmentRows[] = [
+        'course_id' => (int) ($enr['course_id'] ?? 0),
+        'id' => (int) ($enr['student_record_id'] ?? $enr['id'] ?? 0),
+        'course_name' => (string) ($enr['course_name'] ?? ''),
+    ];
+}
+payment_student_expire_stale_online_attempts($conn, $student_id);
+if (payment_hub_is_ready()) {
+    payment_hub_sync_student_attempts($conn, $student_id);
+}
+$dashboardOnlineFees = payment_student_build_online_fee_courses($conn, $student_id, $dashboardEnrollmentRows);
+
 // Fetch announcements for this student (all + students + any enrolled course)
 $announcements_list = [];
 $course_codes = array_values(array_unique(array_filter(array_merge(
@@ -178,9 +193,45 @@ include 'includes/header.php';
                     <div>
                         <strong>Registration under review</strong>
                         <p class="mb-0 mt-1 small">
-                            You can use this dashboard now. Your enrollment status is <strong>Pending</strong> while admin verifies your documents.
-                            After approval, status will change to <strong>Active</strong> and you will be confirmed as a NIELIT student for this program.
+                            This is <strong>not</strong> a payment pending message. Your enrollment status is <strong>Pending</strong> while admin verifies your documents.
+                            Course fee payment status is shown separately below and under <a href="fees.php">Fee Details</a>.
                         </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($dashboardOnlineFees)): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-rupee-sign"></i> Course fee payments</h5>
+                    <a href="fees.php" class="btn btn-sm btn-outline-primary">Fee details</a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead><tr><th>Course</th><th>Fee</th><th>Paid</th><th>Status</th></tr></thead>
+                            <tbody>
+                            <?php foreach ($dashboardOnlineFees as $df): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($df['course_name']); ?></td>
+                                    <td>₹<?php echo number_format((float) $df['amount'], 2); ?></td>
+                                    <td>₹<?php echo number_format((float) $df['paid'], 2); ?></td>
+                                    <td>
+                                        <?php if ($df['due'] <= 0): ?>
+                                            <span class="badge bg-success">Paid</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-warning text-dark">Due ₹<?php echo number_format((float) $df['due'], 2); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
