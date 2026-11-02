@@ -29,7 +29,8 @@ hub_admin_layout_start('Money receipt letterhead', 'invoice_settings', 'Organisa
             <form method="post" class="row g-3">
                 <div class="col-12">
                     <label class="form-label">Document title</label>
-                    <input class="form-control" name="invoice_title" value="<?php echo htmlspecialchars((string) $tpl['invoice_title']); ?>">
+                    <input class="form-control" name="invoice_title" value="<?php echo htmlspecialchars((string) $tpl['invoice_title']); ?>" placeholder="Money Receipt">
+                    <div class="form-text">Use “Money Receipt” — this is not a tax invoice.</div>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Organisation name</label>
@@ -82,9 +83,9 @@ hub_admin_layout_start('Money receipt letterhead', 'invoice_settings', 'Organisa
             <?php endif; ?>
         </div>
         <div class="hub-card-panel">
-            <h2 class="h6 text-uppercase text-secondary">Public invoice links</h2>
+            <h2 class="h6 text-uppercase text-secondary">Public money receipt links</h2>
             <p class="small text-secondary">Staff can copy a signed link from each payment. Payers need the signature query parameter; links are not guessable.</p>
-            <p class="small mb-0">Format: <code class="hub-secret-box d-block mt-2"><?php echo htmlspecialchars(hub_url('pay/invoice.php?id=PAYMENT_ID&sig=…')); ?></code></p>
+            <p class="small mb-0">Format: <code class="hub-secret-box d-block mt-2"><?php echo htmlspecialchars(hub_url('pay/receipt.php?id=PAYMENT_ID&sig=…')); ?></code></p>
         </div>
     </div>
 </div>

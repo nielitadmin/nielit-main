@@ -73,10 +73,11 @@ hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['
                 <li class="list-group-item px-0 pb-0"><span class="text-secondary small">Net settlement is what Razorpay credits to the linked account after gateway fee and GST on the full collected amount.</span></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refunded</span><?php echo hub_money_paise((int) $payment['refunded_amount_paise']); ?></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refundable</span><strong class="text-primary"><?php echo hub_money_paise($refundable); ?></strong></li>
+                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Mode of transaction</span><strong><?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Money receipt</span>
                     <?php if (!empty($payment['invoice_number'])): ?>
                         <span><code><?php echo htmlspecialchars((string) $payment['invoice_number']); ?></code>
-                        <a class="small ms-1" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . $paymentId . '&sig=' . urlencode(hub_invoice_public_signature($paymentId, $invoiceSecret))); ?>">View / PDF</a></span>
+                        <a class="small ms-1" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . $paymentId . '&sig=' . urlencode(hub_invoice_public_signature($paymentId, $invoiceSecret))); ?>">View / PDF</a></span>
                     <?php else: ?>
                         <code>—</code>
                     <?php endif; ?>

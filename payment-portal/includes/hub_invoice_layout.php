@@ -108,7 +108,7 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
     <p style="margin:0 0 8px;">Received from <strong><?php echo htmlspecialchars((string) ($payer['name'] ?? 'Payer')); ?></strong></p>
     <p style="margin:0 0 8px;">Amount: <strong>₹ <?php echo number_format($amount / 100, 2); ?></strong> (<?php echo htmlspecialchars(hub_inr_amount_in_words($amount)); ?>)</p>
     <p style="margin:0 0 8px;">Towards: <strong><?php echo htmlspecialchars(hub_payment_purpose_label($payment)); ?></strong></p>
-    <p style="margin:0 0 12px;">Mode: <strong><?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?></strong></p>
+    <p style="margin:0 0 12px;">Mode of transaction: <strong><?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?></strong></p>
     <?php echo hub_receipt_payment_table_html($payment); ?>
     <?php
     $lineItems = ob_get_clean();
@@ -125,6 +125,7 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
     ob_start();
     ?>
     <strong>Payment (online)</strong><br>
+    Mode of transaction: <?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?><br>
     Status: <?php echo htmlspecialchars(strtoupper((string) ($payment['status'] ?? ''))); ?><br>
     Paid: <?php echo htmlspecialchars(hub_invoice_format_ist((string) ($payment['paid_at'] ?? ''))); ?><br>
     Razorpay: <?php echo htmlspecialchars((string) ($payment['razorpay_payment_id'] ?? '—')); ?><br>

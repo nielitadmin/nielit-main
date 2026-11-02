@@ -55,7 +55,7 @@ function hub_admin_nav_items(): array
     $items = [
         'dashboard' => ['label' => 'Dashboard', 'icon' => 'bi-speedometer2', 'href' => 'admin/dashboard.php'],
         'payments' => ['label' => 'Payments', 'icon' => 'bi-credit-card-2-front', 'href' => 'admin/payments.php'],
-        'invoices' => ['label' => 'Receipt designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
+        'invoices' => ['label' => 'Money receipt designer', 'icon' => 'bi-magic', 'href' => 'admin/invoice_designer.php'],
         'invoice_settings' => ['label' => 'Receipt letterhead', 'icon' => 'bi-receipt', 'href' => 'admin/invoice_template.php'],
         'legacy' => ['label' => 'Legacy import', 'icon' => 'bi-clock-history', 'href' => 'admin/legacy_import.php'],
         'outcomes' => ['label' => 'Outcomes', 'icon' => 'bi-diagram-3', 'href' => 'admin/outcomes.php'],

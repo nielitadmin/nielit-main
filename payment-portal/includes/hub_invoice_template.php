@@ -68,7 +68,7 @@ function hub_invoice_public_url(mysqli $conn, int $paymentId): string
 {
     $tpl = hub_invoice_template_get($conn);
     $sig = hub_invoice_public_signature($paymentId, (string) $tpl['invoice_public_secret']);
-    return hub_url('pay/invoice.php?id=' . $paymentId . '&sig=' . $sig);
+    return hub_url('pay/receipt.php?id=' . $paymentId . '&sig=' . $sig);
 }
 
 function hub_invoice_verify_public(int $paymentId, string $sig, string $secret): bool
@@ -203,7 +203,7 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
         <p class="hub-receipt-line">an amount of <strong>Rs. <?php echo number_format($amount / 100, 2); ?></strong></p>
         <p class="hub-receipt-line muted">(in words: <?php echo htmlspecialchars($amountWords); ?>)</p>
         <p class="hub-receipt-line">towards <strong><?php echo htmlspecialchars($purposeLabel); ?></strong></p>
-        <p class="hub-receipt-line">Mode of payment: <strong><?php echo htmlspecialchars($modeLabel); ?></strong></p>
+        <p class="hub-receipt-line">Mode of transaction: <strong><?php echo htmlspecialchars($modeLabel); ?></strong></p>
     </section>
 
     <?php echo hub_receipt_payment_table_html($payment); ?>

@@ -8,6 +8,7 @@ function hub_payments_filters_from_request(array $input): array
         'source' => strtolower(trim((string) ($input['source'] ?? ''))),
         'centre' => trim((string) ($input['centre'] ?? '')),
         'status' => strtolower(trim((string) ($input['status'] ?? ''))),
+        'method' => strtolower(trim((string) ($input['method'] ?? ''))),
         'q' => trim((string) ($input['q'] ?? '')),
     ];
 }
@@ -42,6 +43,11 @@ function hub_payments_where_clause(array $filters): array
         $where[] = 'p.status = ?';
         $types .= 's';
         $params[] = $filters['status'];
+    }
+    if ($filters['method'] !== '') {
+        $where[] = 'LOWER(TRIM(p.payment_method)) = ?';
+        $types .= 's';
+        $params[] = $filters['method'];
     }
     if ($filters['q'] !== '') {
         $like = '%' . $filters['q'] . '%';
@@ -141,7 +147,7 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
         'razorpay_gst_inr',
         'centre_bank_inr',
         'razorpay_net_settlement_inr',
-        'method',
+        'mode_of_transaction',
         'razorpay_payment_id',
         'status',
         'legacy',
@@ -170,7 +176,7 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
             number_format($bd['razorpay_tax_paise'] / 100, 2, '.', ''),
             number_format($bd['centre_bank_paise'] / 100, 2, '.', ''),
             number_format($bd['razorpay_net_settlement_paise'] / 100, 2, '.', ''),
-            (string) ($r['payment_method'] ?? ''),
+            hub_payment_method_label((string) ($r['payment_method'] ?? '')),
             (string) ($r['razorpay_payment_id'] ?? ''),
             (string) ($r['status'] ?? ''),
             !empty($r['is_legacy']) ? 'yes' : 'no',

@@ -91,13 +91,54 @@ function hub_inr_number_to_words(int $num): string
     return trim(implode(' ', $parts));
 }
 
+function hub_payment_method_label(?string $method): string
+{
+    $method = strtolower(trim((string) $method));
+    if ($method === '') {
+        return '—';
+    }
+    $map = [
+        'upi' => 'UPI',
+        'card' => 'Debit / credit card',
+        'netbanking' => 'Net banking',
+        'wallet' => 'Wallet',
+        'emi' => 'EMI',
+        'paylater' => 'Pay later',
+        'bank_transfer' => 'Bank transfer',
+        'nach' => 'NACH',
+        'cardless_emi' => 'Cardless EMI',
+        'app' => 'Payment app',
+    ];
+    return $map[$method] ?? ucwords(str_replace('_', ' ', $method));
+}
+
+/** Razorpay / gateway method shown on receipts and admin lists. */
 function hub_receipt_payment_mode_label(array $payment): string
 {
     $method = strtolower(trim((string) ($payment['payment_method'] ?? '')));
     if ($method === '') {
-        return 'Online';
+        return 'Online (method not recorded)';
     }
-    return 'Online (' . strtoupper($method) . ')';
+    return hub_payment_method_label($method);
+}
+
+function hub_payment_methods_distinct(mysqli $conn): array
+{
+    $out = [];
+    $res = $conn->query(
+        "SELECT DISTINCT LOWER(TRIM(payment_method)) AS m FROM hub_payments
+         WHERE payment_method IS NOT NULL AND TRIM(payment_method) != ''
+         ORDER BY m"
+    );
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $m = (string) ($row['m'] ?? '');
+            if ($m !== '') {
+                $out[] = $m;
+            }
+        }
+    }
+    return $out;
 }
 
 function hub_receipt_payment_table_html(array $payment): string

@@ -194,7 +194,7 @@ hub_admin_layout_start('Admin users', 'users', 'Manage staff accounts and roles'
         <div class="hub-card-panel mt-3">
             <h3 class="h6 text-uppercase text-secondary fw-semibold">Role permissions</h3>
             <ul class="small mb-0">
-                <li class="mb-1"><strong>Admin</strong> — View dashboard, manage payments, invoices</li>
+                <li class="mb-1"><strong>Admin</strong> — View dashboard, manage payments and money receipts</li>
                 <li><strong>Superadmin</strong> — All above + manage users, SMTP, gateway settings</li>
             </ul>
         </div>

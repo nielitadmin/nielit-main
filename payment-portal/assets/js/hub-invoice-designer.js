@@ -88,7 +88,7 @@
             '<div class="mb-2"><label class="form-label">Font size</label><input type="number" class="form-control form-control-sm prop-fs" value="' + (block.fontSize || 11) + '"></div>' +
             '<div class="mb-2"><label class="form-label">Align</label><select class="form-select form-select-sm prop-align"><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></div>' +
             '<div class="form-check mb-2"><input class="form-check-input prop-bold" type="checkbox" id="propBold"><label class="form-check-label" for="propBold">Bold</label></div>' +
-            '<div class="form-check mb-2"><input class="form-check-input prop-vis" type="checkbox" id="propVis"><label class="form-check-label" for="propVis">Visible on invoice</label></div>' +
+            '<div class="form-check mb-2"><input class="form-check-input prop-vis" type="checkbox" id="propVis"><label class="form-check-label" for="propVis">Visible on money receipt</label></div>' +
             (block.type === 'static' ? '<div class="mb-2"><label class="form-label">Text</label><textarea class="form-control form-control-sm prop-text" rows="3"></textarea></div>' : '') +
             '<button type="button" class="btn btn-sm btn-outline-danger w-100 mt-2" id="hubDesDelete">Remove block</button>';
 

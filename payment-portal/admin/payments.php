@@ -26,6 +26,7 @@ $exportQs = http_build_query($filters);
 
 hub_admin_layout_start('Payments', 'payments', 'Filter the register and export CSV for accounts');
 $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_secret'];
+$methodOptions = hub_payment_methods_distinct($hub_conn);
 ?>
 <div class="hub-card-panel mb-3">
     <form method="get" class="row g-2 align-items-end">
@@ -59,11 +60,20 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-2">
+            <label class="form-label small mb-0">Mode of transaction</label>
+            <select class="form-select form-select-sm" name="method">
+                <option value="">Any</option>
+                <?php foreach ($methodOptions as $methodCode): ?>
+                    <option value="<?php echo htmlspecialchars($methodCode); ?>" <?php echo $filters['method'] === $methodCode ? 'selected' : ''; ?>><?php echo htmlspecialchars(hub_payment_method_label($methodCode)); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-md-3">
             <label class="form-label small mb-0">Search</label>
             <input class="form-control form-control-sm" name="q" placeholder="Name, student id, receipt no., Razorpay id, reference…" value="<?php echo htmlspecialchars($filters['q']); ?>">
         </div>
-        <div class="col-md-4 d-flex flex-wrap gap-2">
+        <div class="col-md-3 d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-sm btn-primary">Apply filters</button>
             <a class="btn btn-sm btn-outline-secondary" href="<?php echo hub_asset('admin/payments.php'); ?>">Clear</a>
             <a class="btn btn-sm btn-outline-success" href="<?php echo hub_asset('admin/export_payments.php?' . $exportQs); ?>"><i class="bi bi-download me-1"></i> Export CSV</a>
@@ -89,6 +99,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                     <th class="text-end">Platform</th>
                     <th class="text-end">Razorpay</th>
                     <th class="text-end">Bank (est.)</th>
+                    <th>Mode</th>
                     <th>Receipt</th>
                     <th>Status</th>
                     <th></th>
@@ -130,9 +141,12 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                     <td class="text-end small" title="Institute/centre course fee for accounts">
                         <?php echo hub_money_paise($bd['centre_bank_paise']); ?>
                     </td>
+                    <td class="small" title="<?php echo htmlspecialchars((string) ($r['payment_method'] ?? '')); ?>">
+                        <?php echo htmlspecialchars(hub_payment_method_label((string) ($r['payment_method'] ?? ''))); ?>
+                    </td>
                     <td class="small">
                         <?php if (!empty($r['invoice_number'])): ?>
-                            <a target="_blank" rel="noopener" href="<?php echo hub_asset('pay/invoice.php?id=' . (int) $r['id'] . '&sig=' . urlencode(hub_invoice_public_signature((int) $r['id'], $invoiceSecret))); ?>"><?php echo htmlspecialchars((string) $r['invoice_number']); ?></a>
+                            <a target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . (int) $r['id'] . '&sig=' . urlencode(hub_invoice_public_signature((int) $r['id'], $invoiceSecret))); ?>"><?php echo htmlspecialchars((string) $r['invoice_number']); ?></a>
                         <?php else: ?>
                             —
                         <?php endif; ?>
@@ -142,7 +156,7 @@ $invoiceSecret = (string) hub_invoice_template_get($hub_conn)['invoice_public_se
                 </tr>
             <?php endforeach; ?>
             <?php if ($rows === []): ?>
-                <tr><td colspan="14" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
+                <tr><td colspan="15" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
