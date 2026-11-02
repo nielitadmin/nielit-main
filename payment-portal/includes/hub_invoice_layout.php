@@ -199,16 +199,15 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
 <head>
     <meta charset="UTF-8">
     <title><?php echo htmlspecialchars(hub_money_receipt_label()); ?> <?php echo $invoiceNo; ?></title>
-    <link href="<?php echo hub_asset('assets/css/hub-invoice.css'); ?>" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <?php hub_receipt_print_head(); ?>
 </head>
-<body class="hub-invoice-doc">
+<body class="hub-invoice-doc hub-money-receipt-doc">
 <?php if ($allowPrint): ?>
 <div class="hub-invoice-toolbar no-print">
     <button type="button" class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
-<article class="hub-invoice-sheet hub-invoice-sheet-layout" style="width:<?php echo $w; ?>px;min-height:<?php echo $h; ?>px;">
+<article class="hub-invoice-sheet hub-invoice-sheet-layout hub-money-receipt-sheet" style="width:<?php echo $w; ?>px;min-height:<?php echo $h; ?>px;">
     <?php foreach ($layout['blocks'] as $block): ?>
         <?php if (empty($block['visible'])) {
             continue;

@@ -117,12 +117,17 @@ function hub_invoice_format_ist(?string $datetime): string
     return date('d M Y, h:i A', $ts);
 }
 
-function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint = true): void
+function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint = true, ?bool $useDesignerLayout = null): void
 {
-    $layout = hub_invoice_layout_get($conn);
-    if ($layout !== null) {
-        hub_invoice_render_layout_html($conn, $payment, $layout, $allowPrint);
-        return;
+    if ($useDesignerLayout === null) {
+        $useDesignerLayout = hub_receipt_uses_designer_layout($conn);
+    }
+    if ($useDesignerLayout) {
+        $layout = hub_invoice_layout_get($conn);
+        if ($layout !== null) {
+            hub_invoice_render_layout_html($conn, $payment, $layout, $allowPrint);
+            return;
+        }
     }
 
     $checkout = hub_checkout_for_payment($conn, $payment);
@@ -158,19 +163,19 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?php echo htmlspecialchars($docTitle); ?> <?php echo htmlspecialchars($invoiceNo); ?></title>
-    <link href="<?php echo hub_asset('assets/css/hub-invoice.css'); ?>" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <?php hub_receipt_print_head(); ?>
 </head>
 <body class="hub-invoice-doc hub-money-receipt-doc">
 <?php if ($allowPrint): ?>
 <div class="hub-invoice-toolbar no-print">
-    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
+    <button type="button" class="hub-receipt-print-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
 <article class="hub-invoice-sheet hub-money-receipt-sheet">
+    <div class="hub-receipt-ribbon"><?php echo htmlspecialchars($docTitle); ?></div>
     <header class="hub-invoice-head">
         <div class="hub-invoice-brand">
-            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT" width="64" height="64">
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT" width="72" height="72">
             <div>
                 <p class="org-name"><?php echo htmlspecialchars((string) $tpl['invoice_org_name']); ?></p>
                 <p class="org-unit"><?php echo htmlspecialchars((string) $tpl['invoice_org_unit']); ?></p>
@@ -181,29 +186,45 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
             </div>
         </div>
         <div class="hub-invoice-meta">
-            <h1><?php echo htmlspecialchars($docTitle); ?></h1>
-            <p class="inv-no"><?php echo htmlspecialchars(hub_receipt_number_label()); ?> <?php echo htmlspecialchars($invoiceNo); ?></p>
-            <p class="small muted">Date: <?php echo htmlspecialchars($paidDateOnly); ?></p>
+            <p class="hub-receipt-doc-label"><?php echo htmlspecialchars(hub_receipt_number_label()); ?></p>
+            <p class="inv-no"><?php echo htmlspecialchars($invoiceNo); ?></p>
+            <p class="hub-receipt-date"><i class="bi bi-calendar3"></i> <?php echo htmlspecialchars($paidDateOnly); ?></p>
         </div>
     </header>
 
+    <section class="hub-receipt-amount-panel">
+        <p class="hub-receipt-amount-label">Amount received</p>
+        <p class="hub-receipt-amount-value">₹ <?php echo number_format($amount / 100, 2); ?></p>
+        <p class="hub-receipt-amount-words"><?php echo htmlspecialchars($amountWords); ?></p>
+    </section>
+
     <section class="hub-receipt-body">
-        <p class="hub-receipt-line"><span class="label">Received from</span> <strong><?php echo htmlspecialchars($payerName); ?></strong>
+        <div class="hub-receipt-row">
+            <span class="hub-receipt-k">Received from</span>
+            <span class="hub-receipt-v"><strong><?php echo htmlspecialchars($payerName); ?></strong>
             <?php if (!empty($payer['student_id'])): ?>
-                <span class="muted"> (<?php echo htmlspecialchars((string) $payer['student_id']); ?>)</span>
+                <span class="muted"> · <?php echo htmlspecialchars((string) $payer['student_id']); ?></span>
             <?php endif; ?>
-        </p>
+            </span>
+        </div>
         <?php if (!empty($payer['email']) || !empty($payer['phone'])): ?>
-            <p class="hub-receipt-line muted small">
+        <div class="hub-receipt-row muted small">
+            <span class="hub-receipt-k">Contact</span>
+            <span class="hub-receipt-v">
                 <?php if (!empty($payer['email'])): ?><?php echo htmlspecialchars((string) $payer['email']); ?><?php endif; ?>
                 <?php if (!empty($payer['email']) && !empty($payer['phone'])): ?> · <?php endif; ?>
                 <?php if (!empty($payer['phone'])): ?><?php echo htmlspecialchars((string) $payer['phone']); ?><?php endif; ?>
-            </p>
+            </span>
+        </div>
         <?php endif; ?>
-        <p class="hub-receipt-line">an amount of <strong>Rs. <?php echo number_format($amount / 100, 2); ?></strong></p>
-        <p class="hub-receipt-line muted">(in words: <?php echo htmlspecialchars($amountWords); ?>)</p>
-        <p class="hub-receipt-line">towards <strong><?php echo htmlspecialchars($purposeLabel); ?></strong></p>
-        <p class="hub-receipt-line">Mode of transaction: <strong><?php echo htmlspecialchars($modeLabel); ?></strong></p>
+        <div class="hub-receipt-row">
+            <span class="hub-receipt-k">Towards</span>
+            <span class="hub-receipt-v"><strong><?php echo htmlspecialchars($purposeLabel); ?></strong></span>
+        </div>
+        <div class="hub-receipt-row">
+            <span class="hub-receipt-k">Mode of transaction</span>
+            <span class="hub-receipt-v"><span class="hub-receipt-mode-pill"><?php echo htmlspecialchars($modeLabel); ?></span></span>
+        </div>
     </section>
 
     <?php echo hub_receipt_payment_table_html($payment); ?>
@@ -244,6 +265,7 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     </div>
 
     <footer class="hub-invoice-foot">
+        <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>
         <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
     </footer>
 </article>

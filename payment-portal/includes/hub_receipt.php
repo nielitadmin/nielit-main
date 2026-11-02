@@ -6,6 +6,31 @@ function hub_money_receipt_label(): string
     return 'Money Receipt';
 }
 
+/** Stylesheet for printable money receipts (cache-busted). */
+function hub_receipt_stylesheet_url(): string
+{
+    $path = __DIR__ . '/../assets/css/hub-invoice.css';
+    $ver = is_file($path) ? (string) filemtime($path) : '1';
+    return hub_url('assets/css/hub-invoice.css?v=' . rawurlencode($ver));
+}
+
+function hub_receipt_print_head(): void
+{
+    ?>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <link href="<?php echo hub_receipt_stylesheet_url(); ?>" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <?php
+}
+
+/** Custom drag-and-drop layout is opt-in; default is the modern structured receipt. */
+function hub_receipt_uses_designer_layout(mysqli $conn): bool
+{
+    return hub_setting_get($conn, 'receipt_use_designer_layout') === '1';
+}
+
 function hub_receipt_number_label(): string
 {
     return 'Receipt No.';

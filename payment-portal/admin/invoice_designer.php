@@ -33,7 +33,7 @@ hub_admin_layout_start('Money receipt designer', 'invoices', 'Drag and drop bloc
 <link href="<?php echo hub_asset('assets/css/hub-invoice-designer.css'); ?>" rel="stylesheet">
 <div class="alert alert-info py-2 small mb-3">
     <i class="bi bi-info-circle me-1"></i>
-    This tool designs <strong>money receipts</strong> for fee payments. Wording uses “Receipt No.” — not tax invoices. Letterhead text is edited under <a href="<?php echo hub_asset('admin/invoice_template.php'); ?>">Receipt letterhead</a>.
+    This tool designs <strong>optional custom layouts</strong> for fee payments. Payers see the standard <strong>modern yellow money receipt</strong> unless you enable custom layout under Receipt letterhead. Wording uses “Receipt No.” — not tax invoices. Letterhead text is edited under <a href="<?php echo hub_asset('admin/invoice_template.php'); ?>">Receipt letterhead</a>.
 </div>
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
 <?php if ($error !== ''): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
