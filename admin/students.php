@@ -1011,6 +1011,21 @@ if ($other_gender_count > 0) {
     <title>Manage Students - NIELIT Bhubaneswar</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
     <style>
+        /* Prevent course dropdown from painting as a clipped white box inside the card */
+        .students-filter-section {
+            overflow: visible;
+        }
+        .students-filter-section .filter-grid {
+            overflow: visible;
+        }
+        .students-filter-section .form-group:has(select[name="filter_course"]) {
+            position: relative;
+            z-index: 30;
+        }
+        select[name="filter_course"] option {
+            white-space: normal;
+        }
+
         .batch-modal {
             display: none;
             position: fixed;
@@ -1646,7 +1661,7 @@ if ($other_gender_count > 0) {
             </div>
 
             <!-- Filter Section -->
-            <div class="content-card">
+            <div class="content-card students-filter-section">
                 <div class="card-header" style="display:flex; align-items:center; gap:1rem; justify-content:space-between;">
                     <h5 class="card-title"><i class="fas fa-filter"></i> Filter Students</h5>
                     <div>
@@ -1671,12 +1686,28 @@ if ($other_gender_count > 0) {
                                     if ($courses_result && $courses_result->num_rows > 0) {
                                         $courses_result->data_seek(0);
                                         while ($course = $courses_result->fetch_assoc()) {
-                                            $cid  = (int)$course['id'];
-                                            $cname = htmlspecialchars($course['course_name']);
-                                            $cdesc = htmlspecialchars($course['course_description'] ?? '');
-                                            $display = $cname . ($cdesc ? " ($cdesc)" : '');
-                                            $sel = ($selected_course !== 'All' && (int)$selected_course === $cid) ? 'selected' : '';
-                                            echo "<option value=\"$cid\" $sel>$display</option>";
+                                            $cid = (int) $course['id'];
+                                            $nameRaw = (string) ($course['course_name'] ?? '');
+                                            $descRaw = (string) ($course['course_description'] ?? '');
+                                            $labelRaw = $nameRaw;
+                                            if ($descRaw !== '') {
+                                                $labelRaw .= ' (' . $descRaw . ')';
+                                            }
+                                            // Very long option text breaks native select UI on Windows/Chrome.
+                                            $labelShort = $labelRaw;
+                                            if (function_exists('mb_strlen') && mb_strlen($labelShort) > 120) {
+                                                $labelShort = mb_substr($labelShort, 0, 117) . '…';
+                                            } elseif (strlen($labelShort) > 120) {
+                                                $labelShort = substr($labelShort, 0, 117) . '…';
+                                            }
+                                            $sel = ($selected_course !== 'All' && (int) $selected_course === $cid);
+                                            printf(
+                                                '<option value="%d"%s title="%s">%s</option>',
+                                                $cid,
+                                                $sel ? ' selected' : '',
+                                                htmlspecialchars($labelRaw, ENT_QUOTES, 'UTF-8'),
+                                                htmlspecialchars($labelShort, ENT_QUOTES, 'UTF-8')
+                                            );
                                         }
                                     }
                                     ?>

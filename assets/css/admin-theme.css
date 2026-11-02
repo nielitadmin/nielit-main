@@ -817,6 +817,11 @@ html[data-mode="night"] .otp-empty-state {
     transition: box-shadow 0.3s ease;
 }
 
+/* Native <select> lists render incorrectly (blank white panel) when clipped by overflow:hidden */
+.content-card:has(.filter-grid) {
+    overflow: visible;
+}
+
 .content-card:hover {
     box-shadow: 0 8px 20px rgba(10, 22, 40, 0.08);
 }
