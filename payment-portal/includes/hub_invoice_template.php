@@ -57,6 +57,7 @@ function hub_invoice_template_save(mysqli $conn, array $post): void
         }
         hub_setting_set($conn, $key, trim((string) $post[$key]));
     }
+    hub_setting_set($conn, 'receipt_use_designer_layout', !empty($post['receipt_use_designer_layout']) ? '1' : '0');
 }
 
 function hub_invoice_public_signature(int $paymentId, string $secret): string
@@ -262,13 +263,16 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
         </dl>
     </section>
 
-    <div class="hub-receipt-signatory">
-        <p class="muted small">Authorised Signatory</p>
+    <div class="hub-receipt-qr-system">
+        <?php echo hub_receipt_qr_block_html($conn, $payment); ?>
+        <p class="hub-receipt-system-notice"><?php echo htmlspecialchars(hub_receipt_system_notice()); ?></p>
     </div>
 
     <footer class="hub-invoice-foot">
         <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>
+        <?php if (trim((string) $tpl['invoice_footer']) !== ''): ?>
         <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
+        <?php endif; ?>
     </footer>
 </article>
 </body>

@@ -17,6 +17,8 @@ function hub_invoice_layout_default_blocks(): array
         ['id' => 'b_lines', 'type' => 'data', 'key' => 'line_items', 'x' => 36, 'y' => 270, 'w' => 722, 'h' => 160, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
         ['id' => 'b_ctx', 'type' => 'data', 'key' => 'context_block', 'x' => 36, 'y' => 450, 'w' => 360, 'h' => 140, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
         ['id' => 'b_pay', 'type' => 'data', 'key' => 'payment_meta', 'x' => 410, 'y' => 450, 'w' => 348, 'h' => 140, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_qr', 'type' => 'data', 'key' => 'qr_code', 'x' => 36, 'y' => 620, 'w' => 160, 'h' => 150, 'fontSize' => 10, 'align' => 'center', 'bold' => false, 'visible' => true],
+        ['id' => 'b_notice', 'type' => 'data', 'key' => 'system_notice', 'x' => 210, 'y' => 640, 'w' => 548, 'h' => 80, 'fontSize' => 11, 'align' => 'left', 'bold' => true, 'visible' => true],
         ['id' => 'b_foot', 'type' => 'data', 'key' => 'footer', 'x' => 36, 'y' => 1020, 'w' => 722, 'h' => 60, 'fontSize' => 10, 'align' => 'center', 'bold' => false, 'visible' => true],
     ];
 }
@@ -143,6 +145,8 @@ function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?arra
         'context_block' => $contextBlock,
         'payment_meta' => $paymentMeta,
         'footer' => (string) $tpl['invoice_footer'],
+        'qr_code' => hub_receipt_qr_block_html($conn, $payment),
+        'system_notice' => hub_receipt_system_notice(),
         'logo_url' => hub_brand_logo_url(),
     ];
 }
@@ -178,7 +182,7 @@ function hub_invoice_layout_block_inner(array $block, array $data, bool $designe
         return $designerPreview ? '<span style="color:#94a3b8;">{' . htmlspecialchars($key) . '}</span>' : '';
     }
     $val = $data[$key];
-    if (str_contains($key, '_block') || $key === 'line_items' || $key === 'org_header') {
+    if (str_contains($key, '_block') || $key === 'line_items' || $key === 'org_header' || $key === 'qr_code' || $key === 'system_notice') {
         return (string) $val;
     }
     return htmlspecialchars((string) $val);
@@ -234,6 +238,8 @@ function hub_invoice_palette(): array
         ['type' => 'data', 'key' => 'line_items', 'label' => 'Receipt body & payment table'],
         ['type' => 'data', 'key' => 'context_block', 'label' => 'Course / details'],
         ['type' => 'data', 'key' => 'payment_meta', 'label' => 'Payment info'],
+        ['type' => 'data', 'key' => 'qr_code', 'label' => 'QR code (receipt link)'],
+        ['type' => 'data', 'key' => 'system_notice', 'label' => 'System generated notice'],
         ['type' => 'data', 'key' => 'footer', 'label' => 'Footer note'],
         ['type' => 'static', 'label' => 'Custom text box'],
     ];

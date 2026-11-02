@@ -31,6 +31,43 @@ function hub_receipt_uses_designer_layout(mysqli $conn): bool
     return hub_setting_get($conn, 'receipt_use_designer_layout') === '1';
 }
 
+/** Fixed notice on every money receipt (no signature required). */
+function hub_receipt_system_notice(): string
+{
+    return 'This is a system generated money receipt and no need for any authority signature.';
+}
+
+/** QR image URL encoding the signed public receipt link (for verify / re-open). */
+function hub_receipt_qr_image_url(string $absoluteReceiptUrl): string
+{
+    $absoluteReceiptUrl = trim($absoluteReceiptUrl);
+    if ($absoluteReceiptUrl === '') {
+        return '';
+    }
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=8&data=' . rawurlencode($absoluteReceiptUrl);
+}
+
+function hub_receipt_qr_block_html(mysqli $conn, array $payment): string
+{
+    $paymentId = (int) ($payment['id'] ?? 0);
+    if ($paymentId <= 0) {
+        return '';
+    }
+    $url = hub_invoice_public_url($conn, $paymentId);
+    $qr = hub_receipt_qr_image_url($url);
+    if ($qr === '') {
+        return '';
+    }
+    ob_start();
+    ?>
+    <div class="hub-receipt-qr-block">
+        <img src="<?php echo htmlspecialchars($qr); ?>" width="120" height="120" alt="QR code — scan to open this money receipt">
+        <p class="hub-receipt-qr-caption">Scan to verify or download this receipt</p>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function hub_receipt_number_label(): string
 {
     return 'Receipt No.';

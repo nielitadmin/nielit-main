@@ -17,9 +17,13 @@
     margin-bottom: 6px;
 }
 
+.hub-designer-canvas--receipt {
+    border-top: 6px solid #0c2340;
+}
+
 .hub-designer-canvas-outer {
     overflow: auto;
-    background: #94a3b8;
+    background: linear-gradient(165deg, #dbeafe 0%, #93c5fd 100%);
     border-radius: 12px;
     padding: 24px;
     max-height: calc(100vh - 220px);
