@@ -1,17 +1,31 @@
-/* NIELIT Bhubaneswar — printable money receipt (not a tax invoice) */
+/* NIELIT Bhubaneswar — printable money receipt (blue institute theme) */
+
+:root {
+    --hub-navy: #0c2340;
+    --hub-navy-mid: #123a66;
+    --hub-blue: #1d4ed8;
+    --hub-sky: #0ea5e9;
+    --hub-sky-soft: #e0f2fe;
+    --hub-sky-panel: #bae6fd;
+    --hub-ink: #0f172a;
+    --hub-muted: #475569;
+    --hub-border: #93c5fd;
+    --hub-card: #f8fafc;
+    --hub-white: #ffffff;
+}
 
 .hub-invoice-doc {
     margin: 0;
     padding: 28px 16px 48px;
     font-family: "DM Sans", system-ui, -apple-system, Segoe UI, sans-serif;
-    color: #422006;
-    background: linear-gradient(165deg, #fef9c3 0%, #fde047 42%, #facc15 100%);
+    color: var(--hub-ink);
+    background: linear-gradient(165deg, #dbeafe 0%, #93c5fd 45%, #60a5fa 100%);
     min-height: 100vh;
     box-sizing: border-box;
 }
 
 .hub-money-receipt-doc {
-    background: linear-gradient(165deg, #fffbeb 0%, #fef08a 35%, #facc15 100%);
+    background: linear-gradient(165deg, #eff6ff 0%, #bfdbfe 40%, #7dd3fc 100%);
 }
 
 .hub-invoice-toolbar {
@@ -27,40 +41,40 @@
     padding: 10px 18px;
     border: none;
     border-radius: 999px;
-    background: linear-gradient(135deg, #854d0e 0%, #a16207 100%);
-    color: #fffbeb;
+    background: linear-gradient(135deg, var(--hub-navy) 0%, var(--hub-navy-mid) 100%);
+    color: #f8fafc;
     font-family: inherit;
     font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(120, 53, 15, 0.25);
+    box-shadow: 0 8px 24px rgba(12, 35, 64, 0.28);
 }
 
 .hub-receipt-print-btn:hover {
-    filter: brightness(1.05);
+    filter: brightness(1.08);
 }
 
 .hub-invoice-sheet {
     max-width: 760px;
     margin: 0 auto;
     position: relative;
-    background: linear-gradient(180deg, #fffef7 0%, #fef9c3 100%);
-    border: 2px solid #ca8a04;
+    background: linear-gradient(180deg, var(--hub-white) 0%, var(--hub-card) 100%);
+    border: 2px solid var(--hub-navy-mid);
     border-radius: 20px;
     padding: 0 0 28px;
     box-shadow:
-        0 24px 60px rgba(120, 53, 15, 0.18),
-        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+        0 24px 60px rgba(12, 35, 64, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.9);
     overflow: hidden;
 }
 
 .hub-money-receipt-sheet {
-    border-top: 6px solid #eab308;
+    border-top: 6px solid var(--hub-sky);
 }
 
 .hub-receipt-ribbon {
-    background: linear-gradient(90deg, #a16207 0%, #ca8a04 50%, #a16207 100%);
-    color: #fffbeb;
+    background: linear-gradient(90deg, var(--hub-navy) 0%, var(--hub-navy-mid) 50%, var(--hub-navy) 100%);
+    color: #f8fafc;
     text-align: center;
     font-family: "Instrument Sans", "DM Sans", sans-serif;
     font-weight: 700;
@@ -80,7 +94,7 @@
     position: absolute;
     overflow: hidden;
     line-height: 1.35;
-    color: #422006;
+    color: var(--hub-ink);
 }
 
 .hub-inv-block-inner {
@@ -98,21 +112,46 @@
     justify-content: space-between;
     gap: 24px;
     padding: 24px 28px 20px;
-    border-bottom: 2px dashed #eab308;
+    border-bottom: 2px dashed var(--hub-border);
     margin-bottom: 0;
 }
 
 .hub-invoice-brand {
     display: flex;
-    gap: 16px;
-    align-items: flex-start;
+    gap: 18px;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
 }
 
-.hub-invoice-brand img {
-    border-radius: 12px;
-    background: #fff;
-    padding: 4px;
-    box-shadow: 0 4px 12px rgba(120, 53, 15, 0.12);
+.hub-receipt-logo-wrap {
+    flex: 0 0 auto;
+    width: 112px;
+    height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    border-radius: 16px;
+    background: var(--hub-white);
+    border: 2px solid var(--hub-border);
+    box-shadow: 0 6px 20px rgba(12, 35, 64, 0.1);
+}
+
+.hub-receipt-logo {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: 92px;
+    max-height: 92px;
+    object-fit: contain;
+    object-position: center;
+}
+
+.hub-invoice-brand img:not(.hub-receipt-logo) {
+    max-width: 92px;
+    max-height: 92px;
+    object-fit: contain;
 }
 
 .hub-invoice-brand .org-name {
@@ -120,12 +159,12 @@
     margin: 0 0 4px;
     font-size: 0.95rem;
     line-height: 1.35;
-    color: #1c1917;
+    color: var(--hub-navy);
 }
 
 .hub-invoice-brand .org-unit {
     margin: 0 0 6px;
-    color: #a16207;
+    color: var(--hub-blue);
     font-weight: 700;
     font-size: 0.88rem;
 }
@@ -140,7 +179,7 @@
     font-size: 0.72rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #92400e;
+    color: var(--hub-muted);
     font-weight: 700;
 }
 
@@ -149,30 +188,29 @@
     font-size: 1.15rem;
 }
 
-.hub-invoice-meta .inv-no,
 .hub-invoice-meta .inv-no {
     margin: 0 0 8px;
     font-family: ui-monospace, "Cascadia Code", monospace;
     font-weight: 800;
     font-size: 1.05rem;
-    color: #78350f;
+    color: var(--hub-navy);
     letter-spacing: 0.02em;
 }
 
 .hub-receipt-date {
     margin: 0;
     font-size: 0.85rem;
-    color: #92400e;
+    color: var(--hub-muted);
 }
 
 .hub-receipt-amount-panel {
     margin: 20px 28px;
     padding: 20px 22px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #fef08a 0%, #fde047 100%);
-    border: 1px solid #eab308;
+    background: linear-gradient(135deg, var(--hub-sky-soft) 0%, var(--hub-sky-panel) 100%);
+    border: 1px solid var(--hub-sky);
     text-align: center;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .hub-receipt-amount-label {
@@ -180,7 +218,7 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #92400e;
+    color: var(--hub-navy-mid);
     font-weight: 700;
 }
 
@@ -189,14 +227,14 @@
     font-family: "Instrument Sans", "DM Sans", sans-serif;
     font-size: 2.25rem;
     font-weight: 800;
-    color: #713f12;
+    color: var(--hub-navy);
     line-height: 1.1;
 }
 
 .hub-receipt-amount-words {
     margin: 10px 0 0;
     font-size: 0.88rem;
-    color: #78350f;
+    color: var(--hub-muted);
     line-height: 1.45;
 }
 
@@ -204,8 +242,8 @@
     margin: 0 28px 20px;
     padding: 16px 18px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(234, 179, 8, 0.45);
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid var(--hub-border);
 }
 
 .hub-receipt-row {
@@ -213,7 +251,7 @@
     grid-template-columns: minmax(120px, 38%) 1fr;
     gap: 8px 16px;
     padding: 10px 0;
-    border-bottom: 1px solid rgba(234, 179, 8, 0.25);
+    border-bottom: 1px solid rgba(147, 197, 253, 0.5);
     align-items: baseline;
 }
 
@@ -225,21 +263,21 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #92400e;
+    color: var(--hub-navy-mid);
     font-weight: 700;
 }
 
 .hub-receipt-v {
     font-size: 0.95rem;
-    color: #1c1917;
+    color: var(--hub-ink);
 }
 
 .hub-receipt-mode-pill {
     display: inline-block;
     padding: 4px 12px;
     border-radius: 999px;
-    background: #854d0e;
-    color: #fef9c3;
+    background: linear-gradient(135deg, var(--hub-navy) 0%, var(--hub-blue) 100%);
+    color: #f8fafc;
     font-size: 0.82rem;
     font-weight: 700;
 }
@@ -249,7 +287,7 @@
 }
 
 .hub-receipt-line .label {
-    color: #92400e;
+    color: var(--hub-navy-mid);
     margin-right: 6px;
 }
 
@@ -265,7 +303,7 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #92400e;
+    color: var(--hub-navy-mid);
     margin: 0 0 8px;
 }
 
@@ -289,20 +327,20 @@
 
 .hub-invoice-table th,
 .hub-invoice-table td {
-    border: 1px solid #fde68a;
+    border: 1px solid var(--hub-border);
     padding: 10px 12px;
     vertical-align: top;
 }
 
 .hub-invoice-table thead th {
-    background: #fef3c7;
+    background: var(--hub-sky-soft);
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
 
 .hub-invoice-table tfoot td {
-    background: #fef9c3;
+    background: #f1f5f9;
 }
 
 .text-end {
@@ -310,7 +348,7 @@
 }
 
 .muted {
-    color: #92400e;
+    color: var(--hub-muted);
 }
 
 .small {
@@ -327,8 +365,8 @@
     margin: 0 28px 16px;
     padding: 16px 18px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.45);
-    border: 1px solid rgba(234, 179, 8, 0.35);
+    background: rgba(255, 255, 255, 0.75);
+    border: 1px solid var(--hub-border);
 }
 
 .hub-invoice-context dl,
@@ -341,7 +379,7 @@
 
 .hub-invoice-context dt,
 .hub-invoice-payment-meta dt {
-    color: #92400e;
+    color: var(--hub-muted);
     margin: 0;
     font-size: 0.82rem;
 }
@@ -353,11 +391,11 @@
 }
 
 .hub-invoice-foot {
-    border-top: 2px dashed #eab308;
+    border-top: 2px dashed var(--hub-border);
     margin: 8px 28px 0;
     padding-top: 16px;
     font-size: 0.85rem;
-    color: #78350f;
+    color: var(--hub-muted);
     text-align: center;
     line-height: 1.5;
 }
@@ -370,25 +408,25 @@
 
 .hub-receipt-bank-table th,
 .hub-receipt-bank-table td {
-    border: 1px solid #eab308;
+    border: 1px solid var(--hub-border);
     padding: 8px 10px;
     vertical-align: top;
     font-size: 0.82rem;
-    background: rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.65);
 }
 
 .hub-receipt-bank-table thead th {
-    background: #fde047;
+    background: var(--hub-sky-soft);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     font-size: 0.68rem;
-    color: #713f12;
+    color: var(--hub-navy);
 }
 
 .hub-receipt-table-note {
     margin: 0 28px 16px;
     font-size: 0.8rem;
-    color: #92400e;
+    color: var(--hub-muted);
 }
 
 .hub-receipt-signatory {
@@ -404,7 +442,7 @@
 
     .hub-invoice-doc,
     .hub-money-receipt-doc {
-        background: #fef9c3 !important;
+        background: #eff6ff !important;
         padding: 0;
         min-height: auto;
     }
@@ -424,6 +462,11 @@
 
     .hub-invoice-meta {
         text-align: left;
+    }
+
+    .hub-receipt-logo-wrap {
+        width: 96px;
+        height: 96px;
     }
 
     .hub-receipt-row {

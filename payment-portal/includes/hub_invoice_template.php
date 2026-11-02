@@ -175,7 +175,9 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     <div class="hub-receipt-ribbon"><?php echo htmlspecialchars($docTitle); ?></div>
     <header class="hub-invoice-head">
         <div class="hub-invoice-brand">
-            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT" width="72" height="72">
+            <div class="hub-receipt-logo-wrap">
+                <img class="hub-receipt-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT Bhubaneswar logo">
+            </div>
             <div>
                 <p class="org-name"><?php echo htmlspecialchars((string) $tpl['invoice_org_name']); ?></p>
                 <p class="org-unit"><?php echo htmlspecialchars((string) $tpl['invoice_org_unit']); ?></p>
