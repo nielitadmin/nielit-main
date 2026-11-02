@@ -65,7 +65,7 @@
     box-shadow:
         0 24px 60px rgba(12, 35, 64, 0.16),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .hub-money-receipt-sheet {
@@ -86,8 +86,23 @@
 
 .hub-invoice-sheet-layout {
     position: relative;
-    overflow: hidden;
-    padding: 0;
+    overflow: visible;
+    padding: 0 0 28px;
+    height: auto !important;
+}
+
+.hub-receipt-layout-append {
+    position: relative;
+    clear: both;
+    padding: 20px 28px 8px;
+    margin-top: 12px;
+    border-top: 2px dashed var(--hub-border);
+}
+
+.hub-invoice-foot--layout {
+    margin: 16px 0 0;
+    padding-top: 12px;
+    border-top: none;
 }
 
 .hub-inv-block {

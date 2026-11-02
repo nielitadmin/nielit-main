@@ -157,6 +157,7 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     if ($docTitle === '') {
         $docTitle = hub_money_receipt_label();
     }
+    $publicSig = hub_receipt_public_sig_from_request();
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -200,6 +201,8 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
         <p class="hub-receipt-amount-value">₹ <?php echo number_format($amount / 100, 2); ?></p>
         <p class="hub-receipt-amount-words"><?php echo htmlspecialchars($amountWords); ?></p>
     </section>
+
+    <?php echo hub_receipt_qr_system_html($conn, $payment, $publicSig); ?>
 
     <section class="hub-receipt-body">
         <div class="hub-receipt-row">
@@ -262,11 +265,6 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
             <?php endif; ?>
         </dl>
     </section>
-
-    <div class="hub-receipt-qr-system">
-        <?php echo hub_receipt_qr_block_html($conn, $payment); ?>
-        <p class="hub-receipt-system-notice"><?php echo htmlspecialchars(hub_receipt_system_notice()); ?></p>
-    </div>
 
     <footer class="hub-invoice-foot">
         <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>

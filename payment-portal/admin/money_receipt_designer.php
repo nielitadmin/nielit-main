@@ -32,12 +32,11 @@ if ($q && ($r = $q->fetch_assoc())) {
 hub_admin_layout_start('Money receipt designer', 'invoices', 'Optional custom layout — standard blue receipt is used by default');
 ?>
 <link href="<?php echo hub_asset('assets/css/hub-invoice-designer.css'); ?>" rel="stylesheet">
-<div class="alert alert-warning py-2 small mb-3">
+    <div class="alert alert-warning py-2 small mb-3">
     <i class="bi bi-exclamation-triangle me-1"></i>
-    <strong>Advanced:</strong> This canvas is for an <em>optional</em> custom printable layout. By default, payers see the
-    <strong>standard blue money receipt</strong> (with QR code and system notice) from
+    <strong>Advanced:</strong> Optional custom canvas layout. <strong>Live payer receipts always use the standard blue template</strong> (QR code + system notice below the amount) — not this canvas, even if you save blocks here.
+    Custom canvas is <?php echo $useDesigner ? '<strong class="text-success">enabled</strong> for receipts' : '<strong class="text-secondary">disabled</strong>'; ?> — control that on
     <a href="<?php echo hub_asset('admin/money_receipt_template.php'); ?>">Money receipt letterhead</a>.
-    Custom layout is <?php echo $useDesigner ? '<strong class="text-success">enabled</strong>' : '<strong class="text-secondary">disabled</strong>'; ?> for live receipts.
 </div>
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
 <?php if ($error !== ''): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>

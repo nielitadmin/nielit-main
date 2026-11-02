@@ -34,6 +34,12 @@
         if (block.type === 'static') {
             return (block.text || 'Custom text').replace(/</g, '&lt;');
         }
+        if (block.key === 'qr_code') {
+            return '<div style="text-align:center;padding:4px"><div style="width:56px;height:56px;margin:0 auto;border:2px solid #93c5fd;background:#e0f2fe;border-radius:6px;line-height:56px;font-weight:700;color:#1d4ed8">QR</div><div style="font-size:8px;color:#64748b;margin-top:2px">Receipt link</div></div>';
+        }
+        if (block.key === 'system_notice') {
+            return '<span style="font-size:9px;line-height:1.3;color:#0c2340">System generated money receipt — no authority signature required.</span>';
+        }
         return '{' + (block.key || 'field') + '}';
     }
 

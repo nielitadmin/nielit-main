@@ -47,25 +47,56 @@ function hub_receipt_qr_image_url(string $absoluteReceiptUrl): string
     return 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=8&data=' . rawurlencode($absoluteReceiptUrl);
 }
 
-function hub_receipt_qr_block_html(mysqli $conn, array $payment): string
+/** Same-origin QR image (works when external QR CDNs are blocked in the browser). */
+function hub_receipt_qr_image_src(mysqli $conn, int $paymentId, ?string $publicSig = null): string
+{
+    if ($paymentId <= 0) {
+        return '';
+    }
+    $tpl = hub_invoice_template_get($conn);
+    $sig = $publicSig !== null && $publicSig !== ''
+        ? $publicSig
+        : hub_invoice_public_signature($paymentId, (string) $tpl['invoice_public_secret']);
+
+    return hub_url('pay/receipt_qr.php?id=' . $paymentId . '&sig=' . urlencode($sig));
+}
+
+function hub_receipt_qr_block_html(mysqli $conn, array $payment, ?string $publicSig = null): string
 {
     $paymentId = (int) ($payment['id'] ?? 0);
     if ($paymentId <= 0) {
         return '';
     }
-    $url = hub_invoice_public_url($conn, $paymentId);
-    $qr = hub_receipt_qr_image_url($url);
-    if ($qr === '') {
+    $src = hub_receipt_qr_image_src($conn, $paymentId, $publicSig);
+    if ($src === '') {
         return '';
     }
     ob_start();
     ?>
     <div class="hub-receipt-qr-block">
-        <img src="<?php echo htmlspecialchars($qr); ?>" width="120" height="120" alt="QR code — scan to open this money receipt">
+        <img src="<?php echo htmlspecialchars($src); ?>" width="120" height="120" alt="QR code — scan to open this money receipt" loading="eager" decoding="async">
         <p class="hub-receipt-qr-caption">Scan to verify or download this receipt</p>
     </div>
     <?php
     return (string) ob_get_clean();
+}
+
+function hub_receipt_qr_system_html(mysqli $conn, array $payment, ?string $publicSig = null): string
+{
+    ob_start();
+    ?>
+    <div class="hub-receipt-qr-system">
+        <?php echo hub_receipt_qr_block_html($conn, $payment, $publicSig); ?>
+        <p class="hub-receipt-system-notice"><?php echo htmlspecialchars(hub_receipt_system_notice()); ?></p>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function hub_receipt_public_sig_from_request(): ?string
+{
+    $sig = trim((string) ($_GET['sig'] ?? ''));
+    return $sig !== '' ? $sig : null;
 }
 
 function hub_receipt_number_label(): string

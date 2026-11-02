@@ -197,6 +197,7 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
     $w = (int) ($page['width'] ?? 794);
     $h = (int) ($page['height'] ?? 1123);
     $invoiceNo = htmlspecialchars((string) ($payment['invoice_number'] ?? ''));
+    $publicSig = hub_receipt_public_sig_from_request();
     ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -208,10 +209,10 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
 <body class="hub-invoice-doc hub-money-receipt-doc">
 <?php if ($allowPrint): ?>
 <div class="hub-invoice-toolbar no-print">
-    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
+    <button type="button" class="hub-receipt-print-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
-<article class="hub-invoice-sheet hub-invoice-sheet-layout hub-money-receipt-sheet" style="width:<?php echo $w; ?>px;min-height:<?php echo $h; ?>px;">
+<article class="hub-invoice-sheet hub-invoice-sheet-layout hub-money-receipt-sheet" style="width:<?php echo $w; ?>px;min-height:<?php echo $h; ?>px;height:auto;">
     <?php foreach ($layout['blocks'] as $block): ?>
         <?php if (empty($block['visible'])) {
             continue;
@@ -220,6 +221,15 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
             <div class="hub-inv-block-inner"><?php echo hub_invoice_layout_block_inner($block, $data, false); ?></div>
         </div>
     <?php endforeach; ?>
+    <div class="hub-receipt-layout-append">
+        <?php echo hub_receipt_qr_system_html($conn, $payment, $publicSig); ?>
+        <footer class="hub-invoice-foot hub-invoice-foot--layout">
+            <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>
+            <?php if (trim((string) $tpl['invoice_footer']) !== ''): ?>
+            <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
+            <?php endif; ?>
+        </footer>
+    </div>
 </article>
 </body>
 </html>
